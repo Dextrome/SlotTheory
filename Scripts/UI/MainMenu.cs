@@ -50,15 +50,17 @@ public partial class MainMenu : Node
 
 		AddSpacer(vbox, 36);
 
-		AddButton(vbox, "Play",           260, 58, 28, OnPlay);
+		AddButton(vbox, "Play",            260, 58, 28, OnPlay);
 		AddSpacer(vbox, 8);
 		AddButton(vbox, "How to Play",    260, 48, 22, OnHowToPlay);
+		AddButton(vbox, "Settings",       260, 48, 22, OnSettings);
 		AddSpacer(vbox, 8);
 		AddButton(vbox, "Quit to Desktop", 260, 48, 22, OnQuit);
 	}
 
 	private void OnPlay()      => GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
 	private void OnHowToPlay() => GetTree().ChangeSceneToFile("res://Scenes/HowToPlay.tscn");
+	private void OnSettings()  => GetTree().ChangeSceneToFile("res://Scenes/Settings.tscn");
 	private void OnQuit()      => GetTree().Quit();
 
 	private static void AddSpacer(VBoxContainer vbox, int px)
