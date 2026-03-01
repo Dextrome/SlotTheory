@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://c0settings001"]
+
+[ext_resource type="Script" path="res://Scripts/UI/Settings.cs" id="1_set"]
+
+[node name="Settings" type="Node" unique_id=200000020]
+script = ExtResource("1_set")

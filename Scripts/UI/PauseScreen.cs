@@ -34,12 +34,14 @@ public partial class PauseScreen : CanvasLayer
 
         AddLabel("PAUSED", 52, Colors.White);
         AddSpacer(12);
-        AddButton("Resume",            OnResume);
-        AddButton("Restart Run",       OnRestart);
-        AddButton("Toggle Fullscreen", OnToggleFullscreen);
+        AddButton("Resume",      OnResume);
+        AddButton("Restart Run", OnRestart);
+        AddSpacer(8);
+        AddVolumeRow();
+        AddButton("Fullscreen: " + FullscreenLabel(), OnToggleFullscreen);
         AddSpacer(12);
-        AddButton("Main Menu",         OnMainMenu);
-        AddButton("Quit to Desktop",   OnQuit);
+        AddButton("Main Menu",       OnMainMenu);
+        AddButton("Quit to Desktop", OnQuit);
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -82,12 +84,11 @@ public partial class PauseScreen : CanvasLayer
 
     private void OnToggleFullscreen()
     {
-        var mode = DisplayServer.WindowGetMode();
-        DisplayServer.WindowSetMode(
-            mode == DisplayServer.WindowMode.Fullscreen
-                ? DisplayServer.WindowMode.Windowed
-                : DisplayServer.WindowMode.Fullscreen);
+        SlotTheory.Core.SettingsManager.Instance?.ToggleFullscreen();
     }
+
+    private static string FullscreenLabel() =>
+        (SlotTheory.Core.SettingsManager.Instance?.Fullscreen ?? false) ? "On" : "Off";
 
     private void OnMainMenu()
     {
@@ -123,5 +124,33 @@ public partial class PauseScreen : CanvasLayer
         btn.CustomMinimumSize = new Vector2(260, 44);
         btn.Pressed += callback;
         _panel.AddChild(btn);
+    }
+
+    private void AddVolumeRow()
+    {
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 10);
+        _panel.AddChild(row);
+
+        var lbl = new Label { Text = "Volume" };
+        lbl.AddThemeFontSizeOverride("font_size", 16);
+        lbl.Modulate = new Color(0.80f, 0.80f, 0.80f);
+        lbl.CustomMinimumSize = new Vector2(72, 0);
+        row.AddChild(lbl);
+
+        float vol = SlotTheory.Core.SettingsManager.Instance?.MasterVolume ?? 80f;
+        var slider = new HSlider
+        {
+            MinValue = 0,
+            MaxValue = 100,
+            Value    = vol,
+            Step     = 1,
+            CustomMinimumSize   = new Vector2(160, 24),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        row.AddChild(slider);
+
+        slider.ValueChanged += v =>
+            SlotTheory.Core.SettingsManager.Instance?.SetVolume((float)v);
     }
 }

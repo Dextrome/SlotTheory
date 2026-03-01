@@ -29,6 +29,7 @@ window/stretch/aspect="keep"
 
 [autoload]
 
+SettingsManager="*res://Scripts/Core/SettingsManager.cs"
 SoundManager="*res://Scripts/Core/SoundManager.cs"
 
 [dotnet]
