@@ -21,4 +21,15 @@ public class RunState
 
     public bool HasFreeSlots() => System.Array.Exists(Slots, s => s.Tower == null);
     public int FreeSlotCount() => System.Array.FindAll(Slots, s => s.Tower == null).Length;
+
+    public void Reset()
+    {
+        WaveIndex = 0;
+        Lives = Balance.StartingLives;
+        EnemiesAlive.Clear();
+        EnemiesSpawnedThisWave = 0;
+        WaveTime = 0f;
+        for (int i = 0; i < Slots.Length; i++)
+            Slots[i] = new SlotInstance(i);
+    }
 }

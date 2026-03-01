@@ -5,6 +5,7 @@
 [ext_resource type="Script" path="res://Scripts/UI/DraftPanel.cs" id="3_draft"]
 [ext_resource type="Script" path="res://Scripts/UI/HudPanel.cs" id="4_hud"]
 [ext_resource type="Script" path="res://Scripts/UI/EndScreen.cs" id="5_end"]
+[ext_resource type="Script" path="res://Scripts/UI/PauseScreen.cs" id="6_pause"]
 
 [node name="Main" type="Node" unique_id=114020598]
 
@@ -16,6 +17,9 @@ script = ExtResource("3_draft")
 
 [node name="EndScreen" type="CanvasLayer" parent="."]
 script = ExtResource("5_end")
+
+[node name="PauseScreen" type="CanvasLayer" parent="."]
+script = ExtResource("6_pause")
 
 [node name="GameController" type="Node" parent="." unique_id=1355479286 node_paths=PackedStringArray("LanePath")]
 script = ExtResource("1_r150o")

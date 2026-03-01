@@ -87,10 +87,46 @@ public partial class GameController : Node
 		CurrentPhase = GamePhase.Draft;
 		var options = _draftSystem.GenerateOptions(_runState);
 		GD.Print($"Wave {_runState.WaveIndex + 1} draft. Options: {options.Count}");
+
+		// All slots full AND all towers at modifier cap → nothing to offer, skip draft.
+		if (options.Count == 0)
+		{
+			GD.Print("No draft options available — skipping draft.");
+			StartWavePhase();
+			return;
+		}
+
 		_draftPanel.Show(options, _runState.WaveIndex + 1);
 	}
 
 	public RunState GetRunState() => _runState;
+
+	/// <summary>Wipe all in-flight state and restart from wave 1 draft.</summary>
+	public void RestartRun()
+	{
+		// Free all enemies currently in the scene
+		foreach (var e in _runState.EnemiesAlive)
+		{
+			if (GodotObject.IsInstanceValid(e)) e.QueueFree();
+		}
+
+		// Remove tower nodes from slot scene nodes (keep the empty-slot background)
+		for (int i = 0; i < _runState.Slots.Length; i++)
+		{
+			var tower = _runState.Slots[i].Tower;
+			if (tower != null && GodotObject.IsInstanceValid(tower))
+				tower.QueueFree();
+		}
+
+		_runState.Reset();
+		_combatSim.ResetForWave();
+		_endScreen.Visible = false;
+		Engine.TimeScale = 1.0;   // always reset speed on new run
+		_hudPanel.Refresh(1, Balance.StartingLives);
+		_hudPanel.ResetSpeed();
+		GD.Print("Run restarted.");
+		StartDraftPhase();
+	}
 
 	/// <summary>Called by DraftPanel after the player picks an option.</summary>
 	public void OnDraftPick(DraftOption option, int targetSlotIndex)
