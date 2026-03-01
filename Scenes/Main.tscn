@@ -13,3 +13,23 @@ LanePath = NodePath("../World/LanePath")
 [node name="World" type="Node2D" parent="." unique_id=1028884544]
 
 [node name="LanePath" type="Path2D" parent="World" unique_id=1926702970]
+
+[node name="Slots" type="Node2D" parent="World"]
+
+[node name="Slot0" type="Node2D" parent="World/Slots"]
+position = Vector2(200, 100)
+
+[node name="Slot1" type="Node2D" parent="World/Slots"]
+position = Vector2(600, 100)
+
+[node name="Slot2" type="Node2D" parent="World/Slots"]
+position = Vector2(1000, 100)
+
+[node name="Slot3" type="Node2D" parent="World/Slots"]
+position = Vector2(200, 500)
+
+[node name="Slot4" type="Node2D" parent="World/Slots"]
+position = Vector2(600, 500)
+
+[node name="Slot5" type="Node2D" parent="World/Slots"]
+position = Vector2(1000, 500)

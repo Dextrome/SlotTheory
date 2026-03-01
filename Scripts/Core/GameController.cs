@@ -1,6 +1,7 @@
 using Godot;
 using SlotTheory.Combat;
 using SlotTheory.Data;
+using SlotTheory.Entities;
 
 namespace SlotTheory.Core;
 
@@ -19,6 +20,7 @@ public partial class GameController : Node
 	private DraftSystem _draftSystem = null!;
 	private WaveSystem _waveSystem = null!;
 	private CombatSim _combatSim = null!;
+	private Node2D[] _slotNodes = new Node2D[Balance.SlotCount];
 
 	public override void _Ready()
 	{
@@ -35,6 +37,13 @@ public partial class GameController : Node
 		};
 
 		SetupLane();
+		SetupSlots();
+
+		// TODO: remove — auto-place for testing until draft UI exists
+		PlaceTower("rapid_shooter", 0);
+		PlaceTower("rapid_shooter", 1);
+		PlaceTower("rapid_shooter", 2);
+
 		GD.Print("Slot Theory booted.");
 		StartDraftPhase();
 	}
@@ -74,7 +83,6 @@ public partial class GameController : Node
 		GD.Print($"Wave {_runState.WaveIndex + 1} draft. Options: {options.Count}");
 
 		// TODO: show DraftPanel UI and wait for player choice
-		// For now, auto-confirm to test the wave loop
 		OnDraftConfirmed();
 	}
 
@@ -83,12 +91,60 @@ public partial class GameController : Node
 		StartWavePhase();
 	}
 
+	/// <summary>Place a tower by ID into a slot. Called by draft UI later.</summary>
+	public void PlaceTower(string towerId, int slotIndex)
+	{
+		if (_runState.Slots[slotIndex].Tower != null) return;
+
+		var def = DataLoader.GetTowerDef(towerId);
+		var tower = new TowerInstance
+		{
+			TowerId       = towerId,
+			BaseDamage    = def.BaseDamage,
+			AttackInterval = def.AttackInterval,
+			Range         = def.Range,
+			AppliesMark   = def.AppliesMark,
+		};
+
+		// Tower visual — blue square
+		tower.AddChild(new ColorRect
+		{
+			Color        = new Color(0.2f, 0.5f, 1.0f),
+			OffsetLeft   = -15f,
+			OffsetTop    = -15f,
+			OffsetRight  =  15f,
+			OffsetBottom =  15f,
+		});
+
+		_slotNodes[slotIndex].AddChild(tower);
+		_runState.Slots[slotIndex].Tower = tower;
+		GD.Print($"Placed {def.Name} in slot {slotIndex}");
+	}
+
+	private void SetupSlots()
+	{
+		var slotsNode = GetNode<Node2D>("../World/Slots");
+		for (int i = 0; i < Balance.SlotCount; i++)
+		{
+			_slotNodes[i] = slotsNode.GetNode<Node2D>($"Slot{i}");
+
+			// Empty slot visual — dark gray square
+			_slotNodes[i].AddChild(new ColorRect
+			{
+				Color        = new Color(0.25f, 0.25f, 0.25f, 0.5f),
+				OffsetLeft   = -20f,
+				OffsetTop    = -20f,
+				OffsetRight  =  20f,
+				OffsetBottom =  20f,
+			});
+		}
+	}
+
 	private void SetupLane()
 	{
 		if (LanePath == null) return;
 		if (LanePath.Curve != null && LanePath.Curve.PointCount > 0) return;
 
-		// Default lane: left-to-right with a gentle S-curve
 		var curve = new Curve2D();
 		curve.AddPoint(new Vector2(50,  300));
 		curve.AddPoint(new Vector2(400, 200));

@@ -11,15 +11,27 @@ Engine: **Godot 4.x .NET** (C#) · Runtime: **.NET 8+** · Target: **Windows (St
 ## Setup Requirements
 
 - Install **Godot .NET build** (4.4+, not the standard build — required for C# support)
-- Install **.NET SDK 8** on your machine
+  - Executable: `E:\Godot\Godot_v4.6.1-stable_mono_win64_console.exe`
+- Install **.NET SDK 8** on your machine (`.NET 10` also works — Godot targets `net8.0` in the `.csproj`)
 - Use any IDE: Rider, Visual Studio, or VS Code
 - Git ignore: `.godot/`, `.mono/`, `bin/`, `obj/`, exported builds
 
+## Running From CLI
+
+```bash
+# Run in background, capture output, kill after ~5s
+"E:/Godot/Godot_v4.6.1-stable_mono_win64_console.exe" --path "E:/SlotTheory" 2>&1 &
+sleep 5; kill %1
+```
+
+**`--quit-after N` is FRAMES, not seconds.** At 60fps, `--quit-after 60` = 1 second. Use the background+kill approach above for timed test runs instead.
+
 ## Build & Export
 
-- Build via Godot's built-in build system (no separate CLI build tool)
+- `<Nullable>enable</Nullable>` is set in `SlotTheory.csproj` — required to suppress nullable warnings in C# 8+ code
+- Build via Godot's built-in build system (no separate CLI build tool); first time: Project → Tools → C# → Create C# Solution
 - Export: Godot → Export Presets → Windows x64
-- .NET runtime packaging is handled by Godot's export preset (follow Godot .NET export guidance for redistributables)
+- .NET runtime packaging is handled by Godot's export preset
 
 ## Testing
 
@@ -29,6 +41,20 @@ No test infrastructure exists yet. The TDD calls for:
 - Optional "fast-forward" key for speeding through wave simulation during balancing
 
 Python scripts (`Scripts/Tools/`) will handle content generation (JSON/YAML), balancing calculators, wave curve simulation, and modifier list generation.
+
+## Hand-Written .tscn Rules
+
+Godot `.tscn` files have strict patterns when writing by hand:
+
+1. **`[Export] NodePath` properties** require `node_paths=PackedStringArray("PropName")` on the `[node ...]` line:
+   ```
+   [node name="GameController" type="Node" parent="." node_paths=PackedStringArray("LanePath")]
+   LanePath = NodePath("../World/LanePath")
+   ```
+2. **`[Export] PackedScene?`** works directly — just `PropName = ExtResource("id")` under the node.
+3. **Property names use PascalCase** in `.tscn` (matching C# property name exactly, not snake_case).
+4. Unique node IDs (`unique_id=...`) are required on the root node; child nodes may omit them.
+5. `[gd_scene format=3 uid="uid://..."]` header must match what Godot expects (Godot auto-generates UIDs on first open).
 
 ## Architecture
 

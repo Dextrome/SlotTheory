@@ -59,9 +59,7 @@ public class CombatSim
 
         // 4. Remove dead enemies
         foreach (var dead in state.EnemiesAlive.FindAll(e => e.Hp <= 0))
-        {
             dead.QueueFree();
-        }
         state.EnemiesAlive.RemoveAll(e => e.Hp <= 0 || !GodotObject.IsInstanceValid(e));
 
         // 5. Wave complete
