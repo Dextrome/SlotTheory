@@ -1,0 +1,79 @@
+using Godot;
+
+namespace SlotTheory.UI;
+
+/// <summary>
+/// Entry-point scene shown before a run starts and returned to after each run ends.
+/// All UI built procedurally — no .tscn children required.
+/// </summary>
+public partial class MainMenu : Node
+{
+	public override void _Ready()
+	{
+		var canvas = new CanvasLayer();
+		AddChild(canvas);
+
+		// Background
+		var bg = new ColorRect();
+		bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		bg.Color = new Color("#141420");
+		canvas.AddChild(bg);
+
+		// Centre everything
+		var center = new CenterContainer();
+		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		canvas.AddChild(center);
+
+		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 20);
+		center.AddChild(vbox);
+
+		// Title
+		var title = new Label
+		{
+			Text = "SLOT THEORY",
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		title.AddThemeFontSizeOverride("font_size", 80);
+		title.Modulate = new Color("#a6d608");
+		vbox.AddChild(title);
+
+		// Sub-title
+		var sub = new Label
+		{
+			Text = "Tower Defense  ·  Draft  ·  Survive 20 Waves",
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		sub.AddThemeFontSizeOverride("font_size", 20);
+		sub.Modulate = new Color(0.65f, 0.65f, 0.65f);
+		vbox.AddChild(sub);
+
+		AddSpacer(vbox, 36);
+
+		AddButton(vbox, "Play",         260, 58, 28, OnPlay);
+		AddSpacer(vbox, 8);
+		AddButton(vbox, "Quit to Desktop", 260, 48, 22, OnQuit);
+	}
+
+	private void OnPlay() => GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
+	private void OnQuit() => GetTree().Quit();
+
+	private static void AddSpacer(VBoxContainer vbox, int px)
+	{
+		var s = new Control { CustomMinimumSize = new Vector2(0, px) };
+		vbox.AddChild(s);
+	}
+
+	private static void AddButton(VBoxContainer vbox, string text,
+		int minW, int minH, int fontSize, System.Action callback)
+	{
+		var btn = new Button
+		{
+			Text = text,
+			CustomMinimumSize = new Vector2(minW, minH),
+		};
+		btn.AddThemeFontSizeOverride("font_size", fontSize);
+		btn.Pressed += callback;
+		vbox.AddChild(btn);
+	}
+}

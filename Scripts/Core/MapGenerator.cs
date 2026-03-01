@@ -87,29 +87,31 @@ public static class MapGenerator
 		{
 			var (minCol, maxCol, minRow, maxRow) = Zones[z];
 
-			// Score every non-path, non-used cell by distance to nearest path cell.
-			// Pick the cell(s) with the highest distance — this centers slots in grass.
-			var candidates = new List<(int col, int row, int dist)>();
+			// Prefer grass cells that are directly adjacent to the path (dist == 1):
+			// towers placed here are always within range.  Fall back to any grass cell
+			// in the zone, then to any unused cell if the zone is entirely path.
+			var adjacent = new List<(int col, int row)>();
+			var grassOnly = new List<(int col, int row)>();
+
 			for (int c = minCol; c <= maxCol; c++)
 			{
 				for (int r = minRow; r <= maxRow; r++)
 				{
 					if (pathGrid[c, r]) continue;
 					if (usedCells.Contains((c, r))) continue;
-					candidates.Add((c, r, MinDistToPath(pathGrid, c, r)));
+
+					if (IsAdjacentToPath(pathGrid, c, r))
+						adjacent.Add((c, r));
+					else
+						grassOnly.Add((c, r));
 				}
 			}
 
 			(int col, int row) chosen;
-			if (candidates.Count > 0)
-			{
-				int maxDist = 0;
-				foreach (var (_, _, d) in candidates) maxDist = Math.Max(maxDist, d);
-				var best = new List<(int col, int row)>();
-				foreach (var (c, r, d) in candidates)
-					if (d == maxDist) best.Add((c, r));
-				chosen = best[rng.Next(best.Count)];
-			}
+			if (adjacent.Count > 0)
+				chosen = adjacent[rng.Next(adjacent.Count)];
+			else if (grassOnly.Count > 0)
+				chosen = grassOnly[rng.Next(grassOnly.Count)];
 			else
 			{
 				// Last resort: any unused cell in zone, even if on path
@@ -128,15 +130,11 @@ public static class MapGenerator
 		return result;
 	}
 
-	private static int MinDistToPath(bool[,] pathGrid, int col, int row)
-	{
-		int minDist = int.MaxValue;
-		for (int c = 0; c < COLS; c++)
-			for (int r = 0; r < ROWS; r++)
-				if (pathGrid[c, r])
-					minDist = Math.Min(minDist, Math.Abs(c - col) + Math.Abs(r - row));
-		return minDist;
-	}
+	private static bool IsAdjacentToPath(bool[,] pathGrid, int col, int row)
+		=> (col > 0        && pathGrid[col - 1, row]) ||
+		   (col < COLS - 1 && pathGrid[col + 1, row]) ||
+		   (row > 0        && pathGrid[col, row - 1]) ||
+		   (row < ROWS - 1 && pathGrid[col, row + 1]);
 
 	// ── Helpers ─────────────────────────────────────────────────────────
 
