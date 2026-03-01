@@ -3,11 +3,19 @@
 [ext_resource type="Script" uid="uid://boy826dwm0wg1" path="res://Scripts/Core/GameController.cs" id="1_r150o"]
 [ext_resource type="PackedScene" path="res://Scenes/World/Enemy.tscn" id="2"]
 [ext_resource type="Script" path="res://Scripts/UI/DraftPanel.cs" id="3_draft"]
+[ext_resource type="Script" path="res://Scripts/UI/HudPanel.cs" id="4_hud"]
+[ext_resource type="Script" path="res://Scripts/UI/EndScreen.cs" id="5_end"]
 
 [node name="Main" type="Node" unique_id=114020598]
 
+[node name="HudPanel" type="CanvasLayer" parent="."]
+script = ExtResource("4_hud")
+
 [node name="DraftPanel" type="CanvasLayer" parent="."]
 script = ExtResource("3_draft")
+
+[node name="EndScreen" type="CanvasLayer" parent="."]
+script = ExtResource("5_end")
 
 [node name="GameController" type="Node" parent="." unique_id=1355479286 node_paths=PackedStringArray("LanePath")]
 script = ExtResource("1_r150o")

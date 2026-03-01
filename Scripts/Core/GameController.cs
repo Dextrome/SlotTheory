@@ -22,6 +22,8 @@ public partial class GameController : Node
 	private WaveSystem _waveSystem = null!;
 	private CombatSim _combatSim = null!;
 	private DraftPanel _draftPanel = null!;
+	private HudPanel _hudPanel = null!;
+	private EndScreen _endScreen = null!;
 	private Node2D[] _slotNodes = new Node2D[Balance.SlotCount];
 
 	public override void _Ready()
@@ -38,6 +40,8 @@ public partial class GameController : Node
 			LanePath = LanePath,
 		};
 		_draftPanel = GetNode<DraftPanel>("../DraftPanel");
+		_hudPanel   = GetNode<HudPanel>("../HudPanel");
+		_endScreen  = GetNode<EndScreen>("../EndScreen");
 
 		SetupLane();
 		SetupSlots();
@@ -51,11 +55,14 @@ public partial class GameController : Node
 		if (CurrentPhase != GamePhase.Wave) return;
 
 		var result = _combatSim.Step((float)delta, _runState, _waveSystem);
+		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 
 		if (result == WaveResult.Loss)
 		{
 			CurrentPhase = GamePhase.Loss;
+			int livesLost = Balance.StartingLives - _runState.Lives;
 			GD.Print("Run lost.");
+			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost);
 			return;
 		}
 
@@ -66,6 +73,7 @@ public partial class GameController : Node
 			{
 				CurrentPhase = GamePhase.Win;
 				GD.Print("Run won!");
+				_endScreen.ShowWin();
 			}
 			else
 			{
@@ -176,6 +184,7 @@ public partial class GameController : Node
 		CurrentPhase = GamePhase.Wave;
 		_waveSystem.LoadWave(_runState.WaveIndex, _runState);
 		_combatSim.ResetForWave();
+		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 		GD.Print($"Wave {_runState.WaveIndex + 1} started.");
 	}
 }
