@@ -26,4 +26,26 @@ public partial class TowerInstance : Node2D
     public string? LastTargetId { get; set; }
 
     public bool CanAddModifier => Modifiers.Count < Balance.MaxModifiersPerTower;
+
+    public Label? ModeLabel { get; set; }
+
+    public void CycleTargetingMode()
+    {
+        TargetingMode = TargetingMode switch
+        {
+            TargetingMode.First     => TargetingMode.Strongest,
+            TargetingMode.Strongest => TargetingMode.LowestHp,
+            _                      => TargetingMode.First,
+        };
+        if (ModeLabel != null)
+            ModeLabel.Text = ModeIcon(TargetingMode);
+    }
+
+    public static string ModeIcon(TargetingMode mode) => mode switch
+    {
+        TargetingMode.First     => "▶",
+        TargetingMode.Strongest => "★",
+        TargetingMode.LowestHp  => "▼",
+        _                      => "▶",
+    };
 }
