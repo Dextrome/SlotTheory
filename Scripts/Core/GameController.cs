@@ -110,11 +110,18 @@ public partial class GameController : Node
 		var def = DataLoader.GetTowerDef(towerId);
 		var tower = new TowerInstance
 		{
-			TowerId       = towerId,
-			BaseDamage    = def.BaseDamage,
+			TowerId        = towerId,
+			BaseDamage     = def.BaseDamage,
 			AttackInterval = def.AttackInterval,
-			Range         = def.Range,
-			AppliesMark   = def.AppliesMark,
+			Range          = def.Range,
+			AppliesMark    = def.AppliesMark,
+			ProjectileColor = towerId switch
+			{
+				"rapid_shooter" => new Color(0.3f, 0.9f, 1.0f),  // cyan
+				"heavy_cannon"  => new Color(1.0f, 0.55f, 0.0f), // orange
+				"marker_tower"  => new Color(0.75f, 0.3f, 1.0f), // purple
+				_               => Colors.Yellow,
+			},
 		};
 
 		// Tower visual — blue square
