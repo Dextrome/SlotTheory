@@ -41,7 +41,8 @@ public partial class GameController : Node
 		_combatSim = new CombatSim(_runState)
 		{
 			EnemyScene = EnemyScene,
-			LanePath = LanePath,
+			LanePath   = LanePath,
+			Sounds     = SoundManager.Instance,
 		};
 		_draftPanel = GetNode<DraftPanel>("../DraftPanel");
 		_hudPanel   = GetNode<HudPanel>("../HudPanel");
@@ -73,6 +74,7 @@ public partial class GameController : Node
 			CurrentPhase = GamePhase.Loss;
 			int livesLost = Balance.StartingLives - _runState.Lives;
 			GD.Print("Run lost.");
+			SoundManager.Instance?.Play("game_over");
 			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost);
 			return;
 		}
@@ -84,10 +86,12 @@ public partial class GameController : Node
 			{
 				CurrentPhase = GamePhase.Win;
 				GD.Print("Run won!");
+				SoundManager.Instance?.Play("victory");
 				_endScreen.ShowWin();
 			}
 			else
 			{
+				SoundManager.Instance?.Play("wave_clear");
 				StartDraftPhase();
 			}
 		}
@@ -252,6 +256,7 @@ public partial class GameController : Node
 
 		_slotNodes[slotIndex].AddChild(tower);
 		_runState.Slots[slotIndex].Tower = tower;
+		SoundManager.Instance?.Play("tower_place");
 		GD.Print($"Placed {def.Name} in slot {slotIndex}");
 	}
 
@@ -533,6 +538,7 @@ public partial class GameController : Node
 		CurrentPhase = GamePhase.Wave;
 		_waveSystem.LoadWave(_runState.WaveIndex, _runState);
 		_combatSim.ResetForWave(_waveSystem);
+		SoundManager.Instance?.Play("wave_start");
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 		GD.Print($"Wave {_runState.WaveIndex + 1} started.");
 	}

@@ -27,6 +27,10 @@ window/size/resizable=true
 window/stretch/mode="canvas_items"
 window/stretch/aspect="keep"
 
+[autoload]
+
+SoundManager="*res://Scripts/Core/SoundManager.cs"
+
 [dotnet]
 
 project/assembly_name="SlotTheory"

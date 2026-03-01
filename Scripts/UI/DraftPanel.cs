@@ -125,6 +125,7 @@ public partial class DraftPanel : CanvasLayer
 
     private void OnCardPressed(DraftOption opt)
     {
+        SlotTheory.Core.SoundManager.Instance?.Play("draft_pick");
         if (opt.Type == DraftOptionType.Tower)
         {
             _pendingTower = opt;
