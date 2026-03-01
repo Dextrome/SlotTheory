@@ -9,8 +9,11 @@ public class FocusLens : Modifier
 {
     public FocusLens(ModifierDef def) { ModifierId = def.Id; }
 
-    public override void ModifyDamage(ref float damage, DamageContext ctx) =>
+    public override void ModifyDamage(ref float damage, DamageContext ctx)
+    {
         damage *= 2f;
+        Godot.GD.Print($"  [FocusLens] ×2 damage → {damage:F1}");
+    }
 
     public override void ModifyAttackInterval(ref float interval, TowerInstance tower) =>
         interval *= 2f;

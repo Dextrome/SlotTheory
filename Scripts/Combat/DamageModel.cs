@@ -30,14 +30,9 @@ public static class DamageModel
     {
         float damage = ctx.BaseDamage;
 
-        // 1. Stat modifier pass
-        float interval = ctx.Attacker.AttackInterval;
+        // 1. Modifier damage pass (interval is handled in CombatSim, not here)
         foreach (var mod in ctx.Attacker.Modifiers)
-        {
-            mod.ModifyAttackInterval(ref interval, ctx.Attacker);
             mod.ModifyDamage(ref damage, ctx);
-        }
-        ctx.Attacker.AttackInterval = interval;
 
         // 2. Global Marked bonus — all towers deal +20% to Marked enemies
         if (ctx.Target.IsMarked)
@@ -45,22 +40,23 @@ public static class DamageModel
 
         ctx.FinalDamage = damage;
 
+        // Debug: log whenever modifiers or Marked changed the damage
+        if (!Godot.Mathf.IsEqualApprox(damage, ctx.BaseDamage))
+            Godot.GD.Print($"  [DMG] {ctx.Attacker.TowerId} → base {ctx.BaseDamage:F0}  final {damage:F1}  (marked:{ctx.Target.IsMarked})");
+
         // 3. Apply damage
         ctx.Target.Hp -= damage;
 
-        // 4. On-hit effects (e.g., apply Marked, Momentum tracking)
+        // 4. On-hit effects
         foreach (var mod in ctx.Attacker.Modifiers)
             mod.OnHit(ctx);
 
-        // Apply Marked from Marker Tower
         if (ctx.Attacker.AppliesMark)
             Statuses.ApplyMarked(ctx.Target, Balance.MarkedDuration);
 
-        // 5. On-kill effects (e.g., Overkill spill)
+        // 5. On-kill effects
         if (ctx.Target.Hp <= 0)
             foreach (var mod in ctx.Attacker.Modifiers)
                 mod.OnKill(ctx);
-
-        ctx.Attacker.LastTargetId = ctx.Target.EnemyTypeId;
     }
 }
