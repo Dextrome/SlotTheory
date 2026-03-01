@@ -1,6 +1,10 @@
 # Godot
 .godot/
 *.tmp
+*.import
+
+# Claude Code
+.claude/
 
 # .NET build output
 bin/
