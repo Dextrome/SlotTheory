@@ -42,6 +42,25 @@ public partial class EndScreen : CanvasLayer
         _subtitleLabel.HorizontalAlignment = HorizontalAlignment.Center;
         _subtitleLabel.AddThemeFontSizeOverride("font_size", 28);
         vbox.AddChild(_subtitleLabel);
+
+        // Spacer
+        var spacer = new Control();
+        spacer.CustomMinimumSize = new Vector2(0, 20);
+        vbox.AddChild(spacer);
+
+        var restartBtn = new Button();
+        restartBtn.Text = "Restart Run";
+        restartBtn.CustomMinimumSize = new Vector2(220, 50);
+        restartBtn.AddThemeFontSizeOverride("font_size", 22);
+        restartBtn.Pressed += () => GameController.Instance.RestartRun();
+        vbox.AddChild(restartBtn);
+
+        var quitBtn = new Button();
+        quitBtn.Text = "Quit to Desktop";
+        quitBtn.CustomMinimumSize = new Vector2(220, 50);
+        quitBtn.AddThemeFontSizeOverride("font_size", 22);
+        quitBtn.Pressed += () => GetTree().Quit();
+        vbox.AddChild(quitBtn);
     }
 
     public void ShowWin()

@@ -51,7 +51,6 @@ public partial class DraftPanel : CanvasLayer
         vbox.AddChild(_cardRow);
 
         _assignLabel = new Label();
-        _assignLabel.Text = "Assign modifier to:";
         _assignLabel.HorizontalAlignment = HorizontalAlignment.Center;
         _assignLabel.AddThemeFontSizeOverride("font_size", 18);
         _assignLabel.Visible = false;
@@ -66,10 +65,11 @@ public partial class DraftPanel : CanvasLayer
 
     public void Show(List<DraftOption> options, int waveNumber)
     {
-        _titleLabel.Text = $"Wave {waveNumber} — Pick One";
+        _titleLabel.Text = $"Wave {waveNumber}  —  Choose";
         _pendingModifier = null;
         _assignLabel.Visible = false;
         _towerRow.Visible = false;
+        _cardRow.Visible = true;
         BuildCardRow(options);
         Visible = true;
     }
@@ -104,15 +104,16 @@ public partial class DraftPanel : CanvasLayer
             if (slot.Tower != null)
             {
                 var def = DataLoader.GetTowerDef(slot.Tower.TowerId);
-                btn.Text = $"Slot {i + 1}\n{def.Name}\n{slot.Tower.Modifiers.Count}/{Balance.MaxModifiersPerTower} mods";
+                int mods = slot.Tower.Modifiers.Count;
+                btn.Text = $"{def.Name}\n{mods}/{Balance.MaxModifiersPerTower} mods";
                 btn.Disabled = !slot.Tower.CanAddModifier;
             }
             else
             {
-                btn.Text = $"Slot {i + 1}\n(empty)";
+                btn.Text = "empty";
                 btn.Disabled = true;
             }
-            btn.CustomMinimumSize = new Vector2(150, 80);
+            btn.CustomMinimumSize = new Vector2(150, 70);
             btn.AutowrapMode = TextServer.AutowrapMode.WordSmart;
             var idx = i;
             btn.Pressed += () => OnTowerAssigned(idx);
@@ -130,6 +131,9 @@ public partial class DraftPanel : CanvasLayer
         else
         {
             _pendingModifier = opt;
+            var modName = DataLoader.GetModifierDef(opt.Id).Name;
+            _assignLabel.Text = $"→  Assign  {modName}  to:";
+            _cardRow.Visible = false;   // hide cards so player can't re-click
             BuildTowerRow();
             _assignLabel.Visible = true;
             _towerRow.Visible = true;
@@ -148,12 +152,12 @@ public partial class DraftPanel : CanvasLayer
         if (opt.Type == DraftOptionType.Tower)
         {
             var def = DataLoader.GetTowerDef(opt.Id);
-            return $"[Tower]\n{def.Name}\nDMG {def.BaseDamage}  INT {def.AttackInterval}s\nRange {def.Range}";
+            return $"{def.Name}\n{def.BaseDamage} dmg  ·  {def.AttackInterval} s\nRange {def.Range}";
         }
         else
         {
             var def = DataLoader.GetModifierDef(opt.Id);
-            return $"[Mod]\n{def.Name}\n{def.Description}";
+            return $"{def.Name}\n{def.Description}";
         }
     }
 }
