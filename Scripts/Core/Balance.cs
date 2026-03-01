@@ -13,10 +13,14 @@ public static class Balance
     public const int DraftModifierOptions = 3;          // when free slots exist
     public const int DraftModifierOptionsFull = 4;      // when all slots occupied (< pool size keeps scarcity)
 
-    // Enemies
+    // Enemies — Basic Walker
     public const float BaseEnemyHp = 65f;
     public const float HpGrowthPerWave = 1.12f;  // HP × 1.12^(wave-1)
     public const float BaseEnemySpeed = 120f;     // pixels per second along path
+
+    // Enemies — Armored Walker
+    public const float TankyHpMultiplier = 4f;    // 4× basic walker HP
+    public const float TankyEnemySpeed = 60f;     // pixels per second (half speed)
 
     // Marked status
     public const float MarkedDamageBonus = 0.20f; // +20% incoming damage to all towers

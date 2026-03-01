@@ -19,5 +19,6 @@ public record ModifierDef(
 
 public record WaveConfig(
     int EnemyCount,
-    float SpawnInterval
+    float SpawnInterval,
+    int TankyCount = 0
 );

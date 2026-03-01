@@ -21,6 +21,7 @@ public partial class EnemyInstance : PathFollow2D
     public bool IsSlowed => SlowRemaining > 0f;
 
     private ColorRect? _hpFill;
+    private float _hpBarWidth;
     private bool _wasMarked;
     private bool _wasSlow;
 
@@ -35,18 +36,23 @@ public partial class EnemyInstance : PathFollow2D
         Hp = MaxHp = hp;
         Speed = speed;
 
-        // HP bar — track then fill
+        bool isArmored = typeId == "armored_walker";
+        _hpBarWidth    = isArmored ? 34f : 24f;
+        float barY     = isArmored ? -26f : -20f;
+        float barX     = -_hpBarWidth / 2f;
+
+        // HP bar track
         AddChild(new ColorRect
         {
-            Position    = new Vector2(-12f, -20f),
-            Size        = new Vector2(24f, 3f),
+            Position    = new Vector2(barX, barY),
+            Size        = new Vector2(_hpBarWidth, 3f),
             Color       = new Color(0.15f, 0.15f, 0.15f),
             MouseFilter = Control.MouseFilterEnum.Ignore,
         });
         _hpFill = new ColorRect
         {
-            Position    = new Vector2(-12f, -20f),
-            Size        = new Vector2(24f, 3f),
+            Position    = new Vector2(barX, barY),
+            Size        = new Vector2(_hpBarWidth, 3f),
             Color       = new Color(0.15f, 0.90f, 0.25f),
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
@@ -65,7 +71,7 @@ public partial class EnemyInstance : PathFollow2D
         if (_hpFill != null && MaxHp > 0f)
         {
             float ratio = Mathf.Clamp(Hp / MaxHp, 0f, 1f);
-            _hpFill.Size = new Vector2(24f * ratio, _hpFill.Size.Y);
+            _hpFill.Size = new Vector2(_hpBarWidth * ratio, _hpFill.Size.Y);
             _hpFill.Color = ratio > 0.5f
                 ? new Color(0.15f, 0.90f, 0.25f)
                 : ratio > 0.25f
@@ -86,22 +92,63 @@ public partial class EnemyInstance : PathFollow2D
 
     public override void _Draw()
     {
-        // Outer dark ring
+        if (EnemyTypeId == "armored_walker")
+            DrawArmoredWalker();
+        else
+            DrawBasicWalker();
+    }
+
+    // ── Basic Walker ─────────────────────────────────────────────────────
+
+    private void DrawBasicWalker()
+    {
         DrawCircle(Vector2.Zero, 11f, new Color(0.40f, 0.08f, 0.05f));
-        // Main body
-        DrawCircle(Vector2.Zero, 9f, new Color(0.95f, 0.22f, 0.12f));
-        // Highlight (upper-left)
+        DrawCircle(Vector2.Zero, 9f,  new Color(0.95f, 0.22f, 0.12f));
         DrawCircle(new Vector2(-2.5f, -2.5f), 4.5f, new Color(1.00f, 0.48f, 0.30f));
         // Eyes
         DrawCircle(new Vector2(-3f, -2.5f), 2.2f, Colors.White);
         DrawCircle(new Vector2( 3f, -2.5f), 2.2f, Colors.White);
         DrawCircle(new Vector2(-3f, -2.0f), 1.1f, new Color(0.08f, 0.08f, 0.08f));
         DrawCircle(new Vector2( 3f, -2.0f), 1.1f, new Color(0.08f, 0.08f, 0.08f));
-        // Mark ring (purple, inner)
+        // Mark ring (purple)
         if (IsMarked)
             DrawArc(Vector2.Zero, 13f, 0f, Mathf.Tau, 32, new Color(0.85f, 0.30f, 1.00f, 0.90f), 2.5f);
-        // Slow ring (cyan, outer)
+        // Slow ring (cyan)
         if (IsSlowed)
             DrawArc(Vector2.Zero, 15.5f, 0f, Mathf.Tau, 32, new Color(0.20f, 0.85f, 1.00f, 0.90f), 2.5f);
+    }
+
+    // ── Armored Walker ───────────────────────────────────────────────────
+
+    private void DrawArmoredWalker()
+    {
+        // Hexagonal body — deep crimson, larger than basic walker
+        DrawPolygon(RegularPoly(6, 17f, 0f), new[] { new Color(0.22f, 0.03f, 0.03f) }); // dark outer rim
+        DrawPolygon(RegularPoly(6, 14f, 0f), new[] { new Color(0.62f, 0.07f, 0.07f) }); // deep crimson body
+        DrawPolygon(RegularPoly(6, 10f, 0f), new[] { new Color(0.78f, 0.14f, 0.12f) }); // slightly lighter centre
+        // Highlight (upper-left, muted)
+        DrawCircle(new Vector2(-3f, -3f), 5.5f, new Color(0.88f, 0.24f, 0.18f));
+        // Eyes — bigger and meaner
+        DrawCircle(new Vector2(-3.5f, -2.5f), 2.8f, Colors.White);
+        DrawCircle(new Vector2( 3.5f, -2.5f), 2.8f, Colors.White);
+        DrawCircle(new Vector2(-3.5f, -2.0f), 1.4f, new Color(0.05f, 0.05f, 0.05f));
+        DrawCircle(new Vector2( 3.5f, -2.0f), 1.4f, new Color(0.05f, 0.05f, 0.05f));
+        // Mark ring (purple, wider radius for larger body)
+        if (IsMarked)
+            DrawArc(Vector2.Zero, 19f, 0f, Mathf.Tau, 32, new Color(0.85f, 0.30f, 1.00f, 0.90f), 2.5f);
+        // Slow ring (cyan)
+        if (IsSlowed)
+            DrawArc(Vector2.Zero, 21.5f, 0f, Mathf.Tau, 32, new Color(0.20f, 0.85f, 1.00f, 0.90f), 2.5f);
+    }
+
+    private static Vector2[] RegularPoly(int sides, float radius, float angleOffset)
+    {
+        var pts = new Vector2[sides];
+        for (int i = 0; i < sides; i++)
+        {
+            float a = angleOffset + i * Mathf.Tau / sides;
+            pts[i] = new Vector2(Mathf.Cos(a) * radius, Mathf.Sin(a) * radius);
+        }
+        return pts;
     }
 }
