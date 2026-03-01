@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Godot;
@@ -33,8 +32,11 @@ public static class DataLoader
 
     private static T Load<T>(string resPath)
     {
-        string path = ProjectSettings.GlobalizePath(resPath);
-        string json = File.ReadAllText(path);
+        using var file = FileAccess.Open(resPath, FileAccess.ModeFlags.Read);
+        if (file == null)
+            throw new System.Exception(
+                $"DataLoader: cannot open '{resPath}' — {FileAccess.GetOpenError()}");
+        string json = file.GetAsText();
         return JsonSerializer.Deserialize<T>(json, _opts)!;
     }
 }
