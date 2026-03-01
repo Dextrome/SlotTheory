@@ -59,6 +59,7 @@ public partial class ProjectileVisual : Node2D
             {
                 var ctx = new DamageContext(_tower, _target, _waveIndex, _enemies);
                 DamageModel.Apply(ctx);
+                SlotTheory.Core.SoundManager.Instance?.Play("hit");
             }
             QueueFree();
             return;

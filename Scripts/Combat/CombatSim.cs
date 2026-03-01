@@ -26,6 +26,9 @@ public class CombatSim
 
     public CombatSim(RunState state) => _state = state;
 
+    // Injected by GameController after scene is ready
+    public SoundManager? Sounds { get; set; }
+
     /// <summary>Lightweight reset used on run restart (before wave is loaded).</summary>
     public void ResetForWave()
     {
@@ -71,6 +74,7 @@ public class CombatSim
         foreach (var e in leaked)
         {
             state.Lives--;
+            Sounds?.Play("leak");
             e.QueueFree();
             GD.Print($"Enemy leaked! Lives remaining: {state.Lives}");
         }
@@ -99,11 +103,22 @@ public class CombatSim
             // Damage applied on projectile arrival, not here
             SpawnProjectile(tower.GlobalPosition, target, tower.ProjectileColor,
                             tower, state.WaveIndex, state.EnemiesAlive);
+
+            string shootId = tower.TowerId switch
+            {
+                "heavy_cannon"  => "shoot_heavy",
+                "marker_tower"  => "shoot_marker",
+                _               => "shoot_rapid",
+            };
+            Sounds?.Play(shootId);
         }
 
         // 4. Remove dead enemies
         foreach (var dead in state.EnemiesAlive.FindAll(e => e.Hp <= 0))
+        {
+            Sounds?.Play(dead.EnemyTypeId == "armored_walker" ? "die_armored" : "die_basic");
             dead.QueueFree();
+        }
         state.EnemiesAlive.RemoveAll(e => e.Hp <= 0 || !GodotObject.IsInstanceValid(e));
 
         // 5. Wave complete
