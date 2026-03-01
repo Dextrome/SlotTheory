@@ -20,6 +20,7 @@ public partial class TowerInstance : Node2D
 
     public TargetingMode TargetingMode { get; set; } = TargetingMode.First;
     public float Cooldown { get; set; } = 0f;
+    public Color ProjectileColor { get; set; } = Colors.Yellow;
 
     public List<Modifier> Modifiers { get; } = new();
     public string? LastTargetId { get; set; }

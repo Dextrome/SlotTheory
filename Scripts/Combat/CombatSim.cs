@@ -65,6 +65,9 @@ public class CombatSim
             var ctx = new DamageContext(tower, target, state.WaveIndex, state.EnemiesAlive);
             DamageModel.Apply(ctx);
             tower.Cooldown = tower.AttackInterval;
+
+            // Spawn visual projectile (purely cosmetic — damage already applied)
+            SpawnProjectile(tower.GlobalPosition, target.GlobalPosition, tower.ProjectileColor);
         }
 
         // 4. Remove dead enemies
@@ -78,6 +81,14 @@ public class CombatSim
             return WaveResult.WaveComplete;
 
         return WaveResult.Ongoing;
+    }
+
+    private void SpawnProjectile(Vector2 fromGlobal, Vector2 toGlobal, Color color)
+    {
+        if (LanePath == null) return;
+        var proj = new ProjectileVisual();
+        LanePath.GetParent().AddChild(proj);
+        proj.Initialize(fromGlobal, toGlobal, color, speed: 500f);
     }
 
     private void SpawnEnemy(RunState state)
