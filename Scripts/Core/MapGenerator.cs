@@ -4,7 +4,9 @@ using Godot;
 
 namespace SlotTheory.Core;
 
-public record MapLayout(Vector2[] PathWaypoints, Vector2[] SlotPositions, bool[,] PathGrid);
+public enum DecorationType { Tree, Rock }
+public record DecorationData(Vector2 Pos, DecorationType Type);
+public record MapLayout(Vector2[] PathWaypoints, Vector2[] SlotPositions, bool[,] PathGrid, DecorationData[] Decorations);
 
 public static class MapGenerator
 {
@@ -13,9 +15,10 @@ public static class MapGenerator
 	public static MapLayout Generate(int seed)
 	{
 		var rng = new Random(seed);
-		var waypoints = GeneratePathWaypoints(rng, out var pathGrid);
-		var slots = PlaceSlots(rng, pathGrid);
-		return new MapLayout(waypoints, slots, pathGrid);
+		var waypoints    = GeneratePathWaypoints(rng, out var pathGrid);
+		var slots        = PlaceSlots(rng, pathGrid);
+		var decorations  = PlaceDecorations(rng, pathGrid, slots);
+		return new MapLayout(waypoints, slots, pathGrid, decorations);
 	}
 
 	public static Vector2 CellCenter(int col, int row)
@@ -137,6 +140,38 @@ public static class MapGenerator
 		   (col < COLS - 1 && pathGrid[col + 1, row]) ||
 		   (row > 0        && pathGrid[col, row - 1]) ||
 		   (row < ROWS - 1 && pathGrid[col, row + 1]);
+
+	// ── Decoration placement ────────────────────────────────────────────
+
+	private static DecorationData[] PlaceDecorations(Random rng, bool[,] pathGrid, Vector2[] slotPositions)
+	{
+		// Mark which cells hold a slot so we leave them clear
+		var slotCells = new HashSet<(int, int)>();
+		foreach (var s in slotPositions)
+		{
+			int sc = (int)(s.X / CELL_W);
+			int sr = (int)((s.Y - GRID_Y) / CELL_H);
+			slotCells.Add((Math.Clamp(sc, 0, COLS - 1), Math.Clamp(sr, 0, ROWS - 1)));
+		}
+
+		var result = new List<DecorationData>();
+		const float margin = 22f;
+
+		for (int c = 0; c < COLS; c++)
+		for (int r = 0; r < ROWS; r++)
+		{
+			if (pathGrid[c, r]) continue;
+			if (slotCells.Contains((c, r))) continue;
+			if (rng.NextDouble() > 0.55) continue;   // ~55 % of grass cells get a decoration
+
+			float x = c * CELL_W + margin + (float)(rng.NextDouble() * (CELL_W - 2 * margin));
+			float y = GRID_Y + r * CELL_H + margin + (float)(rng.NextDouble() * (CELL_H - 2 * margin));
+			var type = rng.NextDouble() > 0.30 ? DecorationType.Tree : DecorationType.Rock;
+			result.Add(new DecorationData(new Vector2(x, y), type));
+		}
+
+		return result.ToArray();
+	}
 
 	// ── Helpers ─────────────────────────────────────────────────────────
 
