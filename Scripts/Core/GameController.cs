@@ -196,24 +196,6 @@ public partial class GameController : Node
 		rangeCircle.Polygon = pts;
 		tower.AddChild(rangeCircle);
 
-		// Tower visual — coloured square (distinct shade per tower type)
-		var towerColor = towerId switch
-		{
-			"rapid_shooter" => new Color(0.15f, 0.65f, 1.00f),  // bright sky-blue
-			"heavy_cannon"  => new Color(0.10f, 0.20f, 0.80f),  // deep navy
-			"marker_tower"  => new Color(0.50f, 0.20f, 0.90f),  // violet-blue
-			_               => new Color(0.20f, 0.50f, 1.00f),
-		};
-		tower.AddChild(new ColorRect
-		{
-			Color        = towerColor,
-			OffsetLeft   = -15f,
-			OffsetTop    = -15f,
-			OffsetRight  =  15f,
-			OffsetBottom =  15f,
-			MouseFilter  = Control.MouseFilterEnum.Ignore,
-		});
-
 		// Cooldown bar — background track + fill, positioned below the tower square
 		tower.AddChild(new ColorRect
 		{

@@ -15,26 +15,29 @@ public partial class ProjectileVisual : Node2D
     private int _waveIndex;
     private List<EnemyInstance>? _enemies;
     private float _speed;
+    private Color _color;
 
     /// <summary>Call immediately after AddChild so GlobalPosition is resolvable.</summary>
     public void Initialize(Vector2 fromGlobal, EnemyInstance target, Color color, float speed,
                            TowerInstance tower, int waveIndex, List<EnemyInstance> enemies)
     {
         GlobalPosition = fromGlobal;
-        _target  = target;
-        _tower   = tower;
+        _target    = target;
+        _tower     = tower;
         _waveIndex = waveIndex;
-        _enemies = enemies;
-        _speed   = speed;
+        _enemies   = enemies;
+        _speed     = speed;
+        _color     = color;
+    }
 
-        AddChild(new ColorRect
-        {
-            Color        = color,
-            OffsetLeft   = -4f,
-            OffsetTop    = -4f,
-            OffsetRight  =  4f,
-            OffsetBottom =  4f,
-        });
+    public override void _Draw()
+    {
+        // Small diamond shape
+        DrawPolygon(
+            new[] { new Vector2(0f,-4f), new Vector2(4f,0f), new Vector2(0f,4f), new Vector2(-4f,0f) },
+            new[] { _color });
+        // Bright core
+        DrawCircle(Vector2.Zero, 1.5f, new Color(1f, 1f, 1f, 0.85f));
     }
 
     public override void _Process(double delta)
