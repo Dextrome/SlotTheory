@@ -52,6 +52,7 @@ public class DraftSystem
         if (!tower.CanAddModifier) return;
         var mod = Modifiers.ModifierRegistry.Create(modifierId);
         tower.Modifiers.Add(mod);
+        mod.OnEquip(tower);
     }
 
     private void AddTowerOptions(List<DraftOption> list, int count, RunState state)

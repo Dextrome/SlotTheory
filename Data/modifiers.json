@@ -23,5 +23,15 @@
     "Id": "slow",
     "Name": "Chill Shot",
     "Description": "On hit: −30% move speed for 5 s."
+  },
+  "overreach": {
+    "Id": "overreach",
+    "Name": "Overreach",
+    "Description": "+50% range, −25% damage."
+  },
+  "hair_trigger": {
+    "Id": "hair_trigger",
+    "Name": "Hair Trigger",
+    "Description": "+50% attack speed, −30% range."
   }
 }

@@ -29,6 +29,25 @@ public partial class TowerInstance : Node2D
 
     public Label? ModeLabel { get; set; }
     public ColorRect? CooldownBar { get; set; }
+    public Polygon2D? RangeCircle { get; set; }
+    public Line2D? RangeBorder { get; set; }
+
+    /// <summary>Rebuilds the range circle fill and border to match the tower's current Range value.</summary>
+    public void RefreshRangeCircle()
+    {
+        var pts = new Vector2[65]; // 65th point closes the loop for Line2D
+        for (int p = 0; p < 64; p++)
+        {
+            float a = p * Mathf.Tau / 64;
+            pts[p] = new Vector2(Mathf.Cos(a) * Range, Mathf.Sin(a) * Range);
+        }
+        pts[64] = pts[0];
+
+        if (RangeCircle != null)
+            RangeCircle.Polygon = pts[..64];
+        if (RangeBorder != null)
+            RangeBorder.Points = pts;
+    }
 
     public override void _Process(double delta)
     {

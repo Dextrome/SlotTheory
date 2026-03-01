@@ -79,6 +79,8 @@ Hover over a tower to see its current targeting mode and equipped modifiers.
 | **Exploit Weakness** | Deal +50% damage to **Marked** enemies. Pairs with Marker Tower. |
 | **Focus Lens** | +150% damage, ×2 attack interval. Net DPS +25% — but the big hits are the point: ideal for Overkill combos and one-shotting tanky enemies. |
 | **Chill Shot** | On hit, −30% movement speed for 5 seconds. Enemies linger in range longer, giving all towers more time to fire. |
+| **Overreach** | +50% range, −25% damage. Wider coverage — great on Marker Tower or any tower that needs to reach more of the path. |
+| **Hair Trigger** | +50% attack speed, −30% range. Close-quarters rapid-fire — pairs naturally with Momentum and Chill Shot. |
 
 ---
 
