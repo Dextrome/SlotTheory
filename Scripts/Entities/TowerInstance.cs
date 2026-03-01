@@ -28,10 +28,9 @@ public partial class TowerInstance : Node2D
 
     public bool CanAddModifier => Modifiers.Count < Balance.MaxModifiersPerTower;
 
-    public Label? ModeLabel { get; set; }
-    public ColorRect? CooldownBar { get; set; }
+    public Label?    ModeLabel   { get; set; }
     public Polygon2D? RangeCircle { get; set; }
-    public Line2D? RangeBorder { get; set; }
+    public Line2D?   RangeBorder  { get; set; }
 
     /// <summary>Rebuilds the range circle fill and border to match the tower's current Range value.</summary>
     public void RefreshRangeCircle()
@@ -52,9 +51,7 @@ public partial class TowerInstance : Node2D
 
     public override void _Process(double delta)
     {
-        if (CooldownBar == null || AttackInterval <= 0f) return;
-        float fill = Mathf.Clamp(1f - Cooldown / AttackInterval, 0f, 1f);
-        CooldownBar.Size = new Vector2(fill * 30f, CooldownBar.Size.Y);
+        if (AttackInterval > 0f) QueueRedraw();
     }
 
     public void CycleTargetingMode()
@@ -85,6 +82,27 @@ public partial class TowerInstance : Node2D
             case "heavy_cannon":  DrawHeavyCannon();  break;
             case "marker_tower":  DrawMarkerTower();  break;
             default: DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f)); break;
+        }
+        DrawChargeArc();
+    }
+
+    private void DrawChargeArc()
+    {
+        if (AttackInterval <= 0f) return;
+        float fill   = Mathf.Clamp(1f - Cooldown / AttackInterval, 0f, 1f);
+        const float r = 21f;
+
+        // Dim background ring
+        DrawArc(Vector2.Zero, r, 0f, Mathf.Tau, 48,
+            new Color(BodyColor.R, BodyColor.G, BodyColor.B, 0.16f), 2f);
+
+        // Filled charge arc — clockwise from top
+        if (fill > 0.01f)
+        {
+            float start = -Mathf.Pi / 2f;
+            float end   = start + fill * Mathf.Tau;
+            DrawArc(Vector2.Zero, r, start, end, 48,
+                new Color(BodyColor.R, BodyColor.G, BodyColor.B, 0.88f), 2.5f);
         }
     }
 
