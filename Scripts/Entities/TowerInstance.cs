@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Godot;
 using SlotTheory.Core;
 using SlotTheory.Modifiers;
@@ -108,42 +108,60 @@ public partial class TowerInstance : Node2D
 
     private void DrawRapidShooter()
     {
-        var body   = new Color(0.15f, 0.65f, 1.00f);
-        var dark   = new Color(0.05f, 0.30f, 0.70f);
-        var muzzle = new Color(0.80f, 0.95f, 1.00f);
-        // Barrel pointing up
-        DrawRect(new Rect2(-2.5f, -22f, 5f, 16f), dark);
-        DrawCircle(new Vector2(0f, -22f), 3f, muzzle);
-        // Hexagonal base
-        DrawPolygon(RegularPoly(6, 10f, -Mathf.Pi / 6f), new[] { body });
-        DrawCircle(Vector2.Zero, 5f, dark);
+        var cyan  = new Color(0.10f, 0.75f, 1.00f);
+        var dark  = new Color(0.02f, 0.02f, 0.12f);
+        var flash = new Color(0.70f, 0.95f, 1.00f);
+        // Soft glow behind everything
+        DrawCircle(Vector2.Zero, 22f, new Color(cyan.R, cyan.G, cyan.B, 0.07f));
+        DrawCircle(Vector2.Zero, 15f, new Color(cyan.R, cyan.G, cyan.B, 0.14f));
+        // Barrel ΓÇö bright outer, dark inner
+        DrawRect(new Rect2(-3.5f, -23f, 7f, 18f), cyan);
+        DrawRect(new Rect2(-2.0f, -22f, 4f, 16f), dark);
+        // Muzzle glow
+        DrawCircle(new Vector2(0f, -23f), 7f, new Color(flash.R, flash.G, flash.B, 0.20f));
+        DrawCircle(new Vector2(0f, -23f), 4f, flash);
+        // Hexagonal base ΓÇö bright outer hex + dark inner hex
+        DrawPolygon(RegularPoly(6, 12f, -Mathf.Pi / 6f), new[] { cyan });
+        DrawPolygon(RegularPoly(6, 10f, -Mathf.Pi / 6f), new[] { dark });
+        DrawCircle(Vector2.Zero, 3.5f, cyan);
     }
 
     private void DrawHeavyCannon()
     {
-        var body = new Color(0.10f, 0.20f, 0.80f);
-        var dark = new Color(0.05f, 0.10f, 0.50f);
-        var rim  = new Color(0.30f, 0.45f, 1.00f);
-        // Wide short barrel
-        DrawRect(new Rect2(-5.5f, -18f, 11f, 14f), dark);
-        DrawRect(new Rect2(-4f, -21f, 8f, 4f), rim);   // muzzle ring
-        // Octagonal body
-        DrawPolygon(RegularPoly(8, 12f, 0f), new[] { body });
-        DrawCircle(Vector2.Zero, 6f, rim);
+        var orange = new Color(1.00f, 0.55f, 0.00f);
+        var dark   = new Color(0.10f, 0.04f, 0.00f);
+        var rim    = new Color(1.00f, 0.82f, 0.30f);
+        // Soft glow
+        DrawCircle(Vector2.Zero, 24f, new Color(orange.R, orange.G, orange.B, 0.07f));
+        DrawCircle(Vector2.Zero, 17f, new Color(orange.R, orange.G, orange.B, 0.14f));
+        // Wide barrel ΓÇö bright outer, dark inner
+        DrawRect(new Rect2(-6.5f, -19f, 13f, 15f), orange);
+        DrawRect(new Rect2(-5.0f, -18f, 10f, 13f), dark);
+        // Muzzle ring glow
+        DrawRect(new Rect2(-5.0f, -22f, 10f, 4f), rim);
+        DrawRect(new Rect2(-3.5f, -23f,  7f, 4f), new Color(rim.R, rim.G, rim.B, 0.30f));
+        // Octagonal base ΓÇö bright outer, dark inner
+        DrawPolygon(RegularPoly(8, 14f, 0f), new[] { orange });
+        DrawPolygon(RegularPoly(8, 12f, 0f), new[] { dark });
+        DrawCircle(Vector2.Zero, 4f, rim);
     }
 
     private void DrawMarkerTower()
     {
-        var body = new Color(0.55f, 0.20f, 0.92f);
-        var dark = new Color(0.30f, 0.08f, 0.60f);
-        var beam = new Color(0.80f, 0.60f, 1.00f);
-        // Diamond outline then fill
-        DrawPolygon(new[] { new Vector2(0,-14), new Vector2(14,0), new Vector2(0,14), new Vector2(-14,0) }, new[] { dark });
-        DrawPolygon(new[] { new Vector2(0,-12), new Vector2(12,0), new Vector2(0,12), new Vector2(-12,0) }, new[] { body });
-        // Antenna
-        DrawLine(new Vector2(0f, -12f), new Vector2(0f, -21f), beam, 2f);
-        DrawCircle(new Vector2(0f, -21f), 3.5f, beam);
-        DrawCircle(new Vector2(0f, -21f), 1.5f, new Color(1f, 0.9f, 1f));
+        var pink = new Color(1.00f, 0.15f, 0.60f);
+        var dark = new Color(0.12f, 0.00f, 0.08f);
+        var beam = new Color(0.90f, 0.70f, 1.00f);
+        // Soft glow
+        DrawCircle(Vector2.Zero, 20f, new Color(pink.R, pink.G, pink.B, 0.07f));
+        DrawCircle(Vector2.Zero, 14f, new Color(pink.R, pink.G, pink.B, 0.14f));
+        // Diamond body ΓÇö bright outer, dark inner
+        DrawPolygon(new[] { new Vector2(0,-16), new Vector2(16,0), new Vector2(0,16), new Vector2(-16,0) }, new[] { pink });
+        DrawPolygon(new[] { new Vector2(0,-13), new Vector2(13,0), new Vector2(0,13), new Vector2(-13,0) }, new[] { dark });
+        // Antenna with glow
+        DrawLine(new Vector2(0f, -13f), new Vector2(0f, -22f), beam, 2f);
+        DrawCircle(new Vector2(0f, -22f), 8f, new Color(beam.R, beam.G, beam.B, 0.20f));
+        DrawCircle(new Vector2(0f, -22f), 4f, beam);
+        DrawCircle(new Vector2(0f, -22f), 1.5f, new Color(1f, 0.95f, 1f));
     }
 
     private static Vector2[] RegularPoly(int sides, float radius, float angleOffset)

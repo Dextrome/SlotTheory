@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 
 namespace SlotTheory.Core;
 
@@ -37,7 +37,7 @@ public partial class PathFlow : Node2D
 
         var   dir   = (b - a).Normalized();
         float angle = dir.Angle();
-        var   color = new Color(1f, 1f, 1f, 0.18f);
+        var color = new Color(0.00f, 0.94f, 1.00f, 0.40f);
 
         float t = _phase;
         while (t < segLen)
