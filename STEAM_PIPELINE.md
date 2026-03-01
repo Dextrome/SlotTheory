@@ -16,6 +16,10 @@ Each section has a clear done-state so you know when to move on.
 - [ ] Run `./build_release.sh` from the project root
 - [ ] Verify `export/SlotTheory.exe` launches and plays correctly
 
+> Export produces two items — both must ship together:
+> - `export/SlotTheory.exe` (~101 MB, .pck embedded)
+> - `export/data_SlotTheory_windows_x86_64/` (bundled .NET runtime, no install needed)
+
 ---
 
 ## 2. Steamworks account and app registration
