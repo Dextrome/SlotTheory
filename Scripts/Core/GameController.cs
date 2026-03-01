@@ -532,7 +532,7 @@ public partial class GameController : Node
 	{
 		CurrentPhase = GamePhase.Wave;
 		_waveSystem.LoadWave(_runState.WaveIndex, _runState);
-		_combatSim.ResetForWave();
+		_combatSim.ResetForWave(_waveSystem);
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 		GD.Print($"Wave {_runState.WaveIndex + 1} started.");
 	}

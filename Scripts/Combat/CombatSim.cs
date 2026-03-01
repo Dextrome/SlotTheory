@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using Godot;
 using SlotTheory.Core;
 using SlotTheory.Entities;
@@ -14,6 +16,7 @@ public class CombatSim
 {
     private readonly RunState _state;
     private float _spawnTimer = 0f;
+    private readonly Queue<string> _spawnQueue = new();
 
     // Set externally by GameController when an enemy scene is needed
     public PackedScene? EnemyScene { get; set; }
@@ -23,7 +26,32 @@ public class CombatSim
 
     public CombatSim(RunState state) => _state = state;
 
-    public void ResetForWave() => _spawnTimer = 0f;
+    /// <summary>Lightweight reset used on run restart (before wave is loaded).</summary>
+    public void ResetForWave()
+    {
+        _spawnTimer = 0f;
+        _spawnQueue.Clear();
+    }
+
+    /// <summary>Full reset + build spawn queue. Call after WaveSystem.LoadWave().</summary>
+    public void ResetForWave(WaveSystem ws)
+    {
+        _spawnTimer = 0f;
+        _spawnQueue.Clear();
+
+        int walkers = ws.GetWalkerCount();
+        int tankies = ws.GetTankyCount();
+        int total   = walkers + tankies;
+
+        // Spread tankies evenly across the wave
+        var tankySlots = new HashSet<int>();
+        if (tankies > 0)
+            for (int t = 0; t < tankies; t++)
+                tankySlots.Add((int)Math.Round((t + 0.5) * total / tankies));
+
+        for (int i = 0; i < total; i++)
+            _spawnQueue.Enqueue(tankySlots.Contains(i) ? "armored_walker" : "basic_walker");
+    }
 
     public WaveResult Step(float delta, RunState state, WaveSystem waveSystem)
     {
@@ -31,10 +59,10 @@ public class CombatSim
 
         // 1. Spawn
         _spawnTimer -= delta;
-        int quota = waveSystem.GetEnemyCount();
-        if (_spawnTimer <= 0f && state.EnemiesSpawnedThisWave < quota)
+        int quota = waveSystem.GetTotalCount();
+        if (_spawnTimer <= 0f && state.EnemiesSpawnedThisWave < quota && _spawnQueue.Count > 0)
         {
-            SpawnEnemy(state);
+            SpawnEnemy(state, _spawnQueue.Dequeue());
             _spawnTimer = waveSystem.GetSpawnInterval();
         }
 
@@ -87,7 +115,7 @@ public class CombatSim
     }
 
     private void SpawnProjectile(Vector2 fromGlobal, EnemyInstance target, Color color,
-                                 TowerInstance tower, int waveIndex, System.Collections.Generic.List<EnemyInstance> enemies)
+                                 TowerInstance tower, int waveIndex, List<EnemyInstance> enemies)
     {
         if (LanePath == null) return;
         var proj = new ProjectileVisual();
@@ -95,7 +123,7 @@ public class CombatSim
         proj.Initialize(fromGlobal, target, color, speed: 500f, tower, waveIndex, enemies);
     }
 
-    private void SpawnEnemy(RunState state)
+    private void SpawnEnemy(RunState state, string typeId)
     {
         if (EnemyScene == null)
         {
@@ -108,8 +136,11 @@ public class CombatSim
             return;
         }
 
+        float hp    = WaveSystem.GetScaledHp(typeId, state.WaveIndex);
+        float speed = typeId == "armored_walker" ? Balance.TankyEnemySpeed : Balance.BaseEnemySpeed;
+
         var enemy = EnemyScene.Instantiate<EnemyInstance>();
-        enemy.Initialize("basic_walker", WaveSystem.GetScaledHp(state.WaveIndex), Balance.BaseEnemySpeed);
+        enemy.Initialize(typeId, hp, speed);
         LanePath.AddChild(enemy);
 
         state.EnemiesAlive.Add(enemy);
