@@ -14,8 +14,9 @@ GODOT="E:/Godot/Godot_v4.6.1-stable_mono_win64_console.exe"
 PROJECT="$(cd "$(dirname "$0")" && pwd)"
 EXPORT_DIR="$PROJECT/export"
 
-echo "=== [1/2] Building C# (Release) ==="
-dotnet build "$PROJECT/SlotTheory.sln" -c Release
+echo "=== [1/2] Building C# ==="
+# Godot-generated .sln only has Debug config; Godot compiles Release internally during export
+dotnet build "$PROJECT/SlotTheory.sln"
 
 echo ""
 echo "=== [2/2] Exporting Windows Desktop (headless) ==="
