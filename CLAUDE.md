@@ -115,20 +115,40 @@ Build a `DamageContext` (attacker, target, base damage, wave index) → apply mo
 - **Strongest**: highest current HP in range
 - **Lowest HP**: lowest current HP in range
 
-## Planned Folder Layout
+### Procedural Map System (`MapGenerator.cs`):
+- **Grid**: 8 cols × 5 rows, cell 160×128 px, grid origin (0, 80)
+- **Path**: Fixed 3-horizontal-leg snake, randomized turn rows/cols each run
+  - `c1 ∈ [2,3]`, `c2 ∈ [c1+2,5]` — ensures cols 6–7 always have grass cells
+- **Slot placement**: 6 zones (3×2 grid of zones), one slot per zone; prefers non-path cells adjacent to path (guaranteed in range), falls back to any grass cell
+- **Rendering**: flat `ColorRect` nodes under `_mapVisuals` Node2D (first child of World); grass `#a6d608`, path `#8B5E3C`
+- **Restart**: `Free()` (not `QueueFree()`) all `_mapVisuals` / slot node children to avoid one-frame flicker
+- `System.Environment.TickCount` must be fully qualified — `Godot.Environment` exists in the same namespace
+
+### Tower visual sub-nodes (created in `GameController.PlaceTower()`):
+- `Polygon2D` — semi-transparent range circle (10% opacity)
+- `ColorRect` — tower body square (color varies by tower type)
+- `ColorRect` track + `ColorRect` fill — cooldown bar below square; fill width updated every frame in `TowerInstance._Process`
+- `Label` — targeting mode icon (▶/★/▼); updated via `TowerInstance.CycleTargetingMode()`
+- All visual child nodes must have `MouseFilter = Control.MouseFilterEnum.Ignore` or `_Input` click events on the tower won't fire
+
+### Click / tooltip system:
+- Tower targeting cycle: `_Input` (not `_UnhandledInput`) + `GetViewport().GetMousePosition()` + 50×50 `Rect2` hit test
+- Tooltip: `CanvasLayer(Layer=5)` → `Panel` → `Label`; sized to `label.GetMinimumSize() + (16,12)`; only visible during `GamePhase.Wave`
+
+## Current Folder Layout
 
 ```
 res://
   Scenes/
     Main.tscn               # Root: GameController + UIRoot + World
-    World/
-      World.tscn, Slot.tscn, Enemy.tscn, Tower.tscn
+    MainMenu.tscn           # Start screen
     UI/
-      DraftPanel.tscn, DraftCard.tscn, HUDPanel.tscn
+      DraftPanel.tscn, HUDPanel.tscn, EndScreen.tscn, PauseScreen.tscn
 
   Scripts/
     Core/
-      GameController.cs     # Run lifecycle state machine
+      GameController.cs     # Run lifecycle state machine + visual setup
+      MapGenerator.cs       # Procedural snake-path map (pure C#)
       RunState.cs           # Single source of truth
       DraftSystem.cs        # Generates 5 draft options
       WaveSystem.cs         # Wave config + spawn schedule + scaling
@@ -139,13 +159,21 @@ res://
       DamageModel.cs        # Damage pipeline with modifier hooks
       Statuses.cs           # Status effect tracking (Marked)
     Entities/
-      EnemyInstance.cs, TowerInstance.cs, SlotInstance.cs
+      EnemyInstance.cs      # PathFollow2D, self-moves via _Process
+      TowerInstance.cs      # Node2D, cooldown bar + targeting mode
+      SlotInstance.cs
     Modifiers/
       Modifier.cs           # Base interface
       ModifierRegistry.cs   # JSON ID → concrete modifier object
       ModEvents.cs          # Event system for modifier interactions
     Data/
       DataLoader.cs, Models.cs
+    UI/
+      DraftPanel.cs         # Full-screen overlay, 2-step pick flow
+      HudPanel.cs           # Wave + lives display, speed controls
+      EndScreen.cs          # Win/loss; left-click → MainMenu
+      PauseScreen.cs        # Esc overlay; unpause / main menu
+      MainMenu.cs           # Procedural dark main menu
 
   Data/
     towers.json, modifiers.json, waves.json
@@ -157,7 +185,7 @@ These will NOT be in v1 — do not design toward them:
 - Meta progression, unlocks, rarity tiers, shop/economy
 - Tower moving, selling, or replacement
 - Active enemy abilities
-- Procedural maps or multiple lanes
+- Multiple lanes
 - Rerolls or mid-wave decisions
 
 If an idea requires a new system → defer to "Project 2."
