@@ -34,6 +34,12 @@ Python scripts (`Scripts/Tools/`) will handle content generation (JSON/YAML), ba
 
 The game uses a **simulation-driven loop** — logic lives in C# systems, not scene node behaviors. All magic numbers go in `Balance.cs`.
 
+Key constraints from the Getting Started guide:
+- **Enemy movement**: `EnemyInstance` extends `PathFollow2D` — enemies self-move via `_Process()`. Do not move enemies manually in `CombatSim`.
+- **Targeting list**: Maintained as `RunState.EnemiesAlive` — never scan the scene tree every frame.
+- **Range checks**: Circular distance using `tower.GlobalPosition.DistanceTo(enemy.GlobalPosition) <= tower.Range`.
+- **No projectiles**: All tower attacks are hitscan (instant damage on attack, no projectile nodes).
+
 ### State Machine (GameController)
 `GameController` drives the run lifecycle: DraftPhase → WavePhase → Win/Lose. `RunState` is the single source of truth for all runtime data.
 
