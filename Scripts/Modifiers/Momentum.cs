@@ -26,7 +26,7 @@ public class Momentum : Modifier
     {
         ulong id = ctx.Target.GetInstanceId();
         if (_lastTargetInstanceId == id)
-            _stacks++;
+            _stacks = System.Math.Min(_stacks + 1, Core.Balance.MomentumMaxStacks);
         else
         {
             _stacks = 1;

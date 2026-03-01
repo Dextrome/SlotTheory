@@ -1,4 +1,5 @@
 using Godot;
+using SlotTheory.Core;
 
 namespace SlotTheory.Entities;
 
@@ -54,7 +55,7 @@ public partial class EnemyInstance : PathFollow2D
 
     public override void _Process(double delta)
     {
-        float effectiveSpeed = IsSlowed ? Speed * 0.5f : Speed;
+        float effectiveSpeed = IsSlowed ? Speed * Balance.SlowSpeedFactor : Speed;
         Progress += effectiveSpeed * (float)delta;
 
         if (MarkedRemaining > 0f) MarkedRemaining -= (float)delta;

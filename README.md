@@ -74,11 +74,11 @@ Hover over a tower to see its current targeting mode and equipped modifiers.
 
 | Modifier | Effect |
 |---|---|
-| **Momentum** | +10% damage per consecutive hit on the same target. Resets when the tower switches targets. |
+| **Momentum** | +10% damage per consecutive hit on the same target, capped at 5 stacks (+50% max). Resets when the tower switches targets. |
 | **Overkill** | Excess damage from a killing blow spills over to the next enemy in the lane (once per attack). |
-| **Exploit Weakness** | Deal +25% damage to **Marked** enemies. Pairs with Marker Tower. |
-| **Focus Lens** | +100% damage, +80% attack interval (fires 1.8× slower). Net DPS is ~11% better than break-even — useful for one-shotting tanky enemies. |
-| **Chill Shot** | On hit, slows the target's movement speed by 50% for 10 seconds. Enemies linger in range longer, giving all towers more time to fire. |
+| **Exploit Weakness** | Deal +50% damage to **Marked** enemies. Pairs with Marker Tower. |
+| **Focus Lens** | +150% damage, ×2 attack interval. Net DPS +25% — but the big hits are the point: ideal for Overkill combos and one-shotting tanky enemies. |
+| **Chill Shot** | On hit, −30% movement speed for 5 seconds. Enemies linger in range longer, giving all towers more time to fire. |
 
 ---
 
@@ -113,7 +113,7 @@ Each run generates a new snake-shaped path across an 8×5 grid. Tower slots are 
 ## Tips
 
 - **Rapid Shooter + Momentum**: Stack Momentum on your fastest-firing tower for massive DPS on tanky enemies that take multiple hits to kill.
-- **Marker Tower + Exploit Weakness**: Mark the enemy, then burst it for ×3 effective damage (+20% mark × +100% exploit).
+- **Marker Tower + Exploit Weakness**: Mark the enemy, then burst it for ×1.8 total (+20% mark × +50% exploit). The Marker Tower frees up your damage towers' modifier slots for pure damage.
 - **Heavy Cannon + Overkill**: One-shots weaker enemies and spills damage forward — good for tightly packed groups.
 - **Focus Lens** raises your floor if you're already doing enough DPS but need heavier individual hits to finish off enemies before they exit.
 - **Targeting mode matters late game** — switch your Marker Tower to *First* so it tags the lead enemy before your damage towers hit it.
