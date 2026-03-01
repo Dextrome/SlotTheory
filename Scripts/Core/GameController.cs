@@ -183,10 +183,17 @@ public partial class GameController : Node
 				"marker_tower"  => new Color(0.75f, 0.3f, 1.0f), // purple
 				_               => Colors.Yellow,
 			},
+			BodyColor = towerId switch
+			{
+				"rapid_shooter" => new Color(0.15f, 0.65f, 1.00f),
+				"heavy_cannon"  => new Color(0.10f, 0.20f, 0.80f),
+				"marker_tower"  => new Color(0.55f, 0.20f, 0.92f),
+				_               => new Color(0.20f, 0.50f, 1.00f),
+			},
 		};
 
-		// Range indicator — semi-transparent circle
-		var rangeCircle = new Polygon2D { Color = new Color(0.2f, 0.6f, 1.0f, 0.10f) };
+		// Range indicator — semi-transparent fill in tower's body colour
+		var rangeCircle = new Polygon2D { Color = new Color(tower.BodyColor.R, tower.BodyColor.G, tower.BodyColor.B, 0.10f) };
 		var pts = new Vector2[64];
 		for (int p = 0; p < 64; p++)
 		{
@@ -205,7 +212,7 @@ public partial class GameController : Node
 		{
 			Points       = borderPts,
 			Width        = 1.5f,
-			DefaultColor = new Color(1f, 1f, 1f, 0.55f),
+			DefaultColor = new Color(tower.BodyColor.R, tower.BodyColor.G, tower.BodyColor.B, 0.28f),
 		};
 		tower.RangeBorder = rangeBorder;
 		tower.AddChild(rangeBorder);
