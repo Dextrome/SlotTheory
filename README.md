@@ -76,7 +76,7 @@ Hover over a tower to see its current targeting mode and equipped modifiers.
 |---|---|
 | **Momentum** | +10% damage per consecutive hit on the same target. Resets when the tower switches targets. |
 | **Overkill** | Excess damage from a killing blow spills over to the next enemy in the lane (once per attack). |
-| **Exploit Weakness** | Deal +100% damage to **Marked** enemies. Pairs with Marker Tower. |
+| **Exploit Weakness** | Deal +25% damage to **Marked** enemies. Pairs with Marker Tower. |
 | **Focus Lens** | +100% damage, +80% attack interval (fires 1.8× slower). Net DPS is ~11% better than break-even — useful for one-shotting tanky enemies. |
 | **Chill Shot** | On hit, slows the target's movement speed by 50% for 10 seconds. Enemies linger in range longer, giving all towers more time to fire. |
 
