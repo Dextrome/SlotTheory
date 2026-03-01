@@ -107,7 +107,7 @@ public partial class DraftPanel : CanvasLayer
             {
                 var def = DataLoader.GetTowerDef(slot.Tower.TowerId);
                 int mods = slot.Tower.Modifiers.Count;
-                btn.Text = $"{def.Name}\n{mods}/{Balance.MaxModifiersPerTower} mods";
+                btn.Text = $"Slot {i + 1}  ·  {def.Name}\n{mods}/{Balance.MaxModifiersPerTower} mods";
                 btn.Disabled = !slot.Tower.CanAddModifier;
             }
             else

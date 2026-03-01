@@ -13,7 +13,7 @@ public static class Balance
     public const int DraftModifierOptions = 3; // when free slots exist
 
     // Enemies
-    public const float BaseEnemyHp = 80f;
+    public const float BaseEnemyHp = 72f;
     public const float HpGrowthPerWave = 1.12f;  // HP × 1.12^(wave-1)
     public const float BaseEnemySpeed = 120f;     // pixels per second along path
 

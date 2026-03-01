@@ -27,6 +27,8 @@ public partial class GameController : Node
 	private Node2D[] _slotNodes = new Node2D[Balance.SlotCount];
 	private MapLayout _currentMap = null!;
 	private Node2D _mapVisuals = null!;
+	private Panel _tooltipPanel = null!;
+	private Label _tooltipLabel = null!;
 
 	public override void _Ready()
 	{
@@ -52,6 +54,7 @@ public partial class GameController : Node
 
 		GenerateMap();
 		SetupSlots();
+		SetupTooltip();
 
 		GD.Print("Slot Theory booted.");
 		StartDraftPhase();
@@ -59,6 +62,7 @@ public partial class GameController : Node
 
 	public override void _Process(double delta)
 	{
+		UpdateTooltip();
 		if (CurrentPhase != GamePhase.Wave) return;
 
 		var result = _combatSim.Step((float)delta, _runState, _waveSystem);
@@ -359,6 +363,75 @@ public partial class GameController : Node
 		foreach (var pt in pts)
 			curve.AddPoint(pt);
 		return curve;
+	}
+
+	private void SetupTooltip()
+	{
+		var tooltipLayer = new CanvasLayer { Layer = 5 };
+		AddChild(tooltipLayer);
+
+		_tooltipPanel = new Panel { MouseFilter = Control.MouseFilterEnum.Ignore };
+		_tooltipPanel.Visible = false;
+		tooltipLayer.AddChild(_tooltipPanel);
+
+		_tooltipLabel = new Label
+		{
+			Position    = new Vector2(8, 6),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+			AutowrapMode = TextServer.AutowrapMode.Off,
+		};
+		_tooltipLabel.AddThemeFontSizeOverride("font_size", 13);
+		_tooltipPanel.AddChild(_tooltipLabel);
+	}
+
+	private void UpdateTooltip()
+	{
+		// Only show during wave — hide behind draft/end overlays otherwise
+		if (CurrentPhase != GamePhase.Wave)
+		{
+			_tooltipPanel.Visible = false;
+			return;
+		}
+
+		var mousePos = GetViewport().GetMousePosition();
+		for (int i = 0; i < _runState.Slots.Length; i++)
+		{
+			var tower = _runState.Slots[i].Tower;
+			if (tower == null) continue;
+			var hitRect = new Rect2(tower.GlobalPosition - new Vector2(25f, 25f), new Vector2(50f, 50f));
+			if (!hitRect.HasPoint(mousePos)) continue;
+
+			// Build tooltip text
+			var def = DataLoader.GetTowerDef(tower.TowerId);
+			var targetingName = tower.TargetingMode switch
+			{
+				TargetingMode.First     => "First",
+				TargetingMode.Strongest => "Strongest",
+				TargetingMode.LowestHp  => "Lowest HP",
+				_                       => "First",
+			};
+			var text = $"Slot {i + 1}  ·  {def.Name}  [{targetingName}]\n";
+			if (tower.Modifiers.Count == 0)
+				text += "(no modifiers)";
+			else
+				foreach (var mod in tower.Modifiers)
+					text += "• " + DataLoader.GetModifierDef(mod.ModifierId).Name + "\n";
+			_tooltipLabel.Text = text.TrimEnd();
+
+			// Size panel to fit label
+			var labelSize = _tooltipLabel.GetMinimumSize();
+			_tooltipPanel.Size = labelSize + new Vector2(16, 12);
+
+			// Position near cursor, clamped to viewport
+			var pos = mousePos + new Vector2(20, 10);
+			pos.X = Mathf.Min(pos.X, 1280 - _tooltipPanel.Size.X - 4);
+			pos.Y = Mathf.Min(pos.Y, 720  - _tooltipPanel.Size.Y - 4);
+			_tooltipPanel.Position = pos;
+			_tooltipPanel.Visible = true;
+			return;
+		}
+
+		_tooltipPanel.Visible = false;
 	}
 
 	private void StartWavePhase()
