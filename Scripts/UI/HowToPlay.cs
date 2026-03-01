@@ -164,6 +164,7 @@ public partial class HowToPlay : Node
 		var lblRight = new Label { Text = value };
 		lblRight.AddThemeFontSizeOverride("font_size", 16);
 		lblRight.Modulate = new Color(0.60f, 0.60f, 0.60f);
+		lblRight.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		hbox.AddChild(lblRight);
 	}
 
@@ -204,6 +205,7 @@ public partial class HowToPlay : Node
 		descLbl.AddThemeFontSizeOverride("font_size", 16);
 		descLbl.Modulate = new Color(0.65f, 0.65f, 0.65f);
 		descLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+		descLbl.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		hbox.AddChild(descLbl);
 	}
 
