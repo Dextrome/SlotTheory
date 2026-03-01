@@ -19,12 +19,17 @@ Engine: **Godot 4.x .NET** (C#) · Runtime: **.NET 8+** · Target: **Windows (St
 ## Running From CLI
 
 ```bash
-# Run in background, capture output, kill after ~5s
+# Always build first — Godot does NOT auto-rebuild C# on CLI runs
+dotnet build SlotTheory.sln
+
+# Run in background, capture output, kill after N seconds
 "E:/Godot/Godot_v4.6.1-stable_mono_win64_console.exe" --path "E:/SlotTheory" 2>&1 &
 sleep 5; kill %1
 ```
 
 **`--quit-after N` is FRAMES, not seconds.** At 60fps, `--quit-after 60` = 1 second. Use the background+kill approach above for timed test runs instead.
+
+**Stale DLL gotcha:** When running Godot from CLI, it uses whatever `.dll` is in `.godot/mono/temp/bin/Debug/`. If you edit source files without running `dotnet build`, Godot will silently run the old code. Always `dotnet build` before a CLI run.
 
 ## Build & Export
 

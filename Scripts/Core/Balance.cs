@@ -6,6 +6,7 @@ public static class Balance
     // Run structure
     public const int TotalWaves = 20;
     public const int SlotCount = 6;
+    public const int StartingLives = 10;
     public const int MaxModifiersPerTower = 3;
     public const int DraftOptionsCount = 5;
     public const int DraftTowerOptions = 2;    // when free slots exist

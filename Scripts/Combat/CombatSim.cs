@@ -38,8 +38,16 @@ public class CombatSim
             _spawnTimer = waveSystem.GetSpawnInterval();
         }
 
-        // 2. Loss check — enemy reached end of path (ProgressRatio >= 1)
-        if (state.EnemiesAlive.Exists(e => e.ProgressRatio >= 1.0f))
+        // 2. Leaked enemies — each one costs a life; return Loss when lives run out
+        var leaked = state.EnemiesAlive.FindAll(e => e.ProgressRatio >= 1.0f);
+        foreach (var e in leaked)
+        {
+            state.Lives--;
+            e.QueueFree();
+            GD.Print($"Enemy leaked! Lives remaining: {state.Lives}");
+        }
+        state.EnemiesAlive.RemoveAll(e => !GodotObject.IsInstanceValid(e) || e.ProgressRatio >= 1.0f);
+        if (state.Lives <= 0)
             return WaveResult.Loss;
 
         // 3. Tower attacks (hitscan — no projectiles)

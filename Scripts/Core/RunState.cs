@@ -7,6 +7,7 @@ namespace SlotTheory.Core;
 public class RunState
 {
     public int WaveIndex { get; set; } = 0;
+    public int Lives { get; set; } = Balance.StartingLives;
     public SlotInstance[] Slots { get; } = new SlotInstance[Balance.SlotCount];
     public List<EnemyInstance> EnemiesAlive { get; } = new();
     public int EnemiesSpawnedThisWave { get; set; } = 0;
