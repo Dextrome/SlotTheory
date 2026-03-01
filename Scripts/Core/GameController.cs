@@ -298,18 +298,27 @@ public partial class GameController : Node
 				MouseFilter  = Control.MouseFilterEnum.Ignore,
 			});
 
-			// Slot number label
+			// Slot number label — below the slot square, always visible
+			_slotNodes[i].AddChild(new ColorRect
+			{
+				Color       = new Color(0f, 0f, 0f, 0.65f),
+				Position    = new Vector2(-13f, 23f),
+				Size        = new Vector2(26f, 16f),
+				MouseFilter = Control.MouseFilterEnum.Ignore,
+				ZIndex      = 1,
+			});
 			var slotLabel = new Label
 			{
 				Text                = (i + 1).ToString(),
-				Position            = new Vector2(-20f, -10f),
-				Size                = new Vector2(40f, 20f),
+				Position            = new Vector2(-13f, 22f),
+				Size                = new Vector2(26f, 18f),
 				HorizontalAlignment = HorizontalAlignment.Center,
 				VerticalAlignment   = VerticalAlignment.Center,
 				MouseFilter         = Control.MouseFilterEnum.Ignore,
+				ZIndex              = 2,
 			};
-			slotLabel.AddThemeColorOverride("font_color", new Color(1f, 1f, 1f, 0.8f));
-			slotLabel.AddThemeFontSizeOverride("font_size", 14);
+			slotLabel.AddThemeColorOverride("font_color", Colors.White);
+			slotLabel.AddThemeFontSizeOverride("font_size", 16);
 			_slotNodes[i].AddChild(slotLabel);
 		}
 	}

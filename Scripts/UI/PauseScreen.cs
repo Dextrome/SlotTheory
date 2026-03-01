@@ -9,13 +9,14 @@ namespace SlotTheory.UI;
 /// </summary>
 public partial class PauseScreen : CanvasLayer
 {
-    private Control _panel = null!;
+    private Control _mainPanel     = null!;
+    private Control _settingsPanel = null!;
 
     public override void _Ready()
     {
-        Layer = 8;                                    // below EndScreen (10), above HUD (1)
-        ProcessMode = ProcessModeEnum.Always;         // must process while paused
-        Visible = false;
+        Layer       = 8;
+        ProcessMode = ProcessModeEnum.Always;
+        Visible     = false;
 
         // Dark overlay
         var bg = new ColorRect();
@@ -23,134 +24,169 @@ public partial class PauseScreen : CanvasLayer
         bg.Color = new Color(0f, 0f, 0f, 0.80f);
         AddChild(bg);
 
-        // Center panel
         var center = new CenterContainer();
         center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         AddChild(center);
 
-        _panel = new VBoxContainer();
-        ((VBoxContainer)_panel).AddThemeConstantOverride("separation", 16);
-        center.AddChild(_panel);
+        // Both panels live inside the same CenterContainer; only one is visible at a time
+        var stack = new VBoxContainer();   // wrapper so CenterContainer centres both
+        center.AddChild(stack);
 
-        AddLabel("PAUSED", 52, Colors.White);
-        AddSpacer(12);
-        AddButton("Resume",      OnResume);
-        AddButton("Restart Run", OnRestart);
-        AddSpacer(8);
-        AddVolumeRow();
-        AddButton("Fullscreen: " + FullscreenLabel(), OnToggleFullscreen);
-        AddSpacer(12);
-        AddButton("Main Menu",       OnMainMenu);
-        AddButton("Quit to Desktop", OnQuit);
+        BuildMainPanel(stack);
+        BuildSettingsPanel(stack);
+
+        _settingsPanel.Visible = false;
     }
+
+    // ── Panel builders ───────────────────────────────────────────────────
+
+    private void BuildMainPanel(VBoxContainer parent)
+    {
+        var vbox = new VBoxContainer();
+        vbox.AddThemeConstantOverride("separation", 14);
+        parent.AddChild(vbox);
+        _mainPanel = vbox;
+
+        AddLabel(vbox, "PAUSED", 52, Colors.White);
+        AddSpacer(vbox, 10);
+        AddBtn(vbox, "Resume",      OnResume);
+        AddBtn(vbox, "Restart Run", OnRestart);
+        AddBtn(vbox, "Settings",    OnOpenSettings);
+        AddSpacer(vbox, 10);
+        AddBtn(vbox, "Main Menu",       OnMainMenu);
+        AddBtn(vbox, "Quit to Desktop", OnQuit);
+    }
+
+    private void BuildSettingsPanel(VBoxContainer parent)
+    {
+        var vbox = new VBoxContainer();
+        vbox.AddThemeConstantOverride("separation", 16);
+        parent.AddChild(vbox);
+        _settingsPanel = vbox;
+
+        AddLabel(vbox, "SETTINGS", 42, new Color("#a6d608"));
+        AddSpacer(vbox, 8);
+
+        // Volume row
+        var volRow = new HBoxContainer();
+        volRow.AddThemeConstantOverride("separation", 10);
+        vbox.AddChild(volRow);
+
+        var volLbl = new Label { Text = "Master Volume" };
+        volLbl.AddThemeFontSizeOverride("font_size", 17);
+        volLbl.Modulate = new Color(0.85f, 0.85f, 0.85f);
+        volLbl.CustomMinimumSize = new Vector2(160, 0);
+        volRow.AddChild(volLbl);
+
+        float vol    = SettingsManager.Instance?.MasterVolume ?? 80f;
+        var slider   = new HSlider
+        {
+            MinValue            = 0,
+            MaxValue            = 100,
+            Value               = vol,
+            Step                = 1,
+            CustomMinimumSize   = new Vector2(150, 24),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        volRow.AddChild(slider);
+
+        var volVal = new Label { Text = $"{(int)vol}" };
+        volVal.AddThemeFontSizeOverride("font_size", 17);
+        volVal.Modulate = new Color(0.60f, 0.60f, 0.60f);
+        volVal.CustomMinimumSize = new Vector2(36, 0);
+        volRow.AddChild(volVal);
+
+        slider.ValueChanged += v =>
+        {
+            volVal.Text = $"{(int)v}";
+            SettingsManager.Instance?.SetVolume((float)v);
+        };
+
+        // Fullscreen toggle
+        bool isFs   = SettingsManager.Instance?.Fullscreen ?? false;
+        var fsBtn   = new Button
+        {
+            Text              = "Display:  " + (isFs ? "Fullscreen" : "Windowed"),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        fsBtn.AddThemeFontSizeOverride("font_size", 20);
+        fsBtn.Pressed += () =>
+        {
+            SettingsManager.Instance?.ToggleFullscreen();
+            fsBtn.Text = "Display:  " + ((SettingsManager.Instance?.Fullscreen ?? false) ? "Fullscreen" : "Windowed");
+        };
+        vbox.AddChild(fsBtn);
+
+        AddSpacer(vbox, 8);
+        AddBtn(vbox, "← Back", OnCloseSettings);
+    }
+
+    // ── Input ────────────────────────────────────────────────────────────
 
     public override void _UnhandledInput(InputEvent @event)
     {
-        if (@event.IsActionPressed("ui_cancel"))   // Esc
+        if (@event.IsActionPressed("ui_cancel"))
         {
-            // Only pause/unpause during wave or draft — not on end screen
             var phase = GameController.Instance.CurrentPhase;
             if (phase == GamePhase.Win || phase == GamePhase.Loss) return;
 
-            if (Visible) Unpause();
-            else         Pause();
+            if (Visible)
+            {
+                // Esc while settings open → back to main pause panel
+                if (_settingsPanel.Visible)
+                    OnCloseSettings();
+                else
+                    Unpause();
+            }
+            else
+            {
+                Pause();
+            }
 
             GetViewport().SetInputAsHandled();
         }
     }
 
-    private void Pause()
+    // ── Actions ──────────────────────────────────────────────────────────
+
+    private void Pause()   { Visible = true;  GetTree().Paused = true; }
+    private void Unpause() { Visible = false; GetTree().Paused = false; }
+
+    private void OnResume()  => Unpause();
+    private void OnRestart() { Unpause(); GameController.Instance.RestartRun(); }
+    private void OnMainMenu() { GetTree().Paused = false; GetTree().ChangeSceneToFile("res://Scenes/MainMenu.tscn"); }
+    private void OnQuit()    => GetTree().Quit();
+
+    private void OnOpenSettings()
     {
-        Visible = true;
-        GetTree().Paused = true;
+        _mainPanel.Visible     = false;
+        _settingsPanel.Visible = true;
     }
 
-    private void Unpause()
+    private void OnCloseSettings()
     {
-        Visible = false;
-        GetTree().Paused = false;
+        _settingsPanel.Visible = false;
+        _mainPanel.Visible     = true;
     }
 
-    private void OnResume()
+    // ── Helpers ──────────────────────────────────────────────────────────
+
+    private static void AddLabel(Control parent, string text, int fontSize, Color color)
     {
-        Unpause();
-    }
-
-    private void OnRestart()
-    {
-        Unpause();
-        GameController.Instance.RestartRun();
-    }
-
-    private void OnToggleFullscreen()
-    {
-        SlotTheory.Core.SettingsManager.Instance?.ToggleFullscreen();
-    }
-
-    private static string FullscreenLabel() =>
-        (SlotTheory.Core.SettingsManager.Instance?.Fullscreen ?? false) ? "On" : "Off";
-
-    private void OnMainMenu()
-    {
-        GetTree().Paused = false;
-        GetTree().ChangeSceneToFile("res://Scenes/MainMenu.tscn");
-    }
-
-    private void OnQuit() => GetTree().Quit();
-
-    // ── helpers ──────────────────────────────────────────────────────────────
-
-    private void AddLabel(string text, int fontSize, Color color)
-    {
-        var lbl = new Label();
-        lbl.Text = text;
-        lbl.HorizontalAlignment = HorizontalAlignment.Center;
+        var lbl = new Label { Text = text, HorizontalAlignment = HorizontalAlignment.Center };
         lbl.AddThemeFontSizeOverride("font_size", fontSize);
         lbl.Modulate = color;
-        _panel.AddChild(lbl);
+        parent.AddChild(lbl);
     }
 
-    private void AddSpacer(int px)
-    {
-        var s = new Control();
-        s.CustomMinimumSize = new Vector2(0, px);
-        _panel.AddChild(s);
-    }
+    private static void AddSpacer(Control parent, int px) =>
+        parent.AddChild(new Control { CustomMinimumSize = new Vector2(0, px) });
 
-    private void AddButton(string text, System.Action callback)
+    private static void AddBtn(Control parent, string text, System.Action callback)
     {
-        var btn = new Button();
-        btn.Text = text;
-        btn.CustomMinimumSize = new Vector2(260, 44);
+        var btn = new Button { Text = text, CustomMinimumSize = new Vector2(260, 44) };
+        btn.AddThemeFontSizeOverride("font_size", 20);
         btn.Pressed += callback;
-        _panel.AddChild(btn);
-    }
-
-    private void AddVolumeRow()
-    {
-        var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 10);
-        _panel.AddChild(row);
-
-        var lbl = new Label { Text = "Volume" };
-        lbl.AddThemeFontSizeOverride("font_size", 16);
-        lbl.Modulate = new Color(0.80f, 0.80f, 0.80f);
-        lbl.CustomMinimumSize = new Vector2(72, 0);
-        row.AddChild(lbl);
-
-        float vol = SlotTheory.Core.SettingsManager.Instance?.MasterVolume ?? 80f;
-        var slider = new HSlider
-        {
-            MinValue = 0,
-            MaxValue = 100,
-            Value    = vol,
-            Step     = 1,
-            CustomMinimumSize   = new Vector2(160, 24),
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-        };
-        row.AddChild(slider);
-
-        slider.ValueChanged += v =>
-            SlotTheory.Core.SettingsManager.Instance?.SetVolume((float)v);
+        parent.AddChild(btn);
     }
 }
