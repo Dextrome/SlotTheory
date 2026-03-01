@@ -1,0 +1,16 @@
+# Godot
+.godot/
+*.tmp
+
+# .NET build output
+bin/
+obj/
+*.user
+.vs/
+
+# Export builds
+builds/
+
+# OS
+.DS_Store
+Thumbs.db

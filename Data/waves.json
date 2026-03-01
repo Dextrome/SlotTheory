@@ -1,0 +1,22 @@
+[
+  { "EnemyCount":  8, "SpawnInterval": 1.50 },
+  { "EnemyCount":  9, "SpawnInterval": 1.40 },
+  { "EnemyCount": 10, "SpawnInterval": 1.40 },
+  { "EnemyCount": 10, "SpawnInterval": 1.30 },
+  { "EnemyCount": 12, "SpawnInterval": 1.30 },
+  { "EnemyCount": 12, "SpawnInterval": 1.20 },
+  { "EnemyCount": 14, "SpawnInterval": 1.20 },
+  { "EnemyCount": 14, "SpawnInterval": 1.10 },
+  { "EnemyCount": 16, "SpawnInterval": 1.10 },
+  { "EnemyCount": 16, "SpawnInterval": 1.00 },
+  { "EnemyCount": 18, "SpawnInterval": 1.00 },
+  { "EnemyCount": 18, "SpawnInterval": 0.90 },
+  { "EnemyCount": 20, "SpawnInterval": 0.90 },
+  { "EnemyCount": 20, "SpawnInterval": 0.80 },
+  { "EnemyCount": 22, "SpawnInterval": 0.80 },
+  { "EnemyCount": 22, "SpawnInterval": 0.75 },
+  { "EnemyCount": 25, "SpawnInterval": 0.75 },
+  { "EnemyCount": 25, "SpawnInterval": 0.70 },
+  { "EnemyCount": 28, "SpawnInterval": 0.70 },
+  { "EnemyCount": 30, "SpawnInterval": 0.65 }
+]

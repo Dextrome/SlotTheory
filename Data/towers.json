@@ -1,0 +1,23 @@
+{
+  "rapid_shooter": {
+    "Name": "Rapid Shooter",
+    "BaseDamage": 10.0,
+    "AttackInterval": 0.4,
+    "Range": 300.0,
+    "AppliesMark": false
+  },
+  "heavy_cannon": {
+    "Name": "Heavy Cannon",
+    "BaseDamage": 60.0,
+    "AttackInterval": 2.0,
+    "Range": 250.0,
+    "AppliesMark": false
+  },
+  "marker_tower": {
+    "Name": "Marker Tower",
+    "BaseDamage": 5.0,
+    "AttackInterval": 1.0,
+    "Range": 350.0,
+    "AppliesMark": true
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "momentum": {
+    "Id": "momentum",
+    "Name": "Momentum",
+    "Description": "Gain +10% damage per consecutive hit on same target. Resets on target switch."
+  },
+  "overkill": {
+    "Id": "overkill",
+    "Name": "Overkill",
+    "Description": "Excess damage from a kill spills to the next enemy in the lane."
+  },
+  "exploit_weakness": {
+    "Id": "exploit_weakness",
+    "Name": "Exploit Weakness",
+    "Description": "Deal +100% damage to Marked enemies."
+  },
+  "focus_lens": {
+    "Id": "focus_lens",
+    "Name": "Focus Lens",
+    "Description": "+100% damage, but attack interval is doubled."
+  }
+}
