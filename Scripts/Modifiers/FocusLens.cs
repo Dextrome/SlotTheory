@@ -4,7 +4,7 @@ using SlotTheory.Entities;
 
 namespace SlotTheory.Modifiers;
 
-/// <summary>+100% damage, ×2 attack interval (slower attack speed).</summary>
+/// <summary>+100% damage, +80% attack interval (slower attack speed, net DPS gain ~11%).</summary>
 public class FocusLens : Modifier
 {
     public FocusLens(ModifierDef def) { ModifierId = def.Id; }
@@ -16,5 +16,5 @@ public class FocusLens : Modifier
     }
 
     public override void ModifyAttackInterval(ref float interval, TowerInstance tower) =>
-        interval *= 2f;
+        interval *= 1.8f;
 }

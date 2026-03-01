@@ -13,6 +13,7 @@ public static class ModifierRegistry
         ["overkill"]         = def => new Overkill(def),
         ["exploit_weakness"] = def => new ExploitWeakness(def),
         ["focus_lens"]       = def => new FocusLens(def),
+        ["slow"]             = def => new Slow(def),
     };
 
     public static Modifier Create(string modifierId)

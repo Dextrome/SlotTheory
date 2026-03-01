@@ -16,8 +16,12 @@ public partial class EnemyInstance : PathFollow2D
     public float MarkedRemaining { get; set; } = 0f;
     public bool IsMarked => MarkedRemaining > 0f;
 
+    public float SlowRemaining { get; set; } = 0f;
+    public bool IsSlowed => SlowRemaining > 0f;
+
     private ColorRect? _hpFill;
     private bool _wasMarked;
+    private bool _wasSlow;
 
     public override void _Ready()
     {
@@ -50,10 +54,11 @@ public partial class EnemyInstance : PathFollow2D
 
     public override void _Process(double delta)
     {
-        Progress += Speed * (float)delta;
+        float effectiveSpeed = IsSlowed ? Speed * 0.5f : Speed;
+        Progress += effectiveSpeed * (float)delta;
 
-        if (MarkedRemaining > 0f)
-            MarkedRemaining -= (float)delta;
+        if (MarkedRemaining > 0f) MarkedRemaining -= (float)delta;
+        if (SlowRemaining  > 0f) SlowRemaining  -= (float)delta;
 
         // Update HP bar width and colour
         if (_hpFill != null && MaxHp > 0f)
@@ -61,17 +66,19 @@ public partial class EnemyInstance : PathFollow2D
             float ratio = Mathf.Clamp(Hp / MaxHp, 0f, 1f);
             _hpFill.Size = new Vector2(24f * ratio, _hpFill.Size.Y);
             _hpFill.Color = ratio > 0.5f
-                ? new Color(0.15f, 0.90f, 0.25f)   // green
+                ? new Color(0.15f, 0.90f, 0.25f)
                 : ratio > 0.25f
-                    ? new Color(0.90f, 0.70f, 0.10f) // yellow
-                    : new Color(0.90f, 0.15f, 0.10f); // red
+                    ? new Color(0.90f, 0.70f, 0.10f)
+                    : new Color(0.90f, 0.15f, 0.10f);
         }
 
-        // Redraw only when mark state toggles (keeps draw calls cheap)
+        // Redraw only when status rings change
         bool nowMarked = IsMarked;
-        if (nowMarked != _wasMarked)
+        bool nowSlowed = IsSlowed;
+        if (nowMarked != _wasMarked || nowSlowed != _wasSlow)
         {
             _wasMarked = nowMarked;
+            _wasSlow   = nowSlowed;
             QueueRedraw();
         }
     }
@@ -89,8 +96,11 @@ public partial class EnemyInstance : PathFollow2D
         DrawCircle(new Vector2( 3f, -2.5f), 2.2f, Colors.White);
         DrawCircle(new Vector2(-3f, -2.0f), 1.1f, new Color(0.08f, 0.08f, 0.08f));
         DrawCircle(new Vector2( 3f, -2.0f), 1.1f, new Color(0.08f, 0.08f, 0.08f));
-        // Mark ring
+        // Mark ring (purple, inner)
         if (IsMarked)
             DrawArc(Vector2.Zero, 13f, 0f, Mathf.Tau, 32, new Color(0.85f, 0.30f, 1.00f, 0.90f), 2.5f);
+        // Slow ring (cyan, outer)
+        if (IsSlowed)
+            DrawArc(Vector2.Zero, 15.5f, 0f, Mathf.Tau, 32, new Color(0.20f, 0.85f, 1.00f, 0.90f), 2.5f);
     }
 }
