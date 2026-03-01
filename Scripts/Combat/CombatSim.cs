@@ -23,6 +23,8 @@ public class CombatSim
 
     public CombatSim(RunState state) => _state = state;
 
+    public void ResetForWave() => _spawnTimer = 0f;
+
     public WaveResult Step(float delta, RunState state, WaveSystem waveSystem)
     {
         state.WaveTime += delta;

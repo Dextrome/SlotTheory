@@ -55,6 +55,7 @@ Godot `.tscn` files have strict patterns when writing by hand:
 3. **Property names use PascalCase** in `.tscn` (matching C# property name exactly, not snake_case).
 4. Unique node IDs (`unique_id=...`) are required on the root node; child nodes may omit them.
 5. `[gd_scene format=3 uid="uid://..."]` header must match what Godot expects (Godot auto-generates UIDs on first open).
+6. **Sibling `_Ready()` order = scene order (top to bottom).** If Node A's `_Ready()` needs Node B to already be initialized, B must appear before A in the `.tscn` file. Example: `DraftPanel` must be listed before `GameController` so its UI fields are initialized when GameController calls into it.
 
 ## Architecture
 

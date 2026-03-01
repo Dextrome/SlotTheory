@@ -2,6 +2,7 @@ using Godot;
 using SlotTheory.Combat;
 using SlotTheory.Data;
 using SlotTheory.Entities;
+using SlotTheory.UI;
 
 namespace SlotTheory.Core;
 
@@ -20,6 +21,7 @@ public partial class GameController : Node
 	private DraftSystem _draftSystem = null!;
 	private WaveSystem _waveSystem = null!;
 	private CombatSim _combatSim = null!;
+	private DraftPanel _draftPanel = null!;
 	private Node2D[] _slotNodes = new Node2D[Balance.SlotCount];
 
 	public override void _Ready()
@@ -35,14 +37,10 @@ public partial class GameController : Node
 			EnemyScene = EnemyScene,
 			LanePath = LanePath,
 		};
+		_draftPanel = GetNode<DraftPanel>("../DraftPanel");
 
 		SetupLane();
 		SetupSlots();
-
-		// TODO: remove — auto-place for testing until draft UI exists
-		PlaceTower("rapid_shooter", 0);
-		PlaceTower("rapid_shooter", 1);
-		PlaceTower("rapid_shooter", 2);
 
 		GD.Print("Slot Theory booted.");
 		StartDraftPhase();
@@ -81,13 +79,26 @@ public partial class GameController : Node
 		CurrentPhase = GamePhase.Draft;
 		var options = _draftSystem.GenerateOptions(_runState);
 		GD.Print($"Wave {_runState.WaveIndex + 1} draft. Options: {options.Count}");
-
-		// TODO: show DraftPanel UI and wait for player choice
-		OnDraftConfirmed();
+		_draftPanel.Show(options, _runState.WaveIndex + 1);
 	}
 
-	public void OnDraftConfirmed()
+	public RunState GetRunState() => _runState;
+
+	/// <summary>Called by DraftPanel after the player picks an option.</summary>
+	public void OnDraftPick(DraftOption option, int targetSlotIndex)
 	{
+		if (option.Type == DraftOptionType.Tower)
+		{
+			var freeIdx = System.Array.FindIndex(_runState.Slots, s => s.Tower == null);
+			if (freeIdx >= 0)
+				PlaceTower(option.Id, freeIdx);
+		}
+		else
+		{
+			var tower = _runState.Slots[targetSlotIndex].Tower;
+			if (tower != null)
+				_draftSystem.ApplyModifier(option.Id, tower);
+		}
 		StartWavePhase();
 	}
 
@@ -157,6 +168,7 @@ public partial class GameController : Node
 	{
 		CurrentPhase = GamePhase.Wave;
 		_waveSystem.LoadWave(_runState.WaveIndex, _runState);
+		_combatSim.ResetForWave();
 		GD.Print($"Wave {_runState.WaveIndex + 1} started.");
 	}
 }
