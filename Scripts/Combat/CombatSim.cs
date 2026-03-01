@@ -62,7 +62,11 @@ public class CombatSim
             var target = Targeting.SelectTarget(tower, state.EnemiesAlive);
             if (target == null) continue;
 
-            tower.Cooldown = tower.AttackInterval;
+            // Effective interval: base × modifier multipliers (e.g. FocusLens ×2)
+            float effectiveInterval = tower.AttackInterval;
+            foreach (var mod in tower.Modifiers)
+                mod.ModifyAttackInterval(ref effectiveInterval, tower);
+            tower.Cooldown = effectiveInterval;
 
             // Damage applied on projectile arrival, not here
             SpawnProjectile(tower.GlobalPosition, target, tower.ProjectileColor,

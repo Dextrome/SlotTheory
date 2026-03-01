@@ -11,15 +11,17 @@ public class Overkill : Modifier
 
     public override void OnKill(DamageContext ctx)
     {
-        // Target.Hp is negative after kill — excess = how much we overkilled by
         float excess = -ctx.Target.Hp;
         if (excess <= 0f) return;
 
         var next = ctx.EnemiesAlive
             .Where(e => e.Hp > 0f)
-            .MaxBy(e => e.ProgressRatio); // spill to furthest surviving enemy
+            .MaxBy(e => e.ProgressRatio);
 
         if (next != null)
+        {
             next.Hp -= excess;
+            Godot.GD.Print($"  [Overkill] spill {excess:F1} → next enemy (hp now {next.Hp:F1})");
+        }
     }
 }
