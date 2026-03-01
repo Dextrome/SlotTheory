@@ -116,7 +116,9 @@ public class CombatSim
         // 4. Remove dead enemies
         foreach (var dead in state.EnemiesAlive.FindAll(e => e.Hp <= 0))
         {
-            Sounds?.Play(dead.EnemyTypeId == "armored_walker" ? "die_armored" : "die_basic");
+            bool isArmored = dead.EnemyTypeId == "armored_walker";
+            Sounds?.Play(isArmored ? "die_armored" : "die_basic");
+            SpawnDeathBurst(dead.GlobalPosition, isArmored);
             dead.QueueFree();
         }
         state.EnemiesAlive.RemoveAll(e => e.Hp <= 0 || !GodotObject.IsInstanceValid(e));
@@ -136,6 +138,17 @@ public class CombatSim
         var proj = new ProjectileVisual();
         LanePath.GetParent().AddChild(proj);
         proj.Initialize(fromGlobal, target, color, speed: 500f, tower, waveIndex, enemies);
+    }
+
+    private void SpawnDeathBurst(Vector2 worldPos, bool isArmored)
+    {
+        if (LanePath == null) return;
+        var burst = new DeathBurst();
+        LanePath.GetParent().AddChild(burst);
+        burst.GlobalPosition = worldPos;
+        burst.Initialize(
+            isArmored ? new Color(0.62f, 0.07f, 0.07f) : new Color(0.95f, 0.22f, 0.12f),
+            isArmored ? 1.5f : 1.0f);
     }
 
     private void SpawnEnemy(RunState state, string typeId)

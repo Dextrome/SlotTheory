@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 using SlotTheory.Combat;
 using SlotTheory.Data;
 using SlotTheory.Entities;
@@ -221,25 +221,7 @@ public partial class GameController : Node
 		tower.RangeBorder = rangeBorder;
 		tower.AddChild(rangeBorder);
 
-		// Cooldown bar — background track + fill, positioned below the tower square
-		tower.AddChild(new ColorRect
-		{
-			Color       = new Color(0.15f, 0.15f, 0.15f),
-			Position    = new Vector2(-15f, 17f),
-			Size        = new Vector2(30f, 4f),
-			MouseFilter = Control.MouseFilterEnum.Ignore,
-		});
-		var cooldownBar = new ColorRect
-		{
-			Color       = new Color(0.25f, 0.9f, 0.35f),
-			Position    = new Vector2(-15f, 17f),
-			Size        = new Vector2(0f, 4f),
-			MouseFilter = Control.MouseFilterEnum.Ignore,
-		};
-		tower.AddChild(cooldownBar);
-		tower.CooldownBar = cooldownBar;
-
-		// Targeting mode icon — centred on the tower square
+// Targeting mode icon — centred on the tower square
 		var modeLabel = new Label
 		{
 			Text                  = TowerInstance.ModeIcon(TargetingMode.First),
@@ -398,6 +380,11 @@ public partial class GameController : Node
 			_mapVisuals.AddChild(dec.Type == DecorationType.Tree
 				? MakeTree(dec.Pos)
 				: MakeRock(dec.Pos));
+
+		// Path flow arrows
+		var pathFlow = new PathFlow();
+		_mapVisuals.AddChild(pathFlow);
+		pathFlow.Initialize(_currentMap.PathWaypoints);
 	}
 
 	private static Node2D MakeTree(Vector2 pos)
