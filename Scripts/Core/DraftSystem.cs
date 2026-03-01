@@ -25,9 +25,13 @@ public class DraftSystem
         }
         else
         {
-            // Anti-brick: only offer modifiers that can actually be applied
             AddModifierOptions(options, Balance.DraftOptionsCount, state);
         }
+
+        // Pad to 5 with tower options if modifiers couldn't fill the list
+        // (e.g. wave 1 with no towers yet, or all towers at modifier cap)
+        if (options.Count < Balance.DraftOptionsCount && state.HasFreeSlots())
+            AddTowerOptions(options, Balance.DraftOptionsCount - options.Count, state);
 
         return options;
     }

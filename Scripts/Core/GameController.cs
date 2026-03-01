@@ -12,6 +12,9 @@ public partial class GameController : Node
 
     public GamePhase CurrentPhase { get; private set; } = GamePhase.Boot;
 
+    [Export] public PackedScene? EnemyScene { get; set; }
+    [Export] public Path2D? LanePath { get; set; }
+
     private RunState _runState = null!;
     private DraftSystem _draftSystem = null!;
     private WaveSystem _waveSystem = null!;
@@ -25,8 +28,13 @@ public partial class GameController : Node
         _runState = new RunState();
         _draftSystem = new DraftSystem();
         _waveSystem = new WaveSystem();
-        _combatSim = new CombatSim(_runState);
+        _combatSim = new CombatSim(_runState)
+        {
+            EnemyScene = EnemyScene,
+            LanePath = LanePath,
+        };
 
+        SetupLane();
         GD.Print("Slot Theory booted.");
         StartDraftPhase();
     }
@@ -63,13 +71,30 @@ public partial class GameController : Node
     {
         CurrentPhase = GamePhase.Draft;
         var options = _draftSystem.GenerateOptions(_runState);
-        // TODO: pass options to DraftPanel UI
         GD.Print($"Wave {_runState.WaveIndex + 1} draft. Options: {options.Count}");
+
+        // TODO: show DraftPanel UI and wait for player choice
+        // For now, auto-confirm to test the wave loop
+        OnDraftConfirmed();
     }
 
     public void OnDraftConfirmed()
     {
         StartWavePhase();
+    }
+
+    private void SetupLane()
+    {
+        if (LanePath == null) return;
+        if (LanePath.Curve != null && LanePath.Curve.PointCount > 0) return;
+
+        // Default lane: left-to-right with a gentle S-curve
+        var curve = new Curve2D();
+        curve.AddPoint(new Vector2(50,  300));
+        curve.AddPoint(new Vector2(400, 200));
+        curve.AddPoint(new Vector2(750, 400));
+        curve.AddPoint(new Vector2(1150, 300));
+        LanePath.Curve = curve;
     }
 
     private void StartWavePhase()

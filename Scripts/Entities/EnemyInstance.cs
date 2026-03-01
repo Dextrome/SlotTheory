@@ -16,6 +16,11 @@ public partial class EnemyInstance : PathFollow2D
     public float MarkedRemaining { get; set; } = 0f;
     public bool IsMarked => MarkedRemaining > 0f;
 
+    public override void _Ready()
+    {
+        Loop = false; // enemies stop at end of path so ProgressRatio >= 1 triggers loss
+    }
+
     public void Initialize(string typeId, float hp, float speed)
     {
         EnemyTypeId = typeId;

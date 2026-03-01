@@ -18,8 +18,8 @@ public class CombatSim
     // Set externally by GameController when an enemy scene is needed
     public PackedScene? EnemyScene { get; set; }
 
-    // Set externally — the LanePath node enemies are added to
-    public Node? LanePath { get; set; }
+    // Set externally — the Path2D node enemies are added to as PathFollow2D children
+    public Path2D? LanePath { get; set; }
 
     public CombatSim(RunState state) => _state = state;
 

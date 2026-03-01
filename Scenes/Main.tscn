@@ -1,0 +1,15 @@
+[gd_scene format=3 uid="uid://d2sc3ka1je72p"]
+
+[ext_resource type="Script" uid="uid://boy826dwm0wg1" path="res://Scripts/Core/GameController.cs" id="1_r150o"]
+[ext_resource type="PackedScene" path="res://Scenes/World/Enemy.tscn" id="2"]
+
+[node name="Main" type="Node"]
+
+[node name="GameController" type="Node" parent="."]
+script = ExtResource("1_r150o")
+EnemyScene = ExtResource("2")
+LanePath = NodePath("../World/LanePath")
+
+[node name="World" type="Node2D" parent="."]
+
+[node name="LanePath" type="Path2D" parent="World"]
