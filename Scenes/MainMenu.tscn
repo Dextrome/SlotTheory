@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://c0mainmenu001"]
+
+[ext_resource type="Script" path="res://Scripts/UI/MainMenu.cs" id="1_menu"]
+
+[node name="MainMenu" type="Node" unique_id=200000001]
+script = ExtResource("1_menu")

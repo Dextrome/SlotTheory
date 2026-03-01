@@ -34,11 +34,12 @@ public partial class PauseScreen : CanvasLayer
 
         AddLabel("PAUSED", 52, Colors.White);
         AddSpacer(12);
-        AddButton("Resume",          OnResume);
-        AddButton("Restart Run",     OnRestart);
+        AddButton("Resume",            OnResume);
+        AddButton("Restart Run",       OnRestart);
         AddButton("Toggle Fullscreen", OnToggleFullscreen);
         AddSpacer(12);
-        AddButton("Quit to Desktop", OnQuit);
+        AddButton("Main Menu",         OnMainMenu);
+        AddButton("Quit to Desktop",   OnQuit);
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -86,6 +87,12 @@ public partial class PauseScreen : CanvasLayer
             mode == DisplayServer.WindowMode.Fullscreen
                 ? DisplayServer.WindowMode.Windowed
                 : DisplayServer.WindowMode.Fullscreen);
+    }
+
+    private void OnMainMenu()
+    {
+        GetTree().Paused = false;
+        GetTree().ChangeSceneToFile("res://Scenes/MainMenu.tscn");
     }
 
     private void OnQuit() => GetTree().Quit();
