@@ -14,6 +14,8 @@ public static class ModifierRegistry
         ["exploit_weakness"] = def => new ExploitWeakness(def),
         ["focus_lens"]       = def => new FocusLens(def),
         ["slow"]             = def => new Slow(def),
+        ["overreach"]        = def => new Overreach(def),
+        ["hair_trigger"]     = def => new HairTrigger(def),
     };
 
     public static Modifier Create(string modifierId)

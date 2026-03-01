@@ -194,7 +194,21 @@ public partial class GameController : Node
 			pts[p] = new Vector2(Mathf.Cos(a) * tower.Range, Mathf.Sin(a) * tower.Range);
 		}
 		rangeCircle.Polygon = pts;
+		tower.RangeCircle = rangeCircle;
 		tower.AddChild(rangeCircle);
+
+		// Range border — white ring outline
+		var borderPts = new Vector2[65];
+		for (int p = 0; p < 64; p++) borderPts[p] = pts[p];
+		borderPts[64] = pts[0];
+		var rangeBorder = new Line2D
+		{
+			Points       = borderPts,
+			Width        = 1.5f,
+			DefaultColor = new Color(1f, 1f, 1f, 0.55f),
+		};
+		tower.RangeBorder = rangeBorder;
+		tower.AddChild(rangeBorder);
 
 		// Cooldown bar — background track + fill, positioned below the tower square
 		tower.AddChild(new ColorRect

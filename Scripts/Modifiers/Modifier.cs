@@ -8,6 +8,8 @@ public abstract class Modifier
 {
     public string ModifierId { get; protected set; } = string.Empty;
 
+    /// <summary>Called once when the modifier is equipped to a tower. Use for permanent stat changes.</summary>
+    public virtual void OnEquip(TowerInstance tower) { }
     public virtual void ModifyAttackInterval(ref float interval, TowerInstance tower) { }
     public virtual void ModifyDamage(ref float damage, DamageContext ctx) { }
     public virtual void OnHit(DamageContext ctx) { }
