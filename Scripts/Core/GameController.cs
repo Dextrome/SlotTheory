@@ -25,6 +25,8 @@ public partial class GameController : Node
 	private HudPanel _hudPanel = null!;
 	private EndScreen _endScreen = null!;
 	private Node2D[] _slotNodes = new Node2D[Balance.SlotCount];
+	private MapLayout _currentMap = null!;
+	private Node2D _mapVisuals = null!;
 
 	public override void _Ready()
 	{
@@ -43,7 +45,12 @@ public partial class GameController : Node
 		_hudPanel   = GetNode<HudPanel>("../HudPanel");
 		_endScreen  = GetNode<EndScreen>("../EndScreen");
 
-		SetupLane();
+		var world = GetNode<Node2D>("../World");
+		_mapVisuals = new Node2D { Name = "_mapVisuals" };
+		world.AddChild(_mapVisuals);
+		world.MoveChild(_mapVisuals, 0);
+
+		GenerateMap();
 		SetupSlots();
 
 		GD.Print("Slot Theory booted.");
@@ -110,12 +117,13 @@ public partial class GameController : Node
 			if (GodotObject.IsInstanceValid(e)) e.QueueFree();
 		}
 
-		// Remove tower nodes from slot scene nodes (keep the empty-slot background)
+		// Remove tower nodes from slot scene nodes — use Free() so ClearSlotVisuals
+		// doesn't encounter QueueFree-pending nodes when it iterates slot children.
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
 			var tower = _runState.Slots[i].Tower;
 			if (tower != null && GodotObject.IsInstanceValid(tower))
-				tower.QueueFree();
+				tower.Free();
 		}
 
 		_runState.Reset();
@@ -124,6 +132,12 @@ public partial class GameController : Node
 		Engine.TimeScale = 1.0;   // always reset speed on new run
 		_hudPanel.Refresh(1, Balance.StartingLives);
 		_hudPanel.ResetSpeed();
+
+		ClearMapVisuals();
+		GenerateMap();
+		ClearSlotVisuals();
+		SetupSlots();
+
 		GD.Print("Run restarted.");
 		StartDraftPhase();
 	}
@@ -133,9 +147,8 @@ public partial class GameController : Node
 	{
 		if (option.Type == DraftOptionType.Tower)
 		{
-			var freeIdx = System.Array.FindIndex(_runState.Slots, s => s.Tower == null);
-			if (freeIdx >= 0)
-				PlaceTower(option.Id, freeIdx);
+			if (targetSlotIndex >= 0 && _runState.Slots[targetSlotIndex].Tower == null)
+				PlaceTower(option.Id, targetSlotIndex);
 		}
 		else
 		{
@@ -168,6 +181,17 @@ public partial class GameController : Node
 			},
 		};
 
+		// Range indicator — semi-transparent circle
+		var rangeCircle = new Polygon2D { Color = new Color(0.2f, 0.6f, 1.0f, 0.10f) };
+		var pts = new Vector2[64];
+		for (int p = 0; p < 64; p++)
+		{
+			float a = p * Mathf.Tau / 64;
+			pts[p] = new Vector2(Mathf.Cos(a) * tower.Range, Mathf.Sin(a) * tower.Range);
+		}
+		rangeCircle.Polygon = pts;
+		tower.AddChild(rangeCircle);
+
 		// Tower visual — blue square
 		tower.AddChild(new ColorRect
 		{
@@ -178,9 +202,40 @@ public partial class GameController : Node
 			OffsetBottom =  15f,
 		});
 
+		// Targeting mode icon — centred on the tower square
+		var modeLabel = new Label
+		{
+			Text                  = TowerInstance.ModeIcon(TargetingMode.First),
+			Position              = new Vector2(-15f, -10f),
+			Size                  = new Vector2(30f, 20f),
+			HorizontalAlignment   = HorizontalAlignment.Center,
+			VerticalAlignment     = VerticalAlignment.Center,
+		};
+		modeLabel.AddThemeColorOverride("font_color", Colors.White);
+		modeLabel.AddThemeFontSizeOverride("font_size", 14);
+		tower.ModeLabel = modeLabel;
+		tower.AddChild(modeLabel);
+
 		_slotNodes[slotIndex].AddChild(tower);
 		_runState.Slots[slotIndex].Tower = tower;
 		GD.Print($"Placed {def.Name} in slot {slotIndex}");
+	}
+
+	public override void _UnhandledInput(InputEvent @event)
+	{
+		if (@event is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } mb) return;
+
+		for (int i = 0; i < _runState.Slots.Length; i++)
+		{
+			var tower = _runState.Slots[i].Tower;
+			if (tower == null) continue;
+			if (tower.GlobalPosition.DistanceTo(mb.Position) <= 22f)
+			{
+				tower.CycleTargetingMode();
+				GetViewport().SetInputAsHandled();
+				return;
+			}
+		}
 	}
 
 	private void SetupSlots()
@@ -189,6 +244,7 @@ public partial class GameController : Node
 		for (int i = 0; i < Balance.SlotCount; i++)
 		{
 			_slotNodes[i] = slotsNode.GetNode<Node2D>($"Slot{i}");
+			_slotNodes[i].Position = _currentMap.SlotPositions[i];
 
 			// Empty slot visual — dark gray square
 			_slotNodes[i].AddChild(new ColorRect
@@ -199,20 +255,79 @@ public partial class GameController : Node
 				OffsetRight  =  20f,
 				OffsetBottom =  20f,
 			});
+
+			// Slot number label
+			var slotLabel = new Label
+			{
+				Text                = (i + 1).ToString(),
+				Position            = new Vector2(-20f, -10f),
+				Size                = new Vector2(40f, 20f),
+				HorizontalAlignment = HorizontalAlignment.Center,
+				VerticalAlignment   = VerticalAlignment.Center,
+			};
+			slotLabel.AddThemeColorOverride("font_color", new Color(1f, 1f, 1f, 0.8f));
+			slotLabel.AddThemeFontSizeOverride("font_size", 14);
+			_slotNodes[i].AddChild(slotLabel);
 		}
 	}
 
-	private void SetupLane()
+	private void GenerateMap()
 	{
-		if (LanePath == null) return;
-		if (LanePath.Curve != null && LanePath.Curve.PointCount > 0) return;
+		_currentMap = MapGenerator.Generate(System.Environment.TickCount);
+		RenderMap();
+		if (LanePath != null)
+			LanePath.Curve = BuildCurve(_currentMap.PathWaypoints);
+	}
 
+	private void RenderMap()
+	{
+		// Full-screen grass background
+		_mapVisuals.AddChild(new ColorRect
+		{
+			Position = Vector2.Zero,
+			Size     = new Vector2(1280, 720),
+			Color    = new Color("#a6d608"),
+		});
+
+		// One rect per path cell
+		for (int c = 0; c < MapGenerator.COLS; c++)
+		{
+			for (int r = 0; r < MapGenerator.ROWS; r++)
+			{
+				if (!_currentMap.PathGrid[c, r]) continue;
+				_mapVisuals.AddChild(new ColorRect
+				{
+					Position = new Vector2(c * MapGenerator.CELL_W,
+					                       MapGenerator.GRID_Y + r * MapGenerator.CELL_H),
+					Size  = new Vector2(MapGenerator.CELL_W, MapGenerator.CELL_H),
+					Color = new Color("#8B5E3C"),
+				});
+			}
+		}
+	}
+
+	private void ClearMapVisuals()
+	{
+		while (_mapVisuals.GetChildCount() > 0)
+			_mapVisuals.GetChild(0).Free();
+	}
+
+	private void ClearSlotVisuals()
+	{
+		foreach (var slotNode in _slotNodes)
+		{
+			if (slotNode == null) continue;
+			while (slotNode.GetChildCount() > 0)
+				slotNode.GetChild(0).Free();
+		}
+	}
+
+	private static Curve2D BuildCurve(Vector2[] pts)
+	{
 		var curve = new Curve2D();
-		curve.AddPoint(new Vector2(50,  300));
-		curve.AddPoint(new Vector2(400, 200));
-		curve.AddPoint(new Vector2(750, 400));
-		curve.AddPoint(new Vector2(1150, 300));
-		LanePath.Curve = curve;
+		foreach (var pt in pts)
+			curve.AddPoint(pt);
+		return curve;
 	}
 
 	private void StartWavePhase()

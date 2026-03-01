@@ -16,6 +16,7 @@ public partial class DraftPanel : CanvasLayer
     private Label _assignLabel = null!;
     private HBoxContainer _towerRow = null!;
     private DraftOption? _pendingModifier;
+    private DraftOption? _pendingTower;
 
     public override void _Ready()
     {
@@ -67,6 +68,7 @@ public partial class DraftPanel : CanvasLayer
     {
         _titleLabel.Text = $"Wave {waveNumber}  —  Choose";
         _pendingModifier = null;
+        _pendingTower = null;
         _assignLabel.Visible = false;
         _towerRow.Visible = false;
         _cardRow.Visible = true;
@@ -125,15 +127,20 @@ public partial class DraftPanel : CanvasLayer
     {
         if (opt.Type == DraftOptionType.Tower)
         {
-            Visible = false;
-            GameController.Instance.OnDraftPick(opt, -1);
+            _pendingTower = opt;
+            var def = DataLoader.GetTowerDef(opt.Id);
+            _assignLabel.Text = $"→  Place  {def.Name}  in slot:";
+            _cardRow.Visible = false;
+            BuildEmptySlotRow();
+            _assignLabel.Visible = true;
+            _towerRow.Visible = true;
         }
         else
         {
             _pendingModifier = opt;
             var modName = DataLoader.GetModifierDef(opt.Id).Name;
             _assignLabel.Text = $"→  Assign  {modName}  to:";
-            _cardRow.Visible = false;   // hide cards so player can't re-click
+            _cardRow.Visible = false;
             BuildTowerRow();
             _assignLabel.Visible = true;
             _towerRow.Visible = true;
@@ -145,6 +152,32 @@ public partial class DraftPanel : CanvasLayer
         if (_pendingModifier == null) return;
         Visible = false;
         GameController.Instance.OnDraftPick(_pendingModifier, slotIndex);
+    }
+
+    private void OnSlotPicked(int slotIndex)
+    {
+        if (_pendingTower == null) return;
+        Visible = false;
+        GameController.Instance.OnDraftPick(_pendingTower, slotIndex);
+    }
+
+    private void BuildEmptySlotRow()
+    {
+        foreach (Node child in _towerRow.GetChildren())
+            child.QueueFree();
+
+        var slots = GameController.Instance.GetRunState().Slots;
+        for (int i = 0; i < slots.Length; i++)
+        {
+            bool isEmpty = slots[i].Tower == null;
+            var btn = new Button();
+            btn.Text = isEmpty ? $"Slot {i + 1}" : "occupied";
+            btn.Disabled = !isEmpty;
+            btn.CustomMinimumSize = new Vector2(150, 70);
+            var idx = i;
+            btn.Pressed += () => OnSlotPicked(idx);
+            _towerRow.AddChild(btn);
+        }
     }
 
     private static string GetOptionLabel(DraftOption opt)
