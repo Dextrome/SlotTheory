@@ -192,15 +192,41 @@ public partial class GameController : Node
 		rangeCircle.Polygon = pts;
 		tower.AddChild(rangeCircle);
 
-		// Tower visual — blue square
+		// Tower visual — coloured square (distinct shade per tower type)
+		var towerColor = towerId switch
+		{
+			"rapid_shooter" => new Color(0.15f, 0.65f, 1.00f),  // bright sky-blue
+			"heavy_cannon"  => new Color(0.10f, 0.20f, 0.80f),  // deep navy
+			"marker_tower"  => new Color(0.50f, 0.20f, 0.90f),  // violet-blue
+			_               => new Color(0.20f, 0.50f, 1.00f),
+		};
 		tower.AddChild(new ColorRect
 		{
-			Color        = new Color(0.2f, 0.5f, 1.0f),
+			Color        = towerColor,
 			OffsetLeft   = -15f,
 			OffsetTop    = -15f,
 			OffsetRight  =  15f,
 			OffsetBottom =  15f,
+			MouseFilter  = Control.MouseFilterEnum.Ignore,
 		});
+
+		// Cooldown bar — background track + fill, positioned below the tower square
+		tower.AddChild(new ColorRect
+		{
+			Color       = new Color(0.15f, 0.15f, 0.15f),
+			Position    = new Vector2(-15f, 17f),
+			Size        = new Vector2(30f, 4f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		});
+		var cooldownBar = new ColorRect
+		{
+			Color       = new Color(0.25f, 0.9f, 0.35f),
+			Position    = new Vector2(-15f, 17f),
+			Size        = new Vector2(0f, 4f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		tower.AddChild(cooldownBar);
+		tower.CooldownBar = cooldownBar;
 
 		// Targeting mode icon — centred on the tower square
 		var modeLabel = new Label
@@ -210,6 +236,7 @@ public partial class GameController : Node
 			Size                  = new Vector2(30f, 20f),
 			HorizontalAlignment   = HorizontalAlignment.Center,
 			VerticalAlignment     = VerticalAlignment.Center,
+			MouseFilter           = Control.MouseFilterEnum.Ignore,
 		};
 		modeLabel.AddThemeColorOverride("font_color", Colors.White);
 		modeLabel.AddThemeFontSizeOverride("font_size", 14);
@@ -221,15 +248,17 @@ public partial class GameController : Node
 		GD.Print($"Placed {def.Name} in slot {slotIndex}");
 	}
 
-	public override void _UnhandledInput(InputEvent @event)
+	public override void _Input(InputEvent @event)
 	{
-		if (@event is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true } mb) return;
+		if (@event is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return;
 
+		var mousePos = GetViewport().GetMousePosition();
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
 			var tower = _runState.Slots[i].Tower;
 			if (tower == null) continue;
-			if (tower.GlobalPosition.DistanceTo(mb.Position) <= 22f)
+			var hitRect = new Rect2(tower.GlobalPosition - new Vector2(25f, 25f), new Vector2(50f, 50f));
+			if (hitRect.HasPoint(mousePos))
 			{
 				tower.CycleTargetingMode();
 				GetViewport().SetInputAsHandled();
@@ -254,6 +283,7 @@ public partial class GameController : Node
 				OffsetTop    = -20f,
 				OffsetRight  =  20f,
 				OffsetBottom =  20f,
+				MouseFilter  = Control.MouseFilterEnum.Ignore,
 			});
 
 			// Slot number label
@@ -264,6 +294,7 @@ public partial class GameController : Node
 				Size                = new Vector2(40f, 20f),
 				HorizontalAlignment = HorizontalAlignment.Center,
 				VerticalAlignment   = VerticalAlignment.Center,
+				MouseFilter         = Control.MouseFilterEnum.Ignore,
 			};
 			slotLabel.AddThemeColorOverride("font_color", new Color(1f, 1f, 1f, 0.8f));
 			slotLabel.AddThemeFontSizeOverride("font_size", 14);

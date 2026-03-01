@@ -28,6 +28,14 @@ public partial class TowerInstance : Node2D
     public bool CanAddModifier => Modifiers.Count < Balance.MaxModifiersPerTower;
 
     public Label? ModeLabel { get; set; }
+    public ColorRect? CooldownBar { get; set; }
+
+    public override void _Process(double delta)
+    {
+        if (CooldownBar == null || AttackInterval <= 0f) return;
+        float fill = Mathf.Clamp(1f - Cooldown / AttackInterval, 0f, 1f);
+        CooldownBar.Size = new Vector2(fill * 30f, CooldownBar.Size.Y);
+    }
 
     public void CycleTargetingMode()
     {
