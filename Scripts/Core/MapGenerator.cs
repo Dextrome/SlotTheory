@@ -27,11 +27,13 @@ public static class MapGenerator
 	{
 		pathGrid = new bool[COLS, ROWS];
 
-		// Fixed 3-leg snake; pick random turning rows/cols
+		// Fixed 3-leg snake; pick random turning rows/cols.
+		// c1 capped at 3 and c2 capped at 5 so col 6 is never a vertical turn leg —
+		// that guarantees zones 2 and 5 (cols 6-7) always contain grass cells.
 		int r0 = rng.Next(2, 5);           // [2, 4]  — first turn row (down)
-		int c1 = rng.Next(2, 5);           // [2, 4]  — first turn col (right)
+		int c1 = rng.Next(2, 4);           // [2, 3]  — first turn col (right)
 		int r1 = rng.Next(0, r0 - 1);      // [0, r0-2] — second turn row (up)
-		int c2 = rng.Next(c1 + 2, 7);      // [c1+2, 6] — second turn col (right)
+		int c2 = rng.Next(c1 + 2, 6);      // [c1+2, 5] — second turn col (right)
 		int r2 = rng.Next(r1 + 1, 5);      // [r1+1, 4] — third turn row (down)
 
 		// Mark path cells
