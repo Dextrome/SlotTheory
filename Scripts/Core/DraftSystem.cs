@@ -25,7 +25,7 @@ public class DraftSystem
         }
         else
         {
-            AddModifierOptions(options, Balance.DraftOptionsCount, state);
+            AddModifierOptions(options, Balance.DraftModifierOptionsFull, state);
         }
 
         // Pad to 5 with tower options if modifiers couldn't fill the list

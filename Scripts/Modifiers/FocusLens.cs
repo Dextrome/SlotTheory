@@ -4,17 +4,17 @@ using SlotTheory.Entities;
 
 namespace SlotTheory.Modifiers;
 
-/// <summary>+100% damage, +80% attack interval (slower attack speed, net DPS gain ~11%).</summary>
+/// <summary>+150% damage, ×2 attack interval. Big hits, slow fire — ideal for Overkill combos.</summary>
 public class FocusLens : Modifier
 {
     public FocusLens(ModifierDef def) { ModifierId = def.Id; }
 
     public override void ModifyDamage(ref float damage, DamageContext ctx)
     {
-        damage *= 2f;
-        Godot.GD.Print($"  [FocusLens] ×2 damage → {damage:F1}");
+        damage *= 2.5f;
+        Godot.GD.Print($"  [FocusLens] ×2.5 damage → {damage:F1}");
     }
 
     public override void ModifyAttackInterval(ref float interval, TowerInstance tower) =>
-        interval *= 1.8f;
+        interval *= 2f;
 }

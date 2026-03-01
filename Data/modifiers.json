@@ -12,16 +12,16 @@
   "exploit_weakness": {
     "Id": "exploit_weakness",
     "Name": "Exploit Weakness",
-    "Description": "Deal +25% damage to Marked enemies."
+    "Description": "Deal +50% damage to Marked enemies."
   },
   "focus_lens": {
     "Id": "focus_lens",
     "Name": "Focus Lens",
-    "Description": "+100% damage, +80% attack interval."
+    "Description": "+150% damage, ×2 attack interval."
   },
   "slow": {
     "Id": "slow",
     "Name": "Chill Shot",
-    "Description": "On hit: slow target to 50% speed for 10 s."
+    "Description": "On hit: −30% move speed for 5 s."
   }
 }
