@@ -14,45 +14,79 @@ public static class MapGenerator
 
 	public static MapLayout Generate(int seed)
 	{
-		var rng = new Random(seed);
-		var waypoints    = GeneratePathWaypoints(rng, out var pathGrid);
-		var slots        = PlaceSlots(rng, pathGrid);
-		var decorations  = PlaceDecorations(rng, pathGrid, slots);
+		var rng         = new Random(seed);
+		var waypoints   = GeneratePathWaypoints(rng, out var pathGrid);
+		var slots       = PlaceSlots(rng, pathGrid);
+		var decorations = PlaceDecorations(rng, pathGrid, slots);
 		return new MapLayout(waypoints, slots, pathGrid, decorations);
 	}
 
 	public static Vector2 CellCenter(int col, int row)
 		=> new(col * CELL_W + CELL_W / 2f, GRID_Y + row * CELL_H + CELL_H / 2f);
 
-	// ── Path generation ─────────────────────────────────────────────────
+	// ── Path generation — dispatch to shape variant ──────────────────────
 
 	private static Vector2[] GeneratePathWaypoints(Random rng, out bool[,] pathGrid)
 	{
 		pathGrid = new bool[COLS, ROWS];
+		return rng.Next(3) switch
+		{
+			0 => GenerateUShape(rng, pathGrid),
+			1 => GenerateSShape(rng, pathGrid),
+			_ => GenerateWShape(rng, pathGrid),
+		};
+	}
 
-		// Fixed 3-leg snake; pick random turning rows/cols.
-		// c1 capped at 3 and c2 capped at 5 so col 6 is never a vertical turn leg —
-		// that guarantees zones 2 and 5 (cols 6-7) always contain grass cells.
-		int r0 = rng.Next(2, 5);           // [2, 4]  — first turn row (down)
-		int c1 = rng.Next(2, 4);           // [2, 3]  — first turn col (right)
-		int r1 = rng.Next(0, r0 - 1);      // [0, r0-2] — second turn row (up)
-		int c2 = rng.Next(c1 + 2, 6);      // [c1+2, 5] — second turn col (right)
-		int r2 = rng.Next(r1 + 1, 5);      // [r1+1, 4] — third turn row (down)
+	/// <summary>
+	/// U-shape: one horizontal leg.
+	/// entry → col 0 DOWN → full row right → col 7 UP → exit
+	/// </summary>
+	private static Vector2[] GenerateUShape(Random rng, bool[,] pathGrid)
+	{
+		int r0 = rng.Next(3, 5);   // [3, 4] — deep enough for a good path length
 
-		// Mark path cells
-		MarkVertical(pathGrid,   0,  0,  r0);   // col 0 down
-		MarkHorizontal(pathGrid, 0,  c1, r0);   // row r0 right
-		MarkVertical(pathGrid,   c1, r1, r0);   // col c1 up
-		MarkHorizontal(pathGrid, c1, c2, r1);   // row r1 right
-		MarkVertical(pathGrid,   c2, r1, r2);   // col c2 down
-		MarkHorizontal(pathGrid, c2, 7,  r2);   // row r2 right
-		MarkVertical(pathGrid,   7,  0,  r2);   // col 7 up to exit
+		MarkVertical  (pathGrid, 0, 0, r0);
+		MarkHorizontal(pathGrid, 0, 7, r0);
+		MarkVertical  (pathGrid, 7, 0, r0);
 
-		// Resolve world-space X/Y for each turning point
-		float cx0  = CellCenter(0,  0).X;   // 80
+		float cx0  = CellCenter(0, 0).X;
+		float cx7  = CellCenter(7, 0).X;
+		float cyR0 = CellCenter(0, r0).Y;
+
+		return new Vector2[]
+		{
+			new(cx0, 50),
+			new(cx0, cyR0),
+			new(cx7, cyR0),
+			new(cx7, 50),
+		};
+	}
+
+	/// <summary>
+	/// S-shape: three horizontal legs (original design).
+	/// entry → DOWN → right → UP → right → DOWN → right → col 7 UP → exit
+	/// </summary>
+	private static Vector2[] GenerateSShape(Random rng, bool[,] pathGrid)
+	{
+		// c1 ≤ 3, c2 ≤ 5 so col 6 is never a turn leg → zones 2 and 5 always have grass.
+		int r0 = rng.Next(2, 5);           // [2, 4]
+		int c1 = rng.Next(2, 4);           // [2, 3]
+		int r1 = rng.Next(0, r0 - 1);     // [0, r0-2]
+		int c2 = rng.Next(c1 + 2, 6);     // [c1+2, 5]
+		int r2 = rng.Next(r1 + 1, 5);     // [r1+1, 4]
+
+		MarkVertical  (pathGrid, 0,  0,  r0);
+		MarkHorizontal(pathGrid, 0,  c1, r0);
+		MarkVertical  (pathGrid, c1, r1, r0);
+		MarkHorizontal(pathGrid, c1, c2, r1);
+		MarkVertical  (pathGrid, c2, r1, r2);
+		MarkHorizontal(pathGrid, c2, 7,  r2);
+		MarkVertical  (pathGrid, 7,  0,  r2);
+
+		float cx0  = CellCenter(0,  0).X;
 		float cxC1 = CellCenter(c1, 0).X;
 		float cxC2 = CellCenter(c2, 0).X;
-		float cx7  = CellCenter(7,  0).X;   // 1200
+		float cx7  = CellCenter(7,  0).X;
 
 		float cyR0 = CellCenter(0, r0).Y;
 		float cyR1 = CellCenter(0, r1).Y;
@@ -60,18 +94,70 @@ public static class MapGenerator
 
 		return new Vector2[]
 		{
-			new(cx0,  50),      // entry above col 0
-			new(cx0,  cyR0),    // bottom of first vertical
-			new(cxC1, cyR0),    // right end of first horizontal
-			new(cxC1, cyR1),    // top of second vertical
-			new(cxC2, cyR1),    // right end of second horizontal
-			new(cxC2, cyR2),    // bottom of third vertical
-			new(cx7,  cyR2),    // right end of third horizontal
-			new(cx7,  50),      // exit above col 7
+			new(cx0,  50),
+			new(cx0,  cyR0),
+			new(cxC1, cyR0),
+			new(cxC1, cyR1),
+			new(cxC2, cyR1),
+			new(cxC2, cyR2),
+			new(cx7,  cyR2),
+			new(cx7,  50),
 		};
 	}
 
-	// ── Slot placement ──────────────────────────────────────────────────
+	/// <summary>
+	/// W-shape: four horizontal legs.
+	/// entry → DOWN → right → UP → right → DOWN → right → UP → right → col 7 UP → exit
+	/// Creates a deeper zigzag with a longer path.
+	/// </summary>
+	private static Vector2[] GenerateWShape(Random rng, bool[,] pathGrid)
+	{
+		int c1 = rng.Next(2, 4);              // [2, 3]
+		int c2 = rng.Next(c1 + 1, 5);        // [c1+1, 4]
+		int c3 = rng.Next(c2 + 1, 6);        // [c2+1, 5]
+
+		int r0 = rng.Next(3, 5);              // [3, 4] — low
+		int r1 = rng.Next(0, 2);              // [0, 1] — high
+		int r2 = rng.Next(3, 5);              // [3, 4] — low
+		int r3 = rng.Next(0, 2);              // [0, 1] — high
+
+		MarkVertical  (pathGrid, 0,  0,  r0);
+		MarkHorizontal(pathGrid, 0,  c1, r0);
+		MarkVertical  (pathGrid, c1, r1, r0);
+		MarkHorizontal(pathGrid, c1, c2, r1);
+		MarkVertical  (pathGrid, c2, r1, r2);
+		MarkHorizontal(pathGrid, c2, c3, r2);
+		MarkVertical  (pathGrid, c3, r3, r2);
+		MarkHorizontal(pathGrid, c3, 7,  r3);
+		MarkVertical  (pathGrid, 7,  0,  r3);
+
+		float cx0  = CellCenter(0,  0).X;
+		float cxC1 = CellCenter(c1, 0).X;
+		float cxC2 = CellCenter(c2, 0).X;
+		float cxC3 = CellCenter(c3, 0).X;
+		float cx7  = CellCenter(7,  0).X;
+
+		float cyR0 = CellCenter(0, r0).Y;
+		float cyR1 = CellCenter(0, r1).Y;
+		float cyR2 = CellCenter(0, r2).Y;
+		float cyR3 = CellCenter(0, r3).Y;
+
+		return new Vector2[]
+		{
+			new(cx0,  50),
+			new(cx0,  cyR0),
+			new(cxC1, cyR0),
+			new(cxC1, cyR1),
+			new(cxC2, cyR1),
+			new(cxC2, cyR2),
+			new(cxC3, cyR2),
+			new(cxC3, cyR3),
+			new(cx7,  cyR3),
+			new(cx7,  50),
+		};
+	}
+
+	// ── Slot placement ───────────────────────────────────────────────────
 
 	private static readonly (int minCol, int maxCol, int minRow, int maxRow)[] Zones =
 	{
@@ -92,24 +178,19 @@ public static class MapGenerator
 		{
 			var (minCol, maxCol, minRow, maxRow) = Zones[z];
 
-			// Prefer grass cells that are directly adjacent to the path (dist == 1):
-			// towers placed here are always within range.  Fall back to any grass cell
-			// in the zone, then to any unused cell if the zone is entirely path.
-			var adjacent = new List<(int col, int row)>();
+			var adjacent  = new List<(int col, int row)>();
 			var grassOnly = new List<(int col, int row)>();
 
 			for (int c = minCol; c <= maxCol; c++)
+			for (int r = minRow; r <= maxRow; r++)
 			{
-				for (int r = minRow; r <= maxRow; r++)
-				{
-					if (pathGrid[c, r]) continue;
-					if (usedCells.Contains((c, r))) continue;
+				if (pathGrid[c, r]) continue;
+				if (usedCells.Contains((c, r))) continue;
 
-					if (IsAdjacentToPath(pathGrid, c, r))
-						adjacent.Add((c, r));
-					else
-						grassOnly.Add((c, r));
-				}
+				if (IsAdjacentToPath(pathGrid, c, r))
+					adjacent.Add((c, r));
+				else
+					grassOnly.Add((c, r));
 			}
 
 			(int col, int row) chosen;
@@ -119,12 +200,11 @@ public static class MapGenerator
 				chosen = grassOnly[rng.Next(grassOnly.Count)];
 			else
 			{
-				// Last resort: any unused cell in zone, even if on path
 				var any = new List<(int, int)>();
 				for (int c = minCol; c <= maxCol; c++)
-					for (int r = minRow; r <= maxRow; r++)
-						if (!usedCells.Contains((c, r)))
-							any.Add((c, r));
+				for (int r = minRow; r <= maxRow; r++)
+					if (!usedCells.Contains((c, r)))
+						any.Add((c, r));
 				chosen = any.Count > 0 ? any[rng.Next(any.Count)] : (minCol, minRow);
 			}
 
@@ -135,17 +215,10 @@ public static class MapGenerator
 		return result;
 	}
 
-	private static bool IsAdjacentToPath(bool[,] pathGrid, int col, int row)
-		=> (col > 0        && pathGrid[col - 1, row]) ||
-		   (col < COLS - 1 && pathGrid[col + 1, row]) ||
-		   (row > 0        && pathGrid[col, row - 1]) ||
-		   (row < ROWS - 1 && pathGrid[col, row + 1]);
-
-	// ── Decoration placement ────────────────────────────────────────────
+	// ── Decoration placement ─────────────────────────────────────────────
 
 	private static DecorationData[] PlaceDecorations(Random rng, bool[,] pathGrid, Vector2[] slotPositions)
 	{
-		// Mark which cells hold a slot so we leave them clear
 		var slotCells = new HashSet<(int, int)>();
 		foreach (var s in slotPositions)
 		{
@@ -162,18 +235,26 @@ public static class MapGenerator
 		{
 			if (pathGrid[c, r]) continue;
 			if (slotCells.Contains((c, r))) continue;
-			if (rng.NextDouble() > 0.55) continue;   // ~55 % of grass cells get a decoration
+			if (rng.NextDouble() > 0.55) continue;
 
-			float x = c * CELL_W + margin + (float)(rng.NextDouble() * (CELL_W - 2 * margin));
-			float y = GRID_Y + r * CELL_H + margin + (float)(rng.NextDouble() * (CELL_H - 2 * margin));
-			var type = rng.NextDouble() > 0.30 ? DecorationType.Tree : DecorationType.Rock;
+			float x    = c * CELL_W + margin + (float)(rng.NextDouble() * (CELL_W - 2 * margin));
+			float y    = GRID_Y + r * CELL_H + margin + (float)(rng.NextDouble() * (CELL_H - 2 * margin));
+			var   type = rng.NextDouble() > 0.30 ? DecorationType.Tree : DecorationType.Rock;
 			result.Add(new DecorationData(new Vector2(x, y), type));
 		}
 
 		return result.ToArray();
 	}
 
-	// ── Helpers ─────────────────────────────────────────────────────────
+	// ── Adjacency check ──────────────────────────────────────────────────
+
+	private static bool IsAdjacentToPath(bool[,] pathGrid, int col, int row)
+		=> (col > 0        && pathGrid[col - 1, row]) ||
+		   (col < COLS - 1 && pathGrid[col + 1, row]) ||
+		   (row > 0        && pathGrid[col, row - 1]) ||
+		   (row < ROWS - 1 && pathGrid[col, row + 1]);
+
+	// ── Helpers ──────────────────────────────────────────────────────────
 
 	private static void MarkVertical(bool[,] pathGrid, int col, int fromRow, int toRow)
 	{
