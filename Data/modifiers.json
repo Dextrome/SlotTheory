@@ -17,6 +17,11 @@
   "focus_lens": {
     "Id": "focus_lens",
     "Name": "Focus Lens",
-    "Description": "+100% damage, but attack interval is doubled."
+    "Description": "+100% damage, +80% attack interval."
+  },
+  "slow": {
+    "Id": "slow",
+    "Name": "Chill Shot",
+    "Description": "On hit: slow target to 50% speed for 10 s."
   }
 }
