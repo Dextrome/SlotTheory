@@ -12,7 +12,7 @@
   "exploit_weakness": {
     "Id": "exploit_weakness",
     "Name": "Exploit Weakness",
-    "Description": "Deal +100% damage to Marked enemies."
+    "Description": "Deal +25% damage to Marked enemies."
   },
   "focus_lens": {
     "Id": "focus_lens",
