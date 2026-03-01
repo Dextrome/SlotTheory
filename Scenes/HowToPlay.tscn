@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://c0howtoplay01"]
+
+[ext_resource type="Script" path="res://Scripts/UI/HowToPlay.cs" id="1_htp"]
+
+[node name="HowToPlay" type="Node" unique_id=200000010]
+script = ExtResource("1_htp")
