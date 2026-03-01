@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 using SlotTheory.Core;
 
 namespace SlotTheory.Entities;
@@ -46,14 +46,14 @@ public partial class EnemyInstance : PathFollow2D
         {
             Position    = new Vector2(barX, barY),
             Size        = new Vector2(_hpBarWidth, 3f),
-            Color       = new Color(0.15f, 0.15f, 0.15f),
+            Color    = new Color(0.05f, 0.00f, 0.10f),
             MouseFilter = Control.MouseFilterEnum.Ignore,
         });
         _hpFill = new ColorRect
         {
             Position    = new Vector2(barX, barY),
             Size        = new Vector2(_hpBarWidth, 3f),
-            Color       = new Color(0.15f, 0.90f, 0.25f),
+            Color    = new Color(0.00f, 0.95f, 0.80f),
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         AddChild(_hpFill);
@@ -73,10 +73,10 @@ public partial class EnemyInstance : PathFollow2D
             float ratio = Mathf.Clamp(Hp / MaxHp, 0f, 1f);
             _hpFill.Size = new Vector2(_hpBarWidth * ratio, _hpFill.Size.Y);
             _hpFill.Color = ratio > 0.5f
-                ? new Color(0.15f, 0.90f, 0.25f)
+                ? (EnemyTypeId == "armored_walker" ? new Color(1.00f, 0.05f, 0.55f) : new Color(0.00f, 0.95f, 0.80f))
                 : ratio > 0.25f
-                    ? new Color(0.90f, 0.70f, 0.10f)
-                    : new Color(0.90f, 0.15f, 0.10f);
+                    ? new Color(1.00f, 0.85f, 0.00f)
+                    : new Color(1.00f, 0.15f, 0.60f);
         }
 
         // Redraw only when status rings change
@@ -102,18 +102,24 @@ public partial class EnemyInstance : PathFollow2D
 
     private void DrawBasicWalker()
     {
-        DrawCircle(Vector2.Zero, 11f, new Color(0.40f, 0.08f, 0.05f));
-        DrawCircle(Vector2.Zero, 9f,  new Color(0.95f, 0.22f, 0.12f));
-        DrawCircle(new Vector2(-2.5f, -2.5f), 4.5f, new Color(1.00f, 0.48f, 0.30f));
+        var cyan = new Color(0.00f, 0.95f, 0.80f);
+        var dark = new Color(0.00f, 0.10f, 0.12f);
+        // Glow
+        DrawCircle(Vector2.Zero, 20f, new Color(cyan.R, cyan.G, cyan.B, 0.07f));
+        DrawCircle(Vector2.Zero, 14f, new Color(cyan.R, cyan.G, cyan.B, 0.15f));
+        // Body ΓÇö bright ring + dark interior + inner accent
+        DrawCircle(Vector2.Zero, 11f, cyan);
+        DrawCircle(Vector2.Zero, 9f,  dark);
+        DrawCircle(new Vector2(-1.5f, -2f), 5f, new Color(0.00f, 0.50f, 0.42f));
         // Eyes
         DrawCircle(new Vector2(-3f, -2.5f), 2.2f, Colors.White);
         DrawCircle(new Vector2( 3f, -2.5f), 2.2f, Colors.White);
-        DrawCircle(new Vector2(-3f, -2.0f), 1.1f, new Color(0.08f, 0.08f, 0.08f));
-        DrawCircle(new Vector2( 3f, -2.0f), 1.1f, new Color(0.08f, 0.08f, 0.08f));
+        DrawCircle(new Vector2(-3f, -2.0f), 1.1f, new Color(0.05f, 0.05f, 0.05f));
+        DrawCircle(new Vector2( 3f, -2.0f), 1.1f, new Color(0.05f, 0.05f, 0.05f));
         // Mark ring (purple)
         if (IsMarked)
             DrawArc(Vector2.Zero, 13f, 0f, Mathf.Tau, 32, new Color(0.85f, 0.30f, 1.00f, 0.90f), 2.5f);
-        // Slow ring (cyan)
+        // Slow ring
         if (IsSlowed)
             DrawArc(Vector2.Zero, 15.5f, 0f, Mathf.Tau, 32, new Color(0.20f, 0.85f, 1.00f, 0.90f), 2.5f);
     }

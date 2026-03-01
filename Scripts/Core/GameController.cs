@@ -190,8 +190,8 @@ public partial class GameController : Node
 			BodyColor = towerId switch
 			{
 				"rapid_shooter" => new Color(0.15f, 0.65f, 1.00f),
-				"heavy_cannon"  => new Color(0.10f, 0.20f, 0.80f),
-				"marker_tower"  => new Color(0.55f, 0.20f, 0.92f),
+				"heavy_cannon"  => new Color(1.00f, 0.55f, 0.00f),
+				"marker_tower"  => new Color(1.00f, 0.15f, 0.60f),
 				_               => new Color(0.20f, 0.50f, 1.00f),
 			},
 		};
@@ -269,16 +269,19 @@ public partial class GameController : Node
 			_slotNodes[i] = slotsNode.GetNode<Node2D>($"Slot{i}");
 			_slotNodes[i].Position = _currentMap.SlotPositions[i];
 
-			// Empty slot visual — dark gray square
-			_slotNodes[i].AddChild(new ColorRect
-			{
-				Color        = new Color(0.25f, 0.25f, 0.25f, 0.5f),
-				OffsetLeft   = -20f,
-				OffsetTop    = -20f,
-				OffsetRight  =  20f,
-				OffsetBottom =  20f,
-				MouseFilter  = Control.MouseFilterEnum.Ignore,
-			});
+			// Empty slot visual ΓÇö dark purple fill + neon violet border
+		_slotNodes[i].AddChild(new ColorRect
+		{
+			Color        = new Color(0.08f, 0.00f, 0.16f, 0.85f),
+			OffsetLeft   = -20f,
+			OffsetTop    = -20f,
+			OffsetRight  =  20f,
+			OffsetBottom =  20f,
+			MouseFilter  = Control.MouseFilterEnum.Ignore,
+		});
+		var borderSq = new[] { new Vector2(-20f,-20f), new Vector2(20f,-20f), new Vector2(20f,20f), new Vector2(-20f,20f), new Vector2(-20f,-20f) };
+		_slotNodes[i].AddChild(new Line2D { Points = borderSq, Width = 7f,   DefaultColor = new Color(0.80f, 0.00f, 1.00f, 0.18f) });
+		_slotNodes[i].AddChild(new Line2D { Points = borderSq, Width = 1.5f, DefaultColor = new Color(0.80f, 0.00f, 1.00f, 0.80f) });
 
 			// Slot number label — below the slot square, always visible
 			_slotNodes[i].AddChild(new ColorRect
@@ -315,125 +318,19 @@ public partial class GameController : Node
 
 	private void RenderMap()
 	{
-		// ── Grass background ────────────────────────────────────────────
-		_mapVisuals.AddChild(new ColorRect
-		{
-			Position = Vector2.Zero,
-			Size     = new Vector2(1280, 720),
-			Color    = new Color(0.65f, 0.84f, 0.03f),
-		});
-
-		// Subtle darker splotches for grass texture
-		var splotchRng = new System.Random(_currentMap.PathWaypoints.Length * 31337);
-		for (int i = 0; i < 14; i++)
-		{
-			float rx = (float)(splotchRng.NextDouble() * 1280);
-			float ry = MapGenerator.GRID_Y + (float)(splotchRng.NextDouble() * (MapGenerator.ROWS * MapGenerator.CELL_H));
-			float rw = 60f + (float)(splotchRng.NextDouble() * 80f);
-			float rh = rw * (0.5f + (float)(splotchRng.NextDouble() * 0.5f));
-			int pts = 12;
-			var splotch = new Polygon2D { Color = new Color(0.55f, 0.72f, 0.01f, 0.35f) };
-			var verts = new Vector2[pts];
-			for (int p = 0; p < pts; p++)
-			{
-				float a = p * Mathf.Tau / pts;
-				float jitter = 0.75f + (float)(splotchRng.NextDouble() * 0.5f);
-				verts[p] = new Vector2(rx + Mathf.Cos(a) * rw * jitter,
-				                       ry + Mathf.Sin(a) * rh * jitter);
-			}
-			splotch.Polygon = verts;
-			_mapVisuals.AddChild(splotch);
-		}
-
-		// ── Road — outline then surface via Line2D (smooth rounded corners) ──
-		_mapVisuals.AddChild(new Line2D
-		{
-			Points       = _currentMap.PathWaypoints,
-			Width        = 116f,
-			DefaultColor = new Color(0.33f, 0.19f, 0.09f),
-			JointMode    = Line2D.LineJointMode.Round,
-			BeginCapMode = Line2D.LineCapMode.Round,
-			EndCapMode   = Line2D.LineCapMode.Round,
-		});
-		_mapVisuals.AddChild(new Line2D
-		{
-			Points       = _currentMap.PathWaypoints,
-			Width        = 100f,
-			DefaultColor = new Color(0.55f, 0.37f, 0.24f),
-			JointMode    = Line2D.LineJointMode.Round,
-			BeginCapMode = Line2D.LineCapMode.Round,
-			EndCapMode   = Line2D.LineCapMode.Round,
-		});
-		// Faint centre highlight — gives the dirt road some depth
-		_mapVisuals.AddChild(new Line2D
-		{
-			Points       = _currentMap.PathWaypoints,
-			Width        = 50f,
-			DefaultColor = new Color(0.62f, 0.44f, 0.28f, 0.45f),
-			JointMode    = Line2D.LineJointMode.Round,
-			BeginCapMode = Line2D.LineCapMode.Round,
-			EndCapMode   = Line2D.LineCapMode.Round,
-		});
-
-		// ── Decorations (trees and rocks in grass cells) ────────────────
-		foreach (var dec in _currentMap.Decorations)
-			_mapVisuals.AddChild(dec.Type == DecorationType.Tree
-				? MakeTree(dec.Pos)
-				: MakeRock(dec.Pos));
-
+		// Background + neon grid
+		_mapVisuals.AddChild(new GridBackground());
+		// Neon path ΓÇö layered glow: outer haze ΓåÆ dark road fill ΓåÆ edge glow ΓåÆ bright edge
+		Vector2[] pts = _currentMap.PathWaypoints;
+		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 120f, DefaultColor = new Color(1.0f, 0.05f, 0.55f, 0.05f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
+		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 80f,  DefaultColor = new Color(1.0f, 0.10f, 0.55f, 0.10f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
+		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 50f,  DefaultColor = new Color(0.10f, 0.00f, 0.18f, 0.95f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
+		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 16f,  DefaultColor = new Color(1.0f, 0.10f, 0.55f, 0.18f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
+		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 3f,   DefaultColor = new Color(1.0f, 0.25f, 0.65f, 0.85f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
 		// Path flow arrows
 		var pathFlow = new PathFlow();
 		_mapVisuals.AddChild(pathFlow);
 		pathFlow.Initialize(_currentMap.PathWaypoints);
-	}
-
-	private static Node2D MakeTree(Vector2 pos)
-	{
-		var node = new Node2D { Position = pos };
-		// Trunk
-		node.AddChild(new Polygon2D
-		{
-			Color   = new Color(0.36f, 0.21f, 0.09f),
-			Polygon = new[] { new Vector2(-3f,2f), new Vector2(3f,2f), new Vector2(3f,15f), new Vector2(-3f,15f) },
-		});
-		// Canopy shadow (slightly offset darker circle)
-		node.AddChild(MakeCirclePoly(new Vector2(2f, -4f), 15f, 14, new Color(0.10f, 0.32f, 0.02f)));
-		// Canopy main
-		node.AddChild(MakeCirclePoly(new Vector2(0f, -7f), 15f, 14, new Color(0.14f, 0.46f, 0.04f)));
-		// Canopy highlight
-		node.AddChild(MakeCirclePoly(new Vector2(-3f, -11f), 9f, 10, new Color(0.22f, 0.60f, 0.08f)));
-		return node;
-	}
-
-	private static Node2D MakeRock(Vector2 pos)
-	{
-		var node = new Node2D { Position = pos };
-		// Rock body
-		node.AddChild(new Polygon2D
-		{
-			Color   = new Color(0.48f, 0.46f, 0.42f),
-			Polygon = new[] { new Vector2(-10f,5f), new Vector2(-7f,-5f), new Vector2(0f,-10f),
-			                  new Vector2(8f,-8f),  new Vector2(11f,2f),  new Vector2(6f,8f), new Vector2(-5f,8f) },
-		});
-		// Rock highlight
-		node.AddChild(new Polygon2D
-		{
-			Color   = new Color(0.64f, 0.62f, 0.57f),
-			Polygon = new[] { new Vector2(-7f,0f), new Vector2(-4f,-6f), new Vector2(2f,-9f),
-			                  new Vector2(6f,-5f), new Vector2(4f,0f),   new Vector2(-2f,2f) },
-		});
-		return node;
-	}
-
-	private static Polygon2D MakeCirclePoly(Vector2 center, float radius, int pts, Color color)
-	{
-		var verts = new Vector2[pts];
-		for (int i = 0; i < pts; i++)
-		{
-			float a = i * Mathf.Tau / pts;
-			verts[i] = center + new Vector2(Mathf.Cos(a) * radius, Mathf.Sin(a) * radius);
-		}
-		return new Polygon2D { Color = color, Polygon = verts };
 	}
 
 	private void ClearMapVisuals()
