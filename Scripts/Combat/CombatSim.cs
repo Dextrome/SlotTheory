@@ -74,9 +74,14 @@ public class CombatSim
 
     private void SpawnEnemy(RunState state)
     {
-        if (EnemyScene == null || LanePath == null)
+        if (EnemyScene == null)
         {
-            GD.PushWarning("CombatSim: EnemyScene or LanePath not set.");
+            GD.PrintErr("CombatSim: EnemyScene is null — assign it on GameController in the Inspector.");
+            return;
+        }
+        if (LanePath == null)
+        {
+            GD.PrintErr("CombatSim: LanePath is null — assign it on GameController in the Inspector.");
             return;
         }
 

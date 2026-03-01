@@ -3,13 +3,13 @@
 [ext_resource type="Script" uid="uid://boy826dwm0wg1" path="res://Scripts/Core/GameController.cs" id="1_r150o"]
 [ext_resource type="PackedScene" path="res://Scenes/World/Enemy.tscn" id="2"]
 
-[node name="Main" type="Node"]
+[node name="Main" type="Node" unique_id=114020598]
 
-[node name="GameController" type="Node" parent="."]
+[node name="GameController" type="Node" parent="." unique_id=1355479286 node_paths=PackedStringArray("LanePath")]
 script = ExtResource("1_r150o")
 EnemyScene = ExtResource("2")
 LanePath = NodePath("../World/LanePath")
 
-[node name="World" type="Node2D" parent="."]
+[node name="World" type="Node2D" parent="." unique_id=1028884544]
 
-[node name="LanePath" type="Path2D" parent="World"]
+[node name="LanePath" type="Path2D" parent="World" unique_id=1926702970]

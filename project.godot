@@ -8,10 +8,15 @@
 
 config_version=5
 
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
+
 [application]
 
 config/name="SlotTheory"
-config/features=PackedStringArray("4.4", "C#", "Forward Plus")
+run/main_scene="uid://d2sc3ka1je72p"
+config/features=PackedStringArray("4.6", "C#", "Forward Plus")
 config/icon="res://icon.svg"
 
 [dotnet]
