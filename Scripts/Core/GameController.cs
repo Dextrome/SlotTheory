@@ -381,11 +381,11 @@ public partial class GameController : Node
 		_slotNodes[i].AddChild(hl);
 		_slotHighlights[i] = hl;
 
-			// Mod-count pip — below slot number, shown only when tower has ≥ 1 modifier
+			// Mod-count pip — just below slot square, shown only when tower has ≥ 1 modifier
 			var modBg = new ColorRect
 			{
 				Color       = new Color(0f, 0f, 0f, 0.65f),
-				Position    = new Vector2(-13f, 39f),
+				Position    = new Vector2(-13f, 23f),
 				Size        = new Vector2(26f, 14f),
 				MouseFilter = Control.MouseFilterEnum.Ignore,
 				ZIndex      = 1,
@@ -395,7 +395,7 @@ public partial class GameController : Node
 
 			var modLabel = new Label
 			{
-				Position            = new Vector2(-13f, 39f),
+				Position            = new Vector2(-13f, 23f),
 				Size                = new Vector2(26f, 14f),
 				HorizontalAlignment = HorizontalAlignment.Center,
 				VerticalAlignment   = VerticalAlignment.Center,
