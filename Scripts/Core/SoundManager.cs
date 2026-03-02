@@ -76,9 +76,19 @@ public partial class SoundManager : Node
     /// Precomputes an 8-second ambient loop (Cm bass pulse + pad drone + shimmer)
     /// and streams it continuously via AudioStreamGenerator for seamless looping.
     /// </summary>
+    /// <summary>
+    /// Precomputes a 32-second ambient drone loop in the style of slow, evolving
+    /// space-ambient music. No percussion or melody — pure layered drone texture.
+    ///
+    /// Technique: each note is three slightly detuned oscillators (±0.10–0.15 Hz).
+    /// The detuning creates a slow beating / chorus effect (~7–10 s beat period)
+    /// that makes static sine waves feel alive without any explicit LFO on pitch.
+    /// Each harmonic group has an independent amplitude swell with a different period
+    /// (32 s, 16 s, 8 s) so the mix continuously shifts over the loop.
+    /// </summary>
     private void StartMusic()
     {
-        const float LoopDur = 8f;
+        const float LoopDur = 32f;
         int n = (int)(Rate * LoopDur);
         _musicFrames = new Vector2[n];
 
@@ -86,30 +96,47 @@ public partial class SoundManager : Node
         {
             float t = i / (float)Rate;
 
-            // Rhythmic bass pulse every 2 s — C2 (65.4 Hz) + C1 (32.7 Hz)
-            float tp      = t % 2f;
-            float bassEnv = MathF.Exp(-tp * 2.8f) * MathF.Min(1f, tp * 40f);
-            float bass    = (MathF.Sin(t * MathF.Tau * 65.4f) * 0.55f
-                           + MathF.Sin(t * MathF.Tau * 32.7f) * 0.25f) * bassEnv * 0.45f;
+            // ── Deep root: C1 + C2, three detuned oscillators each ───────────
+            // ±0.12 Hz offset → ~8 s beat period — very slow, living texture
+            float root = (MathF.Sin(t * MathF.Tau * 32.70f)
+                        + MathF.Sin(t * MathF.Tau * 32.82f)
+                        + MathF.Sin(t * MathF.Tau * 32.58f)) * 0.10f
+                       + (MathF.Sin(t * MathF.Tau * 65.41f)
+                        + MathF.Sin(t * MathF.Tau * 65.53f)
+                        + MathF.Sin(t * MathF.Tau * 65.29f)) * 0.07f;
 
-            // Pad chord: Cm (C3, Eb3, G3, C4) with slow 8-second LFO
-            float lfo = 0.55f + 0.45f * MathF.Sin(t * MathF.Tau * 0.125f);
-            float pad = (MathF.Sin(t * MathF.Tau * 130.8f) * 0.18f   // C3
-                       + MathF.Sin(t * MathF.Tau * 155.6f) * 0.12f   // Eb3
-                       + MathF.Sin(t * MathF.Tau * 196.0f) * 0.09f   // G3
-                       + MathF.Sin(t * MathF.Tau * 261.6f) * 0.05f)  // C4
-                       * lfo;
+            // ── Fifth: G1 + G2 with a slow swell (32-s period) ───────────────
+            float fifthSwell = 0.40f + 0.38f * MathF.Sin(t * MathF.Tau / 32f - MathF.PI * 0.5f);
+            float fifth = (MathF.Sin(t * MathF.Tau * 49.00f)
+                         + MathF.Sin(t * MathF.Tau * 49.10f)) * 0.06f * fifthSwell
+                        + (MathF.Sin(t * MathF.Tau * 98.00f)
+                         + MathF.Sin(t * MathF.Tau * 98.09f)) * 0.04f * fifthSwell;
 
-            // Faint high shimmer with chorus wobble
-            float shimmer = MathF.Sin(t * MathF.Tau * 523.3f) * 0.03f
-                          * (0.5f + 0.5f * MathF.Sin(t * MathF.Tau * 7.3f));
+            // ── Minor third: Eb2 + Eb3, independent swell (16-s period) ─────
+            float thirdSwell = 0.30f + 0.28f * MathF.Sin(t * MathF.Tau / 16f + MathF.PI * 0.3f);
+            float third = (MathF.Sin(t * MathF.Tau * 77.78f)
+                         + MathF.Sin(t * MathF.Tau * 77.87f)) * 0.05f * thirdSwell
+                        + (MathF.Sin(t * MathF.Tau * 155.56f)
+                         + MathF.Sin(t * MathF.Tau * 155.65f)) * 0.035f * thirdSwell;
 
-            float s = Mathf.Clamp(bass + pad + shimmer, -1f, 1f);
+            // ── Mid pad: full Cm cluster, detuned pairs, 8-s swell ───────────
+            float padSwell = 0.45f + 0.35f * MathF.Sin(t * MathF.Tau / 8f + MathF.PI * 0.7f);
+            float pad = (MathF.Sin(t * MathF.Tau * 130.81f) + MathF.Sin(t * MathF.Tau * 130.92f)) * 0.055f  // C3
+                      + (MathF.Sin(t * MathF.Tau * 155.56f) + MathF.Sin(t * MathF.Tau * 155.67f)) * 0.040f  // Eb3
+                      + (MathF.Sin(t * MathF.Tau * 196.00f) + MathF.Sin(t * MathF.Tau * 196.12f)) * 0.030f; // G3
+            pad *= padSwell;
+
+            // ── Shimmer: C4 + G4, very quiet, offset 32-s swell ─────────────
+            float shimSwell = 0.20f + 0.20f * MathF.Sin(t * MathF.Tau / 32f + MathF.PI * 0.9f);
+            float shimmer = (MathF.Sin(t * MathF.Tau * 261.63f) + MathF.Sin(t * MathF.Tau * 261.75f)) * 0.018f * shimSwell
+                           + MathF.Sin(t * MathF.Tau * 392.00f) * 0.010f * shimSwell;
+
+            float s = Mathf.Clamp(root + fifth + third + pad + shimmer, -1f, 1f);
             _musicFrames[i] = new Vector2(s, s);
         }
 
         var gen = new AudioStreamGenerator { MixRate = Rate, BufferLength = 0.5f };
-        _musicPlayer = new AudioStreamPlayer { Stream = gen, VolumeDb = -14f, Bus = "Music" };
+        _musicPlayer = new AudioStreamPlayer { Stream = gen, VolumeDb = -5f, Bus = "Music" };
         AddChild(_musicPlayer);
         _musicPlayer.Play();
         _musicPlayback = (AudioStreamGeneratorPlayback)_musicPlayer.GetStreamPlayback();
