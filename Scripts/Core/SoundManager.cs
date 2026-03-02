@@ -31,9 +31,13 @@ public partial class SoundManager : Node
     private AudioStreamPlayer?              _musicPlayer;
     private AudioStreamGeneratorPlayback?   _musicPlayback;
 
+    private bool _headless;
+
     public override void _Ready()
     {
-        Instance = this;
+        Instance  = this;
+        _headless = DisplayServer.GetName() == "headless";
+        if (_headless) return;   // skip all audio setup in bot/headless mode
 
         _pool       = new AudioStreamPlayer[PoolSize];
         _poolTimers = new float[PoolSize];
@@ -148,6 +152,7 @@ public partial class SoundManager : Node
 
     public override void _Process(double delta)
     {
+        if (_headless) return;
         // Stop SFX players whose sound has finished
         for (int i = 0; i < PoolSize; i++)
         {
@@ -173,6 +178,7 @@ public partial class SoundManager : Node
 
     public void Play(string id)
     {
+        if (_headless) return;
         if (!_samples.TryGetValue(id, out var samples)) return;
         float dur = _durations[id];
 

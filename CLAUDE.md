@@ -56,6 +56,27 @@ dotnet build SlotTheory.sln
 rm -f "E:/SlotTheory/export/SlotTheory.tmp" "E:/SlotTheory/export/SlotTheory.exe"
 ```
 
+## Bot Playtest Mode
+
+Runs N fully-automated games headless for balance data. **Must pass `--scene` — the default startup scene is MainMenu, not Main.**
+
+```bash
+# Always dotnet build first
+dotnet build SlotTheory.sln
+
+"E:/Godot/Godot_v4.6.1-stable_mono_win64_console.exe" \
+  --headless \
+  --path "E:/SlotTheory" \
+  --scene "res://Scenes/Main.tscn" \
+  -- --bot --runs 100
+```
+
+- Output (strategy table, wave difficulty, tower/modifier usage) goes to **stdout** — captured directly by the shell.
+- Bot log file also written to `C:/Users/kenny/AppData/Roaming/Godot/app_userdata/Slot Theory/logs/godot.log` (note the space in "Slot Theory" — different from the old "SlotTheory" directory).
+- `SoundManager` auto-detects headless mode (`DisplayServer.GetName() == "headless"`) and skips all audio init, preventing the per-frame `GetFramesAvailable()` hang.
+- `Targeting.SelectTarget(..., ignoreRange: BotMode)` skips range checks in bot mode (enemies' `GlobalPosition` is still updated via manual `Progress` increments in `BotTick`, but skipping range avoids misses on early-spawn enemies before they move).
+- 4 strategies cycle round-robin: `Random`, `TowerFirst`, `GreedyDps`, `MarkerSynergy`.
+
 ## Testing
 
 No test infrastructure exists yet. The TDD calls for:

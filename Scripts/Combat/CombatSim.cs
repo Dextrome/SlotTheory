@@ -104,7 +104,7 @@ public class CombatSim
             tower.Cooldown -= delta;
             if (tower.Cooldown > 0f) continue;
 
-            var target = Targeting.SelectTarget(tower, state.EnemiesAlive);
+            var target = Targeting.SelectTarget(tower, state.EnemiesAlive, ignoreRange: BotMode);
             if (target == null) continue;
 
             if (!BotMode) tower.LastTargetPosition = target.GlobalPosition;
