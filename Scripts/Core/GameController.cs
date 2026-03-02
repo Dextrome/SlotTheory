@@ -1,7 +1,9 @@
-﻿using Godot;
+﻿using System.Linq;
+using Godot;
 using SlotTheory.Combat;
 using SlotTheory.Data;
 using SlotTheory.Entities;
+using SlotTheory.Tools;
 using SlotTheory.UI;
 
 namespace SlotTheory.Core;
@@ -29,11 +31,25 @@ public partial class GameController : Node
 	private Node2D _mapVisuals = null!;
 	private Panel _tooltipPanel = null!;
 	private Label _tooltipLabel = null!;
+	private BotRunner? _botRunner;
+	private int _extraPicksRemaining;
 
 	public override void _Ready()
 	{
 		Instance = this;
 		DataLoader.LoadAll();
+		// Bot playtest mode: godot --headless --path ... -- --bot --runs N
+		var userArgs = OS.GetCmdlineUserArgs();
+		if (userArgs.Contains("--bot"))
+		{
+			int runs = 50;
+			int ri = System.Array.IndexOf(userArgs, "--runs");
+			if (ri >= 0 && ri + 1 < userArgs.Length)
+				int.TryParse(userArgs[ri + 1], out runs);
+			_botRunner = new BotRunner(runs);
+			Engine.MaxFps = 0;
+			GD.Print($"[BOT] Headless playtest: {runs} runs");
+		}
 
 		_runState = new RunState();
 		_draftSystem = new DraftSystem();
@@ -44,6 +60,7 @@ public partial class GameController : Node
 			LanePath   = LanePath,
 			Sounds     = SoundManager.Instance,
 		};
+		_combatSim.BotMode = _botRunner != null;
 		_draftPanel = GetNode<DraftPanel>("../DraftPanel");
 		_hudPanel   = GetNode<HudPanel>("../HudPanel");
 		_endScreen  = GetNode<EndScreen>("../EndScreen");
@@ -58,13 +75,16 @@ public partial class GameController : Node
 		SetupTooltip();
 
 		GD.Print("Slot Theory booted.");
+		_extraPicksRemaining = Balance.Wave1ExtraPicks;
 		StartDraftPhase();
 	}
 
 	public override void _Process(double delta)
 	{
-		UpdateTooltip();
+		if (_botRunner == null) UpdateTooltip();
 		if (CurrentPhase != GamePhase.Wave) return;
+
+		if (_botRunner != null) { BotTick(); return; }
 
 		var result = _combatSim.Step((float)delta, _runState, _waveSystem);
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
@@ -111,6 +131,13 @@ public partial class GameController : Node
 			return;
 		}
 
+		if (_botRunner != null)
+		{
+			var pick = _botRunner.CurrentBot.Pick(options, _runState);
+			if (pick != null) OnDraftPick(pick.Option, pick.SlotIndex);
+			else              StartWavePhase();
+			return;
+		}
 		_draftPanel.Show(options, _runState.WaveIndex + 1);
 	}
 
@@ -147,6 +174,7 @@ public partial class GameController : Node
 		SetupSlots();
 
 		GD.Print("Run restarted.");
+		_extraPicksRemaining = Balance.Wave1ExtraPicks;
 		StartDraftPhase();
 	}
 
@@ -163,6 +191,12 @@ public partial class GameController : Node
 			var tower = _runState.Slots[targetSlotIndex].Tower;
 			if (tower != null)
 				_draftSystem.ApplyModifier(option.Id, tower);
+		}
+		if (_runState.WaveIndex == 0 && _extraPicksRemaining > 0)
+		{
+			_extraPicksRemaining--;
+			StartDraftPhase();
+			return;
 		}
 		StartWavePhase();
 	}
@@ -426,6 +460,56 @@ public partial class GameController : Node
 		_tooltipPanel.Visible = false;
 	}
 
+
+	// -- Bot multi-step simulation -------------------------------------------------
+
+	private const float BOT_DT    = 0.05f;
+	private const int   BOT_STEPS = 100;
+
+	private void BotTick()
+	{
+		for (int i = 0; i < BOT_STEPS && CurrentPhase == GamePhase.Wave; i++)
+		{
+			// Manually advance enemies (PathFollow2D._Process is disabled in bot mode)
+			foreach (var enemy in _runState.EnemiesAlive)
+			{
+				if (!GodotObject.IsInstanceValid(enemy)) continue;
+				float spd = enemy.IsSlowed ? enemy.Speed * Balance.SlowSpeedFactor : enemy.Speed;
+				enemy.Progress     += spd * BOT_DT;
+				if (enemy.MarkedRemaining > 0f) enemy.MarkedRemaining -= BOT_DT;
+				if (enemy.SlowRemaining   > 0f) enemy.SlowRemaining   -= BOT_DT;
+			}
+
+			var result = _combatSim.Step(BOT_DT, _runState, _waveSystem);
+
+			if (result == WaveResult.Loss)
+			{
+				CurrentPhase = GamePhase.Loss;
+				_botRunner!.RecordResult(false, _runState.WaveIndex + 1, _runState);
+				if (_botRunner.HasMoreRuns) { RestartRun(); return; }
+				_botRunner.PrintSummary();
+				GetTree().Quit();
+				return;
+			}
+
+			if (result == WaveResult.WaveComplete)
+			{
+				_botRunner!.RecordWaveEnd(_runState.Lives);
+				_runState.WaveIndex++;
+				if (_runState.WaveIndex >= Balance.TotalWaves)
+				{
+					CurrentPhase = GamePhase.Win;
+					_botRunner.RecordResult(true, _runState.WaveIndex, _runState);
+					if (_botRunner.HasMoreRuns) { RestartRun(); return; }
+					_botRunner.PrintSummary();
+					GetTree().Quit();
+					return;
+				}
+				StartDraftPhase();
+				return;
+			}
+		}
+	}
 	private void StartWavePhase()
 	{
 		CurrentPhase = GamePhase.Wave;

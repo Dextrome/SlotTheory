@@ -6,6 +6,7 @@ public static class Balance
     // Run structure
     public const int TotalWaves = 20;
     public const int SlotCount = 6;
+    public const int Wave1ExtraPicks = 1;          // extra draft picks before wave 1 starts
     public const int StartingLives = 10;
     public const int MaxModifiersPerTower = 3;
     public const int DraftOptionsCount = 5;
@@ -15,7 +16,7 @@ public static class Balance
 
     // Enemies — Basic Walker
     public const float BaseEnemyHp = 65f;
-    public const float HpGrowthPerWave = 1.12f;  // HP × 1.12^(wave-1)
+    public const float HpGrowthPerWave = 1.07f;  // HP × 1.07^(wave-1)
     public const float BaseEnemySpeed = 120f;     // pixels per second along path
 
     // Enemies — Armored Walker

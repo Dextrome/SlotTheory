@@ -29,6 +29,9 @@ public class CombatSim
     // Injected by GameController after scene is ready
     public SoundManager? Sounds { get; set; }
 
+    /// <summary>When true: damage is instant, no visuals spawned, enemies don't self-move.</summary>
+    public bool BotMode { get; set; }
+
     /// <summary>Lightweight reset used on run restart (before wave is loaded).</summary>
     public void ResetForWave()
     {
@@ -134,6 +137,11 @@ public class CombatSim
     private void SpawnProjectile(Vector2 fromGlobal, EnemyInstance target, Color color,
                                  TowerInstance tower, int waveIndex, List<EnemyInstance> enemies)
     {
+        if (BotMode)
+        {
+            DamageModel.Apply(new DamageContext(tower, target, waveIndex, enemies));
+            return;
+        }
         if (LanePath == null) return;
         var proj = new ProjectileVisual();
         LanePath.GetParent().AddChild(proj);
@@ -142,7 +150,7 @@ public class CombatSim
 
     private void SpawnDeathBurst(Vector2 worldPos, bool isArmored)
     {
-        if (LanePath == null) return;
+        if (BotMode || LanePath == null) return;
         var burst = new DeathBurst();
         LanePath.GetParent().AddChild(burst);
         burst.GlobalPosition = worldPos;
@@ -170,6 +178,7 @@ public class CombatSim
         var enemy = EnemyScene.Instantiate<EnemyInstance>();
         enemy.Initialize(typeId, hp, speed);
         LanePath.AddChild(enemy);
+        if (BotMode) enemy.SetProcess(false);
 
         state.EnemiesAlive.Add(enemy);
         state.EnemiesSpawnedThisWave++;
