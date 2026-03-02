@@ -59,6 +59,7 @@ public partial class SoundManager : Node
         Reg("hit",          Tone(520f, 0.03f, vol: 0.16f, shape: 'n', env: 'f'));
         Reg("die_basic",    Sweep(400f, 170f, 0.14f, vol: 0.55f));
         Reg("die_armored",  Sweep(155f,  50f, 0.24f, vol: 0.70f));
+        Reg("die_swift",    Sweep(900f, 400f, 0.08f, vol: 0.45f));
         Reg("leak",         Sweep(230f,  90f, 0.34f, vol: 0.60f));
 
         // ── Wave events ──────────────────────────────────────────────────

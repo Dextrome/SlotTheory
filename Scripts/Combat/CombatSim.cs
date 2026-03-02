@@ -45,29 +45,52 @@ public class CombatSim
         _spawnTimer = 0f;
         _spawnQueue.Clear();
 
-        int walkers = ws.GetWalkerCount();
-        int tankies = ws.GetTankyCount();
-        int total   = walkers + tankies;
+        int walkers  = ws.GetWalkerCount();
+        int tankies  = ws.GetTankyCount();
+        int swifties = ws.GetSwiftCount();
+        int total    = walkers + tankies + swifties;
+
+        // Build a per-slot type array; fill with basics then overlay other types
+        var slots = new string[total];
+        for (int i = 0; i < total; i++) slots[i] = "basic_walker";
 
         if (ws.GetClumpArmored() && tankies > 0)
         {
             // Group all armored enemies into one block, starting at the 1/3 mark.
             // Creates a panic spike: warm-up basics → armored wall → cleanup basics.
             int blockStart = total / 3;
-            for (int i = 0; i < total; i++)
-                _spawnQueue.Enqueue(i >= blockStart && i < blockStart + tankies ? "armored_walker" : "basic_walker");
+            for (int i = blockStart; i < blockStart + tankies; i++)
+                slots[i] = "armored_walker";
         }
-        else
+        else if (tankies > 0)
         {
-            // Spread tankies evenly across the wave (default)
-            var tankySlots = new HashSet<int>();
-            if (tankies > 0)
-                for (int t = 0; t < tankies; t++)
-                    tankySlots.Add((int)Math.Round((t + 0.5) * total / tankies));
-
-            for (int i = 0; i < total; i++)
-                _spawnQueue.Enqueue(tankySlots.Contains(i) ? "armored_walker" : "basic_walker");
+            // Spread tankies evenly
+            for (int t = 0; t < tankies; t++)
+            {
+                int ideal = (int)Math.Round((t + 0.5) * total / tankies);
+                for (int d = 0; d < total; d++)
+                {
+                    int s = (ideal + d) % total;
+                    if (slots[s] == "basic_walker") { slots[s] = "armored_walker"; break; }
+                }
+            }
         }
+
+        if (swifties > 0)
+        {
+            // Spread swift walkers evenly, skipping already-assigned slots
+            for (int sw = 0; sw < swifties; sw++)
+            {
+                int ideal = (int)Math.Round((sw + 0.5) * total / swifties);
+                for (int d = 0; d < total; d++)
+                {
+                    int s = (ideal + d) % total;
+                    if (slots[s] == "basic_walker") { slots[s] = "swift_walker"; break; }
+                }
+            }
+        }
+
+        foreach (string t in slots) _spawnQueue.Enqueue(t);
     }
 
     public WaveResult Step(float delta, RunState state, WaveSystem waveSystem)
@@ -133,9 +156,13 @@ public class CombatSim
         // 4. Remove dead enemies
         foreach (var dead in state.EnemiesAlive.FindAll(e => e.Hp <= 0))
         {
-            bool isArmored = dead.EnemyTypeId == "armored_walker";
-            Sounds?.Play(isArmored ? "die_armored" : "die_basic");
-            SpawnDeathBurst(dead.GlobalPosition, isArmored);
+            Sounds?.Play(dead.EnemyTypeId switch
+            {
+                "armored_walker" => "die_armored",
+                "swift_walker"   => "die_swift",
+                _                => "die_basic",
+            });
+            SpawnDeathBurst(dead.GlobalPosition, dead.EnemyTypeId);
             dead.QueueFree();
         }
         state.EnemiesAlive.RemoveAll(e => e.Hp <= 0 || !GodotObject.IsInstanceValid(e));
@@ -205,15 +232,19 @@ public class CombatSim
         }
     }
 
-    private void SpawnDeathBurst(Vector2 worldPos, bool isArmored)
+    private void SpawnDeathBurst(Vector2 worldPos, string typeId)
     {
         if (BotMode || LanePath == null) return;
         var burst = new DeathBurst();
         LanePath.GetParent().AddChild(burst);
         burst.GlobalPosition = worldPos;
-        burst.Initialize(
-            isArmored ? new Color(0.62f, 0.07f, 0.07f) : new Color(0.95f, 0.22f, 0.12f),
-            isArmored ? 1.5f : 1.0f);
+        var (color, scale) = typeId switch
+        {
+            "armored_walker" => (new Color(0.62f, 0.07f, 0.07f), 1.5f),
+            "swift_walker"   => (new Color(0.60f, 1.00f, 0.10f), 0.75f),
+            _                => (new Color(0.95f, 0.22f, 0.12f), 1.0f),
+        };
+        burst.Initialize(color, scale);
     }
 
     private void SpawnEnemy(RunState state, string typeId)
@@ -230,7 +261,12 @@ public class CombatSim
         }
 
         float hp    = WaveSystem.GetScaledHp(typeId, state.WaveIndex);
-        float speed = typeId == "armored_walker" ? Balance.TankyEnemySpeed : Balance.BaseEnemySpeed;
+        float speed = typeId switch
+        {
+            "armored_walker" => Balance.TankyEnemySpeed,
+            "swift_walker"   => Balance.SwiftEnemySpeed,
+            _                => Balance.BaseEnemySpeed,
+        };
 
         var enemy = EnemyScene.Instantiate<EnemyInstance>();
         enemy.Initialize(typeId, hp, speed);
