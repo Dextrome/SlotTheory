@@ -104,13 +104,13 @@ public partial class ProjectileVisual : Node2D
                         _target.FlashHit();
                 }
 
-                // Split Shot — primary hits only; split projectiles cannot recurse
-                if (_tower.SplitCount > 0 && !_isSplitProjectile)
-                    SpawnSplitProjectiles(_target.GlobalPosition);
-
-                // Chain bounces — primary hits only; split projectiles cannot chain
+                // Chain bounces first (hitscan) — split shot then picks from surviving enemies
                 if (_tower.IsChainTower && !_isSplitProjectile)
                     ApplyChainHits(_target.GlobalPosition);
+
+                // Split Shot — fires at enemies that weren't already killed by chain
+                if (_tower.SplitCount > 0 && !_isSplitProjectile)
+                    SpawnSplitProjectiles(_target.GlobalPosition);
             }
             QueueFree();
             return;
