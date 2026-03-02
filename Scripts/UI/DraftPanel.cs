@@ -19,9 +19,31 @@ public partial class DraftPanel : CanvasLayer
     private DraftOption? _pendingModifier;
     private DraftOption? _pendingTower;
     private ColorRect _bg = null!;
+    private List<DraftOption> _lastOptions  = new();
+    private int  _lastWaveNumber = 1;
+    private int  _lastPickNumber = 1;
+    private int  _lastTotalPicks = 1;
 
     public bool IsAwaitingSlot  => _pendingTower    != null;
     public bool IsAwaitingTower => _pendingModifier != null;
+
+    public string PlacementHint
+    {
+        get
+        {
+            if (_pendingTower != null)
+            {
+                var def = DataLoader.GetTowerDef(_pendingTower.Id);
+                return $"Click a slot to place  {def.Name}";
+            }
+            if (_pendingModifier != null)
+            {
+                var def = DataLoader.GetModifierDef(_pendingModifier.Id);
+                return $"Click a tower to assign  {def.Name}";
+            }
+            return "";
+        }
+    }
 
     public bool IsSlotValidTarget(int i)
     {
@@ -84,6 +106,11 @@ public partial class DraftPanel : CanvasLayer
 
     public void Show(List<DraftOption> options, int waveNumber, int pickNumber = 1, int totalPicks = 1)
     {
+        _lastOptions    = options;
+        _lastWaveNumber = waveNumber;
+        _lastPickNumber = pickNumber;
+        _lastTotalPicks = totalPicks;
+
         _titleLabel.Text = totalPicks > 1
             ? $"Wave {waveNumber}  —  Pick {pickNumber} of {totalPicks}"
             : $"Wave {waveNumber}  —  Choose";
@@ -101,6 +128,15 @@ public partial class DraftPanel : CanvasLayer
     {
         if (!Visible) return;
         if (@event is not InputEventKey { Pressed: true } key) return;
+
+        if (key.Keycode == Key.Escape && (_pendingTower != null || _pendingModifier != null))
+        {
+            _pendingTower    = null;
+            _pendingModifier = null;
+            Show(_lastOptions, _lastWaveNumber, _lastPickNumber, _lastTotalPicks);
+            GetViewport().SetInputAsHandled();
+            return;
+        }
 
         int idx = key.Keycode switch
         {
@@ -216,6 +252,7 @@ public partial class DraftPanel : CanvasLayer
     {
         if (_pendingModifier == null) return;
         Visible = false;
+        SlotTheory.Core.SoundManager.Instance?.Play("tower_place");
         GameController.Instance.OnDraftPick(_pendingModifier, slotIndex);
     }
 
@@ -223,6 +260,7 @@ public partial class DraftPanel : CanvasLayer
     {
         if (_pendingTower == null) return;
         Visible = false;
+        SlotTheory.Core.SoundManager.Instance?.Play("tower_place");
         GameController.Instance.OnDraftPick(_pendingTower, slotIndex);
     }
 

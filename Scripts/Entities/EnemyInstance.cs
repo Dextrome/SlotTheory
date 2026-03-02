@@ -37,6 +37,9 @@ public partial class EnemyInstance : PathFollow2D
         Speed = speed;
 
         bool isArmored = typeId == "armored_walker";
+        if (isArmored)
+            Scale = new Vector2(1.5f, 1.5f);
+
         _hpBarWidth    = isArmored ? 34f : 24f;
         float barY     = isArmored ? -26f : -20f;
         float barX     = -_hpBarWidth / 2f;
@@ -145,6 +148,14 @@ public partial class EnemyInstance : PathFollow2D
         // Slow ring (cyan)
         if (IsSlowed)
             DrawArc(Vector2.Zero, 21.5f, 0f, Mathf.Tau, 32, new Color(0.20f, 0.85f, 1.00f, 0.90f), 2.5f);
+    }
+
+    public void FlashHit()
+    {
+        var tween = CreateTween();
+        tween.TweenProperty(this, "modulate", new Color(2f, 2f, 2f), 0.03f);
+        tween.TweenProperty(this, "modulate", Colors.White, 0.15f)
+             .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);
     }
 
     private static Vector2[] RegularPoly(int sides, float radius, float angleOffset)

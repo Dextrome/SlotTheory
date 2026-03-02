@@ -36,6 +36,9 @@ public partial class GameController : Node
 	private Panel _tooltipPanel = null!;
 	private Label _tooltipLabel = null!;
 	private Label _waveAnnounce = null!;
+	private Label _placementLabel = null!;
+	private ColorRect _waveClearFlash = null!;
+	private Node2D _worldNode = null!;
 	private BotRunner? _botRunner;
 	private int _extraPicksRemaining;
 
@@ -70,10 +73,10 @@ public partial class GameController : Node
 		_hudPanel   = GetNode<HudPanel>("../HudPanel");
 		_endScreen  = GetNode<EndScreen>("../EndScreen");
 
-		var world = GetNode<Node2D>("../World");
+		_worldNode = GetNode<Node2D>("../World");
 		_mapVisuals = new Node2D { Name = "_mapVisuals" };
-		world.AddChild(_mapVisuals);
-		world.MoveChild(_mapVisuals, 0);
+		_worldNode.AddChild(_mapVisuals);
+		_worldNode.MoveChild(_mapVisuals, 0);
 
 		GenerateMap();
 		SetupSlots();
@@ -94,6 +97,8 @@ public partial class GameController : Node
 		else if (_highlightedSlot != -1)
 			ClearSlotHighlights();
 
+		if (_botRunner == null) UpdatePlacementLabel();
+
 		if (CurrentPhase != GamePhase.Wave) return;
 
 		if (_botRunner != null) { BotTick(); return; }
@@ -102,7 +107,7 @@ public partial class GameController : Node
 		var result = _combatSim.Step((float)delta, _runState, _waveSystem);
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 		_hudPanel.RefreshEnemies(_runState.EnemiesAlive.Count, _waveSystem.GetTotalCount());
-		if (_runState.Lives < livesBefore) _hudPanel.FlashLives();
+		if (_runState.Lives < livesBefore) { _hudPanel.FlashLives(); ShakeWorld(); }
 
 		if (result == WaveResult.Loss)
 		{
@@ -126,6 +131,7 @@ public partial class GameController : Node
 			}
 			else
 			{
+				if (_botRunner == null) ShowWaveClearFlash();
 				SoundManager.Instance?.Play("wave_clear");
 				_extraPicksRemaining = Balance.ExtraPicksForWave(_runState.WaveIndex);
 				StartDraftPhase();
@@ -334,7 +340,7 @@ public partial class GameController : Node
 
 	private void SetupSlots()
 	{
-		var slotsNode = GetNode<Node2D>("../World/Slots");
+		var slotsNode = _worldNode.GetNode<Node2D>("Slots");
 		for (int i = 0; i < Balance.SlotCount; i++)
 		{
 			_slotNodes[i] = slotsNode.GetNode<Node2D>($"Slot{i}");
@@ -652,6 +658,28 @@ public partial class GameController : Node
 		UITheme.ApplyFont(_waveAnnounce, semiBold: true, size: 54);
 		_waveAnnounce.AddThemeColorOverride("font_color", new Color(0.85f, 0.20f, 1.00f));
 		anchor.AddChild(_waveAnnounce);
+
+		_placementLabel = new Label();
+		_placementLabel.HorizontalAlignment = HorizontalAlignment.Center;
+		_placementLabel.AnchorLeft   = 0f;
+		_placementLabel.AnchorRight  = 1f;
+		_placementLabel.AnchorTop    = 0f;
+		_placementLabel.AnchorBottom = 0f;
+		_placementLabel.OffsetTop    = 50f;
+		_placementLabel.OffsetBottom = 80f;
+		_placementLabel.GrowHorizontal = Control.GrowDirection.Both;
+		_placementLabel.Visible = false;
+		_placementLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
+		UITheme.ApplyFont(_placementLabel, semiBold: true, size: 20);
+		_placementLabel.Modulate = new Color(1f, 0.85f, 0.15f);
+		anchor.AddChild(_placementLabel);
+
+		_waveClearFlash = new ColorRect();
+		_waveClearFlash.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		_waveClearFlash.Color   = new Color(0.10f, 1f, 0.45f, 0f);
+		_waveClearFlash.Visible = false;
+		_waveClearFlash.MouseFilter = Control.MouseFilterEnum.Ignore;
+		anchor.AddChild(_waveClearFlash);
 	}
 
 	private void ShowWaveAnnouncement(int wave)
@@ -690,5 +718,40 @@ public partial class GameController : Node
 		SoundManager.Instance?.Play("wave_start");
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 		GD.Print($"Wave {_runState.WaveIndex + 1} started.");
+	}
+
+	private void ShakeWorld()
+	{
+		var tween = CreateTween();
+		tween.TweenProperty(_worldNode, "position", new Vector2( 4f,  2f), 0.04f);
+		tween.TweenProperty(_worldNode, "position", new Vector2(-4f, -3f), 0.04f);
+		tween.TweenProperty(_worldNode, "position", new Vector2( 3f, -2f), 0.04f);
+		tween.TweenProperty(_worldNode, "position", new Vector2(-2f,  3f), 0.04f);
+		tween.TweenProperty(_worldNode, "position", Vector2.Zero,          0.04f);
+	}
+
+	private void UpdatePlacementLabel()
+	{
+		if (CurrentPhase != GamePhase.Draft || (!_draftPanel.IsAwaitingSlot && !_draftPanel.IsAwaitingTower))
+		{
+			_placementLabel.Visible = false;
+			return;
+		}
+		if (!_placementLabel.Visible)
+		{
+			_placementLabel.Text    = _draftPanel.PlacementHint;
+			_placementLabel.Visible = true;
+		}
+	}
+
+	private void ShowWaveClearFlash()
+	{
+		_waveClearFlash.Color   = new Color(0.10f, 1f, 0.45f, 0f);
+		_waveClearFlash.Visible = true;
+		var tween = CreateTween();
+		tween.TweenProperty(_waveClearFlash, "color", new Color(0.10f, 1f, 0.45f, 0.18f), 0.08f);
+		tween.TweenProperty(_waveClearFlash, "color", new Color(0.10f, 1f, 0.45f, 0f),    0.40f)
+			 .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);
+		tween.TweenCallback(Callable.From(() => _waveClearFlash.Visible = false));
 	}
 }
