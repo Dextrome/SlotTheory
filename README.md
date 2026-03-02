@@ -59,6 +59,7 @@ If no draft options are possible (all slots full and all towers at modifier cap)
 | **Rapid Shooter** | Hexagonal cyan | 10 | 0.4 s | 300 px | High rate of fire, low damage per hit |
 | **Heavy Cannon** | Octagonal orange | 60 | 2.0 s | 250 px | Slow but hits hard |
 | **Marker Tower** | Diamond pink | 5 | 1.0 s | 350 px | Applies **Mark** on every hit |
+| **Arc Emitter** | Circular blue-white | 14 | 1.2 s | 270 px | Chains to 2 nearby enemies (60% decay per bounce) |
 
 ---
 
@@ -80,10 +81,10 @@ Hover over a tower to see its current targeting mode and equipped modifiers.
 
 | Modifier | Effect |
 |---|---|
-| **Momentum** | +10% damage per consecutive hit on the same target, capped at 5 stacks (+50% max). Resets when the tower switches targets. |
-| **Overkill** | Excess damage from a killing blow spills over to the next enemy in the lane (once per attack). |
+| **Momentum** | +8% damage per consecutive hit on the same target, capped at 5 stacks (×1.4 max). Resets when the tower switches targets. |
+| **Overkill** | 80% of excess damage from a killing blow spills over to the next enemy in the lane (once per attack). |
 | **Exploit Weakness** | Deal +50% damage to **Marked** enemies. Pairs with Marker Tower. |
-| **Focus Lens** | +150% damage, ×2 attack interval. Net DPS +25% — but the big hits are the point: ideal for Overkill combos and one-shotting tanky enemies. |
+| **Focus Lens** | +100% damage, ×2 attack interval. Big hits, slow fire — ideal for Overkill combos and one-shotting tanky enemies. |
 | **Chill Shot** | On hit, −30% movement speed for 5 seconds. Enemies linger in range longer, giving all towers more time to fire. |
 | **Overreach** | +50% range, −25% damage. Wider coverage — great on Marker Tower or any tower that needs to reach more of the path. |
 | **Hair Trigger** | +50% attack speed, −30% range. Close-quarters rapid-fire — pairs naturally with Momentum and Chill Shot. |
@@ -93,7 +94,7 @@ Hover over a tower to see its current targeting mode and equipped modifiers.
 ## Marked
 
 When a **Marker Tower** hits an enemy it applies the **Mark** status for 2 seconds.
-While Marked, that enemy takes **+20% damage from all towers** (before any modifier bonuses).
+While Marked, that enemy takes **+30% damage from all towers** (before any modifier bonuses).
 
 Pair Marker Tower + **Exploit Weakness** on another tower for a large burst damage combo.
 
@@ -102,7 +103,7 @@ Pair Marker Tower + **Exploit Weakness** on another tower for a large burst dama
 ## Enemies
 
 ### Basic Walker
-- 120 px/s movement, 65 HP on wave 1, scales ×1.06 per wave (~197 HP by wave 20).
+- 120 px/s movement, 65 HP on wave 1, scales ×1.08 per wave (~291 HP by wave 20).
 - Leaks cost **1 life**.
 - Round teal body — easy to spot.
 
@@ -127,7 +128,8 @@ Each run generates a new snake-shaped path across an 8×5 grid. Tower slots are 
 ## Tips
 
 - **Rapid Shooter + Momentum**: Stack Momentum on your fastest-firing tower for massive DPS on tanky enemies that take multiple hits to kill.
-- **Marker Tower + Exploit Weakness**: Mark the enemy, then burst it for ×1.8 total (+20% mark × +50% exploit). The Marker Tower frees up your damage towers' modifier slots for pure damage.
-- **Heavy Cannon + Overkill**: One-shots weaker enemies and spills damage forward — good for tightly packed groups.
-- **Focus Lens** raises your floor if you're already doing enough DPS but need heavier individual hits to finish off enemies before they exit.
+- **Marker Tower + Exploit Weakness**: Mark the enemy, then burst it for ×1.95 total (+30% mark × +50% exploit). The Marker Tower frees up your damage towers' modifier slots for pure damage.
+- **Heavy Cannon + Overkill**: One-shots weaker enemies and spills 80% of excess damage forward — good for tightly packed groups.
+- **Arc Emitter + Hair Trigger**: Chain hits scale with attack speed — more shots means more arcs. Best placed mid-path where enemies cluster around corners.
+- **Focus Lens** trades fire rate for huge individual hits — pairs naturally with Overkill to punch through groups.
 - **Targeting mode matters late game** — switch your Marker Tower to *First* so it tags the lead enemy before your damage towers hit it.
