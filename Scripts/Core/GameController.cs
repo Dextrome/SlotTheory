@@ -27,7 +27,8 @@ public partial class GameController : Node
 	private HudPanel _hudPanel = null!;
 	private EndScreen _endScreen = null!;
 	private Node2D[] _slotNodes      = new Node2D[Balance.SlotCount];
-	private Line2D[] _slotHighlights = new Line2D[Balance.SlotCount];
+	private Line2D[] _slotHighlights      = new Line2D[Balance.SlotCount];
+	private Tween?[] _slotHighlightTweens = new Tween?[Balance.SlotCount];
 	private int      _highlightedSlot      = -1;
 	private bool     _highlightedSlotValid = false;
 	private MapLayout _currentMap = null!;
@@ -412,7 +413,9 @@ public partial class GameController : Node
 		// Fade out previous highlight
 		if (_highlightedSlot >= 0 && GodotObject.IsInstanceValid(_slotHighlights[_highlightedSlot]))
 		{
+			_slotHighlightTweens[_highlightedSlot]?.Kill();
 			var tw = _slotHighlights[_highlightedSlot].CreateTween();
+			_slotHighlightTweens[_highlightedSlot] = tw;
 			tw.TweenProperty(_slotHighlights[_highlightedSlot], "modulate", Colors.Transparent, 0.10f);
 		}
 
@@ -423,7 +426,9 @@ public partial class GameController : Node
 			_slotHighlights[newHover].DefaultColor = newValid
 				? (_draftPanel.IsAwaitingSlot ? new Color(1f, 0.85f, 0.15f) : Colors.White)
 				: new Color(1f, 0.15f, 0.15f);
+			_slotHighlightTweens[newHover]?.Kill();
 			var tw = _slotHighlights[newHover].CreateTween();
+			_slotHighlightTweens[newHover] = tw;
 			tw.TweenProperty(_slotHighlights[newHover], "modulate", Colors.White, 0.10f);
 		}
 
@@ -434,8 +439,12 @@ public partial class GameController : Node
 	private void ClearSlotHighlights()
 	{
 		for (int i = 0; i < Balance.SlotCount; i++)
+		{
+			_slotHighlightTweens[i]?.Kill();
+			_slotHighlightTweens[i] = null;
 			if (GodotObject.IsInstanceValid(_slotHighlights[i]))
 				_slotHighlights[i].Modulate = Colors.Transparent;
+		}
 		_highlightedSlot      = -1;
 		_highlightedSlotValid = false;
 	}
