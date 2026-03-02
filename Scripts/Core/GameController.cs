@@ -519,8 +519,10 @@ public partial class GameController : Node
 
 	private void UpdateTooltip()
 	{
-		// Only show during wave — hide behind draft/end overlays otherwise
-		if (CurrentPhase != GamePhase.Wave)
+		// Show during wave, and during modifier assignment so player can see what's on each tower
+		bool tooltipAllowed = CurrentPhase == GamePhase.Wave
+		                   || (CurrentPhase == GamePhase.Draft && _draftPanel.IsAwaitingTower);
+		if (!tooltipAllowed)
 		{
 			_tooltipPanel.Visible = false;
 			return;
