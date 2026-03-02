@@ -26,7 +26,9 @@ public partial class GameController : Node
 	private DraftPanel _draftPanel = null!;
 	private HudPanel _hudPanel = null!;
 	private EndScreen _endScreen = null!;
-	private Node2D[] _slotNodes = new Node2D[Balance.SlotCount];
+	private Node2D[] _slotNodes      = new Node2D[Balance.SlotCount];
+	private Line2D[] _slotHighlights = new Line2D[Balance.SlotCount];
+	private int      _highlightedSlot = -1;
 	private MapLayout _currentMap = null!;
 	private Node2D _mapVisuals = null!;
 	private Panel _tooltipPanel = null!;
@@ -84,6 +86,12 @@ public partial class GameController : Node
 	public override void _Process(double delta)
 	{
 		if (_botRunner == null) UpdateTooltip();
+
+		if (CurrentPhase == GamePhase.Draft && (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower))
+			UpdateSlotHighlights();
+		else if (_highlightedSlot != -1)
+			ClearSlotHighlights();
+
 		if (CurrentPhase != GamePhase.Wave) return;
 
 		if (_botRunner != null) { BotTick(); return; }
@@ -289,6 +297,25 @@ public partial class GameController : Node
 		if (@event is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return;
 
 		var mousePos = GetViewport().GetMousePosition();
+
+		// Draft assignment: click a slot in the world to place tower / assign modifier
+		if (CurrentPhase == GamePhase.Draft && (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower))
+		{
+			for (int i = 0; i < Balance.SlotCount; i++)
+			{
+				if (!_draftPanel.IsSlotValidTarget(i)) continue;
+				var hitRect = new Rect2(_slotNodes[i].GlobalPosition - new Vector2(22f, 22f), new Vector2(44f, 44f));
+				if (hitRect.HasPoint(mousePos))
+				{
+					_draftPanel.SelectSlot(i);
+					GetViewport().SetInputAsHandled();
+					return;
+				}
+			}
+			return;
+		}
+
+		// Wave phase: click tower to cycle targeting mode
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
 			var tower = _runState.Slots[i].Tower;
@@ -325,6 +352,13 @@ public partial class GameController : Node
 		_slotNodes[i].AddChild(new Line2D { Points = borderSq, Width = 7f,   DefaultColor = new Color(0.80f, 0.00f, 1.00f, 0.18f) });
 		_slotNodes[i].AddChild(new Line2D { Points = borderSq, Width = 1.5f, DefaultColor = new Color(0.80f, 0.00f, 1.00f, 0.80f) });
 
+		// Placement highlight — gold border, invisible until hovered in draft assignment mode
+		var hlSq = new[] { new Vector2(-23f,-23f), new Vector2(23f,-23f), new Vector2(23f,23f), new Vector2(-23f,23f), new Vector2(-23f,-23f) };
+		var hl = new Line2D { Points = hlSq, Width = 2.5f, DefaultColor = new Color(1f, 0.85f, 0.15f) };
+		hl.Modulate = Colors.Transparent;
+		_slotNodes[i].AddChild(hl);
+		_slotHighlights[i] = hl;
+
 			// Slot number label — below the slot square, always visible
 			_slotNodes[i].AddChild(new ColorRect
 			{
@@ -348,6 +382,38 @@ public partial class GameController : Node
 			slotLabel.AddThemeFontSizeOverride("font_size", 16);
 			_slotNodes[i].AddChild(slotLabel);
 		}
+	}
+
+	private void UpdateSlotHighlights()
+	{
+		var mousePos = GetViewport().GetMousePosition();
+		int newHover = -1;
+		for (int i = 0; i < Balance.SlotCount; i++)
+		{
+			if (!_draftPanel.IsSlotValidTarget(i)) continue;
+			var hitRect = new Rect2(_slotNodes[i].GlobalPosition - new Vector2(22f, 22f), new Vector2(44f, 44f));
+			if (hitRect.HasPoint(mousePos)) { newHover = i; break; }
+		}
+		if (newHover == _highlightedSlot) return;
+		if (_highlightedSlot >= 0 && GodotObject.IsInstanceValid(_slotHighlights[_highlightedSlot]))
+		{
+			var tw = _slotHighlights[_highlightedSlot].CreateTween();
+			tw.TweenProperty(_slotHighlights[_highlightedSlot], "modulate", Colors.Transparent, 0.10f);
+		}
+		if (newHover >= 0 && GodotObject.IsInstanceValid(_slotHighlights[newHover]))
+		{
+			var tw = _slotHighlights[newHover].CreateTween();
+			tw.TweenProperty(_slotHighlights[newHover], "modulate", Colors.White, 0.10f);
+		}
+		_highlightedSlot = newHover;
+	}
+
+	private void ClearSlotHighlights()
+	{
+		for (int i = 0; i < Balance.SlotCount; i++)
+			if (GodotObject.IsInstanceValid(_slotHighlights[i]))
+				_slotHighlights[i].Modulate = Colors.Transparent;
+		_highlightedSlot = -1;
 	}
 
 	private void GenerateMap()
