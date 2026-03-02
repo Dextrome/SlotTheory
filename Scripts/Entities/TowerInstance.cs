@@ -57,8 +57,8 @@ public partial class TowerInstance : Node2D
     public void FlashAttack()
     {
         var tween = CreateTween();
-        tween.TweenProperty(this, "modulate", new Color(2f, 2f, 2f), 0.04f);
-        tween.TweenProperty(this, "modulate", Colors.White, 0.18f)
+        tween.TweenProperty(this, "modulate", new Color(1.4f, 1.4f, 1.4f), 0.03f);
+        tween.TweenProperty(this, "modulate", Colors.White, 0.25f)
              .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);
     }
 
