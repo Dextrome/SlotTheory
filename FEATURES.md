@@ -160,7 +160,6 @@ Each of the 6 tower slots is a node with persistent child visuals:
 | Element | Detail |
 |---|---|
 | Empty slot | Dark purple filled square + neon violet border (7 px thick outer + 1.5 px inner) |
-| Slot number label | `"1"`–`"6"` centered below slot on a dark semi-transparent background |
 | Mod-count pip | Green `"N/3"` label in lower-right of slot; only visible when the tower has ≥ 1 modifier |
 | **Draft highlights** | Gold for valid tower slots, white for valid modifier targets, red for occupied/ineligible; fade in/out via tween |
 

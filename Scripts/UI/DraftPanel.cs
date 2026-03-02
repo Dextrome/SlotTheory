@@ -19,6 +19,7 @@ public partial class DraftPanel : CanvasLayer
     private DraftOption? _pendingModifier;
     private DraftOption? _pendingTower;
     private ColorRect _bg = null!;
+    private Control _root = null!;
     private List<DraftOption> _lastOptions  = new();
     private int  _lastWaveNumber = 1;
     private int  _lastPickNumber = 1;
@@ -63,19 +64,19 @@ public partial class DraftPanel : CanvasLayer
     {
         Visible = false;
 
-        var root = new Control();
-        root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        root.Theme = SlotTheory.Core.UITheme.Build();
-        AddChild(root);
+        _root = new Control();
+        _root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _root.Theme = SlotTheory.Core.UITheme.Build();
+        AddChild(_root);
 
         _bg = new ColorRect();
         _bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _bg.Color = new Color(0f, 0f, 0f, 0.75f);
-        root.AddChild(_bg);
+        _root.AddChild(_bg);
 
         var center = new CenterContainer();
         center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        root.AddChild(center);
+        _root.AddChild(center);
 
         var vbox = new VBoxContainer();
         vbox.AddThemeConstantOverride("separation", 20);
@@ -120,6 +121,7 @@ public partial class DraftPanel : CanvasLayer
         _towerRow.Visible = false;
         _cardRow.Visible = true;
         _bg.MouseFilter = Control.MouseFilterEnum.Stop;
+        _root.Size = GetViewport().GetVisibleRect().Size;
         BuildCardRow(options);
         Visible = true;
     }
