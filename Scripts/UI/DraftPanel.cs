@@ -205,27 +205,11 @@ public partial class DraftPanel : CanvasLayer
     {
         SlotTheory.Core.SoundManager.Instance?.Play("draft_pick");
         if (opt.Type == DraftOptionType.Tower)
-        {
             _pendingTower = opt;
-            var def = DataLoader.GetTowerDef(opt.Id);
-            _assignLabel.Text = $"→  Place  {def.Name}  in slot:";
-            _cardRow.Visible = false;
-            _bg.MouseFilter = Control.MouseFilterEnum.Ignore;
-            BuildEmptySlotRow();
-            _assignLabel.Visible = true;
-            _towerRow.Visible = true;
-        }
         else
-        {
             _pendingModifier = opt;
-            var modName = DataLoader.GetModifierDef(opt.Id).Name;
-            _assignLabel.Text = $"→  Assign  {modName}  to:";
-            _cardRow.Visible = false;
-            _bg.MouseFilter = Control.MouseFilterEnum.Ignore;
-            BuildTowerRow();
-            _assignLabel.Visible = true;
-            _towerRow.Visible = true;
-        }
+        // Hide panel — world slot highlights take over for placement/assignment
+        Visible = false;
     }
 
     private void OnTowerAssigned(int slotIndex)
