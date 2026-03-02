@@ -180,7 +180,7 @@ public partial class ProjectileVisual : Node2D
 
         foreach (var candidate in candidates)
         {
-            if (spawned >= _tower.SplitCount) break;
+            if (spawned >= _tower.SplitCount + 1) break;
             if (candidate.GlobalPosition.DistanceTo(impactPos) > SlotTheory.Core.Balance.SplitShotRange) break;
 
             var split = new ProjectileVisual();

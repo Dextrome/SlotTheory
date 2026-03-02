@@ -197,7 +197,7 @@ public class CombatSim
 
         foreach (var e in enemies)
         {
-            if (spawned >= tower.SplitCount) break;
+            if (spawned >= tower.SplitCount + 1) break;
             if (e == primary || e.Hp <= 0) continue;
             DamageModel.Apply(new DamageContext(tower, e, waveIndex, enemies, _state,
                                                 isChain: true, damageOverride: splitDamage));
