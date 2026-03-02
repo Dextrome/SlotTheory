@@ -19,6 +19,7 @@ public partial class DraftPanel : CanvasLayer
     private DraftOption? _pendingModifier;
     private DraftOption? _pendingTower;
     private ColorRect _bg = null!;
+    private CenterContainer _center = null!;
     private Control _root = null!;
     private List<DraftOption> _lastOptions  = new();
     private int  _lastWaveNumber = 1;
@@ -65,22 +66,19 @@ public partial class DraftPanel : CanvasLayer
         Visible = false;
 
         _root = new Control();
-        _root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _root.Theme = SlotTheory.Core.UITheme.Build();
         AddChild(_root);
 
         _bg = new ColorRect();
-        _bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _bg.Color = new Color(0f, 0f, 0f, 0.75f);
         _root.AddChild(_bg);
 
-        var center = new CenterContainer();
-        center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        _root.AddChild(center);
+        _center = new CenterContainer();
+        _root.AddChild(_center);
 
         var vbox = new VBoxContainer();
         vbox.AddThemeConstantOverride("separation", 20);
-        center.AddChild(vbox);
+        _center.AddChild(vbox);
 
         _titleLabel = new Label();
         _titleLabel.HorizontalAlignment = HorizontalAlignment.Center;
@@ -103,6 +101,22 @@ public partial class DraftPanel : CanvasLayer
         _towerRow.AddThemeConstantOverride("separation", 12);
         _towerRow.Visible = false;
         vbox.AddChild(_towerRow);
+
+        // Size _root, _bg, and _center to the viewport — must come after all three
+        // fields are assigned, and again whenever the viewport resizes.
+        GetViewport().SizeChanged += SyncRootToViewport;
+        SyncRootToViewport();
+    }
+
+    private void SyncRootToViewport()
+    {
+        var vr = GetViewport().GetVisibleRect();
+        _root.Position    = vr.Position;
+        _root.Size        = vr.Size;
+        _bg.Position      = Vector2.Zero;
+        _bg.Size          = vr.Size;
+        _center.Position  = Vector2.Zero;
+        _center.Size      = vr.Size;
     }
 
     public void Show(List<DraftOption> options, int waveNumber, int pickNumber = 1, int totalPicks = 1)
@@ -121,7 +135,7 @@ public partial class DraftPanel : CanvasLayer
         _towerRow.Visible = false;
         _cardRow.Visible = true;
         _bg.MouseFilter = Control.MouseFilterEnum.Stop;
-        _root.Size = GetViewport().GetVisibleRect().Size;
+        SyncRootToViewport();
         BuildCardRow(options);
         Visible = true;
     }

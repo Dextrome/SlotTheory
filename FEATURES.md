@@ -35,7 +35,7 @@ Towers are placed in **6 slots** on the map. Max **3 modifiers** per tower.
 |---|---|
 | Momentum | +10% damage per consecutive hit on the same target; resets on target switch. Caps at 5 stacks (×1.5 total). |
 | Overkill | Excess damage from a killing blow spills to the next enemy in lane (one spill only). |
-| Exploit Weakness | +100% damage vs Marked enemies. |
+| Exploit Weakness | +50% damage vs Marked enemies. |
 | Focus Lens | +150% damage, ×2 attack interval. Big hits, slow fire — synergises with Overkill. |
 | Hair Trigger | Reduces attack interval. |
 | Overreach | Increases tower range. |
