@@ -22,6 +22,7 @@ public partial class Settings : Node
 
         var center = new CenterContainer();
         center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        center.Theme = SlotTheory.Core.UITheme.Build();
         canvas.AddChild(center);
 
         var vbox = new VBoxContainer();
@@ -35,7 +36,7 @@ public partial class Settings : Node
             Text = "SETTINGS",
             HorizontalAlignment = HorizontalAlignment.Center,
         };
-        title.AddThemeFontSizeOverride("font_size", 52);
+        SlotTheory.Core.UITheme.ApplyFont(title, semiBold: true, size: 52);
         title.Modulate = new Color("#a6d608");
         vbox.AddChild(title);
 
@@ -104,7 +105,7 @@ public partial class Settings : Node
             CustomMinimumSize = new Vector2(160, 44),
         };
         back.AddThemeFontSizeOverride("font_size", 20);
-        back.Pressed += () => GetTree().ChangeSceneToFile("res://Scenes/MainMenu.tscn");
+        back.Pressed += () => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
         vbox.AddChild(back);
     }
 

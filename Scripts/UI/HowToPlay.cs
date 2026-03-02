@@ -21,6 +21,7 @@ public partial class HowToPlay : Node
 		// Scroll area
 		var scroll = new ScrollContainer();
 		scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		scroll.Theme = SlotTheory.Core.UITheme.Build();
 		canvas.AddChild(scroll);
 
 		var vbox = new VBoxContainer();
@@ -109,7 +110,7 @@ public partial class HowToPlay : Node
 			CustomMinimumSize = new Vector2(160, 48),
 		};
 		backBtn.AddThemeFontSizeOverride("font_size", 22);
-		backBtn.Pressed += () => GetTree().ChangeSceneToFile("res://Scenes/MainMenu.tscn");
+		backBtn.Pressed += () => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 		vbox.AddChild(backBtn);
 
 		AddSpacer(vbox, 40);
@@ -120,7 +121,7 @@ public partial class HowToPlay : Node
 	private static void AddTitle(VBoxContainer vbox, string text)
 	{
 		var lbl = new Label { Text = text, HorizontalAlignment = HorizontalAlignment.Center };
-		lbl.AddThemeFontSizeOverride("font_size", 52);
+		SlotTheory.Core.UITheme.ApplyFont(lbl, semiBold: true, size: 52);
 		lbl.Modulate = new Color("#a6d608");
 		vbox.AddChild(lbl);
 	}

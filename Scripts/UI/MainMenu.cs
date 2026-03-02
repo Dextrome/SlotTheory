@@ -22,6 +22,7 @@ public partial class MainMenu : Node
 		// Centre everything
 		var center = new CenterContainer();
 		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		center.Theme = SlotTheory.Core.UITheme.Build();
 		canvas.AddChild(center);
 
 		var vbox = new VBoxContainer();
@@ -34,7 +35,7 @@ public partial class MainMenu : Node
 			Text = "SLOT THEORY",
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
-		title.AddThemeFontSizeOverride("font_size", 80);
+		SlotTheory.Core.UITheme.ApplyFont(title, semiBold: true, size: 80);
 		title.Modulate = new Color("#a6d608");
 		vbox.AddChild(title);
 
@@ -58,9 +59,9 @@ public partial class MainMenu : Node
 		AddButton(vbox, "Quit to Desktop", 260, 48, 22, OnQuit);
 	}
 
-	private void OnPlay()      => GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
-	private void OnHowToPlay() => GetTree().ChangeSceneToFile("res://Scenes/HowToPlay.tscn");
-	private void OnSettings()  => GetTree().ChangeSceneToFile("res://Scenes/Settings.tscn");
+	private void OnPlay()      => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
+	private void OnHowToPlay() => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/HowToPlay.tscn");
+	private void OnSettings()  => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/Settings.tscn");
 	private void OnQuit()      => GetTree().Quit();
 
 	private static void AddSpacer(VBoxContainer vbox, int px)

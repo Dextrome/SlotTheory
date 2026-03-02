@@ -10,6 +10,7 @@ public partial class HudPanel : CanvasLayer
 {
     private Label _waveLabel = null!;
     private Label _livesLabel = null!;
+    private Label _enemyLabel = null!;
     private Button _speedBtn = null!;
     private bool _fast = false;
 
@@ -20,6 +21,7 @@ public partial class HudPanel : CanvasLayer
         var bar = new Panel();
         bar.SetAnchorsPreset(Control.LayoutPreset.TopWide);
         bar.CustomMinimumSize = new Vector2(0, 44);
+        bar.Theme = SlotTheory.Core.UITheme.Build();
         AddChild(bar);
 
         var hbox = new HBoxContainer();
@@ -41,6 +43,17 @@ public partial class HudPanel : CanvasLayer
         var mid = new Control();
         mid.CustomMinimumSize = new Vector2(40, 0);
         hbox.AddChild(mid);
+
+        _enemyLabel = new Label();
+        _enemyLabel.Text = "";
+        _enemyLabel.AddThemeFontSizeOverride("font_size", 16);
+        _enemyLabel.HorizontalAlignment = HorizontalAlignment.Center;
+        _enemyLabel.Modulate = new Color(1f, 1f, 1f, 0.6f);
+        hbox.AddChild(_enemyLabel);
+
+        var mid2 = new Control();
+        mid2.CustomMinimumSize = new Vector2(40, 0);
+        hbox.AddChild(mid2);
 
         _livesLabel = new Label();
         _livesLabel.Text = $"Lives: {Balance.StartingLives}";
@@ -106,5 +119,10 @@ public partial class HudPanel : CanvasLayer
         _livesLabel.Text = $"Lives: {lives}";
         _livesLabel.Modulate = lives <= 3 ? new Color(1f, 0.35f, 0.35f) : Colors.White;
         _livesLabel.PivotOffset = _livesLabel.Size / 2f;
+    }
+
+    public void RefreshEnemies(int alive, int total)
+    {
+        _enemyLabel.Text = alive > 0 ? $"{alive} / {total}" : "";
     }
 }

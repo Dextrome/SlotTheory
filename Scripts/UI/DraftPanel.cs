@@ -25,6 +25,7 @@ public partial class DraftPanel : CanvasLayer
 
         var root = new Control();
         root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        root.Theme = SlotTheory.Core.UITheme.Build();
         AddChild(root);
 
         var bg = new ColorRect();

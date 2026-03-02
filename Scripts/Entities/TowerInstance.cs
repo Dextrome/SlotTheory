@@ -54,6 +54,14 @@ public partial class TowerInstance : Node2D
         if (AttackInterval > 0f) QueueRedraw();
     }
 
+    public void FlashAttack()
+    {
+        var tween = CreateTween();
+        tween.TweenProperty(this, "modulate", new Color(2f, 2f, 2f), 0.04f);
+        tween.TweenProperty(this, "modulate", Colors.White, 0.18f)
+             .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);
+    }
+
     public void CycleTargetingMode()
     {
         TargetingMode = TargetingMode switch

@@ -26,6 +26,7 @@ public partial class PauseScreen : CanvasLayer
 
         var center = new CenterContainer();
         center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        center.Theme = SlotTheory.Core.UITheme.Build();
         AddChild(center);
 
         // Both panels live inside the same CenterContainer; only one is visible at a time
@@ -154,7 +155,7 @@ public partial class PauseScreen : CanvasLayer
 
     private void OnResume()  => Unpause();
     private void OnRestart() { Unpause(); GameController.Instance.RestartRun(); }
-    private void OnMainMenu() { GetTree().Paused = false; GetTree().ChangeSceneToFile("res://Scenes/MainMenu.tscn"); }
+    private void OnMainMenu() { GetTree().Paused = false; SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn"); }
     private void OnQuit()    => GetTree().Quit();
 
     private void OnOpenSettings()
@@ -175,6 +176,8 @@ public partial class PauseScreen : CanvasLayer
     {
         var lbl = new Label { Text = text, HorizontalAlignment = HorizontalAlignment.Center };
         lbl.AddThemeFontSizeOverride("font_size", fontSize);
+        if (fontSize > 28)
+            SlotTheory.Core.UITheme.ApplyFont(lbl, semiBold: true);
         lbl.Modulate = color;
         parent.AddChild(lbl);
     }
