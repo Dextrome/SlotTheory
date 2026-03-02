@@ -52,6 +52,8 @@ Towers are placed in **6 slots** on the map. Max **3 modifiers** per tower.
 
 Armored Walkers first appear at wave 7; count ramps to 5 by wave 20. Rendered at **1.5× scale** so they are visually distinct from Basic Walkers at a glance.
 
+**Waves 12–14 use clumped Armored spawns** (`"ClumpArmored": true` in `waves.json`): all Armored Walkers arrive as a consecutive block after the first third of basics, creating a mid-wave panic spike instead of a uniform drip.
+
 ### Enemy Visuals
 
 | Element | Detail |
@@ -132,6 +134,7 @@ Full-screen overlay shown between waves:
 | Feature | Detail |
 |---|---|
 | Pick counter | `"Wave 15 Draft — Pick 2 of 2"` when a bonus pick is active |
+| **Wave preview footer** | Blue-tinted label below the cards: `"↓ 22 Basic · 3 Armored [clumped]"` so the player knows what's coming before committing |
 | Card layout | Tower cards (name + stats) or modifier cards (name + description) |
 | Hover scale | Cards scale to 1.06× on mouse-over (0.08 s tween) |
 | Keyboard 1–5 | Press a number to select the corresponding card |

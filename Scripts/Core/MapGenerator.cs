@@ -218,11 +218,22 @@ public static class MapGenerator
 			}
 			else
 			{
+				// Entire zone is path — search zone first, then full grid, always excluding path cells
 				var any = new List<(int, int)>();
 				for (int c = minCol; c <= maxCol; c++)
 				for (int r = minRow; r <= maxRow; r++)
-					if (!usedCells.Contains((c, r)))
+					if (!pathGrid[c, r] && !usedCells.Contains((c, r)))
 						any.Add((c, r));
+
+				if (any.Count == 0)
+				{
+					// Zone is 100% path; fall back to any grass cell on the whole grid
+					for (int c = 0; c < COLS; c++)
+					for (int r = 0; r < ROWS; r++)
+						if (!pathGrid[c, r] && !usedCells.Contains((c, r)))
+							any.Add((c, r));
+				}
+
 				chosen = any.Count > 0 ? any[rng.Next(any.Count)] : (minCol, minRow);
 			}
 

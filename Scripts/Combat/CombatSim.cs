@@ -49,14 +49,25 @@ public class CombatSim
         int tankies = ws.GetTankyCount();
         int total   = walkers + tankies;
 
-        // Spread tankies evenly across the wave
-        var tankySlots = new HashSet<int>();
-        if (tankies > 0)
-            for (int t = 0; t < tankies; t++)
-                tankySlots.Add((int)Math.Round((t + 0.5) * total / tankies));
+        if (ws.GetClumpArmored() && tankies > 0)
+        {
+            // Group all armored enemies into one block, starting at the 1/3 mark.
+            // Creates a panic spike: warm-up basics → armored wall → cleanup basics.
+            int blockStart = total / 3;
+            for (int i = 0; i < total; i++)
+                _spawnQueue.Enqueue(i >= blockStart && i < blockStart + tankies ? "armored_walker" : "basic_walker");
+        }
+        else
+        {
+            // Spread tankies evenly across the wave (default)
+            var tankySlots = new HashSet<int>();
+            if (tankies > 0)
+                for (int t = 0; t < tankies; t++)
+                    tankySlots.Add((int)Math.Round((t + 0.5) * total / tankies));
 
-        for (int i = 0; i < total; i++)
-            _spawnQueue.Enqueue(tankySlots.Contains(i) ? "armored_walker" : "basic_walker");
+            for (int i = 0; i < total; i++)
+                _spawnQueue.Enqueue(tankySlots.Contains(i) ? "armored_walker" : "basic_walker");
+        }
     }
 
     public WaveResult Step(float delta, RunState state, WaveSystem waveSystem)

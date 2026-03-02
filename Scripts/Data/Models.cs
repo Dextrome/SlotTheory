@@ -20,5 +20,6 @@ public record ModifierDef(
 public record WaveConfig(
     int EnemyCount,
     float SpawnInterval,
-    int TankyCount = 0
+    int TankyCount = 0,
+    bool ClumpArmored = false  // group all armored enemies into one block instead of spreading evenly
 );
