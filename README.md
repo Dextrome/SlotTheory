@@ -58,7 +58,9 @@ If no draft options are possible (all slots full and all towers at modifier cap)
 | **Heavy Cannon** | Octagonal orange | 60 | 2.0 s | 250 px | Slow but hits hard |
 | **Marker Tower** | Diamond pink | 5 | 1.0 s | 350 px | Applies **Mark** on every hit |
 
-### Targeting Modes
+---
+
+## Targeting Modes
 
 Click a tower during a wave to cycle through targeting priorities:
 
