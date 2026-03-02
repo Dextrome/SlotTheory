@@ -24,6 +24,7 @@ public partial class SoundManager : Node
     private AudioStreamPlayer[] _pool       = Array.Empty<AudioStreamPlayer>();
     private float[]             _poolTimers = Array.Empty<float>();
     private int                 _poolIdx;
+    private AudioStreamPlayer?  _musicPlayer;
 
     public override void _Ready()
     {
@@ -60,6 +61,65 @@ public partial class SoundManager : Node
         // ── UI ───────────────────────────────────────────────────────────
         Reg("draft_pick",  Tone(740f, 0.07f, vol: 0.40f, shape: 's', env: 'f'));
         Reg("tower_place", Seq(new[] { 380f, 560f }, gapMs: 10, noteLen: 0.07f, vol: 0.46f));
+
+        StartMusic();
+    }
+
+    // ── Background music ─────────────────────────────────────────────────
+
+    /// <summary>
+    /// Synthesises an 8-second ambient loop (Cm bass pulse + pad drone + shimmer)
+    /// and plays it at -14 dB with PingPong looping to avoid seam clicks.
+    /// </summary>
+    private void StartMusic()
+    {
+        const float LoopDur = 8f;
+        int n = (int)(Rate * LoopDur);
+        var smp = new short[n];
+
+        for (int i = 0; i < n; i++)
+        {
+            float t = i / (float)Rate;
+
+            // Rhythmic bass pulse every 2 s — C2 (65.4 Hz) + C1 (32.7 Hz)
+            float tp      = t % 2f;
+            float bassEnv = MathF.Exp(-tp * 2.8f) * MathF.Min(1f, tp * 40f);
+            float bass    = (MathF.Sin(t * MathF.Tau * 65.4f) * 0.55f
+                           + MathF.Sin(t * MathF.Tau * 32.7f) * 0.25f) * bassEnv * 0.45f;
+
+            // Pad chord: Cm (C3, Eb3, G3, C4) with slow 8-second LFO
+            float lfo = 0.55f + 0.45f * MathF.Sin(t * MathF.Tau * 0.125f);
+            float pad = (MathF.Sin(t * MathF.Tau * 130.8f) * 0.18f   // C3
+                       + MathF.Sin(t * MathF.Tau * 155.6f) * 0.12f   // Eb3
+                       + MathF.Sin(t * MathF.Tau * 196.0f) * 0.09f   // G3
+                       + MathF.Sin(t * MathF.Tau * 261.6f) * 0.05f)  // C4
+                       * lfo;
+
+            // Faint high shimmer with chorus wobble
+            float shimmer = MathF.Sin(t * MathF.Tau * 523.3f) * 0.03f
+                          * (0.5f + 0.5f * MathF.Sin(t * MathF.Tau * 7.3f));
+
+            float s = Mathf.Clamp(bass + pad + shimmer, -1f, 1f);
+            smp[i] = (short)(s * 30000f);
+        }
+
+        var bytes = new byte[n * 2];
+        Buffer.BlockCopy(smp, 0, bytes, 0, bytes.Length);
+
+        var wav = new AudioStreamWav
+        {
+            Format    = AudioStreamWav.FormatEnum.Format16Bits,
+            MixRate   = Rate,
+            Stereo    = false,
+            LoopMode  = AudioStreamWav.LoopModeEnum.Pingpong,
+            LoopBegin = 0,
+            LoopEnd   = n,
+            Data      = bytes,
+        };
+
+        _musicPlayer = new AudioStreamPlayer { Stream = wav, VolumeDb = -14f };
+        AddChild(_musicPlayer);
+        _musicPlayer.Play();
     }
 
     public override void _Process(double delta)
