@@ -40,10 +40,6 @@ public static class DamageModel
 
         ctx.FinalDamage = damage;
 
-        // Debug: log whenever modifiers or Marked changed the damage
-        if (!Godot.Mathf.IsEqualApprox(damage, ctx.BaseDamage))
-            Godot.GD.Print($"  [DMG] {ctx.Attacker.TowerId} → base {ctx.BaseDamage:F0}  final {damage:F1}  (marked:{ctx.Target.IsMarked})");
-
         // 3. Apply damage
         ctx.Target.Hp -= damage;
 

@@ -19,9 +19,6 @@ public class Overkill : Modifier
             .MaxBy(e => e.ProgressRatio);
 
         if (next != null)
-        {
             next.Hp -= excess;
-            Godot.GD.Print($"  [Overkill] spill {excess:F1} → next enemy (hp now {next.Hp:F1})");
-        }
     }
 }

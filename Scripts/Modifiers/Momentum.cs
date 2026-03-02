@@ -16,10 +16,7 @@ public class Momentum : Modifier
     public override void ModifyDamage(ref float damage, DamageContext ctx)
     {
         if (_stacks > 0 && _lastTargetInstanceId == ctx.Target.GetInstanceId())
-        {
             damage *= (1f + _stacks * BonusPerStack);
-            Godot.GD.Print($"  [Momentum] ×{1f + _stacks * BonusPerStack:F2} ({_stacks} stacks)");
-        }
     }
 
     public override void OnHit(DamageContext ctx)
