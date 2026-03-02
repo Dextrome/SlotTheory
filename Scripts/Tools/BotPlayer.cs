@@ -6,7 +6,11 @@ using SlotTheory.Data;
 
 namespace SlotTheory.Tools;
 
-public enum BotStrategy { Random, TowerFirst, GreedyDps, MarkerSynergy }
+public enum BotStrategy
+{
+    Random, TowerFirst, GreedyDps, MarkerSynergy,
+    ChainFocus, SplitFocus, WeirdnessMix
+}
 
 /// <summary>
 /// Stateless draft-picker. Given the current options and run state, returns
@@ -31,6 +35,9 @@ public class BotPlayer
         BotStrategy.TowerFirst    => PickTowerFirst(options, state),
         BotStrategy.GreedyDps     => PickGreedyDps(options, state),
         BotStrategy.MarkerSynergy => PickMarkerSynergy(options, state),
+        BotStrategy.ChainFocus    => PickChainFocus(options, state),
+        BotStrategy.SplitFocus    => PickSplitFocus(options, state),
+        BotStrategy.WeirdnessMix  => PickWeirdnessMix(options, state),
         _                         => PickRandom(options, state),
     };
 
@@ -108,7 +115,6 @@ public class BotPlayer
             if (opt.Type == DraftOptionType.Tower && empty.Count > 0)
             {
                 var def = DataLoader.GetTowerDef(opt.Id);
-                // Chain tower: multiply base DPS by effective multi-target factor
                 float chainMult = def.ChainCount > 0
                     ? 1f + Enumerable.Range(1, def.ChainCount)
                            .Sum(i => MathF.Pow(def.ChainDamageDecay, i))
@@ -122,14 +128,16 @@ public class BotPlayer
                 {
                     "hair_trigger"     => 10f,
                     "momentum"         =>  9f,
+                    "split_shot"       =>  8f,
                     "exploit_weakness" => hasMarker ? 15f : 2f,
+                    "feedback_loop"    =>  7f,
                     "overkill"         =>  7f,
+                    "chain_reaction"   =>  6f,
                     "focus_lens"       =>  5f,
                     "overreach"        =>  4f,
-                    "chill_shot"       =>  3f,
+                    "slow"             =>  3f,
                     _                  =>  2f,
                 };
-                // spread mods across towers with fewest already applied
                 slot = eligible.OrderBy(i => s.Slots[i].Tower!.Modifiers.Count).First();
             }
             else continue;
@@ -181,6 +189,169 @@ public class BotPlayer
             var dps = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rapid_shooter")
                    ?? opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "chain_tower");
             if (dps != null) return new DraftPick(dps, empty[0]);
+        }
+
+        return PickTowerFirst(opts, s);
+    }
+
+    // Stack chain_reaction on a chain_tower, fill with feedback_loop + rapid shooters
+    private DraftPick? PickChainFocus(List<DraftOption> opts, RunState s)
+    {
+        var empty    = EmptySlots(s);
+        var eligible = ModSlots(s);
+        bool hasChain = s.Slots.Any(sl => sl.Tower?.TowerId == "chain_tower");
+
+        // 1. Place chain_tower first
+        if (!hasChain && empty.Count > 0)
+        {
+            var ct = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "chain_tower");
+            if (ct != null) return new DraftPick(ct, empty[0]);
+        }
+
+        if (eligible.Count > 0)
+        {
+            // 2. Stack chain_reaction — prefer the chain_tower slot, then any slot
+            var cr = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "chain_reaction");
+            if (cr != null)
+            {
+                int chainSlot = eligible
+                    .FirstOrDefault(i => s.Slots[i].Tower?.TowerId == "chain_tower", -1);
+                int slot = chainSlot >= 0 ? chainSlot
+                         : eligible.OrderBy(i => s.Slots[i].Tower!.Modifiers.Count).First();
+                return new DraftPick(cr, slot);
+            }
+
+            // 3. feedback_loop on any tower (chain kills many enemies quickly)
+            var fl = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "feedback_loop");
+            if (fl != null)
+            {
+                int slot = eligible.OrderBy(i => s.Slots[i].Tower!.Modifiers.Count).First();
+                return new DraftPick(fl, slot);
+            }
+
+            // 4. momentum on non-chain towers
+            var mom = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "momentum");
+            if (mom != null)
+            {
+                int slot = eligible
+                    .Where(i => s.Slots[i].Tower?.TowerId != "chain_tower")
+                    .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .FirstOrDefault(-1);
+                if (slot >= 0) return new DraftPick(mom, slot);
+            }
+        }
+
+        // 5. Fill remaining slots with rapid_shooter
+        if (empty.Count > 0)
+        {
+            var rapid = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rapid_shooter");
+            if (rapid != null) return new DraftPick(rapid, empty[0]);
+        }
+
+        return PickTowerFirst(opts, s);
+    }
+
+    // Stack split_shot on heavy_cannon + overkill for max splash damage
+    private DraftPick? PickSplitFocus(List<DraftOption> opts, RunState s)
+    {
+        var empty    = EmptySlots(s);
+        var eligible = ModSlots(s);
+
+        if (eligible.Count > 0)
+        {
+            // 1. Stack split_shot — prefer heavy_cannon (big base = impactful splits)
+            var ss = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "split_shot");
+            if (ss != null)
+            {
+                int slot = eligible
+                    .OrderByDescending(i => s.Slots[i].Tower?.TowerId == "heavy_cannon" ? 1 : 0)
+                    .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .First();
+                return new DraftPick(ss, slot);
+            }
+
+            // 2. overkill synergizes: split kills spill excess to lead enemy
+            var ok = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "overkill");
+            if (ok != null)
+            {
+                int slot = eligible.OrderBy(i => s.Slots[i].Tower!.Modifiers.Count).First();
+                return new DraftPick(ok, slot);
+            }
+
+            // 3. hair_trigger on rapid shooters (more shots = more splits per second)
+            var ht = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "hair_trigger");
+            if (ht != null)
+            {
+                int slot = eligible
+                    .Where(i => s.Slots[i].Tower?.TowerId == "rapid_shooter")
+                    .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .FirstOrDefault(-1);
+                if (slot >= 0) return new DraftPick(ht, slot);
+            }
+        }
+
+        // 4. Place heavy_cannon first (big damage splits)
+        if (empty.Count > 0)
+        {
+            var heavy = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "heavy_cannon");
+            if (heavy != null) return new DraftPick(heavy, empty[0]);
+        }
+
+        return PickTowerFirst(opts, s);
+    }
+
+    // Get one of each new modifier on different towers, then stack freely
+    private DraftPick? PickWeirdnessMix(List<DraftOption> opts, RunState s)
+    {
+        var empty    = EmptySlots(s);
+        var eligible = ModSlots(s);
+        string[] newMods = ["chain_reaction", "split_shot", "feedback_loop"];
+
+        if (eligible.Count > 0)
+        {
+            // 1. Spread one copy of each new modifier across different towers
+            foreach (var modId in newMods)
+            {
+                bool alreadyHave = s.Slots.Any(sl => sl.Tower?.Modifiers.Any(m => m.ModifierId == modId) == true);
+                if (alreadyHave) continue;
+                var mod = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == modId);
+                if (mod != null)
+                {
+                    // Put each new mod on a different tower where possible
+                    int existing = s.Slots.Count(sl =>
+                        sl.Tower?.Modifiers.Any(m => newMods.Contains(m.ModifierId)) == true);
+                    int slot = eligible
+                        .OrderByDescending(i => {
+                            int newModCount = s.Slots[i].Tower!.Modifiers.Count(m => newMods.Contains(m.ModifierId));
+                            return -newModCount; // prefer towers with fewer new mods
+                        })
+                        .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                        .First();
+                    return new DraftPick(mod, slot);
+                }
+            }
+
+            // 2. Once spread, stack round-robin by pick order
+            foreach (var modId in newMods)
+            {
+                var mod = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == modId);
+                if (mod != null)
+                {
+                    int slot = eligible.OrderBy(i => s.Slots[i].Tower!.Modifiers.Count).First();
+                    return new DraftPick(mod, slot);
+                }
+            }
+        }
+
+        // 3. Mixed tower placement — rotate through types
+        if (empty.Count > 0)
+        {
+            int placed = s.Slots.Count(sl => sl.Tower != null);
+            string[] towerOrder = ["rapid_shooter", "chain_tower", "heavy_cannon", "marker_tower"];
+            string preferredId = towerOrder[placed % towerOrder.Length];
+            var tower = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == preferredId)
+                     ?? opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower);
+            if (tower != null) return new DraftPick(tower, empty[0]);
         }
 
         return PickTowerFirst(opts, s);
