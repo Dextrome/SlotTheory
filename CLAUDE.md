@@ -230,7 +230,7 @@ If an idea requires a new system → defer to "Project 2."
 
 ## V1 Content
 
-- **3 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +20% dmg for 2s)
-- **7 modifiers**: Momentum (+10% dmg/hit same target, 5 stacks), Overkill (excess dmg spills to next enemy), Exploit Weakness (+50% dmg vs Marked), Focus Lens (+150% dmg, ×2 attack interval), Chill Shot (−30% enemy speed on hit, 5s), Overreach (+50% range, −25% dmg), Hair Trigger (+50% attack speed, −30% range)
-- **2 enemy types**: Basic Walker (65 HP wave 1, ×1.06/wave, 120px/s, 1 life); Armored Walker (4× HP, 60px/s, 2 lives, first appears wave 7)
+- **4 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +30% dmg for 2s), Arc Emitter (chains to 2 enemies, 260 px range, 60% decay/bounce)
+- **7 modifiers**: Momentum (+8% dmg/hit same target, max ×1.4), Overkill (80% excess dmg spills to next enemy), Exploit Weakness (+50% dmg vs Marked), Focus Lens (+100% dmg, ×2 attack interval), Chill Shot (−30% enemy speed on hit, 5s), Overreach (+50% range, −25% dmg), Hair Trigger (+50% attack speed, −30% range)
+- **2 enemy types**: Basic Walker (65 HP wave 1, ×1.08/wave, 120px/s, 1 life); Armored Walker (4× HP, 60px/s, 2 lives, first appears wave 7)
 - **20 waves**, 6 tower slots, max 3 modifiers per tower
