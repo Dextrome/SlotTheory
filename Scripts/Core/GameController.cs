@@ -381,29 +381,6 @@ public partial class GameController : Node
 		_slotNodes[i].AddChild(hl);
 		_slotHighlights[i] = hl;
 
-			// Slot number label — below the slot square, always visible
-			_slotNodes[i].AddChild(new ColorRect
-			{
-				Color       = new Color(0f, 0f, 0f, 0.65f),
-				Position    = new Vector2(-13f, 23f),
-				Size        = new Vector2(26f, 16f),
-				MouseFilter = Control.MouseFilterEnum.Ignore,
-				ZIndex      = 1,
-			});
-			var slotLabel = new Label
-			{
-				Text                = (i + 1).ToString(),
-				Position            = new Vector2(-13f, 22f),
-				Size                = new Vector2(26f, 18f),
-				HorizontalAlignment = HorizontalAlignment.Center,
-				VerticalAlignment   = VerticalAlignment.Center,
-				MouseFilter         = Control.MouseFilterEnum.Ignore,
-				ZIndex              = 2,
-			};
-			slotLabel.AddThemeColorOverride("font_color", Colors.White);
-			slotLabel.AddThemeFontSizeOverride("font_size", 16);
-			_slotNodes[i].AddChild(slotLabel);
-
 			// Mod-count pip — below slot number, shown only when tower has ≥ 1 modifier
 			var modBg = new ColorRect
 			{

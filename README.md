@@ -21,10 +21,10 @@ You lose a life for every enemy that reaches the exit. Lose all 10 lives and it'
 | Action | Input |
 |---|---|
 | Pick a draft card | Left-click the card |
-| Assign to a slot / tower | Left-click the target button |
+| Assign to a slot / tower | Left-click the target in the world |
 | Cycle tower targeting mode | Left-click a tower during a wave |
 | Pause / unpause | **Esc** |
-| Speed up / slow down | Speed buttons in the HUD (×1, ×2, ×4) |
+| Speed up / slow down | Speed button in HUD — cycles ×1 → ×2 → ×3 |
 | Quit to main menu | Pause → Main Menu |
 
 ---
@@ -38,23 +38,25 @@ Each draft round you see **5 cards**. Which cards appear depends on your situati
 
 ### Tower Cards
 
-Towers go into one of the 6 numbered slots on the map. Empty slots are shown in the slot-picker after you choose a tower card. You cannot move or sell a placed tower.
+Towers go into one of the 6 slots on the map. After picking a tower card, click an empty slot in the world to place it. You cannot move or sell a placed tower.
 
 ### Modifier Cards
 
-Modifiers upgrade an existing tower. After picking a modifier card, choose which tower to assign it to. Each tower can hold up to **3 modifiers**. Fully upgraded towers are greyed out in the slot picker.
+Modifiers upgrade an existing tower. After picking a modifier card, click any tower in the world to assign it. Each tower holds up to **3 modifiers**. Fully upgraded towers are ineligible.
 
 If no draft options are possible (all slots full and all towers at modifier cap), the draft is skipped and the wave starts immediately.
+
+**Bonus picks**: Wave 1 and Wave 15 each give you 2 picks instead of 1 — use them to establish a strong build early and recover mid-run.
 
 ---
 
 ## Towers
 
-| Tower | Color | Damage | Attack Speed | Range | Notes |
+| Tower | Shape / Color | Damage | Attack Speed | Range | Notes |
 |---|---|---|---|---|---|
-| **Rapid Shooter** | Sky blue | 10 | 0.4 s | 300 px | High rate of fire, low damage per hit |
-| **Heavy Cannon** | Navy blue | 60 | 2.0 s | 250 px | Slow but hits hard |
-| **Marker Tower** | Violet | 5 | 1.0 s | 350 px | Applies **Mark** on every hit |
+| **Rapid Shooter** | Hexagonal cyan | 10 | 0.4 s | 300 px | High rate of fire, low damage per hit |
+| **Heavy Cannon** | Octagonal orange | 60 | 2.0 s | 250 px | Slow but hits hard |
+| **Marker Tower** | Diamond pink | 5 | 1.0 s | 350 px | Applies **Mark** on every hit |
 
 ### Targeting Modes
 
@@ -95,14 +97,18 @@ Pair Marker Tower + **Exploit Weakness** on another tower for a large burst dama
 
 ## Enemies
 
-One enemy type in v1: the **Basic Walker**.
+### Basic Walker
+- 120 px/s movement, 72 HP on wave 1, scales ×1.12 per wave (~640 HP by wave 20).
+- Leaks cost **1 life**.
+- Round teal body — easy to spot.
 
-- Travels along the procedurally generated path at 120 px/s.
-- Starts with 72 HP on wave 1.
-- HP scales by ×1.12 each wave (~×9 by wave 20).
-- Wave 20 walkers have approximately 640 HP.
+### Armored Walker
+- Half speed (60 px/s), 4× the HP of a Basic Walker on the same wave.
+- Leaks cost **2 lives** — priority target.
+- Large hexagonal crimson body at 1.5× scale — unmistakable.
+- First appears on wave 7; up to 5 per wave by wave 20.
 
-Enemy count and spawn speed also increase over 20 waves (from 10 enemies at 1 per 2.5 s up to 30 enemies at 1 per 1.1 s).
+Enemy count and spawn speed both increase over 20 waves (from 10 enemies at wave 1 up to 30 at wave 20).
 
 ---
 
