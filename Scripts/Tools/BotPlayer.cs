@@ -108,7 +108,12 @@ public class BotPlayer
             if (opt.Type == DraftOptionType.Tower && empty.Count > 0)
             {
                 var def = DataLoader.GetTowerDef(opt.Id);
-                score = def.BaseDamage / def.AttackInterval;
+                // Chain tower: multiply base DPS by effective multi-target factor
+                float chainMult = def.ChainCount > 0
+                    ? 1f + Enumerable.Range(1, def.ChainCount)
+                           .Sum(i => MathF.Pow(def.ChainDamageDecay, i))
+                    : 1f;
+                score = def.BaseDamage / def.AttackInterval * chainMult;
                 slot  = empty[0];
             }
             else if (opt.Type == DraftOptionType.Modifier && eligible.Count > 0)
@@ -170,11 +175,12 @@ public class BotPlayer
             }
         }
 
-        // 4. Fill remaining slots with Rapid Shooter for DPS
+        // 4. Fill remaining slots with a DPS tower (rapid_shooter preferred, chain_tower accepted)
         if (empty.Count > 0)
         {
-            var rapid = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rapid_shooter");
-            if (rapid != null) return new DraftPick(rapid, empty[0]);
+            var dps = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rapid_shooter")
+                   ?? opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "chain_tower");
+            if (dps != null) return new DraftPick(dps, empty[0]);
         }
 
         return PickTowerFirst(opts, s);
