@@ -124,6 +124,7 @@ public class CombatSim
             {
                 "heavy_cannon"  => "shoot_heavy",
                 "marker_tower"  => "shoot_marker",
+                "chain_tower"   => "shoot_rapid",
                 _               => "shoot_rapid",
             };
             Sounds?.Play(shootId);
@@ -153,12 +154,35 @@ public class CombatSim
         if (BotMode)
         {
             DamageModel.Apply(new DamageContext(tower, target, waveIndex, enemies, _state));
+            if (tower.IsChainTower)
+                ApplyChainBotMode(tower, target, waveIndex, enemies);
             return;
         }
         if (LanePath == null) return;
         var proj = new ProjectileVisual();
         LanePath.GetParent().AddChild(proj);
         proj.Initialize(fromGlobal, target, color, speed: 500f, tower, waveIndex, enemies, _state);
+    }
+
+    private void ApplyChainBotMode(TowerInstance tower, EnemyInstance primary,
+                                   int waveIndex, List<EnemyInstance> enemies)
+    {
+        // In bot mode GlobalPositions are unreliable; chain to the next N alive enemies
+        // in list order as an approximation of "nearby targets".
+        var alreadyHit = new HashSet<EnemyInstance> { primary };
+        float damage   = tower.BaseDamage * tower.ChainDamageDecay;
+        int   bounces  = 0;
+
+        foreach (var e in enemies)
+        {
+            if (bounces >= tower.ChainCount) break;
+            if (alreadyHit.Contains(e) || e.Hp <= 0) continue;
+            DamageModel.Apply(new DamageContext(tower, e, waveIndex, enemies, _state,
+                                                isChain: true, damageOverride: damage));
+            alreadyHit.Add(e);
+            damage  *= tower.ChainDamageDecay;
+            bounces++;
+        }
     }
 
     private void SpawnDeathBurst(Vector2 worldPos, bool isArmored)

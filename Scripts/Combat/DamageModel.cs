@@ -15,14 +15,18 @@ public class DamageContext
     public float FinalDamage { get; set; }
     public RunState? State { get; }
 
+    public bool IsChain { get; }
+
     public DamageContext(TowerInstance attacker, EnemyInstance target, int waveIndex,
-                         List<EnemyInstance> enemies, RunState? state = null)
+                         List<EnemyInstance> enemies, RunState? state = null,
+                         bool isChain = false, float damageOverride = -1f)
     {
         Attacker = attacker;
         Target = target;
         WaveIndex = waveIndex;
         EnemiesAlive = enemies;
-        BaseDamage = FinalDamage = attacker.BaseDamage;
+        IsChain = isChain;
+        BaseDamage = FinalDamage = damageOverride >= 0f ? damageOverride : attacker.BaseDamage;
         State = state;
     }
 }
@@ -33,9 +37,10 @@ public static class DamageModel
     {
         float damage = ctx.BaseDamage;
 
-        // 1. Modifier damage pass (interval is handled in CombatSim, not here)
-        foreach (var mod in ctx.Attacker.Modifiers)
-            mod.ModifyDamage(ref damage, ctx);
+        // 1. Modifier damage pass — skipped for chain bounces (damage already decayed at spawn)
+        if (!ctx.IsChain)
+            foreach (var mod in ctx.Attacker.Modifiers)
+                mod.ModifyDamage(ref damage, ctx);
 
         // 2. Global Marked bonus — all towers deal +20% to Marked enemies
         if (ctx.Target.IsMarked)

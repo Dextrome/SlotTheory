@@ -7,7 +7,10 @@ public record TowerDef(
     float BaseDamage,
     float AttackInterval,
     float Range,
-    bool AppliesMark = false
+    bool AppliesMark = false,
+    int ChainCount = 0,
+    float ChainRange = 140f,
+    float ChainDamageDecay = 0.6f
 );
 
 public record ModifierDef(

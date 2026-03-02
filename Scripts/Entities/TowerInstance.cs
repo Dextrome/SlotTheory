@@ -27,6 +27,11 @@ public partial class TowerInstance : Node2D
     public string? LastTargetId { get; set; }
     public Vector2? LastTargetPosition { get; set; }
 
+    public int   ChainCount       { get; set; } = 0;
+    public float ChainRange       { get; set; } = 140f;
+    public float ChainDamageDecay { get; set; } = 0.6f;
+    public bool  IsChainTower     => ChainCount > 0;
+
     public bool CanAddModifier => Modifiers.Count < Balance.MaxModifiersPerTower;
 
     public Label?    ModeLabel   { get; set; }
@@ -97,6 +102,7 @@ public partial class TowerInstance : Node2D
             case "rapid_shooter": DrawRapidShooter(); break;
             case "heavy_cannon":  DrawHeavyCannon();  break;
             case "marker_tower":  DrawMarkerTower();  break;
+            case "chain_tower":   DrawChainTower();   break;
             default: DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f)); break;
         }
         DrawChargeArc();
@@ -178,6 +184,33 @@ public partial class TowerInstance : Node2D
         DrawCircle(new Vector2(0f, -22f), 8f, new Color(beam.R, beam.G, beam.B, 0.20f));
         DrawCircle(new Vector2(0f, -22f), 4f, beam);
         DrawCircle(new Vector2(0f, -22f), 1.5f, new Color(1f, 0.95f, 1f));
+    }
+
+    private void DrawChainTower()
+    {
+        var blue  = new Color(0.50f, 0.85f, 1.00f);
+        var dark  = new Color(0.02f, 0.05f, 0.15f);
+        var white = new Color(0.90f, 0.97f, 1.00f);
+        // Soft glow
+        DrawCircle(Vector2.Zero, 22f, new Color(blue.R, blue.G, blue.B, 0.07f));
+        DrawCircle(Vector2.Zero, 15f, new Color(blue.R, blue.G, blue.B, 0.14f));
+        // Circular base
+        DrawCircle(Vector2.Zero, 11f, blue);
+        DrawCircle(Vector2.Zero,  9f, dark);
+        // Three discharge prongs (120° apart, pointing out from base)
+        for (int i = 0; i < 3; i++)
+        {
+            float angle    = -Mathf.Pi / 2f + i * Mathf.Tau / 3f;
+            var   dir      = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+            var   prongBase = dir * 9f;
+            var   prongTip  = dir * 19f;
+            DrawLine(prongBase, prongTip, blue, 3f);
+            DrawCircle(prongTip, 4f, new Color(blue.R, blue.G, blue.B, 0.50f));
+            DrawCircle(prongTip, 2.5f, white);
+        }
+        // Inner energy core
+        DrawCircle(Vector2.Zero, 4f, new Color(blue.R, blue.G, blue.B, 0.55f));
+        DrawCircle(Vector2.Zero, 2.5f, white);
     }
 
     private static Vector2[] RegularPoly(int sides, float radius, float angleOffset)
