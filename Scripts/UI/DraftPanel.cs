@@ -8,6 +8,7 @@ namespace SlotTheory.UI;
 /// <summary>
 /// Full-screen overlay shown during draft phase. Builds its own UI in code.
 /// Two-step for modifiers: pick option → pick which tower to assign it to.
+/// Keys 1–5 select cards; 1–6 select slots in the assignment step.
 /// </summary>
 public partial class DraftPanel : CanvasLayer
 {
@@ -22,7 +23,6 @@ public partial class DraftPanel : CanvasLayer
     {
         Visible = false;
 
-        // Semi-transparent background
         var root = new Control();
         root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         AddChild(root);
@@ -32,7 +32,6 @@ public partial class DraftPanel : CanvasLayer
         bg.Color = new Color(0f, 0f, 0f, 0.75f);
         root.AddChild(bg);
 
-        // Centered content
         var center = new CenterContainer();
         center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         root.AddChild(center);
@@ -64,9 +63,11 @@ public partial class DraftPanel : CanvasLayer
         vbox.AddChild(_towerRow);
     }
 
-    public void Show(List<DraftOption> options, int waveNumber)
+    public void Show(List<DraftOption> options, int waveNumber, int pickNumber = 1, int totalPicks = 1)
     {
-        _titleLabel.Text = $"Wave {waveNumber}  —  Choose";
+        _titleLabel.Text = totalPicks > 1
+            ? $"Wave {waveNumber}  —  Pick {pickNumber} of {totalPicks}"
+            : $"Wave {waveNumber}  —  Choose";
         _pendingModifier = null;
         _pendingTower = null;
         _assignLabel.Visible = false;
@@ -76,19 +77,53 @@ public partial class DraftPanel : CanvasLayer
         Visible = true;
     }
 
+    public override void _Input(InputEvent @event)
+    {
+        if (!Visible) return;
+        if (@event is not InputEventKey { Pressed: true } key) return;
+
+        int idx = key.Keycode switch
+        {
+            Key.Key1 => 0,
+            Key.Key2 => 1,
+            Key.Key3 => 2,
+            Key.Key4 => 3,
+            Key.Key5 => 4,
+            Key.Key6 => 5,
+            _        => -1,
+        };
+        if (idx < 0) return;
+
+        var row = _cardRow.Visible ? _cardRow : (_towerRow.Visible ? _towerRow : null);
+        if (row == null) return;
+
+        var children = row.GetChildren();
+        if (idx < children.Count)
+        {
+            if (children[idx] is Button btn && !btn.Disabled)
+            {
+                btn.EmitSignal(Button.SignalName.Pressed);
+                GetViewport().SetInputAsHandled();
+            }
+        }
+    }
+
     private void BuildCardRow(List<DraftOption> options)
     {
         foreach (Node child in _cardRow.GetChildren())
             child.QueueFree();
 
-        foreach (var opt in options)
+        for (int i = 0; i < options.Count; i++)
         {
+            var opt = options[i];
             var btn = new Button();
-            btn.Text = GetOptionLabel(opt);
+            btn.Text = GetOptionLabel(opt, i);
             btn.CustomMinimumSize = new Vector2(190, 110);
             btn.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            btn.PivotOffset = new Vector2(95f, 55f);
             var captured = opt;
             btn.Pressed += () => OnCardPressed(captured);
+            AddHover(btn);
             _cardRow.AddChild(btn);
         }
     }
@@ -107,18 +142,41 @@ public partial class DraftPanel : CanvasLayer
             {
                 var def = DataLoader.GetTowerDef(slot.Tower.TowerId);
                 int mods = slot.Tower.Modifiers.Count;
-                btn.Text = $"Slot {i + 1}  ·  {def.Name}\n{mods}/{Balance.MaxModifiersPerTower} mods";
+                btn.Text = $"[{i + 1}]  Slot {i + 1}  ·  {def.Name}\n{mods}/{Balance.MaxModifiersPerTower} mods";
                 btn.Disabled = !slot.Tower.CanAddModifier;
             }
             else
             {
-                btn.Text = "empty";
+                btn.Text = $"[{i + 1}]  empty";
                 btn.Disabled = true;
             }
             btn.CustomMinimumSize = new Vector2(150, 70);
             btn.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+            btn.PivotOffset = new Vector2(75f, 35f);
             var idx = i;
             btn.Pressed += () => OnTowerAssigned(idx);
+            if (!btn.Disabled) AddHover(btn);
+            _towerRow.AddChild(btn);
+        }
+    }
+
+    private void BuildEmptySlotRow()
+    {
+        foreach (Node child in _towerRow.GetChildren())
+            child.QueueFree();
+
+        var slots = GameController.Instance.GetRunState().Slots;
+        for (int i = 0; i < slots.Length; i++)
+        {
+            bool isEmpty = slots[i].Tower == null;
+            var btn = new Button();
+            btn.Text = isEmpty ? $"[{i + 1}]  Slot {i + 1}" : "occupied";
+            btn.Disabled = !isEmpty;
+            btn.CustomMinimumSize = new Vector2(150, 70);
+            btn.PivotOffset = new Vector2(75f, 35f);
+            var idx = i;
+            btn.Pressed += () => OnSlotPicked(idx);
+            if (!btn.Disabled) AddHover(btn);
             _towerRow.AddChild(btn);
         }
     }
@@ -162,36 +220,32 @@ public partial class DraftPanel : CanvasLayer
         GameController.Instance.OnDraftPick(_pendingTower, slotIndex);
     }
 
-    private void BuildEmptySlotRow()
+    private static void AddHover(Button btn)
     {
-        foreach (Node child in _towerRow.GetChildren())
-            child.QueueFree();
-
-        var slots = GameController.Instance.GetRunState().Slots;
-        for (int i = 0; i < slots.Length; i++)
+        btn.MouseEntered += () =>
         {
-            bool isEmpty = slots[i].Tower == null;
-            var btn = new Button();
-            btn.Text = isEmpty ? $"Slot {i + 1}" : "occupied";
-            btn.Disabled = !isEmpty;
-            btn.CustomMinimumSize = new Vector2(150, 70);
-            var idx = i;
-            btn.Pressed += () => OnSlotPicked(idx);
-            _towerRow.AddChild(btn);
-        }
+            var tw = btn.CreateTween();
+            tw.TweenProperty(btn, "scale", new Vector2(1.06f, 1.06f), 0.08f);
+        };
+        btn.MouseExited += () =>
+        {
+            var tw = btn.CreateTween();
+            tw.TweenProperty(btn, "scale", Vector2.One, 0.08f);
+        };
     }
 
-    private static string GetOptionLabel(DraftOption opt)
+    private static string GetOptionLabel(DraftOption opt, int index)
     {
+        string key = $"[ {index + 1} ]";
         if (opt.Type == DraftOptionType.Tower)
         {
             var def = DataLoader.GetTowerDef(opt.Id);
-            return $"{def.Name}\n{def.BaseDamage} dmg  ·  {def.AttackInterval} s\nRange {def.Range}";
+            return $"{def.Name}\n{def.BaseDamage} dmg  ·  {def.AttackInterval} s\nRange {def.Range}\n{key}";
         }
         else
         {
             var def = DataLoader.GetModifierDef(opt.Id);
-            return $"{def.Name}\n{def.Description}";
+            return $"{def.Name}\n{def.Description}\n{key}";
         }
     }
 }

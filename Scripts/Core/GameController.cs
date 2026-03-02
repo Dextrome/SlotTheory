@@ -31,6 +31,7 @@ public partial class GameController : Node
 	private Node2D _mapVisuals = null!;
 	private Panel _tooltipPanel = null!;
 	private Label _tooltipLabel = null!;
+	private Label _waveAnnounce = null!;
 	private BotRunner? _botRunner;
 	private int _extraPicksRemaining;
 
@@ -73,6 +74,7 @@ public partial class GameController : Node
 		GenerateMap();
 		SetupSlots();
 		SetupTooltip();
+		SetupAnnouncer();
 
 		GD.Print("Slot Theory booted.");
 		_extraPicksRemaining = Balance.Wave1ExtraPicks;
@@ -86,8 +88,10 @@ public partial class GameController : Node
 
 		if (_botRunner != null) { BotTick(); return; }
 
+		int livesBefore = _runState.Lives;
 		var result = _combatSim.Step((float)delta, _runState, _waveSystem);
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
+		if (_runState.Lives < livesBefore) _hudPanel.FlashLives();
 
 		if (result == WaveResult.Loss)
 		{
@@ -95,7 +99,7 @@ public partial class GameController : Node
 			int livesLost = Balance.StartingLives - _runState.Lives;
 			GD.Print("Run lost.");
 			SoundManager.Instance?.Play("game_over");
-			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost);
+			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, BuildBuildSummary());
 			return;
 		}
 
@@ -107,7 +111,7 @@ public partial class GameController : Node
 				CurrentPhase = GamePhase.Win;
 				GD.Print("Run won!");
 				SoundManager.Instance?.Play("victory");
-				_endScreen.ShowWin();
+				_endScreen.ShowWin(BuildBuildSummary());
 			}
 			else
 			{
@@ -138,7 +142,9 @@ public partial class GameController : Node
 			else              StartWavePhase();
 			return;
 		}
-		_draftPanel.Show(options, _runState.WaveIndex + 1);
+		int totalPicks = _runState.WaveIndex == 0 ? Balance.Wave1ExtraPicks + 1 : 1;
+		int pickNum    = _runState.WaveIndex == 0 ? totalPicks - _extraPicksRemaining : 1;
+		_draftPanel.Show(options, _runState.WaveIndex + 1, pickNum, totalPicks);
 	}
 
 	public RunState GetRunState() => _runState;
@@ -441,7 +447,10 @@ public partial class GameController : Node
 				text += "(no modifiers)";
 			else
 				foreach (var mod in tower.Modifiers)
-					text += "• " + DataLoader.GetModifierDef(mod.ModifierId).Name + "\n";
+				{
+					var mdef = DataLoader.GetModifierDef(mod.ModifierId);
+					text += "• " + mdef.Name + "  \u2014  " + mdef.Description + "\n";
+				}
 			_tooltipLabel.Text = text.TrimEnd();
 
 			// Size panel to fit label
@@ -510,9 +519,68 @@ public partial class GameController : Node
 			}
 		}
 	}
+
+	// -- Wave announcement + build summary ----------------------------------------
+
+	private void SetupAnnouncer()
+	{
+		var layer = new CanvasLayer { Layer = 4 };
+		AddChild(layer);
+
+		var anchor = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
+		anchor.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		layer.AddChild(anchor);
+
+		_waveAnnounce = new Label
+		{
+			Text               = "",
+			HorizontalAlignment = HorizontalAlignment.Center,
+			AutowrapMode       = TextServer.AutowrapMode.Off,
+			AnchorLeft         = 0.5f,
+			AnchorRight        = 0.5f,
+			AnchorTop          = 0.38f,
+			AnchorBottom       = 0.38f,
+			GrowHorizontal     = Control.GrowDirection.Both,
+			GrowVertical       = Control.GrowDirection.Both,
+			Modulate           = new Color(1f, 1f, 1f, 0f),
+			MouseFilter        = Control.MouseFilterEnum.Ignore,
+		};
+		_waveAnnounce.AddThemeFontSizeOverride("font_size", 54);
+		_waveAnnounce.AddThemeColorOverride("font_color", new Color(0.85f, 0.20f, 1.00f));
+		anchor.AddChild(_waveAnnounce);
+	}
+
+	private void ShowWaveAnnouncement(int wave)
+	{
+		_waveAnnounce.Text     = $"WAVE {wave}";
+		_waveAnnounce.Scale    = new Vector2(1.35f, 1.35f);
+		_waveAnnounce.Modulate = new Color(1f, 1f, 1f, 1f);
+		var tween = _waveAnnounce.CreateTween();
+		tween.TweenProperty(_waveAnnounce, "scale", Vector2.One, 0.3f)
+			 .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);
+		tween.TweenInterval(0.35f);
+		tween.TweenProperty(_waveAnnounce, "modulate:a", 0f, 0.45f);
+	}
+
+	private string BuildBuildSummary()
+	{
+		var sb = new System.Text.StringBuilder();
+		for (int i = 0; i < _runState.Slots.Length; i++)
+		{
+			var tower = _runState.Slots[i].Tower;
+			if (tower == null) continue;
+			var def = DataLoader.GetTowerDef(tower.TowerId);
+			var modNames = string.Join(", ", tower.Modifiers.Select(m => DataLoader.GetModifierDef(m.ModifierId).Name));
+			sb.AppendLine(modNames.Length > 0
+				? $"Slot {i + 1}  ·  {def.Name}  +  {modNames}"
+				: $"Slot {i + 1}  ·  {def.Name}");
+		}
+		return sb.ToString().TrimEnd();
+	}
 	private void StartWavePhase()
 	{
 		CurrentPhase = GamePhase.Wave;
+		if (_botRunner == null) ShowWaveAnnouncement(_runState.WaveIndex + 1);
 		_waveSystem.LoadWave(_runState.WaveIndex, _runState);
 		_combatSim.ResetForWave(_waveSystem);
 		SoundManager.Instance?.Play("wave_start");

@@ -9,8 +9,9 @@ namespace SlotTheory.UI;
 /// </summary>
 public partial class EndScreen : CanvasLayer
 {
-	private Label _titleLabel = null!;
+	private Label _titleLabel    = null!;
 	private Label _subtitleLabel = null!;
+	private Label _buildLabel    = null!;
 
 	public override void _Ready()
 	{
@@ -42,7 +43,13 @@ public partial class EndScreen : CanvasLayer
 		_subtitleLabel.AddThemeFontSizeOverride("font_size", 28);
 		vbox.AddChild(_subtitleLabel);
 
-		var spacer = new Control { CustomMinimumSize = new Vector2(0, 32) };
+		_buildLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+		_buildLabel.AddThemeFontSizeOverride("font_size", 16);
+		_buildLabel.Modulate = new Color(0.75f, 0.75f, 0.85f);
+		_buildLabel.Visible = false;
+		vbox.AddChild(_buildLabel);
+
+		var spacer = new Control { CustomMinimumSize = new Vector2(0, 24) };
 		vbox.AddChild(spacer);
 
 		var hint = new Label
@@ -63,19 +70,23 @@ public partial class EndScreen : CanvasLayer
 		GetTree().ChangeSceneToFile("res://Scenes/MainMenu.tscn");
 	}
 
-	public void ShowWin()
+	public void ShowWin(string buildSummary)
 	{
 		_titleLabel.Text = "VICTORY";
 		_titleLabel.Modulate = new Color(0.3f, 1.0f, 0.5f);
 		_subtitleLabel.Text = $"All {Balance.TotalWaves} waves survived!";
+		_buildLabel.Text = buildSummary;
+		_buildLabel.Visible = buildSummary.Length > 0;
 		Visible = true;
 	}
 
-	public void ShowLoss(int waveReached, int livesLost)
+	public void ShowLoss(int waveReached, int livesLost, string buildSummary)
 	{
 		_titleLabel.Text = "GAME OVER";
 		_titleLabel.Modulate = new Color(1.0f, 0.35f, 0.35f);
 		_subtitleLabel.Text = $"Reached wave {waveReached} / {Balance.TotalWaves}  ·  Lives lost: {livesLost}";
+		_buildLabel.Text = buildSummary;
+		_buildLabel.Visible = buildSummary.Length > 0;
 		Visible = true;
 	}
 }
