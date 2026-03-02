@@ -268,6 +268,7 @@ public partial class DraftPanel : CanvasLayer
     {
         btn.MouseEntered += () =>
         {
+            SlotTheory.Core.SoundManager.Instance?.Play("ui_hover");
             var tw = btn.CreateTween();
             tw.TweenProperty(btn, "scale", new Vector2(1.06f, 1.06f), 0.08f);
         };

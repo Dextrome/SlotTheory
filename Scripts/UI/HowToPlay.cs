@@ -7,6 +7,12 @@ namespace SlotTheory.UI;
 /// </summary>
 public partial class HowToPlay : Node
 {
+	/// <summary>
+	/// When set, the Back button calls this and frees the node instead of navigating to MainMenu.
+	/// Used by PauseScreen to dismiss the overlay without leaving the game scene.
+	/// </summary>
+	public System.Action? OnBack { get; set; }
+
 	public override void _Ready()
 	{
 		var canvas = new CanvasLayer();
@@ -50,7 +56,7 @@ public partial class HowToPlay : Node
 		AddRow(vbox, "Assign to a slot / tower",  "Left-click the target");
 		AddRow(vbox, "Cycle targeting mode",       "Left-click a tower during a wave");
 		AddRow(vbox, "Pause / unpause",            "Esc");
-		AddRow(vbox, "Speed",                      "×1  ×2  ×4 buttons in HUD");
+		AddRow(vbox, "Speed",                      "Click speed button to cycle  ×1 → ×2 → ×3");
 		AddSpacer(vbox, 12);
 
 		// ── Towers ───────────────────────────────────────────────────────
@@ -110,7 +116,11 @@ public partial class HowToPlay : Node
 			CustomMinimumSize = new Vector2(160, 48),
 		};
 		backBtn.AddThemeFontSizeOverride("font_size", 22);
-		backBtn.Pressed += () => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+		backBtn.Pressed += () =>
+		{
+			if (OnBack != null) { OnBack(); QueueFree(); }
+			else SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+		};
 		vbox.AddChild(backBtn);
 
 		AddSpacer(vbox, 40);
