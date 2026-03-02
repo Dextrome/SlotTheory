@@ -44,13 +44,17 @@ public static class Balance
     public const float MomentumBonusPerStack = 0.08f;
 
     // Split Shot modifier
-    public const float SplitShotDamageRatio = 0.80f; // 80% of base damage per split projectile
+    public const float SplitShotDamageRatio = 0.65f; // 65% of base damage per split projectile
     public const float SplitShotRange       = 200f;  // search radius from impact point for split targets
 
     // Feedback Loop modifier
     public const float FeedbackLoopCooldownReduction = 0.30f; // 30% of remaining cooldown removed on kill
 
-    // Chain Reaction modifier — range/decay inherit tower defaults (260f / 0.6f); no new constants needed
+    // Chain Reaction modifier — range/decay inherit tower defaults (350f / 0.6f); no new constants needed
+
+    // Enemies — Swift Walker
+    public const float SwiftHpMultiplier = 1.5f;  // 1.5× basic walker HP
+    public const float SwiftEnemySpeed   = 240f;  // pixels per second (2× basic)
 
     // Waves
     public const float DefaultSpawnInterval = 1.5f;

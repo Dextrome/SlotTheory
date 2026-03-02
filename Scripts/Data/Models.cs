@@ -24,5 +24,6 @@ public record WaveConfig(
     int EnemyCount,
     float SpawnInterval,
     int TankyCount = 0,
-    bool ClumpArmored = false  // group all armored enemies into one block instead of spreading evenly
+    bool ClumpArmored = false,  // group all armored enemies into one block instead of spreading evenly
+    int SwiftCount = 0          // fast enemies (240px/s, 1.5× HP) — appear in waves 10-14
 );

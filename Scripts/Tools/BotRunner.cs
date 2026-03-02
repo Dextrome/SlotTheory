@@ -120,20 +120,30 @@ public class BotRunner
 
         // ── Tower usage ────────────────────────────────────────────────────
         GD.Print("TOWER USAGE (% of all runs where it was placed):");
-        foreach (var id in new[] { "rapid_shooter", "heavy_cannon", "marker_tower" })
+        foreach (var id in new[] { "rapid_shooter", "heavy_cannon", "marker_tower", "chain_tower" })
         {
             int count = _results.Count(r => r.Towers.Contains(id));
             GD.Print($"  {id,-18} {count * 100 / total,3}%  ({count}/{total})");
         }
         GD.Print("");
 
-        // ── Modifier usage ─────────────────────────────────────────────────
-        GD.Print("MODIFIER USAGE (% of all runs where it was applied):");
+        // ── Modifier usage + win correlation ──────────────────────────────
+        GD.Print($"{"MODIFIER",-20} {"USAGE%",7} {"WIN% WITH",10} {"WIN% WITHOUT",13} {"DELTA",7}");
+        GD.Print(new string('─', 60));
         var allModIds = _results.SelectMany(r => r.Mods).Distinct().OrderBy(x => x).ToList();
         foreach (var id in allModIds)
         {
-            int count = _results.Count(r => r.Mods.Contains(id));
-            GD.Print($"  {id,-20} {count * 100 / total,3}%  ({count}/{total})");
+            var with    = _results.Where(r => r.Mods.Contains(id)).ToList();
+            var without = _results.Where(r => !r.Mods.Contains(id)).ToList();
+            int usagePct  = with.Count * 100 / total;
+            float winWith    = with.Count    > 0 ? with.Count(r => r.Won)    * 100f / with.Count    : float.NaN;
+            float winWithout = without.Count > 0 ? without.Count(r => r.Won) * 100f / without.Count : float.NaN;
+            string withStr    = float.IsNaN(winWith)    ? "  n/a" : $"{winWith,4:0}%";
+            string withoutStr = float.IsNaN(winWithout) ? "  n/a" : $"{winWithout,4:0}%";
+            string deltaStr   = (float.IsNaN(winWith) || float.IsNaN(winWithout))
+                ? "   n/a"
+                : $"{winWith - winWithout,+5:0.0}%";
+            GD.Print($"  {id,-20} {usagePct,5}%  {withStr,9}  {withoutStr,12}  {deltaStr,6}");
         }
         GD.Print("");
 
@@ -153,6 +163,26 @@ public class BotRunner
         }
         foreach (var (wave, avgLost) in waveDanger.OrderByDescending(x => x.AvgLost).Take(5))
             GD.Print($"  Wave {wave,2}: avg {avgLost:0.00} lives lost per run");
+        GD.Print("");
+
+        // ── Loss-wave distribution ─────────────────────────────────────────
+        var lostRuns = _results.Where(r => !r.Won).ToList();
+        if (lostRuns.Count > 0)
+        {
+            GD.Print($"LOSS DISTRIBUTION — {lostRuns.Count} losses across {total} runs:");
+            var byWave = lostRuns.GroupBy(r => r.WaveReached).OrderBy(g => g.Key);
+            foreach (var g in byWave)
+            {
+                string bar = new string('█', g.Count());
+                GD.Print($"  Wave {g.Key,2}: {g.Count(),3} losses  {bar}");
+            }
+            GD.Print("");
+            GD.Print($"  Average loss wave: {lostRuns.Average(r => r.WaveReached):0.0}");
+        }
+        else
+        {
+            GD.Print("LOSS DISTRIBUTION — no losses recorded.");
+        }
     }
 
     private static string Pad(int runs, int strategies)

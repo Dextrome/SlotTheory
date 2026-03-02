@@ -2,7 +2,7 @@
   "momentum": {
     "Id": "momentum",
     "Name": "Momentum",
-    "Description": "Gain +10% damage per consecutive hit on same target. Resets on target switch."
+    "Description": "Gain +8% damage per consecutive hit on same target, up to ×1.4. Resets on target switch."
   },
   "overkill": {
     "Id": "overkill",
@@ -27,7 +27,7 @@
   "overreach": {
     "Id": "overreach",
     "Name": "Overreach",
-    "Description": "+50% range, −25% damage."
+    "Description": "+50% range, −15% damage."
   },
   "hair_trigger": {
     "Id": "hair_trigger",

@@ -16,15 +16,19 @@ public class WaveSystem
 
     public int GetWalkerCount()    => _current?.EnemyCount    ?? Balance.DefaultEnemyCount;
     public int GetTankyCount()     => _current?.TankyCount    ?? 0;
-    public int GetTotalCount()     => GetWalkerCount() + GetTankyCount();
+    public int GetSwiftCount()     => _current?.SwiftCount    ?? 0;
+    public int GetTotalCount()     => GetWalkerCount() + GetTankyCount() + GetSwiftCount();
     public float GetSpawnInterval()  => _current?.SpawnInterval ?? Balance.DefaultSpawnInterval;
     public bool GetClumpArmored()    => _current?.ClumpArmored  ?? false;
 
     public static float GetScaledHp(string typeId, int waveIndex)
     {
-        float baseHp = typeId == "armored_walker"
-            ? Balance.BaseEnemyHp * Balance.TankyHpMultiplier
-            : Balance.BaseEnemyHp;
+        float baseHp = typeId switch
+        {
+            "armored_walker" => Balance.BaseEnemyHp * Balance.TankyHpMultiplier,
+            "swift_walker"   => Balance.BaseEnemyHp * Balance.SwiftHpMultiplier,
+            _                => Balance.BaseEnemyHp,
+        };
         return baseHp * MathF.Pow(Balance.HpGrowthPerWave, waveIndex);
     }
 

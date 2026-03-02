@@ -38,12 +38,13 @@ public partial class EnemyInstance : PathFollow2D
         Speed = speed;
 
         bool isArmored = typeId == "armored_walker";
-        if (isArmored)
-            Scale = new Vector2(1.5f, 1.5f);
+        bool isSwift   = typeId == "swift_walker";
+        if (isArmored) Scale = new Vector2(1.5f, 1.5f);
+        if (isSwift)   Scale = new Vector2(0.8f, 0.8f);
 
-        _hpBarWidth    = isArmored ? 34f : 24f;
-        float barY     = isArmored ? -26f : -20f;
-        float barX     = -_hpBarWidth / 2f;
+        _hpBarWidth = isArmored ? 34f : isSwift ? 20f : 24f;
+        float barY  = isArmored ? -26f : isSwift ? -17f : -20f;
+        float barX  = -_hpBarWidth / 2f;
 
         // HP bar track
         AddChild(new ColorRect
@@ -80,7 +81,12 @@ public partial class EnemyInstance : PathFollow2D
             float ratio = Mathf.Clamp(Hp / MaxHp, 0f, 1f);
             _hpFill.Size = new Vector2(_hpBarWidth * ratio, _hpFill.Size.Y);
             _hpFill.Color = ratio > 0.5f
-                ? (EnemyTypeId == "armored_walker" ? new Color(1.00f, 0.05f, 0.55f) : new Color(0.00f, 0.95f, 0.80f))
+                ? EnemyTypeId switch
+                {
+                    "armored_walker" => new Color(1.00f, 0.05f, 0.55f),
+                    "swift_walker"   => new Color(0.60f, 1.00f, 0.10f),
+                    _                => new Color(0.00f, 0.95f, 0.80f),
+                }
                 : ratio > 0.25f
                     ? new Color(1.00f, 0.85f, 0.00f)
                     : new Color(1.00f, 0.15f, 0.60f);
@@ -104,10 +110,12 @@ public partial class EnemyInstance : PathFollow2D
 
     public override void _Draw()
     {
-        if (EnemyTypeId == "armored_walker")
-            DrawArmoredWalker();
-        else
-            DrawBasicWalker();
+        switch (EnemyTypeId)
+        {
+            case "armored_walker": DrawArmoredWalker(); break;
+            case "swift_walker":   DrawSwiftWalker();   break;
+            default:               DrawBasicWalker();   break;
+        }
     }
 
     // ── Basic Walker ─────────────────────────────────────────────────────
@@ -138,6 +146,39 @@ public partial class EnemyInstance : PathFollow2D
         // Slow ring
         if (IsSlowed)
             DrawArc(Vector2.Zero, 15.5f, 0f, Mathf.Tau, 32, new Color(0.20f, 0.85f, 1.00f, 0.90f), 2.5f);
+    }
+
+    // ── Swift Walker ─────────────────────────────────────────────────────
+
+    private void DrawSwiftWalker()
+    {
+        var lime  = new Color(0.55f, 1.00f, 0.05f);
+        var dark  = new Color(0.04f, 0.10f, 0.00f);
+        var flash = new Color(0.88f, 1.00f, 0.65f);
+        // Soft glow
+        DrawCircle(Vector2.Zero, 16f, new Color(lime.R, lime.G, lime.B, 0.07f));
+        DrawCircle(Vector2.Zero, 10f, new Color(lime.R, lime.G, lime.B, 0.15f));
+        // Diamond body — outer bright, inner dark
+        DrawPolygon(new[] { new Vector2(0,-11), new Vector2(11,0), new Vector2(0,11), new Vector2(-11,0) }, new[] { lime });
+        DrawPolygon(new[] { new Vector2(0, -8), new Vector2( 8,0), new Vector2(0, 8), new Vector2( -8,0) }, new[] { dark });
+        // Speed marks — 3 short lines pointing forward (+X = direction of travel)
+        for (int i = -1; i <= 1; i++)
+        {
+            float y = i * 3.5f;
+            DrawLine(new Vector2(3f, y), new Vector2(8f, y), new Color(lime.R, lime.G, lime.B, 0.80f), 1.5f);
+        }
+        // Center dot
+        DrawCircle(Vector2.Zero, 2.5f, flash);
+        // Mark ring
+        if (IsMarked)
+            for (int s = 0; s < 3; s++)
+            {
+                float a = _markAngle + s * (Mathf.Tau / 3f);
+                DrawArc(Vector2.Zero, 13f, a, a + Mathf.Pi * 0.5f, 12, new Color(0.85f, 0.30f, 1.00f, 0.90f), 2.5f);
+            }
+        // Slow ring
+        if (IsSlowed)
+            DrawArc(Vector2.Zero, 14.5f, 0f, Mathf.Tau, 32, new Color(0.20f, 0.85f, 1.00f, 0.90f), 2.5f);
     }
 
     // ── Armored Walker ───────────────────────────────────────────────────
