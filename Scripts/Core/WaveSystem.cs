@@ -14,10 +14,11 @@ public class WaveSystem
         state.WaveTime = 0f;
     }
 
-    public int GetWalkerCount()  => _current?.EnemyCount   ?? Balance.DefaultEnemyCount;
-    public int GetTankyCount()   => _current?.TankyCount   ?? 0;
-    public int GetTotalCount()   => GetWalkerCount() + GetTankyCount();
-    public float GetSpawnInterval() => _current?.SpawnInterval ?? Balance.DefaultSpawnInterval;
+    public int GetWalkerCount()    => _current?.EnemyCount    ?? Balance.DefaultEnemyCount;
+    public int GetTankyCount()     => _current?.TankyCount    ?? 0;
+    public int GetTotalCount()     => GetWalkerCount() + GetTankyCount();
+    public float GetSpawnInterval()  => _current?.SpawnInterval ?? Balance.DefaultSpawnInterval;
+    public bool GetClumpArmored()    => _current?.ClumpArmored  ?? false;
 
     public static float GetScaledHp(string typeId, int waveIndex)
     {
