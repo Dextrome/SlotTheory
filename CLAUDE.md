@@ -123,9 +123,8 @@ Build a `DamageContext` (attacker, target, base damage, wave index) → apply mo
 - Stacking: **additive within category** (no multiplicative explosion)
 
 ### Draft system rules (locked):
-- 5 options per round
-- Free slots exist → 2 tower cards + 3 modifier cards
-- All slots full → 5 modifier cards
+- Free slots exist → 5 options: 2 tower cards + 3 modifier cards
+- All slots full → 4 modifier cards (scarcity intentional; `Balance.DraftModifierOptionsFull = 4`)
 - Anti-brick: never offer a modifier if no tower can accept it (swap for applicable one)
 
 ### Targeting modes:

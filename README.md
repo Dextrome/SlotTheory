@@ -31,10 +31,10 @@ You lose a life for every enemy that reaches the exit. Lose all 10 lives and it'
 
 ## Draft Cards
 
-Each draft round you see **5 cards**. Which cards appear depends on your situation:
+Which cards appear depends on your situation:
 
-- **Free slots available** → 2 tower cards + 3 modifier cards
-- **All slots full** → 5 modifier cards (no new towers to place)
+- **Free slots available** → 5 cards: 2 tower cards + 3 modifier cards
+- **All slots full** → 4 modifier cards (no new towers to place)
 
 ### Tower Cards
 

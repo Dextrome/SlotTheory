@@ -47,6 +47,10 @@ public partial class ProjectileVisual : Node2D
                 t * 3f);
         }
 
+        // Glow bloom behind diamond head
+        DrawCircle(Vector2.Zero, 8f, new Color(_color.R, _color.G, _color.B, 0.25f));
+        DrawCircle(Vector2.Zero, 4f, new Color(1f, 1f, 1f, 0.20f));
+
         // Diamond head
         DrawPolygon(
             new[] { new Vector2(0f, -4f), new Vector2(4f, 0f), new Vector2(0f, 4f), new Vector2(-4f, 0f) },
@@ -85,8 +89,9 @@ public partial class ProjectileVisual : Node2D
                 float dealt = hpBefore - _target.Hp;
                 if (dealt > 0f)
                 {
-                    SpawnDamageNumber(_target.GlobalPosition, dealt);
-                    if (GodotObject.IsInstanceValid(_target) && _target.Hp > 0)
+                    bool isKill = _target.Hp <= 0;
+                    SpawnDamageNumber(_target.GlobalPosition, dealt, isKill);
+                    if (!isKill && GodotObject.IsInstanceValid(_target))
                         _target.FlashHit();
                 }
             }
@@ -97,11 +102,11 @@ public partial class ProjectileVisual : Node2D
         GlobalPosition += toTarget.Normalized() * _speed * (float)delta;
     }
 
-    private void SpawnDamageNumber(Vector2 worldPos, float damage)
+    private void SpawnDamageNumber(Vector2 worldPos, float damage, bool isKill = false)
     {
         var num = new DamageNumber();
         GetParent().AddChild(num);
         num.GlobalPosition = worldPos + new Vector2(0f, -14f);
-        num.Initialize(damage, _color);
+        num.Initialize(damage, _color, isKill);
     }
 }

@@ -44,7 +44,7 @@ public partial class HowToPlay : Node
 
 		// ── Core Loop ────────────────────────────────────────────────────
 		AddHeader(vbox, "CORE LOOP");
-		AddLine(vbox, "Before each wave, draft 1 of 5 cards.");
+		AddLine(vbox, "Before each wave, draft 1 card (5 options if slots are free; 4 if all slots are occupied).");
 		AddLine(vbox, "Waves run automatically — no mid-wave interaction.");
 		AddLine(vbox, "Survive all 20 waves to win.");
 		AddLine(vbox, "An enemy reaching the exit costs 1 life. You have 10 lives.");
