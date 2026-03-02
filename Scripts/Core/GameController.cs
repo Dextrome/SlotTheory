@@ -28,7 +28,8 @@ public partial class GameController : Node
 	private EndScreen _endScreen = null!;
 	private Node2D[] _slotNodes      = new Node2D[Balance.SlotCount];
 	private Line2D[] _slotHighlights = new Line2D[Balance.SlotCount];
-	private int      _highlightedSlot = -1;
+	private int      _highlightedSlot      = -1;
+	private bool     _highlightedSlotValid = false;
 	private MapLayout _currentMap = null!;
 	private Node2D _mapVisuals = null!;
 	private Panel _tooltipPanel = null!;
@@ -387,25 +388,47 @@ public partial class GameController : Node
 	private void UpdateSlotHighlights()
 	{
 		var mousePos = GetViewport().GetMousePosition();
-		int newHover = -1;
+		int  newHover = -1;
+		bool newValid = false;
+
 		for (int i = 0; i < Balance.SlotCount; i++)
 		{
-			if (!_draftPanel.IsSlotValidTarget(i)) continue;
+			// Decide if this slot is hoverable at all in current mode
+			bool hoverable = _draftPanel.IsAwaitingSlot
+				? true                                    // tower placement: all 6 slots
+				: _runState.Slots[i].Tower != null;       // modifier assign: only occupied slots
+			if (!hoverable) continue;
+
 			var hitRect = new Rect2(_slotNodes[i].GlobalPosition - new Vector2(22f, 22f), new Vector2(44f, 44f));
-			if (hitRect.HasPoint(mousePos)) { newHover = i; break; }
+			if (!hitRect.HasPoint(mousePos)) continue;
+
+			newHover = i;
+			newValid = _draftPanel.IsSlotValidTarget(i);
+			break;
 		}
-		if (newHover == _highlightedSlot) return;
+
+		if (newHover == _highlightedSlot && newValid == _highlightedSlotValid) return;
+
+		// Fade out previous highlight
 		if (_highlightedSlot >= 0 && GodotObject.IsInstanceValid(_slotHighlights[_highlightedSlot]))
 		{
 			var tw = _slotHighlights[_highlightedSlot].CreateTween();
 			tw.TweenProperty(_slotHighlights[_highlightedSlot], "modulate", Colors.Transparent, 0.10f);
 		}
+
+		// Fade in new highlight with appropriate color
 		if (newHover >= 0 && GodotObject.IsInstanceValid(_slotHighlights[newHover]))
 		{
+			// Tower placement valid=gold, Modifier placement valid=white; invalid=red either way
+			_slotHighlights[newHover].DefaultColor = newValid
+				? (_draftPanel.IsAwaitingSlot ? new Color(1f, 0.85f, 0.15f) : Colors.White)
+				: new Color(1f, 0.15f, 0.15f);
 			var tw = _slotHighlights[newHover].CreateTween();
 			tw.TweenProperty(_slotHighlights[newHover], "modulate", Colors.White, 0.10f);
 		}
-		_highlightedSlot = newHover;
+
+		_highlightedSlot      = newHover;
+		_highlightedSlotValid = newValid;
 	}
 
 	private void ClearSlotHighlights()
@@ -413,7 +436,8 @@ public partial class GameController : Node
 		for (int i = 0; i < Balance.SlotCount; i++)
 			if (GodotObject.IsInstanceValid(_slotHighlights[i]))
 				_slotHighlights[i].Modulate = Colors.Transparent;
-		_highlightedSlot = -1;
+		_highlightedSlot      = -1;
+		_highlightedSlotValid = false;
 	}
 
 	private void GenerateMap()
