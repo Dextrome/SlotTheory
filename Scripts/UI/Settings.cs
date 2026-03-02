@@ -45,48 +45,23 @@ public partial class Settings : Node
         // ── Audio ─────────────────────────────────────────────────────
         AddSectionHeader(vbox, "AUDIO");
 
-        var settings = SettingsManager.Instance;
-        float currentVol = settings?.MasterVolume ?? 80f;
-
-        var volRow = new HBoxContainer();
-        volRow.AddThemeConstantOverride("separation", 12);
-        vbox.AddChild(volRow);
-
-        var volLabel = new Label { Text = "Master Volume" };
-        volLabel.AddThemeFontSizeOverride("font_size", 18);
-        volLabel.Modulate = new Color(0.85f, 0.85f, 0.85f);
-        volLabel.CustomMinimumSize = new Vector2(180, 0);
-        volRow.AddChild(volLabel);
-
-        var slider = new HSlider
-        {
-            MinValue = 0,
-            MaxValue = 100,
-            Value    = currentVol,
-            Step     = 1,
-            CustomMinimumSize = new Vector2(160, 24),
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-        };
-        volRow.AddChild(slider);
-
-        var volValue = new Label { Text = $"{(int)currentVol}" };
-        volValue.AddThemeFontSizeOverride("font_size", 18);
-        volValue.Modulate = new Color(0.65f, 0.65f, 0.65f);
-        volValue.CustomMinimumSize = new Vector2(38, 0);
-        volRow.AddChild(volValue);
-
-        slider.ValueChanged += v =>
-        {
-            volValue.Text = $"{(int)v}";
-            SettingsManager.Instance?.SetVolume((float)v);
-        };
+        var sm = SettingsManager.Instance;
+        AddVolumeRow(vbox, "Master",
+            sm?.MasterVolume ?? 80f,
+            v => SettingsManager.Instance?.SetVolume(v));
+        AddVolumeRow(vbox, "Music",
+            sm?.MusicVolume  ?? 80f,
+            v => SettingsManager.Instance?.SetMusicVolume(v));
+        AddVolumeRow(vbox, "FX",
+            sm?.FxVolume     ?? 80f,
+            v => SettingsManager.Instance?.SetFxVolume(v));
 
         AddSpacer(vbox, 8);
 
         // ── Display ───────────────────────────────────────────────────
         AddSectionHeader(vbox, "DISPLAY");
 
-        bool isFs = settings?.Fullscreen ?? false;
+        bool isFs = sm?.Fullscreen ?? false;
         _fullscreenBtn = new Button
         {
             Text = FullscreenLabel(isFs),
@@ -118,6 +93,43 @@ public partial class Settings : Node
 
     private static string FullscreenLabel(bool full) =>
         full ? "Display:  Fullscreen" : "Display:  Windowed";
+
+    private static void AddVolumeRow(VBoxContainer vbox, string label, float current,
+        System.Action<float> onChange)
+    {
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 12);
+        vbox.AddChild(row);
+
+        var lbl = new Label { Text = label };
+        lbl.AddThemeFontSizeOverride("font_size", 18);
+        lbl.Modulate = new Color(0.85f, 0.85f, 0.85f);
+        lbl.CustomMinimumSize = new Vector2(120, 0);
+        row.AddChild(lbl);
+
+        var slider = new HSlider
+        {
+            MinValue = 0,
+            MaxValue = 100,
+            Value    = current,
+            Step     = 1,
+            CustomMinimumSize   = new Vector2(160, 24),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        row.AddChild(slider);
+
+        var valueLabel = new Label { Text = $"{(int)current}" };
+        valueLabel.AddThemeFontSizeOverride("font_size", 18);
+        valueLabel.Modulate = new Color(0.65f, 0.65f, 0.65f);
+        valueLabel.CustomMinimumSize = new Vector2(38, 0);
+        row.AddChild(valueLabel);
+
+        slider.ValueChanged += v =>
+        {
+            valueLabel.Text = $"{(int)v}";
+            onChange((float)v);
+        };
+    }
 
     private static void AddSectionHeader(VBoxContainer vbox, string text)
     {
