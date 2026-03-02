@@ -76,7 +76,7 @@ public class CombatSim
         var leaked = state.EnemiesAlive.FindAll(e => e.ProgressRatio >= 1.0f);
         foreach (var e in leaked)
         {
-            state.Lives--;
+            state.Lives -= e.EnemyTypeId == "armored_walker" ? 2 : 1;
             Sounds?.Play("leak");
             e.QueueFree();
             GD.Print($"Enemy leaked! Lives remaining: {state.Lives}");

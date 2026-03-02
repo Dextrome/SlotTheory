@@ -77,7 +77,7 @@ public partial class GameController : Node
 		SetupAnnouncer();
 
 		GD.Print("Slot Theory booted.");
-		_extraPicksRemaining = Balance.Wave1ExtraPicks;
+		_extraPicksRemaining = Balance.ExtraPicksForWave(0);
 		StartDraftPhase();
 	}
 
@@ -116,6 +116,7 @@ public partial class GameController : Node
 			else
 			{
 				SoundManager.Instance?.Play("wave_clear");
+				_extraPicksRemaining = Balance.ExtraPicksForWave(_runState.WaveIndex);
 				StartDraftPhase();
 			}
 		}
@@ -142,8 +143,8 @@ public partial class GameController : Node
 			else              StartWavePhase();
 			return;
 		}
-		int totalPicks = _runState.WaveIndex == 0 ? Balance.Wave1ExtraPicks + 1 : 1;
-		int pickNum    = _runState.WaveIndex == 0 ? totalPicks - _extraPicksRemaining : 1;
+		int totalPicks = Balance.ExtraPicksForWave(_runState.WaveIndex) + 1;
+		int pickNum    = totalPicks - _extraPicksRemaining;
 		_draftPanel.Show(options, _runState.WaveIndex + 1, pickNum, totalPicks);
 	}
 
@@ -180,7 +181,7 @@ public partial class GameController : Node
 		SetupSlots();
 
 		GD.Print("Run restarted.");
-		_extraPicksRemaining = Balance.Wave1ExtraPicks;
+		_extraPicksRemaining = Balance.ExtraPicksForWave(0);
 		StartDraftPhase();
 	}
 
@@ -198,7 +199,7 @@ public partial class GameController : Node
 			if (tower != null)
 				_draftSystem.ApplyModifier(option.Id, tower);
 		}
-		if (_runState.WaveIndex == 0 && _extraPicksRemaining > 0)
+		if (_extraPicksRemaining > 0)
 		{
 			_extraPicksRemaining--;
 			StartDraftPhase();
@@ -514,6 +515,7 @@ public partial class GameController : Node
 					GetTree().Quit();
 					return;
 				}
+				_extraPicksRemaining = Balance.ExtraPicksForWave(_runState.WaveIndex);
 				StartDraftPhase();
 				return;
 			}
