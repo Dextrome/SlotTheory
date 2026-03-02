@@ -4,9 +4,11 @@ using SlotTheory.Data;
 
 namespace SlotTheory.Modifiers;
 
-/// <summary>Excess damage from a kill spills to the next enemy in lane (one spill only).</summary>
+/// <summary>80% of excess damage from a kill spills to the next enemy in lane (one spill only).</summary>
 public class Overkill : Modifier
 {
+    private const float SpillEfficiency = 0.80f;
+
     public Overkill(ModifierDef def) { ModifierId = def.Id; }
 
     public override void OnKill(DamageContext ctx)
@@ -19,6 +21,6 @@ public class Overkill : Modifier
             .MaxBy(e => e.ProgressRatio);
 
         if (next != null)
-            next.Hp -= excess;
+            next.Hp -= excess * SpillEfficiency;
     }
 }

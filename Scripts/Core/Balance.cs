@@ -24,7 +24,7 @@ public static class Balance
 
     // Enemies — Basic Walker
     public const float BaseEnemyHp = 65f;
-    public const float HpGrowthPerWave = 1.06f;  // HP × 1.06^(wave-1)
+    public const float HpGrowthPerWave = 1.08f;  // HP × 1.08^(wave-1)
     public const float BaseEnemySpeed = 120f;     // pixels per second along path
 
     // Enemies — Armored Walker
@@ -32,7 +32,7 @@ public static class Balance
     public const float TankyEnemySpeed = 60f;     // pixels per second (half speed)
 
     // Marked status
-    public const float MarkedDamageBonus = 0.20f; // +20% incoming damage to all towers
+    public const float MarkedDamageBonus = 0.30f; // +30% incoming damage to all towers
     public const float MarkedDuration = 2f;       // seconds
 
     // Slow status
@@ -40,7 +40,8 @@ public static class Balance
     public const float SlowDuration = 5f;          // seconds
 
     // Momentum modifier
-    public const int MomentumMaxStacks = 5;        // caps at ×1.5 damage multiplier
+    public const int   MomentumMaxStacks    = 5;     // 5 stacks × 8% = ×1.4 max multiplier
+    public const float MomentumBonusPerStack = 0.08f;
 
     // Waves
     public const float DefaultSpawnInterval = 1.5f;
