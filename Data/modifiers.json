@@ -33,5 +33,20 @@
     "Id": "hair_trigger",
     "Name": "Hair Trigger",
     "Description": "+50% attack speed, −30% range."
+  },
+  "split_shot": {
+    "Id": "split_shot",
+    "Name": "Split Shot",
+    "Description": "On hit, fires a split projectile at 60% damage to a nearby enemy. Each additional copy fires one more split."
+  },
+  "feedback_loop": {
+    "Id": "feedback_loop",
+    "Name": "Feedback Loop",
+    "Description": "Killing an enemy reduces this tower's current cooldown by 30%."
+  },
+  "chain_reaction": {
+    "Id": "chain_reaction",
+    "Name": "Chain Reaction",
+    "Description": "After hitting a target, the attack jumps to 1 nearby enemy for 60% damage. Stacks: each copy adds 1 more bounce."
   }
 }

@@ -43,6 +43,15 @@ public static class Balance
     public const int   MomentumMaxStacks    = 5;     // 5 stacks × 8% = ×1.4 max multiplier
     public const float MomentumBonusPerStack = 0.08f;
 
+    // Split Shot modifier
+    public const float SplitShotDamageRatio = 0.60f; // 60% of base damage per split projectile
+    public const float SplitShotRange       = 200f;  // search radius from impact point for split targets
+
+    // Feedback Loop modifier
+    public const float FeedbackLoopCooldownReduction = 0.30f; // 30% of remaining cooldown removed on kill
+
+    // Chain Reaction modifier — range/decay inherit tower defaults (260f / 0.6f); no new constants needed
+
     // Waves
     public const float DefaultSpawnInterval = 1.5f;
     public const int DefaultEnemyCount = 10;

@@ -16,6 +16,9 @@ public static class ModifierRegistry
         ["slow"]             = def => new Slow(def),
         ["overreach"]        = def => new Overreach(def),
         ["hair_trigger"]     = def => new HairTrigger(def),
+        ["split_shot"]       = def => new SplitShot(def),
+        ["feedback_loop"]    = def => new FeedbackLoop(def),
+        ["chain_reaction"]   = def => new ChainReaction(def),
     };
 
     public static Modifier Create(string modifierId)
