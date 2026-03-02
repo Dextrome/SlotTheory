@@ -68,40 +68,13 @@ public partial class PauseScreen : CanvasLayer
         AddLabel(vbox, "SETTINGS", 42, new Color("#a6d608"));
         AddSpacer(vbox, 8);
 
-        // Volume row
-        var volRow = new HBoxContainer();
-        volRow.AddThemeConstantOverride("separation", 10);
-        vbox.AddChild(volRow);
-
-        var volLbl = new Label { Text = "Master Volume" };
-        volLbl.AddThemeFontSizeOverride("font_size", 17);
-        volLbl.Modulate = new Color(0.85f, 0.85f, 0.85f);
-        volLbl.CustomMinimumSize = new Vector2(160, 0);
-        volRow.AddChild(volLbl);
-
-        float vol    = SettingsManager.Instance?.MasterVolume ?? 80f;
-        var slider   = new HSlider
-        {
-            MinValue            = 0,
-            MaxValue            = 100,
-            Value               = vol,
-            Step                = 1,
-            CustomMinimumSize   = new Vector2(150, 24),
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-        };
-        volRow.AddChild(slider);
-
-        var volVal = new Label { Text = $"{(int)vol}" };
-        volVal.AddThemeFontSizeOverride("font_size", 17);
-        volVal.Modulate = new Color(0.60f, 0.60f, 0.60f);
-        volVal.CustomMinimumSize = new Vector2(36, 0);
-        volRow.AddChild(volVal);
-
-        slider.ValueChanged += v =>
-        {
-            volVal.Text = $"{(int)v}";
-            SettingsManager.Instance?.SetVolume((float)v);
-        };
+        var sm = SettingsManager.Instance;
+        AddVolumeRow(vbox, "Master", sm?.MasterVolume ?? 80f,
+            v => SettingsManager.Instance?.SetVolume(v));
+        AddVolumeRow(vbox, "Music",  sm?.MusicVolume  ?? 80f,
+            v => SettingsManager.Instance?.SetMusicVolume(v));
+        AddVolumeRow(vbox, "FX",     sm?.FxVolume     ?? 80f,
+            v => SettingsManager.Instance?.SetFxVolume(v));
 
         // Fullscreen toggle
         bool isFs   = SettingsManager.Instance?.Fullscreen ?? false;
@@ -171,6 +144,43 @@ public partial class PauseScreen : CanvasLayer
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────
+
+    private static void AddVolumeRow(VBoxContainer vbox, string label, float current,
+        System.Action<float> onChange)
+    {
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 10);
+        vbox.AddChild(row);
+
+        var lbl = new Label { Text = label };
+        lbl.AddThemeFontSizeOverride("font_size", 17);
+        lbl.Modulate = new Color(0.85f, 0.85f, 0.85f);
+        lbl.CustomMinimumSize = new Vector2(80, 0);
+        row.AddChild(lbl);
+
+        var slider = new HSlider
+        {
+            MinValue            = 0,
+            MaxValue            = 100,
+            Value               = current,
+            Step                = 1,
+            CustomMinimumSize   = new Vector2(150, 24),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        row.AddChild(slider);
+
+        var valLbl = new Label { Text = $"{(int)current}" };
+        valLbl.AddThemeFontSizeOverride("font_size", 17);
+        valLbl.Modulate = new Color(0.60f, 0.60f, 0.60f);
+        valLbl.CustomMinimumSize = new Vector2(36, 0);
+        row.AddChild(valLbl);
+
+        slider.ValueChanged += v =>
+        {
+            valLbl.Text = $"{(int)v}";
+            onChange((float)v);
+        };
+    }
 
     private static void AddLabel(Control parent, string text, int fontSize, Color color)
     {

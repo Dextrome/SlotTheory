@@ -24,7 +24,12 @@ public partial class SoundManager : Node
     private AudioStreamPlayer[] _pool       = Array.Empty<AudioStreamPlayer>();
     private float[]             _poolTimers = Array.Empty<float>();
     private int                 _poolIdx;
-    private AudioStreamPlayer?  _musicPlayer;
+
+    // Music streaming — precomputed loop pushed frame-by-frame via AudioStreamGenerator
+    private Vector2[]                       _musicFrames   = Array.Empty<Vector2>();
+    private int                             _musicPos;
+    private AudioStreamPlayer?              _musicPlayer;
+    private AudioStreamGeneratorPlayback?   _musicPlayback;
 
     public override void _Ready()
     {
@@ -68,14 +73,14 @@ public partial class SoundManager : Node
     // ── Background music ─────────────────────────────────────────────────
 
     /// <summary>
-    /// Synthesises an 8-second ambient loop (Cm bass pulse + pad drone + shimmer)
-    /// and plays it at -14 dB with PingPong looping to avoid seam clicks.
+    /// Precomputes an 8-second ambient loop (Cm bass pulse + pad drone + shimmer)
+    /// and streams it continuously via AudioStreamGenerator for seamless looping.
     /// </summary>
     private void StartMusic()
     {
         const float LoopDur = 8f;
         int n = (int)(Rate * LoopDur);
-        var smp = new short[n];
+        _musicFrames = new Vector2[n];
 
         for (int i = 0; i < n; i++)
         {
@@ -100,31 +105,19 @@ public partial class SoundManager : Node
                           * (0.5f + 0.5f * MathF.Sin(t * MathF.Tau * 7.3f));
 
             float s = Mathf.Clamp(bass + pad + shimmer, -1f, 1f);
-            smp[i] = (short)(s * 30000f);
+            _musicFrames[i] = new Vector2(s, s);
         }
 
-        var bytes = new byte[n * 2];
-        Buffer.BlockCopy(smp, 0, bytes, 0, bytes.Length);
-
-        var wav = new AudioStreamWav
-        {
-            Format    = AudioStreamWav.FormatEnum.Format16Bits,
-            MixRate   = Rate,
-            Stereo    = false,
-            LoopMode  = AudioStreamWav.LoopModeEnum.Pingpong,
-            LoopBegin = 0,
-            LoopEnd   = n,
-            Data      = bytes,
-        };
-
-        _musicPlayer = new AudioStreamPlayer { Stream = wav, VolumeDb = -14f, Bus = "Music" };
+        var gen = new AudioStreamGenerator { MixRate = Rate, BufferLength = 0.5f };
+        _musicPlayer = new AudioStreamPlayer { Stream = gen, VolumeDb = -14f, Bus = "Music" };
         AddChild(_musicPlayer);
         _musicPlayer.Play();
+        _musicPlayback = (AudioStreamGeneratorPlayback)_musicPlayer.GetStreamPlayback();
     }
 
     public override void _Process(double delta)
     {
-        // Stop players whose sound has finished
+        // Stop SFX players whose sound has finished
         for (int i = 0; i < PoolSize; i++)
         {
             if (_poolTimers[i] > 0f)
@@ -132,6 +125,17 @@ public partial class SoundManager : Node
                 _poolTimers[i] -= (float)delta;
                 if (_poolTimers[i] <= 0f)
                     _pool[i].Stop();
+            }
+        }
+
+        // Stream music: push however many frames the generator buffer can accept
+        if (_musicPlayback != null && _musicFrames.Length > 0)
+        {
+            int frames = _musicPlayback.GetFramesAvailable();
+            for (int i = 0; i < frames; i++)
+            {
+                _musicPlayback.PushFrame(_musicFrames[_musicPos]);
+                _musicPos = (_musicPos + 1) % _musicFrames.Length;
             }
         }
     }
