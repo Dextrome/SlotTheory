@@ -9,7 +9,7 @@ public record TowerDef(
     float Range,
     bool AppliesMark = false,
     int ChainCount = 0,
-    float ChainRange = 140f,
+    float ChainRange = 260f,
     float ChainDamageDecay = 0.6f
 );
 

@@ -27,7 +27,7 @@
     "Range": 270.0,
     "AppliesMark": false,
     "ChainCount": 2,
-    "ChainRange": 140.0,
+    "ChainRange": 260.0,
     "ChainDamageDecay": 0.6
   }
 }

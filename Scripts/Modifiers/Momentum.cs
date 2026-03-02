@@ -4,10 +4,9 @@ using SlotTheory.Entities;
 
 namespace SlotTheory.Modifiers;
 
-/// <summary>+10% damage per consecutive hit on the same target. Resets on target switch.</summary>
+/// <summary>+8% damage per consecutive hit on the same target (max ×1.4). Resets on target switch.</summary>
 public class Momentum : Modifier
 {
-    private const float BonusPerStack = 0.10f;
     private int _stacks = 0;
     private ulong _lastTargetInstanceId = 0;
 
@@ -16,7 +15,7 @@ public class Momentum : Modifier
     public override void ModifyDamage(ref float damage, DamageContext ctx)
     {
         if (_stacks > 0 && _lastTargetInstanceId == ctx.Target.GetInstanceId())
-            damage *= (1f + _stacks * BonusPerStack);
+            damage *= (1f + _stacks * Core.Balance.MomentumBonusPerStack);
     }
 
     public override void OnHit(DamageContext ctx)
