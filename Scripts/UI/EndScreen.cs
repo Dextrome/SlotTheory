@@ -20,6 +20,7 @@ public partial class EndScreen : CanvasLayer
 
 		var root = new Control();
 		root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		root.Theme = SlotTheory.Core.UITheme.Build();
 		AddChild(root);
 
 		var bg = new ColorRect();
@@ -37,6 +38,7 @@ public partial class EndScreen : CanvasLayer
 
 		_titleLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
 		_titleLabel.AddThemeFontSizeOverride("font_size", 72);
+		SlotTheory.Core.UITheme.ApplyFont(_titleLabel, semiBold: true, size: 72);
 		vbox.AddChild(_titleLabel);
 
 		_subtitleLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
@@ -54,7 +56,7 @@ public partial class EndScreen : CanvasLayer
 
 		var hint = new Label
 		{
-			Text = "Click anywhere to return to menu",
+			Text = "Click or press Enter to return to menu",
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
 		hint.AddThemeFontSizeOverride("font_size", 18);
@@ -65,9 +67,11 @@ public partial class EndScreen : CanvasLayer
 	public override void _Input(InputEvent @event)
 	{
 		if (!Visible) return;
-		if (@event is not InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }) return;
+		bool triggered = @event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }
+		              || @event is InputEventKey { Pressed: true, KeyLabel: Key.Enter or Key.KpEnter or Key.Space };
+		if (!triggered) return;
 		GetViewport().SetInputAsHandled();
-		GetTree().ChangeSceneToFile("res://Scenes/MainMenu.tscn");
+		Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 	}
 
 	public void ShowWin(string buildSummary)

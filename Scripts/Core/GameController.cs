@@ -91,6 +91,7 @@ public partial class GameController : Node
 		int livesBefore = _runState.Lives;
 		var result = _combatSim.Step((float)delta, _runState, _waveSystem);
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
+		_hudPanel.RefreshEnemies(_runState.EnemiesAlive.Count, _waveSystem.GetTotalCount());
 		if (_runState.Lives < livesBefore) _hudPanel.FlashLives();
 
 		if (result == WaveResult.Loss)
@@ -547,7 +548,7 @@ public partial class GameController : Node
 			Modulate           = new Color(1f, 1f, 1f, 0f),
 			MouseFilter        = Control.MouseFilterEnum.Ignore,
 		};
-		_waveAnnounce.AddThemeFontSizeOverride("font_size", 54);
+		UITheme.ApplyFont(_waveAnnounce, semiBold: true, size: 54);
 		_waveAnnounce.AddThemeColorOverride("font_color", new Color(0.85f, 0.20f, 1.00f));
 		anchor.AddChild(_waveAnnounce);
 	}

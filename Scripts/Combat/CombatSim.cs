@@ -106,6 +106,7 @@ public class CombatSim
             // Damage applied on projectile arrival, not here
             SpawnProjectile(tower.GlobalPosition, target, tower.ProjectileColor,
                             tower, state.WaveIndex, state.EnemiesAlive);
+            if (!BotMode) tower.FlashAttack();
 
             string shootId = tower.TowerId switch
             {
