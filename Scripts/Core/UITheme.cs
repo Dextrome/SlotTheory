@@ -8,8 +8,8 @@ namespace SlotTheory.Core;
 /// </summary>
 public static class UITheme
 {
-    public static FontFile Regular   { get; } = GD.Load<FontFile>("res://Assets/Fonts/Rajdhani-Regular.ttf");
-    public static FontFile SemiBold  { get; } = GD.Load<FontFile>("res://Assets/Fonts/Rajdhani-SemiBold.ttf");
+    public static FontFile Regular   { get; } = GD.Load<FontFile>("res://Assets/Fonts/Rajdhani-Bold.ttf");
+    public static FontFile SemiBold  { get; } = GD.Load<FontFile>("res://Assets/Fonts/Rajdhani-Bold.ttf");
 
     /// <summary>
     /// Builds a fully configured Theme with Rajdhani fonts and neon-synthwave colours.
