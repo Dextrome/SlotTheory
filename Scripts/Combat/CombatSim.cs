@@ -140,13 +140,13 @@ public class CombatSim
     {
         if (BotMode)
         {
-            DamageModel.Apply(new DamageContext(tower, target, waveIndex, enemies));
+            DamageModel.Apply(new DamageContext(tower, target, waveIndex, enemies, _state));
             return;
         }
         if (LanePath == null) return;
         var proj = new ProjectileVisual();
         LanePath.GetParent().AddChild(proj);
-        proj.Initialize(fromGlobal, target, color, speed: 500f, tower, waveIndex, enemies);
+        proj.Initialize(fromGlobal, target, color, speed: 500f, tower, waveIndex, enemies, _state);
     }
 
     private void SpawnDeathBurst(Vector2 worldPos, bool isArmored)

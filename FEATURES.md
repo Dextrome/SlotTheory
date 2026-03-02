@@ -139,6 +139,7 @@ Full-screen overlay shown between waves:
 | **Color-coded highlights** | Valid tower slots glow **gold**; valid modifier targets glow **white**; occupied/ineligible slots glow **red** |
 | **Placement hint label** | Gold text shows `"Click a slot to place  X"` or `"Click a tower to assign  X"` |
 | **Cancel (Esc)** | While awaiting world-click, Esc restores the draft panel with the original options |
+| **Key hint labels** | `[ 1 ]`–`[ 5 ]` shown as separate child labels anchored to the bottom-right of each card in a muted blue-grey; styled independently from card body text |
 
 ---
 
@@ -235,7 +236,9 @@ Visible **during wave** and **while assigning a modifier to a tower** (hides dur
 | Win | `VICTORY` (green) | `All 20 waves survived!` |
 | Loss | `GAME OVER` (red) | `Reached wave N / 20  ·  Lives lost: N` |
 
-Both states show a **build summary**: each occupied slot lists the tower name and its modifiers.
+Both states show:
+- **Run stats** (blue tint): `Enemies killed: N  ·  Total damage: N` — damage is actual HP removed, not overkill
+- **Build summary**: each occupied slot lists the tower name and its modifiers
 
 Dismiss: **left-click anywhere** or **press Enter / Space** → returns to main menu.
 
@@ -264,6 +267,7 @@ Dismiss: **left-click anywhere** or **press Enter / Space** → returns to main 
 - Procedural dark panel layout (no scene file, fully code-driven)
 - Buttons: **Play**, **How to Play**, **Settings**, **Quit to Desktop**
 - All buttons play `"ui_hover"` SFX on mouse-enter
+- **Animated neon grid background** (`NeonGridBg` Control): 9 horizontal + 13 vertical neon-purple grid lines with per-line alpha sine waves, plus a slow downward scan sweep — very low opacity so UI stays readable
 
 ## Settings Screen
 

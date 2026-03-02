@@ -13,14 +13,17 @@ public class DamageContext
 
     public float BaseDamage { get; }
     public float FinalDamage { get; set; }
+    public RunState? State { get; }
 
-    public DamageContext(TowerInstance attacker, EnemyInstance target, int waveIndex, List<EnemyInstance> enemies)
+    public DamageContext(TowerInstance attacker, EnemyInstance target, int waveIndex,
+                         List<EnemyInstance> enemies, RunState? state = null)
     {
         Attacker = attacker;
         Target = target;
         WaveIndex = waveIndex;
         EnemiesAlive = enemies;
         BaseDamage = FinalDamage = attacker.BaseDamage;
+        State = state;
     }
 }
 
@@ -40,8 +43,14 @@ public static class DamageModel
 
         ctx.FinalDamage = damage;
 
-        // 3. Apply damage
+        // 3. Apply damage; track run-wide stats when RunState is available
+        float hpBefore = ctx.Target.Hp;
         ctx.Target.Hp -= damage;
+        if (ctx.State != null)
+        {
+            ctx.State.TotalDamageDealt += (int)(hpBefore - System.MathF.Max(0f, ctx.Target.Hp));
+            if (ctx.Target.Hp <= 0) ctx.State.TotalKills++;
+        }
 
         // 4. On-hit effects
         foreach (var mod in ctx.Attacker.Modifiers)

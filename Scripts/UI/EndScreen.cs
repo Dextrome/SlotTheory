@@ -11,6 +11,7 @@ public partial class EndScreen : CanvasLayer
 {
 	private Label _titleLabel    = null!;
 	private Label _subtitleLabel = null!;
+	private Label _statsLabel    = null!;
 	private Label _buildLabel    = null!;
 
 	public override void _Ready()
@@ -45,6 +46,12 @@ public partial class EndScreen : CanvasLayer
 		_subtitleLabel.AddThemeFontSizeOverride("font_size", 28);
 		vbox.AddChild(_subtitleLabel);
 
+		_statsLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+		_statsLabel.AddThemeFontSizeOverride("font_size", 20);
+		_statsLabel.Modulate = new Color(0.65f, 0.85f, 1.0f);
+		_statsLabel.Visible = false;
+		vbox.AddChild(_statsLabel);
+
 		_buildLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
 		_buildLabel.AddThemeFontSizeOverride("font_size", 16);
 		_buildLabel.Modulate = new Color(0.75f, 0.75f, 0.85f);
@@ -74,21 +81,25 @@ public partial class EndScreen : CanvasLayer
 		Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 	}
 
-	public void ShowWin(string buildSummary)
+	public void ShowWin(int kills, int damageDealt, string buildSummary)
 	{
 		_titleLabel.Text = "VICTORY";
 		_titleLabel.Modulate = new Color(0.3f, 1.0f, 0.5f);
 		_subtitleLabel.Text = $"All {Balance.TotalWaves} waves survived!";
+		_statsLabel.Text = $"Enemies killed: {kills}  ·  Total damage: {damageDealt:N0}";
+		_statsLabel.Visible = true;
 		_buildLabel.Text = buildSummary;
 		_buildLabel.Visible = buildSummary.Length > 0;
 		Visible = true;
 	}
 
-	public void ShowLoss(int waveReached, int livesLost, string buildSummary)
+	public void ShowLoss(int waveReached, int livesLost, int kills, int damageDealt, string buildSummary)
 	{
 		_titleLabel.Text = "GAME OVER";
 		_titleLabel.Modulate = new Color(1.0f, 0.35f, 0.35f);
 		_subtitleLabel.Text = $"Reached wave {waveReached} / {Balance.TotalWaves}  ·  Lives lost: {livesLost}";
+		_statsLabel.Text = $"Enemies killed: {kills}  ·  Total damage: {damageDealt:N0}";
+		_statsLabel.Visible = kills > 0 || damageDealt > 0;
 		_buildLabel.Text = buildSummary;
 		_buildLabel.Visible = buildSummary.Length > 0;
 		Visible = true;

@@ -13,6 +13,10 @@ public class RunState
     public int EnemiesSpawnedThisWave { get; set; } = 0;
     public float WaveTime { get; set; } = 0f;
 
+    // Run-wide stats shown on the end screen
+    public int   TotalKills       { get; set; } = 0;
+    public int   TotalDamageDealt { get; set; } = 0;
+
     public RunState()
     {
         for (int i = 0; i < Balance.SlotCount; i++)
@@ -29,6 +33,8 @@ public class RunState
         EnemiesAlive.Clear();
         EnemiesSpawnedThisWave = 0;
         WaveTime = 0f;
+        TotalKills = 0;
+        TotalDamageDealt = 0;
         for (int i = 0; i < Slots.Length; i++)
             Slots[i] = new SlotInstance(i);
     }

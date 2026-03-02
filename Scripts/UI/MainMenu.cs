@@ -19,6 +19,12 @@ public partial class MainMenu : Node
 		bg.Color = new Color("#141420");
 		canvas.AddChild(bg);
 
+		// Animated neon grid — rendered above solid bg, below all UI
+		var grid = new NeonGridBg();
+		grid.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		grid.MouseFilter = Control.MouseFilterEnum.Ignore;
+		canvas.AddChild(grid);
+
 		// Centre everything
 		var center = new CenterContainer();
 		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);

@@ -15,6 +15,7 @@ public partial class ProjectileVisual : Node2D
     private TowerInstance? _tower;
     private int   _waveIndex;
     private List<EnemyInstance>? _enemies;
+    private SlotTheory.Core.RunState? _runState;
     private float _speed;
     private Color _color;
 
@@ -22,13 +23,15 @@ public partial class ProjectileVisual : Node2D
     private readonly List<Vector2> _trail = new();
 
     public void Initialize(Vector2 fromGlobal, EnemyInstance target, Color color, float speed,
-                           TowerInstance tower, int waveIndex, List<EnemyInstance> enemies)
+                           TowerInstance tower, int waveIndex, List<EnemyInstance> enemies,
+                           SlotTheory.Core.RunState? runState = null)
     {
         GlobalPosition = fromGlobal;
         _target    = target;
         _tower     = tower;
         _waveIndex = waveIndex;
         _enemies   = enemies;
+        _runState  = runState;
         _speed     = speed;
         _color     = color;
     }
@@ -75,7 +78,7 @@ public partial class ProjectileVisual : Node2D
             if (_tower != null && _enemies != null && _target.Hp > 0)
             {
                 float hpBefore = _target.Hp;
-                var ctx = new DamageContext(_tower, _target, _waveIndex, _enemies);
+                var ctx = new DamageContext(_tower, _target, _waveIndex, _enemies, _runState);
                 DamageModel.Apply(ctx);
                 SlotTheory.Core.SoundManager.Instance?.Play("hit");
 
