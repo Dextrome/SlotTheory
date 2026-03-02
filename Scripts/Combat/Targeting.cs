@@ -6,9 +6,12 @@ namespace SlotTheory.Combat;
 
 public static class Targeting
 {
-    public static EnemyInstance? SelectTarget(TowerInstance tower, List<EnemyInstance> enemies)
+    public static EnemyInstance? SelectTarget(TowerInstance tower, List<EnemyInstance> enemies,
+                                                bool ignoreRange = false)
     {
-        var inRange = enemies.Where(e => e.Hp > 0 && IsInRange(tower, e)).ToList();
+        var inRange = ignoreRange
+            ? enemies.Where(e => e.Hp > 0).ToList()
+            : enemies.Where(e => e.Hp > 0 && IsInRange(tower, e)).ToList();
         if (inRange.Count == 0) return null;
 
         return tower.TargetingMode switch
