@@ -26,9 +26,11 @@ public partial class GameController : Node
 	private DraftPanel _draftPanel = null!;
 	private HudPanel _hudPanel = null!;
 	private EndScreen _endScreen = null!;
-	private Node2D[] _slotNodes      = new Node2D[Balance.SlotCount];
-	private Line2D[] _slotHighlights      = new Line2D[Balance.SlotCount];
-	private Tween?[] _slotHighlightTweens = new Tween?[Balance.SlotCount];
+	private Node2D[]    _slotNodes            = new Node2D[Balance.SlotCount];
+	private Line2D[]    _slotHighlights       = new Line2D[Balance.SlotCount];
+	private Tween?[]    _slotHighlightTweens  = new Tween?[Balance.SlotCount];
+	private Label[]     _slotModLabels        = new Label[Balance.SlotCount];
+	private ColorRect[] _slotModBgs           = new ColorRect[Balance.SlotCount];
 	private int      _highlightedSlot      = -1;
 	private bool     _highlightedSlotValid = false;
 	private MapLayout _currentMap = null!;
@@ -134,7 +136,16 @@ public partial class GameController : Node
 				if (_botRunner == null) ShowWaveClearFlash();
 				SoundManager.Instance?.Play("wave_clear");
 				_extraPicksRemaining = Balance.ExtraPicksForWave(_runState.WaveIndex);
-				StartDraftPhase();
+				if (_botRunner != null)
+				{
+					StartDraftPhase();
+				}
+				else
+				{
+					// Let the wave-clear flash breathe before showing the draft panel
+					CurrentPhase = GamePhase.Draft;
+					GetTree().CreateTimer(0.48f).Timeout += StartDraftPhase;
+				}
 			}
 		}
 	}
@@ -214,7 +225,10 @@ public partial class GameController : Node
 		{
 			var tower = _runState.Slots[targetSlotIndex].Tower;
 			if (tower != null)
+			{
 				_draftSystem.ApplyModifier(option.Id, tower);
+				if (_botRunner == null) RefreshModLabel(targetSlotIndex);
+			}
 		}
 		if (_extraPicksRemaining > 0)
 		{
@@ -389,6 +403,34 @@ public partial class GameController : Node
 			slotLabel.AddThemeColorOverride("font_color", Colors.White);
 			slotLabel.AddThemeFontSizeOverride("font_size", 16);
 			_slotNodes[i].AddChild(slotLabel);
+
+			// Mod-count pip — below slot number, shown only when tower has ≥ 1 modifier
+			var modBg = new ColorRect
+			{
+				Color       = new Color(0f, 0f, 0f, 0.65f),
+				Position    = new Vector2(-13f, 39f),
+				Size        = new Vector2(26f, 14f),
+				MouseFilter = Control.MouseFilterEnum.Ignore,
+				ZIndex      = 1,
+				Visible     = false,
+			};
+			_slotNodes[i].AddChild(modBg);
+
+			var modLabel = new Label
+			{
+				Position            = new Vector2(-13f, 39f),
+				Size                = new Vector2(26f, 14f),
+				HorizontalAlignment = HorizontalAlignment.Center,
+				VerticalAlignment   = VerticalAlignment.Center,
+				MouseFilter         = Control.MouseFilterEnum.Ignore,
+				ZIndex              = 2,
+				Visible             = false,
+			};
+			modLabel.AddThemeColorOverride("font_color", new Color(0.55f, 1.0f, 0.55f));
+			modLabel.AddThemeFontSizeOverride("font_size", 11);
+			_slotModLabels[i] = modLabel;
+			_slotModBgs[i]    = modBg;
+			_slotNodes[i].AddChild(modLabel);
 		}
 	}
 
@@ -742,6 +784,16 @@ public partial class GameController : Node
 			_placementLabel.Text    = _draftPanel.PlacementHint;
 			_placementLabel.Visible = true;
 		}
+	}
+
+	private void RefreshModLabel(int slotIndex)
+	{
+		var tower = _runState.Slots[slotIndex].Tower;
+		bool show = tower != null && tower.Modifiers.Count > 0;
+		_slotModBgs[slotIndex].Visible    = show;
+		_slotModLabels[slotIndex].Visible = show;
+		if (show)
+			_slotModLabels[slotIndex].Text = $"{tower!.Modifiers.Count}/{Balance.MaxModifiersPerTower}";
 	}
 
 	private void ShowWaveClearFlash()
