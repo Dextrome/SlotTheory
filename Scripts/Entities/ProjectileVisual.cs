@@ -78,7 +78,7 @@ public partial class ProjectileVisual : Node2D
 
         if (dist <= _speed * (float)delta)
         {
-            // Arrived — apply damage
+            // Arrived — apply primary damage
             if (_tower != null && _enemies != null && _target.Hp > 0)
             {
                 float hpBefore = _target.Hp;
@@ -94,12 +94,72 @@ public partial class ProjectileVisual : Node2D
                     if (!isKill && GodotObject.IsInstanceValid(_target))
                         _target.FlashHit();
                 }
+
+                // Chain bounces — only if tower is a chain tower and primary target is still locatable
+                if (_tower.IsChainTower)
+                    ApplyChainHits(_target.GlobalPosition);
             }
             QueueFree();
             return;
         }
 
         GlobalPosition += toTarget.Normalized() * _speed * (float)delta;
+    }
+
+    private void ApplyChainHits(Vector2 startWorldPos)
+    {
+        if (_tower == null || _enemies == null) return;
+
+        var alreadyHit = new System.Collections.Generic.HashSet<EnemyInstance>();
+        if (GodotObject.IsInstanceValid(_target) && _target != null)
+            alreadyHit.Add(_target);
+
+        Vector2 chainFrom = startWorldPos;
+        float   damage    = _tower.BaseDamage * _tower.ChainDamageDecay;
+
+        for (int bounce = 0; bounce < _tower.ChainCount; bounce++)
+        {
+            EnemyInstance? chainTarget = null;
+            float bestDist = _tower.ChainRange;
+
+            foreach (var e in _enemies)
+            {
+                if (alreadyHit.Contains(e)) continue;
+                if (e.Hp <= 0 || !GodotObject.IsInstanceValid(e)) continue;
+                float d = chainFrom.DistanceTo(e.GlobalPosition);
+                if (d < bestDist) { bestDist = d; chainTarget = e; }
+            }
+
+            if (chainTarget == null) break;
+
+            float hpBefore = chainTarget.Hp;
+            var ctx = new DamageContext(_tower, chainTarget, _waveIndex, _enemies, _runState,
+                                        isChain: true, damageOverride: damage);
+            DamageModel.Apply(ctx);
+
+            SpawnChainArc(chainFrom, chainTarget.GlobalPosition);
+
+            float dealt = hpBefore - chainTarget.Hp;
+            if (dealt >= 1f)
+            {
+                bool isKill = chainTarget.Hp <= 0;
+                SpawnDamageNumber(chainTarget.GlobalPosition, dealt, isKill);
+                if (!isKill && GodotObject.IsInstanceValid(chainTarget))
+                    chainTarget.FlashHit();
+            }
+
+            alreadyHit.Add(chainTarget);
+            chainFrom = chainTarget.GlobalPosition;
+            damage   *= _tower.ChainDamageDecay;
+        }
+    }
+
+    private void SpawnChainArc(Vector2 worldFrom, Vector2 worldTo)
+    {
+        var arc = new ChainArc();
+        GetParent().AddChild(arc);
+        arc.GlobalPosition = Vector2.Zero;
+        arc.Initialize(worldFrom, worldTo, _color);
     }
 
     private void SpawnDamageNumber(Vector2 worldPos, float damage, bool isKill = false)

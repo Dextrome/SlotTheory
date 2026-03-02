@@ -241,16 +241,20 @@ public partial class GameController : Node
 		var def = DataLoader.GetTowerDef(towerId);
 		var tower = new TowerInstance
 		{
-			TowerId        = towerId,
-			BaseDamage     = def.BaseDamage,
-			AttackInterval = def.AttackInterval,
-			Range          = def.Range,
-			AppliesMark    = def.AppliesMark,
+			TowerId           = towerId,
+			BaseDamage        = def.BaseDamage,
+			AttackInterval    = def.AttackInterval,
+			Range             = def.Range,
+			AppliesMark       = def.AppliesMark,
+			ChainCount        = def.ChainCount,
+			ChainRange        = def.ChainRange,
+			ChainDamageDecay  = def.ChainDamageDecay,
 			ProjectileColor = towerId switch
 			{
-				"rapid_shooter" => new Color(0.3f, 0.9f, 1.0f),  // cyan
-				"heavy_cannon"  => new Color(1.0f, 0.55f, 0.0f), // orange
-				"marker_tower"  => new Color(0.75f, 0.3f, 1.0f), // purple
+				"rapid_shooter" => new Color(0.30f, 0.90f, 1.00f),  // cyan
+				"heavy_cannon"  => new Color(1.00f, 0.55f, 0.00f),  // orange
+				"marker_tower"  => new Color(0.75f, 0.30f, 1.00f),  // purple
+				"chain_tower"   => new Color(0.55f, 0.90f, 1.00f),  // electric blue
 				_               => Colors.Yellow,
 			},
 			BodyColor = towerId switch
@@ -258,6 +262,7 @@ public partial class GameController : Node
 				"rapid_shooter" => new Color(0.15f, 0.65f, 1.00f),
 				"heavy_cannon"  => new Color(1.00f, 0.55f, 0.00f),
 				"marker_tower"  => new Color(1.00f, 0.15f, 0.60f),
+				"chain_tower"   => new Color(0.50f, 0.85f, 1.00f),
 				_               => new Color(0.20f, 0.50f, 1.00f),
 			},
 		};
@@ -577,6 +582,8 @@ public partial class GameController : Node
 
 			var text = $"Slot {i + 1}  ·  {def.Name}  [{targetingName}]\n";
 			text += $"{tower.BaseDamage:0.#} dmg  ·  {effInterval:0.##} s  ·  {(int)tower.Range} px\n";
+			if (tower.IsChainTower)
+				text += $"⚡ chains ×{tower.ChainCount}  ({(int)(tower.ChainDamageDecay * 100)}% per bounce)  range {(int)tower.ChainRange} px\n";
 			if (tower.Modifiers.Count == 0)
 				text += "(no modifiers)";
 			else
