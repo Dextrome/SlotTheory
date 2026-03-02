@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using SlotTheory.Combat;
 
@@ -18,22 +19,27 @@ public partial class ProjectileVisual : Node2D
     private SlotTheory.Core.RunState? _runState;
     private float _speed;
     private Color _color;
+    private bool  _isSplitProjectile;
+    private float _damageOverride = -1f;
 
     private const int TrailMax = 10;
     private readonly List<Vector2> _trail = new();
 
     public void Initialize(Vector2 fromGlobal, EnemyInstance target, Color color, float speed,
                            TowerInstance tower, int waveIndex, List<EnemyInstance> enemies,
-                           SlotTheory.Core.RunState? runState = null)
+                           SlotTheory.Core.RunState? runState = null,
+                           bool isSplitProjectile = false, float damageOverride = -1f)
     {
-        GlobalPosition = fromGlobal;
-        _target    = target;
-        _tower     = tower;
-        _waveIndex = waveIndex;
-        _enemies   = enemies;
-        _runState  = runState;
-        _speed     = speed;
-        _color     = color;
+        GlobalPosition      = fromGlobal;
+        _target             = target;
+        _tower              = tower;
+        _waveIndex          = waveIndex;
+        _enemies            = enemies;
+        _runState           = runState;
+        _speed              = speed;
+        _color              = color;
+        _isSplitProjectile  = isSplitProjectile;
+        _damageOverride     = damageOverride;
     }
 
     public override void _Draw()
@@ -82,7 +88,10 @@ public partial class ProjectileVisual : Node2D
             if (_tower != null && _enemies != null && _target.Hp > 0)
             {
                 float hpBefore = _target.Hp;
-                var ctx = new DamageContext(_tower, _target, _waveIndex, _enemies, _runState);
+                var ctx = _damageOverride >= 0f
+                    ? new DamageContext(_tower, _target, _waveIndex, _enemies, _runState,
+                                        isChain: true, damageOverride: _damageOverride)
+                    : new DamageContext(_tower, _target, _waveIndex, _enemies, _runState);
                 DamageModel.Apply(ctx);
                 SlotTheory.Core.SoundManager.Instance?.Play("hit");
 
@@ -95,8 +104,12 @@ public partial class ProjectileVisual : Node2D
                         _target.FlashHit();
                 }
 
-                // Chain bounces — only if tower is a chain tower and primary target is still locatable
-                if (_tower.IsChainTower)
+                // Split Shot — primary hits only; split projectiles cannot recurse
+                if (_tower.SplitCount > 0 && !_isSplitProjectile)
+                    SpawnSplitProjectiles(_target.GlobalPosition);
+
+                // Chain bounces — primary hits only; split projectiles cannot chain
+                if (_tower.IsChainTower && !_isSplitProjectile)
                     ApplyChainHits(_target.GlobalPosition);
             }
             QueueFree();
@@ -151,6 +164,32 @@ public partial class ProjectileVisual : Node2D
             alreadyHit.Add(chainTarget);
             chainFrom = chainTarget.GlobalPosition;
             damage   *= _tower.ChainDamageDecay;
+        }
+    }
+
+    private void SpawnSplitProjectiles(Vector2 impactPos)
+    {
+        if (_tower == null || _enemies == null) return;
+
+        float splitDamage = _tower.BaseDamage * SlotTheory.Core.Balance.SplitShotDamageRatio;
+        int spawned = 0;
+
+        var candidates = _enemies
+            .Where(e => e != _target && e.Hp > 0 && GodotObject.IsInstanceValid(e))
+            .OrderBy(e => e.GlobalPosition.DistanceTo(impactPos));
+
+        foreach (var candidate in candidates)
+        {
+            if (spawned >= _tower.SplitCount) break;
+            if (candidate.GlobalPosition.DistanceTo(impactPos) > SlotTheory.Core.Balance.SplitShotRange) break;
+
+            var split = new ProjectileVisual();
+            GetParent().AddChild(split);
+            var splitColor = new Color(_color.R, _color.G, _color.B, 0.65f);
+            split.Initialize(impactPos, candidate, splitColor, speed: 500f,
+                             _tower, _waveIndex, _enemies, _runState,
+                             isSplitProjectile: true, damageOverride: splitDamage);
+            spawned++;
         }
     }
 
