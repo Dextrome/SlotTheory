@@ -43,7 +43,7 @@ public static class MapGenerator
 	/// </summary>
 	private static Vector2[] GenerateUShape(Random rng, bool[,] pathGrid)
 	{
-		int r0 = rng.Next(3, 5);   // [3, 4] — deep enough for a good path length
+		int r0 = rng.Next(2, 4);   // [2, 3] — capped at 3 so zone 1 (top-centre) always has path-adjacent cells
 
 		MarkVertical  (pathGrid, 0, 0, r0);
 		MarkHorizontal(pathGrid, 0, 7, r0);
@@ -114,7 +114,7 @@ public static class MapGenerator
 	{
 		int c1 = rng.Next(2, 4);              // [2, 3]
 		int c2 = rng.Next(c1 + 1, 5);        // [c1+1, 4]
-		int c3 = rng.Next(c2 + 1, 6);        // [c2+1, 5]
+		int c3 = rng.Next(Math.Max(c2 + 1, 5), 6); // always 5 — ensures zone 5 (bottom-right) has col 5 vertical path adjacent
 
 		int r0 = rng.Next(3, 5);              // [3, 4] — low
 		int r1 = rng.Next(0, 2);              // [0, 1] — high
@@ -197,7 +197,25 @@ public static class MapGenerator
 			if (adjacent.Count > 0)
 				chosen = adjacent[rng.Next(adjacent.Count)];
 			else if (grassOnly.Count > 0)
-				chosen = grassOnly[rng.Next(grassOnly.Count)];
+			{
+				// Pick whichever grass cell is closest to any path cell (maximises chance of being in tower range)
+				float bestDist = float.MaxValue;
+				var   bestCells = new List<(int col, int row)>();
+				foreach (var (gc, gr) in grassOnly)
+				{
+					float minD = float.MaxValue;
+					for (int pc = 0; pc < COLS; pc++)
+					for (int pr = 0; pr < ROWS; pr++)
+					{
+						if (!pathGrid[pc, pr]) continue;
+						float d = (CellCenter(gc, gr) - CellCenter(pc, pr)).Length();
+						if (d < minD) minD = d;
+					}
+					if      (minD < bestDist - 0.5f) { bestDist = minD; bestCells.Clear(); bestCells.Add((gc, gr)); }
+					else if (minD <= bestDist + 0.5f)  bestCells.Add((gc, gr));
+				}
+				chosen = bestCells.Count > 0 ? bestCells[rng.Next(bestCells.Count)] : grassOnly[rng.Next(grassOnly.Count)];
+			}
 			else
 			{
 				var any = new List<(int, int)>();
