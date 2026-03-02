@@ -81,7 +81,11 @@ public partial class ProjectileVisual : Node2D
 
                 float dealt = hpBefore - _target.Hp;
                 if (dealt > 0f)
+                {
                     SpawnDamageNumber(_target.GlobalPosition, dealt);
+                    if (GodotObject.IsInstanceValid(_target) && _target.Hp > 0)
+                        _target.FlashHit();
+                }
             }
             QueueFree();
             return;
