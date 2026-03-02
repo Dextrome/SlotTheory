@@ -52,6 +52,16 @@ Towers are placed in **6 slots** on the map. Max **3 modifiers** per tower.
 
 Armored Walkers first appear at wave 7; count ramps to 5 by wave 20. Rendered at **1.5× scale** so they are visually distinct from Basic Walkers at a glance.
 
+### Enemy Visuals
+
+| Element | Detail |
+|---|---|
+| **Basic Walker** | Round teal body with white + dark-pupil eyes; drawn via `_Draw()` |
+| **Armored Walker** | Hexagonal crimson body with 3-layer depth shading, larger eyes; 1.5× scale |
+| **HP bar** | Thin bar above enemy; shifts **green → yellow → red** at 50% and 25% HP; cyan tint for Basic, magenta tint for Armored |
+| **Marked ring** | Purple arc ring drawn around enemy while Marked status is active |
+| **Slow ring** | Cyan outer ring drawn around enemy while Slow status is active |
+
 ---
 
 ## Status Effects
@@ -109,7 +119,7 @@ Top bar (always visible during play):
 | Wave label | `Wave X / 20` |
 | Enemy counter | `alive / total` during a wave; hidden when wave is clear |
 | Lives label | `Lives: N`; turns red when ≤ 3; **elastic punch-scale flash** on any life loss |
-| Speed toggle | `1×` / `2×` button (top-right); resets to 1× on wave clear |
+| Speed button | Cycles **1× → 2× → 3×** on each click; resets to 1× on wave clear or restart |
 | ESC hint | Dim label reminding player about pause |
 
 ---
@@ -142,6 +152,19 @@ On wave start (not shown in bot mode):
 
 ---
 
+## Slot Visuals
+
+Each of the 6 tower slots is a node with persistent child visuals:
+
+| Element | Detail |
+|---|---|
+| Empty slot | Dark purple filled square + neon violet border (7 px thick outer + 1.5 px inner) |
+| Slot number label | `"1"`–`"6"` centered below slot on a dark semi-transparent background |
+| Mod-count pip | Green `"N/3"` label in lower-right of slot; only visible when the tower has ≥ 1 modifier |
+| **Draft highlights** | Gold for valid tower slots, white for valid modifier targets, red for occupied/ineligible; fade in/out via tween |
+
+---
+
 ## Tower Visuals
 
 Each placed tower renders entirely via `_Draw()`:
@@ -150,8 +173,8 @@ Each placed tower renders entirely via `_Draw()`:
 |---|---|
 | Tower body | Hand-drawn per type: Rapid Shooter (hexagonal cyan), Heavy Cannon (octagonal orange), Marker Tower (diamond pink) |
 | Glow layers | Each tower has 2–3 soft radial glow circles behind the main shape |
-| Charge arc | Thin ring around tower showing cooldown progress (bright arc sweeps clockwise from 12 o'clock) |
-| Range circle | Faint filled polygon (10% opacity) + subtle border showing attack range |
+| Charge arc | Thin bright arc sweeps clockwise from 12 o'clock showing cooldown progress; dim background ring behind it |
+| Range circle | Faint filled polygon (10% opacity) + subtle Line2D border showing attack range |
 | Targeting icon | `▶` / `★` / `▼` label in the centre of the tower |
 | **Attack flash** | Tower briefly pulses to 1.4× brightness then fades back (0.03 s spike, 0.25 s Expo/Out decay) on each shot |
 
@@ -186,9 +209,11 @@ Visible **during wave** and **while assigning a modifier to a tower** (hides dur
 |---|---|---|
 | **Screen shake** | Any life lost | `_worldNode` snaps through 4 offset positions (±8 px) in 0.18 s via tween, returns to origin |
 | **Wave clear flash** | Wave completed | Semi-transparent green `ColorRect` over the world fades in then out over ~0.6 s |
+| **Wave-clear hold** | Wave completed | 0.48 s pause after the flash before the draft panel opens, giving player a moment to breathe |
 | **Enemy hit flash** | Any damage landed | Enemy node modulate spikes to 2× then decays over 0.15 s (handled by `EnemyInstance.FlashHit()`) |
 | **Tower attack flash** | Tower fires | Tower modulate spikes to 1.4× then decays over 0.25 s (handled by `TowerInstance.FlashAttack()`) |
 | **Lives label flash** | Life lost | HUD lives label punches to 1.25× scale then returns (elastic tween) |
+| **UI hover sound** | Mouse enters any button | Short quiet high-pitched `"ui_hover"` SFX on all buttons (draft cards, pause menu, main menu) |
 
 ---
 
@@ -218,8 +243,18 @@ Dismiss: **left-click anywhere** or **press Enter / Space** → returns to main 
 
 ## Pause Screen
 
-- **Esc** toggles pause overlay
-- Options: **Unpause** (resume) or **Main Menu** (unpauses engine + changes scene)
+**Esc** toggles the pause overlay (blocked during Win/Loss phase).
+
+| Button | Behaviour |
+|---|---|
+| Resume | Unpauses and closes overlay |
+| Restart Run | Unpauses + full run reset (new map, all slots cleared, wave 1) |
+| Settings | Slides to inline settings panel (Master/Music/FX sliders + fullscreen toggle) |
+| How to Play | Opens scrollable tutorial overlay within the pause context; Back returns to pause |
+| Main Menu | Unpauses engine then fades to `MainMenu.tscn` |
+| Quit to Desktop | `GetTree().Quit()` |
+
+- While settings open, Esc navigates back to the main pause panel (not unpause)
 - Speed resets to 1× on any run restart
 
 ---
@@ -227,9 +262,19 @@ Dismiss: **left-click anywhere** or **press Enter / Space** → returns to main 
 ## Main Menu
 
 - Procedural dark panel layout (no scene file, fully code-driven)
-- Buttons: Play, How to Play, Settings, Quit
-- How to Play screen summarises the core loop
-- Settings screen (volume, etc.)
+- Buttons: **Play**, **How to Play**, **Settings**, **Quit to Desktop**
+- All buttons play `"ui_hover"` SFX on mouse-enter
+
+## Settings Screen
+
+Accessible from main menu and from in-game pause overlay:
+
+| Control | Detail |
+|---|---|
+| Master / Music / FX sliders | 0–100 range; live value label updates while dragging; logarithmic dB conversion (`Mathf.LinearToDb`) |
+| Display toggle | Button cycles `Windowed` ↔ `Fullscreen` |
+| Persistence | Saved to `user://settings.cfg` via Godot `ConfigFile`; restored on next launch |
+| Audio buses | `SettingsManager` creates "Music" and "FX" buses (routed to Master) at startup if missing |
 
 ---
 

@@ -80,6 +80,7 @@ public partial class MainMenu : Node
 		};
 		btn.AddThemeFontSizeOverride("font_size", fontSize);
 		btn.Pressed += callback;
+		btn.MouseEntered += () => SlotTheory.Core.SoundManager.Instance?.Play("ui_hover");
 		vbox.AddChild(btn);
 	}
 }

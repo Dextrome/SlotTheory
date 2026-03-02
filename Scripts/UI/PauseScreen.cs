@@ -53,6 +53,7 @@ public partial class PauseScreen : CanvasLayer
         AddBtn(vbox, "Resume",      OnResume);
         AddBtn(vbox, "Restart Run", OnRestart);
         AddBtn(vbox, "Settings",    OnOpenSettings);
+        AddBtn(vbox, "How to Play", OnHowToPlay);
         AddSpacer(vbox, 10);
         AddBtn(vbox, "Main Menu",       OnMainMenu);
         AddBtn(vbox, "Quit to Desktop", OnQuit);
@@ -131,6 +132,14 @@ public partial class PauseScreen : CanvasLayer
     private void OnMainMenu() { GetTree().Paused = false; SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn"); }
     private void OnQuit()    => GetTree().Quit();
 
+    private void OnHowToPlay()
+    {
+        _mainPanel.Visible = false;
+        var howTo = new HowToPlay();
+        howTo.OnBack = () => _mainPanel.Visible = true;
+        AddChild(howTo);
+    }
+
     private void OnOpenSettings()
     {
         _mainPanel.Visible     = false;
@@ -200,6 +209,7 @@ public partial class PauseScreen : CanvasLayer
         var btn = new Button { Text = text, CustomMinimumSize = new Vector2(260, 44) };
         btn.AddThemeFontSizeOverride("font_size", 20);
         btn.Pressed += callback;
+        btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         parent.AddChild(btn);
     }
 }

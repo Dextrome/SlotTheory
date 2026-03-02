@@ -66,6 +66,7 @@ public partial class SoundManager : Node
         // ── UI ───────────────────────────────────────────────────────────
         Reg("draft_pick",  Tone(740f, 0.07f, vol: 0.40f, shape: 's', env: 'f'));
         Reg("tower_place", Seq(new[] { 380f, 560f }, gapMs: 10, noteLen: 0.07f, vol: 0.46f));
+        Reg("ui_hover",    Tone(900f, 0.025f, vol: 0.18f, shape: 's', env: 'f'));
 
         StartMusic();
     }

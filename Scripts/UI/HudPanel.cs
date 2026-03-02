@@ -12,7 +12,8 @@ public partial class HudPanel : CanvasLayer
     private Label _livesLabel = null!;
     private Label _enemyLabel = null!;
     private Button _speedBtn = null!;
-    private bool _fast = false;
+    private int _speedIdx = 0;
+    private static readonly double[] SpeedSteps = { 1.0, 2.0, 3.0 };
 
     public override void _Ready()
     {
@@ -93,14 +94,15 @@ public partial class HudPanel : CanvasLayer
 
     private void OnSpeedToggle()
     {
-        _fast = !_fast;
-        Engine.TimeScale = _fast ? 2.0 : 1.0;
-        _speedBtn.Text = _fast ? "2×" : "1×";
+        _speedIdx = (_speedIdx + 1) % SpeedSteps.Length;
+        Engine.TimeScale = SpeedSteps[_speedIdx];
+        _speedBtn.Text = $"{SpeedSteps[_speedIdx]:0}×";
     }
 
     public void ResetSpeed()
     {
-        _fast = false;
+        _speedIdx = 0;
+        Engine.TimeScale = 1.0;
         _speedBtn.Text = "1×";
     }
 
