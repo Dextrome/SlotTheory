@@ -48,7 +48,7 @@ If no draft options are possible (all slots full and all towers at modifier cap)
 
 **Bonus picks**: Wave 1 and Wave 15 each give you 2 picks instead of 1 — use them to establish a strong build early and recover mid-run.
 
-**Wave preview**: The draft panel shows the enemy composition of the upcoming wave (e.g., `↓ 22 Basic · 3 Armored [clumped]`) so you can plan your pick before committing.
+**Wave preview**: The draft panel shows the enemy composition of the upcoming wave (e.g., `↓ 20 Basic · 3 Armored · 3 Swift [clumped]`) so you can plan your pick before committing.
 
 ---
 
@@ -82,12 +82,15 @@ Hover over a tower to see its current targeting mode and equipped modifiers.
 | Modifier | Effect |
 |---|---|
 | **Momentum** | +8% damage per consecutive hit on the same target, capped at 5 stacks (×1.4 max). Resets when the tower switches targets. |
-| **Overkill** | 80% of excess damage from a killing blow spills over to the next enemy in the lane (once per attack). |
+| **Overkill** | Excess damage from a killing blow spills over to the next enemy in the lane. |
 | **Exploit Weakness** | Deal +50% damage to **Marked** enemies. Pairs with Marker Tower. |
-| **Focus Lens** | +100% damage, ×2 attack interval. Big hits, slow fire — ideal for Overkill combos and one-shotting tanky enemies. |
+| **Focus Lens** | +150% damage, ×2 attack interval. Big hits, slow fire — ideal for Overkill combos and one-shotting tanky enemies. |
 | **Chill Shot** | On hit, −30% movement speed for 5 seconds. Enemies linger in range longer, giving all towers more time to fire. |
-| **Overreach** | +50% range, −25% damage. Wider coverage — great on Marker Tower or any tower that needs to reach more of the path. |
+| **Overreach** | +50% range, −15% damage. Wider coverage at a small cost — great on Marker Tower or any tower that needs to reach more of the path. |
 | **Hair Trigger** | +50% attack speed, −30% range. Close-quarters rapid-fire — pairs naturally with Momentum and Chill Shot. |
+| **Split Shot** | On hit, fires 2 projectiles at nearby enemies for 65% damage each. Each additional copy fires one more projectile. Stacks well on heavy hitters. |
+| **Feedback Loop** | Killing an enemy reduces the tower's current cooldown by 30%. Lets towers that kill quickly cycle back faster. |
+| **Chain Reaction** | After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce — 3 copies = 4 targets hit per shot. |
 
 ---
 
@@ -103,19 +106,25 @@ Pair Marker Tower + **Exploit Weakness** on another tower for a large burst dama
 ## Enemies
 
 ### Basic Walker
-- 120 px/s movement, 65 HP on wave 1, scales ×1.08 per wave (~291 HP by wave 20).
+- 120 px/s movement, 65 HP on wave 1, scales ×1.08 per wave (~280 HP by wave 20).
 - Leaks cost **1 life**.
 - Round teal body — easy to spot.
 
 ### Armored Walker
 - Half speed (60 px/s), 4× the HP of a Basic Walker on the same wave.
-- Leaks cost **2 lives** — priority target.
+- Leaks cost **2 lives** — always prioritise.
 - Large hexagonal crimson body at 1.5× scale — unmistakable.
 - First appears on wave 7; up to 5 per wave by wave 20.
 
+### Swift Walker
+- Double speed (240 px/s), 1.5× the HP of a Basic Walker on the same wave.
+- Leaks cost **1 life**, but their speed makes them hard to catch.
+- Small lime-green diamond at 0.8× scale — easily identified by colour.
+- Appears waves 10–14, 2–4 per wave, spread evenly through the spawn order.
+
 Enemy count and spawn speed both increase over 20 waves (from 10 enemies at wave 1 up to 30 at wave 20).
 
-Waves 12–14 use **clumped** Armored spawns: all Armored Walkers arrive as a consecutive group after the initial basic wave, creating a mid-wave panic spike instead of a uniform drip.
+Waves 12–14 use **clumped** Armored spawns: all Armored Walkers arrive as a consecutive group after the initial basic wave, creating a mid-wave panic spike. Swift Walkers are spread into the remaining gaps.
 
 ---
 
@@ -129,7 +138,10 @@ Each run generates a new snake-shaped path across an 8×5 grid. Tower slots are 
 
 - **Rapid Shooter + Momentum**: Stack Momentum on your fastest-firing tower for massive DPS on tanky enemies that take multiple hits to kill.
 - **Marker Tower + Exploit Weakness**: Mark the enemy, then burst it for ×1.95 total (+30% mark × +50% exploit). The Marker Tower frees up your damage towers' modifier slots for pure damage.
-- **Heavy Cannon + Overkill**: One-shots weaker enemies and spills 80% of excess damage forward — good for tightly packed groups.
-- **Arc Emitter + Hair Trigger**: Chain hits scale with attack speed — more shots means more arcs. Best placed mid-path where enemies cluster around corners.
+- **Heavy Cannon + Overkill**: One-shots weaker enemies and spills excess damage forward — good for tightly packed groups.
+- **Arc Emitter + Chain Reaction**: Each copy adds a bounce — 3 copies hits 5 targets per shot. Best at corners where enemies cluster.
+- **Heavy Cannon + Split Shot**: At 65% damage per split, the cannon's slow hits still deal massive side damage to 2–3 nearby enemies simultaneously.
+- **Feedback Loop + Hair Trigger**: Killing enemies reduces cooldown; rapid-fire towers cycle back almost instantly in waves with many weak enemies.
 - **Focus Lens** trades fire rate for huge individual hits — pairs naturally with Overkill to punch through groups.
+- **Swift Walkers (waves 10–14)** are fast but fragile — Chill Shot or Overreach helps towers catch them before they run out of range. Chain and Split Shot can hit multiple Swifts at once.
 - **Targeting mode matters late game** — switch your Marker Tower to *First* so it tags the lead enemy before your damage towers hit it.

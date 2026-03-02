@@ -62,11 +62,13 @@ public partial class HowToPlay : Node
 		// ── Towers ───────────────────────────────────────────────────────
 		AddHeader(vbox, "TOWERS");
 		AddTowerRow(vbox, "Rapid Shooter", "10 dmg · 0.4 s · 300 px range",
-			"High rate of fire, low damage per hit.");
+			"High rate of fire, low damage per hit. Shines with Momentum and Hair Trigger.");
 		AddTowerRow(vbox, "Heavy Cannon",  "60 dmg · 2.0 s · 250 px range",
-			"Slow but hits hard. Great with Overkill.");
+			"Slow but hits hard. Great with Overkill and Focus Lens.");
 		AddTowerRow(vbox, "Marker Tower",  " 5 dmg · 1.0 s · 350 px range",
 			"Applies Mark on every hit. Synergises with Exploit Weakness.");
+		AddTowerRow(vbox, "Arc Emitter",   "14 dmg · 1.2 s · 270 px range",
+			"Chains to 2 nearby enemies per shot (60% damage decay per bounce). Excellent in dense clusters.");
 		AddSpacer(vbox, 12);
 
 		// ── Targeting ────────────────────────────────────────────────────
@@ -79,35 +81,43 @@ public partial class HowToPlay : Node
 		// ── Mark ─────────────────────────────────────────────────────────
 		AddHeader(vbox, "MARK");
 		AddLine(vbox, "Marker Tower hits apply Mark for 2 seconds.");
-		AddLine(vbox, "Marked enemies take +20% damage from all towers.");
-		AddLine(vbox, "Pair with Exploit Weakness for a ×1.8 burst combo.");
+		AddLine(vbox, "Marked enemies take +30% damage from all towers.");
+		AddLine(vbox, "Pair with Exploit Weakness for a ×1.95 burst combo (+30% mark × +50% exploit).");
 		AddSpacer(vbox, 12);
 
 		// ── Modifiers ────────────────────────────────────────────────────
 		AddHeader(vbox, "MODIFIERS  (max 3 per tower)");
-		AddModRow(vbox, "Momentum",         "+10% damage per consecutive hit on same target, up to ×5 stacks. Resets on target switch.");
+		AddModRow(vbox, "Momentum",         "+8% damage per consecutive hit on same target, up to ×5 stacks (×1.4 max). Resets on target switch.");
 		AddModRow(vbox, "Overkill",         "Excess damage from a kill spills to the next enemy in the lane.");
-		AddModRow(vbox, "Exploit Weakness", "+50% damage to Marked enemies.");
-		AddModRow(vbox, "Focus Lens",       "+150% damage, ×2 attack interval. Great for one-shotting tanky enemies.");
+		AddModRow(vbox, "Exploit Weakness", "+50% damage to Marked enemies. Pairs with Marker Tower.");
+		AddModRow(vbox, "Focus Lens",       "+150% damage, ×2 attack interval. Big hits, slow fire — ideal for Overkill combos.");
 		AddModRow(vbox, "Chill Shot",       "On hit: −30% move speed for 5 s. Keeps enemies in range longer.");
-		AddModRow(vbox, "Overreach",        "+50% range, −25% damage. Ideal on Marker Tower.");
+		AddModRow(vbox, "Overreach",        "+50% range, −15% damage. Wider coverage at a small cost — great on Marker Tower.");
 		AddModRow(vbox, "Hair Trigger",     "+50% attack speed, −30% range. Pairs with Momentum and Chill Shot.");
+		AddModRow(vbox, "Split Shot",       "On hit, fires 2 projectiles at nearby enemies for 65% damage each. Each additional copy fires one more projectile.");
+		AddModRow(vbox, "Feedback Loop",    "Killing an enemy reduces this tower's current cooldown by 30%. Lets rapid killers fire again sooner.");
+		AddModRow(vbox, "Chain Reaction",   "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce.");
 		AddSpacer(vbox, 12);
 
 		// ── Enemies ──────────────────────────────────────────────────────
 		AddHeader(vbox, "ENEMIES");
-		AddLine(vbox, "Basic Walker: 65 HP on wave 1, ×1.06 per wave (~197 HP by wave 20). Speed: 120 px/s. Leaks cost 1 life.");
-		AddLine(vbox, "Armored Walker: 4× HP, half speed (60 px/s). Leaks cost 2 lives. First appears wave 7; up to 5 per wave by wave 20. Large hexagonal crimson enemy — visually unmistakable.");
-		AddLine(vbox, "Enemy count scales from 10 (wave 1) to 30 (wave 20).");
+		AddLine(vbox, "Basic Walker: 65 HP on wave 1, ×1.08 per wave (~280 HP by wave 20). Speed: 120 px/s. Leaks cost 1 life. Round teal body.");
+		AddLine(vbox, "Armored Walker: 4× HP, half speed (60 px/s). Leaks cost 2 lives — priority target. First appears wave 7; up to 5 per wave by wave 20. Large hexagonal crimson body.");
+		AddLine(vbox, "Swift Walker: 1.5× HP, double speed (240 px/s). Leaks cost 1 life. Appears waves 10–14 (2–4 per wave). Small lime-green diamond — fast and hard to catch.");
+		AddLine(vbox, "Enemy count scales from 10 (wave 1) to 30 (wave 20). Spawn interval tightens each wave.");
 		AddSpacer(vbox, 12);
 
 		// ── Tips ─────────────────────────────────────────────────────────
 		AddHeader(vbox, "TIPS");
 		AddLine(vbox, "Rapid Shooter + Momentum — devastating DPS on enemies that take many hits to kill.");
-		AddLine(vbox, "Marker Tower + Exploit Weakness — marks the target then bursts it for ×1.8 total damage.");
+		AddLine(vbox, "Marker Tower + Exploit Weakness — marks the target then bursts it for ×1.95 total damage.");
 		AddLine(vbox, "Heavy Cannon + Overkill — chain-kills tightly packed groups; spill damage carries forward.");
+		AddLine(vbox, "Arc Emitter + Chain Reaction — each copy adds a bounce; 3 copies hits 5 enemies per shot.");
+		AddLine(vbox, "Heavy Cannon + Split Shot — 65% of the cannon's big damage fires at 2–3 nearby enemies simultaneously.");
+		AddLine(vbox, "Feedback Loop + Hair Trigger — killing enemies reduces cooldown faster; rapid shooters cycle almost instantly.");
 		AddLine(vbox, "Set your Marker Tower to First so it tags the lead enemy before damage towers fire.");
 		AddLine(vbox, "Hair Trigger + Chill Shot — rapid-fire slows stack to keep enemies frozen in range.");
+		AddLine(vbox, "Swift Walkers appear waves 10–14 — Chill Shot or Overreach helps catch them before they outrun your range.");
 		AddSpacer(vbox, 32);
 
 		// ── Back button ──────────────────────────────────────────────────
