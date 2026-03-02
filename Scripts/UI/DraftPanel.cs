@@ -18,6 +18,24 @@ public partial class DraftPanel : CanvasLayer
     private HBoxContainer _towerRow = null!;
     private DraftOption? _pendingModifier;
     private DraftOption? _pendingTower;
+    private ColorRect _bg = null!;
+
+    public bool IsAwaitingSlot  => _pendingTower    != null;
+    public bool IsAwaitingTower => _pendingModifier != null;
+
+    public bool IsSlotValidTarget(int i)
+    {
+        var slots = GameController.Instance.GetRunState().Slots;
+        if (IsAwaitingSlot)  return slots[i].Tower == null;
+        if (IsAwaitingTower) return slots[i].Tower?.CanAddModifier == true;
+        return false;
+    }
+
+    public void SelectSlot(int slotIndex)
+    {
+        if (_pendingTower    != null) OnSlotPicked(slotIndex);
+        else if (_pendingModifier != null) OnTowerAssigned(slotIndex);
+    }
 
     public override void _Ready()
     {
@@ -28,10 +46,10 @@ public partial class DraftPanel : CanvasLayer
         root.Theme = SlotTheory.Core.UITheme.Build();
         AddChild(root);
 
-        var bg = new ColorRect();
-        bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        bg.Color = new Color(0f, 0f, 0f, 0.75f);
-        root.AddChild(bg);
+        _bg = new ColorRect();
+        _bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _bg.Color = new Color(0f, 0f, 0f, 0.75f);
+        root.AddChild(_bg);
 
         var center = new CenterContainer();
         center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -74,6 +92,7 @@ public partial class DraftPanel : CanvasLayer
         _assignLabel.Visible = false;
         _towerRow.Visible = false;
         _cardRow.Visible = true;
+        _bg.MouseFilter = Control.MouseFilterEnum.Stop;
         BuildCardRow(options);
         Visible = true;
     }
@@ -191,6 +210,7 @@ public partial class DraftPanel : CanvasLayer
             var def = DataLoader.GetTowerDef(opt.Id);
             _assignLabel.Text = $"→  Place  {def.Name}  in slot:";
             _cardRow.Visible = false;
+            _bg.MouseFilter = Control.MouseFilterEnum.Ignore;
             BuildEmptySlotRow();
             _assignLabel.Visible = true;
             _towerRow.Visible = true;
@@ -201,6 +221,7 @@ public partial class DraftPanel : CanvasLayer
             var modName = DataLoader.GetModifierDef(opt.Id).Name;
             _assignLabel.Text = $"→  Assign  {modName}  to:";
             _cardRow.Visible = false;
+            _bg.MouseFilter = Control.MouseFilterEnum.Ignore;
             BuildTowerRow();
             _assignLabel.Visible = true;
             _towerRow.Visible = true;
