@@ -156,6 +156,8 @@ public class CombatSim
             DamageModel.Apply(new DamageContext(tower, target, waveIndex, enemies, _state));
             if (tower.IsChainTower)
                 ApplyChainBotMode(tower, target, waveIndex, enemies);
+            if (tower.SplitCount > 0)
+                ApplySplitBotMode(tower, target, waveIndex, enemies);
             return;
         }
         if (LanePath == null) return;
@@ -182,6 +184,24 @@ public class CombatSim
             alreadyHit.Add(e);
             damage  *= tower.ChainDamageDecay;
             bounces++;
+        }
+    }
+
+    private void ApplySplitBotMode(TowerInstance tower, EnemyInstance primary,
+                                    int waveIndex, List<EnemyInstance> enemies)
+    {
+        // GlobalPositions are unreliable in bot mode; approximate by hitting
+        // the next SplitCount alive enemies in list order.
+        float splitDamage = tower.BaseDamage * Balance.SplitShotDamageRatio;
+        int spawned = 0;
+
+        foreach (var e in enemies)
+        {
+            if (spawned >= tower.SplitCount) break;
+            if (e == primary || e.Hp <= 0) continue;
+            DamageModel.Apply(new DamageContext(tower, e, waveIndex, enemies, _state,
+                                                isChain: true, damageOverride: splitDamage));
+            spawned++;
         }
     }
 

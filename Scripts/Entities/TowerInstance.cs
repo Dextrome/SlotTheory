@@ -31,6 +31,7 @@ public partial class TowerInstance : Node2D
     public float ChainRange       { get; set; } = 260f;
     public float ChainDamageDecay { get; set; } = 0.6f;
     public bool  IsChainTower     => ChainCount > 0;
+    public int   SplitCount       { get; set; } = 0;
 
     public bool CanAddModifier => Modifiers.Count < Balance.MaxModifiersPerTower;
 
