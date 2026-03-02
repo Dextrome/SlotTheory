@@ -36,7 +36,7 @@ public partial class SoundManager : Node
         for (int i = 0; i < PoolSize; i++)
         {
             var gen    = new AudioStreamGenerator { MixRate = Rate, BufferLength = MaxDur };
-            var player = new AudioStreamPlayer { Stream = gen };
+            var player = new AudioStreamPlayer { Stream = gen, Bus = "FX" };
             AddChild(player);
             _pool[i] = player;
         }
@@ -117,7 +117,7 @@ public partial class SoundManager : Node
             Data      = bytes,
         };
 
-        _musicPlayer = new AudioStreamPlayer { Stream = wav, VolumeDb = -14f };
+        _musicPlayer = new AudioStreamPlayer { Stream = wav, VolumeDb = -14f, Bus = "Music" };
         AddChild(_musicPlayer);
         _musicPlayer.Play();
     }
