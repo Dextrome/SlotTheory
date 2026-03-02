@@ -35,8 +35,26 @@ sleep 5; kill %1
 
 - `<Nullable>enable</Nullable>` is set in `SlotTheory.csproj` — required to suppress nullable warnings in C# 8+ code
 - Build via Godot's built-in build system (no separate CLI build tool); first time: Project → Tools → C# → Create C# Solution
-- Export: Godot → Export Presets → Windows x64
 - .NET runtime packaging is handled by Godot's export preset
+
+### Exporting from CLI
+
+```bash
+# Always dotnet build first, then export
+dotnet build SlotTheory.sln
+
+"E:/Godot/Godot_v4.6.1-stable_mono_win64_console.exe" \
+  --path "E:/SlotTheory" \
+  --export-release "Windows Desktop" \
+  "E:/SlotTheory/export/SlotTheory.exe" \
+  --headless
+```
+
+**If export fails with "Failed to rename temporary file":** the previous `SlotTheory.exe` (or a leftover `SlotTheory.tmp`) is locked — close the game if it is running, then delete both files and re-run the export command:
+
+```bash
+rm -f "E:/SlotTheory/export/SlotTheory.tmp" "E:/SlotTheory/export/SlotTheory.exe"
+```
 
 ## Testing
 
