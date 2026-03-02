@@ -100,7 +100,7 @@ Pair Marker Tower + **Exploit Weakness** on another tower for a large burst dama
 ## Enemies
 
 ### Basic Walker
-- 120 px/s movement, 72 HP on wave 1, scales ×1.12 per wave (~640 HP by wave 20).
+- 120 px/s movement, 65 HP on wave 1, scales ×1.06 per wave (~197 HP by wave 20).
 - Leaks cost **1 life**.
 - Round teal body — easy to spot.
 
