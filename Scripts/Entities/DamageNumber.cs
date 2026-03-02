@@ -12,13 +12,15 @@ public partial class DamageNumber : Node2D
     private const float RiseSpeed = 38f;
 
     private float  _life;
-    private string _text  = "";
+    private string _text   = "";
     private Color  _color;
+    private bool   _isKill;
 
-    public void Initialize(float damage, Color color)
+    public void Initialize(float damage, Color color, bool isKill = false)
     {
-        _text  = $"{(int)damage}";
-        _color = color;
+        _text   = $"{(int)damage}";
+        _color  = color;
+        _isKill = isKill;
     }
 
     public override void _Process(double delta)
@@ -34,12 +36,15 @@ public partial class DamageNumber : Node2D
         float t     = _life / Duration;
         float alpha = 1f - t * t;   // stays bright longer, then drops off
         var   font  = ThemeDB.FallbackFont;
+        int   size  = _isKill ? 24 : 18;
+        var   col   = _isKill ? new Color(1f, 0.85f, 0.15f, alpha)
+                               : new Color(_color.R, _color.G, _color.B, alpha);
 
         // Drop shadow
         DrawString(font, new Vector2(1f, 1f), _text, HorizontalAlignment.Center,
-            -1, 18, new Color(0f, 0f, 0f, alpha * 0.6f));
+            -1, size, new Color(0f, 0f, 0f, alpha * 0.6f));
         // Main text
         DrawString(font, Vector2.Zero, _text, HorizontalAlignment.Center,
-            -1, 18, new Color(_color.R, _color.G, _color.B, alpha));
+            -1, size, col);
     }
 }

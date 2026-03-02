@@ -25,6 +25,7 @@ public partial class TowerInstance : Node2D
 
     public List<Modifier> Modifiers { get; } = new();
     public string? LastTargetId { get; set; }
+    public Vector2? LastTargetPosition { get; set; }
 
     public bool CanAddModifier => Modifiers.Count < Balance.MaxModifiersPerTower;
 
@@ -51,6 +52,13 @@ public partial class TowerInstance : Node2D
 
     public override void _Process(double delta)
     {
+        // Smoothly rotate barrel toward last known target
+        if (LastTargetPosition.HasValue)
+        {
+            var dir = LastTargetPosition.Value - GlobalPosition;
+            float targetAngle = dir.Angle() + Mathf.Pi * 0.5f; // barrels point local -Y
+            Rotation = Mathf.LerpAngle(Rotation, targetAngle, 15f * (float)delta);
+        }
         if (AttackInterval > 0f) QueueRedraw();
     }
 

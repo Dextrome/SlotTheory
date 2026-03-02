@@ -26,11 +26,10 @@ public partial class GameController : Node
 	private DraftPanel _draftPanel = null!;
 	private HudPanel _hudPanel = null!;
 	private EndScreen _endScreen = null!;
-	private Node2D[]    _slotNodes            = new Node2D[Balance.SlotCount];
-	private Line2D[]    _slotHighlights       = new Line2D[Balance.SlotCount];
-	private Tween?[]    _slotHighlightTweens  = new Tween?[Balance.SlotCount];
-	private Label[]     _slotModLabels        = new Label[Balance.SlotCount];
-	private ColorRect[] _slotModBgs           = new ColorRect[Balance.SlotCount];
+	private Node2D[]      _slotNodes           = new Node2D[Balance.SlotCount];
+	private Line2D[]      _slotHighlights      = new Line2D[Balance.SlotCount];
+	private Tween?[]      _slotHighlightTweens = new Tween?[Balance.SlotCount];
+	private ColorRect[][] _slotModPips         = new ColorRect[Balance.SlotCount][];
 	private int      _highlightedSlot      = -1;
 	private bool     _highlightedSlotValid = false;
 	private MapLayout _currentMap = null!;
@@ -85,7 +84,6 @@ public partial class GameController : Node
 		SetupTooltip();
 		SetupAnnouncer();
 
-		GD.Print("Slot Theory booted.");
 		_extraPicksRemaining = Balance.ExtraPicksForWave(0);
 		StartDraftPhase();
 	}
@@ -115,7 +113,6 @@ public partial class GameController : Node
 		{
 			CurrentPhase = GamePhase.Loss;
 			int livesLost = Balance.StartingLives - _runState.Lives;
-			GD.Print("Run lost.");
 			SoundManager.Instance?.Play("game_over");
 			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary());
 			return;
@@ -127,7 +124,6 @@ public partial class GameController : Node
 			if (_runState.WaveIndex >= Balance.TotalWaves)
 			{
 				CurrentPhase = GamePhase.Win;
-				GD.Print("Run won!");
 				SoundManager.Instance?.Play("victory");
 				_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary());
 			}
@@ -154,7 +150,6 @@ public partial class GameController : Node
 	{
 		CurrentPhase = GamePhase.Draft;
 		var options = _draftSystem.GenerateOptions(_runState);
-		GD.Print($"Wave {_runState.WaveIndex + 1} draft. Options: {options.Count}");
 
 		// All slots full AND all towers at modifier cap → nothing to offer, skip draft.
 		if (options.Count == 0)
@@ -208,7 +203,6 @@ public partial class GameController : Node
 		ClearSlotVisuals();
 		SetupSlots();
 
-		GD.Print("Run restarted.");
 		_extraPicksRemaining = Balance.ExtraPicksForWave(0);
 		StartDraftPhase();
 	}
@@ -227,7 +221,7 @@ public partial class GameController : Node
 			if (tower != null)
 			{
 				_draftSystem.ApplyModifier(option.Id, tower);
-				if (_botRunner == null) RefreshModLabel(targetSlotIndex);
+				if (_botRunner == null) RefreshModPips(targetSlotIndex);
 			}
 		}
 		if (_extraPicksRemaining > 0)
@@ -306,12 +300,24 @@ public partial class GameController : Node
 		modeLabel.AddThemeColorOverride("font_color", Colors.White);
 		modeLabel.AddThemeFontSizeOverride("font_size", 14);
 		tower.ModeLabel = modeLabel;
-		tower.AddChild(modeLabel);
+		_slotNodes[slotIndex].AddChild(modeLabel);  // parented to slot so it doesn't rotate with tower
 
 		_slotNodes[slotIndex].AddChild(tower);
 		_runState.Slots[slotIndex].Tower = tower;
+
+		// Placement bounce — scale from 0 → 1.15 → 1.0
+		if (_botRunner == null)
+		{
+			tower.Scale = Vector2.Zero;
+			var placeTween = tower.CreateTween();
+			placeTween.TweenProperty(tower, "scale", new Vector2(1.15f, 1.15f), 0.15f)
+			          .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+			placeTween.TweenProperty(tower, "scale", Vector2.One, 0.10f)
+			          .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+		}
+
+		RefreshModPips(slotIndex);
 		SoundManager.Instance?.Play("tower_place");
-		GD.Print($"Placed {def.Name} in slot {slotIndex}");
 	}
 
 	public override void _Input(InputEvent @event)
@@ -382,32 +388,23 @@ public partial class GameController : Node
 		_slotHighlights[i] = hl;
 
 			// Mod-count pip — just below slot square, shown only when tower has ≥ 1 modifier
-			var modBg = new ColorRect
+			// Modifier pips — 3 small squares below slot, one per modifier slot
+			var pips = new ColorRect[Balance.MaxModifiersPerTower];
+			for (int p = 0; p < Balance.MaxModifiersPerTower; p++)
 			{
-				Color       = new Color(0f, 0f, 0f, 0.65f),
-				Position    = new Vector2(-13f, 23f),
-				Size        = new Vector2(26f, 14f),
-				MouseFilter = Control.MouseFilterEnum.Ignore,
-				ZIndex      = 1,
-				Visible     = false,
-			};
-			_slotNodes[i].AddChild(modBg);
-
-			var modLabel = new Label
-			{
-				Position            = new Vector2(-13f, 23f),
-				Size                = new Vector2(26f, 14f),
-				HorizontalAlignment = HorizontalAlignment.Center,
-				VerticalAlignment   = VerticalAlignment.Center,
-				MouseFilter         = Control.MouseFilterEnum.Ignore,
-				ZIndex              = 2,
-				Visible             = false,
-			};
-			modLabel.AddThemeColorOverride("font_color", new Color(0.55f, 1.0f, 0.55f));
-			modLabel.AddThemeFontSizeOverride("font_size", 11);
-			_slotModLabels[i] = modLabel;
-			_slotModBgs[i]    = modBg;
-			_slotNodes[i].AddChild(modLabel);
+				float px = (p - 1) * 9f;  // centers at -9, 0, +9
+				var pip = new ColorRect
+				{
+					Position    = new Vector2(px - 3f, 23f),
+					Size        = new Vector2(6f, 6f),
+					Color       = new Color(0.22f, 0.22f, 0.22f, 0.45f),
+					MouseFilter = Control.MouseFilterEnum.Ignore,
+					Visible     = false,
+				};
+				_slotNodes[i].AddChild(pip);
+				pips[p] = pip;
+			}
+			_slotModPips[i] = pips;
 		}
 	}
 
@@ -570,7 +567,13 @@ public partial class GameController : Node
 				TargetingMode.LowestHp  => "Lowest HP",
 				_                       => "First",
 			};
+			// Effective attack interval: baked (HairTrigger) + runtime hooks (FocusLens)
+			float effInterval = tower.AttackInterval;
+			foreach (var mod in tower.Modifiers)
+				mod.ModifyAttackInterval(ref effInterval, tower);
+
 			var text = $"Slot {i + 1}  ·  {def.Name}  [{targetingName}]\n";
+			text += $"{tower.BaseDamage:0.#} dmg  ·  {effInterval:0.##} s  ·  {(int)tower.Range} px\n";
 			if (tower.Modifiers.Count == 0)
 				text += "(no modifiers)";
 			else
@@ -736,7 +739,6 @@ public partial class GameController : Node
 		_combatSim.ResetForWave(_waveSystem);
 		SoundManager.Instance?.Play("wave_start");
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
-		GD.Print($"Wave {_runState.WaveIndex + 1} started.");
 	}
 
 	private void ShakeWorld()
@@ -763,14 +765,20 @@ public partial class GameController : Node
 		}
 	}
 
-	private void RefreshModLabel(int slotIndex)
+	private void RefreshModPips(int slotIndex)
 	{
+		var pips = _slotModPips[slotIndex];
+		if (pips == null) return;
 		var tower = _runState.Slots[slotIndex].Tower;
-		bool show = tower != null && tower.Modifiers.Count > 0;
-		_slotModBgs[slotIndex].Visible    = show;
-		_slotModLabels[slotIndex].Visible = show;
-		if (show)
-			_slotModLabels[slotIndex].Text = $"{tower!.Modifiers.Count}/{Balance.MaxModifiersPerTower}";
+		int filled = tower?.Modifiers.Count ?? 0;
+		bool atMax = filled >= Balance.MaxModifiersPerTower;
+		for (int p = 0; p < pips.Length; p++)
+		{
+			pips[p].Visible = tower != null;
+			pips[p].Color = p < filled
+				? (atMax ? new Color(1.00f, 0.60f, 0.05f) : new Color(0.30f, 0.95f, 0.40f))
+				: new Color(0.22f, 0.22f, 0.22f, 0.45f);
+		}
 	}
 
 	private void ShowWaveClearFlash()
