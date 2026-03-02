@@ -64,17 +64,21 @@ public partial class DraftPanel : CanvasLayer
     {
         Visible = false;
 
-        // _bg and _center are DIRECT children of the CanvasLayer so their
-        // SetAnchorsPreset(FullRect) resolves against the viewport (always 1280×720),
-        // not against an intermediate Control whose Size might be stale.
+        // Use explicit Position/Size instead of SetAnchorsPreset — anchor evaluation
+        // is deferred and can drift after multiple show/hide cycles.  With canvas_items
+        // stretch mode the viewport rect is always 1280×720.
+        var vpSize = GetViewport().GetVisibleRect().Size;
+
         _bg = new ColorRect();
-        _bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _bg.Color = new Color(0f, 0f, 0f, 0.75f);
+        _bg.Position = Vector2.Zero;
+        _bg.Size = vpSize;
         AddChild(_bg);
 
         _center = new CenterContainer();
-        _center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _center.Theme = SlotTheory.Core.UITheme.Build();
+        _center.Position = Vector2.Zero;
+        _center.Size = vpSize;
         AddChild(_center);
 
         var vbox = new VBoxContainer();
@@ -120,10 +124,12 @@ public partial class DraftPanel : CanvasLayer
         _towerRow.Visible = false;
         _cardRow.Visible = true;
         _bg.MouseFilter = Control.MouseFilterEnum.Stop;
-        // Re-apply FullRect each time the panel opens so the anchor evaluation
-        // uses the current viewport size — guards against any deferred-layout drift.
-        _bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        _center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        // Explicitly reset position/size each open to prevent any deferred layout drift.
+        var vpSize = GetViewport().GetVisibleRect().Size;
+        _bg.Position = Vector2.Zero;
+        _bg.Size = vpSize;
+        _center.Position = Vector2.Zero;
+        _center.Size = vpSize;
         BuildCardRow(options);
         Visible = true;
     }
@@ -170,8 +176,10 @@ public partial class DraftPanel : CanvasLayer
 
     private void BuildCardRow(List<DraftOption> options)
     {
+        // Use Free() (immediate) not QueueFree() so old buttons are gone before new
+        // ones are added — prevents the container briefly sizing to 2× the card count.
         foreach (Node child in _cardRow.GetChildren())
-            child.QueueFree();
+            child.Free();
 
         for (int i = 0; i < options.Count; i++)
         {
@@ -198,59 +206,6 @@ public partial class DraftPanel : CanvasLayer
             btn.AddChild(keyLbl);
 
             _cardRow.AddChild(btn);
-        }
-    }
-
-    private void BuildTowerRow()
-    {
-        foreach (Node child in _towerRow.GetChildren())
-            child.QueueFree();
-
-        var slots = GameController.Instance.GetRunState().Slots;
-        for (int i = 0; i < slots.Length; i++)
-        {
-            var slot = slots[i];
-            var btn = new Button();
-            if (slot.Tower != null)
-            {
-                var def = DataLoader.GetTowerDef(slot.Tower.TowerId);
-                int mods = slot.Tower.Modifiers.Count;
-                btn.Text = $"[{i + 1}]  Slot {i + 1}  ·  {def.Name}\n{mods}/{Balance.MaxModifiersPerTower} mods";
-                btn.Disabled = !slot.Tower.CanAddModifier;
-            }
-            else
-            {
-                btn.Text = $"[{i + 1}]  empty";
-                btn.Disabled = true;
-            }
-            btn.CustomMinimumSize = new Vector2(150, 70);
-            btn.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            btn.PivotOffset = new Vector2(75f, 35f);
-            var idx = i;
-            btn.Pressed += () => OnTowerAssigned(idx);
-            if (!btn.Disabled) AddHover(btn);
-            _towerRow.AddChild(btn);
-        }
-    }
-
-    private void BuildEmptySlotRow()
-    {
-        foreach (Node child in _towerRow.GetChildren())
-            child.QueueFree();
-
-        var slots = GameController.Instance.GetRunState().Slots;
-        for (int i = 0; i < slots.Length; i++)
-        {
-            bool isEmpty = slots[i].Tower == null;
-            var btn = new Button();
-            btn.Text = isEmpty ? $"[{i + 1}]  Slot {i + 1}" : "occupied";
-            btn.Disabled = !isEmpty;
-            btn.CustomMinimumSize = new Vector2(150, 70);
-            btn.PivotOffset = new Vector2(75f, 35f);
-            var idx = i;
-            btn.Pressed += () => OnSlotPicked(idx);
-            if (!btn.Disabled) AddHover(btn);
-            _towerRow.AddChild(btn);
         }
     }
 

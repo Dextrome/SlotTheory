@@ -59,8 +59,10 @@ Armored Walkers first appear at wave 7; count ramps to 5 by wave 20. Rendered at
 | **Basic Walker** | Round teal body with white + dark-pupil eyes; drawn via `_Draw()` |
 | **Armored Walker** | Hexagonal crimson body with 3-layer depth shading, larger eyes; 1.5× scale |
 | **HP bar** | Thin bar above enemy; shifts **green → yellow → red** at 50% and 25% HP; cyan tint for Basic, magenta tint for Armored |
-| **Marked ring** | Purple arc ring drawn around enemy while Marked status is active |
+| **Marked ring** | 3 spinning 90° purple arcs orbiting the enemy while Marked status is active; rotates at 2.5 rad/s |
 | **Slow ring** | Cyan outer ring drawn around enemy while Slow status is active |
+| **Slow tint** | Enemy `SelfModulate` shifts to blue-grey (`#B3D9FF`) while slowed, composites cleanly with hit flash |
+| **Spawn scale-in** | Enemy scales from 0 → full size over 0.15 s with a Back/Out ease on spawn |
 
 ---
 
@@ -75,9 +77,8 @@ Armored Walkers first appear at wave 7; count ramps to 5 by wave 20. Rendered at
 
 ## Draft System
 
-- **5 options** shown each round
-- **Free slots available** → 2 tower cards + 3 modifier cards
-- **All slots occupied** → 5 modifier cards (anti-brick: never offers a modifier with no valid target tower)
+- **Free slots available** → 5 options: 2 tower cards + 3 modifier cards
+- **All slots occupied** → 4 modifier cards (anti-brick: never offers a modifier with no valid target tower)
 - **Wave 1**: 2 picks (one extra pick before the first wave)
 - **Wave 15**: 2 picks (second bonus pick mid-run as a lifeline)
 - Modifier cards are only offered when at least one tower can still accept them
@@ -160,7 +161,7 @@ Each of the 6 tower slots is a node with persistent child visuals:
 | Element | Detail |
 |---|---|
 | Empty slot | Dark purple filled square + neon violet border (7 px thick outer + 1.5 px inner) |
-| Mod-count pip | Green `"N/3"` label in lower-right of slot; only visible when the tower has ≥ 1 modifier |
+| Modifier pips | 3 small squares (6×6 px) below each slot; hidden until a tower is placed, then dim grey = empty slot, green = filled, orange = tower at max mods |
 | **Draft highlights** | Gold for valid tower slots, white for valid modifier targets, red for occupied/ineligible; fade in/out via tween |
 
 ---
@@ -175,7 +176,9 @@ Each placed tower renders entirely via `_Draw()`:
 | Glow layers | Each tower has 2–3 soft radial glow circles behind the main shape |
 | Charge arc | Thin bright arc sweeps clockwise from 12 o'clock showing cooldown progress; dim background ring behind it |
 | Range circle | Faint filled polygon (10% opacity) + subtle Line2D border showing attack range |
-| Targeting icon | `▶` / `★` / `▼` label in the centre of the tower |
+| Targeting icon | `▶` / `★` / `▼` label centred on the **slot** node (not the tower), so it stays upright as the tower rotates |
+| **Tower rotation** | Tower body rotates smoothly to face its last target (`LerpAngle` at 15 rad/s); barrel aims at -Y axis |
+| **Placement bounce** | Tower scales from 0 → 1.15 → 1.0 over 0.25 s with Back/Out + Sine/InOut eases on placement |
 | **Attack flash** | Tower briefly pulses to 1.4× brightness then fades back (0.03 s spike, 0.25 s Expo/Out decay) on each shot |
 
 ---
@@ -184,11 +187,12 @@ Each placed tower renders entirely via `_Draw()`:
 
 | Effect | Detail |
 |---|---|
-| Projectile | Diamond-shaped head with a tapered glowing trail (10-point history); tracks target position |
+| Projectile | Diamond-shaped head with a tapered glowing trail (10-point history) + glow bloom (outer 8 px + inner 4 px white); tracks target position |
 | Target dies in-flight | Projectile dissolves harmlessly |
 | Damage number | Floating number drifts upward and fades over 0.7 s on hit; coloured to match the projectile |
-| **Enemy hit flash** | Enemy flashes to 2× brightness for 0.03 s then fades back (0.15 s Expo/Out) on every hit |
-| Death burst | Particle-style burst on enemy death; larger/redder for armored enemies |
+| **Kill-shot number** | Killing blow shows a **larger (24 px), gold** damage number instead of the standard 18 px coloured number |
+| **Enemy hit flash** | Enemy flashes to 2× brightness for 0.03 s then fades back (0.15 s Expo/Out) on every hit (skipped on kill shot) |
+| Death burst | Expanding ring + brief white flash at centre + **16 semi-random radial sparks** + inner ring (fades in first 60%); larger/redder for armored enemies |
 
 ---
 
@@ -197,7 +201,8 @@ Each placed tower renders entirely via `_Draw()`:
 Visible **during wave** and **while assigning a modifier to a tower** (hides during card selection and pause):
 
 - Appears on hover over any placed tower
-- Shows: tower name, targeting mode, and a bulleted list of attached modifiers with their descriptions
+- Shows: tower name, targeting mode, **damage / effective attack interval / range** stat line, then a bulleted list of attached modifiers with their descriptions
+- Effective attack interval accounts for Focus Lens and Hair Trigger modifiers baked in
 - Sized dynamically to content; positioned at cursor
 - During modifier assignment: lets player inspect existing modifiers before committing
 

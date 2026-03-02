@@ -24,6 +24,7 @@ public partial class EnemyInstance : PathFollow2D
     private float _hpBarWidth;
     private bool _wasMarked;
     private bool _wasSlow;
+    private float _markAngle;
 
     public override void _Ready()
     {
@@ -70,6 +71,9 @@ public partial class EnemyInstance : PathFollow2D
         if (MarkedRemaining > 0f) MarkedRemaining -= (float)delta;
         if (SlowRemaining  > 0f) SlowRemaining  -= (float)delta;
 
+        // Spin mark ring
+        if (IsMarked) _markAngle += (float)delta * 2.5f;
+
         // Update HP bar width and colour
         if (_hpFill != null && MaxHp > 0f)
         {
@@ -82,10 +86,15 @@ public partial class EnemyInstance : PathFollow2D
                     : new Color(1.00f, 0.15f, 0.60f);
         }
 
-        // Redraw only when status rings change
         bool nowMarked = IsMarked;
         bool nowSlowed = IsSlowed;
-        if (nowMarked != _wasMarked || nowSlowed != _wasSlow)
+
+        // Blue-grey tint while slowed — uses SelfModulate so it stacks with FlashHit on Modulate
+        if (nowSlowed != _wasSlow)
+            SelfModulate = nowSlowed ? new Color(0.70f, 0.85f, 1.00f) : Colors.White;
+
+        // Redraw when status changes OR every frame while marked (for ring rotation)
+        if (nowMarked != _wasMarked || nowSlowed != _wasSlow || IsMarked)
         {
             _wasMarked = nowMarked;
             _wasSlow   = nowSlowed;
@@ -119,9 +128,13 @@ public partial class EnemyInstance : PathFollow2D
         DrawCircle(new Vector2( 3f, -2.5f), 2.2f, Colors.White);
         DrawCircle(new Vector2(-3f, -2.0f), 1.1f, new Color(0.05f, 0.05f, 0.05f));
         DrawCircle(new Vector2( 3f, -2.0f), 1.1f, new Color(0.05f, 0.05f, 0.05f));
-        // Mark ring (purple)
+        // Mark ring — 3 spinning 90° dashes
         if (IsMarked)
-            DrawArc(Vector2.Zero, 13f, 0f, Mathf.Tau, 32, new Color(0.85f, 0.30f, 1.00f, 0.90f), 2.5f);
+            for (int s = 0; s < 3; s++)
+            {
+                float a = _markAngle + s * (Mathf.Tau / 3f);
+                DrawArc(Vector2.Zero, 13f, a, a + Mathf.Pi * 0.5f, 12, new Color(0.85f, 0.30f, 1.00f, 0.90f), 2.5f);
+            }
         // Slow ring
         if (IsSlowed)
             DrawArc(Vector2.Zero, 15.5f, 0f, Mathf.Tau, 32, new Color(0.20f, 0.85f, 1.00f, 0.90f), 2.5f);
@@ -142,9 +155,13 @@ public partial class EnemyInstance : PathFollow2D
         DrawCircle(new Vector2( 3.5f, -2.5f), 2.8f, Colors.White);
         DrawCircle(new Vector2(-3.5f, -2.0f), 1.4f, new Color(0.05f, 0.05f, 0.05f));
         DrawCircle(new Vector2( 3.5f, -2.0f), 1.4f, new Color(0.05f, 0.05f, 0.05f));
-        // Mark ring (purple, wider radius for larger body)
+        // Mark ring — 3 spinning 90° dashes (wider radius for larger body)
         if (IsMarked)
-            DrawArc(Vector2.Zero, 19f, 0f, Mathf.Tau, 32, new Color(0.85f, 0.30f, 1.00f, 0.90f), 2.5f);
+            for (int s = 0; s < 3; s++)
+            {
+                float a = _markAngle + s * (Mathf.Tau / 3f);
+                DrawArc(Vector2.Zero, 19f, a, a + Mathf.Pi * 0.5f, 12, new Color(0.85f, 0.30f, 1.00f, 0.90f), 2.5f);
+            }
         // Slow ring (cyan)
         if (IsSlowed)
             DrawArc(Vector2.Zero, 21.5f, 0f, Mathf.Tau, 32, new Color(0.20f, 0.85f, 1.00f, 0.90f), 2.5f);

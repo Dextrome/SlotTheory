@@ -79,7 +79,6 @@ public class CombatSim
             state.Lives -= e.EnemyTypeId == "armored_walker" ? 2 : 1;
             Sounds?.Play("leak");
             e.QueueFree();
-            GD.Print($"Enemy leaked! Lives remaining: {state.Lives}");
         }
         state.EnemiesAlive.RemoveAll(e => !GodotObject.IsInstanceValid(e) || e.ProgressRatio >= 1.0f);
         if (state.Lives <= 0)
@@ -96,6 +95,8 @@ public class CombatSim
 
             var target = Targeting.SelectTarget(tower, state.EnemiesAlive);
             if (target == null) continue;
+
+            if (!BotMode) tower.LastTargetPosition = target.GlobalPosition;
 
             // Effective interval: base × modifier multipliers (e.g. FocusLens ×2)
             float effectiveInterval = tower.AttackInterval;
@@ -179,7 +180,18 @@ public class CombatSim
         var enemy = EnemyScene.Instantiate<EnemyInstance>();
         enemy.Initialize(typeId, hp, speed);
         LanePath.AddChild(enemy);
-        if (BotMode) enemy.SetProcess(false);
+        if (BotMode)
+        {
+            enemy.SetProcess(false);
+        }
+        else
+        {
+            var finalScale = enemy.Scale;
+            enemy.Scale = Vector2.Zero;
+            enemy.CreateTween()
+                 .TweenProperty(enemy, "scale", finalScale, 0.15f)
+                 .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+        }
 
         state.EnemiesAlive.Add(enemy);
         state.EnemiesSpawnedThisWave++;
