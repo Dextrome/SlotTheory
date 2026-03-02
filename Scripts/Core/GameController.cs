@@ -117,7 +117,7 @@ public partial class GameController : Node
 			int livesLost = Balance.StartingLives - _runState.Lives;
 			GD.Print("Run lost.");
 			SoundManager.Instance?.Play("game_over");
-			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, BuildBuildSummary());
+			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary());
 			return;
 		}
 
@@ -129,7 +129,7 @@ public partial class GameController : Node
 				CurrentPhase = GamePhase.Win;
 				GD.Print("Run won!");
 				SoundManager.Instance?.Play("victory");
-				_endScreen.ShowWin(BuildBuildSummary());
+				_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary());
 			}
 			else
 			{

@@ -96,8 +96,9 @@ public partial class HowToPlay : Node
 
 		// ── Enemies ──────────────────────────────────────────────────────
 		AddHeader(vbox, "ENEMIES");
-		AddLine(vbox, "Basic Walker: 72 HP on wave 1, ×1.12 per wave (~640 HP by wave 20). Speed: 120 px/s.");
-		AddLine(vbox, "Count scales from 10 enemies (wave 1) to 30 enemies (wave 20).");
+		AddLine(vbox, "Basic Walker: 72 HP on wave 1, ×1.12 per wave (~640 HP by wave 20). Speed: 120 px/s. Leaks cost 1 life.");
+		AddLine(vbox, "Armored Walker: 4× HP, half speed (60 px/s). Leaks cost 2 lives. First appears wave 7; up to 5 per wave by wave 20. Large hexagonal crimson enemy — visually unmistakable.");
+		AddLine(vbox, "Enemy count scales from 10 (wave 1) to 30 (wave 20).");
 		AddSpacer(vbox, 12);
 
 		// ── Tips ─────────────────────────────────────────────────────────

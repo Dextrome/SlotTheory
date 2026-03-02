@@ -180,6 +180,19 @@ public partial class DraftPanel : CanvasLayer
             var captured = opt;
             btn.Pressed += () => OnCardPressed(captured);
             AddHover(btn);
+
+            // Key hint as a separate child label — styled differently from the card body text,
+            // anchored to the bottom-right corner so it never competes with card content
+            var keyLbl = new Label { Text = $"[ {i + 1} ]" };
+            keyLbl.AddThemeFontSizeOverride("font_size", 12);
+            keyLbl.Modulate = new Color(0.55f, 0.55f, 0.75f, 0.80f);
+            keyLbl.MouseFilter = Control.MouseFilterEnum.Ignore;
+            keyLbl.HorizontalAlignment = HorizontalAlignment.Right;
+            keyLbl.SetAnchorsPreset(Control.LayoutPreset.BottomRight);
+            keyLbl.OffsetLeft = -46; keyLbl.OffsetRight = -4;
+            keyLbl.OffsetTop  = -20; keyLbl.OffsetBottom = -4;
+            btn.AddChild(keyLbl);
+
             _cardRow.AddChild(btn);
         }
     }
@@ -281,16 +294,15 @@ public partial class DraftPanel : CanvasLayer
 
     private static string GetOptionLabel(DraftOption opt, int index)
     {
-        string key = $"[ {index + 1} ]";
         if (opt.Type == DraftOptionType.Tower)
         {
             var def = DataLoader.GetTowerDef(opt.Id);
-            return $"{def.Name}\n{def.BaseDamage} dmg  ·  {def.AttackInterval} s\nRange {def.Range}\n{key}";
+            return $"{def.Name}\n{def.BaseDamage} dmg  ·  {def.AttackInterval} s\nRange {def.Range}";
         }
         else
         {
             var def = DataLoader.GetModifierDef(opt.Id);
-            return $"{def.Name}\n{def.Description}\n{key}";
+            return $"{def.Name}\n{def.Description}";
         }
     }
 }
