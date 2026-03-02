@@ -50,7 +50,7 @@ Towers are placed in **6 slots** on the map. Max **3 modifiers** per tower.
 | Basic Walker | `65 × 1.06^(wave-1)` | 120 px/s | 1 life |
 | Armored Walker | 4× Basic HP | 60 px/s (half) | **2 lives** |
 
-Armored Walkers first appear at wave 7; count ramps to 5 by wave 20.
+Armored Walkers first appear at wave 7; count ramps to 5 by wave 20. Rendered at **1.5× scale** so they are visually distinct from Basic Walkers at a glance.
 
 ---
 
@@ -125,9 +125,10 @@ Full-screen overlay shown between waves:
 | Hover scale | Cards scale to 1.06× on mouse-over (0.08 s tween) |
 | Keyboard 1–5 | Press a number to select the corresponding card |
 | Key hints | `[ 1 ]` – `[ 5 ]` labels on each card |
-| Slot assignment | After picking a modifier, slot buttons appear for valid targets |
-| Slot hover scale | Slot buttons also scale on hover |
-| Slot key hints | `[ 1 ]` – `[ 6 ]` labels on slot buttons |
+| **World-click placement** | After picking a card, the panel closes; player clicks directly on a slot/tower in the world to complete placement |
+| **Color-coded highlights** | Valid tower slots glow **gold**; valid modifier targets glow **white**; occupied/ineligible slots glow **red** |
+| **Placement hint label** | Gold text shows `"Click a slot to place  X"` or `"Click a tower to assign  X"` |
+| **Cancel (Esc)** | While awaiting world-click, Esc restores the draft panel with the original options |
 
 ---
 
@@ -152,7 +153,7 @@ Each placed tower renders entirely via `_Draw()`:
 | Charge arc | Thin ring around tower showing cooldown progress (bright arc sweeps clockwise from 12 o'clock) |
 | Range circle | Faint filled polygon (10% opacity) + subtle border showing attack range |
 | Targeting icon | `▶` / `★` / `▼` label in the centre of the tower |
-| **Attack flash** | Tower briefly pulses bright white (`modulate → 2×` then back) on each shot |
+| **Attack flash** | Tower briefly pulses to 1.4× brightness then fades back (0.03 s spike, 0.25 s Expo/Out decay) on each shot |
 
 ---
 
@@ -163,17 +164,42 @@ Each placed tower renders entirely via `_Draw()`:
 | Projectile | Diamond-shaped head with a tapered glowing trail (10-point history); tracks target position |
 | Target dies in-flight | Projectile dissolves harmlessly |
 | Damage number | Floating number drifts upward and fades over 0.7 s on hit; coloured to match the projectile |
+| **Enemy hit flash** | Enemy flashes to 2× brightness for 0.03 s then fades back (0.15 s Expo/Out) on every hit |
 | Death burst | Particle-style burst on enemy death; larger/redder for armored enemies |
 
 ---
 
 ## Tooltip
 
-Visible **during wave only** (hides during draft and pause):
+Visible **during wave** and **while assigning a modifier to a tower** (hides during card selection and pause):
 
 - Appears on hover over any placed tower
 - Shows: tower name, targeting mode, and a bulleted list of attached modifiers with their descriptions
 - Sized dynamically to content; positioned at cursor
+- During modifier assignment: lets player inspect existing modifiers before committing
+
+---
+
+## Visual Feedback
+
+| Effect | Trigger | Detail |
+|---|---|---|
+| **Screen shake** | Any life lost | `_worldNode` snaps through 4 offset positions (±8 px) in 0.18 s via tween, returns to origin |
+| **Wave clear flash** | Wave completed | Semi-transparent green `ColorRect` over the world fades in then out over ~0.6 s |
+| **Enemy hit flash** | Any damage landed | Enemy node modulate spikes to 2× then decays over 0.15 s (handled by `EnemyInstance.FlashHit()`) |
+| **Tower attack flash** | Tower fires | Tower modulate spikes to 1.4× then decays over 0.25 s (handled by `TowerInstance.FlashAttack()`) |
+| **Lives label flash** | Life lost | HUD lives label punches to 1.25× scale then returns (elastic tween) |
+
+---
+
+## Visual Identity
+
+| System | Detail |
+|---|---|
+| **Font** | Rajdhani Bold throughout all UI (labels, buttons, HUD, draft panel, end screen) |
+| **UI theme** | Neon synthwave palette via `UITheme.Build()` — `StyleBoxFlat` buttons with rounded corners, purple/magenta border glow; 5 button states (normal, hover, pressed, focus, disabled) |
+| **Scene transitions** | `Transition.cs` autoload (CanvasLayer Layer=100, always-process) fades to black then back on every scene change; `FadeToScene(path)` is the single entry point for all scene navigation |
+| **Map rendering** | Flat `ColorRect` nodes (no textures); grass `#a6d608`, path `#8B5E3C`; `Line2D` edges + animated flow arrows on path |
 
 ---
 
