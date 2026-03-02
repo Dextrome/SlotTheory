@@ -91,10 +91,20 @@ public partial class HudPanel : CanvasLayer
         _speedBtn.Text = "1×";
     }
 
+    public void FlashLives()
+    {
+        _livesLabel.PivotOffset = _livesLabel.Size / 2f;
+        var tween = CreateTween();
+        tween.TweenProperty(_livesLabel, "scale", new Vector2(1.4f, 1.4f), 0.06f);
+        tween.TweenProperty(_livesLabel, "scale", Vector2.One, 0.3f)
+             .SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
+    }
+
     public void Refresh(int wave, int lives)
     {
         _waveLabel.Text = $"Wave {wave} / {Balance.TotalWaves}";
         _livesLabel.Text = $"Lives: {lives}";
         _livesLabel.Modulate = lives <= 3 ? new Color(1f, 0.35f, 0.35f) : Colors.White;
+        _livesLabel.PivotOffset = _livesLabel.Size / 2f;
     }
 }
