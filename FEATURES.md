@@ -17,13 +17,14 @@
 
 ---
 
-## Towers (3 types)
+## Towers (4 types)
 
 | Tower | Fire Rate | Damage | Special |
 |---|---|---|---|
-| Rapid Shooter | Fast | Low | — |
-| Heavy Cannon | Slow | High | — |
-| Marker Tower | Medium | Low | Applies **Marked** status on hit |
+| Rapid Shooter | Fast (0.4 s) | Low (10) | — |
+| Heavy Cannon | Slow (2.0 s) | High (60) | — |
+| Marker Tower | Medium (1.0 s) | Very Low (5) | Applies **Marked** status on hit |
+| Arc Emitter | Medium (1.2 s) | Low (14) | Chains to 2 additional enemies (260 px radius, 60% damage decay per bounce) |
 
 Towers are placed in **6 slots** on the map. Max **3 modifiers** per tower.
 
@@ -33,13 +34,13 @@ Towers are placed in **6 slots** on the map. Max **3 modifiers** per tower.
 
 | Modifier | Effect |
 |---|---|
-| Momentum | +10% damage per consecutive hit on the same target; resets on target switch. Caps at 5 stacks (×1.5 total). |
-| Overkill | Excess damage from a killing blow spills to the next enemy in lane (one spill only). |
+| Momentum | +8% damage per consecutive hit on the same target; resets on target switch. Caps at 5 stacks (×1.4 total). |
+| Overkill | 80% of excess damage from a killing blow spills to the next enemy in lane (one spill only). |
 | Exploit Weakness | +50% damage vs Marked enemies. |
-| Focus Lens | +150% damage, ×2 attack interval. Big hits, slow fire — synergises with Overkill. |
-| Hair Trigger | Reduces attack interval. |
-| Overreach | Increases tower range. |
-| Slow | Hits apply a Slow status: enemy moves at 70% speed for 5 seconds. |
+| Focus Lens | +100% damage, ×2 attack interval. Big hits, slow fire — synergises with Overkill. |
+| Hair Trigger | +50% attack speed, −30% range. |
+| Overreach | +50% range, −25% damage. |
+| Chill Shot | Hits apply Slow: enemy moves at 70% speed for 5 seconds. |
 
 ---
 
@@ -47,7 +48,7 @@ Towers are placed in **6 slots** on the map. Max **3 modifiers** per tower.
 
 | Enemy | HP | Speed | Leak Cost |
 |---|---|---|---|
-| Basic Walker | `65 × 1.06^(wave-1)` | 120 px/s | 1 life |
+| Basic Walker | `65 × 1.08^(wave-1)` | 120 px/s | 1 life |
 | Armored Walker | 4× Basic HP | 60 px/s (half) | **2 lives** |
 
 Armored Walkers first appear at wave 7; count ramps to 5 by wave 20. Rendered at **1.5× scale** so they are visually distinct from Basic Walkers at a glance.
@@ -72,7 +73,7 @@ Armored Walkers first appear at wave 7; count ramps to 5 by wave 20. Rendered at
 
 | Status | Effect | Duration |
 |---|---|---|
-| Marked | +20% incoming damage from all towers | 2 seconds |
+| Marked | +30% incoming damage from all towers | 2 seconds |
 | Slow | 70% movement speed | 5 seconds |
 
 ---
@@ -175,7 +176,7 @@ Each placed tower renders entirely via `_Draw()`:
 
 | Visual | Detail |
 |---|---|
-| Tower body | Hand-drawn per type: Rapid Shooter (hexagonal cyan), Heavy Cannon (octagonal orange), Marker Tower (diamond pink) |
+| Tower body | Hand-drawn per type: Rapid Shooter (hexagonal cyan), Heavy Cannon (octagonal orange), Marker Tower (diamond pink), Arc Emitter (circular blue-white, 3 discharge prongs) |
 | Glow layers | Each tower has 2–3 soft radial glow circles behind the main shape |
 | Charge arc | Thin bright arc sweeps clockwise from 12 o'clock showing cooldown progress; dim background ring behind it |
 | Range circle | Faint filled polygon (10% opacity) + subtle Line2D border showing attack range |
@@ -196,6 +197,7 @@ Each placed tower renders entirely via `_Draw()`:
 | **Kill-shot number** | Killing blow shows a **larger (24 px), gold** damage number instead of the standard 18 px coloured number |
 | **Enemy hit flash** | Enemy flashes to 2× brightness for 0.03 s then fades back (0.15 s Expo/Out) on every hit (skipped on kill shot) |
 | Death burst | Expanding ring + brief white flash at centre + **16 semi-random radial sparks** + inner ring (fades in first 60%); larger/redder for armored enemies |
+| **Chain arc** | Arc Emitter bounces draw a jagged electric arc between hit positions (4 random perpendicular jitter midpoints); fades over 0.18 s with endpoint glow blooms |
 
 ---
 
@@ -316,12 +318,13 @@ For headless balance testing (not exposed to players):
 | Wave1ExtraPicks | 1 | +1 pick before wave 1 |
 | Wave15ExtraPicks | 1 | +1 pick before wave 15 |
 | BaseEnemyHp | 65 | |
-| HpGrowthPerWave | 1.06 | HP × 1.06^(wave-1) |
+| HpGrowthPerWave | 1.08 | HP × 1.08^(wave-1) |
 | BaseEnemySpeed | 120 px/s | |
 | TankyHpMultiplier | 4× | vs basic walker |
 | TankyEnemySpeed | 60 px/s | |
-| MarkedDamageBonus | +20% | |
+| MarkedDamageBonus | +30% | |
 | MarkedDuration | 2 s | |
 | SlowSpeedFactor | 0.70 | −30% speed |
 | SlowDuration | 5 s | |
-| MomentumMaxStacks | 5 | caps at ×1.5 damage |
+| MomentumMaxStacks | 5 | |
+| MomentumBonusPerStack | 8% | caps at ×1.4 damage |
