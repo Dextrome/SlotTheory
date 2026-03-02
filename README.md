@@ -48,6 +48,8 @@ If no draft options are possible (all slots full and all towers at modifier cap)
 
 **Bonus picks**: Wave 1 and Wave 15 each give you 2 picks instead of 1 — use them to establish a strong build early and recover mid-run.
 
+**Wave preview**: The draft panel shows the enemy composition of the upcoming wave (e.g., `↓ 22 Basic · 3 Armored [clumped]`) so you can plan your pick before committing.
+
 ---
 
 ## Towers
@@ -111,6 +113,8 @@ Pair Marker Tower + **Exploit Weakness** on another tower for a large burst dama
 - First appears on wave 7; up to 5 per wave by wave 20.
 
 Enemy count and spawn speed both increase over 20 waves (from 10 enemies at wave 1 up to 30 at wave 20).
+
+Waves 12–14 use **clumped** Armored spawns: all Armored Walkers arrive as a consecutive group after the initial basic wave, creating a mid-wave panic spike instead of a uniform drip.
 
 ---
 

@@ -14,6 +14,7 @@ public partial class DraftPanel : CanvasLayer
 {
     private Label _titleLabel = null!;
     private HBoxContainer _cardRow = null!;
+    private Label _waveFooter = null!;
     private Label _assignLabel = null!;
     private HBoxContainer _towerRow = null!;
     private DraftOption? _pendingModifier;
@@ -106,6 +107,13 @@ public partial class DraftPanel : CanvasLayer
         _towerRow.AddThemeConstantOverride("separation", 12);
         _towerRow.Visible = false;
         vbox.AddChild(_towerRow);
+
+        _waveFooter = new Label();
+        _waveFooter.HorizontalAlignment = HorizontalAlignment.Center;
+        _waveFooter.AddThemeFontSizeOverride("font_size", 14);
+        _waveFooter.AddThemeColorOverride("font_color", new Color(0.60f, 0.75f, 1.00f, 0.80f));
+        _waveFooter.Visible = false;
+        vbox.AddChild(_waveFooter);
     }
 
     public void Show(List<DraftOption> options, int waveNumber, int pickNumber = 1, int totalPicks = 1)
@@ -124,6 +132,24 @@ public partial class DraftPanel : CanvasLayer
         _towerRow.Visible = false;
         _cardRow.Visible = true;
         _bg.MouseFilter = Control.MouseFilterEnum.Stop;
+
+        // Wave composition preview footer
+        var cfg = waveNumber >= 1 && waveNumber <= Balance.TotalWaves
+            ? DataLoader.GetWaveConfig(waveNumber - 1) : null;
+        if (cfg != null)
+        {
+            int basic   = cfg.EnemyCount;
+            int armored = cfg.TankyCount;
+            string clumpHint = cfg.ClumpArmored ? "  [clumped]" : "";
+            _waveFooter.Text = armored > 0
+                ? $"↓  {basic} Basic  ·  {armored} Armored{clumpHint}"
+                : $"↓  {basic} Basic";
+            _waveFooter.Visible = true;
+        }
+        else
+        {
+            _waveFooter.Visible = false;
+        }
         // Explicitly reset position/size each open to prevent any deferred layout drift.
         var vpSize = GetViewport().GetVisibleRect().Size;
         _bg.Position = Vector2.Zero;

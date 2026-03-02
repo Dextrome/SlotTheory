@@ -343,17 +343,20 @@ public partial class GameController : Node
 			return;
 		}
 
-		// Wave phase: click tower to cycle targeting mode
-		for (int i = 0; i < _runState.Slots.Length; i++)
+		// Wave phase only: click tower to cycle targeting mode
+		if (CurrentPhase == GamePhase.Wave)
 		{
-			var tower = _runState.Slots[i].Tower;
-			if (tower == null) continue;
-			var hitRect = new Rect2(tower.GlobalPosition - new Vector2(25f, 25f), new Vector2(50f, 50f));
-			if (hitRect.HasPoint(mousePos))
+			for (int i = 0; i < _runState.Slots.Length; i++)
 			{
-				tower.CycleTargetingMode();
-				GetViewport().SetInputAsHandled();
-				return;
+				var tower = _runState.Slots[i].Tower;
+				if (tower == null) continue;
+				var hitRect = new Rect2(tower.GlobalPosition - new Vector2(25f, 25f), new Vector2(50f, 50f));
+				if (hitRect.HasPoint(mousePos))
+				{
+					tower.CycleTargetingMode();
+					GetViewport().SetInputAsHandled();
+					return;
+				}
 			}
 		}
 	}
