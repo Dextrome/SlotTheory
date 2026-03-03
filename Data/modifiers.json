@@ -22,7 +22,7 @@
   "slow": {
     "Id": "slow",
     "Name": "Chill Shot",
-    "Description": "On hit: −30% move speed for 5 s."
+    "Description": "On hit: −20% move speed for 5 s. Stacks multiplicatively on same tower."
   },
   "overreach": {
     "Id": "overreach",

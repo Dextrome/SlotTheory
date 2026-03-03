@@ -36,7 +36,7 @@ public static class Balance
     public const float MarkedDuration = 2f;       // seconds
 
     // Slow status
-    public const float SlowSpeedFactor = 0.70f;   // enemy moves at 70% speed (-30%)
+    public const float SlowSpeedFactor = 0.80f;   // enemy moves at 80% speed (-20%) per Chill Shot; stacks multiplicatively
     public const float SlowDuration = 5f;          // seconds
 
     // Momentum modifier
