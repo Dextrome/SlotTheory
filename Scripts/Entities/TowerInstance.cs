@@ -76,6 +76,37 @@ public partial class TowerInstance : Node2D
              .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);
     }
 
+    /// <summary>
+    /// Computes the effective damage for tooltip display by applying unconditional damage modifiers.
+    /// Conditional modifiers (e.g., ExploitWeakness vs Marked enemies) are conservatively omitted.
+    /// </summary>
+    public float GetEffectiveDamageForPreview()
+    {
+        float damage = BaseDamage;
+
+        foreach (var mod in Modifiers)
+        {
+            // Skip modifiers that require target state to compute their effect.
+            // These would need a specific enemy to evaluate correctly.
+            if (mod is ExploitWeakness || mod is Momentum)
+                continue;
+
+            try
+            {
+                // Create a minimal context for unconditional damage modifiers.
+                // Modifiers like FocusLens only care about the tower, not the target.
+                var ctx = new Combat.DamageContext(this, null!, 0, new());
+                mod.ModifyDamage(ref damage, ctx);
+            }
+            catch
+            {
+                // Gracefully skip modifiers that fail to compute their preview effect.
+            }
+        }
+
+        return damage;
+    }
+
     public void CycleTargetingMode()
     {
         TargetingMode = TargetingMode switch

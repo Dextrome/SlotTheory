@@ -37,10 +37,9 @@ public static class DamageModel
     {
         float damage = ctx.BaseDamage;
 
-        // 1. Modifier damage pass — skipped for chain bounces (damage already decayed at spawn)
-        if (!ctx.IsChain)
-            foreach (var mod in ctx.Attacker.Modifiers)
-                mod.ModifyDamage(ref damage, ctx);
+        // 1. Modifier damage pass — applies to all hits (primary, chain, split)
+        foreach (var mod in ctx.Attacker.Modifiers)
+            mod.ModifyDamage(ref damage, ctx);
 
         // 2. Global Marked bonus — all towers deal +20% to Marked enemies
         if (ctx.Target.IsMarked)
@@ -57,14 +56,15 @@ public static class DamageModel
             if (ctx.Target.Hp <= 0) ctx.State.TotalKills++;
         }
 
-        // 4. On-hit effects
-        foreach (var mod in ctx.Attacker.Modifiers)
-            mod.OnHit(ctx);
+        // 4. On-hit effects (skipped for chain bounces to prevent Overkill spillover stacking)
+        if (!ctx.IsChain)
+            foreach (var mod in ctx.Attacker.Modifiers)
+                mod.OnHit(ctx);
 
         if (ctx.Attacker.AppliesMark)
             Statuses.ApplyMarked(ctx.Target, Balance.MarkedDuration);
 
-        // 5. On-kill effects
+        // 5. On-kill effects (run for all kills regardless of bounce type)
         if (ctx.Target.Hp <= 0)
             foreach (var mod in ctx.Attacker.Modifiers)
                 mod.OnKill(ctx);

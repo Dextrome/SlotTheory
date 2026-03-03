@@ -32,7 +32,7 @@ public partial class GameController : Node
 	private ColorRect[][] _slotModPips         = new ColorRect[Balance.SlotCount][];
 	private int      _highlightedSlot      = -1;
 	private bool     _highlightedSlotValid = false;
-	private MapLayout _currentMap = null!;
+	private Map _currentMap = null!;
 	private Node2D _mapVisuals = null!;
 	private Panel _tooltipPanel = null!;
 	private Label _tooltipLabel = null!;
@@ -61,6 +61,10 @@ public partial class GameController : Node
 		}
 
 		_runState = new RunState();
+		
+		// Apply pending map selection from MapSelectPanel if available
+		_runState.SelectedMapId = SlotTheory.UI.MapSelectPanel.PendingMapSelection;
+		
 		_draftSystem = new DraftSystem();
 		_waveSystem = new WaveSystem();
 		_combatSim = new CombatSim(_runState)
@@ -372,7 +376,7 @@ public partial class GameController : Node
 		for (int i = 0; i < Balance.SlotCount; i++)
 		{
 			_slotNodes[i] = slotsNode.GetNode<Node2D>($"Slot{i}");
-			_slotNodes[i].Position = _currentMap.SlotPositions[i];
+			_slotNodes[i].Position = _currentMap.Slots[i];
 
 			// Empty slot visual ΓÇö dark purple fill + neon violet border
 		_slotNodes[i].AddChild(new ColorRect
@@ -481,18 +485,44 @@ public partial class GameController : Node
 
 	private void GenerateMap()
 	{
-		_currentMap = MapGenerator.Generate(System.Environment.TickCount);
+		// Generate seed if not set
+		if (_runState.RngSeed == 0)
+			_runState.RngSeed = System.Environment.TickCount;
+
+		// Load or generate map
+		if (!string.IsNullOrEmpty(_runState.SelectedMapId) && _runState.SelectedMapId != "random_map")
+		{
+			// Load hand-crafted map
+			try
+			{
+				var mapDef = DataLoader.GetMapDef(_runState.SelectedMapId);
+				_currentMap = HandCraftedMap.LoadFromDef(mapDef);
+				GD.Print($"[GameController] Loaded hand-crafted map: {_runState.SelectedMapId}");
+			}
+			catch (System.Exception ex)
+			{
+				GD.PrintErr($"[GameController] Failed to load map '{_runState.SelectedMapId}': {ex.Message}. Falling back to procedural.");
+				_currentMap = ProceduralMap.Generate((ulong)_runState.RngSeed);
+			}
+		}
+		else
+		{
+			// Generate procedural map
+			_currentMap = ProceduralMap.Generate((ulong)_runState.RngSeed);
+			GD.Print("[GameController] Generated procedural map");
+		}
+
 		RenderMap();
 		if (LanePath != null)
-			LanePath.Curve = BuildCurve(_currentMap.PathWaypoints);
+			LanePath.Curve = BuildCurve(_currentMap.Path);
 	}
 
 	private void RenderMap()
 	{
 		// Background + neon grid
 		_mapVisuals.AddChild(new GridBackground());
-		// Neon path ΓÇö layered glow: outer haze ΓåÆ dark road fill ΓåÆ edge glow ΓåÆ bright edge
-		Vector2[] pts = _currentMap.PathWaypoints;
+		// Neon path — layered glow: outer haze → dark road fill → edge glow → bright edge
+		Vector2[] pts = _currentMap.Path;
 		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 120f, DefaultColor = new Color(1.0f, 0.05f, 0.55f, 0.05f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
 		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 80f,  DefaultColor = new Color(1.0f, 0.10f, 0.55f, 0.10f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
 		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 50f,  DefaultColor = new Color(0.10f, 0.00f, 0.18f, 0.95f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
@@ -501,7 +531,7 @@ public partial class GameController : Node
 		// Path flow arrows
 		var pathFlow = new PathFlow();
 		_mapVisuals.AddChild(pathFlow);
-		pathFlow.Initialize(_currentMap.PathWaypoints);
+		pathFlow.Initialize(_currentMap.Path);
 	}
 
 	private void ClearMapVisuals()
@@ -580,8 +610,11 @@ public partial class GameController : Node
 			foreach (var mod in tower.Modifiers)
 				mod.ModifyAttackInterval(ref effInterval, tower);
 
+			// Effective damage: unconditional modifiers (FocusLens) + baked changes
+			float effDamage = tower.GetEffectiveDamageForPreview();
+
 			var text = $"Slot {i + 1}  ·  {def.Name}  [{targetingName}]\n";
-			text += $"{tower.BaseDamage:0.#} dmg  ·  {effInterval:0.##} s  ·  {(int)tower.Range} px\n";
+			text += $"{effDamage:0.#} dmg  ·  {effInterval:0.##} s  ·  {(int)tower.Range} px\n";
 			if (tower.IsChainTower)
 				text += $"⚡ chains ×{tower.ChainCount}  ({(int)(tower.ChainDamageDecay * 100)}% per bounce)  range {(int)tower.ChainRange} px\n";
 			if (tower.Modifiers.Count == 0)

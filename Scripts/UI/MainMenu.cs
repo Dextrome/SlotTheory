@@ -65,7 +65,11 @@ public partial class MainMenu : Node
 		AddButton(vbox, "Quit to Desktop", 260, 48, 22, OnQuit);
 	}
 
-	private void OnPlay()      => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
+	private void OnPlay()
+	{
+		SlotTheory.Data.DataLoader.LoadAll();
+		SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MapSelect.tscn");
+	}
 	private void OnHowToPlay() => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/HowToPlay.tscn");
 	private void OnSettings()  => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/Settings.tscn");
 	private void OnQuit()      => GetTree().Quit();
