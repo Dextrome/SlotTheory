@@ -74,6 +74,8 @@
     "name": "Unstable Anomaly",
     "description": "Procedurally generated layout. Different every run.",
     "displayOrder": 999,
-    "isRandom": true
+    "isRandom": true,
+    "path": [],
+    "slots": []
   }
 }
