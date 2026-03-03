@@ -44,13 +44,22 @@ public static class Balance
     public const float MomentumBonusPerStack = 0.08f;
 
     // Split Shot modifier
-    public const float SplitShotDamageRatio = 0.65f; // 65% of base damage per split projectile
+    public const float SplitShotDamageRatio = 0.55f; // 55% of base damage per split projectile
     public const float SplitShotRange       = 200f;  // search radius from impact point for split targets
 
     // Feedback Loop modifier
     public const float FeedbackLoopCooldownReduction = 0.30f; // 30% of remaining cooldown removed on kill
 
-    // Chain Reaction modifier — range/decay inherit tower defaults (350f / 0.6f); no new constants needed
+    // Hair Trigger modifier
+    public const float HairTriggerAttackSpeed = 1.35f; // +35% attack speed
+    public const float HairTriggerRangeFactor = 0.70f; // -30% range
+
+    // Overkill modifier
+    public const float OverkillSpillEfficiency = 0.60f; // 60% excess damage spill
+
+    // Focus Lens modifier
+    public const float FocusLensDamageBonus = 2.2f; // +120% damage
+    public const float FocusLensAttackInterval = 2f; // x2 attack interval
 
     // Enemies — Swift Walker
     public const float SwiftHpMultiplier = 1.5f;  // 1.5× basic walker HP

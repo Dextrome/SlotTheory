@@ -33,7 +33,7 @@ public static class ModifierDataValidator
             {
                 Id = "split_shot",
                 Name = "Split Shot",
-                RequiredTokens = new() { "65%" }
+                    RequiredTokens = new() { "55%" }
             },
             new ModifierExpectation
             {
@@ -63,7 +63,7 @@ public static class ModifierDataValidator
             {
                 Id = "hair_trigger",
                 Name = "Hair Trigger",
-                RequiredTokens = new() { "+50%", "−30%" }
+                    RequiredTokens = new() { "+35%", "−30%" }
             },
             new ModifierExpectation
             {

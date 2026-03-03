@@ -168,6 +168,38 @@ public class BotRunner
             GD.Print($"└{'─' * 70}┘");
         }
 
+        // ── Per-modifier win rates ─────────────────────────────────────────────
+        var allMods = _results.SelectMany(r => r.Mods).Distinct().OrderBy(m => m).ToList();
+        GD.Print("\nMODIFIER WIN RATES:");
+        GD.Print($"{"MODIFIER",-18} {"RUNS",5} {"WINS",5} {"WIN%",6} {"AVG WAVE",10} {"AVG LIVES",10}");
+        GD.Print(new string('-', 54));
+        foreach (var mod in allMods)
+        {
+            var runs = _results.Where(r => r.Mods.Contains(mod)).ToList();
+            if (runs.Count == 0) continue;
+            int wins = runs.Count(r => r.Won);
+            float winPct = wins * 100f / runs.Count;
+            float avgWave = (float)runs.Average(r => r.WaveReached);
+            float avgLives = (float)runs.Average(r => r.LivesEnd);
+            GD.Print($"{mod,-18} {runs.Count,5} {wins,5} {winPct,5:0}% {avgWave,10:0.0} {avgLives,10:0.0}");
+        }
+
+        // ── Per-tower win rates ─────────────────────────────────────────────
+        var allTowers = _results.SelectMany(r => r.Towers).Distinct().OrderBy(t => t).ToList();
+        GD.Print("\nTOWER WIN RATES:");
+        GD.Print($"{"TOWER",-18} {"RUNS",5} {"WINS",5} {"WIN%",6} {"AVG WAVE",10} {"AVG LIVES",10}");
+        GD.Print(new string('-', 54));
+        foreach (var tower in allTowers)
+        {
+            var runs = _results.Where(r => r.Towers.Contains(tower)).ToList();
+            if (runs.Count == 0) continue;
+            int wins = runs.Count(r => r.Won);
+            float winPct = wins * 100f / runs.Count;
+            float avgWave = (float)runs.Average(r => r.WaveReached);
+            float avgLives = (float)runs.Average(r => r.LivesEnd);
+            GD.Print($"{tower,-18} {runs.Count,5} {wins,5} {winPct,5:0}% {avgWave,10:0.0} {avgLives,10:0.0}");
+        }
+
         GD.Print("");
     }
 }
