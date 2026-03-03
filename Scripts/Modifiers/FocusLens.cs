@@ -11,9 +11,9 @@ public class FocusLens : Modifier
 
     public override void ModifyDamage(ref float damage, DamageContext ctx)
     {
-        damage *= 2.5f;
+        damage *= SlotTheory.Core.Balance.FocusLensDamageBonus;
     }
 
     public override void ModifyAttackInterval(ref float interval, TowerInstance tower) =>
-        interval *= 2f;
+        interval *= SlotTheory.Core.Balance.FocusLensAttackInterval;
 }
