@@ -24,7 +24,7 @@ public static class Balance
 
     // Enemies — Basic Walker
     public const float BaseEnemyHp = 65f;
-    public const float HpGrowthPerWave = 1.08f;  // HP × 1.08^(wave-1)
+    public const float HpGrowthPerWave = 1.10f;  // HP × 1.10^(wave-1)
     public const float BaseEnemySpeed = 120f;     // pixels per second along path
 
     // Enemies — Armored Walker
@@ -57,6 +57,6 @@ public static class Balance
     public const float SwiftEnemySpeed   = 240f;  // pixels per second (2× basic)
 
     // Waves
-    public const float DefaultSpawnInterval = 1.5f;
-    public const int DefaultEnemyCount = 10;
+    public const float DefaultSpawnInterval = 1.275f;
+    public const int DefaultEnemyCount = 12;
 }

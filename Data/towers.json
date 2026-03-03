@@ -3,31 +3,31 @@
     "Name": "Rapid Shooter",
     "BaseDamage": 10.0,
     "AttackInterval": 0.4,
-    "Range": 300.0,
+    "Range": 285.0,
     "AppliesMark": false
   },
   "heavy_cannon": {
     "Name": "Heavy Cannon",
     "BaseDamage": 60.0,
     "AttackInterval": 2.0,
-    "Range": 250.0,
+    "Range": 238.0,
     "AppliesMark": false
   },
   "marker_tower": {
     "Name": "Marker Tower",
     "BaseDamage": 5.0,
     "AttackInterval": 1.0,
-    "Range": 350.0,
+    "Range": 333.0,
     "AppliesMark": true
   },
   "chain_tower": {
     "Name": "Arc Emitter",
     "BaseDamage": 14.0,
     "AttackInterval": 1.2,
-    "Range": 270.0,
+    "Range": 257.0,
     "AppliesMark": false,
     "ChainCount": 2,
-    "ChainRange": 350.0,
+    "ChainRange": 333.0,
     "ChainDamageDecay": 0.6
   }
 }
