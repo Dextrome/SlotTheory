@@ -4,7 +4,7 @@ using SlotTheory.Entities;
 
 namespace SlotTheory.Modifiers;
 
-/// <summary>+8% damage per consecutive hit on the same target (max ×1.4). Resets on target switch.</summary>
+/// <summary>+8% damage per consecutive hit on the same target (max ×1.4). Resets on target switch. Stacks carry through chain/split sequences.</summary>
 public class Momentum : Modifier
 {
     private int _stacks = 0;
@@ -14,19 +14,33 @@ public class Momentum : Modifier
 
     public override void ModifyDamage(ref float damage, DamageContext ctx)
     {
-        if (_stacks > 0 && _lastTargetInstanceId == ctx.Target.GetInstanceId())
+        // Apply bonus if hitting same target, or continuing a chain/split sequence
+        ulong targetId = ctx.Target.GetInstanceId();
+        bool sameTarget = _lastTargetInstanceId == targetId;
+        bool inChainSequence = ctx.IsChain && _stacks > 0;
+
+        if (sameTarget || inChainSequence)
             damage *= (1f + _stacks * Core.Balance.MomentumBonusPerStack);
     }
 
     public override void OnHit(DamageContext ctx)
     {
         ulong id = ctx.Target.GetInstanceId();
-        if (_lastTargetInstanceId == id)
+        bool sameTarget = _lastTargetInstanceId == id;
+
+        if (sameTarget || ctx.IsChain)
+        {
+            // Increment stacks if same target or in a chain/split sequence
             _stacks = System.Math.Min(_stacks + 1, Core.Balance.MomentumMaxStacks);
+        }
         else
         {
+            // Reset to 1 stack for a new primary target
             _stacks = 1;
-            _lastTargetInstanceId = id;
         }
+
+        // Track the last target ID (important for non-chain hits)
+        if (!ctx.IsChain)
+            _lastTargetInstanceId = id;
     }
 }

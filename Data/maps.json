@@ -1,0 +1,79 @@
+{
+  "maps": [
+    {
+      "id": "arena_classic",
+      "name": "Arena Classic",
+      "description": "Balanced 3-lane snake. Clean sightlines and deliberate tower placement.",
+      "displayOrder": 0,
+      "path": [
+        {"x": 160, "y": 80},
+        {"x": 480, "y": 80},
+        {"x": 800, "y": 80},
+        {"x": 800, "y": 208},
+        {"x": 480, "y": 208},
+        {"x": 160, "y": 208},
+        {"x": 160, "y": 336},
+        {"x": 480, "y": 336},
+        {"x": 800, "y": 336}
+      ],
+      "slots": [
+        {"id": 0, "x": 160, "y": 144},
+        {"id": 1, "x": 960, "y": 144},
+        {"id": 2, "x": 160, "y": 272},
+        {"id": 3, "x": 960, "y": 272},
+        {"id": 4, "x": 160, "y": 400},
+        {"id": 5, "x": 960, "y": 400}
+      ]
+    },
+    {
+      "id": "gauntlet",
+      "name": "Gauntlet",
+      "description": "Narrow center path forces early engagement. High-skill placement required.",
+      "displayOrder": 1,
+      "path": [
+        {"x": 640, "y": 80},
+        {"x": 640, "y": 208},
+        {"x": 640, "y": 336},
+        {"x": 640, "y": 464},
+        {"x": 640, "y": 592}
+      ],
+      "slots": [
+        {"id": 0, "x": 240, "y": 144},
+        {"id": 1, "x": 1040, "y": 144},
+        {"id": 2, "x": 240, "y": 272},
+        {"id": 3, "x": 1040, "y": 272},
+        {"id": 4, "x": 240, "y": 400},
+        {"id": 5, "x": 1040, "y": 400}
+      ]
+    },
+    {
+      "id": "sprawl",
+      "name": "Sprawl",
+      "description": "Wide zigzag across the map. Distributed slots reward scattered towers.",
+      "displayOrder": 2,
+      "path": [
+        {"x": 160, "y": 80},
+        {"x": 640, "y": 80},
+        {"x": 1120, "y": 80},
+        {"x": 1120, "y": 336},
+        {"x": 640, "y": 336},
+        {"x": 160, "y": 336}
+      ],
+      "slots": [
+        {"id": 0, "x": 160, "y": 144},
+        {"id": 1, "x": 1120, "y": 144},
+        {"id": 2, "x": 320, "y": 272},
+        {"id": 3, "x": 960, "y": 272},
+        {"id": 4, "x": 160, "y": 400},
+        {"id": 5, "x": 1120, "y": 400}
+      ]
+    }
+  ],
+  "random": {
+    "id": "random_map",
+    "name": "Unstable Anomaly",
+    "description": "Procedurally generated layout. Different every run.",
+    "displayOrder": 999,
+    "isRandom": true
+  }
+}
