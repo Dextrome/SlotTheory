@@ -10,7 +10,10 @@ public static class Statuses
     public static void ApplyMarked(EnemyInstance target, float duration) =>
         target.MarkedRemaining = duration;
 
-    /// <summary>Apply or refresh Slow (50% speed). Duration resets on reapplication.</summary>
-    public static void ApplySlow(EnemyInstance target, float duration) =>
+    /// <summary>Apply or refresh Slow. Duration resets on reapplication. Optional speedFactor defaults to Balance.SlowSpeedFactor.</summary>
+    public static void ApplySlow(EnemyInstance target, float duration, float? speedFactor = null)
+    {
         target.SlowRemaining = duration;
+        target.SlowSpeedFactor = speedFactor ?? Balance.SlowSpeedFactor;
+    }
 }
