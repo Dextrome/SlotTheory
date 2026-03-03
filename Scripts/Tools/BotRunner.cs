@@ -15,6 +15,7 @@ public class BotRunner
 {
     private record RunResult(
         BotStrategy Strategy,
+        string      Map,
         bool        Won,
         int         WaveReached,   // 1-based; last wave fought (20 = won)
         int         LivesEnd,
@@ -25,10 +26,12 @@ public class BotRunner
 
     private readonly int              _totalRuns;
     private readonly BotStrategy[]    _strategies;
+    private readonly string[]         _maps = { "arena_classic", "gauntlet", "sprawl" };
     private readonly List<RunResult>  _results = new();
 
     // state for the run currently in progress
     private BotStrategy       _curStrategy;
+    private string            _curMap = "random_map";
     private readonly List<int> _waveLives = new();
 
     public BotPlayer CurrentBot  { get; private set; } = null!;
@@ -44,10 +47,15 @@ public class BotRunner
     private void StartNextRun()
     {
         int idx      = _results.Count;
+        // Cycle through (map, strategy) pairs
+        int mapIdx   = (idx / _strategies.Length) % _maps.Length;
+        _curMap      = _maps[mapIdx];
         _curStrategy = _strategies[idx % _strategies.Length];
         CurrentBot   = new BotPlayer(_curStrategy, idx * 7919);
         _waveLives.Clear();
-        GD.Print($"[BOT] Run {idx + 1}/{_totalRuns} — {_curStrategy}");
+        // Set the map for this bot run
+        SlotTheory.UI.MapSelectPanel.SetPendingMapSelection(_curMap);
+        GD.Print($"[BOT] Run {idx + 1}/{_totalRuns} — {_curStrategy} on {_curMap}");
     }
 
     /// <summary>Call after each wave completes, before WaveIndex increments.</summary>
@@ -66,7 +74,7 @@ public class BotRunner
             .ToArray();
 
         _results.Add(new RunResult(
-            _curStrategy, won, waveReached, state.Lives,
+            _curStrategy, _curMap, won, waveReached, state.Lives,
             [.. _waveLives], towers, mods));
 
         if (HasMoreRuns) StartNextRun();
@@ -75,13 +83,15 @@ public class BotRunner
     public void PrintSummary()
     {
         int total = _results.Count;
+        var allMaps = _results.Select(r => r.Map).Distinct().OrderBy(m => m).ToList();
+
         GD.Print("");
         GD.Print("╔══════════════════════════════════════════════════════════════════╗");
-        GD.Print($"║  SLOT THEORY PLAYTEST — {total} runs across {_strategies.Length} strategies{Pad(total, _strategies.Length)}║");
+        GD.Print($"║  SLOT THEORY PLAYTEST — {total} runs across {_strategies.Length} strategies   ║");
         GD.Print("╚══════════════════════════════════════════════════════════════════╝");
         GD.Print("");
 
-        // ── Per-strategy table ─────────────────────────────────────────────
+        // ── Overall per-strategy table ─────────────────────────────────────────────
         GD.Print($"{"STRATEGY",-16} {"RUNS",5} {"WINS",5} {"WIN%",6} {"AVG WAVE",10} {"AVG LIVES",10}");
         GD.Print(new string('─', 54));
         foreach (var strat in _strategies)
@@ -98,96 +108,66 @@ public class BotRunner
         GD.Print($"Overall: {_results.Count(r => r.Won)}/{total} wins ({_results.Count(r => r.Won) * 100 / total}%)");
         GD.Print("");
 
-        // ── Wave difficulty ────────────────────────────────────────────────
-        GD.Print("WAVE DIFFICULTY — avg lives remaining after each wave:");
-        GD.Print(new string('─', 62));
-        for (int w = 0; w < Balance.TotalWaves; w++)
+        // ── Per-map detailed reports ───────────────────────────────────────────────
+        foreach (var mapId in allMaps)
         {
-            var samples = _results
-                .Where(r => r.WaveLives.Length > w)
-                .Select(r => r.WaveLives[w])
-                .ToList();
-            if (samples.Count == 0) break;
-            float avg     = (float)samples.Average();
-            int   reached = samples.Count;
-            int   lost    = w == 0
-                ? samples.Count(l => l < Balance.StartingLives)
-                : _results.Count(r => r.WaveLives.Length > w && r.WaveLives[w] < r.WaveLives[w - 1]);
-            string bar = new string('█', (int)(avg * 20 / Balance.StartingLives));
-            GD.Print($"  Wave {w + 1,2}: {avg,4:0.0} lives  [{bar,-20}]  {reached,3} runs reached  {lost} took damage");
-        }
-        GD.Print("");
-
-        // ── Tower usage ────────────────────────────────────────────────────
-        GD.Print("TOWER USAGE (% of all runs where it was placed):");
-        foreach (var id in new[] { "rapid_shooter", "heavy_cannon", "marker_tower", "chain_tower" })
-        {
-            int count = _results.Count(r => r.Towers.Contains(id));
-            GD.Print($"  {id,-18} {count * 100 / total,3}%  ({count}/{total})");
-        }
-        GD.Print("");
-
-        // ── Modifier usage + win correlation ──────────────────────────────
-        GD.Print($"{"MODIFIER",-20} {"USAGE%",7} {"WIN% WITH",10} {"WIN% WITHOUT",13} {"DELTA",7}");
-        GD.Print(new string('─', 60));
-        var allModIds = _results.SelectMany(r => r.Mods).Distinct().OrderBy(x => x).ToList();
-        foreach (var id in allModIds)
-        {
-            var with    = _results.Where(r => r.Mods.Contains(id)).ToList();
-            var without = _results.Where(r => !r.Mods.Contains(id)).ToList();
-            int usagePct  = with.Count * 100 / total;
-            float winWith    = with.Count    > 0 ? with.Count(r => r.Won)    * 100f / with.Count    : float.NaN;
-            float winWithout = without.Count > 0 ? without.Count(r => r.Won) * 100f / without.Count : float.NaN;
-            string withStr    = float.IsNaN(winWith)    ? "  n/a" : $"{winWith,4:0}%";
-            string withoutStr = float.IsNaN(winWithout) ? "  n/a" : $"{winWithout,4:0}%";
-            string deltaStr   = (float.IsNaN(winWith) || float.IsNaN(winWithout))
-                ? "   n/a"
-                : $"{winWith - winWithout,+5:0.0}%";
-            GD.Print($"  {id,-20} {usagePct,5}%  {withStr,9}  {withoutStr,12}  {deltaStr,6}");
-        }
-        GD.Print("");
-
-        // ── Worst waves (where most lives were lost on average) ────────────
-        GD.Print("MOST DANGEROUS WAVES (avg lives lost that wave, all runs that reached it):");
-        var waveDanger = new List<(int Wave, float AvgLost)>();
-        for (int w = 0; w < Balance.TotalWaves; w++)
-        {
-            var losses = _results
-                .Where(r => r.WaveLives.Length > w)
-                .Select(r => w == 0
-                    ? Balance.StartingLives - r.WaveLives[0]
-                    : r.WaveLives[w - 1] - r.WaveLives[w])
-                .ToList();
-            if (losses.Count > 0)
-                waveDanger.Add((w + 1, (float)losses.Average()));
-        }
-        foreach (var (wave, avgLost) in waveDanger.OrderByDescending(x => x.AvgLost).Take(5))
-            GD.Print($"  Wave {wave,2}: avg {avgLost:0.00} lives lost per run");
-        GD.Print("");
-
-        // ── Loss-wave distribution ─────────────────────────────────────────
-        var lostRuns = _results.Where(r => !r.Won).ToList();
-        if (lostRuns.Count > 0)
-        {
-            GD.Print($"LOSS DISTRIBUTION — {lostRuns.Count} losses across {total} runs:");
-            var byWave = lostRuns.GroupBy(r => r.WaveReached).OrderBy(g => g.Key);
-            foreach (var g in byWave)
+            var mapResults = _results.Where(r => r.Map == mapId).ToList();
+            int mapTotal = mapResults.Count;
+            int mapWins = mapResults.Count(r => r.Won);
+            var mapName = mapId switch
             {
-                string bar = new string('█', g.Count());
-                GD.Print($"  Wave {g.Key,2}: {g.Count(),3} losses  {bar}");
-            }
-            GD.Print("");
-            GD.Print($"  Average loss wave: {lostRuns.Average(r => r.WaveReached):0.0}");
-        }
-        else
-        {
-            GD.Print("LOSS DISTRIBUTION — no losses recorded.");
-        }
-    }
+                "arena_classic" => "Crossroads",
+                "gauntlet" => "Pinch & Bleed",
+                "sprawl" => "Orbit",
+                _ => mapId
+            };
 
-    private static string Pad(int runs, int strategies)
-    {
-        int taken = runs.ToString().Length + strategies.ToString().Length + 24;
-        return new string(' ', Math.Max(0, 34 - taken));
+            GD.Print($"");
+            GD.Print($"┌─ {mapName.ToUpper()} ({mapId}) — {mapTotal} runs ({mapWins}/{mapTotal} wins, {mapWins * 100 / mapTotal}%) ─┐");
+            GD.Print($"│ STRATEGY          RUNS  WINS   WIN%   AVG WAVE  AVG LIVES                    │");
+            GD.Print($"├{'─' * 70}┤");
+
+            foreach (var strat in _strategies)
+            {
+                var stratRuns = mapResults.Where(r => r.Strategy == strat).ToList();
+                if (stratRuns.Count == 0) continue;
+                int wins       = stratRuns.Count(r => r.Won);
+                float winPct   = wins * 100f / stratRuns.Count;
+                float avgWave  = (float)stratRuns.Average(r => r.WaveReached);
+                float avgLives = (float)stratRuns.Average(r => r.LivesEnd);
+                GD.Print($"│ {strat,-16} {stratRuns.Count,4}  {wins,4}  {winPct,4:0}%  {avgWave,8:0.0}  {avgLives,9:0.0}                      │");
+            }
+
+            // Per-map wave difficulty
+            GD.Print($"│ WAVE DIFFICULTY:                                               │");
+            for (int w = 0; w < Balance.TotalWaves; w++)
+            {
+                var samples = mapResults
+                    .Where(r => r.WaveLives.Length > w)
+                    .Select(r => r.WaveLives[w])
+                    .ToList();
+                if (samples.Count == 0) break;
+                float avg = (float)samples.Average();
+                string bar = new string('█', (int)(avg * 10 / Balance.StartingLives));
+                GD.Print($"│   Wave {w + 1,2}: {avg,4:0.0} lives  [{bar,-10}]                                 │");
+            }
+
+            // Per-map loss distribution
+            var mapLosses = mapResults.Where(r => !r.Won).ToList();
+            if (mapLosses.Count > 0)
+            {
+                GD.Print($"│ {mapLosses.Count} LOSSES:                                                      │");
+                var byWave = mapLosses.GroupBy(r => r.WaveReached).OrderBy(g => g.Key);
+                foreach (var g in byWave)
+                {
+                    string bar = new string('█', g.Count());
+                    GD.Print($"│   Wave {g.Key,2}: {g.Count()} loss(es) {bar}                                │");
+                }
+            }
+
+            GD.Print($"└{'─' * 70}┘");
+        }
+
+        GD.Print("");
     }
 }

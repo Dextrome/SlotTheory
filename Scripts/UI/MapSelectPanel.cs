@@ -13,6 +13,7 @@ public partial class MapSelectPanel : Node
 {
 	private static string _pendingMapSelection = "random_map";
 	public static string PendingMapSelection => _pendingMapSelection;
+	public static void SetPendingMapSelection(string mapId) => _pendingMapSelection = mapId;
 
 	private string _selectedMapId = "random_map";  // Default to random
 	private VBoxContainer? _mapListContainer;
@@ -21,7 +22,7 @@ public partial class MapSelectPanel : Node
 	{
 		// Reset to default state when MapSelectPanel loads
 		_selectedMapId = "random_map";
-		
+
 		var canvas = new CanvasLayer();
 		AddChild(canvas);
 
@@ -59,10 +60,14 @@ public partial class MapSelectPanel : Node
 
 		AddSpacer(vbox, 24);
 
-		// Map list
+		// Map list (scrollable to keep buttons visible)
+		var scrollContainer = new ScrollContainer();
+		scrollContainer.CustomMinimumSize = new Vector2(500, 300);
+		vbox.AddChild(scrollContainer);
+
 		_mapListContainer = new VBoxContainer();
 		_mapListContainer.AddThemeConstantOverride("separation", 12);
-		vbox.AddChild(_mapListContainer);
+		scrollContainer.AddChild(_mapListContainer);
 
 		PopulateMapList();
 
@@ -103,13 +108,30 @@ public partial class MapSelectPanel : Node
 		container.ThemeTypeVariation = "NoVisualHBox";
 		container.CustomMinimumSize = new Vector2(480, 0);
 
+		var hbox = new HBoxContainer();
+		hbox.AddThemeConstantOverride("separation", 12);
+		hbox.AddThemeConstantOverride("margin_left", 12);
+		hbox.AddThemeConstantOverride("margin_top", 12);
+		hbox.AddThemeConstantOverride("margin_right", 12);
+		hbox.AddThemeConstantOverride("margin_bottom", 12);
+		container.AddChild(hbox);
+
+		// Select button on the left
+		var btn = new Button
+		{
+			Text = "SELECT",
+			CustomMinimumSize = new Vector2(80, 60),
+		};
+		btn.AddThemeFontSizeOverride("font_size", 16);
+		btn.Pressed += () => SelectMap(mapId);
+		btn.MouseEntered += () => SlotTheory.Core.SoundManager.Instance?.Play("ui_hover");
+		hbox.AddChild(btn);
+
+		// Text content on the right
 		var vbox = new VBoxContainer();
-		vbox.AddThemeConstantOverride("margin_left", 16);
-		vbox.AddThemeConstantOverride("margin_top", 12);
-		vbox.AddThemeConstantOverride("margin_right", 16);
-		vbox.AddThemeConstantOverride("margin_bottom", 12);
-		vbox.AddThemeConstantOverride("separation", 4);
-		container.AddChild(vbox);
+		vbox.AddThemeConstantOverride("separation", 2);
+		vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		hbox.AddChild(vbox);
 
 		// Map name
 		var nameLabel = new Label
@@ -117,7 +139,7 @@ public partial class MapSelectPanel : Node
 			Text = mapName,
 			HorizontalAlignment = HorizontalAlignment.Left,
 		};
-		SlotTheory.Core.UITheme.ApplyFont(nameLabel, semiBold: true, size: 24);
+		SlotTheory.Core.UITheme.ApplyFont(nameLabel, semiBold: true, size: 22);
 		vbox.AddChild(nameLabel);
 
 		// Description
@@ -125,28 +147,17 @@ public partial class MapSelectPanel : Node
 		{
 			Text = description,
 			HorizontalAlignment = HorizontalAlignment.Left,
-			CustomMinimumSize = new Vector2(440, 0),
+			CustomMinimumSize = new Vector2(340, 0),
 			AutowrapMode = TextServer.AutowrapMode.Word,
 		};
-		descLabel.AddThemeFontSizeOverride("font_size", 16);
+		descLabel.AddThemeFontSizeOverride("font_size", 14);
 		descLabel.Modulate = new Color(0.7f, 0.7f, 0.7f);
 		vbox.AddChild(descLabel);
 
-		// Button area
-		var btn = new Button
-		{
-			Text = "SELECT",
-			CustomMinimumSize = new Vector2(0, 40),
-		};
-		btn.AddThemeFontSizeOverride("font_size", 18);
-		btn.Pressed += () => SelectMap(mapId);
-		btn.MouseEntered += () => SlotTheory.Core.SoundManager.Instance?.Play("ui_hover");
-		vbox.AddChild(btn);
-
-		// Highlight if selected
+		// Highlight if selected - much brighter
 		if (mapId == _selectedMapId)
 		{
-			container.Modulate = new Color(1.2f, 1.2f, 1.0f);  // Slight highlight
+			container.Modulate = new Color(1.5f, 1.4f, 0.8f);  // Bright gold highlight
 		}
 
 		return container;
@@ -156,12 +167,18 @@ public partial class MapSelectPanel : Node
 	{
 		_selectedMapId = mapId;
 		SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
-		
-		// Rebuild map list to show selection
+
+		// Rebuild map list to show selection highlight
 		if (_mapListContainer != null)
 		{
-			while (_mapListContainer.GetChildCount() > 0)
-				_mapListContainer.GetChild(0).Free();
+			// Clear existing buttons by removing them from the container
+			var childCount = _mapListContainer.GetChildCount();
+			for (int i = childCount - 1; i >= 0; i--)
+			{
+				_mapListContainer.RemoveChild(_mapListContainer.GetChild(i));
+			}
+
+			// Repopulate with updated selections
 			PopulateMapList();
 		}
 	}
