@@ -25,6 +25,9 @@ public static class DataLoader
         _modifiers = Load<Dictionary<string, ModifierDef>>("res://Data/modifiers.json");
         _waves     = Load<WaveConfig[]>("res://Data/waves.json");
         LoadMaps();
+
+        // Validate modifier descriptions match implementation (debug check)
+        Tools.ModifierDataValidator.ValidateModifierData(_modifiers);
     }
 
     public static TowerDef GetTowerDef(string id) => _towers[id];

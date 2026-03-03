@@ -37,7 +37,7 @@
   "split_shot": {
     "Id": "split_shot",
     "Name": "Split Shot",
-    "Description": "On hit, fires 2 projectiles at nearby enemies for 80% damage each. Each additional copy fires one more."
+    "Description": "On hit, fires 2 projectiles at nearby enemies for 65% damage each. Each additional copy fires one more."
   },
   "feedback_loop": {
     "Id": "feedback_loop",
