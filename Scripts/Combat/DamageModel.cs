@@ -56,9 +56,9 @@ public static class DamageModel
             if (ctx.Target.Hp <= 0) ctx.State.TotalKills++;
         }
 
-        // 4. On-hit effects (skipped for chain bounces to prevent Overkill spillover stacking)
-        if (!ctx.IsChain)
-            foreach (var mod in ctx.Attacker.Modifiers)
+        // 4. On-hit effects (skipped for chain bounces if modifier opts out)
+        foreach (var mod in ctx.Attacker.Modifiers)
+            if (!ctx.IsChain || mod.ApplyToChainTargets)
                 mod.OnHit(ctx);
 
         if (ctx.Attacker.AppliesMark)
