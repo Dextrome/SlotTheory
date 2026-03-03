@@ -18,6 +18,7 @@ public partial class EnemyInstance : PathFollow2D
     public bool IsMarked => MarkedRemaining > 0f;
 
     public float SlowRemaining { get; set; } = 0f;
+    public float SlowSpeedFactor { get; set; } = 0.70f;  // speed multiplier when slowed (can be overridden by stacking)
     public bool IsSlowed => SlowRemaining > 0f;
 
     private ColorRect? _hpFill;
@@ -66,7 +67,7 @@ public partial class EnemyInstance : PathFollow2D
 
     public override void _Process(double delta)
     {
-        float effectiveSpeed = IsSlowed ? Speed * Balance.SlowSpeedFactor : Speed;
+        float effectiveSpeed = IsSlowed ? Speed * SlowSpeedFactor : Speed;
         Progress += effectiveSpeed * (float)delta;
 
         if (MarkedRemaining > 0f) MarkedRemaining -= (float)delta;

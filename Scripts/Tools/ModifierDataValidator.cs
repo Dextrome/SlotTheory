@@ -39,7 +39,7 @@ public static class ModifierDataValidator
             {
                 Id = "slow",
                 Name = "Chill Shot",
-                RequiredTokens = new() { "−30%", "5 s" }
+                RequiredTokens = new() { "−20%", "5 s" }
             },
             new ModifierExpectation
             {
