@@ -27,3 +27,17 @@ public record WaveConfig(
     bool ClumpArmored = false,  // group all armored enemies into one block instead of spreading evenly
     int SwiftCount = 0          // fast enemies (240px/s, 1.5× HP) — appear in waves 10-14
 );
+
+public record Vector2Def(float X, float Y);
+
+public record SlotDef(int Id, float X, float Y);
+
+public record MapDef(
+    string Id,
+    string Name,
+    string Description,
+    Vector2Def[] Path,
+    SlotDef[] Slots,
+    bool IsRandom = false,
+    int DisplayOrder = 999
+);

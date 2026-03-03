@@ -17,6 +17,10 @@ public class RunState
     public int   TotalKills       { get; set; } = 0;
     public int   TotalDamageDealt { get; set; } = 0;
 
+    // Map selection
+    public string? SelectedMapId { get; set; } = null;  // null = random
+    public int RngSeed { get; set; } = 0;
+
     public RunState()
     {
         for (int i = 0; i < Balance.SlotCount; i++)

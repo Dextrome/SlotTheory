@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bqhfdbpx4xbnf"]
+
+[ext_resource type="Script" path="res://Scripts/UI/MapSelectPanel.cs" id="1_e2h8r"]
+
+[node name="MapSelect" type="Node"]
+script = ExtResource("1_e2h8r")
