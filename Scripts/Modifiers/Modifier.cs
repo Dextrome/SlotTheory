@@ -7,6 +7,8 @@ namespace SlotTheory.Modifiers;
 public abstract class Modifier
 {
     public string ModifierId { get; protected set; } = string.Empty;
+    /// <summary>If false, OnHit is skipped for chain/split targets. Defaults to true.</summary>
+    public virtual bool ApplyToChainTargets => true;
 
     /// <summary>Called once when the modifier is equipped to a tower. Use for permanent stat changes.</summary>
     public virtual void OnEquip(TowerInstance tower) { }
