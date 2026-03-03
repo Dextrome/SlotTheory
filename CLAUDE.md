@@ -86,6 +86,31 @@ No test infrastructure exists yet. The TDD calls for:
 
 Python scripts (`Scripts/Tools/`) will handle content generation (JSON/YAML), balancing calculators, wave curve simulation, and modifier list generation.
 
+## Data Consistency & Balance Updates
+
+### Modifier Description Validation
+
+**Problem:** Card tooltips can drift from implementation after balance changes. Example: Split Shot said "80% damage" but code implemented "65%" (from commit 622ef70 nerf).
+
+**Solution:** `ModifierDataValidator.cs` runs on startup and validates modifier descriptions match their code implementations.
+
+**How it works:**
+1. Validator checks that key stat tokens appear in descriptions (e.g., "65%", "−30%", "×1.4")
+2. Runs automatically during `DataLoader.LoadAll()`
+3. Prints `[VALIDATOR] ✓ All descriptions match` or lists mismatches
+4. Zero overhead once validated (no runtime checks after initial load)
+
+**When making balance changes:**
+1. Update the constant in `Balance.cs` (e.g., `SplitShotDamageRatio = 0.65f`)
+2. Update the description in `Data/modifiers.json` to match (e.g., "65% damage each")
+3. Run the game or bot test — validator will catch mismatches on startup
+4. If validator fails, fix the description to match the constant
+
+**To add a new modifier's validation check:**
+1. Add entry to `ModifierDataValidator.cs` `expectations` list with expected tokens
+2. Use exact text from description (e.g., "+50%", "−30%", "×1.4", "5 s")
+3. Rerun to verify
+
 ## Hand-Written .tscn Rules
 
 Godot `.tscn` files have strict patterns when writing by hand:
@@ -132,9 +157,10 @@ Key constraints from the Getting Started guide:
 
 ### Damage pipeline (`DamageModel`):
 Build a `DamageContext` (attacker, target, base damage, wave index) → apply modifier hooks in deterministic order:
-1. Stat modifiers (`ModifyAttackInterval`, `ModifyDamage`)
+1. Stat modifiers (`ModifyAttackInterval`, `ModifyDamage`) — apply to all hits (primary, chain, split)
 2. Conditional modifiers (e.g., vs Marked)
-3. On-hit effects (apply Mark, resolve Overkill spill)
+3. On-hit effects (`OnHit`) — apply to all hits UNLESS modifier opts out via `ApplyToChainTargets => false` (used to prevent Overkill cascading; most modifiers like Chill Shot apply to chain/split targets)
+4. On-kill effects (`OnKill`) — always run regardless of bounce type
 
 ### Modifier system:
 - Data-driven via `modifiers.json` (id, name, desc, params); behavior is code-driven via `ModifierRegistry`
@@ -204,6 +230,9 @@ res://
       Modifier.cs           # Base interface
       ModifierRegistry.cs   # JSON ID → concrete modifier object
       ModEvents.cs          # Event system for modifier interactions
+    Tools/
+      BotRunner.cs          # Orchestrates automated bot playtests (N runs, per-strategy tracking)
+      ModifierDataValidator.cs # Validates tooltip text matches implementation constants
     Data/
       DataLoader.cs, Models.cs
     UI/
@@ -231,6 +260,6 @@ If an idea requires a new system → defer to "Project 2."
 ## V1 Content
 
 - **4 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +30% dmg for 2s), Arc Emitter (chains to 2 enemies, 260 px range, 60% decay/bounce)
-- **7 modifiers**: Momentum (+8% dmg/hit same target, max ×1.4), Overkill (80% excess dmg spills to next enemy), Exploit Weakness (+50% dmg vs Marked), Focus Lens (+100% dmg, ×2 attack interval), Chill Shot (−30% enemy speed on hit, 5s), Overreach (+50% range, −25% dmg), Hair Trigger (+50% attack speed, −30% range)
-- **2 enemy types**: Basic Walker (65 HP wave 1, ×1.08/wave, 120px/s, 1 life); Armored Walker (4× HP, 60px/s, 2 lives, first appears wave 7)
+- **10 modifiers**: Momentum (+8% dmg/hit same target, max ×1.4), Overkill (80% excess dmg spills to next enemy), Exploit Weakness (+50% dmg vs Marked), Focus Lens (+150% dmg, ×2 attack interval), Chill Shot (−30% enemy speed on hit, 5s), Overreach (+50% range, −15% dmg), Hair Trigger (+50% attack speed, −30% range), Split Shot (65% damage per copy, fires 2 projectiles), Feedback Loop (30% cooldown reduction on kill), Chain Reaction (60% damage per bounce, adds 1 more)
+- **2 enemy types**: Basic Walker (65 HP wave 1, ×1.10/wave, 120px/s, 1 life); Armored Walker (4× HP, 60px/s, 2 lives, first appears wave 7)
 - **20 waves**, 6 tower slots, max 3 modifiers per tower
