@@ -8,7 +8,7 @@
   },
   "heavy_cannon": {
     "Name": "Heavy Cannon",
-    "BaseDamage": 60.0,
+    "BaseDamage": 57.0,
     "AttackInterval": 2.0,
     "Range": 238.0,
     "AppliesMark": false

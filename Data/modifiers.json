@@ -7,7 +7,7 @@
   "overkill": {
     "Id": "overkill",
     "Name": "Overkill",
-    "Description": "Excess damage from a kill spills to the next enemy in the lane."
+    "Description": "60% excess damage from a kill spills to the next enemy in the lane."
   },
   "exploit_weakness": {
     "Id": "exploit_weakness",
@@ -17,7 +17,7 @@
   "focus_lens": {
     "Id": "focus_lens",
     "Name": "Focus Lens",
-    "Description": "+150% damage, ×2 attack interval."
+    "Description": "+120% damage, ×2 attack interval."
   },
   "slow": {
     "Id": "slow",
@@ -32,12 +32,12 @@
   "hair_trigger": {
     "Id": "hair_trigger",
     "Name": "Hair Trigger",
-    "Description": "+50% attack speed, −30% range."
+    "Description": "+35% attack speed, −30% range."
   },
   "split_shot": {
     "Id": "split_shot",
     "Name": "Split Shot",
-    "Description": "On hit, fires 2 projectiles at nearby enemies for 65% damage each. Each additional copy fires one more."
+    "Description": "On hit, fires 2 projectiles at nearby enemies for 55% damage each. Each additional copy fires one more."
   },
   "feedback_loop": {
     "Id": "feedback_loop",

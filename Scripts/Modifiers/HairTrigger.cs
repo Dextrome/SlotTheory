@@ -10,8 +10,8 @@ public class HairTrigger : Modifier
 
     public override void OnEquip(TowerInstance tower)
     {
-        tower.AttackInterval *= 0.667f;
-        tower.Range          *= 0.70f;
+        tower.AttackInterval *= 1f / SlotTheory.Core.Balance.HairTriggerAttackSpeed;
+        tower.Range          *= SlotTheory.Core.Balance.HairTriggerRangeFactor;
         tower.RefreshRangeCircle();
     }
 }
