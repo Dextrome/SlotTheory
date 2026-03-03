@@ -26,3 +26,5 @@ Thumbs.db
 *.bmp
 *.uid
 *.ps1
+*-cwd
+Data/maps_backup1.json
