@@ -51,47 +51,51 @@ No mid-wave interaction.
 
 ------------------------------------------------------------------------
 
-## 5️⃣ Towers (Vertical Slice: 3)
+## 5️⃣ Towers (4 types) ✅ IMPLEMENTED
 
 ### 1. Rapid Shooter
 
--   Fast attacks
--   Low damage
+-   Fast attacks (0.4s interval)
+-   Low damage (10)
 
 ### 2. Heavy Cannon
 
--   Slow attacks
--   High damage
+-   Slow attacks (2.0s interval)
+-   High damage (60)
 
 ### 3. Marker Tower
 
--   Applies "Marked" (enemies take +20% damage for 2s)
+-   Applies "Marked" (enemies take +40% damage for 2.5s)
+-   Low damage (5)
+
+### 4. Arc Emitter
+
+-   Chains to 2 additional enemies
+-   60% damage decay per bounce
+-   260px chain range
 
 All towers: - Targeting mode: First / Strongest / Lowest HP - Max **3
 modifiers per tower** - Cannot exceed modifier cap
 
 ------------------------------------------------------------------------
 
-## 6️⃣ Modifiers (Vertical Slice: 4)
+## 6️⃣ Modifiers (10 types) ✅ IMPLEMENTED
 
-Design Rules: - Predictable - Conditional - Reinforce commitment - No
-new mechanics
+Design Rules: - Predictable - Conditional - Reinforce commitment - No new mechanics
 
-### Momentum
+### Core Set (Original 4)
+- **Momentum**: +16% damage per consecutive hit on same target (caps at ×1.8)
+- **Overkill**: 60% excess damage spills to next enemy
+- **Exploit Weakness**: +60% damage vs Marked enemies  
+- **Focus Lens**: +125% damage, ×2 attack interval
 
-Gain +10% damage per consecutive hit on same target (resets on switch).
-
-### Overkill
-
-Excess damage carries to next enemy.
-
-### Exploit Weakness
-
-Deal +100% damage to Marked enemies.
-
-### Focus Lens
-
-+100% damage but -50% attack speed.
+### Extended Set (Added 6)
+- **Chill Shot**: Hits slow enemies to 70% speed for 5s
+- **Overreach**: +50% range, −30% damage
+- **Hair Trigger**: +50% attack speed, −40% range
+- **Split Shot**: Fires 2× 42% damage projectiles
+- **Feedback Loop**: Kill reduces cooldown by 70%
+- **Chain Reaction**: +1 chain bounce per copy
 
 Stacking: - Additive within category - Simple predictable math
 
@@ -113,24 +117,32 @@ at cap → cannot apply
 
 ------------------------------------------------------------------------
 
-## 8️⃣ Enemies
+## 8️⃣ Enemies ✅ IMPLEMENTED
 
-### Vertical Slice
+### 2 Enemy Types
 
-1 Enemy Type: - Basic Walker - Medium HP - Medium speed
+**Basic Walker**:
+- HP: 65 × 1.08^(wave-1)
+- Speed: 120 px/s  
+- Lives lost: 1
 
-Full Version: - Max 3 enemy archetypes - Passive traits only - No active
-abilities
+**Armored Walker** (appears wave 7+):
+- HP: 4× Basic Walker HP
+- Speed: 60 px/s (half speed)
+- Lives lost: 2
+- Visual: 1.5× scale, hexagonal crimson design
 
 ------------------------------------------------------------------------
 
-## 9️⃣ Wave Structure
+## 9️⃣ Wave Structure ✅ IMPLEMENTED
 
--   Continuous spawn
--   Fixed spawn rate per wave
--   Fixed enemy count per wave (v1)
--   HP scaling per wave: HP × 1.12\^(wave-1)
--   Speed constant for v1
+-   Continuous spawn ✅
+-   Variable spawn rate per wave ✅
+-   Dynamic enemy count scaling ✅
+-   HP scaling: HP × 1.08^(wave-1) ✅
+-   Speed constant ✅
+-   Difficulty modes: Normal/Hard multipliers ✅
+-   Special clumped waves (12-14) ✅
 
 ------------------------------------------------------------------------
 
