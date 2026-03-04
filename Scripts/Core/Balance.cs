@@ -40,25 +40,25 @@ public static class Balance
     public const float SlowDuration = 5f;          // seconds
 
     // Momentum modifier
-    public const int   MomentumMaxStacks    = 5;     // 5 stacks × 15% = ×1.75 max multiplier
-    public const float MomentumBonusPerStack = 0.15f;
+    public const int   MomentumMaxStacks    = 5;     // 5 stacks × 16% = ×1.80 max multiplier
+    public const float MomentumBonusPerStack = 0.16f;
 
     // Split Shot modifier
-    public const float SplitShotDamageRatio = 0.45f; // 45% of base damage per split projectile
+    public const float SplitShotDamageRatio = 0.42f; // 42% of base damage per split projectile
     public const float SplitShotRange       = 300f;  // search radius from impact point for split targets
 
     // Feedback Loop modifier
     public const float FeedbackLoopCooldownReduction = 0.25f; // 25% of remaining cooldown removed on kill
 
     // Hair Trigger modifier
-    public const float HairTriggerAttackSpeed = 1.35f; // +35% attack speed
-    public const float HairTriggerRangeFactor = 0.80f; // -20% range
+    public const float HairTriggerAttackSpeed = 1.40f; // +40% attack speed
+    public const float HairTriggerRangeFactor = 0.82f; // -18% range
 
     // Overkill modifier
     public const float OverkillSpillEfficiency = 0.60f; // 60% excess damage spill
 
     // Focus Lens modifier
-    public const float FocusLensDamageBonus = 2.2f; // +120% damage
+    public const float FocusLensDamageBonus = 2.25f; // +125% damage
     public const float FocusLensAttackInterval = 2f; // x2 attack interval
 
     // Enemies — Swift Walker

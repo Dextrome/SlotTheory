@@ -4,7 +4,7 @@ using SlotTheory.Entities;
 
 namespace SlotTheory.Modifiers;
 
-/// <summary>+8% damage per consecutive hit on the same target (max ×1.4). Resets on target switch. Stacks carry through chain/split sequences.</summary>
+/// <summary>+16% damage per consecutive hit on the same target (max ×1.80). Resets on target switch. Stacks carry through chain/split sequences.</summary>
 public class Momentum : Modifier
 {
     private int _stacks = 0;
