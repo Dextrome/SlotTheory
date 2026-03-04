@@ -29,7 +29,11 @@ public class WaveSystem
             "swift_walker"   => Balance.BaseEnemyHp * Balance.SwiftHpMultiplier,
             _                => Balance.BaseEnemyHp,
         };
-        return baseHp * MathF.Pow(Balance.HpGrowthPerWave, waveIndex);
+        float scaledHp = baseHp * MathF.Pow(Balance.HpGrowthPerWave, waveIndex);
+        
+        // Apply difficulty multiplier
+        var difficulty = SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal;
+        return scaledHp * Balance.GetEnemyHpMultiplier(difficulty);
     }
 
     // Backward-compatible overload — assumes basic_walker
