@@ -36,7 +36,7 @@ public static class Balance
     public const float MarkedDuration = 2f;       // seconds
 
     // Slow status
-    public const float SlowSpeedFactor = 0.80f;   // enemy moves at 80% speed (-20%) per Chill Shot; stacks multiplicatively
+    public const float SlowSpeedFactor = 0.75f;   // enemy moves at 75% speed (-25%) per Chill Shot; stacks multiplicatively
     public const float SlowDuration = 5f;          // seconds
 
     // Momentum modifier
@@ -48,7 +48,7 @@ public static class Balance
     public const float SplitShotRange       = 200f;  // search radius from impact point for split targets
 
     // Feedback Loop modifier
-    public const float FeedbackLoopCooldownReduction = 0.30f; // 30% of remaining cooldown removed on kill
+    public const float FeedbackLoopCooldownReduction = 0.25f; // 25% of remaining cooldown removed on kill
 
     // Hair Trigger modifier
     public const float HairTriggerAttackSpeed = 1.35f; // +35% attack speed

@@ -42,6 +42,7 @@ public partial class GameController : Node
 	private Node2D _worldNode = null!;
 	private BotRunner? _botRunner;
 	private int _extraPicksRemaining;
+	private WaveReport? _lastWaveReport;
 
 	public override void _Ready()
 	{
@@ -89,6 +90,7 @@ public partial class GameController : Node
 		SetupAnnouncer();
 
 		_extraPicksRemaining = Balance.ExtraPicksForWave(0);
+		_lastWaveReport = null;
 		StartDraftPhase();
 	}
 
@@ -118,12 +120,15 @@ public partial class GameController : Node
 			CurrentPhase = GamePhase.Loss;
 			int livesLost = Balance.StartingLives - _runState.Lives;
 			SoundManager.Instance?.Play("game_over");
-			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary());
+			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary(), _runState);
 			return;
 		}
 
 		if (result == WaveResult.WaveComplete)
 		{
+			// Complete wave tracking for next draft panel display
+			var waveReport = _runState.CompleteWave();
+			
 			_runState.WaveIndex++;
 			if (_runState.WaveIndex >= Balance.TotalWaves)
 			{
@@ -144,6 +149,8 @@ public partial class GameController : Node
 				{
 					// Let the wave-clear flash breathe before showing the draft panel
 					CurrentPhase = GamePhase.Draft;
+					// Store the wave report for the next draft panel
+					_lastWaveReport = waveReport;
 					GetTree().CreateTimer(0.48f).Timeout += StartDraftPhase;
 				}
 			}
@@ -172,7 +179,8 @@ public partial class GameController : Node
 		}
 		int totalPicks = Balance.ExtraPicksForWave(_runState.WaveIndex) + 1;
 		int pickNum    = totalPicks - _extraPicksRemaining;
-		_draftPanel.Show(options, _runState.WaveIndex + 1, pickNum, totalPicks);
+		_draftPanel.Show(options, _runState.WaveIndex + 1, pickNum, totalPicks, _lastWaveReport);
+		_lastWaveReport = null; // Clear after use
 	}
 
 	public RunState GetRunState() => _runState;
@@ -778,6 +786,10 @@ public partial class GameController : Node
 	{
 		CurrentPhase = GamePhase.Wave;
 		if (_botRunner == null) ShowWaveAnnouncement(_runState.WaveIndex + 1);
+		
+		// Initialize tracking for the new wave
+		_runState.StartNewWave(_runState.WaveIndex + 1);
+		
 		_waveSystem.LoadWave(_runState.WaveIndex, _runState);
 		_combatSim.ResetForWave(_waveSystem);
 		SoundManager.Instance?.Play("wave_start");
@@ -834,4 +846,5 @@ public partial class GameController : Node
 			 .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);
 		tween.TweenCallback(Callable.From(() => _waveClearFlash.Visible = false));
 	}
+
 }
