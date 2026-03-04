@@ -10,7 +10,7 @@ public record TowerDef(
     bool AppliesMark = false,
     int ChainCount = 0,
     float ChainRange = 260f,
-    float ChainDamageDecay = 0.6f
+    float ChainDamageDecay = 0.57f
 );
 
 public record ModifierDef(

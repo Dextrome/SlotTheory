@@ -28,8 +28,8 @@ public partial class TowerInstance : Node2D
     public Vector2? LastTargetPosition { get; set; }
 
     public int   ChainCount       { get; set; } = 0;
-    public float ChainRange       { get; set; } = 350f;
-    public float ChainDamageDecay { get; set; } = 0.6f;
+    public float ChainRange       { get; set; } = 400f;
+    public float ChainDamageDecay { get; set; } = 0.57f;
     public bool  IsChainTower     => ChainCount > 0;
     public int   SplitCount       { get; set; } = 0;
 

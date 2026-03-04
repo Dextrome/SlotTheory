@@ -37,6 +37,7 @@ public class BotRunner
 
     public BotPlayer CurrentBot  { get; private set; } = null!;
     public bool      HasMoreRuns => _results.Count < _totalRuns;
+    public int       CompletedRuns => _results.Count;
 
     public BotRunner(int totalRuns)
     {
@@ -56,7 +57,7 @@ public class BotRunner
         _waveLives.Clear();
         // Set the map for this bot run
         SlotTheory.UI.MapSelectPanel.SetPendingMapSelection(_curMap);
-        GD.Print($"[BOT] Run {idx + 1}/{_totalRuns} — {_curStrategy} on {_curMap}");
+            GD.Print($"[BOT] Run {idx + 1}/{_totalRuns} - {_curStrategy} on {_curMap}");
     }
 
     /// <summary>Call after each wave completes, before WaveIndex increments.</summary>
@@ -87,14 +88,14 @@ public class BotRunner
         var allMaps = _results.Select(r => r.Map).Distinct().OrderBy(m => m).ToList();
 
         GD.Print("");
-        GD.Print("╔══════════════════════════════════════════════════════════════════╗");
-        GD.Print($"║  SLOT THEORY PLAYTEST — {total} runs across {_strategies.Length} strategies   ║");
-        GD.Print("╚══════════════════════════════════════════════════════════════════╝");
+        GD.Print("+==================================================================+");
+        GD.Print($"|  SLOT THEORY PLAYTEST - {total} runs across {_strategies.Length} strategies   |");
+        GD.Print("+==================================================================+");
         GD.Print("");
 
         // ── Overall per-strategy table ─────────────────────────────────────────────
         GD.Print($"{"STRATEGY",-16} {"RUNS",5} {"WINS",5} {"WIN%",6} {"AVG WAVE",10} {"AVG LIVES",10}");
-        GD.Print(new string('─', 54));
+        GD.Print(new string('-', 54));
         foreach (var strat in _strategies)
         {
             var runs = _results.Where(r => r.Strategy == strat).ToList();
@@ -124,9 +125,9 @@ public class BotRunner
             };
 
             GD.Print($"");
-            GD.Print($"┌─ {mapName.ToUpper()} ({mapId}) — {mapTotal} runs ({mapWins}/{mapTotal} wins, {mapWins * 100 / mapTotal}%) ─┐");
-            GD.Print($"│ STRATEGY          RUNS  WINS   WIN%   AVG WAVE  AVG LIVES                    │");
-            GD.Print($"├{'─' * 70}┤");
+            GD.Print($"+- {mapName.ToUpper()} ({mapId}) - {mapTotal} runs ({mapWins}/{mapTotal} wins, {mapWins * 100 / mapTotal}%) -+");
+            GD.Print($"| STRATEGY          RUNS  WINS   WIN%   AVG WAVE  AVG LIVES                    |");
+            GD.Print($"+{new string('-', 70)}+");
 
             foreach (var strat in _strategies)
             {
@@ -136,11 +137,11 @@ public class BotRunner
                 float winPct   = wins * 100f / stratRuns.Count;
                 float avgWave  = (float)stratRuns.Average(r => r.WaveReached);
                 float avgLives = (float)stratRuns.Average(r => r.LivesEnd);
-                GD.Print($"│ {strat,-16} {stratRuns.Count,4}  {wins,4}  {winPct,4:0}%  {avgWave,8:0.0}  {avgLives,9:0.0}                      │");
+                GD.Print($"| {strat,-16} {stratRuns.Count,4}  {wins,4}  {winPct,4:0}%  {avgWave,8:0.0}  {avgLives,9:0.0}                      |");
             }
 
             // Per-map wave difficulty
-            GD.Print($"│ WAVE DIFFICULTY:                                               │");
+            GD.Print($"| WAVE DIFFICULTY:                                               |");
             for (int w = 0; w < Balance.TotalWaves; w++)
             {
                 var samples = mapResults
@@ -149,24 +150,24 @@ public class BotRunner
                     .ToList();
                 if (samples.Count == 0) break;
                 float avg = (float)samples.Average();
-                string bar = new string('█', (int)(avg * 10 / Balance.StartingLives));
-                GD.Print($"│   Wave {w + 1,2}: {avg,4:0.0} lives  [{bar,-10}]                                 │");
+                string bar = new string('*', (int)(avg * 10 / Balance.StartingLives));
+                GD.Print($"|   Wave {w + 1,2}: {avg,4:0.0} lives  [{bar,-10}]                                 |");
             }
 
             // Per-map loss distribution
             var mapLosses = mapResults.Where(r => !r.Won).ToList();
             if (mapLosses.Count > 0)
             {
-                GD.Print($"│ {mapLosses.Count} LOSSES:                                                      │");
+                GD.Print($"| {mapLosses.Count} LOSSES:                                                      |");
                 var byWave = mapLosses.GroupBy(r => r.WaveReached).OrderBy(g => g.Key);
                 foreach (var g in byWave)
                 {
-                    string bar = new string('█', g.Count());
-                    GD.Print($"│   Wave {g.Key,2}: {g.Count()} loss(es) {bar}                                │");
+                    string bar = new string('*', g.Count());
+                    GD.Print($"|   Wave {g.Key,2}: {g.Count()} loss(es) {bar}                                |");
                 }
             }
 
-            GD.Print($"└{'─' * 70}┘");
+            GD.Print($"+{new string('-', 70)}+");
         }
 
         // ── Per-modifier win rates ─────────────────────────────────────────────

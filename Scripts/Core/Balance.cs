@@ -32,27 +32,27 @@ public static class Balance
     public const float TankyEnemySpeed = 60f;     // pixels per second (half speed)
 
     // Marked status
-    public const float MarkedDamageBonus = 0.30f; // +30% incoming damage to all towers
-    public const float MarkedDuration = 2f;       // seconds
+    public const float MarkedDamageBonus = 0.40f; // +40% incoming damage to all towers
+    public const float MarkedDuration = 2.5f;     // seconds
 
     // Slow status
     public const float SlowSpeedFactor = 0.75f;   // enemy moves at 75% speed (-25%) per Chill Shot; stacks multiplicatively
     public const float SlowDuration = 5f;          // seconds
 
     // Momentum modifier
-    public const int   MomentumMaxStacks    = 5;     // 5 stacks × 8% = ×1.4 max multiplier
-    public const float MomentumBonusPerStack = 0.08f;
+    public const int   MomentumMaxStacks    = 5;     // 5 stacks × 15% = ×1.75 max multiplier
+    public const float MomentumBonusPerStack = 0.15f;
 
     // Split Shot modifier
-    public const float SplitShotDamageRatio = 0.55f; // 55% of base damage per split projectile
-    public const float SplitShotRange       = 200f;  // search radius from impact point for split targets
+    public const float SplitShotDamageRatio = 0.50f; // 50% of base damage per split projectile
+    public const float SplitShotRange       = 300f;  // search radius from impact point for split targets
 
     // Feedback Loop modifier
     public const float FeedbackLoopCooldownReduction = 0.25f; // 25% of remaining cooldown removed on kill
 
     // Hair Trigger modifier
     public const float HairTriggerAttackSpeed = 1.35f; // +35% attack speed
-    public const float HairTriggerRangeFactor = 0.70f; // -30% range
+    public const float HairTriggerRangeFactor = 0.80f; // -20% range
 
     // Overkill modifier
     public const float OverkillSpillEfficiency = 0.60f; // 60% excess damage spill
