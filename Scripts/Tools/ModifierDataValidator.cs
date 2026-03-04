@@ -97,7 +97,7 @@ public static class ModifierDataValidator
 
         if (errorCount == 0)
         {
-            GD.Print("[VALIDATOR] ✓ All modifier descriptions match implementation");
+            GD.Print("[VALIDATOR] OK All modifier descriptions match implementation");
         }
         else
         {

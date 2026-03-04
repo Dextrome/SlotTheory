@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using SlotTheory.Core;
 using SlotTheory.Entities;
@@ -96,6 +97,7 @@ public class CombatSim
     public WaveResult Step(float delta, RunState state, WaveSystem waveSystem)
     {
         state.WaveTime += delta;
+        state.TotalPlayTime += delta;  // Track total playtime across all waves
 
         // 1. Spawn
         _spawnTimer -= delta;
@@ -132,7 +134,7 @@ public class CombatSim
             tower.Cooldown -= delta;
             if (tower.Cooldown > 0f) continue;
 
-            var target = Targeting.SelectTarget(tower, state.EnemiesAlive, ignoreRange: BotMode);
+            var target = Targeting.SelectTarget(tower, state.EnemiesAlive, ignoreRange: false);
             if (target == null) continue;
 
             if (!BotMode) tower.LastTargetPosition = target.GlobalPosition;
@@ -201,20 +203,39 @@ public class CombatSim
     private void ApplyChainBotMode(TowerInstance tower, EnemyInstance primary,
                                    int waveIndex, List<EnemyInstance> enemies)
     {
-        // In bot mode GlobalPositions are unreliable; chain to the next N alive enemies
-        // in list order as an approximation of "nearby targets".
+        // Use proper range-based chaining even in bot mode for fairness
         var alreadyHit = new HashSet<EnemyInstance> { primary };
-        float damage   = tower.BaseDamage * tower.ChainDamageDecay;
-        int   bounces  = 0;
+        float damage = tower.BaseDamage * tower.ChainDamageDecay;
+        int bounces = 0;
+        var currentTarget = primary;
 
-        foreach (var e in enemies)
+        while (bounces < tower.ChainCount)
         {
-            if (bounces >= tower.ChainCount) break;
-            if (alreadyHit.Contains(e) || e.Hp <= 0) continue;
-            DamageModel.Apply(new DamageContext(tower, e, waveIndex, enemies, _state,
+            // Find nearest enemy within chain range that hasn't been hit
+            EnemyInstance? nextTarget = null;
+            float nearestDistance = float.MaxValue;
+            
+            foreach (var e in enemies)
+            {
+                if (alreadyHit.Contains(e) || e.Hp <= 0) continue;
+                
+                // Use progress-based distance approximation since GlobalPosition may be unreliable
+                // This approximates spatial distance using position along the path
+                float distance = Math.Abs(e.ProgressRatio - currentTarget.ProgressRatio);
+                if (distance < nearestDistance && distance <= 0.3f) // ~30% of path as max chain range
+                {
+                    nearestDistance = distance;
+                    nextTarget = e;
+                }
+            }
+            
+            if (nextTarget == null) break;
+            
+            DamageModel.Apply(new DamageContext(tower, nextTarget, waveIndex, enemies, _state,
                                                 isChain: true, damageOverride: damage));
-            alreadyHit.Add(e);
-            damage  *= tower.ChainDamageDecay;
+            alreadyHit.Add(nextTarget);
+            currentTarget = nextTarget;
+            damage *= tower.ChainDamageDecay;
             bounces++;
         }
     }
@@ -222,18 +243,39 @@ public class CombatSim
     private void ApplySplitBotMode(TowerInstance tower, EnemyInstance primary,
                                     int waveIndex, List<EnemyInstance> enemies)
     {
-        // GlobalPositions are unreliable in bot mode; approximate by hitting
-        // the next SplitCount alive enemies in list order.
+        // Use proper range-based splitting for fairness
         float splitDamage = tower.BaseDamage * Balance.SplitShotDamageRatio;
-        int spawned = 0;
-
+        var targetsInRange = new List<EnemyInstance>();
+        
+        // Find all enemies within reasonable range of the primary target
         foreach (var e in enemies)
         {
-            if (spawned >= tower.SplitCount + 1) break;
             if (e == primary || e.Hp <= 0) continue;
-            DamageModel.Apply(new DamageContext(tower, e, waveIndex, enemies, _state,
+            
+            // Use progress-based distance approximation
+            float distance = Math.Abs(e.ProgressRatio - primary.ProgressRatio);
+            if (distance <= 0.25f) // ~25% of path as split range
+            {
+                targetsInRange.Add(e);
+            }
+        }
+        
+        // Apply split damage to up to SplitCount targets, prioritizing by targeting mode
+        var sortedTargets = tower.TargetingMode switch
+        {
+            TargetingMode.First => targetsInRange.OrderByDescending(e => e.ProgressRatio).ToList(),
+            TargetingMode.Strongest => targetsInRange.OrderByDescending(e => e.Hp).ToList(),
+            TargetingMode.LowestHp => targetsInRange.OrderBy(e => e.Hp).ToList(),
+            _ => targetsInRange
+        };
+        
+        int hitCount = 0;
+        foreach (var target in sortedTargets)
+        {
+            if (hitCount >= tower.SplitCount) break;
+            DamageModel.Apply(new DamageContext(tower, target, waveIndex, enemies, _state,
                                                 isChain: true, damageOverride: splitDamage));
-            spawned++;
+            hitCount++;
         }
     }
 

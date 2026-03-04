@@ -81,13 +81,13 @@ public partial class HowToPlay : Node
 		// ── Mark ─────────────────────────────────────────────────────────
 		AddHeader(vbox, "MARK");
 		AddLine(vbox, "Marker Tower hits apply Mark for 2 seconds.");
-		AddLine(vbox, "Marked enemies take +30% damage from all towers.");
-		AddLine(vbox, "Pair with Exploit Weakness for a ×1.95 burst combo (+30% mark × +50% exploit).");
+		AddLine(vbox, "Marked enemies take +40% damage from all towers.");
+		AddLine(vbox, "Pair with Exploit Weakness for a ×2.1 burst combo (+40% mark × +50% exploit).");
 		AddSpacer(vbox, 12);
 
 		// ── Modifiers ────────────────────────────────────────────────────
 		AddHeader(vbox, "MODIFIERS  (max 3 per tower)");
-		AddModRow(vbox, "Momentum",         "+8% damage per consecutive hit on same target, up to ×5 stacks (×1.4 max). Resets on target switch.");
+		AddModRow(vbox, "Momentum",         "+15% damage per consecutive hit on same target, up to ×5 stacks (×1.75 max). Resets on target switch.");
 		AddModRow(vbox, "Overkill",         "Excess damage from a kill spills to the next enemy in the lane.");
 		AddModRow(vbox, "Exploit Weakness", "+50% damage to Marked enemies. Pairs with Marker Tower.");
 		AddModRow(vbox, "Focus Lens",       "+150% damage, ×2 attack interval. Big hits, slow fire — ideal for Overkill combos.");

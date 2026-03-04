@@ -73,7 +73,7 @@ Armored Walkers first appear at wave 7; count ramps to 5 by wave 20. Rendered at
 
 | Status | Effect | Duration |
 |---|---|---|
-| Marked | +30% incoming damage from all towers | 2 seconds |
+| Marked | +40% incoming damage from all towers | 2.5 seconds |
 | Slow | 70% movement speed | 5 seconds |
 
 ---
@@ -322,7 +322,7 @@ For headless balance testing (not exposed to players):
 | BaseEnemySpeed | 120 px/s | |
 | TankyHpMultiplier | 4× | vs basic walker |
 | TankyEnemySpeed | 60 px/s | |
-| MarkedDamageBonus | +30% | |
+| MarkedDamageBonus | +40% | |
 | MarkedDuration | 2 s | |
 | SlowSpeedFactor | 0.70 | −30% speed |
 | SlowDuration | 5 s | |
