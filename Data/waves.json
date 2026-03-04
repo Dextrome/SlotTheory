@@ -9,14 +9,14 @@
   { "EnemyCount": 22, "SpawnInterval": 1.40, "TankyCount": 1 },
   { "EnemyCount": 24, "SpawnInterval": 1.30, "TankyCount": 2 },
   { "EnemyCount": 24, "SpawnInterval": 1.30, "TankyCount": 2, "SwiftCount": 2 },
-  { "EnemyCount": 26, "SpawnInterval": 1.20, "TankyCount": 2, "SwiftCount": 3 },
+  { "EnemyCount": 24, "SpawnInterval": 1.20, "TankyCount": 2, "SwiftCount": 3 },
   { "EnemyCount": 24, "SpawnInterval": 1.25, "TankyCount": 2, "ClumpArmored": true, "SwiftCount": 3 },
   { "EnemyCount": 26, "SpawnInterval": 1.20, "TankyCount": 3, "ClumpArmored": true, "SwiftCount": 3 },
-  { "EnemyCount": 26, "SpawnInterval": 1.20, "TankyCount": 3, "ClumpArmored": true, "SwiftCount": 3 },
+  { "EnemyCount": 28, "SpawnInterval": 1.20, "TankyCount": 3, "ClumpArmored": true, "SwiftCount": 3 },
   { "EnemyCount": 30, "SpawnInterval": 1.15, "TankyCount": 3 },
   { "EnemyCount": 32, "SpawnInterval": 1.15, "TankyCount": 2 },
-  { "EnemyCount": 32, "SpawnInterval": 1.15, "TankyCount": 2 },
+  { "EnemyCount": 32, "SpawnInterval": 1.15, "TankyCount": 3 },
   { "EnemyCount": 32, "SpawnInterval": 1.30, "TankyCount": 2 },
-  { "EnemyCount": 34, "SpawnInterval": 1.30, "TankyCount": 3 },
-  { "EnemyCount": 34, "SpawnInterval": 1.25, "TankyCount": 4 }
+  { "EnemyCount": 32, "SpawnInterval": 1.30, "TankyCount": 3 },
+  { "EnemyCount": 34, "SpawnInterval": 1.40, "TankyCount": 4 }
 ]
