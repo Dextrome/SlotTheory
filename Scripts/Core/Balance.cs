@@ -44,7 +44,7 @@ public static class Balance
     public const float MomentumBonusPerStack = 0.15f;
 
     // Split Shot modifier
-    public const float SplitShotDamageRatio = 0.50f; // 50% of base damage per split projectile
+    public const float SplitShotDamageRatio = 0.45f; // 45% of base damage per split projectile
     public const float SplitShotRange       = 300f;  // search radius from impact point for split targets
 
     // Feedback Loop modifier
