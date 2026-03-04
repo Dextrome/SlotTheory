@@ -5,16 +5,16 @@ Each section has a clear done-state so you know when to move on.
 
 ---
 
-## 1. Godot export templates (local — do this first)
+## 1. Godot export templates (local — do this first) ✅ COMPLETE
 
 **Done when:** `./build_release.sh` completes without errors and `export/SlotTheory.exe` launches.
 
-- [ ] Open Godot editor
-- [ ] Editor → Manage Export Templates → Download and Install
+- [x] Open Godot editor
+- [x] Editor → Manage Export Templates → Download and Install
   - Must match exact version: `4.6.1 stable mono`
   - ~500 MB download
-- [ ] Run `./build_release.sh` from the project root
-- [ ] Verify `export/SlotTheory.exe` launches and plays correctly
+- [x] Run `./build_release.sh` from the project root
+- [x] Verify `export/SlotTheory.exe` launches and plays correctly
 
 > Export produces two items — both must ship together:
 > - `export/SlotTheory.exe` (~101 MB, .pck embedded)
@@ -45,53 +45,24 @@ Each section has a clear done-state so you know when to move on.
 
 ---
 
-## 4. SteamCMD and build scripts
+## 4. SteamCMD and build scripts 📝 TEMPLATES READY
 
 **Done when:** `steamcmd` can log in and `run_app_build` executes without errors.
 
 - [ ] Download and install SteamCMD: https://developer.valvesoftware.com/wiki/SteamCMD
   - Unzip to `C:\steamcmd\`
-- [ ] Create `steam/app_build.vdf` in this repo (see template below)
-- [ ] Create `steam/depot_build.vdf` (see template below)
+- [x] Create `steam/app_build_template.vdf` in this repo ✅
+- [x] Create `steam/push_build.sh` template ✅
+- [ ] Copy `steam/app_build_template.vdf` to `steam/app_build.vdf` and fill in your App ID + Depot ID
+- [ ] Edit `steam/push_build.sh` and replace `YOUR_STEAM_USERNAME_REPLACE_ME`
 - [ ] Test login: `steamcmd +login <username> +quit`
   - First login prompts Steam Guard code — run it once interactively
 
-**`steam/app_build.vdf`** — fill in your App ID:
-```
-"AppBuild"
-{
-    "AppID"     "YOUR_APP_ID"
-    "Desc"      "Slot Theory build"
-    "BuildOutput" "../steam/output/"
-    "Depots"
-    {
-        "YOUR_DEPOT_ID"
-        {
-            "FileMapping"
-            {
-                "LocalPath" "../export/*"
-                "DepotPath" "."
-                "recursive"  "1"
-            }
-        }
-    }
-}
-```
+**Templates created:**
+- `steam/app_build_template.vdf` — copy this and fill in your Steam App ID + Depot ID
+- `steam/push_build.sh` — copy this and fill in your Steam username
 
-**`steam/depot_build.vdf`** — not required if depot is embedded in app_build.vdf above.
-
-**`steam/push_build.sh`** — upload script:
-```bash
-#!/usr/bin/env bash
-set -e
-./build_release.sh
-/c/steamcmd/steamcmd.exe \
-  +login YOUR_STEAM_USERNAME \
-  +run_app_build "$(pwd)/steam/app_build.vdf" \
-  +quit
-```
-
-- [ ] Add `steam/output/` to `.gitignore`
+**After setup:**
 - [ ] Run `./steam/push_build.sh` and confirm build appears in Steamworks → SteamPipe → Builds
 
 ---
@@ -162,6 +133,13 @@ Steam requires all of these before submission:
 ## Notes
 
 - **Start steps 2–4 now**, in parallel with balance/polish work. Valve review alone takes days.
-- `export_presets.cfg` is already configured. `build_release.sh` is ready. Only export templates are missing.
-- The `steam/` directory and `steam/output/` should be in `.gitignore`.
+- ✅ `export_presets.cfg` is already configured. `build_release.sh` is ready and working.
+- ✅ `steam/` templates are created. Fill in your Steam credentials and App ID.
+- ✅ `.gitignore` updated to exclude Steam private files.
+- The `steam/output/` directory will contain build artifacts (ignored by git).
 - Code signing (step 4 codesign) is optional for initial release but reduces Windows Defender false positives.
+
+**Current Status:** 
+🟢 Export pipeline complete
+🟡 Steam account setup needed  
+🟡 Upload scripts ready (need credentials)
