@@ -16,6 +16,12 @@ public static class Balance
     public const int Wave1ExtraPicks  = 1;          // extra draft picks before wave 1 starts
     public const int Wave15ExtraPicks = 1;          // extra draft picks before wave 15 starts
 
+    // Visual effects (platform-adaptive)
+    public static int MaxParticles => MobileOptimization.IsMobile() ? MobileOptimization.MaxParticles : 100;
+    public static int ProjectileHistoryLength => MobileOptimization.IsMobile() ? MobileOptimization.ProjectileHistoryLength : 10;
+    public static bool EnableScreenShake => MobileOptimization.IsMobile() ? MobileOptimization.EnableScreenShake : true;
+    public static float GlowRadius => MobileOptimization.IsMobile() ? MobileOptimization.GlowRadius : 1.0f;
+
     public static int ExtraPicksForWave(int waveIndex) => waveIndex switch
     {
         0  => Wave1ExtraPicks,
