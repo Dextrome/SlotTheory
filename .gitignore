@@ -16,6 +16,11 @@ obj/
 builds/
 export/
 
+# Steam (private info)
+steam/output/
+steam/app_build.vdf
+steam/push_build.sh
+
 # OS
 .DS_Store
 Thumbs.db
