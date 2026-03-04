@@ -36,6 +36,7 @@ public class RunState
     // Run-wide stats shown on the end screen
     public int   TotalKills       { get; set; } = 0;
     public int   TotalDamageDealt { get; set; } = 0;
+    public float TotalPlayTime    { get; set; } = 0f;  // Total seconds spent in waves
 
     // Per-wave tracking for micro reports and loss analysis
     public WaveReport CurrentWave { get; private set; } = new();
@@ -126,6 +127,7 @@ public class RunState
         WaveTime = 0f;
         TotalKills = 0;
         TotalDamageDealt = 0;
+        TotalPlayTime = 0f;
         for (int i = 0; i < Slots.Length; i++)
             Slots[i] = new SlotInstance(i);
             
@@ -134,5 +136,28 @@ public class RunState
         CompletedWaves.Clear();
         TotalLeaksByType.Clear();
         LastLeakedType = null;
+    }
+
+    /// <summary>Gets total damage dealt by a specific tower across all completed waves.</summary>
+    public int GetTowerTotalDamage(int slotIndex)
+    {
+        return CompletedWaves.SelectMany(w => w.TowerStats)
+                           .Where(t => t.SlotIndex == slotIndex)
+                           .Sum(t => t.Damage);
+    }
+
+    /// <summary>Gets total kills by a specific tower across all completed waves.</summary>
+    public int GetTowerTotalKills(int slotIndex)
+    {
+        return CompletedWaves.SelectMany(w => w.TowerStats)
+                           .Where(t => t.SlotIndex == slotIndex)
+                           .Sum(t => t.Kills);
+    }
+
+    /// <summary>Calculates DPS for a specific tower (damage per second).</summary>
+    public float GetTowerDPS(int slotIndex)
+    {
+        if (TotalPlayTime <= 0f) return 0f;
+        return GetTowerTotalDamage(slotIndex) / TotalPlayTime;
     }
 }

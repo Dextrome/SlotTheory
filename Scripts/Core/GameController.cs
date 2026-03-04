@@ -203,6 +203,9 @@ public partial class GameController : Node
 				tower.Free();
 		}
 
+		// Memory leak fixes for bot mode
+		SlotTheory.Modifiers.ModEvents.Reset();  // Clear static event handlers
+		
 		_runState.Reset();
 		_combatSim.ResetForWave();
 		_endScreen.Visible = false;
@@ -216,6 +219,20 @@ public partial class GameController : Node
 		SetupSlots();
 
 		_extraPicksRemaining = Balance.ExtraPicksForWave(0);
+		
+		// Force garbage collection in bot mode every 25 runs to prevent memory accumulation
+		if (_botRunner != null)
+		{
+			int completedRuns = _botRunner.CompletedRuns;
+			if (completedRuns % 25 == 0 && completedRuns > 0)
+			{
+				GD.Print($"[MEMORY] Forcing GC after {completedRuns} completed runs");
+				System.GC.Collect();
+				System.GC.WaitForPendingFinalizers();
+				System.GC.Collect(); // Second collection to clean up objects released after finalization
+			}
+		}
+		
 		StartDraftPhase();
 	}
 
@@ -776,9 +793,15 @@ public partial class GameController : Node
 			if (tower == null) continue;
 			var def = DataLoader.GetTowerDef(tower.TowerId);
 			var modNames = string.Join(", ", tower.Modifiers.Select(m => DataLoader.GetModifierDef(m.ModifierId).Name));
+			
+			// Calculate DPS for this tower
+			var totalDamage = _runState.GetTowerTotalDamage(i);
+			var dps = _runState.GetTowerDPS(i);
+			var dpsDisplay = dps >= 100f ? $"{dps:F0} DPS" : $"{dps:F1} DPS";
+			
 			sb.AppendLine(modNames.Length > 0
-				? $"Slot {i + 1}  ·  {def.Name}  +  {modNames}"
-				: $"Slot {i + 1}  ·  {def.Name}");
+				? $"Slot {i + 1}  ·  {def.Name}  +  {modNames}  •  {dpsDisplay}"
+				: $"Slot {i + 1}  ·  {def.Name}  •  {dpsDisplay}");
 		}
 		return sb.ToString().TrimEnd();
 	}
