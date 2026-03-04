@@ -1,0 +1,19 @@
+"AppBuild"
+{
+    "AppID"     "YOUR_APP_ID_REPLACE_ME"
+    "Desc"      "Slot Theory - v1.0 Release Build"
+    "BuildOutput" "../steam/output/"
+    "ContentRoot" "../export/"
+    "Depots"
+    {
+        "YOUR_DEPOT_ID_REPLACE_ME"  // Usually AppID + 1
+        {
+            "FileMapping"
+            {
+                "LocalPath" "*"
+                "DepotPath" "."
+                "recursive" "1"
+            }
+        }
+    }
+}
