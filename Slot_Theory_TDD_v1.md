@@ -38,12 +38,13 @@
 ### Draft rules
 - 5 options per round.
 - While slots not full: **2 tower cards + 3 modifier cards**.
-- Once slots full: **5 modifier cards**.
+- Once slots full: **4 modifier cards** (anti-brick protection).
+- Wave 1 and 15: **bonus picks** (2 picks each).
 - No rerolls.
 
 ### Towers
 - 6 fixed slots total.
-- Max 6 towers in full version (vertical slice uses 3).
+- 4 tower types implemented: Rapid Shooter, Heavy Cannon, Marker Tower, Arc Emitter.
 - Each tower has targeting mode: **First / Strongest / Lowest HP**.
 - Each tower can hold **max 3 modifiers**. (Hard cap, no replacement in v1.)
 
@@ -292,22 +293,17 @@ Suggested interface (minimal):
 - Loads modifier definitions from JSON (`id`, `name`, `desc`, `params`).
 - Creates concrete modifier objects by ID.
 
-### Example modifiers (vertical slice)
-1. **Momentum**
-   - Track last target ID (per tower or per modifier state).
-   - If same target as previous attack: increment stacks, apply additive bonus.
-   - If new target: reset stacks.
-2. **Overkill**
-   - After applying damage: if damage > remaining HP, compute excess.
-   - Find next target in “First” order (or nearest in lane) and apply excess.
-   - Keep logic deterministic and bounded (spill to **one** additional enemy only in v1).
-3. **Exploit Weakness**
-   - If enemy is Marked: add +100% damage (additive multiplier).
-4. **Focus Lens**
-   - Modify base damage and attack interval:
-     - +100% damage (i.e., damage *= 2)
-     - -50% attack speed means attack interval increases (interval *= 2)
-   - Keep the math readable and consistent.
+### Implemented modifiers (10 total)
+1. **Momentum** - +16% damage per consecutive hit (max ×1.8)
+2. **Overkill** - 60% excess damage spills to next enemy
+3. **Exploit Weakness** - +60% damage vs Marked enemies
+4. **Focus Lens** - +125% damage, ×2 attack interval
+5. **Chill Shot** - Hits slow enemies to 70% speed for 5s
+6. **Overreach** - +50% range, −30% damage
+7. **Hair Trigger** - +50% attack speed, −40% range
+8. **Split Shot** - Fires 2× 42% damage projectiles
+9. **Feedback Loop** - Kill reduces cooldown by 70%
+10. **Chain Reaction** - +1 chain bounce per copy (60% decay)
 
 ### Stacking rules
 - Additive within category (e.g., conditional damage bonuses sum).
@@ -423,21 +419,23 @@ Centralize tunables:
 - Add Heavy Cannon.
 - Targeting mode selection per tower.
 
-### Week 3 — Modifiers framework
-- Modifier base + registry.
-- Attach modifiers to towers (cap 3).
-- Implement Focus Lens + Momentum.
+### Implementation Status ✅ COMPLETED
 
-### Week 4 — Synergy validation
-- Add Marker tower + Marked status.
-- Add Exploit Weakness + Overkill.
-- Run 5-wave vertical slice until it feels “alive”.
+**Core Systems Implemented:**
+- Full 20-wave progression ✅
+- 4 towers with targeting modes ✅  
+- 10 modifiers with stacking ✅
+- Draft system with anti-brick protection ✅
+- Status effects (Marked, Slow) ✅
+- Difficulty modes (Normal/Hard) ✅
 
-### Week 5–8 — Full v1
-- Expand to 20 waves.
-- Expand content pools (up to 6 towers / ~25–30 modifiers) only **after** slice works.
-- Basic menu/settings.
-- Bug fixing + stability.
+**Polish & Quality:**
+- Complete UI/UX with animations ✅
+- Audio feedback system ✅
+- Settings & pause functionality ✅
+- Bot testing framework ✅
+- Memory management & stability ✅
+- Export pipeline ready ✅
 
 ---
 
@@ -448,13 +446,15 @@ Centralize tunables:
 
 ---
 
-## 19) Definition of Done (v1)
-- Complete 20-wave run structure.
-- Draft-before-wave functioning.
-- 3 towers + 4 modifiers fully playable.
-- Targeting modes working.
-- No critical bugs / no crashes.
-- Main menu + settings.
-- Exported Windows build ready for Steam upload.
+## 19) Definition of Done (v1) ✅ ACHIEVED
+- Complete 20-wave run structure ✅
+- Draft-before-wave functioning ✅
+- 4 towers + 10 modifiers fully playable ✅
+- Targeting modes working ✅
+- No critical bugs / no crashes ✅
+- Main menu + settings + how-to-play ✅
+- Difficulty modes implemented ✅
+- Exported Windows build ready for Steam upload ✅
+- Comprehensive balance testing completed ✅
 
 ---

@@ -30,17 +30,20 @@ Towers are placed in **6 slots** on the map. Max **3 modifiers** per tower.
 
 ---
 
-## Modifiers (7 types)
+## Modifiers (10 types)
 
 | Modifier | Effect |
 |---|---|
-| Momentum | +8% damage per consecutive hit on the same target; resets on target switch. Caps at 5 stacks (×1.4 total). |
-| Overkill | 80% of excess damage from a killing blow spills to the next enemy in lane (one spill only). |
-| Exploit Weakness | +50% damage vs Marked enemies. |
-| Focus Lens | +100% damage, ×2 attack interval. Big hits, slow fire — synergises with Overkill. |
-| Hair Trigger | +50% attack speed, −30% range. |
-| Overreach | +50% range, −25% damage. |
+| Momentum | +16% damage per consecutive hit on the same target; resets on target switch. Caps at 5 stacks (×1.8 total). |
+| Overkill | 60% of excess damage from a killing blow spills to the next enemy in lane (one spill only). |
+| Exploit Weakness | +60% damage vs Marked enemies. |
+| Focus Lens | +125% damage, ×2 attack interval. Big hits, slow fire — synergises with Overkill. |
 | Chill Shot | Hits apply Slow: enemy moves at 70% speed for 5 seconds. |
+| Overreach | +50% range, −30% damage. |
+| Hair Trigger | +50% attack speed, −40% range. |
+| Split Shot | Fires 2 projectiles at 42% damage each to nearby enemies on hit. |
+| Feedback Loop | On kill, reduce current cooldown by 70%. |
+| Chain Reaction | Adds +1 chain bounce (60% damage per hop). |
 
 ---
 
@@ -75,6 +78,15 @@ Armored Walkers first appear at wave 7; count ramps to 5 by wave 20. Rendered at
 |---|---|---|
 | Marked | +40% incoming damage from all towers | 2.5 seconds |
 | Slow | 70% movement speed | 5 seconds |
+
+---
+
+## Difficulty Modes
+
+| Mode | Enemy HP | Enemy Count | Spawn Speed |
+|---|---|---|---|
+| Normal | 1.0× | 1.0× | 1.0× |
+| Hard | 1.2× | 1.15× | 0.85× (15% faster) |
 
 ---
 
