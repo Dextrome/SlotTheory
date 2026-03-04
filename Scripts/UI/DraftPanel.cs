@@ -15,6 +15,7 @@ public partial class DraftPanel : CanvasLayer
     private Label _titleLabel = null!;
     private HBoxContainer _cardRow = null!;
     private Label _waveFooter = null!;
+    private Label _wavePerformance = null!;
     private Label _assignLabel = null!;
     private HBoxContainer _towerRow = null!;
     private DraftOption? _pendingModifier;
@@ -114,9 +115,17 @@ public partial class DraftPanel : CanvasLayer
         _waveFooter.AddThemeColorOverride("font_color", new Color(0.60f, 0.75f, 1.00f, 0.80f));
         _waveFooter.Visible = false;
         vbox.AddChild(_waveFooter);
+
+        // Wave performance report from previous wave
+        _wavePerformance = new Label();
+        _wavePerformance.HorizontalAlignment = HorizontalAlignment.Center;
+        _wavePerformance.AddThemeFontSizeOverride("font_size", 14);
+        _wavePerformance.AddThemeColorOverride("font_color", new Color(0.95f, 0.85f, 0.60f, 0.90f));
+        _wavePerformance.Visible = false;
+        vbox.AddChild(_wavePerformance);
     }
 
-    public void Show(List<DraftOption> options, int waveNumber, int pickNumber = 1, int totalPicks = 1)
+    public void Show(List<DraftOption> options, int waveNumber, int pickNumber = 1, int totalPicks = 1, WaveReport? lastWaveReport = null)
     {
         _lastOptions    = options;
         _lastWaveNumber = waveNumber;
@@ -133,23 +142,70 @@ public partial class DraftPanel : CanvasLayer
         _cardRow.Visible = true;
         _bg.MouseFilter = Control.MouseFilterEnum.Stop;
 
-        // Wave composition preview footer
+        // Enhanced wave composition preview footer with Swift enemies and threat tags
         var cfg = waveNumber >= 1 && waveNumber <= Balance.TotalWaves
             ? DataLoader.GetWaveConfig(waveNumber - 1) : null;
         if (cfg != null)
         {
             int basic   = cfg.EnemyCount;
             int armored = cfg.TankyCount;
-            string clumpHint = cfg.ClumpArmored ? "  [clumped]" : "";
-            _waveFooter.Text = armored > 0
-                ? $"↓  {basic} Basic  ·  {armored} Armored{clumpHint}"
-                : $"↓  {basic} Basic";
+            int swift   = cfg.SwiftCount;
+            
+            List<string> parts = new();
+            parts.Add($"{basic} Basic");
+            if (armored > 0)
+            {
+                string armoredText = cfg.ClumpArmored ? $"{armored} Armored [clumped]" : $"{armored} Armored";
+                parts.Add(armoredText);
+            }
+            if (swift > 0)
+            {
+                parts.Add($"{swift} Swift");
+            }
+            
+            // Add threat tags based on enemy composition
+            List<string> threats = new();
+            if (armored >= 3) threats.Add("TANK");
+            if (swift >= 2) threats.Add("FAST");
+            if (cfg.ClumpArmored && armored >= 2) threats.Add("SURGE");
+            
+            string baseText = string.Join("  ·  ", parts);
+            string threatHint = threats.Count > 0 ? $"  [{string.Join(", ", threats)}]" : "";
+            
+            // Optional archetype recommendation based on composition
+            string archetypeHint = GenerateArchetypeHint(cfg);
+            
+            _waveFooter.Text = $"↓  {baseText}{threatHint}{archetypeHint}";
             _waveFooter.Visible = true;
         }
         else
         {
             _waveFooter.Visible = false;
         }
+        
+        // Show previous wave performance if available
+        if (lastWaveReport != null && waveNumber > 1)
+        {
+            var topTower = lastWaveReport.TopDamageDealer;
+            if (topTower != null)
+            {
+                var towerDef = DataLoader.GetTowerDef(topTower.TowerId);
+                string performance = lastWaveReport.Leaks > 0 
+                    ? $"Wave {lastWaveReport.WaveNumber}: {lastWaveReport.Leaks} leak(s)  •  Top damage: {towerDef.Name} ({topTower.Damage})"
+                    : $"Wave {lastWaveReport.WaveNumber}: Perfect clear!  •  Top damage: {towerDef.Name} ({topTower.Damage})";
+                _wavePerformance.Text = performance;
+                _wavePerformance.Visible = true;
+            }
+            else
+            {
+                _wavePerformance.Visible = false;
+            }
+        }
+        else
+        {
+            _wavePerformance.Visible = false;
+        }
+        
         // Explicitly reset position/size each open to prevent any deferred layout drift.
         var vpSize = GetViewport().GetVisibleRect().Size;
         _bg.Position = Vector2.Zero;
@@ -169,7 +225,7 @@ public partial class DraftPanel : CanvasLayer
         {
             _pendingTower    = null;
             _pendingModifier = null;
-            Show(_lastOptions, _lastWaveNumber, _lastPickNumber, _lastTotalPicks);
+            Show(_lastOptions, _lastWaveNumber, _lastPickNumber, _lastTotalPicks, null);
             GetViewport().SetInputAsHandled();
             return;
         }
@@ -289,5 +345,40 @@ public partial class DraftPanel : CanvasLayer
             var def = DataLoader.GetModifierDef(opt.Id);
             return $"{def.Name}\n{def.Description}";
         }
+    }
+
+    /// <summary>
+    /// Generates a subtle archetype hint based on wave composition.
+    /// Helps players understand what build strategies might work well.
+    /// </summary>
+    private string GenerateArchetypeHint(WaveConfig cfg)
+    {
+        // Only show hints for challenging waves to avoid clutter
+        if (cfg.TankyCount + cfg.SwiftCount < 2) return "";
+        
+        List<string> hints = new();
+        
+        // High armored count suggests marker strategy
+        if (cfg.TankyCount >= 3)
+        {
+            hints.Add("Marker recommended");
+        }
+        // Mix of armored and swift suggests AoE/chain
+        else if (cfg.TankyCount >= 1 && cfg.SwiftCount >= 2)
+        {
+            hints.Add("AoE favored");
+        }
+        // Lots of swift enemies suggests range/coverage
+        else if (cfg.SwiftCount >= 3)
+        {
+            hints.Add("Range coverage");
+        }
+        // Clumped armored suggests burst damage
+        else if (cfg.ClumpArmored && cfg.TankyCount >= 2)
+        {
+            hints.Add("Burst damage");
+        }
+        
+        return hints.Count > 0 ? $"  • {string.Join(", ", hints)}" : "";
     }
 }

@@ -12,7 +12,7 @@
   "exploit_weakness": {
     "Id": "exploit_weakness",
     "Name": "Exploit Weakness",
-    "Description": "Deal +50% damage to Marked enemies."
+    "Description": "Deal +60% damage to Marked enemies."
   },
   "focus_lens": {
     "Id": "focus_lens",
@@ -22,12 +22,12 @@
   "slow": {
     "Id": "slow",
     "Name": "Chill Shot",
-    "Description": "On hit: −20% move speed for 5 s. Stacks multiplicatively on same tower."
+    "Description": "On hit: −25% move speed for 5 s. Stacks multiplicatively on same tower."
   },
   "overreach": {
     "Id": "overreach",
     "Name": "Overreach",
-    "Description": "+50% range, −15% damage."
+    "Description": "+40% range, −20% damage."
   },
   "hair_trigger": {
     "Id": "hair_trigger",
@@ -42,11 +42,11 @@
   "feedback_loop": {
     "Id": "feedback_loop",
     "Name": "Feedback Loop",
-    "Description": "Killing an enemy reduces this tower's current cooldown by 30%."
+    "Description": "Killing an enemy reduces this tower's current cooldown by 25%."
   },
   "chain_reaction": {
     "Id": "chain_reaction",
     "Name": "Chain Reaction",
-    "Description": "After hitting a target, the attack jumps to 1 nearby enemy for 60% damage. Stacks: each copy adds 1 more bounce."
+    "Description": "After hitting a target, the attack jumps to 1 nearby enemy for 55% damage. Stacks: each copy adds 1 more bounce."
   }
 }

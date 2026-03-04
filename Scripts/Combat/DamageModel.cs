@@ -47,13 +47,30 @@ public static class DamageModel
 
         ctx.FinalDamage = damage;
 
-        // 3. Apply damage; track run-wide stats when RunState is available
+        // 3. Apply damage; track run-wide and per-tower stats when RunState is available
         float hpBefore = ctx.Target.Hp;
         ctx.Target.Hp -= damage;
         if (ctx.State != null)
         {
-            ctx.State.TotalDamageDealt += (int)(hpBefore - System.MathF.Max(0f, ctx.Target.Hp));
-            if (ctx.Target.Hp <= 0) ctx.State.TotalKills++;
+            int damageDealt = (int)(hpBefore - System.MathF.Max(0f, ctx.Target.Hp));
+            ctx.State.TotalDamageDealt += damageDealt;
+            
+            // Track damage for the specific tower for micro reports
+            var attackerSlotIndex = FindTowerSlotIndex(ctx.State, ctx.Attacker);
+            if (attackerSlotIndex >= 0)
+            {
+                ctx.State.TrackTowerDamage(attackerSlotIndex, damageDealt);
+            }
+
+            if (ctx.Target.Hp <= 0) 
+            {
+                ctx.State.TotalKills++;
+                // Track kill for the specific tower
+                if (attackerSlotIndex >= 0)
+                {
+                    ctx.State.TrackTowerKill(attackerSlotIndex);
+                }
+            }
         }
 
         // 4. On-hit effects (skipped for chain bounces if modifier opts out)
@@ -68,5 +85,16 @@ public static class DamageModel
         if (ctx.Target.Hp <= 0)
             foreach (var mod in ctx.Attacker.Modifiers)
                 mod.OnKill(ctx);
+    }
+
+    /// <summary>Finds which slot index a tower belongs to for damage tracking.</summary>
+    private static int FindTowerSlotIndex(RunState state, TowerInstance tower)
+    {
+        for (int i = 0; i < state.Slots.Length; i++)
+        {
+            if (state.Slots[i].Tower == tower)
+                return i;
+        }
+        return -1; // Not found (should not happen in normal play)
     }
 }
