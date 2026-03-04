@@ -34,3 +34,7 @@ window/stretch/mode="canvas_items"
 [dotnet]
 
 project/assembly_name="SlotTheory"
+
+[settings/Export/Android]
+
+experimental_csharp_android_export=true
