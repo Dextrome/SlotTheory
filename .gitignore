@@ -16,6 +16,13 @@ obj/
 builds/
 export/
 
+# Android development
+*.apk
+*.aab
+android/
+.gradle/
+local.properties
+
 # Steam (private info)
 steam/output/
 steam/app_build.vdf
@@ -35,3 +42,7 @@ Thumbs.db
 Data/maps_backup1.json
 NextPolish
 *.txt
+ANDROID_PLAN.md
+ANDROID_SETUP.md
+ANDROID_STATUS.md
+ANDROID_TEMPLATE_INSTALL.md
