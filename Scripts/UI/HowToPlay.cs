@@ -61,11 +61,11 @@ public partial class HowToPlay : Node
 
 		// ── Towers ───────────────────────────────────────────────────────
 		AddHeader(vbox, "TOWERS");
-		AddTowerRow(vbox, "Rapid Shooter", "10 dmg · 0.4 s · 300 px range",
+		AddTowerRow(vbox, "Rapid Shooter", "10 dmg · 0.45 s · 285 px range",
 			"High rate of fire, low damage per hit. Shines with Momentum and Hair Trigger.");
-		AddTowerRow(vbox, "Heavy Cannon",  "60 dmg · 2.0 s · 250 px range",
+		AddTowerRow(vbox, "Heavy Cannon",  "52 dmg · 2.0 s · 238 px range",
 			"Slow but hits hard. Great with Overkill and Focus Lens.");
-		AddTowerRow(vbox, "Marker Tower",  " 5 dmg · 1.0 s · 350 px range",
+		AddTowerRow(vbox, "Marker Tower",  " 7 dmg · 1.0 s · 333 px range",
 			"Applies Mark on every hit. Synergises with Exploit Weakness.");
 		AddTowerRow(vbox, "Arc Emitter",   "14 dmg · 1.2 s · 270 px range",
 			"Chains to 2 nearby enemies per shot (60% damage decay per bounce). Excellent in dense clusters.");

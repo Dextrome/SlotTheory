@@ -39,25 +39,25 @@ public static class ModifierDataValidator
             {
                 Id = "slow",
                 Name = "Chill Shot",
-                RequiredTokens = new() { "−20%", "5 s" }
+                RequiredTokens = new() { "−25%", "5 s" }
             },
             new ModifierExpectation
             {
                 Id = "feedback_loop",
                 Name = "Feedback Loop",
-                RequiredTokens = new() { "30%" }
+                RequiredTokens = new() { "25%" }
             },
             new ModifierExpectation
             {
                 Id = "exploit_weakness",
                 Name = "Exploit Weakness",
-                RequiredTokens = new() { "+50%" }
+                RequiredTokens = new() { "+60%" }
             },
             new ModifierExpectation
             {
                 Id = "overreach",
                 Name = "Overreach",
-                RequiredTokens = new() { "+50%", "−15%" }
+                RequiredTokens = new() { "+40%", "−20%" }
             },
             new ModifierExpectation
             {
@@ -69,7 +69,7 @@ public static class ModifierDataValidator
             {
                 Id = "chain_reaction",
                 Name = "Chain Reaction",
-                RequiredTokens = new() { "60%" }
+                RequiredTokens = new() { "55%" }
             }
         };
 

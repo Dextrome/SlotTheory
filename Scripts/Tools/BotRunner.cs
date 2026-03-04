@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using SlotTheory.Core;
+using SlotTheory.Data;
 
 namespace SlotTheory.Tools;
 
@@ -201,5 +202,83 @@ public class BotRunner
         }
 
         GD.Print("");
+        
+        // ── Wave Difficulty Analysis for Balancing ─────────────────────────────────
+        GD.Print("\n╔═══════════════════════════════════════════════════════════════════╗");
+        GD.Print("║                    WAVE DIFFICULTY ANALYSIS                       ║");
+        GD.Print("║  For balancing SpawnInterval, TankyCount, SwiftCount adjustments  ║");
+        GD.Print("╚═══════════════════════════════════════════════════════════════════╝");
+        
+        AnalyzeWaveDifficulty();
+    }
+
+    /// <summary>
+    /// Analyzes per-wave difficulty metrics to identify balance issues.
+    /// Focuses on the three main tuning levers: SpawnInterval, TankyCount, SwiftCount.
+    /// </summary>
+    private void AnalyzeWaveDifficulty()
+    {
+        var problemWaves = new List<(int wave, string issue, string suggestion)>();
+        
+        for (int w = 0; w < Balance.TotalWaves; w++)
+        {
+            int waveNum = w + 1;
+            var waveConfig = DataLoader.GetWaveConfig(w);
+            
+            // Gather loss data for this wave
+            var lossesAtWave = _results.Where(r => !r.Won && r.WaveReached == waveNum).Count();
+            var totalAttempts = _results.Where(r => r.WaveReached >= waveNum).Count();
+            float lossRate = totalAttempts > 0 ? (float)lossesAtWave / totalAttempts : 0f;
+            
+            // Gather lives lost data for completed waves
+            var livesAfterWave = _results
+                .Where(r => r.WaveLives.Length > w)
+                .Select(r => r.WaveLives[w])
+                .ToList();
+            float avgLives = livesAfterWave.Count > 0 ? (float)livesAfterWave.Average() : Balance.StartingLives;
+            float livesLost = Balance.StartingLives - avgLives;
+            
+            GD.Print($"Wave {waveNum,2}: {lossRate,5:0.0%} loss rate, {livesLost,4:0.1} avg lives lost | " +
+                    $"Config: {waveConfig.EnemyCount} basic, {waveConfig.TankyCount} tanky, {waveConfig.SwiftCount} swift, " +
+                    $"{waveConfig.SpawnInterval:0.0}s interval{(waveConfig.ClumpArmored ? ", clumped" : "")}");
+            
+            // Identify problem patterns
+            if (lossRate > 0.20f) // More than 20% loss rate
+            {
+                if (waveConfig.TankyCount >= 3 && waveConfig.ClumpArmored)
+                {
+                    problemWaves.Add((waveNum, "High tank clump spike", $"Reduce TankyCount to {waveConfig.TankyCount - 1} or disable ClumpArmored"));
+                }
+                else if (waveConfig.SwiftCount >= 3)
+                {
+                    problemWaves.Add((waveNum, "Swift rush overwhelming", $"Reduce SwiftCount to {waveConfig.SwiftCount - 1} or increase SpawnInterval to {waveConfig.SpawnInterval + 0.1f:0.1f}"));
+                }
+                else if (waveConfig.SpawnInterval < 1.3f)
+                {
+                    problemWaves.Add((waveNum, "Spawn rate too intense", $"Increase SpawnInterval to {waveConfig.SpawnInterval + 0.1f:0.1f}"));
+                }
+                else
+                {
+                    problemWaves.Add((waveNum, "General difficulty spike", $"Reduce EnemyCount to {waveConfig.EnemyCount - 2} or increase SpawnInterval"));
+                }
+            }
+            else if (livesLost > 2.5f) // Significant life loss even without total failures
+            {
+                problemWaves.Add((waveNum, "Gradual attrition spike", $"Minor adjustment: increase SpawnInterval by 0.05s or reduce TankyCount by 1"));
+            }
+        }
+        
+        if (problemWaves.Count > 0)
+        {
+            GD.Print("\n🎯 RECOMMENDED BALANCE ADJUSTMENTS:");
+            foreach (var (wave, issue, suggestion) in problemWaves)
+            {
+                GD.Print($"  Wave {wave,2} ({issue}): {suggestion}");
+            }
+        }
+        else
+        {
+            GD.Print("\n✅ Wave difficulty curve looks balanced - no major spikes detected.");
+        }
     }
 }

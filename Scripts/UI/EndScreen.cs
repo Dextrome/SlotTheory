@@ -1,3 +1,4 @@
+using System.Linq;
 using Godot;
 using SlotTheory.Core;
 
@@ -13,6 +14,7 @@ public partial class EndScreen : CanvasLayer
 	private Label _subtitleLabel = null!;
 	private Label _statsLabel    = null!;
 	private Label _buildLabel    = null!;
+	private Label _lossAnalysisLabel = null!;
 
 	public override void _Ready()
 	{
@@ -58,6 +60,13 @@ public partial class EndScreen : CanvasLayer
 		_buildLabel.Visible = false;
 		vbox.AddChild(_buildLabel);
 
+		// Add a loss analysis label for defeat insights
+		_lossAnalysisLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+		_lossAnalysisLabel.AddThemeFontSizeOverride("font_size", 16);
+		_lossAnalysisLabel.Modulate = new Color(1.0f, 0.7f, 0.7f);
+		_lossAnalysisLabel.Visible = false;
+		vbox.AddChild(_lossAnalysisLabel);
+
 		var spacer = new Control { CustomMinimumSize = new Vector2(0, 24) };
 		vbox.AddChild(spacer);
 
@@ -93,7 +102,7 @@ public partial class EndScreen : CanvasLayer
 		Visible = true;
 	}
 
-	public void ShowLoss(int waveReached, int livesLost, int kills, int damageDealt, string buildSummary)
+	public void ShowLoss(int waveReached, int livesLost, int kills, int damageDealt, string buildSummary, RunState runState)
 	{
 		_titleLabel.Text = "GAME OVER";
 		_titleLabel.Modulate = new Color(1.0f, 0.35f, 0.35f);
@@ -102,6 +111,55 @@ public partial class EndScreen : CanvasLayer
 		_statsLabel.Visible = kills > 0 || damageDealt > 0;
 		_buildLabel.Text = buildSummary;
 		_buildLabel.Visible = buildSummary.Length > 0;
+		
+		// Show loss analysis for actionable insights
+		string lossAnalysis = GenerateLossAnalysis(runState);
+		if (!string.IsNullOrEmpty(lossAnalysis))
+		{
+			_lossAnalysisLabel.Text = lossAnalysis;
+			_lossAnalysisLabel.Visible = true;
+		}
+		
 		Visible = true;
+	}
+
+	/// <summary>Generates causal insights about why the player lost.</summary>
+	private string GenerateLossAnalysis(RunState runState)
+	{
+		var insights = new System.Collections.Generic.List<string>();
+		
+		// Most leaked enemy type
+		if (runState.TotalLeaksByType.Count > 0)
+		{
+			var mostLeaked = runState.TotalLeaksByType.OrderByDescending(kvp => kvp.Value).First();
+			string enemyName = mostLeaked.Key switch
+			{
+				"armored_walker" => "Armored",
+				"swift_walker" => "Swift", 
+				_ => "Basic"
+			};
+			insights.Add($"Most leaks: {enemyName} ({mostLeaked.Value})");
+		}
+		
+		// Wave where most lives were lost
+		var worstWave = runState.WorstWave;
+		if (worstWave != null && worstWave.Leaks > 1)
+		{
+			insights.Add($"Hardest wave: {worstWave.WaveNumber} ({worstWave.Leaks} leaks)");
+		}
+		
+		// Last leaked type before defeat
+		if (!string.IsNullOrEmpty(runState.LastLeakedType))
+		{
+			string lastType = runState.LastLeakedType switch
+			{
+				"armored_walker" => "Armored",
+				"swift_walker" => "Swift",
+				_ => "Basic"
+			};
+			insights.Add($"Final leak: {lastType}");
+		}
+		
+		return insights.Count > 0 ? string.Join("  •  ", insights) : "";
 	}
 }
