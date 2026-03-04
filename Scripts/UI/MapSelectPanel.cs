@@ -18,12 +18,14 @@ public partial class MapSelectPanel : Node
 	private string _selectedMapId = "random_map";  // Default to random
 	private DifficultyMode _selectedDifficulty = DifficultyMode.Normal;
 	private VBoxContainer? _mapListContainer;
+	private Button? _normalButton;
+	private Button? _hardButton;
 
 	public override void _Ready()
 	{
 		// Reset to default state when MapSelectPanel loads
 		_selectedMapId = "random_map";
-		_selectedDifficulty = SlotTheory.Core.SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal;
+		_selectedDifficulty = DifficultyMode.Normal;  // Always default to Normal
 
 		var canvas = new CanvasLayer();
 		AddChild(canvas);
@@ -93,12 +95,12 @@ public partial class MapSelectPanel : Node
 		vbox.AddChild(centerDifficulty);
 
 		// Normal button
-		var normalBtn = CreateDifficultyButton("Normal", DifficultyMode.Normal);
-		difficultyContainer.AddChild(normalBtn);
+		_normalButton = CreateDifficultyButton("Normal", DifficultyMode.Normal);
+		difficultyContainer.AddChild(_normalButton);
 
 		// Hard button  
-		var hardBtn = CreateDifficultyButton("Hard", DifficultyMode.Hard);
-		difficultyContainer.AddChild(hardBtn);
+		_hardButton = CreateDifficultyButton("Hard", DifficultyMode.Hard);
+		difficultyContainer.AddChild(_hardButton);
 
 		AddSpacer(vbox, 24);
 
@@ -255,10 +257,9 @@ public partial class MapSelectPanel : Node
 			ButtonPressed = difficulty == _selectedDifficulty
 		};
 		btn.AddThemeFontSizeOverride("font_size", 18);
-		btn.Toggled += (pressed) => {
-			if (pressed) {
-				SelectDifficulty(difficulty);
-			}
+		btn.Pressed += () => {
+			// Always select this difficulty when pressed (prevents toggling off)
+			SelectDifficulty(difficulty);
 		};
 		btn.MouseEntered += () => SlotTheory.Core.SoundManager.Instance?.Play("ui_hover");
 		return btn;
@@ -269,7 +270,10 @@ public partial class MapSelectPanel : Node
 		_selectedDifficulty = difficulty;
 		SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
 
-		// Update all difficulty buttons to reflect selection (simple approach)
-		// In a real implementation you might store button references for efficiency
+		// Update button states to ensure only one is pressed
+		if (_normalButton != null)
+			_normalButton.ButtonPressed = (difficulty == DifficultyMode.Normal);
+		if (_hardButton != null)
+			_hardButton.ButtonPressed = (difficulty == DifficultyMode.Hard);
 	}
 }
