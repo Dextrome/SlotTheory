@@ -81,23 +81,23 @@ Hover over a tower to see its current targeting mode and equipped modifiers.
 
 | Modifier | Effect |
 |---|---|
-| **Momentum** | +8% damage per consecutive hit on the same target, capped at 5 stacks (×1.4 max). Resets when the tower switches targets. |
+| **Momentum** | +16% damage per consecutive hit on the same target, capped at 5 stacks (×1.80 max). Resets when the tower switches targets. |
 | **Overkill** | Excess damage from a killing blow spills over to the next enemy in the lane. |
-| **Exploit Weakness** | Deal +50% damage to **Marked** enemies. Pairs with Marker Tower. |
-| **Focus Lens** | +150% damage, ×2 attack interval. Big hits, slow fire — ideal for Overkill combos and one-shotting tanky enemies. |
-| **Chill Shot** | On hit, −30% movement speed for 5 seconds. Enemies linger in range longer, giving all towers more time to fire. |
-| **Overreach** | +50% range, −15% damage. Wider coverage at a small cost — great on Marker Tower or any tower that needs to reach more of the path. |
-| **Hair Trigger** | +50% attack speed, −30% range. Close-quarters rapid-fire — pairs naturally with Momentum and Chill Shot. |
-| **Split Shot** | On hit, fires 2 projectiles at nearby enemies for 65% damage each. Each additional copy fires one more projectile. Stacks well on heavy hitters. |
-| **Feedback Loop** | Killing an enemy reduces the tower's current cooldown by 30%. Lets towers that kill quickly cycle back faster. |
-| **Chain Reaction** | After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce — 3 copies = 4 targets hit per shot. |
+| **Exploit Weakness** | Deal +60% damage to **Marked** enemies. Pairs with Marker Tower. |
+| **Focus Lens** | +125% damage, ×2 attack interval. Big hits, slow fire — ideal for Overkill combos and one-shotting tanky enemies. |
+| **Chill Shot** | On hit, −25% movement speed for 5 seconds. Enemies linger in range longer, giving all towers more time to fire. |
+| **Overreach** | +40% range, −20% damage. Wider coverage at a small cost — great on Marker Tower or any tower that needs to reach more of the path. |
+| **Hair Trigger** | +40% attack speed, −18% range. Close-quarters rapid-fire — pairs naturally with Momentum and Chill Shot. |
+| **Split Shot** | On hit, fires 2 projectiles at nearby enemies for 42% damage each. Each additional copy fires one more projectile. Stacks well on heavy hitters. |
+| **Feedback Loop** | Killing an enemy reduces the tower's current cooldown by 25%. Lets towers that kill quickly cycle back faster. |
+| **Chain Reaction** | After each hit, the attack jumps to 1 nearby enemy for 55% damage. Each additional copy adds 1 more bounce — 3 copies = 4 targets hit per shot. |
 
 ---
 
 ## Marked
 
 When a **Marker Tower** hits an enemy it applies the **Mark** status for 2 seconds.
-While Marked, that enemy takes **+30% damage from all towers** (before any modifier bonuses).
+While Marked, that enemy takes **+40% damage from all towers** (before any modifier bonuses).
 
 Pair Marker Tower + **Exploit Weakness** on another tower for a large burst damage combo.
 
@@ -137,10 +137,10 @@ Each run generates a new snake-shaped path across an 8×5 grid. Tower slots are 
 ## Tips
 
 - **Rapid Shooter + Momentum**: Stack Momentum on your fastest-firing tower for massive DPS on tanky enemies that take multiple hits to kill.
-- **Marker Tower + Exploit Weakness**: Mark the enemy, then burst it for ×1.95 total (+30% mark × +50% exploit). The Marker Tower frees up your damage towers' modifier slots for pure damage.
+- **Marker Tower + Exploit Weakness**: Mark the enemy, then burst it for ×2.1 total (+40% mark × +50% exploit). The Marker Tower frees up your damage towers' modifier slots for pure damage.
 - **Heavy Cannon + Overkill**: One-shots weaker enemies and spills excess damage forward — good for tightly packed groups.
 - **Arc Emitter + Chain Reaction**: Each copy adds a bounce — 3 copies hits 5 targets per shot. Best at corners where enemies cluster.
-- **Heavy Cannon + Split Shot**: At 65% damage per split, the cannon's slow hits still deal massive side damage to 2–3 nearby enemies simultaneously.
+- **Heavy Cannon + Split Shot**: Even at 42% damage per split, the cannon's high base hit still provides meaningful side pressure on clustered enemies.
 - **Feedback Loop + Hair Trigger**: Killing enemies reduces cooldown; rapid-fire towers cycle back almost instantly in waves with many weak enemies.
 - **Focus Lens** trades fire rate for huge individual hits — pairs naturally with Overkill to punch through groups.
 - **Swift Walkers (waves 10–14)** are fast but fragile — Chill Shot or Overreach helps towers catch them before they run out of range. Chain and Split Shot can hit multiple Swifts at once.

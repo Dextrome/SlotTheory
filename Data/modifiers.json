@@ -2,7 +2,7 @@
   "momentum": {
     "Id": "momentum",
     "Name": "Momentum",
-    "Description": "Gain +8% damage per consecutive hit on same target, up to ×1.4. Resets on target switch."
+    "Description": "Gain +16% damage per consecutive hit on same target, up to ×1.80. Resets on target switch."
   },
   "overkill": {
     "Id": "overkill",
@@ -17,7 +17,7 @@
   "focus_lens": {
     "Id": "focus_lens",
     "Name": "Focus Lens",
-    "Description": "+120% damage, ×2 attack interval."
+    "Description": "+125% damage, ×2 attack interval."
   },
   "slow": {
     "Id": "slow",
@@ -32,12 +32,12 @@
   "hair_trigger": {
     "Id": "hair_trigger",
     "Name": "Hair Trigger",
-    "Description": "+35% attack speed, −30% range."
+    "Description": "+40% attack speed, −18% range."
   },
   "split_shot": {
     "Id": "split_shot",
     "Name": "Split Shot",
-    "Description": "On hit, fires 2 projectiles at nearby enemies for 55% damage each. Each additional copy fires one more."
+    "Description": "On hit, fires 2 projectiles at nearby enemies for 42% damage each. Each additional copy fires one more."
   },
   "feedback_loop": {
     "Id": "feedback_loop",

@@ -27,13 +27,13 @@ public static class ModifierDataValidator
             {
                 Id = "momentum",
                 Name = "Momentum",
-                RequiredTokens = new() { "+8%", "×1.4" }
+                RequiredTokens = new() { "+16%", "×1.80" }
             },
             new ModifierExpectation
             {
                 Id = "split_shot",
                 Name = "Split Shot",
-                    RequiredTokens = new() { "55%" }
+                    RequiredTokens = new() { "42%" }
             },
             new ModifierExpectation
             {
@@ -63,7 +63,7 @@ public static class ModifierDataValidator
             {
                 Id = "hair_trigger",
                 Name = "Hair Trigger",
-                    RequiredTokens = new() { "+35%", "−30%" }
+                    RequiredTokens = new() { "+40%", "−18%" }
             },
             new ModifierExpectation
             {
