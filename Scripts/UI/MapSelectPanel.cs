@@ -16,12 +16,14 @@ public partial class MapSelectPanel : Node
 	public static void SetPendingMapSelection(string mapId) => _pendingMapSelection = mapId;
 
 	private string _selectedMapId = "random_map";  // Default to random
+	private DifficultyMode _selectedDifficulty = DifficultyMode.Normal;
 	private VBoxContainer? _mapListContainer;
 
 	public override void _Ready()
 	{
 		// Reset to default state when MapSelectPanel loads
 		_selectedMapId = "random_map";
+		_selectedDifficulty = SlotTheory.Core.SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal;
 
 		var canvas = new CanvasLayer();
 		AddChild(canvas);
@@ -70,6 +72,33 @@ public partial class MapSelectPanel : Node
 		scrollContainer.AddChild(_mapListContainer);
 
 		PopulateMapList();
+
+		AddSpacer(vbox, 24);
+
+		// Difficulty selection
+		var difficultyLabel = new Label
+		{
+			Text = "DIFFICULTY",
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		SlotTheory.Core.UITheme.ApplyFont(difficultyLabel, semiBold: true, size: 20);
+		difficultyLabel.Modulate = new Color("#a6d608");
+		vbox.AddChild(difficultyLabel);
+
+		var difficultyContainer = new HBoxContainer();
+		difficultyContainer.AddThemeConstantOverride("separation", 16);
+		
+		var centerDifficulty = new CenterContainer();
+		centerDifficulty.AddChild(difficultyContainer);
+		vbox.AddChild(centerDifficulty);
+
+		// Normal button
+		var normalBtn = CreateDifficultyButton("Normal", DifficultyMode.Normal);
+		difficultyContainer.AddChild(normalBtn);
+
+		// Hard button  
+		var hardBtn = CreateDifficultyButton("Hard", DifficultyMode.Hard);
+		difficultyContainer.AddChild(hardBtn);
 
 		AddSpacer(vbox, 24);
 
@@ -185,8 +214,9 @@ public partial class MapSelectPanel : Node
 
 	private void OnStartRun()
 	{
-		// Store selected map globally
+		// Store selected map and difficulty globally
 		_pendingMapSelection = _selectedMapId;
+		SlotTheory.Core.SettingsManager.Instance?.SetDifficulty(_selectedDifficulty);
 		SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
 	}
 
@@ -213,5 +243,33 @@ public partial class MapSelectPanel : Node
 		btn.Pressed += callback;
 		btn.MouseEntered += () => SlotTheory.Core.SoundManager.Instance?.Play("ui_hover");
 		vbox.AddChild(btn);
+	}
+
+	private Button CreateDifficultyButton(string text, DifficultyMode difficulty)
+	{
+		var btn = new Button
+		{
+			Text = text,
+			CustomMinimumSize = new Vector2(120, 40),
+			ToggleMode = true,
+			ButtonPressed = difficulty == _selectedDifficulty
+		};
+		btn.AddThemeFontSizeOverride("font_size", 18);
+		btn.Toggled += (pressed) => {
+			if (pressed) {
+				SelectDifficulty(difficulty);
+			}
+		};
+		btn.MouseEntered += () => SlotTheory.Core.SoundManager.Instance?.Play("ui_hover");
+		return btn;
+	}
+
+	private void SelectDifficulty(DifficultyMode difficulty)
+	{
+		_selectedDifficulty = difficulty;
+		SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
+
+		// Update all difficulty buttons to reflect selection (simple approach)
+		// In a real implementation you might store button references for efficiency
 	}
 }

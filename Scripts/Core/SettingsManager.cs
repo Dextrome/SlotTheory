@@ -18,6 +18,7 @@ public partial class SettingsManager : Node
     public float MusicVolume  { get; private set; } = 80f;
     public float FxVolume     { get; private set; } = 80f;
     public bool  Fullscreen   { get; private set; } = false;
+    public DifficultyMode Difficulty { get; private set; } = DifficultyMode.Normal;
 
     public override void _Ready()
     {
@@ -61,6 +62,12 @@ public partial class SettingsManager : Node
     }
 
     public void ToggleFullscreen() => SetFullscreen(!Fullscreen);
+
+    public void SetDifficulty(DifficultyMode difficulty)
+    {
+        Difficulty = difficulty;
+        Save();
+    }
 
     // ── Apply ────────────────────────────────────────────────────────────
 
@@ -119,6 +126,7 @@ public partial class SettingsManager : Node
         MusicVolume  = (float)cfg.GetValue(SecAudio, "music_volume",  80f);
         FxVolume     = (float)cfg.GetValue(SecAudio, "fx_volume",     80f);
         Fullscreen   = (bool) cfg.GetValue(SecDisp,  "fullscreen",    false);
+        Difficulty   = (DifficultyMode)(int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Normal);
     }
 
     private void Save()
@@ -128,6 +136,7 @@ public partial class SettingsManager : Node
         cfg.SetValue(SecAudio, "music_volume",  MusicVolume);
         cfg.SetValue(SecAudio, "fx_volume",     FxVolume);
         cfg.SetValue(SecDisp,  "fullscreen",    Fullscreen);
+        cfg.SetValue("gameplay", "difficulty",   (int)Difficulty);
         cfg.Save(SavePath);
     }
 }

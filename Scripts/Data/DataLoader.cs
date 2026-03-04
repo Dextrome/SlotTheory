@@ -3,6 +3,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Godot;
+using SlotTheory.Core;
 
 namespace SlotTheory.Data;
 
@@ -32,7 +33,22 @@ public static class DataLoader
 
     public static TowerDef GetTowerDef(string id) => _towers[id];
     public static ModifierDef GetModifierDef(string id) => _modifiers[id];
-    public static WaveConfig GetWaveConfig(int index) => _waves[index];
+    public static WaveConfig GetWaveConfig(int index) => GetWaveConfig(index, Core.SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal);
+    public static WaveConfig GetWaveConfig(int index, DifficultyMode difficulty)
+    {
+        var baseWave = _waves[index];
+        if (difficulty == DifficultyMode.Normal)
+            return baseWave;
+        
+        // Apply difficulty multipliers for Hard mode
+        return new WaveConfig(
+            EnemyCount: Mathf.CeilToInt(baseWave.EnemyCount * Balance.GetEnemyCountMultiplier(difficulty)),
+            SpawnInterval: baseWave.SpawnInterval * Balance.GetSpawnIntervalMultiplier(difficulty),
+            TankyCount: Mathf.CeilToInt(baseWave.TankyCount * Balance.GetEnemyCountMultiplier(difficulty)),
+            ClumpArmored: baseWave.ClumpArmored,
+            SwiftCount: Mathf.CeilToInt(baseWave.SwiftCount * Balance.GetEnemyCountMultiplier(difficulty))
+        );
+    }
     public static MapDef GetMapDef(string id) => _maps[id];
     public static IEnumerable<string> GetAllTowerIds() => _towers.Keys;
     public static IEnumerable<string> GetAllModifierIds() => _modifiers.Keys;

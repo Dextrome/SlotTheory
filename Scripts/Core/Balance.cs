@@ -1,5 +1,12 @@
 namespace SlotTheory.Core;
 
+/// <summary>Difficulty modes for enemy scaling.</summary>
+public enum DifficultyMode
+{
+    Normal,
+    Hard
+}
+
 /// <summary>All tunables in one place. Change values here, nowhere else.</summary>
 public static class Balance
 {
@@ -68,4 +75,39 @@ public static class Balance
     // Waves
     public const float DefaultSpawnInterval = 1.275f;
     public const int DefaultEnemyCount = 12;
+
+    // Difficulty multipliers
+    public static class DifficultyMultipliers
+    {
+        // Normal mode - no changes (1.0x)
+        public const float NormalEnemyHpMultiplier = 1.0f;
+        public const float NormalEnemyCountMultiplier = 1.0f;
+        public const float NormalSpawnIntervalMultiplier = 1.0f;
+        
+        // Hard mode - more challenging
+        public const float HardEnemyHpMultiplier = 1.1f;        // +10% HP
+        public const float HardEnemyCountMultiplier = 1.1f;     // +10% more enemies (rounded up)
+        public const float HardSpawnIntervalMultiplier = 0.9f;  // 10% faster spawns
+    }
+
+    public static float GetEnemyHpMultiplier(DifficultyMode difficulty) => difficulty switch
+    {
+        DifficultyMode.Normal => DifficultyMultipliers.NormalEnemyHpMultiplier,
+        DifficultyMode.Hard => DifficultyMultipliers.HardEnemyHpMultiplier,
+        _ => 1.0f
+    };
+
+    public static float GetEnemyCountMultiplier(DifficultyMode difficulty) => difficulty switch
+    {
+        DifficultyMode.Normal => DifficultyMultipliers.NormalEnemyCountMultiplier,
+        DifficultyMode.Hard => DifficultyMultipliers.HardEnemyCountMultiplier,
+        _ => 1.0f
+    };
+
+    public static float GetSpawnIntervalMultiplier(DifficultyMode difficulty) => difficulty switch
+    {
+        DifficultyMode.Normal => DifficultyMultipliers.NormalSpawnIntervalMultiplier,
+        DifficultyMode.Hard => DifficultyMultipliers.HardSpawnIntervalMultiplier,
+        _ => 1.0f
+    };
 }

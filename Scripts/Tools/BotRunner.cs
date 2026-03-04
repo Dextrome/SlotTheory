@@ -22,16 +22,19 @@ public class BotRunner
         int         LivesEnd,
         int[]       WaveLives,     // lives after each completed wave (index 0 = wave 1)
         string[]    Towers,
-        string[]    Mods
+        string[]    Mods,
+        DifficultyMode Difficulty
     );
 
     private readonly int              _totalRuns;
     private readonly BotStrategy[]    _strategies;
     private readonly string[]         _maps = { "arena_classic", "gauntlet", "sprawl" };
+    private readonly DifficultyMode[] _difficulties = { DifficultyMode.Normal, DifficultyMode.Hard };
     private readonly List<RunResult>  _results = new();
 
     // state for the run currently in progress
     private BotStrategy       _curStrategy;
+    private DifficultyMode    _curDifficulty = DifficultyMode.Normal;
     private string            _curMap = "random_map";
     private readonly List<int> _waveLives = new();
 
@@ -49,15 +52,26 @@ public class BotRunner
     private void StartNextRun()
     {
         int idx      = _results.Count;
-        // Cycle through (map, strategy) pairs
-        int mapIdx   = (idx / _strategies.Length) % _maps.Length;
+        // Cycle through (map, difficulty, strategy) combinations
+        int totalCombos = _strategies.Length * _difficulties.Length;
+        int mapIdx   = (idx / totalCombos) % _maps.Length;
+        int comboIdx = idx % totalCombos;
+        int diffIdx  = comboIdx / _strategies.Length;
+        int stratIdx = comboIdx % _strategies.Length;
+        
         _curMap      = _maps[mapIdx];
-        _curStrategy = _strategies[idx % _strategies.Length];
+        _curDifficulty = _difficulties[diffIdx];
+        _curStrategy = _strategies[stratIdx];
+        
+        // Set difficulty for this run
+        SettingsManager.Instance?.SetDifficulty(_curDifficulty);
+        
         CurrentBot   = new BotPlayer(_curStrategy, idx * 7919);
         _waveLives.Clear();
+        
         // Set the map for this bot run
         SlotTheory.UI.MapSelectPanel.SetPendingMapSelection(_curMap);
-            GD.Print($"[BOT] Run {idx + 1}/{_totalRuns} - {_curStrategy} on {_curMap}");
+        GD.Print($"[BOT] Run {idx + 1}/{_totalRuns} - {_curStrategy} on {_curMap} ({_curDifficulty})");
     }
 
     /// <summary>Call after each wave completes, before WaveIndex increments.</summary>
@@ -77,7 +91,7 @@ public class BotRunner
 
         _results.Add(new RunResult(
             _curStrategy, _curMap, won, waveReached, state.Lives,
-            [.. _waveLives], towers, mods));
+            [.. _waveLives], towers, mods, _curDifficulty));
 
         if (HasMoreRuns) StartNextRun();
     }
@@ -89,7 +103,7 @@ public class BotRunner
 
         GD.Print("");
         GD.Print("+==================================================================+");
-        GD.Print($"|  SLOT THEORY PLAYTEST - {total} runs across {_strategies.Length} strategies   |");
+        GD.Print($"|  SLOT THEORY PLAYTEST - {total} runs across {_strategies.Length} strategies × {_difficulties.Length} difficulties   |");
         GD.Print("+==================================================================+");
         GD.Print("");
 
@@ -105,6 +119,18 @@ public class BotRunner
             float avgWave  = (float)runs.Average(r => r.WaveReached);
             float avgLives = (float)runs.Average(r => r.LivesEnd);
             GD.Print($"{strat,-16} {runs.Count,5} {wins,5} {winPct,5:0}% {avgWave,10:0.0} {avgLives,10:0.0}");
+        }
+        
+        // ── Per-difficulty breakdown ─────────────────────────────────────────────
+        GD.Print("");
+        GD.Print("DIFFICULTY BREAKDOWN:");
+        foreach (var difficulty in _difficulties)
+        {
+            var diffResults = _results.Where(r => r.Difficulty == difficulty).ToList();
+            if (diffResults.Count == 0) continue;
+            int diffWins = diffResults.Count(r => r.Won);
+            float diffWinPct = diffWins * 100f / diffResults.Count;
+            GD.Print($"{difficulty}: {diffWins}/{diffResults.Count} wins ({diffWinPct:0}%)");
         }
         GD.Print("");
         GD.Print($"Overall: {_results.Count(r => r.Won)}/{total} wins ({_results.Count(r => r.Won) * 100 / total}%)");
@@ -138,6 +164,17 @@ public class BotRunner
                 float avgWave  = (float)stratRuns.Average(r => r.WaveReached);
                 float avgLives = (float)stratRuns.Average(r => r.LivesEnd);
                 GD.Print($"| {strat,-16} {stratRuns.Count,4}  {wins,4}  {winPct,4:0}%  {avgWave,8:0.0}  {avgLives,9:0.0}                      |");
+            }
+            
+            // Per-difficulty breakdown for this map
+            GD.Print($"| DIFFICULTY BREAKDOWN:                                  |");
+            foreach (var difficulty in _difficulties)
+            {
+                var diffMapResults = mapResults.Where(r => r.Difficulty == difficulty).ToList();
+                if (diffMapResults.Count == 0) continue;
+                int diffWins = diffMapResults.Count(r => r.Won);
+                float diffWinPct = diffWins * 100f / diffMapResults.Count;
+                GD.Print($"|   {difficulty}: {diffWins}/{diffMapResults.Count} wins ({diffWinPct:0}%)                                       |");
             }
 
             // Per-map wave difficulty
