@@ -13,7 +13,7 @@ public partial class EndScreen : CanvasLayer
 	private Label _titleLabel    = null!;
 	private Label _subtitleLabel = null!;
 	private Label _statsLabel    = null!;
-	private Label _runNameLabel  = null!;
+	private RichTextLabel _runNameLabel  = null!;
 	private Label _mvpLabel      = null!;
 	private Label _modLabel      = null!;
 	private Label _buildLabel    = null!;
@@ -57,9 +57,18 @@ public partial class EndScreen : CanvasLayer
 		_statsLabel.Visible = false;
 		vbox.AddChild(_statsLabel);
 
-		_runNameLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
-		UITheme.ApplyFont(_runNameLabel, semiBold: true, size: 24);
-		_runNameLabel.Modulate = new Color(0.95f, 0.84f, 0.45f);
+		_runNameLabel = new RichTextLabel
+		{
+			BbcodeEnabled = true,
+			ScrollActive = false,
+			FitContent = true,
+			AutowrapMode = TextServer.AutowrapMode.Off,
+			HorizontalAlignment = HorizontalAlignment.Center,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+			CustomMinimumSize = new Vector2(0f, 34f),
+		};
+		_runNameLabel.AddThemeFontOverride("normal_font", UITheme.SemiBold);
+		_runNameLabel.AddThemeFontSizeOverride("normal_font_size", 24);
 		_runNameLabel.Visible = false;
 		vbox.AddChild(_runNameLabel);
 
@@ -113,14 +122,14 @@ public partial class EndScreen : CanvasLayer
 		Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 	}
 
-	public void ShowWin(int kills, int damageDealt, string buildSummary, string runName, string mvpLine, string modLine)
+	public void ShowWin(int kills, int damageDealt, string buildSummary, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor)
 	{
 		_titleLabel.Text = "VICTORY";
 		_titleLabel.Modulate = new Color(0.3f, 1.0f, 0.5f);
 		_subtitleLabel.Text = $"All {Balance.TotalWaves} waves survived!";
 		_statsLabel.Text = $"Enemies killed: {kills}  -  Total damage: {damageDealt:N0}";
 		_statsLabel.Visible = true;
-		_runNameLabel.Text = runName.Length > 0 ? $"Build Name: {runName}" : "";
+		SetRunNameGradient(runName, runStartColor, runEndColor);
 		_runNameLabel.Visible = runName.Length > 0;
 		_mvpLabel.Text = mvpLine;
 		_mvpLabel.Visible = mvpLine.Length > 0;
@@ -132,14 +141,14 @@ public partial class EndScreen : CanvasLayer
 		Visible = true;
 	}
 
-	public void ShowLoss(int waveReached, int livesLost, int kills, int damageDealt, string buildSummary, RunState runState, string runName, string mvpLine, string modLine)
+	public void ShowLoss(int waveReached, int livesLost, int kills, int damageDealt, string buildSummary, RunState runState, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor)
 	{
 		_titleLabel.Text = "GAME OVER";
 		_titleLabel.Modulate = new Color(1.0f, 0.35f, 0.35f);
 		_subtitleLabel.Text = $"Reached wave {waveReached} / {Balance.TotalWaves}  -  Lives lost: {livesLost}";
 		_statsLabel.Text = $"Enemies killed: {kills}  -  Total damage: {damageDealt:N0}";
 		_statsLabel.Visible = kills > 0 || damageDealt > 0;
-		_runNameLabel.Text = runName.Length > 0 ? $"Build Name: {runName}" : "";
+		SetRunNameGradient(runName, runStartColor, runEndColor);
 		_runNameLabel.Visible = runName.Length > 0;
 		_mvpLabel.Text = mvpLine;
 		_mvpLabel.Visible = mvpLine.Length > 0;
@@ -161,6 +170,32 @@ public partial class EndScreen : CanvasLayer
 		}
 
 		Visible = true;
+	}
+
+	private void SetRunNameGradient(string runName, Color startColor, Color endColor)
+	{
+		_runNameLabel.Clear();
+		if (string.IsNullOrEmpty(runName)) return;
+		_runNameLabel.AppendText(BuildGradientBbCode($"Build Name: {runName}", startColor, endColor));
+	}
+
+	private static string BuildGradientBbCode(string text, Color start, Color end)
+	{
+		if (string.IsNullOrEmpty(text))
+			return "";
+		if (text.Length == 1)
+			return $"[color=#{start.ToHtml(false)}]{text}[/color]";
+
+		var sb = new System.Text.StringBuilder(text.Length * 24);
+		for (int i = 0; i < text.Length; i++)
+		{
+			float t = i / (float)(text.Length - 1);
+			var c = start.Lerp(end, t);
+			sb.Append("[color=#").Append(c.ToHtml(false)).Append(']');
+			sb.Append(text[i]);
+			sb.Append("[/color]");
+		}
+		return sb.ToString();
 	}
 
 	/// <summary>Generates causal insights about why the player lost.</summary>

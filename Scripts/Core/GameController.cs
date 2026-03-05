@@ -181,9 +181,10 @@ public partial class GameController : Node
 			int livesLost = Balance.StartingLives - _runState.Lives;
 			SoundManager.Instance?.Play("game_over");
 			string runName = BuildRunName();
+			var runColors = BuildRunNameColors();
 			string mvpLine = BuildMvpLine();
 			string modLine = BuildMostValuableModLine();
-			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary(), _runState, runName, mvpLine, modLine);
+			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary(), _runState, runName, mvpLine, modLine, runColors.start, runColors.end);
 			return;
 		}
 
@@ -198,9 +199,10 @@ public partial class GameController : Node
 				CurrentPhase = GamePhase.Win;
 				SoundManager.Instance?.Play("victory");
 				string runName = BuildRunName();
+				var runColors = BuildRunNameColors();
 				string mvpLine = BuildMvpLine();
 				string modLine = BuildMostValuableModLine();
-				_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary(), runName, mvpLine, modLine);
+				_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end);
 			}
 			else
 			{
@@ -348,23 +350,7 @@ public partial class GameController : Node
 		{
 			if (targetSlotIndex >= 0 && targetSlotIndex < _runState.Slots.Length && _runState.Slots[targetSlotIndex].Tower == null)
 			{
-				var optionsSnapshot = _draftPanel.GetLastOptionsSnapshot();
-				var (waveNumber, pickNumber, totalPicks) = _draftPanel.GetLastDraftMeta();
 				PlaceTower(option.Id, targetSlotIndex);
-
-				// Single-step undo safety net for tower misclicks.
-				if (_botRunner == null)
-				{
-					BeginTowerUndoWindow(
-						targetSlotIndex,
-						optionsSnapshot,
-						waveNumber,
-						pickNumber,
-						totalPicks,
-						AdvanceAfterDraftPickFlow
-					);
-					return;
-				}
 			}
 		}
 		else
@@ -1604,6 +1590,70 @@ public partial class GameController : Node
 
 	private string BuildRunName()
 	{
+		var (dominantFamily, mvpTowerId, familyCount, mvpDamage) = GetRunIdentity();
+
+		string[] adjectives = dominantFamily switch
+		{
+			"DamageScaling" => new[] { "Overclocked", "Brutal", "Overkill", "Hotwired" },
+			"Utility" => new[] { "Cryo", "Chill", "Control", "Frost" },
+			"Range" => new[] { "Longshot", "Horizon", "Overreach", "Linelock" },
+			"StatusSynergy" => new[] { "Marked", "Exploit", "Hex", "Punisher" },
+			"MultiTarget" => new[] { "Chain", "Split", "Cascade", "Storm" },
+			_ => new[] { "Neon", "Pulse", "Flux", "Vector" },
+		};
+
+		string[] nouns = mvpTowerId switch
+		{
+			"rapid_shooter" => new[] { "Needler", "Ripper" },
+			"heavy_cannon" => new[] { "Cannon", "Driver" },
+			"marker_tower" => new[] { "Beacon", "Painter" },
+			"chain_tower" => new[] { "Coil", "Emitter" },
+			_ => new[] { "Rig", "Array" },
+		};
+
+		int adjectiveIdx = Mathf.Abs(_runState.RngSeed ^ _runState.TotalKills ^ (familyCount << 3)) % adjectives.Length;
+		int nounIdx = Mathf.Abs((_runState.RngSeed << 1) ^ _runState.TotalDamageDealt ^ mvpDamage) % nouns.Length;
+		return $"{adjectives[adjectiveIdx]} {nouns[nounIdx]}";
+	}
+
+	private (Color start, Color end) BuildRunNameColors()
+	{
+		var (dominantFamily, mvpTowerId, _, _) = GetRunIdentity();
+		var familyColor = dominantFamily switch
+		{
+			"DamageScaling" => new Color(1.00f, 0.60f, 0.20f),
+			"Utility" => new Color(0.45f, 0.92f, 1.00f),
+			"Range" => new Color(0.72f, 0.58f, 1.00f),
+			"StatusSynergy" => new Color(1.00f, 0.36f, 0.80f),
+			"MultiTarget" => new Color(0.48f, 1.00f, 0.76f),
+			_ => new Color(0.78f, 0.88f, 1.00f),
+		};
+
+		var towerColor = mvpTowerId switch
+		{
+			"rapid_shooter" => new Color(0.25f, 0.92f, 1.00f),
+			"heavy_cannon" => new Color(1.00f, 0.60f, 0.18f),
+			"marker_tower" => new Color(1.00f, 0.30f, 0.72f),
+			"chain_tower" => new Color(0.62f, 0.90f, 1.00f),
+			_ => new Color(0.84f, 0.92f, 1.00f),
+		};
+
+		return (EnsureBrightColor(familyColor), EnsureBrightColor(towerColor));
+	}
+
+	private static Color EnsureBrightColor(Color c)
+	{
+		float max = Mathf.Max(c.R, Mathf.Max(c.G, c.B));
+		if (max < 0.78f)
+		{
+			float scale = 0.78f / Mathf.Max(0.001f, max);
+			c = new Color(c.R * scale, c.G * scale, c.B * scale, 1f);
+		}
+		return new Color(Mathf.Clamp(c.R, 0f, 1f), Mathf.Clamp(c.G, 0f, 1f), Mathf.Clamp(c.B, 0f, 1f), 1f);
+	}
+
+	private (string dominantFamily, string mvpTowerId, int familyCount, int mvpDamage) GetRunIdentity()
+	{
 		var familyCounts = new System.Collections.Generic.Dictionary<string, int>();
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
@@ -1631,30 +1681,9 @@ public partial class GameController : Node
 		string mvpTowerId = (mvp != null && mvp.Slot >= 0 && mvp.Slot < _runState.Slots.Length)
 			? _runState.Slots[mvp.Slot].Tower?.TowerId ?? ""
 			: _runState.Slots.FirstOrDefault(s => s.Tower != null)?.Tower?.TowerId ?? "";
-
-		string[] adjectives = dominantFamily switch
-		{
-			"DamageScaling" => new[] { "Overclocked", "Brutal", "Overkill", "Hotwired" },
-			"Utility" => new[] { "Cryo", "Chill", "Control", "Frost" },
-			"Range" => new[] { "Longshot", "Horizon", "Overreach", "Linelock" },
-			"StatusSynergy" => new[] { "Marked", "Exploit", "Hex", "Punisher" },
-			"MultiTarget" => new[] { "Chain", "Split", "Cascade", "Storm" },
-			_ => new[] { "Neon", "Pulse", "Flux", "Vector" },
-		};
-
-		string[] nouns = mvpTowerId switch
-		{
-			"rapid_shooter" => new[] { "Needler", "Ripper" },
-			"heavy_cannon" => new[] { "Cannon", "Driver" },
-			"marker_tower" => new[] { "Beacon", "Painter" },
-			"chain_tower" => new[] { "Coil", "Emitter" },
-			_ => new[] { "Rig", "Array" },
-		};
-
 		int familyCount = familyCounts.TryGetValue(dominantFamily, out int count) ? count : 0;
-		int adjectiveIdx = Mathf.Abs(_runState.RngSeed ^ _runState.TotalKills ^ (familyCount << 3)) % adjectives.Length;
-		int nounIdx = Mathf.Abs((_runState.RngSeed << 1) ^ _runState.TotalDamageDealt ^ (mvp?.Damage ?? 0)) % nouns.Length;
-		return $"{adjectives[adjectiveIdx]} {nouns[nounIdx]}";
+		int mvpDamage = mvp?.Damage ?? 0;
+		return (dominantFamily, mvpTowerId, familyCount, mvpDamage);
 	}
 
 	private static string ModifierFamily(string modifierId) => modifierId switch
@@ -1698,7 +1727,9 @@ public partial class GameController : Node
 			_pathFlow?.TriggerSurge(1.0f);
 		}
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
-		_hudPanel.SetBuildName(BuildRunName(), visible: true);
+		string runName = BuildRunName();
+		var runColors = BuildRunNameColors();
+		_hudPanel.SetBuildName(runName, visible: true, startColor: runColors.start, endColor: runColors.end);
 	}
 
 	private void ShakeWorld()

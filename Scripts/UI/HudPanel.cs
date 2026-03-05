@@ -9,7 +9,7 @@ namespace SlotTheory.UI;
 public partial class HudPanel : CanvasLayer
 {
     private Label _waveLabel = null!;
-    private Label _buildLabel = null!;
+    private RichTextLabel _buildLabel = null!;
     private Label _livesLabel = null!;
     private Label _enemyLabel = null!;
     private Label _speedToast = null!;
@@ -38,39 +38,26 @@ public partial class HudPanel : CanvasLayer
         leftPad.CustomMinimumSize = new Vector2(18f, 0f);
         hbox.AddChild(leftPad);
 
-        _buildLabel = new Label
+        _buildLabel = new RichTextLabel
         {
-            Text = "",
+            BbcodeEnabled = true,
+            ScrollActive = false,
+            FitContent = true,
             Visible = false,
-            HorizontalAlignment = HorizontalAlignment.Left,
-            VerticalAlignment = VerticalAlignment.Center,
+            AutowrapMode = TextServer.AutowrapMode.Off,
             CustomMinimumSize = new Vector2(340f, 0f),
             Modulate = new Color(0.74f, 0.88f, 1.00f, 0.96f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
         };
-        UITheme.ApplyFont(_buildLabel, semiBold: true, size: 30);
+        _buildLabel.AddThemeFontOverride("normal_font", UITheme.SemiBold);
+        _buildLabel.AddThemeFontSizeOverride("normal_font_size", 30);
+        _buildLabel.AddThemeConstantOverride("line_separation", 0);
         hbox.AddChild(_buildLabel);
 
         // Spacer to keep right HUD controls on the far side.
         var left = new Control();
         left.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         hbox.AddChild(left);
-
-        _enemyLabel = new Label();
-        _enemyLabel.Text = "";
-        _enemyLabel.AddThemeFontSizeOverride("font_size", 16);
-        _enemyLabel.HorizontalAlignment = HorizontalAlignment.Center;
-        _enemyLabel.Modulate = new Color(1f, 1f, 1f, 0.6f);
-        hbox.AddChild(_enemyLabel);
-
-        var mid2 = new Control();
-        mid2.CustomMinimumSize = new Vector2(40, 0);
-        hbox.AddChild(mid2);
-
-        _livesLabel = new Label();
-        _livesLabel.Text = $"Lives: {Balance.StartingLives}";
-        _livesLabel.AddThemeFontSizeOverride("font_size", 22);
-        _livesLabel.HorizontalAlignment = HorizontalAlignment.Center;
-        hbox.AddChild(_livesLabel);
 
         // Right side: speed toggle + ESC hint
         var right = new Control();
@@ -138,6 +125,46 @@ public partial class HudPanel : CanvasLayer
         };
         _waveLabel.AddThemeFontSizeOverride("font_size", 22);
         bar.AddChild(_waveLabel);
+
+        float enemyOffsetX = OS.GetName() == "Android" ? 120f : 175f;
+        float livesOffsetX = OS.GetName() == "Android" ? 220f : 310f;
+
+        _enemyLabel = new Label
+        {
+            Text = "",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            AnchorLeft = 0.5f,
+            AnchorRight = 0.5f,
+            AnchorTop = 0f,
+            AnchorBottom = 0f,
+            OffsetLeft = enemyOffsetX - 56f,
+            OffsetRight = enemyOffsetX + 56f,
+            OffsetTop = 0f,
+            OffsetBottom = 44f,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Modulate = new Color(1f, 1f, 1f, 0.62f),
+        };
+        _enemyLabel.AddThemeFontSizeOverride("font_size", 16);
+        bar.AddChild(_enemyLabel);
+
+        _livesLabel = new Label
+        {
+            Text = $"Lives: {Balance.StartingLives}",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            AnchorLeft = 0.5f,
+            AnchorRight = 0.5f,
+            AnchorTop = 0f,
+            AnchorBottom = 0f,
+            OffsetLeft = livesOffsetX - 92f,
+            OffsetRight = livesOffsetX + 92f,
+            OffsetTop = 0f,
+            OffsetBottom = 44f,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        _livesLabel.AddThemeFontSizeOverride("font_size", 22);
+        bar.AddChild(_livesLabel);
 
         _speedToast = new Label
         {
@@ -217,11 +244,37 @@ public partial class HudPanel : CanvasLayer
           .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
     }
 
-    public void SetBuildName(string buildName, bool visible = true)
+    public void SetBuildName(string buildName, bool visible = true, Color? startColor = null, Color? endColor = null)
     {
         if (!GodotObject.IsInstanceValid(_buildLabel)) return;
-        _buildLabel.Text = buildName;
+        _buildLabel.Clear();
+        if (buildName.Length > 0)
+        {
+            var c0 = startColor ?? new Color(0.74f, 0.88f, 1.00f);
+            var c1 = endColor ?? c0;
+            _buildLabel.AppendText(BuildGradientBbCode(buildName, c0, c1));
+        }
         _buildLabel.Visible = visible && buildName.Length > 0;
+    }
+
+    private static string BuildGradientBbCode(string text, Color start, Color end)
+    {
+        if (string.IsNullOrEmpty(text))
+            return "";
+
+        if (text.Length == 1)
+            return $"[color=#{start.ToHtml(false)}]{text}[/color]";
+
+        var sb = new System.Text.StringBuilder(text.Length * 24);
+        for (int i = 0; i < text.Length; i++)
+        {
+            float t = i / (float)(text.Length - 1);
+            var c = start.Lerp(end, t);
+            sb.Append("[color=#").Append(c.ToHtml(false)).Append(']');
+            sb.Append(text[i]);
+            sb.Append("[/color]");
+        }
+        return sb.ToString();
     }
 
     public void RefreshEnemies(int alive, int total)
