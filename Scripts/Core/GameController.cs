@@ -41,12 +41,14 @@ public partial class GameController : Node
 	private bool     _highlightedSlotValid = false;
 	private Map _currentMap = null!;
 	private Node2D _mapVisuals = null!;
+	private PathFlow? _pathFlow;
 	private Panel _tooltipPanel = null!;
 	private Label _tooltipLabel = null!;
 	private TowerInstance? _selectedTooltipTower;
 	private Label _waveAnnounce = null!;
 	private Label _threatWarn = null!;
 	private Label _placementLabel = null!;
+	private Label _clutchToast = null!;
 	private ColorRect _waveClearFlash = null!;
 	private ColorRect _threatPulse = null!;
 	private Node2D _worldNode = null!;
@@ -61,6 +63,9 @@ public partial class GameController : Node
 	private float _hitStopCooldown = 0f;
 	private string _draftSynergyHintModifierId = "";
 	private float _draftSynergyPulseT = 0f;
+	private float _lowLivesHeartbeatTimer = 0f;
+	private readonly System.Collections.Generic.Dictionary<string, ulong> _combatCalloutNextMs = new();
+	private readonly System.Collections.Generic.Dictionary<ulong, (ulong firstMs, int count)> _feedbackLoopBurst = new();
 	private readonly System.Collections.Generic.Dictionary<string, int> _modifierProcCounts = new();
 
 	public override void _Ready()
@@ -135,7 +140,11 @@ public partial class GameController : Node
 		if (_botRunner == null) UpdatePlacementLabel();
 		if (_botRunner == null) UpdateProcVisuals((float)delta);
 
-		if (CurrentPhase != GamePhase.Wave) return;
+		if (CurrentPhase != GamePhase.Wave)
+		{
+			_lowLivesHeartbeatTimer = 0f;
+			return;
+		}
 
 		if (_botRunner != null) { BotTick(); return; }
 
@@ -143,7 +152,14 @@ public partial class GameController : Node
 		var result = _combatSim.Step((float)delta, _runState, _waveSystem);
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 		_hudPanel.RefreshEnemies(_runState.EnemiesAlive.Count, _waveSystem.GetTotalCount());
-		if (_runState.Lives < livesBefore) { _hudPanel.FlashLives(); ShakeWorld(); }
+		if (_runState.Lives < livesBefore)
+		{
+			_hudPanel.FlashLives();
+			ShakeWorld();
+			if (_runState.Lives <= 2)
+				ShowClutchToast(_runState.Lives <= 1 ? "TOO CLOSE" : "CLUTCH");
+		}
+		UpdateLowLivesTension((float)delta);
 
 		if (result == WaveResult.Loss)
 		{
@@ -245,6 +261,7 @@ public partial class GameController : Node
 	}
 
 	public RunState GetRunState() => _runState;
+	public string GetCurrentRunName() => BuildRunName();
 
 	/// <summary>Wipe all in-flight state and restart from wave 1 draft.</summary>
 	public void RestartRun()
@@ -276,6 +293,9 @@ public partial class GameController : Node
 		_preHitStopTimeScale = 1.0;
 		_draftSynergyHintModifierId = "";
 		_draftSynergyPulseT = 0f;
+		_lowLivesHeartbeatTimer = 0f;
+		_combatCalloutNextMs.Clear();
+		_feedbackLoopBurst.Clear();
 		_modifierProcCounts.Clear();
 		_hudPanel.Refresh(1, Balance.StartingLives);
 		_hudPanel.ResetSpeed();
@@ -728,15 +748,16 @@ public partial class GameController : Node
 		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 16f,  DefaultColor = new Color(1.0f, 0.10f, 0.55f, 0.18f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
 		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 3f,   DefaultColor = new Color(1.0f, 0.25f, 0.65f, 0.85f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
 		// Path flow arrows
-		var pathFlow = new PathFlow();
-		_mapVisuals.AddChild(pathFlow);
-		pathFlow.Initialize(_currentMap.Path);
+		_pathFlow = new PathFlow();
+		_mapVisuals.AddChild(_pathFlow);
+		_pathFlow.Initialize(_currentMap.Path);
 	}
 
 	private void ClearMapVisuals()
 	{
 		while (_mapVisuals.GetChildCount() > 0)
 			_mapVisuals.GetChild(0).Free();
+		_pathFlow = null;
 	}
 
 	private void ClearSlotVisuals()
@@ -971,6 +992,23 @@ public partial class GameController : Node
 		_placementLabel.Modulate = new Color(1f, 0.85f, 0.15f);
 		anchor.AddChild(_placementLabel);
 
+		_clutchToast = new Label
+		{
+			Text = "",
+			HorizontalAlignment = HorizontalAlignment.Center,
+			AnchorLeft = 0f,
+			AnchorRight = 1f,
+			AnchorTop = 0.48f,
+			AnchorBottom = 0.48f,
+			OffsetTop = -18f,
+			OffsetBottom = 18f,
+			Visible = false,
+			Modulate = new Color(1.00f, 0.84f, 0.32f, 0f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		UITheme.ApplyFont(_clutchToast, semiBold: true, size: 30);
+		anchor.AddChild(_clutchToast);
+
 		_waveClearFlash = new ColorRect();
 		_waveClearFlash.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		_waveClearFlash.Color   = new Color(0.10f, 1f, 0.45f, 0f);
@@ -1032,6 +1070,151 @@ public partial class GameController : Node
 			_threatWarn.Visible = false;
 			_threatPulse.Visible = false;
 		}));
+	}
+
+	private void UpdateLowLivesTension(float delta)
+	{
+		if (CurrentPhase != GamePhase.Wave || _runState.Lives > 2 || _botRunner != null)
+		{
+			_lowLivesHeartbeatTimer = 0f;
+			return;
+		}
+
+		_lowLivesHeartbeatTimer -= delta;
+		if (_lowLivesHeartbeatTimer > 0f) return;
+
+		SoundManager.Instance?.Play("low_heartbeat");
+		_lowLivesHeartbeatTimer = _runState.Lives <= 1 ? 0.62f : 0.86f;
+	}
+
+	private void ShowClutchToast(string text)
+	{
+		if (!GodotObject.IsInstanceValid(_clutchToast) || _botRunner != null) return;
+		_clutchToast.Text = text;
+		_clutchToast.Visible = true;
+		_clutchToast.Scale = new Vector2(1.08f, 1.08f);
+		_clutchToast.Modulate = new Color(1.00f, 0.84f, 0.32f, 0f);
+		var tw = _clutchToast.CreateTween();
+		tw.TweenProperty(_clutchToast, "modulate:a", 1f, 0.08f);
+		tw.TweenProperty(_clutchToast, "scale", Vector2.One, 0.08f)
+		  .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+		tw.Chain().TweenInterval(0.19f);
+		tw.TweenProperty(_clutchToast, "modulate:a", 0f, 0.12f);
+		tw.TweenCallback(Callable.From(() => _clutchToast.Visible = false));
+	}
+
+	private bool TryCombatCallout(string id, float cooldownSec)
+	{
+		ulong now = Time.GetTicksMsec();
+		if (_combatCalloutNextMs.TryGetValue(id, out ulong nextMs) && now < nextMs)
+			return false;
+
+		_combatCalloutNextMs[id] = now + (ulong)(Mathf.Max(0.1f, cooldownSec) * 1000f);
+		return true;
+	}
+
+	private void SpawnCombatCallout(string text, Vector2 worldPos, Color color)
+	{
+		if (_botRunner != null) return;
+		var callout = new CombatCallout();
+		_worldNode.AddChild(callout);
+		callout.GlobalPosition = worldPos + new Vector2(0f, -16f);
+		callout.Initialize(text, color);
+	}
+
+	public void NotifyOverkillSpill(Vector2 worldPos, float spillDamage)
+	{
+		if (spillDamage < 34f) return;
+		if (!TryCombatCallout("overkill_spill", 6.5f)) return;
+		SpawnCombatCallout("OVERKILL SPILL", worldPos, new Color(1.00f, 0.56f, 0.25f));
+	}
+
+	public void NotifyFeedbackLoopProc(TowerInstance tower)
+	{
+		if (_botRunner != null || CurrentPhase != GamePhase.Wave) return;
+
+		ulong id = tower.GetInstanceId();
+		ulong now = Time.GetTicksMsec();
+		if (_feedbackLoopBurst.TryGetValue(id, out var state) && now - state.firstMs <= 1300)
+			_feedbackLoopBurst[id] = (state.firstMs, state.count + 1);
+		else
+			_feedbackLoopBurst[id] = (now, 1);
+
+		var burst = _feedbackLoopBurst[id];
+		if (burst.count < 3) return;
+
+		_feedbackLoopBurst.Remove(id);
+		if (!TryCombatCallout("feedback_loop", 8.0f)) return;
+		SpawnCombatCallout("FEEDBACK LOOP", tower.GlobalPosition + new Vector2(0f, -10f), new Color(0.62f, 1.00f, 0.88f));
+	}
+
+	public void NotifyChainMaxBounce(Vector2 worldPos, int bounceCount)
+	{
+		if (bounceCount < 2) return;
+		if (!TryCombatCallout("chain_reaction", 7.0f)) return;
+		SpawnCombatCallout("CHAIN REACTION", worldPos, new Color(0.56f, 0.95f, 1.00f));
+	}
+
+	public void PlayModifierLockInFx(int slotIndex, string modifierId, System.Action? onComplete = null)
+	{
+		if (_botRunner != null || slotIndex < 0 || slotIndex >= _slotNodes.Length)
+		{
+			onComplete?.Invoke();
+			return;
+		}
+
+		SoundManager.Instance?.Play("ui_lock_in_hard");
+
+		// One-frame white edge flash on target border.
+		if (GodotObject.IsInstanceValid(_slotPreviewGlows[slotIndex]))
+		{
+			var glow = _slotPreviewGlows[slotIndex];
+			glow.DefaultColor = Colors.White;
+			glow.Modulate = new Color(1f, 1f, 1f, 1f);
+			var flash = glow.CreateTween();
+			flash.TweenProperty(glow, "modulate", Colors.Transparent, 0.06f);
+		}
+
+		ModifierIcon icon;
+		bool tempIcon = false;
+		if (GodotObject.IsInstanceValid(_previewModifierIcon) && _previewModifierIcon.GetParent() == _slotNodes[slotIndex])
+		{
+			icon = _previewModifierIcon;
+		}
+		else
+		{
+			tempIcon = true;
+			icon = new ModifierIcon
+			{
+				Size = new Vector2(18f, 18f),
+				CustomMinimumSize = new Vector2(18f, 18f),
+				Position = new Vector2(-9f, -9f),
+				MouseFilter = Control.MouseFilterEnum.Ignore,
+			};
+			_slotNodes[slotIndex].AddChild(icon);
+		}
+
+		var accent = ModifierVisuals.GetAccent(modifierId);
+		icon.ModifierId = modifierId;
+		icon.IconColor = accent;
+		icon.Modulate = new Color(1f, 1f, 1f, 1f);
+		icon.Scale = new Vector2(0.96f, 0.96f);
+		icon.Visible = true;
+		var snap = icon.CreateTween();
+		snap.TweenProperty(icon, "scale", new Vector2(1.08f, 1.08f), 0.06f)
+		    .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+		snap.TweenProperty(icon, "scale", Vector2.One, 0.06f)
+		    .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+
+		GetTree().CreateTimer(0.12f).Timeout += () =>
+		{
+			if (tempIcon && GodotObject.IsInstanceValid(icon))
+				icon.QueueFree();
+			else if (GodotObject.IsInstanceValid(_previewModifierIcon))
+				_previewModifierIcon.Visible = false;
+
+			onComplete?.Invoke();
+		};
 	}
 
 	private string BuildBuildSummary()
@@ -1206,7 +1389,12 @@ public partial class GameController : Node
 		_combatSim.ResetForWave(_waveSystem);
 		SoundManager.Instance?.Play("wave_start");
 		if (waveNumber >= Balance.TotalWaves)
+		{
 			SoundManager.Instance?.Play("wave20_start");
+			SoundManager.Instance?.Play("wave20_swell");
+			_hudPanel.PulseWaveLabel();
+			_pathFlow?.TriggerSurge(1.0f);
+		}
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 	}
 

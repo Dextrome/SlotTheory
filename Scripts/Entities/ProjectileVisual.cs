@@ -137,6 +137,7 @@ public partial class ProjectileVisual : Node2D
 
         Vector2 chainFrom = startWorldPos;
         float   damage    = _tower.BaseDamage * _tower.ChainDamageDecay;
+        int     bounceHits = 0;
 
         for (int bounce = 0; bounce < _tower.ChainCount; bounce++)
         {
@@ -174,7 +175,11 @@ public partial class ProjectileVisual : Node2D
             alreadyHit.Add(chainTarget);
             chainFrom = chainTarget.GlobalPosition;
             damage   *= _tower.ChainDamageDecay;
+            bounceHits++;
         }
+
+        if (_tower.ChainCount > 0 && bounceHits >= _tower.ChainCount)
+            GameController.Instance?.NotifyChainMaxBounce(chainFrom, bounceHits);
     }
 
     private void SpawnSplitProjectiles(Vector2 impactPos)

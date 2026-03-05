@@ -30,6 +30,7 @@ public partial class SoundManager : Node
     private int                             _musicPos;
     private AudioStreamPlayer?              _musicPlayer;
     private AudioStreamGeneratorPlayback?   _musicPlayback;
+    private float _speedFxPitch = 1f;
 
     private bool _headless;
 
@@ -74,10 +75,15 @@ public partial class SoundManager : Node
         Reg("ui_card_pick",    Tone(240f, 0.07f, vol: 0.42f, shape: 'q', env: 'f'));
         Reg("ui_preview_ghost", Tone(640f, 0.045f, vol: 0.22f, shape: 's', env: 'f'));
         Reg("ui_lock_in",      Seq(new[] { 320f, 460f }, gapMs: 10, noteLen: 0.08f, vol: 0.60f));
+        Reg("ui_lock_in_hard", Seq(new[] { 180f, 320f, 520f }, gapMs: 8, noteLen: 0.09f, vol: 0.76f));
+        Reg("ui_thunk",        Tone(120f, 0.06f, vol: 0.34f, shape: 's', env: 'f'));
+        Reg("ui_speed_shift",  Sweep(260f, 720f, 0.09f, vol: 0.30f));
         Reg("card_shing",      Sweep(900f, 1650f, 0.08f, vol: 0.25f));
         Reg("ui_select",       Tone(740f, 0.05f, vol: 0.26f, shape: 's', env: 'f'));
         Reg("tower_place",     Seq(new[] { 380f, 560f }, gapMs: 10, noteLen: 0.07f, vol: 0.46f));
         Reg("ui_hover",        Tone(900f, 0.025f, vol: 0.18f, shape: 's', env: 'f'));
+        Reg("low_heartbeat",   Seq(new[] { 74f, 58f }, gapMs: 40, noteLen: 0.10f, vol: 0.42f));
+        Reg("wave20_swell",    Sweep(90f, 480f, 0.56f, vol: 0.62f));
 
         StartMusic();
     }
@@ -194,11 +200,23 @@ public partial class SoundManager : Node
         var player = _pool[idx];
 
         player.Stop();
-        player.PitchScale = Mathf.Clamp(pitchScale, 0.75f, 1.40f);
+        player.PitchScale = Mathf.Clamp(pitchScale * _speedFxPitch, 0.75f, 1.40f);
         player.Play();
         var playback = (AudioStreamGeneratorPlayback)player.GetStreamPlayback();
         playback.PushBuffer(samples);
         _poolTimers[idx] = dur + 0.05f;
+    }
+
+    public void SetSpeedFeel(float speedScale)
+    {
+        if (_headless) return;
+
+        // Subtle "machine pushed harder" effect at 2x/3x.
+        float speedOver = Mathf.Max(0f, speedScale - 1f);
+        _speedFxPitch = 1f + speedOver * 0.026f; // 2x: 1.026, 3x: 1.052
+
+        if (_musicPlayer != null)
+            _musicPlayer.PitchScale = 1f + speedOver * 0.012f;
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────
