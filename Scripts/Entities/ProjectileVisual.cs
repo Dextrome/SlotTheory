@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using SlotTheory.Combat;
+using SlotTheory.Core;
 
 namespace SlotTheory.Entities;
 
@@ -22,7 +23,7 @@ public partial class ProjectileVisual : Node2D
     private bool  _isSplitProjectile;
     private float _damageOverride = -1f;
 
-    private const int TrailMax = 10;
+    private const int TrailMax = 14;
     private readonly List<Vector2> _trail = new();
 
     public void Initialize(Vector2 fromGlobal, EnemyInstance target, Color color, float speed,
@@ -49,19 +50,19 @@ public partial class ProjectileVisual : Node2D
         {
             float t = i / (float)_trail.Count;
             DrawLine(ToLocal(_trail[i - 1]), ToLocal(_trail[i]),
-                new Color(_color.R, _color.G, _color.B, t * 0.55f),
-                t * 3f);
+                new Color(_color.R, _color.G, _color.B, t * 0.82f),
+                1.2f + t * 4.2f);
         }
 
         // Glow bloom behind diamond head
-        DrawCircle(Vector2.Zero, 8f, new Color(_color.R, _color.G, _color.B, 0.25f));
-        DrawCircle(Vector2.Zero, 4f, new Color(1f, 1f, 1f, 0.20f));
+        DrawCircle(Vector2.Zero, 10f, new Color(_color.R, _color.G, _color.B, 0.30f));
+        DrawCircle(Vector2.Zero, 5f, new Color(1f, 1f, 1f, 0.25f));
 
         // Diamond head
         DrawPolygon(
-            new[] { new Vector2(0f, -4f), new Vector2(4f, 0f), new Vector2(0f, 4f), new Vector2(-4f, 0f) },
+            new[] { new Vector2(0f, -5f), new Vector2(5f, 0f), new Vector2(0f, 5f), new Vector2(-5f, 0f) },
             new[] { _color });
-        DrawCircle(Vector2.Zero, 1.5f, new Color(1f, 1f, 1f, 0.85f));
+        DrawCircle(Vector2.Zero, 2.0f, new Color(1f, 1f, 1f, 0.90f));
     }
 
     public override void _Process(double delta)
@@ -100,16 +101,23 @@ public partial class ProjectileVisual : Node2D
                 {
                     bool isKill = _target.Hp <= 0;
                     SpawnDamageNumber(_target.GlobalPosition, dealt, isKill);
+                    if (isKill)
+                    {
+                        bool heavy = _tower?.TowerId == "heavy_cannon";
+                        GameController.Instance?.TriggerHitStop(
+                            realDuration: heavy ? 0.055f : 0.040f,
+                            slowScale: heavy ? 0.16f : 0.22f);
+                    }
                     if (!isKill && GodotObject.IsInstanceValid(_target))
                         _target.FlashHit();
                 }
 
                 // Chain bounces first (hitscan) — split shot then picks from surviving enemies
-                if (_tower.IsChainTower && !_isSplitProjectile)
+                if (_tower!.IsChainTower && !_isSplitProjectile)
                     ApplyChainHits(_target.GlobalPosition);
 
                 // Split Shot — fires at enemies that weren't already killed by chain
-                if (_tower.SplitCount > 0 && !_isSplitProjectile)
+                if (_tower!.SplitCount > 0 && !_isSplitProjectile)
                     SpawnSplitProjectiles(_target.GlobalPosition);
             }
             QueueFree();
@@ -157,6 +165,8 @@ public partial class ProjectileVisual : Node2D
             {
                 bool isKill = chainTarget.Hp <= 0;
                 SpawnDamageNumber(chainTarget.GlobalPosition, dealt, isKill);
+                if (isKill)
+                    GameController.Instance?.TriggerHitStop(realDuration: 0.038f, slowScale: 0.24f);
                 if (!isKill && GodotObject.IsInstanceValid(chainTarget))
                     chainTarget.FlashHit();
             }

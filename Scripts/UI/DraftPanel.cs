@@ -30,8 +30,8 @@ public partial class DraftPanel : CanvasLayer
     private int _lastPickNumber = 1;
     private int _lastTotalPicks = 1;
     private const float CardInitialDelaySeconds = 0.35f;
-    private const float CardStaggerSeconds = 0.35f;
-    private const float CardEntranceSeconds = 0.25f;
+    private const float CardStaggerSeconds = 0.29f;
+    private const float CardEntranceSeconds = 0.24f;
 
     public bool IsAwaitingSlot => _pendingTower != null;
     public bool IsAwaitingTower => _pendingModifier != null;
@@ -314,7 +314,8 @@ public partial class DraftPanel : CanvasLayer
         }
 
         float widthScale = Mathf.Clamp(cardWidth / 230f, 0.72f, 1f);
-        float cardHeight = Mathf.Lerp(104f, 142f, widthScale);
+        // Taller cards to fit roughly two extra description lines.
+        float cardHeight = Mathf.Lerp(132f, 186f, widthScale);
         int titleSize = Mathf.RoundToInt(21f * widthScale);
         int bodySize = Mathf.RoundToInt(14f * widthScale);
         int statSize = Mathf.RoundToInt(13f * widthScale);
