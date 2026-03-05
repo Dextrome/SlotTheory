@@ -86,6 +86,17 @@ public partial class HudPanel : CanvasLayer
         escHint.VerticalAlignment = VerticalAlignment.Center;
         rightHbox.AddChild(escHint);
 
+        // Mobile menu button (Android only)
+        if (OS.GetName() == "Android")
+        {
+            var mobileMenuBtn = new Button();
+            mobileMenuBtn.Text = "☰";
+            mobileMenuBtn.CustomMinimumSize = new Vector2(50, 0);
+            mobileMenuBtn.AddThemeFontSizeOverride("font_size", 20);
+            mobileMenuBtn.Pressed += OnMobileMenuPressed;
+            rightHbox.AddChild(mobileMenuBtn);
+        }
+
         // small right pad
         var pad = new Control();
         pad.CustomMinimumSize = new Vector2(8, 0);
@@ -126,5 +137,20 @@ public partial class HudPanel : CanvasLayer
     public void RefreshEnemies(int alive, int total)
     {
         _enemyLabel.Text = alive > 0 ? $"{alive} / {total}" : "";
+    }
+
+    private void OnMobileMenuPressed()
+    {
+        // Find and show pause screen on mobile
+        var pauseScreens = GetTree().GetNodesInGroup("pause_screen");
+        
+        foreach (Node node in pauseScreens)
+        {
+            if (node is CanvasLayer pauseScreen)
+            {
+                pauseScreen.Show();
+                break;
+            }
+        }
     }
 }
