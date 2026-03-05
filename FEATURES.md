@@ -165,9 +165,9 @@ Each tower cycles through 3 modes via left-click (desktop) or tap (mobile):
 
 | Icon | Mode | Behaviour |
 |---|---|---|
-| ▶ | First | Highest progress along path (default) |
-| ★ | Strongest | Highest current HP in range |
-| ▼ | Lowest HP | Lowest current HP in range (finisher) |
+| Right Arrow badge | First | Highest progress along path (default) |
+| Star badge | Strongest | Highest current HP in range |
+| Down Arrow badge | Lowest HP | Lowest current HP in range (finisher) |
 
 ---
 
@@ -214,8 +214,8 @@ Full-screen overlay shown between waves:
 | **Wave preview footer** | Blue-tinted label below the cards: `"↓ 22 Basic · 3 Armored [clumped]"` so the player knows what's coming before committing |
 | Card layout | Tower cards (name + stats) or modifier cards (name + description) |
 | **Enhanced card sizing** | Cards automatically scale to fit content; taller cards (132-186px height) accommodate detailed modifier descriptions |
-| **Smooth animation** | Card entrance staggered at 0.29s intervals with 0.24s entrance duration for polished presentation |
-| **Draft REVEAL ritual** | Face-down hold + staggered flip reveal (~120ms hold, 400ms stagger), per-card shing SFX, and icon/title micro-punch animation |
+| **Smooth animation** | Card entrance staggered at 0.29s intervals with 0.34s entrance duration for polished presentation |
+| **Draft REVEAL ritual** | Enhanced face-down hold + staggered flip reveal with card pre-punch (scale/tilt/fade-in), stronger flip squash/overshoot, reveal burst FX (white pulse + neon accent streak), and enhanced icon/title punch animation. Card-back shows single large ? that scales with card height. |
 | **BONUS PICK stamp** | Animated stamp overlay on multi-pick waves (Wave 1 and Wave 15) for visual emphasis |
 | **Rare foil shimmer** | 1-in-12 drafts feature subtle foil shimmer pass effect (visual-only enhancement) |
 | **Smart synergy hints** | Modifier cards show tiny synergy tags (e.g. "GOOD WITH: MARKED"); hover (desktop) or tap-hold (mobile) pulse-highlights synergy towers in world |
@@ -265,7 +265,7 @@ Each placed tower renders entirely via `_Draw()`:
 | Glow layers | Each tower has 2–3 soft radial glow circles behind the main shape |
 | Charge arc | Thin bright arc sweeps clockwise from 12 o'clock showing cooldown progress; dim background ring behind it |
 | Range circle | Faint filled polygon (10% opacity) + subtle Line2D border showing attack range |
-| Targeting icon | `▶` / `★` / `▼` label centred on the **slot** node (not the tower), so it stays upright as the tower rotates |
+| Targeting icon | Procedural right-arrow / star / down-arrow icon in a square badge on the **slot** node (not the tower), so it stays upright while tower bodies rotate |
 | **Tower rotation** | Tower body rotates smoothly to face its last target (`LerpAngle` at 15 rad/s); barrel aims at -Y axis |
 | **Placement bounce** | Tower scales from 0 → 1.15 → 1.0 over 0.25 s with Back/Out + Sine/InOut eases on placement |
 | **Attack flash** | Tower briefly pulses to 1.4× brightness then fades back (0.03 s spike, 0.25 s Expo/Out decay) on each shot |

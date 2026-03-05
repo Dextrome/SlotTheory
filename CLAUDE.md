@@ -192,7 +192,7 @@ Build a `DamageContext` (attacker, target, base damage, wave index) → apply mo
 - `Polygon2D` — semi-transparent range circle (10% opacity)
 - `ColorRect` — tower body square (color varies by tower type)
 - `ColorRect` track + `ColorRect` fill — cooldown bar below square; fill width updated every frame in `TowerInstance._Process`
-- `Label` — targeting mode icon (▶/★/▼); updated via `TowerInstance.CycleTargetingMode()`
+- `TargetModeIcon` - procedural targeting badge icon (right-arrow / star / down-arrow); updated via `TowerInstance.CycleTargetingMode()`
 - All visual child nodes must have `MouseFilter = Control.MouseFilterEnum.Ignore` or `_Input` click events on the tower won't fire
 
 ### Click / tooltip system:

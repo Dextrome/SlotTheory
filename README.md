@@ -99,10 +99,11 @@ Click a tower during a wave to cycle through targeting priorities:
 
 | Icon | Mode | Target |
 |---|---|---|
-| ▶ | **First** | Enemy furthest along the path |
-| ★ | **Strongest** | Enemy with the most current HP |
-| ▼ | **Lowest HP** | Enemy closest to death |
+| Right Arrow badge | **First** | Enemy furthest along the path |
+| Star badge | **Strongest** | Enemy with the most current HP |
+| Down Arrow badge | **Lowest HP** | Enemy closest to death |
 
+Target badges use procedural icons with normalized sizing so all modes read clearly at a glance.
 Hover over a tower to see its current targeting mode and equipped modifiers.
 
 ---

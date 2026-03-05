@@ -1,7 +1,8 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Godot;
 using SlotTheory.Core;
 using SlotTheory.Modifiers;
+using SlotTheory.UI;
 
 namespace SlotTheory.Entities;
 
@@ -35,7 +36,7 @@ public partial class TowerInstance : Node2D
 
     public bool CanAddModifier => Modifiers.Count < Balance.MaxModifiersPerTower;
 
-    public Label?    ModeLabel   { get; set; }
+    public TargetModeIcon? ModeIconControl { get; set; }
     public Polygon2D? RangeCircle { get; set; }
     public Line2D?   RangeBorder  { get; set; }
     private float _idleTime = 0f;
@@ -155,17 +156,9 @@ public partial class TowerInstance : Node2D
             TargetingMode.Strongest => TargetingMode.LowestHp,
             _                      => TargetingMode.First,
         };
-        if (ModeLabel != null)
-            ModeLabel.Text = ModeIcon(TargetingMode);
+        if (ModeIconControl != null)
+            ModeIconControl.Mode = TargetingMode;
     }
-
-    public static string ModeIcon(TargetingMode mode) => mode switch
-    {
-        TargetingMode.First     => "▶",
-        TargetingMode.Strongest => "★",
-        TargetingMode.LowestHp  => "▼",
-        _                      => "▶",
-    };
 
     public override void _Draw()
     {
