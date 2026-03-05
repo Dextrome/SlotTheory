@@ -2,7 +2,27 @@
 
 This document reflects the current implementation in code/data.
 
+**Current Status:** All documented features are fully implemented and production-ready. Recent implementation includes enhanced undo system, combat callout notifications, low-life tension feedback, and comprehensive audio polish.
+
 Platforms: Windows Desktop, Android (phone and tablet)
+
+---
+
+## Recent Implementation
+
+**Undo Safety Net:** Single-step undo for tower placement with 2-second window. UNDO toast button appears after placement, allowing reversion to draft choice state.
+
+**Combat Callouts:** World-space notifications for major modifier procs (OVERKILL SPILL, FEEDBACK LOOP, CHAIN REACTION) with cooldown-gating.
+
+**Low-Life Tension:** Heartbeat audio effect during waves when lives ≤ 2. "CLUTCH" / "TOO CLOSE" toast on enemy leaks at low lives.
+
+**Run Arc Pacing:** Wave 10 HALFWAY banner pulse with short music lift cue for mid-run momentum.
+
+**Enhanced Build Identity:** Deterministic build naming with [family adjective] + [tower noun] style. MVP tower tracking (% of total damage) and Most Valuable Modifier (proc count).
+
+**Speed Enhancement:** "Speed feels like power" - center SPEED X× toast with neon streak on toggle, subtle SFX/music pitch lift at 2×/3×.
+
+**Signature Flourish:** Scanline-style signature streak on key moments (Bonus Pick waves, wave beat labels).
 
 ---
 
@@ -233,8 +253,11 @@ Current behavior decision:
 - Cancel while awaiting world placement:
   - ESC returns to draft choices
 - Undo safety net:
-  - Tower placement only
-  - 2 s undo window with UNDO button
+  - Tower placement only (not modifiers)
+  - 2 s undo window with UNDO toast button
+  - Restores draft choice completely (same options, same wave state)
+  - Auto-commits after timeout to prevent blocking
+  - Single-step only (cannot chain undos)
 
 ---
 
@@ -338,9 +361,11 @@ Mobile:
 - Short `CLUTCH` / `TOO CLOSE` toast on low-life leaks.
 - Wave clear flash + short hold before next draft.
 - Combat callouts for major proc moments:
-  - `OVERKILL SPILL`
-  - `FEEDBACK LOOP`
-  - `CHAIN REACTION`
+  - `OVERKILL SPILL` (when excess damage transfers)
+  - `FEEDBACK LOOP` (when cooldown reduction triggers)
+  - `CHAIN REACTION` (when chain modifiers activate)
+  - **Implementation:** World-space notifications with cooldown-gating to prevent spam
+  - **Thresholds:** Only triggers on meaningful proc counts to avoid noise
 
 ---
 

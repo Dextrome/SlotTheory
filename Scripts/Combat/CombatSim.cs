@@ -294,10 +294,11 @@ public class CombatSim
             _ => targetsInRange
         };
         
+        int splitTargets = tower.SplitCount + 1; // match live projectile behavior
         int hitCount = 0;
         foreach (var target in sortedTargets)
         {
-            if (hitCount >= tower.SplitCount) break;
+            if (hitCount >= splitTargets) break;
             DamageModel.Apply(new DamageContext(tower, target, waveIndex, enemies, _state,
                                                 isChain: true, damageOverride: splitDamage));
             hitCount++;
