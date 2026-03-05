@@ -38,7 +38,7 @@ public partial class DraftPanel : CanvasLayer
     private readonly RandomNumberGenerator _rng = new();
     private const float CardFaceDownHoldSeconds = 0.12f;
     private const float CardStaggerSeconds = 0.40f;
-    private const float CardEntranceSeconds = 0.24f;
+    private const float CardEntranceSeconds = 0.34f;
     private const float TouchHoldHintMs = 170f;
 
     public bool IsAwaitingSlot => _pendingTower != null;
@@ -446,7 +446,7 @@ public partial class DraftPanel : CanvasLayer
             btn.AddChild(cardBack);
 
             _cardRow.AddChild(btn);
-            AnimateCardReveal(btn, front, cardBack, i, punchTargets.iconNode, punchTargets.titleNode, isFoil: i == _foilCardIndex);
+            AnimateCardReveal(btn, front, cardBack, accent, i, punchTargets.iconNode, punchTargets.titleNode, isFoil: i == _foilCardIndex);
         }
     }
 
@@ -538,7 +538,7 @@ public partial class DraftPanel : CanvasLayer
         };
     }
 
-    private void AnimateCardReveal(Button btn, Control front, Control cardBack, int index, Control? iconNode, Control? titleNode, bool isFoil)
+    private void AnimateCardReveal(Button btn, Control front, Control cardBack, Color accent, int index, Control? iconNode, Control? titleNode, bool isFoil)
     {
         float delay = CardFaceDownHoldSeconds + index * CardStaggerSeconds;
         btn.GetTree().CreateTimer(delay).Timeout += () =>
@@ -547,38 +547,71 @@ public partial class DraftPanel : CanvasLayer
             if (!GodotObject.IsInstanceValid(front) || !GodotObject.IsInstanceValid(cardBack)) return;
 
             SoundManager.Instance?.Play("card_shing");
+            btn.Scale = new Vector2(0.92f, 0.92f);
+            btn.RotationDegrees = -5f;
+            btn.Modulate = new Color(1f, 1f, 1f, 0.82f);
+
+            var cardPunch = btn.CreateTween();
+            cardPunch.SetParallel(true);
+            cardPunch.TweenProperty(btn, "scale", new Vector2(1.08f, 1.08f), CardEntranceSeconds * 0.30f)
+                .SetTrans(Tween.TransitionType.Back)
+                .SetEase(Tween.EaseType.Out);
+            cardPunch.TweenProperty(btn, "rotation_degrees", 2f, CardEntranceSeconds * 0.30f)
+                .SetTrans(Tween.TransitionType.Sine)
+                .SetEase(Tween.EaseType.Out);
+            cardPunch.TweenProperty(btn, "modulate:a", 1f, CardEntranceSeconds * 0.28f)
+                .SetTrans(Tween.TransitionType.Sine)
+                .SetEase(Tween.EaseType.Out);
+            cardPunch.Chain().SetParallel(true);
+            cardPunch.TweenProperty(btn, "scale", Vector2.One, CardEntranceSeconds * 0.24f)
+                .SetTrans(Tween.TransitionType.Sine)
+                .SetEase(Tween.EaseType.InOut);
+            cardPunch.TweenProperty(btn, "rotation_degrees", 0f, CardEntranceSeconds * 0.24f)
+                .SetTrans(Tween.TransitionType.Sine)
+                .SetEase(Tween.EaseType.InOut);
 
             var flipOut = btn.CreateTween();
-            flipOut.TweenProperty(cardBack, "scale:x", 0f, CardEntranceSeconds * 0.44f)
+            flipOut.SetParallel(true);
+            flipOut.TweenProperty(cardBack, "scale:x", 0f, CardEntranceSeconds * 0.40f)
                 .SetTrans(Tween.TransitionType.Sine)
                 .SetEase(Tween.EaseType.In);
+            flipOut.TweenProperty(cardBack, "scale:y", 1.14f, CardEntranceSeconds * 0.40f)
+                .SetTrans(Tween.TransitionType.Sine)
+                .SetEase(Tween.EaseType.Out);
+            flipOut.Chain();
             flipOut.TweenCallback(Callable.From(() =>
             {
                 if (!GodotObject.IsInstanceValid(cardBack) || !GodotObject.IsInstanceValid(front)) return;
                 cardBack.Visible = false;
                 front.Visible = true;
-                front.Scale = new Vector2(0.02f, 1f);
+                front.Scale = new Vector2(0.02f, 1.14f);
+                PlayRevealBurst(front, btn.CustomMinimumSize, accent);
             }));
 
             var flipIn = btn.CreateTween();
-            flipIn.TweenInterval(CardEntranceSeconds * 0.44f);
-            flipIn.TweenProperty(front, "scale:x", 1.06f, CardEntranceSeconds * 0.36f)
+            flipIn.TweenInterval(CardEntranceSeconds * 0.40f);
+            flipIn.SetParallel(true);
+            flipIn.TweenProperty(front, "scale:x", 1.12f, CardEntranceSeconds * 0.34f)
                 .SetTrans(Tween.TransitionType.Back)
                 .SetEase(Tween.EaseType.Out);
-            flipIn.TweenProperty(front, "scale:x", 1f, CardEntranceSeconds * 0.20f)
+            flipIn.TweenProperty(front, "scale:y", 1.06f, CardEntranceSeconds * 0.34f)
+                .SetTrans(Tween.TransitionType.Back)
+                .SetEase(Tween.EaseType.Out);
+            flipIn.Chain();
+            flipIn.TweenProperty(front, "scale", Vector2.One, CardEntranceSeconds * 0.22f)
                 .SetTrans(Tween.TransitionType.Sine)
                 .SetEase(Tween.EaseType.InOut);
 
             if (iconNode != null && titleNode != null)
             {
                 var punch = btn.CreateTween();
-                punch.TweenInterval(CardEntranceSeconds * 0.78f);
+                punch.TweenInterval(CardEntranceSeconds * 0.70f);
                 punch.SetParallel(true);
-                punch.TweenProperty(iconNode, "scale", new Vector2(1.04f, 1.04f), 0.07f);
-                punch.TweenProperty(titleNode, "scale", new Vector2(1.04f, 1.04f), 0.07f);
+                punch.TweenProperty(iconNode, "scale", new Vector2(1.08f, 1.08f), 0.085f);
+                punch.TweenProperty(titleNode, "scale", new Vector2(1.06f, 1.06f), 0.085f);
                 punch.Chain().SetParallel(true);
-                punch.TweenProperty(iconNode, "scale", Vector2.One, 0.07f);
-                punch.TweenProperty(titleNode, "scale", Vector2.One, 0.07f);
+                punch.TweenProperty(iconNode, "scale", Vector2.One, 0.08f);
+                punch.TweenProperty(titleNode, "scale", Vector2.One, 0.08f);
             }
 
             if (isFoil)
@@ -642,16 +675,64 @@ public partial class DraftPanel : CanvasLayer
 
         var glyph = new Label
         {
-            Text = "??",
+            Text = "?",
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             MouseFilter = Control.MouseFilterEnum.Ignore,
             Modulate = new Color(0.72f, 0.80f, 1.00f, 0.76f),
         };
         glyph.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        UITheme.ApplyFont(glyph, semiBold: true, size: 24);
+        int glyphSize = Mathf.Clamp(Mathf.RoundToInt(cardHeight * 0.38f), 36, 58);
+        UITheme.ApplyFont(glyph, semiBold: true, size: glyphSize);
         root.AddChild(glyph);
         return root;
+    }
+
+    private static void PlayRevealBurst(Control front, Vector2 cardSize, Color accent)
+    {
+        var pulse = new ColorRect
+        {
+            Color = new Color(1.00f, 1.00f, 1.00f, 0f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        pulse.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        front.AddChild(pulse);
+
+        var pulseTween = pulse.CreateTween();
+        pulseTween.TweenProperty(pulse, "color:a", 0.26f, 0.045f)
+            .SetTrans(Tween.TransitionType.Sine)
+            .SetEase(Tween.EaseType.Out);
+        pulseTween.TweenProperty(pulse, "color:a", 0f, 0.20f)
+            .SetTrans(Tween.TransitionType.Expo)
+            .SetEase(Tween.EaseType.Out);
+        pulseTween.TweenCallback(Callable.From(() =>
+        {
+            if (GodotObject.IsInstanceValid(pulse))
+                pulse.QueueFree();
+        }));
+
+        var streak = new ColorRect
+        {
+            Color = new Color(accent.R, accent.G, accent.B, 0f),
+            Position = new Vector2(-78f, -24f),
+            Size = new Vector2(48f, cardSize.Y + 48f),
+            RotationDegrees = 20f,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        front.AddChild(streak);
+
+        var streakTween = streak.CreateTween();
+        streakTween.SetParallel(true);
+        streakTween.TweenProperty(streak, "color:a", 0.26f, 0.07f);
+        streakTween.TweenProperty(streak, "position:x", cardSize.X + 78f, 0.30f)
+            .SetTrans(Tween.TransitionType.Sine)
+            .SetEase(Tween.EaseType.InOut);
+        streakTween.Chain().TweenProperty(streak, "color:a", 0f, 0.10f);
+        streakTween.TweenCallback(Callable.From(() =>
+        {
+            if (GodotObject.IsInstanceValid(streak))
+                streak.QueueFree();
+        }));
     }
 
     private static void PlayFoilShimmer(Control front, Vector2 cardSize)
@@ -668,12 +749,12 @@ public partial class DraftPanel : CanvasLayer
 
         var tw = shimmer.CreateTween();
         tw.SetParallel(true);
-        tw.TweenProperty(shimmer, "modulate:a", 0.22f, 0.08f);
+        tw.TweenProperty(shimmer, "color:a", 0.22f, 0.08f);
         tw.TweenProperty(shimmer, "position:x", cardSize.X + 52f, 0.45f)
             .SetTrans(Tween.TransitionType.Sine)
             .SetEase(Tween.EaseType.InOut);
         tw.Chain();
-        tw.TweenProperty(shimmer, "modulate:a", 0f, 0.08f);
+        tw.TweenProperty(shimmer, "color:a", 0f, 0.08f);
         tw.TweenCallback(Callable.From(() =>
         {
             if (GodotObject.IsInstanceValid(shimmer))

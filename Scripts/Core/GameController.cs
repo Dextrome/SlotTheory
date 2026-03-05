@@ -409,20 +409,17 @@ public partial class GameController : Node
 			Antialiased = true,
 		};
 		_slotNodes[slotIndex].AddChild(modeBadgeBorder);
-		var modeLabel = new Label
+		var modeIcon = new TargetModeIcon
 		{
-			Text = TowerInstance.ModeIcon(TargetingMode.First),
-			HorizontalAlignment = HorizontalAlignment.Center,
-			VerticalAlignment = VerticalAlignment.Center,
-			Position = Vector2.Zero,
-			Size = new Vector2(18f, 18f),
+			Mode = TargetingMode.First,
+			IconColor = new Color(0.95f, 0.98f, 1.00f),
+			Position = new Vector2(2f, 2f),
+			Size = new Vector2(14f, 14f),
+			CustomMinimumSize = new Vector2(14f, 14f),
 			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
-		UITheme.ApplyFont(modeLabel, semiBold: true, size: 12);
-		modeLabel.AddThemeConstantOverride("outline_size", 0);
-		modeLabel.AddThemeColorOverride("font_color", Colors.White);
-		modeBadge.AddChild(modeLabel);
-		tower.ModeLabel = modeLabel;
+		modeBadge.AddChild(modeIcon);
+		tower.ModeIconControl = modeIcon;
 
 		_slotNodes[slotIndex].AddChild(tower);
 		_runState.Slots[slotIndex].Tower = tower;

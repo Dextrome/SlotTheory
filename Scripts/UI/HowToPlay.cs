@@ -1,4 +1,5 @@
 using Godot;
+using SlotTheory.Entities;
 
 namespace SlotTheory.UI;
 
@@ -91,9 +92,10 @@ public partial class HowToPlay : Node
 
 		// ── Targeting ────────────────────────────────────────────────────
 		AddHeader(vbox, "TARGETING MODES  (click a tower mid-wave to cycle)");
-		AddRow(vbox, "▶  First",      "Enemy furthest along the path");
-		AddRow(vbox, "★  Strongest",  "Enemy with the most current HP");
-		AddRow(vbox, "▼  Lowest HP",  "Enemy closest to death");
+		AddLine(vbox, "The same icon badge appears beside each tower during combat.");
+		AddTargetModeRow(vbox, TargetingMode.First, "First", "Enemy furthest along the path");
+		AddTargetModeRow(vbox, TargetingMode.Strongest, "Strongest", "Enemy with the most current HP");
+		AddTargetModeRow(vbox, TargetingMode.LowestHp, "Lowest HP", "Enemy closest to death");
 		AddSpacer(vbox, 12);
 
 		// ── Mark ─────────────────────────────────────────────────────────
@@ -228,6 +230,64 @@ public partial class HowToPlay : Node
 		lblRight.AddThemeFontSizeOverride("font_size", rowSize);
 		lblRight.Modulate = new Color(0.60f, 0.60f, 0.60f);
 		lblRight.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		hbox.AddChild(lblRight);
+	}
+
+	private static void AddTargetModeRow(VBoxContainer vbox, TargetingMode mode, string label, string value)
+	{
+		var hbox = new HBoxContainer();
+		hbox.AddThemeConstantOverride("separation", 8);
+		vbox.AddChild(hbox);
+
+		var indent = new Control { CustomMinimumSize = new Vector2(8f, 0f) };
+		hbox.AddChild(indent);
+
+		var badge = new ColorRect
+		{
+			Color = new Color(0.02f, 0.03f, 0.09f, 0.86f),
+			CustomMinimumSize = new Vector2(20f, 20f),
+			Size = new Vector2(20f, 20f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		hbox.AddChild(badge);
+
+		var border = new Line2D
+		{
+			Points = new[]
+			{
+				new Vector2(0f, 0f), new Vector2(20f, 0f), new Vector2(20f, 20f),
+				new Vector2(0f, 20f), new Vector2(0f, 0f)
+			},
+			Width = 1.5f,
+			DefaultColor = new Color(0.68f, 0.94f, 1.00f, 0.90f),
+			Antialiased = true,
+		};
+		badge.AddChild(border);
+
+		var icon = new TargetModeIcon
+		{
+			Mode = mode,
+			Position = new Vector2(3f, 3f),
+			Size = new Vector2(14f, 14f),
+			CustomMinimumSize = new Vector2(14f, 14f),
+			IconColor = Colors.White,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		badge.AddChild(icon);
+
+		var rowSize = MobileOptimization.IsMobile() ? 14 : 16;
+
+		var lblLeft = new Label { Text = label };
+		lblLeft.AddThemeFontSizeOverride("font_size", rowSize);
+		lblLeft.Modulate = new Color(0.90f, 0.90f, 0.90f);
+		lblLeft.CustomMinimumSize = new Vector2(MobileOptimization.IsMobile() ? 86f : 110f, 0f);
+		hbox.AddChild(lblLeft);
+
+		var lblRight = new Label { Text = value };
+		lblRight.AddThemeFontSizeOverride("font_size", rowSize);
+		lblRight.Modulate = new Color(0.60f, 0.60f, 0.60f);
+		lblRight.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		lblRight.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 		hbox.AddChild(lblRight);
 	}
 
