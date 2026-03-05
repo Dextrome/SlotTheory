@@ -170,7 +170,7 @@ public partial class GameController : Node
 					{
 						GD.Print("App paused - auto-pausing game");
 						var pauseScreen = GetNode<PauseScreen>("../PauseScreen");
-						pauseScreen?.Show();
+						pauseScreen?.Pause();
 					}
 					break;
 
