@@ -29,9 +29,13 @@ public partial class GameController : Node
 	private Node2D[]      _slotNodes           = new Node2D[Balance.SlotCount];
 	private Line2D[]      _slotHighlights      = new Line2D[Balance.SlotCount];
 	private Line2D[]      _slotPreviewGlows    = new Line2D[Balance.SlotCount];
+	private Line2D[]      _slotProcHalos       = new Line2D[Balance.SlotCount];
 	private Tween?[]      _slotHighlightTweens = new Tween?[Balance.SlotCount];
 	private ColorRect[][] _slotModPips         = new ColorRect[Balance.SlotCount][];
 	private ModifierIcon[][] _slotModIcons     = new ModifierIcon[Balance.SlotCount][];
+	private float[] _slotProcHaloRemaining     = new float[Balance.SlotCount];
+	private Color[] _slotProcHaloColor         = new Color[Balance.SlotCount];
+	private float[,] _slotModIconPulseRemaining = new float[Balance.SlotCount, Balance.MaxModifiersPerTower];
 	private int      _highlightedSlot      = -1;
 	private bool     _highlightedSlotValid = false;
 	private Map _currentMap = null!;
@@ -49,6 +53,9 @@ public partial class GameController : Node
 	private int _previewGhostSlot = -1;
 	private float _previewGhostPhase = 0f;
 	private ModifierIcon? _previewModifierIcon;
+	private bool _hitStopActive = false;
+	private double _preHitStopTimeScale = 1.0;
+	private float _hitStopCooldown = 0f;
 
 	public override void _Ready()
 	{
@@ -115,6 +122,7 @@ public partial class GameController : Node
 			ClearModifierPreviewGhost();
 
 		if (_botRunner == null) UpdatePlacementLabel();
+		if (_botRunner == null) UpdateProcVisuals((float)delta);
 
 		if (CurrentPhase != GamePhase.Wave) return;
 
@@ -246,6 +254,9 @@ public partial class GameController : Node
 		_combatSim.ResetForWave();
 		_endScreen.Visible = false;
 		Engine.TimeScale = 1.0;   // always reset speed on new run
+		_hitStopActive = false;
+		_hitStopCooldown = 0f;
+		_preHitStopTimeScale = 1.0;
 		_hudPanel.Refresh(1, Balance.StartingLives);
 		_hudPanel.ResetSpeed();
 
@@ -521,6 +532,13 @@ public partial class GameController : Node
 		_slotNodes[i].AddChild(previewGlow);
 		_slotPreviewGlows[i] = previewGlow;
 
+		var procHalo = new Line2D { Points = hlSq, Width = 5.2f, DefaultColor = new Color(0.70f, 0.95f, 1.00f, 0.92f) };
+		procHalo.Modulate = Colors.Transparent;
+		_slotNodes[i].AddChild(procHalo);
+		_slotProcHalos[i] = procHalo;
+		_slotProcHaloRemaining[i] = 0f;
+		_slotProcHaloColor[i] = Colors.White;
+
 			// Mod-count pip — just below slot square, shown only when tower has ≥ 1 modifier
 			// Modifier pips — 3 small squares below slot, one per modifier slot
 			var pips = new ColorRect[Balance.MaxModifiersPerTower];
@@ -550,6 +568,7 @@ public partial class GameController : Node
 				};
 				_slotNodes[i].AddChild(icon);
 				icons[p] = icon;
+				_slotModIconPulseRemaining[i, p] = 0f;
 			}
 			_slotModPips[i] = pips;
 			_slotModIcons[i] = icons;
@@ -965,6 +984,97 @@ public partial class GameController : Node
 		}
 		_placementLabel.Text = _draftPanel.PlacementHint;
 		_placementLabel.Visible = true;
+	}
+
+	public void NotifyModifierProc(TowerInstance tower, string modifierId)
+	{
+		int slot = -1;
+		for (int i = 0; i < _runState.Slots.Length; i++)
+		{
+			if (_runState.Slots[i].Tower == tower) { slot = i; break; }
+		}
+		if (slot < 0) return;
+
+		_slotProcHaloRemaining[slot] = Mathf.Max(_slotProcHaloRemaining[slot], 0.20f);
+		_slotProcHaloColor[slot] = ModifierVisuals.GetAccent(modifierId);
+
+		for (int p = 0; p < Balance.MaxModifiersPerTower; p++)
+		{
+			if (p >= tower.Modifiers.Count) break;
+			if (tower.Modifiers[p].ModifierId != modifierId) continue;
+			_slotModIconPulseRemaining[slot, p] = Mathf.Max(_slotModIconPulseRemaining[slot, p], 0.24f);
+		}
+	}
+
+	public void TriggerHitStop(float realDuration = 0.042f, float slowScale = 0.20f)
+	{
+		if (_botRunner != null || CurrentPhase != GamePhase.Wave) return;
+		if (_hitStopActive || _hitStopCooldown > 0f) return;
+
+		_hitStopActive = true;
+		_hitStopCooldown = 0.08f;
+		_preHitStopTimeScale = Engine.TimeScale;
+		float targetScale = Mathf.Min((float)_preHitStopTimeScale, slowScale);
+		Engine.TimeScale = targetScale;
+
+		float scaledWait = Mathf.Max(0.005f, realDuration * targetScale);
+		GetTree().CreateTimer(scaledWait).Timeout += () =>
+		{
+			Engine.TimeScale = _preHitStopTimeScale;
+			_hitStopActive = false;
+		};
+	}
+
+	private void UpdateProcVisuals(float delta)
+	{
+		if (_hitStopCooldown > 0f)
+			_hitStopCooldown = Mathf.Max(0f, _hitStopCooldown - delta);
+
+		for (int i = 0; i < Balance.SlotCount; i++)
+		{
+			var halo = _slotProcHalos[i];
+			if (GodotObject.IsInstanceValid(halo))
+			{
+				float rem = _slotProcHaloRemaining[i];
+				if (rem > 0f)
+				{
+					rem = Mathf.Max(0f, rem - delta);
+					_slotProcHaloRemaining[i] = rem;
+					float t = rem / 0.20f;
+					float pulse = 0.65f + 0.35f * Mathf.Sin((1f - t) * 18f);
+					halo.DefaultColor = _slotProcHaloColor[i];
+					halo.Modulate = new Color(1f, 1f, 1f, 0.15f + 0.55f * t * pulse);
+				}
+				else
+				{
+					halo.Modulate = Colors.Transparent;
+				}
+			}
+
+			var icons = _slotModIcons[i];
+			if (icons == null) continue;
+			for (int p = 0; p < icons.Length; p++)
+			{
+				var icon = icons[p];
+				if (!GodotObject.IsInstanceValid(icon) || !icon.Visible) continue;
+
+				float rem = _slotModIconPulseRemaining[i, p];
+				if (rem > 0f)
+				{
+					rem = Mathf.Max(0f, rem - delta);
+					_slotModIconPulseRemaining[i, p] = rem;
+					float t = rem / 0.24f;
+					float amp = 1f + 0.35f * t * (0.5f + 0.5f * Mathf.Sin((1f - t) * 20f));
+					icon.Scale = new Vector2(amp, amp);
+					icon.Modulate = new Color(1.15f, 1.15f, 1.15f, 1f);
+				}
+				else
+				{
+					icon.Scale = Vector2.One;
+					icon.Modulate = new Color(1f, 1f, 1f, 0.95f);
+				}
+			}
+		}
 	}
 
 	private void RefreshModPips(int slotIndex)

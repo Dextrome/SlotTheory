@@ -39,7 +39,12 @@ public static class DamageModel
 
         // 1. Modifier damage pass — applies to all hits (primary, chain, split)
         foreach (var mod in ctx.Attacker.Modifiers)
+        {
+            float before = damage;
             mod.ModifyDamage(ref damage, ctx);
+            if (System.MathF.Abs(damage - before) > 0.001f)
+                GameController.Instance?.NotifyModifierProc(ctx.Attacker, mod.ModifierId);
+        }
 
         // 2. Global Marked bonus — all towers deal +20% to Marked enemies
         if (ctx.Target.IsMarked)
@@ -75,16 +80,26 @@ public static class DamageModel
 
         // 4. On-hit effects (skipped for chain bounces if modifier opts out)
         foreach (var mod in ctx.Attacker.Modifiers)
+        {
             if (!ctx.IsChain || mod.ApplyToChainTargets)
+            {
                 mod.OnHit(ctx);
+                GameController.Instance?.NotifyModifierProc(ctx.Attacker, mod.ModifierId);
+            }
+        }
 
         if (ctx.Attacker.AppliesMark)
             Statuses.ApplyMarked(ctx.Target, Balance.MarkedDuration);
 
         // 5. On-kill effects (run for all kills regardless of bounce type)
         if (ctx.Target.Hp <= 0)
+        {
             foreach (var mod in ctx.Attacker.Modifiers)
+            {
                 mod.OnKill(ctx);
+                GameController.Instance?.NotifyModifierProc(ctx.Attacker, mod.ModifierId);
+            }
+        }
     }
 
     /// <summary>Finds which slot index a tower belongs to for damage tracking.</summary>

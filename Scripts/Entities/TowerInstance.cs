@@ -76,6 +76,19 @@ public partial class TowerInstance : Node2D
              .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);
     }
 
+    public void KickRecoil(float distance = 3.5f)
+    {
+        if (!LastTargetPosition.HasValue) return;
+
+        var dir = (LastTargetPosition.Value - GlobalPosition).Normalized();
+        var kickOffset = -dir * distance;
+        var tween = CreateTween();
+        tween.TweenProperty(this, "position", kickOffset, 0.032f)
+             .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+        tween.TweenProperty(this, "position", Vector2.Zero, 0.075f)
+             .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+    }
+
     /// <summary>
     /// Computes the effective damage for tooltip display by applying unconditional damage modifiers.
     /// Conditional modifiers (e.g., ExploitWeakness vs Marked enemies) are conservatively omitted.

@@ -175,6 +175,8 @@ Full-screen overlay shown between waves:
 | Pick counter | `"Wave 15 Draft — Pick 2 of 2"` when a bonus pick is active |
 | **Wave preview footer** | Blue-tinted label below the cards: `"↓ 22 Basic · 3 Armored [clumped]"` so the player knows what's coming before committing |
 | Card layout | Tower cards (name + stats) or modifier cards (name + description) |
+| **Enhanced card sizing** | Cards automatically scale to fit content; taller cards (132-186px height) accommodate detailed modifier descriptions |
+| **Smooth animation** | Card entrance staggered at 0.29s intervals with 0.24s entrance duration for polished presentation |
 | Hover scale | Cards scale to 1.06× on mouse-over (0.08 s tween) |
 | Keyboard 1–5 | Press a number to select the corresponding card |
 | Key hints | `[ 1 ]` – `[ 5 ]` labels on each card |
@@ -205,6 +207,7 @@ Each of the 6 tower slots is a node with persistent child visuals:
 | Empty slot | Dark purple filled square + neon violet border (7 px thick outer + 1.5 px inner) |
 | Modifier pips | 3 small squares (6×6 px) below each slot; hidden until a tower is placed, then dim grey = empty slot, green = filled, orange = tower at max mods |
 | **Draft highlights** | Gold for valid tower slots, white for valid modifier targets, red for occupied/ineligible; fade in/out via tween |
+| **Modifier proc halo** | Color-coded halo effect around slot when modifiers activate (0.2s duration, pulsing animation) |
 
 ---
 
@@ -222,6 +225,7 @@ Each placed tower renders entirely via `_Draw()`:
 | **Tower rotation** | Tower body rotates smoothly to face its last target (`LerpAngle` at 15 rad/s); barrel aims at -Y axis |
 | **Placement bounce** | Tower scales from 0 → 1.15 → 1.0 over 0.25 s with Back/Out + Sine/InOut eases on placement |
 | **Attack flash** | Tower briefly pulses to 1.4× brightness then fades back (0.03 s spike, 0.25 s Expo/Out decay) on each shot |
+| **Recoil animation** | Tower kicks backward 3.5px from target direction on firing, returns with elastic ease (~0.1s total) |
 
 ---
 
@@ -229,11 +233,12 @@ Each placed tower renders entirely via `_Draw()`:
 
 | Effect | Detail |
 |---|---|
-| Projectile | Diamond-shaped head with a tapered glowing trail (10-point history) + glow bloom (outer 8 px + inner 4 px white); tracks target position |
+| **Enhanced projectile** | Diamond-shaped head (5px) with enhanced glowing trail (14-point history, 0.82α max) + larger bloom (10px outer + 5px inner white); tracks target position |
 | Target dies in-flight | Projectile dissolves harmlessly |
 | Damage number | Floating number drifts upward and fades over 0.7 s on hit; coloured to match the projectile |
 | **Kill-shot number** | Killing blow shows a **larger (24 px), gold** damage number instead of the standard 18 px coloured number |
 | **Enemy hit flash** | Enemy flashes to 2× brightness for 0.03 s then fades back (0.15 s Expo/Out) on every hit (skipped on kill shot) |
+| **Kill hit stop** | Brief time freeze (0.04-0.055s real-time) on enemy death; Heavy Cannon kills get longer/stronger effect (0.055s, 0.16× time scale) |
 | Death burst | Expanding ring + brief white flash at centre + **16 semi-random radial sparks** + inner ring (fades in first 60%); larger/redder for armored enemies |
 | **Chain arc** | Arc Emitter bounces draw a jagged electric arc between hit positions (4 random perpendicular jitter midpoints); fades over 0.18 s with endpoint glow blooms |
 
@@ -260,6 +265,10 @@ Visible **during wave** and **while assigning a modifier to a tower** (hides dur
 | **Wave-clear hold** | Wave completed | 0.48 s pause after the flash before the draft panel opens, giving player a moment to breathe |
 | **Enemy hit flash** | Any damage landed | Enemy node modulate spikes to 2× then decays over 0.15 s (handled by `EnemyInstance.FlashHit()`) |
 | **Tower attack flash** | Tower fires | Tower modulate spikes to 1.4× then decays over 0.25 s (handled by `TowerInstance.FlashAttack()`) |
+| **Tower recoil** | Tower fires | Tower kicks backward 3.5px from target direction, returns with back/out ease over ~0.1s |
+| **Modifier proc halo** | Modifier activates | Colored halo pulse around tower slot for 0.2s, color matches modifier type |
+| **Modifier icon pulse** | Modifier activates | Individual modifier icon scales and brightens for 0.24s with sine wave animation |
+| **Hit stop** | Enemy killed | Brief time slowdown (0.04-0.055s) with different intensities per tower type; Heavy Cannon gets strongest effect |
 | **Lives label flash** | Life lost | HUD lives label punches to 1.25× scale then returns (elastic tween) |
 | **UI hover sound** | Mouse enters any button | Short quiet high-pitched `"ui_hover"` SFX on all buttons (draft cards, pause menu, main menu) |
 
