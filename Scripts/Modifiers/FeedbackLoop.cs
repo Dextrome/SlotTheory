@@ -20,5 +20,6 @@ public class FeedbackLoop : Modifier
             0f,
             ctx.Attacker.Cooldown * (1f - Balance.FeedbackLoopCooldownReduction)
         );
+        GameController.Instance?.NotifyFeedbackLoopProc(ctx.Attacker);
     }
 }

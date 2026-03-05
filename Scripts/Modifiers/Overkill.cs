@@ -1,5 +1,6 @@
 using System.Linq;
 using SlotTheory.Combat;
+using SlotTheory.Core;
 using SlotTheory.Data;
 
 namespace SlotTheory.Modifiers;
@@ -21,6 +22,10 @@ public class Overkill : Modifier
             .MaxBy(e => e.ProgressRatio);
 
         if (next != null)
-            next.Hp -= excess * SpillEfficiency;
+        {
+            float spillDamage = excess * SpillEfficiency;
+            next.Hp -= spillDamage;
+            GameController.Instance?.NotifyOverkillSpill(next.GlobalPosition, spillDamage);
+        }
     }
 }

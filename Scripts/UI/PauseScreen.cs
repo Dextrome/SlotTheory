@@ -90,13 +90,14 @@ public partial class PauseScreen : CanvasLayer
         fsBtn.AddThemeFontSizeOverride("font_size", 20);
         fsBtn.Pressed += () =>
         {
+            SoundManager.Instance?.Play("ui_select");
             SettingsManager.Instance?.ToggleFullscreen();
             fsBtn.Text = "Display:  " + ((SettingsManager.Instance?.Fullscreen ?? false) ? "Fullscreen" : "Windowed");
         };
         vbox.AddChild(fsBtn);
 
         AddSpacer(vbox, 8);
-        AddBtn(vbox, "← Back", OnCloseSettings);
+        AddBtn(vbox, "\u2190 Back", OnCloseSettings);
     }
 
     // ── Input ────────────────────────────────────────────────────────────
@@ -112,12 +113,19 @@ public partial class PauseScreen : CanvasLayer
             {
                 // Esc while settings open → back to main pause panel
                 if (_settingsPanel.Visible)
+                {
+                    SoundManager.Instance?.Play("ui_select");
                     OnCloseSettings();
+                }
                 else
+                {
+                    SoundManager.Instance?.Play("ui_select");
                     Unpause();
+                }
             }
             else
             {
+                SoundManager.Instance?.Play("ui_select");
                 Pause();
             }
 
@@ -211,7 +219,11 @@ public partial class PauseScreen : CanvasLayer
     {
         var btn = new Button { Text = text, CustomMinimumSize = new Vector2(260, 44) };
         btn.AddThemeFontSizeOverride("font_size", 20);
-        btn.Pressed += callback;
+        btn.Pressed += () =>
+        {
+            SoundManager.Instance?.Play("ui_select");
+            callback();
+        };
         btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         parent.AddChild(btn);
     }

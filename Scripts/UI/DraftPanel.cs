@@ -13,6 +13,7 @@ namespace SlotTheory.UI;
 public partial class DraftPanel : CanvasLayer
 {
     private Label _titleLabel = null!;
+    private Label _runMemoryLabel = null!;
     private Label _bonusStamp = null!;
     private HBoxContainer _cardRow = null!;
     private Label _waveFooter = null!;
@@ -35,11 +36,17 @@ public partial class DraftPanel : CanvasLayer
     private string _touchHoldModifierId = "";
     private ulong _touchHoldStartMs = 0;
     private bool _touchHintShown = false;
+    private Button? _touchPreviewCard;
+    private ulong _touchPreviewStartMs = 0;
+    private bool _touchPreviewActive = false;
+    private bool _suppressNextCardPress = false;
+    private bool _isCardCommitInFlight = false;
     private readonly RandomNumberGenerator _rng = new();
     private const float CardFaceDownHoldSeconds = 0.12f;
     private const float CardStaggerSeconds = 0.40f;
     private const float CardEntranceSeconds = 0.34f;
     private const float TouchHoldHintMs = 170f;
+    private const ulong TouchCardPreviewMs = 250;
 
     public bool IsAwaitingSlot => _pendingTower != null;
     public bool IsAwaitingTower => _pendingModifier != null;
@@ -132,6 +139,15 @@ public partial class DraftPanel : CanvasLayer
         UITheme.ApplyFont(_titleLabel, semiBold: true, size: 28);
         vbox.AddChild(_titleLabel);
 
+        _runMemoryLabel = new Label
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Visible = false,
+            Modulate = new Color(0.70f, 0.82f, 1.00f, 0.78f),
+        };
+        UITheme.ApplyFont(_runMemoryLabel, semiBold: true, size: 14);
+        vbox.AddChild(_runMemoryLabel);
+
         _bonusStamp = new Label
         {
             Text = "BONUS PICK",
@@ -191,9 +207,19 @@ public partial class DraftPanel : CanvasLayer
     public override void _Process(double delta)
     {
         if (!Visible) return;
-        if (_touchHoldModifierId.Length == 0 || _touchHintShown) return;
-
         ulong nowMs = Time.GetTicksMsec();
+
+        if (_touchPreviewCard != null && !_touchPreviewActive && nowMs - _touchPreviewStartMs >= TouchCardPreviewMs)
+        {
+            _touchPreviewActive = true;
+            _touchPreviewCard.Scale = Vector2.One;
+            _touchPreviewCard.ZIndex = 20;
+            var tw = _touchPreviewCard.CreateTween();
+            tw.TweenProperty(_touchPreviewCard, "scale", new Vector2(1.12f, 1.12f), 0.12f)
+              .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+        }
+
+        if (_touchHoldModifierId.Length == 0 || _touchHintShown) return;
         if (nowMs - _touchHoldStartMs < (ulong)TouchHoldHintMs) return;
 
         _touchHintShown = true;
@@ -211,6 +237,12 @@ public partial class DraftPanel : CanvasLayer
             ? $"Wave {waveNumber}  -  Pick {pickNumber} of {totalPicks}"
             : $"Wave {waveNumber}  -  Choose";
 
+        var run = GameController.Instance?.GetRunState();
+        string buildName = GameController.Instance?.GetCurrentRunName() ?? "Neon Arsenal";
+        int lives = run?.Lives ?? Balance.StartingLives;
+        _runMemoryLabel.Text = $"Build: {buildName}  |  Lives: {lives}  |  Speed: {Engine.TimeScale:0.0}x";
+        _runMemoryLabel.Visible = true;
+
         _pendingModifier = null;
         _pendingTower = null;
         _previewModifierSlot = -1;
@@ -220,6 +252,11 @@ public partial class DraftPanel : CanvasLayer
         _touchHoldModifierId = "";
         _touchHoldStartMs = 0;
         _touchHintShown = false;
+        _touchPreviewCard = null;
+        _touchPreviewStartMs = 0;
+        _touchPreviewActive = false;
+        _suppressNextCardPress = false;
+        _isCardCommitInFlight = false;
         _assignLabel.Visible = false;
         _towerRow.Visible = false;
         _cardRow.Visible = true;
@@ -407,6 +444,7 @@ public partial class DraftPanel : CanvasLayer
             btn.Pressed += () => OnCardPressed(captured);
             AddHover(btn, captured);
             BindTouchHoldHint(btn, captured);
+            BindTouchCardPreview(btn, captured);
 
             var cardBody = new MarginContainer();
             cardBody.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -452,7 +490,20 @@ public partial class DraftPanel : CanvasLayer
 
     private void OnCardPressed(DraftOption opt)
     {
+        // Touch hold-preview should never immediately select the card on release.
+        if (_touchPreviewActive)
+            return;
+        if (_suppressNextCardPress)
+        {
+            _suppressNextCardPress = false;
+            return;
+        }
+        if (_isCardCommitInFlight)
+            return;
+
+        _isCardCommitInFlight = true;
         SoundManager.Instance?.Play("ui_card_pick");
+        SoundManager.Instance?.Play("ui_thunk");
         _previewModifierSlot = -1;
         _previewSetAtMs = 0;
         ClearModifierSynergyHint();
@@ -462,8 +513,12 @@ public partial class DraftPanel : CanvasLayer
             _pendingTower = opt;
         else
             _pendingModifier = opt;
-
-        Visible = false;
+        PulseDraftVignette();
+        GetTree().CreateTimer(0.06f).Timeout += () =>
+        {
+            if (GodotObject.IsInstanceValid(this))
+                Visible = false;
+        };
     }
 
     private void OnModifierSlotPicked(int slotIndex)
@@ -477,11 +532,15 @@ public partial class DraftPanel : CanvasLayer
                 return;
 
             Visible = false;
-            SoundManager.Instance?.Play("ui_lock_in");
             var pick = _pendingModifier;
-            _previewModifierSlot = -1;
-            _previewSetAtMs = 0;
-            GameController.Instance.OnDraftPick(pick, slotIndex);
+            if (pick == null) return;
+
+            GameController.Instance?.PlayModifierLockInFx(slotIndex, pick.Id, () =>
+            {
+                _previewModifierSlot = -1;
+                _previewSetAtMs = 0;
+                GameController.Instance.OnDraftPick(pick, slotIndex);
+            });
             return;
         }
 
@@ -538,6 +597,55 @@ public partial class DraftPanel : CanvasLayer
         };
     }
 
+    private void BindTouchCardPreview(Button btn, DraftOption opt)
+    {
+        btn.GuiInput += (@event) =>
+        {
+            if (@event is not InputEventScreenTouch touch) return;
+
+            if (touch.Pressed)
+            {
+                _touchPreviewCard = btn;
+                _touchPreviewStartMs = Time.GetTicksMsec();
+                _touchPreviewActive = false;
+                _suppressNextCardPress = false;
+            }
+            else if (_touchPreviewCard == btn)
+            {
+                if (_touchPreviewActive)
+                {
+                    btn.AcceptEvent();
+                    _suppressNextCardPress = true;
+                    btn.ZIndex = 0;
+                    var tw = btn.CreateTween();
+                    tw.TweenProperty(btn, "scale", Vector2.One, 0.08f)
+                      .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+                }
+
+                _touchPreviewCard = null;
+                _touchPreviewActive = false;
+                _touchPreviewStartMs = 0;
+                if (opt.Type == DraftOptionType.Modifier)
+                {
+                    _touchHoldModifierId = "";
+                    _touchHintShown = false;
+                    ClearModifierSynergyHint(opt.Id);
+                }
+            }
+        };
+    }
+
+    private void PulseDraftVignette()
+    {
+        if (!GodotObject.IsInstanceValid(_bg)) return;
+        _bg.Color = new Color(0f, 0f, 0f, 0.70f);
+        var tw = _bg.CreateTween();
+        tw.TweenProperty(_bg, "color", new Color(0f, 0f, 0f, 0.82f), 0.03f)
+          .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+        tw.TweenProperty(_bg, "color", new Color(0f, 0f, 0f, 0.70f), 0.06f)
+          .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+    }
+
     private void AnimateCardReveal(Button btn, Control front, Control cardBack, Color accent, int index, Control? iconNode, Control? titleNode, bool isFoil)
     {
         float delay = CardFaceDownHoldSeconds + index * CardStaggerSeconds;
@@ -548,7 +656,6 @@ public partial class DraftPanel : CanvasLayer
 
             SoundManager.Instance?.Play("card_shing");
             btn.Scale = new Vector2(0.92f, 0.92f);
-            btn.RotationDegrees = -5f;
             btn.Modulate = new Color(1f, 1f, 1f, 0.82f);
 
             var cardPunch = btn.CreateTween();
@@ -556,17 +663,11 @@ public partial class DraftPanel : CanvasLayer
             cardPunch.TweenProperty(btn, "scale", new Vector2(1.08f, 1.08f), CardEntranceSeconds * 0.30f)
                 .SetTrans(Tween.TransitionType.Back)
                 .SetEase(Tween.EaseType.Out);
-            cardPunch.TweenProperty(btn, "rotation_degrees", 2f, CardEntranceSeconds * 0.30f)
-                .SetTrans(Tween.TransitionType.Sine)
-                .SetEase(Tween.EaseType.Out);
             cardPunch.TweenProperty(btn, "modulate:a", 1f, CardEntranceSeconds * 0.28f)
                 .SetTrans(Tween.TransitionType.Sine)
                 .SetEase(Tween.EaseType.Out);
             cardPunch.Chain().SetParallel(true);
             cardPunch.TweenProperty(btn, "scale", Vector2.One, CardEntranceSeconds * 0.24f)
-                .SetTrans(Tween.TransitionType.Sine)
-                .SetEase(Tween.EaseType.InOut);
-            cardPunch.TweenProperty(btn, "rotation_degrees", 0f, CardEntranceSeconds * 0.24f)
                 .SetTrans(Tween.TransitionType.Sine)
                 .SetEase(Tween.EaseType.InOut);
 

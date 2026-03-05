@@ -194,7 +194,8 @@ Top bar (always visible during play):
 | Wave label | `Wave X / 20` |
 | Enemy counter | `alive / total` during a wave; hidden when wave is clear |
 | Lives label | `Lives: N`; turns red when ≤ 3; **elastic punch-scale flash** on any life loss |
-| Speed button | Cycles **1× → 2× → 3×** on each click; resets to 1× on wave clear or restart |
+| Speed button | Cycles **1× → 2× → 3×** on each click; resets to 1× on wave clear or restart; **speed feels like power** with center "SPEED X×" toast + neon streak on toggle, plus subtle SFX/music pitch lift at 2×/3× |
+| **Low-life heartbeat** | Heartbeat audio effect during waves when lives ≤ 2 for tension |
 | Pause access | **Desktop:** ESC hint label; **Mobile:** Hamburger menu button (☰) in top-right |
 
 **Mobile optimizations:**
@@ -216,6 +217,9 @@ Full-screen overlay shown between waves:
 | **Enhanced card sizing** | Cards automatically scale to fit content; taller cards (132-186px height) accommodate detailed modifier descriptions |
 | **Smooth animation** | Card entrance staggered at 0.29s intervals with 0.34s entrance duration for polished presentation |
 | **Draft REVEAL ritual** | Enhanced face-down hold + staggered flip reveal with card pre-punch (scale/tilt/fade-in), stronger flip squash/overshoot, reveal burst FX (white pulse + neon accent streak), and enhanced icon/title punch animation. Card-back shows single large ? that scales with card height. |
+| **Lock-in moment** | Card pick triggers ui_thunk SFX + subtle 60ms vignette pulse; modifier confirm adds hard lock SFX, white border flash, and icon snap (0.96 → 1.08 → 1.0 scale) |
+| **Draft memory line** | Header shows current Build name · Lives remaining · Speed setting for context |
+| **Mobile tap-hold preview** | 250ms hold expands card for preview, release cancels selection, quick tap still selects |
 | **BONUS PICK stamp** | Animated stamp overlay on multi-pick waves (Wave 1 and Wave 15) for visual emphasis |
 | **Rare foil shimmer** | 1-in-12 drafts feature subtle foil shimmer pass effect (visual-only enhancement) |
 | **Smart synergy hints** | Modifier cards show tiny synergy tags (e.g. "GOOD WITH: MARKED"); hover (desktop) or tap-hold (mobile) pulse-highlights synergy towers in world |
@@ -237,7 +241,7 @@ On wave start (not shown in bot mode):
 - Large centred label fades in/out showing `"WAVE N"`
 - Animates with scale + alpha tween; holds briefly then fades
 - Gives the player a moment to read the wave number before enemies spawn
-- **Wave 20 special treatment**: Enhanced final-wave banner with special pulse behavior and `wave20_start` sound cue
+- **Final-wave theater**: Wave 20 features enhanced banner pulse + path-flow surge + synth swell for dramatic buildup
 
 ---
 
@@ -333,9 +337,11 @@ Visible **during wave** and **while assigning a modifier to a tower** (hides dur
 | **Modifier proc halo** | Modifier activates | Colored halo pulse around tower slot for 0.2s, color matches modifier type |
 | **Modifier icon pulse** | Modifier activates | Individual modifier icon scales and brightens for 0.24s with sine wave animation |
 | **Hit stop** | Enemy killed | Brief time slowdown (0.04-0.055s) with different intensities per tower type; Heavy Cannon gets strongest effect |
-| **Lives label flash** | Life lost | HUD lives label punches to 1.25× scale then returns (elastic tween) |
+| **Lives label flash** | Life lost | HUD lives label punches to 1.25× scale then returns (elastic tween); **"almost" principle** shows brief CLUTCH/TOO CLOSE text on leaks at low lives |
+| **Chaos callouts** | Major modifier procs | World-space callouts for OVERKILL SPILL, FEEDBACK LOOP, CHAIN REACTION with cooldown-gating and meaningful thresholds |
 | **UI hover sound** | Mouse enters any button | Short quiet high-pitched `"ui_hover"` SFX on all buttons (draft cards, pause menu, main menu) |
 | **Enhanced draft audio** | Card interactions | New UI/audio cues for card pick, preview ghost, lock-in confirm, and reveal shing effects |
+| **Micro-consistency** | UI interactions | Consistent ui_select click feedback on pause interactions (ESC/menu/buttons/settings toggle) |
 
 ---
 
