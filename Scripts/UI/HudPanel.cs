@@ -79,12 +79,22 @@ public partial class HudPanel : CanvasLayer
         _speedBtn.Pressed += OnSpeedToggle;
         rightHbox.AddChild(_speedBtn);
 
-        var escHint = new Label();
-        escHint.Text = "ESC pause";
-        escHint.AddThemeFontSizeOverride("font_size", 14);
-        escHint.Modulate = new Color(1f, 1f, 1f, 0.5f);
-        escHint.VerticalAlignment = VerticalAlignment.Center;
-        rightHbox.AddChild(escHint);
+        // Platform-specific pause controls
+        if (OS.GetName() == "Android")
+        {
+            // Mobile menu button (Android only)
+        }
+        else
+        {
+            // Desktop ESC pause button (clickable)
+            var escBtn = new Button();
+            escBtn.Text = "ESC pause";
+            escBtn.AddThemeFontSizeOverride("font_size", 14);
+            escBtn.Modulate = new Color(1f, 1f, 1f, 0.7f);
+            escBtn.Flat = true;
+            escBtn.Pressed += OnEscButtonPressed;
+            rightHbox.AddChild(escBtn);
+        }
 
         // Mobile menu button (Android only)
         if (OS.GetName() == "Android")
@@ -142,6 +152,21 @@ public partial class HudPanel : CanvasLayer
     private void OnMobileMenuPressed()
     {
         // Find and pause game on mobile
+        var pauseScreens = GetTree().GetNodesInGroup("pause_screen");
+        
+        foreach (Node node in pauseScreens)
+        {
+            if (node is PauseScreen pauseScreen)
+            {
+                pauseScreen.Pause();
+                break;
+            }
+        }
+    }
+
+    private void OnEscButtonPressed()
+    {
+        // Find and pause game on desktop (same as mobile menu)
         var pauseScreens = GetTree().GetNodesInGroup("pause_screen");
         
         foreach (Node node in pauseScreens)
