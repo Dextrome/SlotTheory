@@ -82,6 +82,7 @@ public partial class Settings : Node
         back.AddThemeFontSizeOverride("font_size", 20);
         back.Pressed += () => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
         vbox.AddChild(back);
+        MobileOptimization.ApplyUIScale(center);
     }
 
     private void OnToggleFullscreen()

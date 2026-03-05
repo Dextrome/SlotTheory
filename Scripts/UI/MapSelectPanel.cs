@@ -62,22 +62,37 @@ public partial class MapSelectPanel : Node
 		title.Modulate = new Color("#a6d608");
 		vbox.AddChild(title);
 
-		AddSpacer(vbox, 24);
+		AddSpacer(vbox, 12);
 
-		// Map list (scrollable to keep buttons visible)
+		// Main content split: map list on the left, actions on the right.
+		var contentRow = new HBoxContainer();
+		contentRow.AddThemeConstantOverride("separation", 20);
+		vbox.AddChild(contentRow);
+
+		// Left column: map list
+		var leftColumn = new VBoxContainer();
+		leftColumn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		leftColumn.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		contentRow.AddChild(leftColumn);
+
 		var scrollContainer = new ScrollContainer();
-		scrollContainer.CustomMinimumSize = new Vector2(500, 300);
-		vbox.AddChild(scrollContainer);
+		scrollContainer.CustomMinimumSize = new Vector2(560, 360);
+		scrollContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		scrollContainer.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		leftColumn.AddChild(scrollContainer);
 
 		_mapListContainer = new VBoxContainer();
 		_mapListContainer.AddThemeConstantOverride("separation", 12);
 		scrollContainer.AddChild(_mapListContainer);
-
 		PopulateMapList();
 
-		AddSpacer(vbox, 24);
+		// Right column: difficulty + actions
+		var rightColumn = new VBoxContainer();
+		rightColumn.AddThemeConstantOverride("separation", 14);
+		rightColumn.CustomMinimumSize = new Vector2(280, 0);
+		rightColumn.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		contentRow.AddChild(rightColumn);
 
-		// Difficulty selection
 		var difficultyLabel = new Label
 		{
 			Text = "DIFFICULTY",
@@ -85,28 +100,25 @@ public partial class MapSelectPanel : Node
 		};
 		SlotTheory.Core.UITheme.ApplyFont(difficultyLabel, semiBold: true, size: 20);
 		difficultyLabel.Modulate = new Color("#a6d608");
-		vbox.AddChild(difficultyLabel);
+		rightColumn.AddChild(difficultyLabel);
 
 		var difficultyContainer = new HBoxContainer();
-		difficultyContainer.AddThemeConstantOverride("separation", 16);
-		
-		var centerDifficulty = new CenterContainer();
-		centerDifficulty.AddChild(difficultyContainer);
-		vbox.AddChild(centerDifficulty);
+		difficultyContainer.AddThemeConstantOverride("separation", 12);
+		rightColumn.AddChild(difficultyContainer);
 
-		// Normal button
 		_normalButton = CreateDifficultyButton("Normal", DifficultyMode.Normal);
 		difficultyContainer.AddChild(_normalButton);
 
-		// Hard button  
 		_hardButton = CreateDifficultyButton("Hard", DifficultyMode.Hard);
 		difficultyContainer.AddChild(_hardButton);
 
-		AddSpacer(vbox, 24);
+		var actionSpacer = new Control();
+		actionSpacer.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		rightColumn.AddChild(actionSpacer);
 
-		// Start button
-		AddButton(vbox, "Start Run", 260, 58, 28, OnStartRun);
-		AddButton(vbox, "Back", 260, 48, 22, OnBack);
+		AddButton(rightColumn, "Start Run", 260, 58, 28, OnStartRun);
+		AddButton(rightColumn, "Back", 260, 48, 22, OnBack);
+		MobileOptimization.ApplyUIScale(center);
 	}
 
 	private void PopulateMapList()

@@ -61,8 +61,8 @@ public partial class MainMenu : Node
 		AddSpacer(vbox, 8);
 		AddButton(vbox, "How to Play",    260, 48, 22, OnHowToPlay);
 		AddButton(vbox, "Settings",       260, 48, 22, OnSettings);
-		AddSpacer(vbox, 8);
-		AddButton(vbox, "Quit to Desktop", 260, 48, 22, OnQuit);
+		AddSpacer(vbox, 4);
+		AddButton(vbox, "Quit", 260, 48, 22, OnQuit);
 	}
 
 	private void OnPlay()

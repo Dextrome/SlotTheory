@@ -123,6 +123,8 @@ public partial class DraftPanel : CanvasLayer
         _wavePerformance.AddThemeColorOverride("font_color", new Color(0.95f, 0.85f, 0.60f, 0.90f));
         _wavePerformance.Visible = false;
         vbox.AddChild(_wavePerformance);
+        if (!MobileOptimization.IsTablet())
+            MobileOptimization.ApplyUIScale(_center);
     }
 
     public void Show(List<DraftOption> options, int waveNumber, int pickNumber = 1, int totalPicks = 1, WaveReport? lastWaveReport = null)
