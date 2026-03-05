@@ -30,11 +30,16 @@ Transition="*res://Scripts/Core/Transition.cs"
 window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 
 [dotnet]
 
 project/assembly_name="SlotTheory"
 
-[settings/Export/Android]
+[rendering]
 
-experimental_csharp_android_export=true
+textures/vram_compression/import_etc2_astc=true
+
+[settings]
+
+Export/Android/experimental_csharp_android_export=true
