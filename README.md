@@ -2,6 +2,8 @@
 
 A constraint-driven drafting tower defense. Place towers, pick upgrades, survive 20 waves.
 
+**Available on:** Windows Desktop, Android (Phone & Tablet)
+
 ---
 
 ## How to Play
@@ -18,6 +20,8 @@ You lose a life for every enemy that reaches the exit. Lose all 10 lives and it'
 
 ## Controls
 
+### Desktop Controls
+
 | Action | Input |
 |---|---|
 | Pick a draft card | Left-click the card |
@@ -26,6 +30,32 @@ You lose a life for every enemy that reaches the exit. Lose all 10 lives and it'
 | Pause / unpause | **Esc** |
 | Speed up / slow down | Speed button in HUD — cycles ×1 → ×2 → ×3 |
 | Quit to main menu | Pause → Main Menu |
+| Access How to Play | Main Menu → How to Play |
+
+### Mobile Controls
+
+| Action | Input |
+|---|---|
+| Pick a draft card | Tap the card |
+| Assign to a slot / tower | Tap the target in the world |
+| Cycle tower targeting mode | Tap a tower during a wave |
+| Pause / unpause | Hamburger menu button (☰) in top-right corner |
+| Speed up / slow down | Speed button in HUD — cycles ×1 → ×2 → ×3 |
+| Quit to main menu | Pause → Main Menu |
+| Access How to Play | Main Menu → How to Play |
+
+**Note:** The game automatically pauses when minimized on Android devices.
+
+---
+
+## Map Selection
+
+Before starting a game, you can choose from multiple procedurally generated maps. Each map features:
+- A unique snake-path layout with randomized turns
+- 6 strategically placed tower slots  
+- Varied terrain providing different tactical challenges
+
+The first map is automatically selected when you enter the map selection screen, but you can browse and choose any available map before starting your run.
 
 ---
 
@@ -134,6 +164,16 @@ Each run generates a new snake-shaped path across an 8×5 grid. Tower slots are 
 
 ---
 
+## User Interface & Accessibility
+
+- **Responsive Design**: UI automatically adapts to different screen sizes and platforms
+- **Mobile Optimized**: Special considerations for touch controls, button sizing, and screen real estate on phones and tablets  
+- **How to Play**: Comprehensive in-game documentation accessible from the main menu with smooth scrolling and platform-optimized formatting
+- **Pause Menu**: Accessible via Esc (desktop) or hamburger menu (mobile) during gameplay
+- **Auto-Pause**: Game automatically pauses when minimized on Android devices
+
+---
+
 ## Tips
 
 - **Rapid Shooter + Momentum**: Stack Momentum on your fastest-firing tower for massive DPS on tanky enemies that take multiple hits to kill.
@@ -145,3 +185,23 @@ Each run generates a new snake-shaped path across an 8×5 grid. Tower slots are 
 - **Focus Lens** trades fire rate for huge individual hits — pairs naturally with Overkill to punch through groups.
 - **Swift Walkers (waves 10–14)** are fast but fragile — Chill Shot or Overreach helps towers catch them before they run out of range. Chain and Split Shot can hit multiple Swifts at once.
 - **Targeting mode matters late game** — switch your Marker Tower to *First* so it tags the lead enemy before your damage towers hit it.
+
+---
+
+## Platform Support
+
+### Windows Desktop
+- Full mouse and keyboard controls
+- Pause via Esc key
+- Optimized for desktop screen sizes
+
+### Android (Phone & Tablet)  
+- Touch-optimized controls and UI scaling
+- Hamburger menu for pause access
+- Automatic pause when app is minimized
+- Responsive layout adapts to screen size and orientation
+
+---
+
+**Engine:** Godot 4.6.1 with .NET 8.0  
+**Development:** 7ants Studios
