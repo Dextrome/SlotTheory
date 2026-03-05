@@ -1,4 +1,4 @@
-using Godot;
+﻿using Godot;
 using SlotTheory.Entities;
 
 namespace SlotTheory.UI;
@@ -57,40 +57,40 @@ public partial class HowToPlay : Node
 		// Don't set vertical size flags - let it size naturally to content
 		marginContainer.AddChild(vbox);
 
-		// ── Title ────────────────────────────────────────────────────────
+		// â”€â”€ Title â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		AddTitle(vbox, "HOW TO PLAY");
 		AddSpacer(vbox, 16);
 
-		// ── Core Loop ────────────────────────────────────────────────────
+		// â”€â”€ Core Loop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		AddHeader(vbox, "CORE LOOP");
 		AddLine(vbox, "Before each wave, draft 1 card (5 options if slots are free; 4 if all slots are occupied).");
-		AddLine(vbox, "Waves run automatically — no mid-wave interaction.");
+		AddLine(vbox, "Waves run automatically - no mid-wave interaction.");
 		AddLine(vbox, "Survive all 20 waves to win.");
 		AddLine(vbox, "An enemy reaching the exit costs 1 life. You have 10 lives.");
 		AddSpacer(vbox, 12);
 
-		// ── Controls ─────────────────────────────────────────────────────
+		// â”€â”€ Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		AddHeader(vbox, "CONTROLS");
 		AddRow(vbox, "Pick a draft card",         "Left-click the card");
 		AddRow(vbox, "Assign to a slot / tower",  "Left-click the target");
 		AddRow(vbox, "Cycle targeting mode",       "Left-click a tower during a wave");
 		AddRow(vbox, "Pause / unpause",            "Esc");
-		AddRow(vbox, "Speed",                      "Click speed button to cycle  ×1 → ×2 → ×3");
+		AddRow(vbox, "Speed",                      "Click speed button to cycle  x1 -> x2 -> x3");
 		AddSpacer(vbox, 12);
 
-		// ── Towers ───────────────────────────────────────────────────────
+		// â”€â”€ Towers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		AddHeader(vbox, "TOWERS");
-		AddTowerRow(vbox, "Rapid Shooter", "10 dmg · 0.45 s · 285 px range",
+		AddTowerRow(vbox, "Rapid Shooter", "10 dmg, 0.45 s, 285 px range",
 			"High rate of fire, low damage per hit. Shines with Momentum and Hair Trigger.");
-		AddTowerRow(vbox, "Heavy Cannon",  "52 dmg · 2.0 s · 238 px range",
+		AddTowerRow(vbox, "Heavy Cannon",  "52 dmg, 2.0 s, 238 px range",
 			"Slow but hits hard. Great with Overkill and Focus Lens.");
-		AddTowerRow(vbox, "Marker Tower",  " 7 dmg · 1.0 s · 333 px range",
+		AddTowerRow(vbox, "Marker Tower",  "7 dmg, 1.0 s, 333 px range",
 			"Applies Mark on every hit. Synergises with Exploit Weakness.");
-		AddTowerRow(vbox, "Arc Emitter",   "14 dmg · 1.2 s · 270 px range",
+		AddTowerRow(vbox, "Arc Emitter",   "14 dmg, 1.2 s, 257 px range",
 			"Chains to 2 nearby enemies per shot (60% damage decay per bounce). Excellent in dense clusters.");
 		AddSpacer(vbox, 12);
 
-		// ── Targeting ────────────────────────────────────────────────────
+		// â”€â”€ Targeting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		AddHeader(vbox, "TARGETING MODES  (click a tower mid-wave to cycle)");
 		AddLine(vbox, "The same icon badge appears beside each tower during combat.");
 		AddTargetModeRow(vbox, TargetingMode.First, "First", "Enemy furthest along the path");
@@ -98,52 +98,52 @@ public partial class HowToPlay : Node
 		AddTargetModeRow(vbox, TargetingMode.LowestHp, "Lowest HP", "Enemy closest to death");
 		AddSpacer(vbox, 12);
 
-		// ── Mark ─────────────────────────────────────────────────────────
+		// â”€â”€ Mark â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		AddHeader(vbox, "MARK");
-		AddLine(vbox, "Marker Tower hits apply Mark for 2 seconds.");
+		AddLine(vbox, "Marker Tower hits apply Mark for 2.5 seconds.");
 		AddLine(vbox, "Marked enemies take +40% damage from all towers.");
-		AddLine(vbox, "Pair with Exploit Weakness for a ×2.1 burst combo (+40% mark × +50% exploit).");
+		AddLine(vbox, "Pair with Exploit Weakness for a x2.24 burst combo (+40% mark x +60% exploit).");
 		AddSpacer(vbox, 12);
 
-		// ── Modifiers ────────────────────────────────────────────────────
+		// â”€â”€ Modifiers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		AddHeader(vbox, "MODIFIERS  (max 3 per tower)");
-		AddModRow(vbox, "Momentum",         "+16% damage per consecutive hit on same target, up to ×1.80. Resets on target switch.");
+		AddModRow(vbox, "Momentum",         "+16% damage per consecutive hit on same target, up to x1.80. Resets on target switch.");
 		AddModRow(vbox, "Overkill",         "Excess damage from a kill spills to the next enemy in the lane.");
 		AddModRow(vbox, "Exploit Weakness", "+60% damage to Marked enemies. Pairs with Marker Tower.");
-		AddModRow(vbox, "Focus Lens",       "+125% damage, ×2 attack interval. Big hits, slow fire — ideal for Overkill combos.");
-		AddModRow(vbox, "Chill Shot",       "On hit: −25% move speed for 5 s. Keeps enemies in range longer.");
-		AddModRow(vbox, "Overreach",        "+40% range, −20% damage. Wider coverage at a small cost — great on Marker Tower.");
-		AddModRow(vbox, "Hair Trigger",     "+40% attack speed, −18% range. Pairs with Momentum and Chill Shot.");
+		AddModRow(vbox, "Focus Lens",       "+125% damage, x2 attack interval. Big hits, slow fire - ideal for Overkill combos.");
+		AddModRow(vbox, "Chill Shot",       "On hit: -25% move speed for 5 s. Keeps enemies in range longer.");
+		AddModRow(vbox, "Overreach",        "+40% range, -20% damage. Wider coverage at a small cost - great on Marker Tower.");
+		AddModRow(vbox, "Hair Trigger",     "+40% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
 		AddModRow(vbox, "Split Shot",       "On hit, fires 2 projectiles at nearby enemies for 42% damage each. Each additional copy fires one more projectile.");
 		AddModRow(vbox, "Feedback Loop",    "Killing an enemy reduces this tower's current cooldown by 25%. Lets rapid killers fire again sooner.");
 		AddModRow(vbox, "Chain Reaction",   "After each hit, the attack jumps to 1 nearby enemy for 55% damage. Each additional copy adds 1 more bounce.");
 		AddSpacer(vbox, 12);
 
-		// ── Enemies ──────────────────────────────────────────────────────
+		// â”€â”€ Enemies â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		AddHeader(vbox, "ENEMIES");
-		AddLine(vbox, "Basic Walker: 65 HP on wave 1, ×1.08 per wave (~280 HP by wave 20). Speed: 120 px/s. Leaks cost 1 life. Round teal body.");
-		AddLine(vbox, "Armored Walker: 4× HP, half speed (60 px/s). Leaks cost 2 lives — priority target. First appears wave 7; up to 5 per wave by wave 20. Large hexagonal crimson body.");
-		AddLine(vbox, "Swift Walker: 1.5× HP, double speed (240 px/s). Leaks cost 1 life. Appears waves 10–14 (2–4 per wave). Small lime-green diamond — fast and hard to catch.");
-		AddLine(vbox, "Enemy count scales from 10 (wave 1) to 30 (wave 20). Spawn interval tightens each wave.");
+		AddLine(vbox, "Basic Walker: 65 HP on wave 1, x1.10 per wave (~400 HP by wave 20). Speed: 120 px/s. Leaks cost 1 life. Round teal body.");
+		AddLine(vbox, "Armored Walker: 4x HP, half speed (60 px/s). Leaks cost 2 lives - priority target. First appears wave 6; up to 3 per wave by wave 20. Large hexagonal crimson body.");
+		AddLine(vbox, "Swift Walker: 1.5x HP, double speed (240 px/s). Leaks cost 1 life. Appears waves 10-14 (2-3 per wave). Small lime-green diamond - fast and hard to catch.");
+		AddLine(vbox, "Enemy count scales upward through the run. Wave 1 total is 14 enemies; wave 20 total is 35 enemies.");
 		AddSpacer(vbox, 12);
 
-		// ── Tips ─────────────────────────────────────────────────────────
+		// â”€â”€ Tips â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		AddHeader(vbox, "TIPS");
-		AddLine(vbox, "Rapid Shooter + Momentum — devastating DPS on enemies that take many hits to kill.");
-		AddLine(vbox, "Marker Tower + Exploit Weakness — marks the target then bursts it for ×1.95 total damage.");
-		AddLine(vbox, "Heavy Cannon + Overkill — chain-kills tightly packed groups; spill damage carries forward.");
-		AddLine(vbox, "Arc Emitter + Chain Reaction — each copy adds a bounce; 3 copies hits 5 enemies per shot.");
-		AddLine(vbox, "Heavy Cannon + Split Shot — even at 40%, cannon hits still add meaningful side pressure to nearby enemies.");
-		AddLine(vbox, "Feedback Loop + Hair Trigger — killing enemies reduces cooldown faster; rapid shooters cycle almost instantly.");
+		AddLine(vbox, "Rapid Shooter + Momentum - devastating DPS on enemies that take many hits to kill.");
+		AddLine(vbox, "Marker Tower + Exploit Weakness - marks the target then bursts it for x2.24 total damage.");
+		AddLine(vbox, "Heavy Cannon + Overkill - chain-kills tightly packed groups; spill damage carries forward.");
+		AddLine(vbox, "Arc Emitter + Chain Reaction - each copy adds a bounce; with 3 copies, Arc Emitter can hit 6 targets per shot.");
+		AddLine(vbox, "Heavy Cannon + Split Shot - even at 42%, cannon hits still add meaningful side pressure to nearby enemies.");
+		AddLine(vbox, "Feedback Loop + Hair Trigger - killing enemies reduces cooldown faster; rapid shooters cycle almost instantly.");
 		AddLine(vbox, "Set your Marker Tower to First so it tags the lead enemy before damage towers fire.");
-		AddLine(vbox, "Hair Trigger + Chill Shot — rapid-fire slows stack to keep enemies frozen in range.");
-		AddLine(vbox, "Swift Walkers appear waves 10–14 — Chill Shot or Overreach helps catch them before they outrun your range.");
+		AddLine(vbox, "Hair Trigger + Chill Shot - rapid-fire slows stack to keep enemies frozen in range.");
+		AddLine(vbox, "Swift Walkers appear waves 10-14 - Chill Shot or Overreach helps catch them before they outrun your range.");
 		AddSpacer(vbox, 32);
 
-		// ── Back button ──────────────────────────────────────────────────
+		// â”€â”€ Back button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		var backBtn = new Button
 		{
-			Text = "← Back",
+			Text = "<- Back",
 			CustomMinimumSize = new Vector2(160, 48),
 		};
 		var backBtnSize = MobileOptimization.IsMobile() ? 18 : 22;
@@ -175,7 +175,7 @@ public partial class HowToPlay : Node
 		}
 	}
 
-	// ── Helpers ──────────────────────────────────────────────────────────
+	// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 	private static void AddTitle(VBoxContainer vbox, string text)
 	{
@@ -204,7 +204,7 @@ public partial class HowToPlay : Node
 
 	private static void AddLine(VBoxContainer vbox, string text)
 	{
-		var lbl = new Label { Text = "  • " + text };
+		var lbl = new Label { Text = "  - " + text };
 		var lineSize = MobileOptimization.IsMobile() ? 14 : 16;
 		lbl.AddThemeFontSizeOverride("font_size", lineSize);
 		lbl.Modulate = new Color(0.82f, 0.82f, 0.82f);
@@ -342,3 +342,4 @@ public partial class HowToPlay : Node
 		vbox.AddChild(s);
 	}
 }
+

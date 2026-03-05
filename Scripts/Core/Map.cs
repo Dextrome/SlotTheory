@@ -65,7 +65,7 @@ public class ProceduralMap : Map
         var map = new ProceduralMap
         {
             Id = "random_map",
-            Name = "Unstable Anomaly",
+            Name = MapGenerator.DescribeLayout(layout.PathWaypoints, (int)seed),
             Path = layout.PathWaypoints,
             Slots = layout.SlotPositions,
             PathGrid = layout.PathGrid,

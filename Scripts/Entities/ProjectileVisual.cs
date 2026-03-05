@@ -100,7 +100,7 @@ public partial class ProjectileVisual : Node2D
                 if (dealt > 0f)
                 {
                     bool isKill = _target.Hp <= 0;
-                    SpawnDamageNumber(_target.GlobalPosition, dealt, isKill);
+                    SpawnDamageNumber(_target.GlobalPosition, dealt, isKill, _tower?.TowerId ?? "");
                     if (isKill)
                     {
                         bool heavy = _tower?.TowerId == "heavy_cannon";
@@ -129,20 +129,21 @@ public partial class ProjectileVisual : Node2D
 
     private void ApplyChainHits(Vector2 startWorldPos)
     {
-        if (_tower == null || _enemies == null) return;
+        var tower = _tower;
+        if (tower == null || _enemies == null) return;
 
         var alreadyHit = new System.Collections.Generic.HashSet<EnemyInstance>();
         if (GodotObject.IsInstanceValid(_target) && _target != null)
             alreadyHit.Add(_target);
 
         Vector2 chainFrom = startWorldPos;
-        float   damage    = _tower.BaseDamage * _tower.ChainDamageDecay;
+        float   damage    = tower.BaseDamage * tower.ChainDamageDecay;
         int     bounceHits = 0;
 
-        for (int bounce = 0; bounce < _tower.ChainCount; bounce++)
+        for (int bounce = 0; bounce < tower.ChainCount; bounce++)
         {
             EnemyInstance? chainTarget = null;
-            float bestDist = _tower.ChainRange;
+            float bestDist = tower.ChainRange;
 
             foreach (var e in _enemies)
             {
@@ -155,7 +156,7 @@ public partial class ProjectileVisual : Node2D
             if (chainTarget == null) break;
 
             float hpBefore = chainTarget.Hp;
-            var ctx = new DamageContext(_tower, chainTarget, _waveIndex, _enemies, _runState,
+            var ctx = new DamageContext(tower, chainTarget, _waveIndex, _enemies, _runState,
                                         isChain: true, damageOverride: damage);
             DamageModel.Apply(ctx);
 
@@ -165,7 +166,7 @@ public partial class ProjectileVisual : Node2D
             if (dealt >= 1f)
             {
                 bool isKill = chainTarget.Hp <= 0;
-                SpawnDamageNumber(chainTarget.GlobalPosition, dealt, isKill);
+                SpawnDamageNumber(chainTarget.GlobalPosition, dealt, isKill, tower.TowerId);
                 if (isKill)
                     GameController.Instance?.TriggerHitStop(realDuration: 0.038f, slowScale: 0.24f);
                 if (!isKill && GodotObject.IsInstanceValid(chainTarget))
@@ -174,11 +175,11 @@ public partial class ProjectileVisual : Node2D
 
             alreadyHit.Add(chainTarget);
             chainFrom = chainTarget.GlobalPosition;
-            damage   *= _tower.ChainDamageDecay;
+            damage   *= tower.ChainDamageDecay;
             bounceHits++;
         }
 
-        if (_tower.ChainCount > 0 && bounceHits >= _tower.ChainCount)
+        if (tower.ChainCount > 0 && bounceHits >= tower.ChainCount)
             GameController.Instance?.NotifyChainMaxBounce(chainFrom, bounceHits);
     }
 
@@ -216,11 +217,11 @@ public partial class ProjectileVisual : Node2D
         arc.Initialize(worldFrom, worldTo, _color);
     }
 
-    private void SpawnDamageNumber(Vector2 worldPos, float damage, bool isKill = false)
+    private void SpawnDamageNumber(Vector2 worldPos, float damage, bool isKill = false, string sourceTowerId = "")
     {
         var num = new DamageNumber();
         GetParent().AddChild(num);
         num.GlobalPosition = worldPos + new Vector2(0f, -14f);
-        num.Initialize(damage, _color, isKill);
+        num.Initialize(damage, _color, isKill, sourceTowerId);
     }
 }

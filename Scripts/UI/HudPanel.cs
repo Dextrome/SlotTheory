@@ -9,6 +9,7 @@ namespace SlotTheory.UI;
 public partial class HudPanel : CanvasLayer
 {
     private Label _waveLabel = null!;
+    private Label _buildLabel = null!;
     private Label _livesLabel = null!;
     private Label _enemyLabel = null!;
     private Label _speedToast = null!;
@@ -33,20 +34,26 @@ public partial class HudPanel : CanvasLayer
         hbox.AddThemeConstantOverride("separation", 8);
         bar.AddChild(hbox);
 
-        // Left spacer
+        var leftPad = new Control();
+        leftPad.CustomMinimumSize = new Vector2(18f, 0f);
+        hbox.AddChild(leftPad);
+
+        _buildLabel = new Label
+        {
+            Text = "",
+            Visible = false,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            CustomMinimumSize = new Vector2(340f, 0f),
+            Modulate = new Color(0.74f, 0.88f, 1.00f, 0.96f),
+        };
+        UITheme.ApplyFont(_buildLabel, semiBold: true, size: 30);
+        hbox.AddChild(_buildLabel);
+
+        // Spacer to keep right HUD controls on the far side.
         var left = new Control();
         left.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         hbox.AddChild(left);
-
-        _waveLabel = new Label();
-        _waveLabel.Text = "Wave 1 / 20";
-        _waveLabel.AddThemeFontSizeOverride("font_size", 22);
-        _waveLabel.HorizontalAlignment = HorizontalAlignment.Center;
-        hbox.AddChild(_waveLabel);
-
-        var mid = new Control();
-        mid.CustomMinimumSize = new Vector2(40, 0);
-        hbox.AddChild(mid);
 
         _enemyLabel = new Label();
         _enemyLabel.Text = "";
@@ -115,6 +122,23 @@ public partial class HudPanel : CanvasLayer
         pad.CustomMinimumSize = new Vector2(8, 0);
         rightHbox.AddChild(pad);
 
+        // Keep wave text screen-centered regardless of left build-name width.
+        _waveLabel = new Label
+        {
+            Text = "Wave 1 / 20",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            AnchorLeft = 0f,
+            AnchorRight = 1f,
+            AnchorTop = 0f,
+            AnchorBottom = 0f,
+            OffsetTop = 0f,
+            OffsetBottom = 44f,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        _waveLabel.AddThemeFontSizeOverride("font_size", 22);
+        bar.AddChild(_waveLabel);
+
         _speedToast = new Label
         {
             Text = "",
@@ -145,6 +169,7 @@ public partial class HudPanel : CanvasLayer
             Size = new Vector2(180f, 4f),
         };
         AddChild(_speedToastStreak);
+
     }
 
     private void OnSpeedToggle()
@@ -190,6 +215,13 @@ public partial class HudPanel : CanvasLayer
           .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
         tw.TweenProperty(_waveLabel, "scale", Vector2.One, 0.20f)
           .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+    }
+
+    public void SetBuildName(string buildName, bool visible = true)
+    {
+        if (!GodotObject.IsInstanceValid(_buildLabel)) return;
+        _buildLabel.Text = buildName;
+        _buildLabel.Visible = visible && buildName.Length > 0;
     }
 
     public void RefreshEnemies(int alive, int total)
@@ -257,4 +289,3 @@ public partial class HudPanel : CanvasLayer
         }));
     }
 }
-

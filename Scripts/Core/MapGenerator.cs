@@ -21,6 +21,54 @@ public static class MapGenerator
 		return new MapLayout(waypoints, slots, pathGrid, decorations);
 	}
 
+	public static string DescribeSeed(int seed)
+	{
+		var layout = Generate(seed);
+		return DescribeLayout(layout.PathWaypoints, seed);
+	}
+
+	public static string DescribeLayout(Vector2[] waypoints, int seed = 0)
+	{
+		if (waypoints.Length < 2) return "Serpent Grid";
+
+		float length = 0f;
+		int leftTurns = 0;
+		int rightTurns = 0;
+		int turnCount = 0;
+
+		for (int i = 1; i < waypoints.Length; i++)
+			length += waypoints[i - 1].DistanceTo(waypoints[i]);
+
+		for (int i = 1; i < waypoints.Length - 1; i++)
+		{
+			var a = (waypoints[i] - waypoints[i - 1]).Normalized();
+			var b = (waypoints[i + 1] - waypoints[i]).Normalized();
+			float cross = a.Cross(b);
+			if (Mathf.Abs(cross) < 0.02f) continue;
+			turnCount++;
+			if (cross > 0f) leftTurns++;
+			else rightTurns++;
+		}
+
+		string baseName = "Serpent Grid";
+		if (length >= 3200f || turnCount >= 7)
+			baseName = "Long Hook";
+		else if (Mathf.Abs(leftTurns - rightTurns) <= 1 && turnCount >= 5)
+			baseName = "Split Coil";
+		else if (rightTurns > leftTurns + 1)
+			baseName = "Split Coil";
+
+		// Deterministic tiny variation to avoid repeated naming monotony.
+		int variant = Mathf.Abs(seed ^ (int)length ^ (leftTurns << 4) ^ rightTurns) % 4;
+		return baseName switch
+		{
+			"Long Hook" when variant == 1 => "Long Hook Prime",
+			"Split Coil" when variant == 1 => "Split Coil Array",
+			"Serpent Grid" when variant == 1 => "Serpent Grid Delta",
+			_ => baseName,
+		};
+	}
+
 	public static Vector2 CellCenter(int col, int row)
 		=> new(col * CELL_W + CELL_W / 2f, GRID_Y + row * CELL_H + CELL_H / 2f);
 

@@ -37,6 +37,8 @@ public partial class TowerInstance : Node2D
     public bool CanAddModifier => Modifiers.Count < Balance.MaxModifiersPerTower;
 
     public TargetModeIcon? ModeIconControl { get; set; }
+    public ColorRect? ModeBadgeControl { get; set; }
+    public Line2D? ModeBadgeBorder { get; set; }
     public Polygon2D? RangeCircle { get; set; }
     public Line2D?   RangeBorder  { get; set; }
     private float _idleTime = 0f;

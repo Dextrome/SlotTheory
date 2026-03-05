@@ -53,6 +53,9 @@ public partial class DraftPanel : CanvasLayer
     public bool HasModifierPreview => _previewModifierSlot >= 0;
     public int ModifierPreviewSlot => _previewModifierSlot;
     public string PendingModifierId => _pendingModifier?.Id ?? "";
+    public List<DraftOption> GetLastOptionsSnapshot() => new(_lastOptions);
+    public (int waveNumber, int pickNumber, int totalPicks) GetLastDraftMeta()
+        => (_lastWaveNumber, _lastPickNumber, _lastTotalPicks);
 
     public void CancelModifierPreview()
     {
@@ -441,7 +444,7 @@ public partial class DraftPanel : CanvasLayer
             front.AddChild(accentStrip);
 
             var captured = opt;
-            btn.Pressed += () => OnCardPressed(captured);
+            btn.Pressed += () => OnCardPressed(captured, btn);
             AddHover(btn, captured);
             BindTouchHoldHint(btn, captured);
             BindTouchCardPreview(btn, captured);
@@ -488,7 +491,7 @@ public partial class DraftPanel : CanvasLayer
         }
     }
 
-    private void OnCardPressed(DraftOption opt)
+    private void OnCardPressed(DraftOption opt, Button sourceButton)
     {
         // Touch hold-preview should never immediately select the card on release.
         if (_touchPreviewActive)
@@ -513,6 +516,12 @@ public partial class DraftPanel : CanvasLayer
             _pendingTower = opt;
         else
             _pendingModifier = opt;
+        if (GodotObject.IsInstanceValid(sourceButton))
+        {
+            var rect = sourceButton.GetGlobalRect();
+            var start = rect.Position + rect.Size * 0.5f;
+            GameController.Instance?.PlayDraftCardSpirit(start, opt);
+        }
         PulseDraftVignette();
         GetTree().CreateTimer(0.06f).Timeout += () =>
         {
@@ -1091,6 +1100,33 @@ public partial class DraftPanel : CanvasLayer
         tw.Chain().TweenProperty(_bonusStamp, "scale", Vector2.One, 0.08f)
             .SetTrans(Tween.TransitionType.Sine)
             .SetEase(Tween.EaseType.InOut);
+        PlaySignatureScanline(_bonusStamp, new Color(1.0f, 0.82f, 0.36f, 0.85f));
+    }
+
+    private static void PlaySignatureScanline(Control target, Color color)
+    {
+        var stripe = new ColorRect
+        {
+            Color = new Color(color.R, color.G, color.B, 0f),
+            Position = new Vector2(-58f, -6f),
+            Size = new Vector2(42f, 18f),
+            RotationDegrees = 13f,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        target.AddChild(stripe);
+
+        var tw = stripe.CreateTween();
+        tw.SetParallel(true);
+        tw.TweenProperty(stripe, "color:a", 0.34f, 0.05f);
+        tw.TweenProperty(stripe, "position:x", target.Size.X + 58f, 0.30f)
+            .SetTrans(Tween.TransitionType.Sine)
+            .SetEase(Tween.EaseType.InOut);
+        tw.Chain().TweenProperty(stripe, "color:a", 0f, 0.08f);
+        tw.TweenCallback(Callable.From(() =>
+        {
+            if (GodotObject.IsInstanceValid(stripe))
+                stripe.QueueFree();
+        }));
     }
 
     /// <summary>

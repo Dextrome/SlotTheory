@@ -31,6 +31,9 @@ public partial class SoundManager : Node
     private AudioStreamPlayer?              _musicPlayer;
     private AudioStreamGeneratorPlayback?   _musicPlayback;
     private float _speedFxPitch = 1f;
+    private float _musicDuckDb = 0f;
+    private float _musicDuckHold = 0f;
+    private const float MusicBaseDb = -3f;
 
     private bool _headless;
 
@@ -82,7 +85,8 @@ public partial class SoundManager : Node
         Reg("ui_select",       Tone(740f, 0.05f, vol: 0.26f, shape: 's', env: 'f'));
         Reg("tower_place",     Seq(new[] { 380f, 560f }, gapMs: 10, noteLen: 0.07f, vol: 0.46f));
         Reg("ui_hover",        Tone(900f, 0.025f, vol: 0.18f, shape: 's', env: 'f'));
-        Reg("low_heartbeat",   Seq(new[] { 74f, 58f }, gapMs: 40, noteLen: 0.10f, vol: 0.42f));
+        Reg("low_heartbeat",   Seq(new[] { 74f, 58f }, gapMs: 40, noteLen: 0.10f, vol: 0.30f));
+        Reg("wave_halfway_lift", Sweep(300f, 980f, 0.16f, vol: 0.26f));
         Reg("wave20_swell",    Sweep(90f, 480f, 0.56f, vol: 0.62f));
 
         StartMusic();
@@ -157,7 +161,7 @@ public partial class SoundManager : Node
         }
 
         var gen = new AudioStreamGenerator { MixRate = Rate, BufferLength = 0.5f };
-        _musicPlayer = new AudioStreamPlayer { Stream = gen, VolumeDb = -3f, Bus = "Music" };
+        _musicPlayer = new AudioStreamPlayer { Stream = gen, VolumeDb = MusicBaseDb, Bus = "Music" };
         AddChild(_musicPlayer);
         _musicPlayer.Play();
         _musicPlayback = (AudioStreamGeneratorPlayback)_musicPlayer.GetStreamPlayback();
@@ -186,6 +190,17 @@ public partial class SoundManager : Node
                 _musicPlayback.PushFrame(_musicFrames[_musicPos]);
                 _musicPos = (_musicPos + 1) % _musicFrames.Length;
             }
+        }
+
+        if (_musicPlayer != null)
+        {
+            if (_musicDuckHold > 0f)
+                _musicDuckHold = Mathf.Max(0f, _musicDuckHold - (float)delta);
+            else
+                _musicDuckDb = Mathf.Max(0f, _musicDuckDb - 14f * (float)delta);
+
+            float targetDb = MusicBaseDb - _musicDuckDb;
+            _musicPlayer.VolumeDb = Mathf.Lerp(_musicPlayer.VolumeDb, targetDb, 12f * (float)delta);
         }
     }
 
@@ -217,6 +232,13 @@ public partial class SoundManager : Node
 
         if (_musicPlayer != null)
             _musicPlayer.PitchScale = 1f + speedOver * 0.012f;
+    }
+
+    public void DuckMusic(float amountDb = 1.8f, float holdSeconds = 0.10f)
+    {
+        if (_headless || _musicPlayer == null) return;
+        _musicDuckDb = Mathf.Max(_musicDuckDb, Mathf.Clamp(amountDb, 0f, 5f));
+        _musicDuckHold = Mathf.Max(_musicDuckHold, Mathf.Clamp(holdSeconds, 0.02f, 0.40f));
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────
