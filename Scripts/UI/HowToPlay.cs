@@ -135,6 +135,7 @@ public partial class HowToPlay : Node
 		vbox.AddChild(backBtn);
 
 		AddSpacer(vbox, 40);
+		MobileOptimization.ApplyUIScale(scroll);
 	}
 
 	// ── Helpers ──────────────────────────────────────────────────────────

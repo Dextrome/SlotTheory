@@ -59,7 +59,7 @@ public partial class PauseScreen : CanvasLayer
         AddBtn(vbox, "How to Play", OnHowToPlay);
         AddSpacer(vbox, 10);
         AddBtn(vbox, "Main Menu",       OnMainMenu);
-        AddBtn(vbox, "Quit to Desktop", OnQuit);
+        AddBtn(vbox, "Quit", OnQuit);
     }
 
     private void BuildSettingsPanel(VBoxContainer parent)

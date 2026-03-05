@@ -78,6 +78,7 @@ public partial class EndScreen : CanvasLayer
 		hint.AddThemeFontSizeOverride("font_size", 18);
 		hint.Modulate = new Color(0.65f, 0.65f, 0.65f);
 		vbox.AddChild(hint);
+		MobileOptimization.ApplyUIScale(root);
 	}
 
 	public override void _Input(InputEvent @event)
