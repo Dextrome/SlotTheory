@@ -28,15 +28,27 @@ public partial class HowToPlay : Node
 		var scroll = new ScrollContainer();
 		scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		scroll.Theme = SlotTheory.Core.UITheme.Build();
+		// Enable vertical scrollbar and disable horizontal scrolling
+		scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
+		scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
 		canvas.AddChild(scroll);
 
+		// Wrap VBox in MarginContainer for proper margins
+		var marginContainer = new MarginContainer();
+		marginContainer.AddThemeConstantOverride("margin_left", 30);
+		marginContainer.AddThemeConstantOverride("margin_right", 20);
+		marginContainer.AddThemeConstantOverride("margin_top", 20);
+		marginContainer.AddThemeConstantOverride("margin_bottom", 20);
+		marginContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		marginContainer.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		scroll.AddChild(marginContainer);
+
+		// Simple VBox that can expand vertically
 		var vbox = new VBoxContainer();
 		vbox.AddThemeConstantOverride("separation", 6);
-		vbox.OffsetLeft   = 120;
-		vbox.OffsetRight  = -120;
-		vbox.OffsetTop    = 40;
-		vbox.OffsetBottom = -40;
-		scroll.AddChild(vbox);
+		vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		// Don't set vertical size flags - let it size naturally to content
+		marginContainer.AddChild(vbox);
 
 		// ── Title ────────────────────────────────────────────────────────
 		AddTitle(vbox, "HOW TO PLAY");
