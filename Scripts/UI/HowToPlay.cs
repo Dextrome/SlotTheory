@@ -16,6 +16,9 @@ public partial class HowToPlay : Node
 	public override void _Ready()
 	{
 		var canvas = new CanvasLayer();
+		// Set high layer when used as overlay from pause screen 
+		// (PauseScreen uses layer 8, so we need to be above it)
+		canvas.Layer = 10;
 		AddChild(canvas);
 
 		// Background
@@ -148,6 +151,20 @@ public partial class HowToPlay : Node
 
 		AddSpacer(vbox, 40);
 		MobileOptimization.ApplyUIScale(scroll);
+	}
+
+	public override void _UnhandledInput(InputEvent @event)
+	{
+		// Consume Escape key to prevent it from reaching pause screen underneath
+		if (@event.IsActionPressed("ui_cancel"))
+		{
+			// Trigger back button behavior
+			if (OnBack != null) { OnBack(); QueueFree(); }
+			else SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+			
+			// Mark event as handled
+			GetViewport().SetInputAsHandled();
+		}
 	}
 
 	// ── Helpers ──────────────────────────────────────────────────────────
