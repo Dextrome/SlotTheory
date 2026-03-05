@@ -18,6 +18,9 @@ public partial class PauseScreen : CanvasLayer
         ProcessMode = ProcessModeEnum.Always;
         Visible     = false;
 
+        // Add to group so mobile menu button can find it
+        AddToGroup("pause_screen");
+
         // Dark overlay
         var bg = new ColorRect();
         bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
