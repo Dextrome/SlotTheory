@@ -13,6 +13,9 @@ public partial class EndScreen : CanvasLayer
 	private Label _titleLabel    = null!;
 	private Label _subtitleLabel = null!;
 	private Label _statsLabel    = null!;
+	private Label _runNameLabel  = null!;
+	private Label _mvpLabel      = null!;
+	private Label _modLabel      = null!;
 	private Label _buildLabel    = null!;
 	private Label _lossAnalysisLabel = null!;
 
@@ -54,6 +57,24 @@ public partial class EndScreen : CanvasLayer
 		_statsLabel.Visible = false;
 		vbox.AddChild(_statsLabel);
 
+		_runNameLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+		UITheme.ApplyFont(_runNameLabel, semiBold: true, size: 24);
+		_runNameLabel.Modulate = new Color(0.95f, 0.84f, 0.45f);
+		_runNameLabel.Visible = false;
+		vbox.AddChild(_runNameLabel);
+
+		_mvpLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+		UITheme.ApplyFont(_mvpLabel, semiBold: true, size: 17);
+		_mvpLabel.Modulate = new Color(0.72f, 0.92f, 1.00f);
+		_mvpLabel.Visible = false;
+		vbox.AddChild(_mvpLabel);
+
+		_modLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+		UITheme.ApplyFont(_modLabel, size: 15);
+		_modLabel.Modulate = new Color(0.80f, 0.88f, 1.00f, 0.90f);
+		_modLabel.Visible = false;
+		vbox.AddChild(_modLabel);
+
 		_buildLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
 		_buildLabel.AddThemeFontSizeOverride("font_size", 16);
 		_buildLabel.Modulate = new Color(0.75f, 0.75f, 0.85f);
@@ -91,28 +112,41 @@ public partial class EndScreen : CanvasLayer
 		Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 	}
 
-	public void ShowWin(int kills, int damageDealt, string buildSummary)
+	public void ShowWin(int kills, int damageDealt, string buildSummary, string runName, string mvpLine, string modLine)
 	{
 		_titleLabel.Text = "VICTORY";
 		_titleLabel.Modulate = new Color(0.3f, 1.0f, 0.5f);
 		_subtitleLabel.Text = $"All {Balance.TotalWaves} waves survived!";
-		_statsLabel.Text = $"Enemies killed: {kills}  ·  Total damage: {damageDealt:N0}";
+		_statsLabel.Text = $"Enemies killed: {kills}  -  Total damage: {damageDealt:N0}";
 		_statsLabel.Visible = true;
+		_runNameLabel.Text = runName.Length > 0 ? $"Build Name: {runName}" : "";
+		_runNameLabel.Visible = runName.Length > 0;
+		_mvpLabel.Text = mvpLine;
+		_mvpLabel.Visible = mvpLine.Length > 0;
+		_modLabel.Text = modLine;
+		_modLabel.Visible = modLine.Length > 0;
 		_buildLabel.Text = buildSummary;
 		_buildLabel.Visible = buildSummary.Length > 0;
+		_lossAnalysisLabel.Visible = false;
 		Visible = true;
 	}
 
-	public void ShowLoss(int waveReached, int livesLost, int kills, int damageDealt, string buildSummary, RunState runState)
+	public void ShowLoss(int waveReached, int livesLost, int kills, int damageDealt, string buildSummary, RunState runState, string runName, string mvpLine, string modLine)
 	{
 		_titleLabel.Text = "GAME OVER";
 		_titleLabel.Modulate = new Color(1.0f, 0.35f, 0.35f);
-		_subtitleLabel.Text = $"Reached wave {waveReached} / {Balance.TotalWaves}  ·  Lives lost: {livesLost}";
-		_statsLabel.Text = $"Enemies killed: {kills}  ·  Total damage: {damageDealt:N0}";
+		_subtitleLabel.Text = $"Reached wave {waveReached} / {Balance.TotalWaves}  -  Lives lost: {livesLost}";
+		_statsLabel.Text = $"Enemies killed: {kills}  -  Total damage: {damageDealt:N0}";
 		_statsLabel.Visible = kills > 0 || damageDealt > 0;
+		_runNameLabel.Text = runName.Length > 0 ? $"Build Name: {runName}" : "";
+		_runNameLabel.Visible = runName.Length > 0;
+		_mvpLabel.Text = mvpLine;
+		_mvpLabel.Visible = mvpLine.Length > 0;
+		_modLabel.Text = modLine;
+		_modLabel.Visible = modLine.Length > 0;
 		_buildLabel.Text = buildSummary;
 		_buildLabel.Visible = buildSummary.Length > 0;
-		
+
 		// Show loss analysis for actionable insights
 		string lossAnalysis = GenerateLossAnalysis(runState);
 		if (!string.IsNullOrEmpty(lossAnalysis))
@@ -120,7 +154,11 @@ public partial class EndScreen : CanvasLayer
 			_lossAnalysisLabel.Text = lossAnalysis;
 			_lossAnalysisLabel.Visible = true;
 		}
-		
+		else
+		{
+			_lossAnalysisLabel.Visible = false;
+		}
+
 		Visible = true;
 	}
 
@@ -128,7 +166,7 @@ public partial class EndScreen : CanvasLayer
 	private string GenerateLossAnalysis(RunState runState)
 	{
 		var insights = new System.Collections.Generic.List<string>();
-		
+
 		// Most leaked enemy type
 		if (runState.TotalLeaksByType.Count > 0)
 		{
@@ -136,19 +174,19 @@ public partial class EndScreen : CanvasLayer
 			string enemyName = mostLeaked.Key switch
 			{
 				"armored_walker" => "Armored",
-				"swift_walker" => "Swift", 
+				"swift_walker" => "Swift",
 				_ => "Basic"
 			};
 			insights.Add($"Most leaks: {enemyName} ({mostLeaked.Value})");
 		}
-		
+
 		// Wave where most lives were lost
 		var worstWave = runState.WorstWave;
 		if (worstWave != null && worstWave.Leaks > 1)
 		{
 			insights.Add($"Hardest wave: {worstWave.WaveNumber} ({worstWave.Leaks} leaks)");
 		}
-		
+
 		// Last leaked type before defeat
 		if (!string.IsNullOrEmpty(runState.LastLeakedType))
 		{
@@ -160,7 +198,7 @@ public partial class EndScreen : CanvasLayer
 			};
 			insights.Add($"Final leak: {lastType}");
 		}
-		
-		return insights.Count > 0 ? string.Join("  •  ", insights) : "";
+
+		return insights.Count > 0 ? string.Join("  |  ", insights) : "";
 	}
 }

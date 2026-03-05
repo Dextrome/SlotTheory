@@ -13,6 +13,7 @@ namespace SlotTheory.UI;
 public partial class DraftPanel : CanvasLayer
 {
     private Label _titleLabel = null!;
+    private Label _bonusStamp = null!;
     private HBoxContainer _cardRow = null!;
     private Label _waveFooter = null!;
     private Label _wavePerformance = null!;
@@ -29,9 +30,16 @@ public partial class DraftPanel : CanvasLayer
     private int _lastWaveNumber = 1;
     private int _lastPickNumber = 1;
     private int _lastTotalPicks = 1;
-    private const float CardInitialDelaySeconds = 0.35f;
-    private const float CardStaggerSeconds = 0.29f;
+    private int _foilCardIndex = -1;
+    private string _hoveredModifierHintId = "";
+    private string _touchHoldModifierId = "";
+    private ulong _touchHoldStartMs = 0;
+    private bool _touchHintShown = false;
+    private readonly RandomNumberGenerator _rng = new();
+    private const float CardFaceDownHoldSeconds = 0.12f;
+    private const float CardStaggerSeconds = 0.40f;
     private const float CardEntranceSeconds = 0.24f;
+    private const float TouchHoldHintMs = 170f;
 
     public bool IsAwaitingSlot => _pendingTower != null;
     public bool IsAwaitingTower => _pendingModifier != null;
@@ -84,6 +92,7 @@ public partial class DraftPanel : CanvasLayer
     public override void _Ready()
     {
         Visible = false;
+        _rng.Randomize();
 
         var vpSize = GetViewport().GetVisibleRect().Size;
 
@@ -122,6 +131,17 @@ public partial class DraftPanel : CanvasLayer
         };
         UITheme.ApplyFont(_titleLabel, semiBold: true, size: 28);
         vbox.AddChild(_titleLabel);
+
+        _bonusStamp = new Label
+        {
+            Text = "BONUS PICK",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Visible = false,
+            Modulate = new Color(1.0f, 0.72f, 0.30f, 0f),
+        };
+        UITheme.ApplyFont(_bonusStamp, semiBold: true, size: 14);
+        _bonusStamp.AddThemeColorOverride("font_color", new Color(1.0f, 0.72f, 0.30f));
+        vbox.AddChild(_bonusStamp);
 
         _cardRow = new HBoxContainer
         {
@@ -168,6 +188,18 @@ public partial class DraftPanel : CanvasLayer
             MobileOptimization.ApplyUIScale(_center);
     }
 
+    public override void _Process(double delta)
+    {
+        if (!Visible) return;
+        if (_touchHoldModifierId.Length == 0 || _touchHintShown) return;
+
+        ulong nowMs = Time.GetTicksMsec();
+        if (nowMs - _touchHoldStartMs < (ulong)TouchHoldHintMs) return;
+
+        _touchHintShown = true;
+        SetModifierSynergyHint(_touchHoldModifierId);
+    }
+
     public void Show(List<DraftOption> options, int waveNumber, int pickNumber = 1, int totalPicks = 1, WaveReport? lastWaveReport = null)
     {
         _lastOptions = options;
@@ -183,9 +215,17 @@ public partial class DraftPanel : CanvasLayer
         _pendingTower = null;
         _previewModifierSlot = -1;
         _previewSetAtMs = 0;
+        _foilCardIndex = (_rng.RandiRange(1, 12) == 1 && options.Count > 0) ? _rng.RandiRange(0, options.Count - 1) : -1;
+        ClearModifierSynergyHint();
+        _touchHoldModifierId = "";
+        _touchHoldStartMs = 0;
+        _touchHintShown = false;
         _assignLabel.Visible = false;
         _towerRow.Visible = false;
         _cardRow.Visible = true;
+        _bonusStamp.Visible = false;
+        if (totalPicks > 1 && pickNumber == totalPicks)
+            AnimateBonusPickStamp();
 
         var cfg = waveNumber >= 1 && waveNumber <= Balance.TotalWaves
             ? DataLoader.GetWaveConfig(waveNumber - 1)
@@ -337,9 +377,19 @@ public partial class DraftPanel : CanvasLayer
                 CustomMinimumSize = new Vector2(cardWidth, cardHeight),
                 PivotOffset = new Vector2(cardWidth * 0.5f, cardHeight * 0.5f),
                 Alignment = HorizontalAlignment.Left,
-                Visible = false,
+                Visible = true,
             };
             ApplyCardStyle(btn, opt);
+
+            var front = new Control
+            {
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+                PivotOffset = new Vector2(cardWidth * 0.5f, cardHeight * 0.5f),
+                Scale = new Vector2(0.02f, 1f),
+                Visible = false,
+            };
+            front.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+            btn.AddChild(front);
 
             var accentStrip = new ColorRect
             {
@@ -351,11 +401,12 @@ public partial class DraftPanel : CanvasLayer
             accentStrip.OffsetRight = -6;
             accentStrip.OffsetTop = 5;
             accentStrip.OffsetBottom = 9;
-            btn.AddChild(accentStrip);
+            front.AddChild(accentStrip);
 
             var captured = opt;
             btn.Pressed += () => OnCardPressed(captured);
-            AddHover(btn);
+            AddHover(btn, captured);
+            BindTouchHoldHint(btn, captured);
 
             var cardBody = new MarginContainer();
             cardBody.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -364,16 +415,17 @@ public partial class DraftPanel : CanvasLayer
             cardBody.AddThemeConstantOverride("margin_right", marginX);
             cardBody.AddThemeConstantOverride("margin_bottom", marginBottom);
             cardBody.MouseFilter = Control.MouseFilterEnum.Ignore;
-            btn.AddChild(cardBody);
+            front.AddChild(cardBody);
 
             var vbox = new VBoxContainer();
             vbox.AddThemeConstantOverride("separation", 6);
             cardBody.AddChild(vbox);
 
+            (Control? iconNode, Control? titleNode) punchTargets;
             if (opt.Type == DraftOptionType.Tower)
-                BuildTowerCard(vbox, opt.Id, titleSize, statSize, bodySize, iconSize);
+                punchTargets = BuildTowerCard(vbox, opt.Id, titleSize, statSize, bodySize, iconSize);
             else
-                BuildModifierCard(vbox, opt.Id, titleSize, tagSize, bodySize, iconSize);
+                punchTargets = BuildModifierCard(vbox, opt.Id, titleSize, tagSize, bodySize, iconSize);
 
             var keyLbl = new Label
             {
@@ -388,18 +440,24 @@ public partial class DraftPanel : CanvasLayer
             keyLbl.OffsetRight = -4;
             keyLbl.OffsetTop = -20;
             keyLbl.OffsetBottom = -4;
-            btn.AddChild(keyLbl);
+            front.AddChild(keyLbl);
+
+            var cardBack = BuildCardBack(accent, cardWidth, cardHeight);
+            btn.AddChild(cardBack);
 
             _cardRow.AddChild(btn);
-            AnimateCardEntrance(btn, accentStrip, i);
+            AnimateCardReveal(btn, front, cardBack, i, punchTargets.iconNode, punchTargets.titleNode, isFoil: i == _foilCardIndex);
         }
     }
 
     private void OnCardPressed(DraftOption opt)
     {
-        SoundManager.Instance?.Play("draft_pick");
+        SoundManager.Instance?.Play("ui_card_pick");
         _previewModifierSlot = -1;
         _previewSetAtMs = 0;
+        ClearModifierSynergyHint();
+        _touchHoldModifierId = "";
+        _touchHintShown = false;
         if (opt.Type == DraftOptionType.Tower)
             _pendingTower = opt;
         else
@@ -419,7 +477,7 @@ public partial class DraftPanel : CanvasLayer
                 return;
 
             Visible = false;
-            SoundManager.Instance?.Play("tower_place");
+            SoundManager.Instance?.Play("ui_lock_in");
             var pick = _pendingModifier;
             _previewModifierSlot = -1;
             _previewSetAtMs = 0;
@@ -429,78 +487,198 @@ public partial class DraftPanel : CanvasLayer
 
         _previewModifierSlot = slotIndex;
         _previewSetAtMs = nowMs;
-        SoundManager.Instance?.Play("ui_select");
+        SoundManager.Instance?.Play("ui_preview_ghost");
     }
 
     private void OnSlotPicked(int slotIndex)
     {
         if (_pendingTower == null) return;
         Visible = false;
-        SoundManager.Instance?.Play("tower_place");
         GameController.Instance.OnDraftPick(_pendingTower, slotIndex);
     }
 
-    private static void AddHover(Button btn)
+    private void AddHover(Button btn, DraftOption opt)
     {
         btn.MouseEntered += () =>
         {
             SoundManager.Instance?.Play("ui_hover");
             var tw = btn.CreateTween();
             tw.TweenProperty(btn, "scale", new Vector2(1.06f, 1.06f), 0.08f);
+            if (opt.Type == DraftOptionType.Modifier)
+                SetModifierSynergyHint(opt.Id);
         };
 
         btn.MouseExited += () =>
         {
             var tw = btn.CreateTween();
             tw.TweenProperty(btn, "scale", Vector2.One, 0.08f);
+            if (opt.Type == DraftOptionType.Modifier)
+                ClearModifierSynergyHint(opt.Id);
         };
     }
 
-    private static void AnimateCardEntrance(Button btn, ColorRect accentStrip, int index)
+    private void BindTouchHoldHint(Button btn, DraftOption opt)
     {
-        float delay = CardInitialDelaySeconds + index * CardStaggerSeconds;
-        if (delay <= 0f)
+        if (opt.Type != DraftOptionType.Modifier) return;
+        btn.GuiInput += (@event) =>
         {
-            StartCardEntranceTween(btn, accentStrip);
-            return;
-        }
+            if (@event is not InputEventScreenTouch touch) return;
+            if (touch.Pressed)
+            {
+                _touchHoldModifierId = opt.Id;
+                _touchHoldStartMs = Time.GetTicksMsec();
+                _touchHintShown = false;
+            }
+            else if (_touchHoldModifierId == opt.Id)
+            {
+                _touchHoldModifierId = "";
+                _touchHintShown = false;
+                ClearModifierSynergyHint(opt.Id);
+            }
+        };
+    }
 
+    private void AnimateCardReveal(Button btn, Control front, Control cardBack, int index, Control? iconNode, Control? titleNode, bool isFoil)
+    {
+        float delay = CardFaceDownHoldSeconds + index * CardStaggerSeconds;
         btn.GetTree().CreateTimer(delay).Timeout += () =>
         {
             if (!GodotObject.IsInstanceValid(btn)) return;
-            StartCardEntranceTween(btn, accentStrip);
+            if (!GodotObject.IsInstanceValid(front) || !GodotObject.IsInstanceValid(cardBack)) return;
+
+            SoundManager.Instance?.Play("card_shing");
+
+            var flipOut = btn.CreateTween();
+            flipOut.TweenProperty(cardBack, "scale:x", 0f, CardEntranceSeconds * 0.44f)
+                .SetTrans(Tween.TransitionType.Sine)
+                .SetEase(Tween.EaseType.In);
+            flipOut.TweenCallback(Callable.From(() =>
+            {
+                if (!GodotObject.IsInstanceValid(cardBack) || !GodotObject.IsInstanceValid(front)) return;
+                cardBack.Visible = false;
+                front.Visible = true;
+                front.Scale = new Vector2(0.02f, 1f);
+            }));
+
+            var flipIn = btn.CreateTween();
+            flipIn.TweenInterval(CardEntranceSeconds * 0.44f);
+            flipIn.TweenProperty(front, "scale:x", 1.06f, CardEntranceSeconds * 0.36f)
+                .SetTrans(Tween.TransitionType.Back)
+                .SetEase(Tween.EaseType.Out);
+            flipIn.TweenProperty(front, "scale:x", 1f, CardEntranceSeconds * 0.20f)
+                .SetTrans(Tween.TransitionType.Sine)
+                .SetEase(Tween.EaseType.InOut);
+
+            if (iconNode != null && titleNode != null)
+            {
+                var punch = btn.CreateTween();
+                punch.TweenInterval(CardEntranceSeconds * 0.78f);
+                punch.SetParallel(true);
+                punch.TweenProperty(iconNode, "scale", new Vector2(1.04f, 1.04f), 0.07f);
+                punch.TweenProperty(titleNode, "scale", new Vector2(1.04f, 1.04f), 0.07f);
+                punch.Chain().SetParallel(true);
+                punch.TweenProperty(iconNode, "scale", Vector2.One, 0.07f);
+                punch.TweenProperty(titleNode, "scale", Vector2.One, 0.07f);
+            }
+
+            if (isFoil)
+            {
+                var foilDelay = CardEntranceSeconds * 0.85f;
+                btn.GetTree().CreateTimer(foilDelay).Timeout += () =>
+                {
+                    if (GodotObject.IsInstanceValid(btn) && GodotObject.IsInstanceValid(front))
+                        PlayFoilShimmer(front, btn.CustomMinimumSize);
+                };
+            }
         };
     }
 
-    private static void StartCardEntranceTween(Button btn, ColorRect accentStrip)
+    private static Control BuildCardBack(Color accent, float cardWidth, float cardHeight)
     {
-        btn.Visible = true;
-        btn.Modulate = new Color(1f, 1f, 1f, 0f);
-        btn.Scale = new Vector2(0.06f, 1.08f);
-        btn.RotationDegrees = -7f;
-        accentStrip.Modulate = new Color(1f, 1f, 1f, 0f);
+        var root = new Control
+        {
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            PivotOffset = new Vector2(cardWidth * 0.5f, cardHeight * 0.5f),
+            Scale = Vector2.One,
+        };
+        root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 
-        // Main reveal track: fade + unrotate + accent pulse.
-        var reveal = btn.CreateTween();
-        reveal.SetParallel(true);
-        reveal.TweenProperty(btn, "modulate:a", 1f, CardEntranceSeconds * 0.90f)
-            .SetTrans(Tween.TransitionType.Sine)
-            .SetEase(Tween.EaseType.Out);
-        reveal.TweenProperty(btn, "rotation_degrees", 0f, CardEntranceSeconds * 0.85f)
-            .SetTrans(Tween.TransitionType.Sine)
-            .SetEase(Tween.EaseType.Out);
-        reveal.TweenProperty(accentStrip, "modulate:a", 1f, CardEntranceSeconds * 0.55f)
-            .SetTrans(Tween.TransitionType.Expo)
-            .SetEase(Tween.EaseType.Out);
+        static StyleBoxFlat BackBox(Color border)
+        {
+            var b = new StyleBoxFlat();
+            b.BgColor = new Color(0.035f, 0.05f, 0.12f, 0.98f);
+            b.BorderColor = border;
+            b.BorderWidthTop = 2;
+            b.BorderWidthBottom = 2;
+            b.BorderWidthLeft = 2;
+            b.BorderWidthRight = 2;
+            b.CornerRadiusTopLeft = 8;
+            b.CornerRadiusTopRight = 8;
+            b.CornerRadiusBottomLeft = 8;
+            b.CornerRadiusBottomRight = 8;
+            return b;
+        }
 
-        // Scale track: pseudo flip (thin edge -> wide face) then quick settle.
-        var scaleTw = btn.CreateTween();
-        scaleTw.TweenProperty(btn, "scale", new Vector2(1.05f, 0.96f), CardEntranceSeconds * 0.68f)
-            .SetTrans(Tween.TransitionType.Back)
-            .SetEase(Tween.EaseType.Out);
-        scaleTw.TweenProperty(btn, "scale", Vector2.One, CardEntranceSeconds * 0.32f)
+        var panel = new Panel
+        {
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Theme = UITheme.Build(),
+        };
+        panel.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        panel.AddThemeStyleboxOverride("panel", BackBox(new Color(accent.R * 0.80f, accent.G * 0.80f, accent.B * 0.80f, 1f)));
+        root.AddChild(panel);
+
+        var strip = new ColorRect
+        {
+            Color = new Color(accent.R, accent.G, accent.B, 0.72f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        strip.SetAnchorsPreset(Control.LayoutPreset.TopWide);
+        strip.OffsetLeft = 7f;
+        strip.OffsetRight = -7f;
+        strip.OffsetTop = 6f;
+        strip.OffsetBottom = 10f;
+        root.AddChild(strip);
+
+        var glyph = new Label
+        {
+            Text = "??",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Modulate = new Color(0.72f, 0.80f, 1.00f, 0.76f),
+        };
+        glyph.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        UITheme.ApplyFont(glyph, semiBold: true, size: 24);
+        root.AddChild(glyph);
+        return root;
+    }
+
+    private static void PlayFoilShimmer(Control front, Vector2 cardSize)
+    {
+        var shimmer = new ColorRect
+        {
+            Color = new Color(0.85f, 1.00f, 1.00f, 0f),
+            Position = new Vector2(-52f, -20f),
+            Size = new Vector2(34f, cardSize.Y + 40f),
+            RotationDegrees = 18f,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        front.AddChild(shimmer);
+
+        var tw = shimmer.CreateTween();
+        tw.SetParallel(true);
+        tw.TweenProperty(shimmer, "modulate:a", 0.22f, 0.08f);
+        tw.TweenProperty(shimmer, "position:x", cardSize.X + 52f, 0.45f)
             .SetTrans(Tween.TransitionType.Sine)
             .SetEase(Tween.EaseType.InOut);
+        tw.Chain();
+        tw.TweenProperty(shimmer, "modulate:a", 0f, 0.08f);
+        tw.TweenCallback(Callable.From(() =>
+        {
+            if (GodotObject.IsInstanceValid(shimmer))
+                shimmer.QueueFree();
+        }));
     }
 
     private static void ApplyCardStyle(Button btn, DraftOption opt)
@@ -534,7 +712,7 @@ public partial class DraftPanel : CanvasLayer
         ? ModifierVisuals.GetAccent(opt.Id)
         : GetTowerAccent(opt.Id);
 
-    private static void BuildTowerCard(VBoxContainer root, string towerId, int titleSize, int statSize, int bodySize, float iconSize)
+    private static (Control? iconNode, Control? titleNode) BuildTowerCard(VBoxContainer root, string towerId, int titleSize, int statSize, int bodySize, float iconSize)
     {
         var def = DataLoader.GetTowerDef(towerId);
         var accent = GetTowerAccent(towerId);
@@ -590,9 +768,10 @@ public partial class DraftPanel : CanvasLayer
         UITheme.ApplyFont(role, size: bodySize);
         role.Modulate = new Color(0.88f, 0.88f, 0.95f, 0.9f);
         root.AddChild(role);
+        return (glyphWrap, title);
     }
 
-    private static void BuildModifierCard(VBoxContainer root, string modifierId, int titleSize, int tagSize, int bodySize, float iconSize)
+    private static (Control? iconNode, Control? titleNode) BuildModifierCard(VBoxContainer root, string modifierId, int titleSize, int tagSize, int bodySize, float iconSize)
     {
         var def = DataLoader.GetModifierDef(modifierId);
         var accent = ModifierVisuals.GetAccent(modifierId);
@@ -636,6 +815,19 @@ public partial class DraftPanel : CanvasLayer
         tag.Modulate = new Color(accent.R, accent.G, accent.B, 0.95f);
         root.AddChild(tag);
 
+        string synergyTag = GetModifierSynergyTag(modifierId);
+        if (synergyTag.Length > 0)
+        {
+            var synergy = new Label
+            {
+                Text = synergyTag,
+                AutowrapMode = TextServer.AutowrapMode.Off,
+            };
+            UITheme.ApplyFont(synergy, semiBold: true, size: Mathf.Max(10, tagSize - 1));
+            synergy.Modulate = new Color(0.86f, 0.90f, 1.00f, 0.68f);
+            root.AddChild(synergy);
+        }
+
         var desc = new Label
         {
             Text = def.Description,
@@ -645,7 +837,17 @@ public partial class DraftPanel : CanvasLayer
         UITheme.ApplyFont(desc, size: bodySize);
         desc.Modulate = new Color(0.86f, 0.86f, 0.94f, 0.92f);
         root.AddChild(desc);
+        return (iconHolder, title);
     }
+
+    private static string GetModifierSynergyTag(string modifierId) => modifierId switch
+    {
+        "exploit_weakness" => "GOOD WITH: MARKED",
+        "chain_reaction"   => "GOOD WITH: ARC EMITTER",
+        "overkill"         => "SYNERGY: BIG HITS",
+        "focus_lens"       => "SYNERGY: BIG HITS",
+        _ => "",
+    };
 
     private static Color GetTowerAccent(string towerId) => towerId switch
     {
@@ -673,6 +875,41 @@ public partial class DraftPanel : CanvasLayer
         "chain_tower" => "Bounces into grouped enemy packs.",
         _ => "Generalist tower.",
     };
+
+    private void SetModifierSynergyHint(string modifierId)
+    {
+        if (_hoveredModifierHintId == modifierId) return;
+        _hoveredModifierHintId = modifierId;
+        GameController.Instance?.SetDraftSynergyHint(modifierId);
+    }
+
+    private void ClearModifierSynergyHint(string expectedModifierId = "")
+    {
+        if (expectedModifierId.Length > 0 && _hoveredModifierHintId != expectedModifierId) return;
+        if (_hoveredModifierHintId.Length == 0) return;
+        _hoveredModifierHintId = "";
+        GameController.Instance?.SetDraftSynergyHint("");
+    }
+
+    private void AnimateBonusPickStamp()
+    {
+        _bonusStamp.Visible = true;
+        _bonusStamp.Scale = new Vector2(1.18f, 1.18f);
+        _bonusStamp.RotationDegrees = -4.5f;
+        _bonusStamp.Modulate = new Color(1f, 1f, 1f, 0f);
+        var tw = _bonusStamp.CreateTween();
+        tw.SetParallel(true);
+        tw.TweenProperty(_bonusStamp, "modulate:a", 1f, 0.10f);
+        tw.TweenProperty(_bonusStamp, "scale", Vector2.One * 1.04f, 0.12f)
+            .SetTrans(Tween.TransitionType.Back)
+            .SetEase(Tween.EaseType.Out);
+        tw.TweenProperty(_bonusStamp, "rotation_degrees", 0f, 0.12f)
+            .SetTrans(Tween.TransitionType.Sine)
+            .SetEase(Tween.EaseType.Out);
+        tw.Chain().TweenProperty(_bonusStamp, "scale", Vector2.One, 0.08f)
+            .SetTrans(Tween.TransitionType.Sine)
+            .SetEase(Tween.EaseType.InOut);
+    }
 
     /// <summary>
     /// Generates a subtle archetype hint based on wave composition.

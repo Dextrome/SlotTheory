@@ -161,7 +161,8 @@ public class CombatSim
             {
                 tower.OnShotFired(target);
                 tower.FlashAttack();
-                tower.KickRecoil();
+                float recoilPx = tower.TowerId == "heavy_cannon" ? 6.4f : 3.5f;
+                tower.KickRecoil(recoilPx);
             }
 
             string shootId = tower.TowerId switch
