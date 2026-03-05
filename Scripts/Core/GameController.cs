@@ -28,8 +28,10 @@ public partial class GameController : Node
 	private EndScreen _endScreen = null!;
 	private Node2D[]      _slotNodes           = new Node2D[Balance.SlotCount];
 	private Line2D[]      _slotHighlights      = new Line2D[Balance.SlotCount];
+	private Line2D[]      _slotPreviewGlows    = new Line2D[Balance.SlotCount];
 	private Tween?[]      _slotHighlightTweens = new Tween?[Balance.SlotCount];
 	private ColorRect[][] _slotModPips         = new ColorRect[Balance.SlotCount][];
+	private ModifierIcon[][] _slotModIcons     = new ModifierIcon[Balance.SlotCount][];
 	private int      _highlightedSlot      = -1;
 	private bool     _highlightedSlotValid = false;
 	private Map _currentMap = null!;
@@ -44,6 +46,9 @@ public partial class GameController : Node
 	private BotRunner? _botRunner;
 	private int _extraPicksRemaining;
 	private WaveReport? _lastWaveReport;
+	private int _previewGhostSlot = -1;
+	private float _previewGhostPhase = 0f;
+	private ModifierIcon? _previewModifierIcon;
 
 	public override void _Ready()
 	{
@@ -103,6 +108,11 @@ public partial class GameController : Node
 			UpdateSlotHighlights();
 		else if (_highlightedSlot != -1)
 			ClearSlotHighlights();
+
+		if (CurrentPhase == GamePhase.Draft && _draftPanel.IsAwaitingTower)
+			UpdateModifierPreviewGhost((float)delta);
+		else
+			ClearModifierPreviewGhost();
 
 		if (_botRunner == null) UpdatePlacementLabel();
 
@@ -357,8 +367,8 @@ public partial class GameController : Node
 			VerticalAlignment     = VerticalAlignment.Center,
 			MouseFilter           = Control.MouseFilterEnum.Ignore,
 		};
+		UITheme.ApplyFont(modeLabel, semiBold: true, size: 14);
 		modeLabel.AddThemeColorOverride("font_color", Colors.White);
-		modeLabel.AddThemeFontSizeOverride("font_size", 14);
 		tower.ModeLabel = modeLabel;
 		_slotNodes[slotIndex].AddChild(modeLabel);  // parented to slot so it doesn't rotate with tower
 
@@ -383,19 +393,32 @@ public partial class GameController : Node
 	public override void _Input(InputEvent @event)
 	{
 		Vector2 pressPos;
-		if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
-			pressPos = GetViewport().GetMousePosition();
-		else if (@event is InputEventScreenTouch { Pressed: true } touch)
+		if (MobileOptimization.IsMobile())
+		{
+			if (@event is not InputEventScreenTouch { Pressed: true } touch)
+				return;
 			pressPos = touch.Position;
+		}
+		else if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
+		{
+			pressPos = GetViewport().GetMousePosition();
+		}
+		else if (@event is InputEventScreenTouch { Pressed: true } touch)
+		{
+			pressPos = touch.Position;
+		}
 		else
+		{
 			return;
+		}
 		// Draft assignment: click a slot in the world to place tower / assign modifier
 		if (CurrentPhase == GamePhase.Draft && (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower))
 		{
+			float slotHalf = MobileOptimization.IsMobile() ? 30f : 22f;
 			for (int i = 0; i < Balance.SlotCount; i++)
 			{
 				if (!_draftPanel.IsSlotValidTarget(i)) continue;
-				var hitRect = new Rect2(_slotNodes[i].GlobalPosition - new Vector2(22f, 22f), new Vector2(44f, 44f));
+				var hitRect = new Rect2(_slotNodes[i].GlobalPosition - new Vector2(slotHalf, slotHalf), new Vector2(slotHalf * 2f, slotHalf * 2f));
 				if (hitRect.HasPoint(pressPos))
 				{
 					_draftPanel.SelectSlot(i);
@@ -403,19 +426,37 @@ public partial class GameController : Node
 					return;
 				}
 			}
+			
 			if (MobileOptimization.IsMobile() && _draftPanel.IsAwaitingTower)
 			{
 				for (int i = 0; i < _runState.Slots.Length; i++)
 				{
 					var tower = _runState.Slots[i].Tower;
 					if (tower == null) continue;
-					var hitRect = new Rect2(tower.GlobalPosition - new Vector2(25f, 25f), new Vector2(50f, 50f));
+					var hitRect = new Rect2(tower.GlobalPosition - new Vector2(34f, 34f), new Vector2(68f, 68f));
 					if (!hitRect.HasPoint(pressPos)) continue;
+
+					// Touch fallback: allow tapping the tower body itself for preview/confirm.
+					if (_draftPanel.IsSlotValidTarget(i))
+					{
+						_draftPanel.SelectSlot(i);
+						GetViewport().SetInputAsHandled();
+						return;
+					}
+
 					_selectedTooltipTower = tower;
 					GetViewport().SetInputAsHandled();
 					return;
 				}
 				_selectedTooltipTower = null;
+			}
+
+			// Outside tap while previewing a modifier cancels preview selection.
+			if (_draftPanel.IsAwaitingTower && _draftPanel.HasModifierPreview)
+			{
+				_draftPanel.CancelModifierPreview();
+				ClearModifierPreviewGhost();
+				GetViewport().SetInputAsHandled();
 			}
 			return;
 		}
@@ -474,9 +515,16 @@ public partial class GameController : Node
 		_slotNodes[i].AddChild(hl);
 		_slotHighlights[i] = hl;
 
+		// Preview glow — shown when a modifier is previewed on this slot.
+		var previewGlow = new Line2D { Points = hlSq, Width = 4.2f, DefaultColor = new Color(0.45f, 0.95f, 1.00f, 0.92f) };
+		previewGlow.Modulate = Colors.Transparent;
+		_slotNodes[i].AddChild(previewGlow);
+		_slotPreviewGlows[i] = previewGlow;
+
 			// Mod-count pip — just below slot square, shown only when tower has ≥ 1 modifier
 			// Modifier pips — 3 small squares below slot, one per modifier slot
 			var pips = new ColorRect[Balance.MaxModifiersPerTower];
+			var icons = new ModifierIcon[Balance.MaxModifiersPerTower];
 			for (int p = 0; p < Balance.MaxModifiersPerTower; p++)
 			{
 				float px = (p - 1) * 9f;  // centers at -9, 0, +9
@@ -490,8 +538,21 @@ public partial class GameController : Node
 				};
 				_slotNodes[i].AddChild(pip);
 				pips[p] = pip;
+
+				// Modifier icons shown below pips for quick visual build reads.
+				float ix = (p - 1) * 12f;
+				var icon = new ModifierIcon
+				{
+					Position = new Vector2(ix - 5f, 31f),
+					Size = new Vector2(10f, 10f),
+					CustomMinimumSize = new Vector2(10f, 10f),
+					Visible = false,
+				};
+				_slotNodes[i].AddChild(icon);
+				icons[p] = icon;
 			}
 			_slotModPips[i] = pips;
+			_slotModIcons[i] = icons;
 		}
 	}
 
@@ -648,7 +709,7 @@ public partial class GameController : Node
 			MouseFilter = Control.MouseFilterEnum.Ignore,
 			AutowrapMode = TextServer.AutowrapMode.Off,
 		};
-		_tooltipLabel.AddThemeFontSizeOverride("font_size", 13);
+		UITheme.ApplyFont(_tooltipLabel, size: 13);
 		_tooltipPanel.AddChild(_tooltipLabel);
 	}
 
@@ -902,17 +963,15 @@ public partial class GameController : Node
 			_placementLabel.Visible = false;
 			return;
 		}
-		if (!_placementLabel.Visible)
-		{
-			_placementLabel.Text    = _draftPanel.PlacementHint;
-			_placementLabel.Visible = true;
-		}
+		_placementLabel.Text = _draftPanel.PlacementHint;
+		_placementLabel.Visible = true;
 	}
 
 	private void RefreshModPips(int slotIndex)
 	{
 		var pips = _slotModPips[slotIndex];
 		if (pips == null) return;
+		var icons = _slotModIcons[slotIndex];
 		var tower = _runState.Slots[slotIndex].Tower;
 		int filled = tower?.Modifiers.Count ?? 0;
 		bool atMax = filled >= Balance.MaxModifiersPerTower;
@@ -922,7 +981,108 @@ public partial class GameController : Node
 			pips[p].Color = p < filled
 				? (atMax ? new Color(1.00f, 0.60f, 0.05f) : new Color(0.30f, 0.95f, 0.40f))
 				: new Color(0.22f, 0.22f, 0.22f, 0.45f);
+
+			if (icons != null)
+			{
+				if (tower != null && p < filled && p < tower.Modifiers.Count)
+				{
+					var modId = tower.Modifiers[p].ModifierId;
+					icons[p].ModifierId = modId;
+					icons[p].IconColor = ModifierVisuals.GetAccent(modId);
+					icons[p].Modulate = new Color(1f, 1f, 1f, 0.95f);
+					icons[p].Visible = true;
+				}
+				else
+				{
+					icons[p].Visible = false;
+				}
+			}
 		}
+	}
+
+	private void UpdateModifierPreviewGhost(float delta)
+	{
+		int slot = _draftPanel.ModifierPreviewSlot;
+		if (slot < 0 || slot >= _slotModPips.Length)
+		{
+			ClearModifierPreviewGhost();
+			return;
+		}
+
+		if (_previewGhostSlot != slot)
+		{
+			if (_previewGhostSlot >= 0)
+			{
+				RefreshModPips(_previewGhostSlot);
+				if (GodotObject.IsInstanceValid(_slotPreviewGlows[_previewGhostSlot]))
+					_slotPreviewGlows[_previewGhostSlot].Modulate = Colors.Transparent;
+			}
+			_previewGhostSlot = slot;
+			_previewGhostPhase = 0f;
+		}
+		else
+		{
+			_previewGhostPhase += delta;
+		}
+
+		var tower = _runState.Slots[slot].Tower;
+		if (tower == null) return;
+		int filled = tower.Modifiers.Count;
+		if (filled >= Balance.MaxModifiersPerTower || filled < 0) return;
+
+		RefreshModPips(slot);
+		var pip = _slotModPips[slot][filled];
+		var accent = ModifierVisuals.GetAccent(_draftPanel.PendingModifierId);
+		float pulse = 0.5f + 0.5f * Mathf.Sin(_previewGhostPhase * 9f);
+		pip.Visible = true;
+		pip.Color = new Color(accent.R, accent.G, accent.B, 0.40f + pulse * 0.30f);
+
+		// Persistent slot glow for the currently previewed tower.
+		if (GodotObject.IsInstanceValid(_slotPreviewGlows[slot]))
+		{
+			var glow = _slotPreviewGlows[slot];
+			glow.DefaultColor = new Color(accent.R, accent.G, accent.B, 0.95f);
+			glow.Modulate = new Color(1f, 1f, 1f, 0.30f + pulse * 0.45f);
+		}
+
+		// Semi-transparent preview icon that sits on the tower.
+		if (!GodotObject.IsInstanceValid(_previewModifierIcon))
+		{
+			_previewModifierIcon = new ModifierIcon
+			{
+				Size = new Vector2(18f, 18f),
+				CustomMinimumSize = new Vector2(18f, 18f),
+				MouseFilter = Control.MouseFilterEnum.Ignore,
+			};
+		}
+		if (_previewModifierIcon.GetParent() != _slotNodes[slot])
+		{
+			_previewModifierIcon.GetParent()?.RemoveChild(_previewModifierIcon);
+			_slotNodes[slot].AddChild(_previewModifierIcon);
+		}
+		_previewModifierIcon.Position = new Vector2(-9f, -9f);
+		_previewModifierIcon.ModifierId = _draftPanel.PendingModifierId;
+		_previewModifierIcon.IconColor = accent;
+		_previewModifierIcon.Modulate = new Color(1f, 1f, 1f, 0.35f + pulse * 0.35f);
+		_previewModifierIcon.Visible = true;
+	}
+
+	private void ClearModifierPreviewGhost()
+	{
+		if (_previewGhostSlot >= 0)
+			RefreshModPips(_previewGhostSlot);
+
+		for (int i = 0; i < _slotPreviewGlows.Length; i++)
+		{
+			if (GodotObject.IsInstanceValid(_slotPreviewGlows[i]))
+				_slotPreviewGlows[i].Modulate = Colors.Transparent;
+		}
+
+		if (GodotObject.IsInstanceValid(_previewModifierIcon))
+			_previewModifierIcon.Visible = false;
+
+		_previewGhostSlot = -1;
+		_previewGhostPhase = 0f;
 	}
 
 	private void ShowWaveClearFlash()

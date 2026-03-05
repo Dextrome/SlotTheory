@@ -1,4 +1,5 @@
 using Godot;
+using SlotTheory.Core;
 
 namespace SlotTheory.Entities;
 
@@ -35,7 +36,7 @@ public partial class DamageNumber : Node2D
     {
         float t     = _life / Duration;
         float alpha = 1f - t * t;   // stays bright longer, then drops off
-        var   font  = ThemeDB.FallbackFont;
+        var   font  = UITheme.SemiBold;
         int   size  = _isKill ? 24 : 18;
         var   col   = _isKill ? new Color(1f, 0.85f, 0.15f, alpha)
                                : new Color(_color.R, _color.G, _color.B, alpha);
