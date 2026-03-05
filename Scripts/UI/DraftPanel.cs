@@ -6,9 +6,9 @@ using SlotTheory.Data;
 namespace SlotTheory.UI;
 
 /// <summary>
-/// Full-screen overlay shown during draft phase. Builds its own UI in code.
-/// Two-step for modifiers: pick option → pick which tower to assign it to.
-/// Keys 1–5 select cards; 1–6 select slots in the assignment step.
+/// Full-screen overlay shown during draft phase.
+/// Two-step for modifiers: pick option then pick which tower to assign it to.
+/// Keys 1-5 select cards; 1-6 select slots in the assignment step.
 /// </summary>
 public partial class DraftPanel : CanvasLayer
 {
@@ -20,15 +20,30 @@ public partial class DraftPanel : CanvasLayer
     private HBoxContainer _towerRow = null!;
     private DraftOption? _pendingModifier;
     private DraftOption? _pendingTower;
+    private int _previewModifierSlot = -1;
+    private ulong _previewSetAtMs = 0;
     private ColorRect _bg = null!;
+    private DraftBackdropFx _bgFx = null!;
     private CenterContainer _center = null!;
-    private List<DraftOption> _lastOptions  = new();
-    private int  _lastWaveNumber = 1;
-    private int  _lastPickNumber = 1;
-    private int  _lastTotalPicks = 1;
+    private List<DraftOption> _lastOptions = new();
+    private int _lastWaveNumber = 1;
+    private int _lastPickNumber = 1;
+    private int _lastTotalPicks = 1;
+    private const float CardInitialDelaySeconds = 0.35f;
+    private const float CardStaggerSeconds = 0.35f;
+    private const float CardEntranceSeconds = 0.25f;
 
-    public bool IsAwaitingSlot  => _pendingTower    != null;
+    public bool IsAwaitingSlot => _pendingTower != null;
     public bool IsAwaitingTower => _pendingModifier != null;
+    public bool HasModifierPreview => _previewModifierSlot >= 0;
+    public int ModifierPreviewSlot => _previewModifierSlot;
+    public string PendingModifierId => _pendingModifier?.Id ?? "";
+
+    public void CancelModifierPreview()
+    {
+        _previewModifierSlot = -1;
+        _previewSetAtMs = 0;
+    }
 
     public string PlacementHint
     {
@@ -39,11 +54,15 @@ public partial class DraftPanel : CanvasLayer
                 var def = DataLoader.GetTowerDef(_pendingTower.Id);
                 return $"Click a slot to place  {def.Name}";
             }
+
             if (_pendingModifier != null)
             {
                 var def = DataLoader.GetModifierDef(_pendingModifier.Id);
-                return $"Click a tower to assign  {def.Name}";
+                if (_previewModifierSlot >= 0)
+                    return $"Preview: {def.Name} on slot {_previewModifierSlot + 1}  -  tap same slot to confirm, tap elsewhere to cancel\n{def.Description}";
+                return $"Tap a tower to preview  {def.Name}\n{def.Description}";
             }
+
             return "";
         }
     }
@@ -51,151 +70,169 @@ public partial class DraftPanel : CanvasLayer
     public bool IsSlotValidTarget(int i)
     {
         var slots = GameController.Instance.GetRunState().Slots;
-        if (IsAwaitingSlot)  return slots[i].Tower == null;
+        if (IsAwaitingSlot) return slots[i].Tower == null;
         if (IsAwaitingTower) return slots[i].Tower?.CanAddModifier == true;
         return false;
     }
 
     public void SelectSlot(int slotIndex)
     {
-        if (_pendingTower    != null) OnSlotPicked(slotIndex);
-        else if (_pendingModifier != null) OnTowerAssigned(slotIndex);
+        if (_pendingTower != null) OnSlotPicked(slotIndex);
+        else if (_pendingModifier != null) OnModifierSlotPicked(slotIndex);
     }
 
     public override void _Ready()
     {
         Visible = false;
 
-        // Use explicit Position/Size instead of SetAnchorsPreset — anchor evaluation
-        // is deferred and can drift after multiple show/hide cycles.  With canvas_items
-        // stretch mode the viewport rect is always 1280×720.
         var vpSize = GetViewport().GetVisibleRect().Size;
 
-        _bg = new ColorRect();
-        _bg.Color = new Color(0f, 0f, 0f, 0.75f);
-        _bg.Position = Vector2.Zero;
-        _bg.Size = vpSize;
+        _bg = new ColorRect
+        {
+            Color = new Color(0f, 0f, 0f, 0.70f),
+            Position = Vector2.Zero,
+            Size = vpSize,
+            MouseFilter = Control.MouseFilterEnum.Stop,
+        };
         AddChild(_bg);
 
-        _center = new CenterContainer();
-        _center.Theme = SlotTheory.Core.UITheme.Build();
-        _center.Position = Vector2.Zero;
-        _center.Size = vpSize;
+        _bgFx = new DraftBackdropFx
+        {
+            Position = Vector2.Zero,
+            Size = vpSize,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        AddChild(_bgFx);
+
+        _center = new CenterContainer
+        {
+            Theme = UITheme.Build(),
+            Position = Vector2.Zero,
+            Size = vpSize,
+        };
         AddChild(_center);
 
         var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 20);
+        vbox.AddThemeConstantOverride("separation", 18);
         _center.AddChild(vbox);
 
-        _titleLabel = new Label();
-        _titleLabel.HorizontalAlignment = HorizontalAlignment.Center;
-        _titleLabel.AddThemeFontSizeOverride("font_size", 26);
+        _titleLabel = new Label
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        UITheme.ApplyFont(_titleLabel, semiBold: true, size: 28);
         vbox.AddChild(_titleLabel);
 
-        _cardRow = new HBoxContainer();
-        _cardRow.Alignment = BoxContainer.AlignmentMode.Center;
-        _cardRow.AddThemeConstantOverride("separation", 12);
+        _cardRow = new HBoxContainer
+        {
+            Alignment = BoxContainer.AlignmentMode.Center,
+        };
+        _cardRow.AddThemeConstantOverride("separation", 14);
         vbox.AddChild(_cardRow);
 
-        _assignLabel = new Label();
-        _assignLabel.HorizontalAlignment = HorizontalAlignment.Center;
-        _assignLabel.AddThemeFontSizeOverride("font_size", 18);
-        _assignLabel.Visible = false;
+        _assignLabel = new Label
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Visible = false,
+        };
+        UITheme.ApplyFont(_assignLabel, semiBold: true, size: 18);
         vbox.AddChild(_assignLabel);
 
-        _towerRow = new HBoxContainer();
-        _towerRow.Alignment = BoxContainer.AlignmentMode.Center;
+        _towerRow = new HBoxContainer
+        {
+            Alignment = BoxContainer.AlignmentMode.Center,
+            Visible = false,
+        };
         _towerRow.AddThemeConstantOverride("separation", 12);
-        _towerRow.Visible = false;
         vbox.AddChild(_towerRow);
 
-        _waveFooter = new Label();
-        _waveFooter.HorizontalAlignment = HorizontalAlignment.Center;
-        _waveFooter.AddThemeFontSizeOverride("font_size", 14);
-        _waveFooter.AddThemeColorOverride("font_color", new Color(0.60f, 0.75f, 1.00f, 0.80f));
-        _waveFooter.Visible = false;
+        _waveFooter = new Label
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Visible = false,
+        };
+        UITheme.ApplyFont(_waveFooter, size: 14);
+        _waveFooter.AddThemeColorOverride("font_color", new Color(0.60f, 0.75f, 1.00f, 0.82f));
         vbox.AddChild(_waveFooter);
 
-        // Wave performance report from previous wave
-        _wavePerformance = new Label();
-        _wavePerformance.HorizontalAlignment = HorizontalAlignment.Center;
-        _wavePerformance.AddThemeFontSizeOverride("font_size", 14);
+        _wavePerformance = new Label
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Visible = false,
+        };
+        UITheme.ApplyFont(_wavePerformance, size: 14);
         _wavePerformance.AddThemeColorOverride("font_color", new Color(0.95f, 0.85f, 0.60f, 0.90f));
-        _wavePerformance.Visible = false;
         vbox.AddChild(_wavePerformance);
+
         if (!MobileOptimization.IsTablet())
             MobileOptimization.ApplyUIScale(_center);
     }
 
     public void Show(List<DraftOption> options, int waveNumber, int pickNumber = 1, int totalPicks = 1, WaveReport? lastWaveReport = null)
     {
-        _lastOptions    = options;
+        _lastOptions = options;
         _lastWaveNumber = waveNumber;
         _lastPickNumber = pickNumber;
         _lastTotalPicks = totalPicks;
 
         _titleLabel.Text = totalPicks > 1
-            ? $"Wave {waveNumber}  —  Pick {pickNumber} of {totalPicks}"
-            : $"Wave {waveNumber}  —  Choose";
+            ? $"Wave {waveNumber}  -  Pick {pickNumber} of {totalPicks}"
+            : $"Wave {waveNumber}  -  Choose";
+
         _pendingModifier = null;
         _pendingTower = null;
+        _previewModifierSlot = -1;
+        _previewSetAtMs = 0;
         _assignLabel.Visible = false;
         _towerRow.Visible = false;
         _cardRow.Visible = true;
-        _bg.MouseFilter = Control.MouseFilterEnum.Stop;
 
-        // Enhanced wave composition preview footer with Swift enemies and threat tags
         var cfg = waveNumber >= 1 && waveNumber <= Balance.TotalWaves
-            ? DataLoader.GetWaveConfig(waveNumber - 1) : null;
+            ? DataLoader.GetWaveConfig(waveNumber - 1)
+            : null;
+
         if (cfg != null)
         {
-            int basic   = cfg.EnemyCount;
+            int basic = cfg.EnemyCount;
             int armored = cfg.TankyCount;
-            int swift   = cfg.SwiftCount;
-            
-            List<string> parts = new();
-            parts.Add($"{basic} Basic");
+            int swift = cfg.SwiftCount;
+
+            List<string> parts = new() { $"{basic} Basic" };
             if (armored > 0)
             {
                 string armoredText = cfg.ClumpArmored ? $"{armored} Armored [clumped]" : $"{armored} Armored";
                 parts.Add(armoredText);
             }
+
             if (swift > 0)
-            {
                 parts.Add($"{swift} Swift");
-            }
-            
-            // Add threat tags based on enemy composition
+
             List<string> threats = new();
             if (armored >= 3) threats.Add("TANK");
             if (swift >= 2) threats.Add("FAST");
             if (cfg.ClumpArmored && armored >= 2) threats.Add("SURGE");
-            
-            string baseText = string.Join("  ·  ", parts);
+
+            string baseText = string.Join("  |  ", parts);
             string threatHint = threats.Count > 0 ? $"  [{string.Join(", ", threats)}]" : "";
-            
-            // Optional archetype recommendation based on composition
             string archetypeHint = GenerateArchetypeHint(cfg);
-            
-            _waveFooter.Text = $"↓  {baseText}{threatHint}{archetypeHint}";
+
+            _waveFooter.Text = $"v  {baseText}{threatHint}{archetypeHint}";
             _waveFooter.Visible = true;
         }
         else
         {
             _waveFooter.Visible = false;
         }
-        
-        // Show previous wave performance if available
+
         if (lastWaveReport != null && waveNumber > 1)
         {
             var topTower = lastWaveReport.TopDamageDealer;
             if (topTower != null)
             {
                 var towerDef = DataLoader.GetTowerDef(topTower.TowerId);
-                string performance = lastWaveReport.Leaks > 0 
-                    ? $"Wave {lastWaveReport.WaveNumber}: {lastWaveReport.Leaks} leak(s)  •  Top damage: {towerDef.Name} ({topTower.Damage})"
-                    : $"Wave {lastWaveReport.WaveNumber}: Perfect clear!  •  Top damage: {towerDef.Name} ({topTower.Damage})";
-                _wavePerformance.Text = performance;
+                _wavePerformance.Text = lastWaveReport.Leaks > 0
+                    ? $"Wave {lastWaveReport.WaveNumber}: {lastWaveReport.Leaks} leak(s)  |  Top damage: {towerDef.Name} ({topTower.Damage})"
+                    : $"Wave {lastWaveReport.WaveNumber}: Perfect clear  |  Top damage: {towerDef.Name} ({topTower.Damage})";
                 _wavePerformance.Visible = true;
             }
             else
@@ -207,13 +244,15 @@ public partial class DraftPanel : CanvasLayer
         {
             _wavePerformance.Visible = false;
         }
-        
-        // Explicitly reset position/size each open to prevent any deferred layout drift.
+
         var vpSize = GetViewport().GetVisibleRect().Size;
         _bg.Position = Vector2.Zero;
         _bg.Size = vpSize;
+        _bgFx.Position = Vector2.Zero;
+        _bgFx.Size = vpSize;
         _center.Position = Vector2.Zero;
         _center.Size = vpSize;
+
         BuildCardRow(options);
         Visible = true;
     }
@@ -225,7 +264,7 @@ public partial class DraftPanel : CanvasLayer
 
         if (key.Keycode == Key.Escape && (_pendingTower != null || _pendingModifier != null))
         {
-            _pendingTower    = null;
+            _pendingTower = null;
             _pendingModifier = null;
             Show(_lastOptions, _lastWaveNumber, _lastPickNumber, _lastTotalPicks, null);
             GetViewport().SetInputAsHandled();
@@ -240,7 +279,7 @@ public partial class DraftPanel : CanvasLayer
             Key.Key4 => 3,
             Key.Key5 => 4,
             Key.Key6 => 5,
-            _        => -1,
+            _ => -1,
         };
         if (idx < 0) return;
 
@@ -248,75 +287,155 @@ public partial class DraftPanel : CanvasLayer
         if (row == null) return;
 
         var children = row.GetChildren();
-        if (idx < children.Count)
+        if (idx < children.Count && children[idx] is Button btn && !btn.Disabled)
         {
-            if (children[idx] is Button btn && !btn.Disabled)
-            {
-                btn.EmitSignal(Button.SignalName.Pressed);
-                GetViewport().SetInputAsHandled();
-            }
+            btn.EmitSignal(Button.SignalName.Pressed);
+            GetViewport().SetInputAsHandled();
         }
     }
 
     private void BuildCardRow(List<DraftOption> options)
     {
-        // Use Free() (immediate) not QueueFree() so old buttons are gone before new
-        // ones are added — prevents the container briefly sizing to 2× the card count.
         foreach (Node child in _cardRow.GetChildren())
             child.Free();
+
+        var vpW = GetViewport().GetVisibleRect().Size.X;
+        int cardCount = Mathf.Max(1, options.Count);
+        int spacing = 14;
+        float sidePadding = 44f;
+        float cardWidth = 230f;
+
+        // Adaptive sizing keeps all five cards visible on tablet / narrow viewports.
+        if (MobileOptimization.IsTablet() || vpW < 1240f)
+        {
+            spacing = vpW < 980f ? 8 : 10;
+            cardWidth = (vpW - sidePadding - spacing * (cardCount - 1)) / cardCount;
+            cardWidth = Mathf.Clamp(cardWidth, 140f, 220f);
+        }
+
+        float widthScale = Mathf.Clamp(cardWidth / 230f, 0.72f, 1f);
+        float cardHeight = Mathf.Lerp(104f, 142f, widthScale);
+        int titleSize = Mathf.RoundToInt(21f * widthScale);
+        int bodySize = Mathf.RoundToInt(14f * widthScale);
+        int statSize = Mathf.RoundToInt(13f * widthScale);
+        int tagSize = Mathf.RoundToInt(12f * widthScale);
+        float iconSize = Mathf.Lerp(22f, 28f, widthScale);
+        int marginX = Mathf.RoundToInt(Mathf.Lerp(8f, 12f, widthScale));
+        int marginTop = Mathf.RoundToInt(Mathf.Lerp(8f, 10f, widthScale));
+        int marginBottom = Mathf.RoundToInt(Mathf.Lerp(8f, 10f, widthScale));
+
+        _cardRow.AddThemeConstantOverride("separation", spacing);
 
         for (int i = 0; i < options.Count; i++)
         {
             var opt = options[i];
-            var btn = new Button();
-            btn.Text = GetOptionLabel(opt, i);
-            btn.CustomMinimumSize = new Vector2(190, 110);
-            btn.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-            btn.PivotOffset = new Vector2(95f, 55f);
+            var accent = GetOptionAccent(opt);
+            var btn = new Button
+            {
+                Text = "",
+                CustomMinimumSize = new Vector2(cardWidth, cardHeight),
+                PivotOffset = new Vector2(cardWidth * 0.5f, cardHeight * 0.5f),
+                Alignment = HorizontalAlignment.Left,
+                Visible = false,
+            };
+            ApplyCardStyle(btn, opt);
+
+            var accentStrip = new ColorRect
+            {
+                Color = new Color(accent.R, accent.G, accent.B, 0.86f),
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+            accentStrip.SetAnchorsPreset(Control.LayoutPreset.TopWide);
+            accentStrip.OffsetLeft = 6;
+            accentStrip.OffsetRight = -6;
+            accentStrip.OffsetTop = 5;
+            accentStrip.OffsetBottom = 9;
+            btn.AddChild(accentStrip);
+
             var captured = opt;
             btn.Pressed += () => OnCardPressed(captured);
             AddHover(btn);
 
-            // Key hint as a separate child label — styled differently from the card body text,
-            // anchored to the bottom-right corner so it never competes with card content
-            var keyLbl = new Label { Text = $"[ {i + 1} ]" };
-            keyLbl.AddThemeFontSizeOverride("font_size", 12);
-            keyLbl.Modulate = new Color(0.55f, 0.55f, 0.75f, 0.80f);
-            keyLbl.MouseFilter = Control.MouseFilterEnum.Ignore;
-            keyLbl.HorizontalAlignment = HorizontalAlignment.Right;
+            var cardBody = new MarginContainer();
+            cardBody.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+            cardBody.AddThemeConstantOverride("margin_left", marginX);
+            cardBody.AddThemeConstantOverride("margin_top", marginTop);
+            cardBody.AddThemeConstantOverride("margin_right", marginX);
+            cardBody.AddThemeConstantOverride("margin_bottom", marginBottom);
+            cardBody.MouseFilter = Control.MouseFilterEnum.Ignore;
+            btn.AddChild(cardBody);
+
+            var vbox = new VBoxContainer();
+            vbox.AddThemeConstantOverride("separation", 6);
+            cardBody.AddChild(vbox);
+
+            if (opt.Type == DraftOptionType.Tower)
+                BuildTowerCard(vbox, opt.Id, titleSize, statSize, bodySize, iconSize);
+            else
+                BuildModifierCard(vbox, opt.Id, titleSize, tagSize, bodySize, iconSize);
+
+            var keyLbl = new Label
+            {
+                Text = $"[ {i + 1} ]",
+                Modulate = new Color(0.55f, 0.55f, 0.75f, 0.80f),
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+                HorizontalAlignment = HorizontalAlignment.Right,
+            };
+            UITheme.ApplyFont(keyLbl, semiBold: true, size: 12);
             keyLbl.SetAnchorsPreset(Control.LayoutPreset.BottomRight);
-            keyLbl.OffsetLeft = -46; keyLbl.OffsetRight = -4;
-            keyLbl.OffsetTop  = -20; keyLbl.OffsetBottom = -4;
+            keyLbl.OffsetLeft = -46;
+            keyLbl.OffsetRight = -4;
+            keyLbl.OffsetTop = -20;
+            keyLbl.OffsetBottom = -4;
             btn.AddChild(keyLbl);
 
             _cardRow.AddChild(btn);
+            AnimateCardEntrance(btn, accentStrip, i);
         }
     }
 
     private void OnCardPressed(DraftOption opt)
     {
-        SlotTheory.Core.SoundManager.Instance?.Play("draft_pick");
+        SoundManager.Instance?.Play("draft_pick");
+        _previewModifierSlot = -1;
+        _previewSetAtMs = 0;
         if (opt.Type == DraftOptionType.Tower)
             _pendingTower = opt;
         else
             _pendingModifier = opt;
-        // Hide panel — world slot highlights take over for placement/assignment
+
         Visible = false;
     }
 
-    private void OnTowerAssigned(int slotIndex)
+    private void OnModifierSlotPicked(int slotIndex)
     {
         if (_pendingModifier == null) return;
-        Visible = false;
-        SlotTheory.Core.SoundManager.Instance?.Play("tower_place");
-        GameController.Instance.OnDraftPick(_pendingModifier, slotIndex);
+        ulong nowMs = Time.GetTicksMsec();
+        if (_previewModifierSlot == slotIndex)
+        {
+            // Require a distinct follow-up tap (avoids touch->mouse event duplication confirming instantly).
+            if (_previewSetAtMs > 0 && (nowMs - _previewSetAtMs) < 120)
+                return;
+
+            Visible = false;
+            SoundManager.Instance?.Play("tower_place");
+            var pick = _pendingModifier;
+            _previewModifierSlot = -1;
+            _previewSetAtMs = 0;
+            GameController.Instance.OnDraftPick(pick, slotIndex);
+            return;
+        }
+
+        _previewModifierSlot = slotIndex;
+        _previewSetAtMs = nowMs;
+        SoundManager.Instance?.Play("ui_select");
     }
 
     private void OnSlotPicked(int slotIndex)
     {
         if (_pendingTower == null) return;
         Visible = false;
-        SlotTheory.Core.SoundManager.Instance?.Play("tower_place");
+        SoundManager.Instance?.Play("tower_place");
         GameController.Instance.OnDraftPick(_pendingTower, slotIndex);
     }
 
@@ -324,10 +443,11 @@ public partial class DraftPanel : CanvasLayer
     {
         btn.MouseEntered += () =>
         {
-            SlotTheory.Core.SoundManager.Instance?.Play("ui_hover");
+            SoundManager.Instance?.Play("ui_hover");
             var tw = btn.CreateTween();
             tw.TweenProperty(btn, "scale", new Vector2(1.06f, 1.06f), 0.08f);
         };
+
         btn.MouseExited += () =>
         {
             var tw = btn.CreateTween();
@@ -335,19 +455,223 @@ public partial class DraftPanel : CanvasLayer
         };
     }
 
-    private static string GetOptionLabel(DraftOption opt, int index)
+    private static void AnimateCardEntrance(Button btn, ColorRect accentStrip, int index)
     {
-        if (opt.Type == DraftOptionType.Tower)
+        float delay = CardInitialDelaySeconds + index * CardStaggerSeconds;
+        if (delay <= 0f)
         {
-            var def = DataLoader.GetTowerDef(opt.Id);
-            return $"{def.Name}\n{def.BaseDamage} dmg  ·  {def.AttackInterval} s\nRange {def.Range}";
+            StartCardEntranceTween(btn, accentStrip);
+            return;
         }
-        else
+
+        btn.GetTree().CreateTimer(delay).Timeout += () =>
         {
-            var def = DataLoader.GetModifierDef(opt.Id);
-            return $"{def.Name}\n{def.Description}";
-        }
+            if (!GodotObject.IsInstanceValid(btn)) return;
+            StartCardEntranceTween(btn, accentStrip);
+        };
     }
+
+    private static void StartCardEntranceTween(Button btn, ColorRect accentStrip)
+    {
+        btn.Visible = true;
+        btn.Modulate = new Color(1f, 1f, 1f, 0f);
+        btn.Scale = new Vector2(0.06f, 1.08f);
+        btn.RotationDegrees = -7f;
+        accentStrip.Modulate = new Color(1f, 1f, 1f, 0f);
+
+        // Main reveal track: fade + unrotate + accent pulse.
+        var reveal = btn.CreateTween();
+        reveal.SetParallel(true);
+        reveal.TweenProperty(btn, "modulate:a", 1f, CardEntranceSeconds * 0.90f)
+            .SetTrans(Tween.TransitionType.Sine)
+            .SetEase(Tween.EaseType.Out);
+        reveal.TweenProperty(btn, "rotation_degrees", 0f, CardEntranceSeconds * 0.85f)
+            .SetTrans(Tween.TransitionType.Sine)
+            .SetEase(Tween.EaseType.Out);
+        reveal.TweenProperty(accentStrip, "modulate:a", 1f, CardEntranceSeconds * 0.55f)
+            .SetTrans(Tween.TransitionType.Expo)
+            .SetEase(Tween.EaseType.Out);
+
+        // Scale track: pseudo flip (thin edge -> wide face) then quick settle.
+        var scaleTw = btn.CreateTween();
+        scaleTw.TweenProperty(btn, "scale", new Vector2(1.05f, 0.96f), CardEntranceSeconds * 0.68f)
+            .SetTrans(Tween.TransitionType.Back)
+            .SetEase(Tween.EaseType.Out);
+        scaleTw.TweenProperty(btn, "scale", Vector2.One, CardEntranceSeconds * 0.32f)
+            .SetTrans(Tween.TransitionType.Sine)
+            .SetEase(Tween.EaseType.InOut);
+    }
+
+    private static void ApplyCardStyle(Button btn, DraftOption opt)
+    {
+        Color accent = GetOptionAccent(opt);
+
+        static StyleBoxFlat Box(Color bg, Color border)
+        {
+            var b = new StyleBoxFlat();
+            b.BgColor = bg;
+            b.BorderColor = border;
+            b.BorderWidthTop = 2;
+            b.BorderWidthBottom = 2;
+            b.BorderWidthLeft = 2;
+            b.BorderWidthRight = 2;
+            b.CornerRadiusTopLeft = 8;
+            b.CornerRadiusTopRight = 8;
+            b.CornerRadiusBottomLeft = 8;
+            b.CornerRadiusBottomRight = 8;
+            return b;
+        }
+
+        btn.AddThemeStyleboxOverride("normal", Box(new Color(0.05f, 0.06f, 0.13f, 0.96f), new Color(accent.R * 0.75f, accent.G * 0.75f, accent.B * 0.75f, 1f)));
+        btn.AddThemeStyleboxOverride("hover", Box(new Color(0.08f, 0.10f, 0.20f, 0.98f), accent));
+        btn.AddThemeStyleboxOverride("pressed", Box(new Color(0.11f, 0.08f, 0.18f, 0.98f), accent));
+        btn.AddThemeStyleboxOverride("focus", Box(new Color(0.09f, 0.10f, 0.22f, 0.98f), accent));
+        btn.AddThemeColorOverride("font_color", Colors.White);
+    }
+
+    private static Color GetOptionAccent(DraftOption opt) => opt.Type == DraftOptionType.Modifier
+        ? ModifierVisuals.GetAccent(opt.Id)
+        : GetTowerAccent(opt.Id);
+
+    private static void BuildTowerCard(VBoxContainer root, string towerId, int titleSize, int statSize, int bodySize, float iconSize)
+    {
+        var def = DataLoader.GetTowerDef(towerId);
+        var accent = GetTowerAccent(towerId);
+
+        var top = new HBoxContainer();
+        top.AddThemeConstantOverride("separation", 8);
+        root.AddChild(top);
+
+        var glyphWrap = new ColorRect
+        {
+            Color = new Color(accent.R, accent.G, accent.B, 0.25f),
+            CustomMinimumSize = new Vector2(iconSize, iconSize),
+            Size = new Vector2(iconSize, iconSize),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        top.AddChild(glyphWrap);
+
+        var glyph = new Label
+        {
+            Text = TowerGlyph(towerId),
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        glyph.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        UITheme.ApplyFont(glyph, semiBold: true, size: Mathf.Max(12, Mathf.RoundToInt(iconSize * 0.56f)));
+        glyphWrap.AddChild(glyph);
+
+        var title = new Label
+        {
+            Text = def.Name,
+            AutowrapMode = TextServer.AutowrapMode.Off,
+        };
+        UITheme.ApplyFont(title, semiBold: true, size: titleSize);
+        title.Modulate = new Color(1.0f, 1.0f, 1.0f, 0.96f);
+        top.AddChild(title);
+
+        var stats = new Label
+        {
+            Text = $"{def.BaseDamage:0.#} DMG   {def.AttackInterval:0.##}s   R {def.Range:0}",
+            AutowrapMode = TextServer.AutowrapMode.Off,
+        };
+        UITheme.ApplyFont(stats, semiBold: true, size: statSize);
+        stats.Modulate = new Color(0.75f, 0.88f, 1f, 0.9f);
+        root.AddChild(stats);
+
+        var role = new Label
+        {
+            Text = TowerRole(towerId),
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+        };
+        UITheme.ApplyFont(role, size: bodySize);
+        role.Modulate = new Color(0.88f, 0.88f, 0.95f, 0.9f);
+        root.AddChild(role);
+    }
+
+    private static void BuildModifierCard(VBoxContainer root, string modifierId, int titleSize, int tagSize, int bodySize, float iconSize)
+    {
+        var def = DataLoader.GetModifierDef(modifierId);
+        var accent = ModifierVisuals.GetAccent(modifierId);
+
+        var top = new HBoxContainer();
+        top.AddThemeConstantOverride("separation", 8);
+        root.AddChild(top);
+
+        var iconHolder = new ColorRect
+        {
+            Color = new Color(accent.R, accent.G, accent.B, 0.20f),
+            CustomMinimumSize = new Vector2(iconSize, iconSize),
+            Size = new Vector2(iconSize, iconSize),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        top.AddChild(iconHolder);
+
+        var icon = new ModifierIcon
+        {
+            ModifierId = modifierId,
+            IconColor = accent,
+        };
+        icon.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        iconHolder.AddChild(icon);
+
+        var title = new Label
+        {
+            Text = def.Name,
+            AutowrapMode = TextServer.AutowrapMode.Off,
+        };
+        UITheme.ApplyFont(title, semiBold: true, size: titleSize);
+        title.Modulate = new Color(1f, 1f, 1f, 0.97f);
+        top.AddChild(title);
+
+        var tag = new Label
+        {
+            Text = ModifierVisuals.GetTag(modifierId),
+            AutowrapMode = TextServer.AutowrapMode.Off,
+        };
+        UITheme.ApplyFont(tag, semiBold: true, size: tagSize);
+        tag.Modulate = new Color(accent.R, accent.G, accent.B, 0.95f);
+        root.AddChild(tag);
+
+        var desc = new Label
+        {
+            Text = def.Description,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+        };
+        UITheme.ApplyFont(desc, size: bodySize);
+        desc.Modulate = new Color(0.86f, 0.86f, 0.94f, 0.92f);
+        root.AddChild(desc);
+    }
+
+    private static Color GetTowerAccent(string towerId) => towerId switch
+    {
+        "rapid_shooter" => new Color(0.25f, 0.92f, 1.00f),
+        "heavy_cannon" => new Color(1.00f, 0.60f, 0.18f),
+        "marker_tower" => new Color(1.00f, 0.30f, 0.72f),
+        "chain_tower" => new Color(0.62f, 0.90f, 1.00f),
+        _ => new Color(0.75f, 0.85f, 1.00f),
+    };
+
+    private static string TowerGlyph(string towerId) => towerId switch
+    {
+        "rapid_shooter" => "RS",
+        "heavy_cannon" => "HC",
+        "marker_tower" => "MK",
+        "chain_tower" => "AR",
+        _ => "TW",
+    };
+
+    private static string TowerRole(string towerId) => towerId switch
+    {
+        "rapid_shooter" => "Fast single-target pressure.",
+        "heavy_cannon" => "Slow burst shots with heavy hits.",
+        "marker_tower" => "Applies mark to amplify team damage.",
+        "chain_tower" => "Bounces into grouped enemy packs.",
+        _ => "Generalist tower.",
+    };
 
     /// <summary>
     /// Generates a subtle archetype hint based on wave composition.
@@ -355,32 +679,19 @@ public partial class DraftPanel : CanvasLayer
     /// </summary>
     private string GenerateArchetypeHint(WaveConfig cfg)
     {
-        // Only show hints for challenging waves to avoid clutter
         if (cfg.TankyCount + cfg.SwiftCount < 2) return "";
-        
+
         List<string> hints = new();
-        
-        // High armored count suggests marker strategy
+
         if (cfg.TankyCount >= 3)
-        {
             hints.Add("Marker recommended");
-        }
-        // Mix of armored and swift suggests AoE/chain
         else if (cfg.TankyCount >= 1 && cfg.SwiftCount >= 2)
-        {
             hints.Add("AoE favored");
-        }
-        // Lots of swift enemies suggests range/coverage
         else if (cfg.SwiftCount >= 3)
-        {
             hints.Add("Range coverage");
-        }
-        // Clumped armored suggests burst damage
         else if (cfg.ClumpArmored && cfg.TankyCount >= 2)
-        {
             hints.Add("Burst damage");
-        }
-        
-        return hints.Count > 0 ? $"  • {string.Join(", ", hints)}" : "";
+
+        return hints.Count > 0 ? $"  |  {string.Join(", ", hints)}" : "";
     }
 }

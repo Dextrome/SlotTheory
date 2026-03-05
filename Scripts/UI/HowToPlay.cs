@@ -38,8 +38,11 @@ public partial class HowToPlay : Node
 
 		// Wrap VBox in MarginContainer for proper margins
 		var marginContainer = new MarginContainer();
-		marginContainer.AddThemeConstantOverride("margin_left", 30);
-		marginContainer.AddThemeConstantOverride("margin_right", 20);
+		// Use smaller margins on mobile to prevent off-screen content
+		var leftMargin = MobileOptimization.IsMobile() ? 10 : 30;
+		var rightMargin = MobileOptimization.IsMobile() ? 10 : 20;
+		marginContainer.AddThemeConstantOverride("margin_left", leftMargin);
+		marginContainer.AddThemeConstantOverride("margin_right", rightMargin);
 		marginContainer.AddThemeConstantOverride("margin_top", 20);
 		marginContainer.AddThemeConstantOverride("margin_bottom", 20);
 		marginContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -141,7 +144,8 @@ public partial class HowToPlay : Node
 			Text = "← Back",
 			CustomMinimumSize = new Vector2(160, 48),
 		};
-		backBtn.AddThemeFontSizeOverride("font_size", 22);
+		var backBtnSize = MobileOptimization.IsMobile() ? 18 : 22;
+		backBtn.AddThemeFontSizeOverride("font_size", backBtnSize);
 		backBtn.Pressed += () =>
 		{
 			if (OnBack != null) { OnBack(); QueueFree(); }
@@ -150,7 +154,9 @@ public partial class HowToPlay : Node
 		vbox.AddChild(backBtn);
 
 		AddSpacer(vbox, 40);
-		MobileOptimization.ApplyUIScale(scroll);
+		
+		// Don't use MobileOptimization.ApplyUIScale for this screen
+		// Instead handle mobile layout through responsive margins and font sizes
 	}
 
 	public override void _UnhandledInput(InputEvent @event)
@@ -172,7 +178,8 @@ public partial class HowToPlay : Node
 	private static void AddTitle(VBoxContainer vbox, string text)
 	{
 		var lbl = new Label { Text = text, HorizontalAlignment = HorizontalAlignment.Center };
-		SlotTheory.Core.UITheme.ApplyFont(lbl, semiBold: true, size: 52);
+		var titleSize = MobileOptimization.IsMobile() ? 36 : 52;
+		SlotTheory.Core.UITheme.ApplyFont(lbl, semiBold: true, size: titleSize);
 		lbl.Modulate = new Color("#a6d608");
 		vbox.AddChild(lbl);
 	}
@@ -185,7 +192,8 @@ public partial class HowToPlay : Node
 		AddSpacer(vbox, 6);
 
 		var lbl = new Label { Text = text };
-		lbl.AddThemeFontSizeOverride("font_size", 18);
+		var headerSize = MobileOptimization.IsMobile() ? 14 : 18;
+		lbl.AddThemeFontSizeOverride("font_size", headerSize);
 		lbl.Modulate = new Color("#a6d608");
 		vbox.AddChild(lbl);
 
@@ -195,7 +203,8 @@ public partial class HowToPlay : Node
 	private static void AddLine(VBoxContainer vbox, string text)
 	{
 		var lbl = new Label { Text = "  • " + text };
-		lbl.AddThemeFontSizeOverride("font_size", 16);
+		var lineSize = MobileOptimization.IsMobile() ? 14 : 16;
+		lbl.AddThemeFontSizeOverride("font_size", lineSize);
 		lbl.Modulate = new Color(0.82f, 0.82f, 0.82f);
 		lbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 		vbox.AddChild(lbl);
@@ -208,13 +217,15 @@ public partial class HowToPlay : Node
 		vbox.AddChild(hbox);
 
 		var lblLeft = new Label { Text = "  " + label };
-		lblLeft.AddThemeFontSizeOverride("font_size", 16);
+		var rowSize = MobileOptimization.IsMobile() ? 14 : 16;
+		var minWidth = MobileOptimization.IsMobile() ? 200 : 300;
+		lblLeft.AddThemeFontSizeOverride("font_size", rowSize);
 		lblLeft.Modulate = new Color(0.90f, 0.90f, 0.90f);
-		lblLeft.CustomMinimumSize = new Vector2(300, 0);
+		lblLeft.CustomMinimumSize = new Vector2(minWidth, 0);
 		hbox.AddChild(lblLeft);
 
 		var lblRight = new Label { Text = value };
-		lblRight.AddThemeFontSizeOverride("font_size", 16);
+		lblRight.AddThemeFontSizeOverride("font_size", rowSize);
 		lblRight.Modulate = new Color(0.60f, 0.60f, 0.60f);
 		lblRight.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		hbox.AddChild(lblRight);
@@ -223,17 +234,19 @@ public partial class HowToPlay : Node
 	private static void AddTowerRow(VBoxContainer vbox, string name, string stats, string desc)
 	{
 		var nameLbl = new Label { Text = "  " + name };
-		nameLbl.AddThemeFontSizeOverride("font_size", 17);
+		var nameSize = MobileOptimization.IsMobile() ? 15 : 17;
+		nameLbl.AddThemeFontSizeOverride("font_size", nameSize);
 		nameLbl.Modulate = new Color(0.95f, 0.95f, 0.95f);
 		vbox.AddChild(nameLbl);
 
 		var statsLbl = new Label { Text = "    " + stats };
-		statsLbl.AddThemeFontSizeOverride("font_size", 15);
+		var detailSize = MobileOptimization.IsMobile() ? 13 : 15;
+		statsLbl.AddThemeFontSizeOverride("font_size", detailSize);
 		statsLbl.Modulate = new Color(0.55f, 0.75f, 1.00f);
 		vbox.AddChild(statsLbl);
 
 		var descLbl = new Label { Text = "    " + desc };
-		descLbl.AddThemeFontSizeOverride("font_size", 15);
+		descLbl.AddThemeFontSizeOverride("font_size", detailSize);
 		descLbl.Modulate = new Color(0.60f, 0.60f, 0.60f);
 		descLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 		vbox.AddChild(descLbl);
@@ -248,13 +261,15 @@ public partial class HowToPlay : Node
 		vbox.AddChild(hbox);
 
 		var nameLbl = new Label { Text = "  " + name };
-		nameLbl.AddThemeFontSizeOverride("font_size", 16);
+		var modSize = MobileOptimization.IsMobile() ? 14 : 16;
+		var modNameWidth = MobileOptimization.IsMobile() ? 150 : 220;
+		nameLbl.AddThemeFontSizeOverride("font_size", modSize);
 		nameLbl.Modulate = new Color(0.90f, 0.75f, 1.00f);
-		nameLbl.CustomMinimumSize = new Vector2(220, 0);
+		nameLbl.CustomMinimumSize = new Vector2(modNameWidth, 0);
 		hbox.AddChild(nameLbl);
 
 		var descLbl = new Label { Text = desc };
-		descLbl.AddThemeFontSizeOverride("font_size", 16);
+		descLbl.AddThemeFontSizeOverride("font_size", modSize);
 		descLbl.Modulate = new Color(0.65f, 0.65f, 0.65f);
 		descLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
 		descLbl.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
