@@ -2,6 +2,8 @@
 
 > All v1 features implemented as of the current build. This document is the single source of truth for what exists — useful for QA, playtesting briefs, and onboarding.
 
+**Platforms:** Windows Desktop, Android (Phone & Tablet)
+
 ---
 
 ## Core Loop
@@ -14,6 +16,15 @@
 | Repeat | 20 waves total |
 | Win | All 20 waves cleared |
 | Loss | Lives reach 0 at any point during a wave |
+
+---
+
+## Platform Support
+
+| Platform | Controls | Features |
+|---|---|---|
+| **Windows Desktop** | Mouse & keyboard | Full feature set, Esc pause, optimized for desktop screens |
+| **Android (Phone & Tablet)** | Touch controls | Responsive UI scaling, hamburger menu pause, auto-pause on minimize, adaptive layout |
 
 ---
 
@@ -100,9 +111,19 @@ Armored Walkers first appear at wave 7; count ramps to 5 by wave 20. Rendered at
 
 ---
 
+## Map Selection
+
+Before starting a game:
+- Choose from multiple procedurally generated maps
+- **Auto-select**: First map is automatically selected when entering map selection
+- Browse and select any available map before starting
+- Each map has unique snake-path layout and tower slot placement
+
+---
+
 ## Targeting Modes
 
-Each tower cycles through 3 modes via left-click:
+Each tower cycles through 3 modes via left-click (desktop) or tap (mobile):
 
 | Icon | Mode | Behaviour |
 |---|---|---|
@@ -136,7 +157,12 @@ Top bar (always visible during play):
 | Enemy counter | `alive / total` during a wave; hidden when wave is clear |
 | Lives label | `Lives: N`; turns red when ≤ 3; **elastic punch-scale flash** on any life loss |
 | Speed button | Cycles **1× → 2× → 3×** on each click; resets to 1× on wave clear or restart |
-| ESC hint | Dim label reminding player about pause |
+| Pause access | **Desktop:** ESC hint label; **Mobile:** Hamburger menu button (☰) in top-right |
+
+**Mobile optimizations:**
+- Button sizes automatically scale for touch targets
+- UI elements adapt to screen size and orientation
+- Game auto-pauses when Android app is minimized
 
 ---
 
@@ -152,10 +178,10 @@ Full-screen overlay shown between waves:
 | Hover scale | Cards scale to 1.06× on mouse-over (0.08 s tween) |
 | Keyboard 1–5 | Press a number to select the corresponding card |
 | Key hints | `[ 1 ]` – `[ 5 ]` labels on each card |
-| **World-click placement** | After picking a card, the panel closes; player clicks directly on a slot/tower in the world to complete placement |
+| **World-click placement** | After picking a card, the panel closes; player clicks/taps directly on a slot/tower in the world to complete placement |
 | **Color-coded highlights** | Valid tower slots glow **gold**; valid modifier targets glow **white**; occupied/ineligible slots glow **red** |
-| **Placement hint label** | Gold text shows `"Click a slot to place  X"` or `"Click a tower to assign  X"` |
-| **Cancel (Esc)** | While awaiting world-click, Esc restores the draft panel with the original options |
+| **Placement hint label** | Gold text shows `"Click/Tap a slot to place  X"` or `"Click/Tap a tower to assign  X"` (platform-adaptive) |
+| **Cancel (Esc)** | While awaiting world-click, Esc (desktop) or back gesture (mobile) restores the draft panel with the original options |
 | **Key hint labels** | `[ 1 ]`–`[ 5 ]` shown as separate child labels anchored to the bottom-right of each card in a muted blue-grey; styled independently from card body text |
 
 ---
@@ -267,18 +293,24 @@ Dismiss: **left-click anywhere** or **press Enter / Space** → returns to main 
 
 ## Pause Screen
 
-**Esc** toggles the pause overlay (blocked during Win/Loss phase).
+**Desktop:** Esc toggles the pause overlay  
+**Mobile:** Hamburger menu (☰) button or system back gesture  
+(Blocked during Win/Loss phase)
 
 | Button | Behaviour |
 |---|---|
 | Resume | Unpauses and closes overlay |
 | Restart Run | Unpauses + full run reset (new map, all slots cleared, wave 1) |
-| Settings | Slides to inline settings panel (Master/Music/FX sliders + fullscreen toggle) |
-| How to Play | Opens scrollable tutorial overlay within the pause context; Back returns to pause |
+| Settings | Slides to inline settings panel (Master/Music/FX sliders + display toggle) |
+| How to Play | Opens responsive scrollable tutorial overlay; **improved mobile formatting** with adaptive font sizes and margins |
 | Main Menu | Unpauses engine then fades to `MainMenu.tscn` |
-| Quit to Desktop | `GetTree().Quit()` |
+| Quit to Desktop | `GetTree().Quit()` (desktop only) |
 
-- While settings open, Esc navigates back to the main pause panel (not unpause)
+**Mobile-specific features:**
+- Game automatically pauses when Android app is minimized
+- Touch-optimized button sizes and spacing
+- Back gesture support for navigation
+- While settings open, Esc/back navigates back to the main pause panel (not unpause)
 - Speed resets to 1× on any run restart
 
 ---
@@ -297,9 +329,11 @@ Accessible from main menu and from in-game pause overlay:
 | Control | Detail |
 |---|---|
 | Master / Music / FX sliders | 0–100 range; live value label updates while dragging; logarithmic dB conversion (`Mathf.LinearToDb`) |
-| Display toggle | Button cycles `Windowed` ↔ `Fullscreen` |
+| Display toggle | **Desktop:** Button cycles `Windowed` ↔ `Fullscreen`; **Mobile:** Adapts to system settings |
 | Persistence | Saved to `user://settings.cfg` via Godot `ConfigFile`; restored on next launch |
 | Audio buses | `SettingsManager` creates "Music" and "FX" buses (routed to Master) at startup if missing |
+
+**Responsive design:** Settings UI automatically adapts to screen size and input method (touch vs mouse).
 
 ---
 
