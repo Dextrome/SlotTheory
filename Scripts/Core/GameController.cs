@@ -157,6 +157,31 @@ public partial class GameController : Node
 		}
 	}
 
+	public override void _Notification(int what)
+	{
+		// Handle Android app lifecycle for mobile devices
+		if (OS.GetName() == "Android")
+		{
+			switch (what)
+			{
+				case (int)NotificationApplicationPaused:
+					// Auto-pause when app goes to background (minimized/phone call/etc)
+					if (CurrentPhase == GamePhase.Wave && GetTree().Paused == false)
+					{
+						GD.Print("App paused - auto-pausing game");
+						var pauseScreen = GetNode<PauseScreen>("../PauseScreen");
+						pauseScreen?.Show();
+					}
+					break;
+
+				case (int)NotificationApplicationResumed:
+					// App returned from background - game stays paused for user control
+					GD.Print("App resumed from background");
+					break;
+			}
+		}
+	}
+
 	public void StartDraftPhase()
 	{
 		CurrentPhase = GamePhase.Draft;
