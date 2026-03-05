@@ -56,16 +56,31 @@ Towers are placed in **6 slots** on the map. Max **3 modifiers** per tower.
 | Feedback Loop | On kill, reduce current cooldown by 70%. |
 | Chain Reaction | Adds +1 chain bounce (60% damage per hop). |
 
+### Modifier Color Language
+
+| Family | Color | Members |
+|---|---|---|
+| **DamageScaling** | Orange | Momentum, Overkill, Focus Lens, Hair Trigger, Feedback Loop |
+| **Utility** | Cyan | Chill Shot |
+| **Range** | Violet | Overreach |
+| **StatusSynergy** | Magenta | Exploit Weakness |
+| **MultiTarget** | Mint-green | Split Shot, Chain Reaction |
+
+This color language is used on draft cards, slot halos, and live modifier icons for consistent visual communication.
+
 ---
 
-## Enemies (2 types)
+## Enemies (3 types)
 
 | Enemy | HP | Speed | Leak Cost |
 |---|---|---|---|
 | Basic Walker | `65 × 1.08^(wave-1)` | 120 px/s | 1 life |
 | Armored Walker | 4× Basic HP | 60 px/s (half) | **2 lives** |
+| **Swift Walker** | 1.5× Basic HP | 240 px/s (double) | **1 life** |
 
 Armored Walkers first appear at wave 7; count ramps to 5 by wave 20. Rendered at **1.5× scale** so they are visually distinct from Basic Walkers at a glance.
+
+**Swift Walkers** appear waves 10–14 as small, fast lime-green diamonds at 0.8× scale. Their speed makes them hard to catch but they're relatively fragile.
 
 **Waves 12–14 use clumped Armored spawns** (`"ClumpArmored": true` in `waves.json`): all Armored Walkers arrive as a consecutive block after the first third of basics, creating a mid-wave panic spike instead of a uniform drip.
 
@@ -75,6 +90,7 @@ Armored Walkers first appear at wave 7; count ramps to 5 by wave 20. Rendered at
 |---|---|
 | **Basic Walker** | Round teal body with white + dark-pupil eyes; drawn via `_Draw()` |
 | **Armored Walker** | Hexagonal crimson body with 3-layer depth shading, larger eyes; 1.5× scale |
+| **Swift Walker** | Small lime-green diamond at 0.8× scale; moves at double speed, easily identified by color and size |
 | **HP bar** | Thin bar above enemy; shifts **green → yellow → red** at 50% and 25% HP; cyan tint for Basic, magenta tint for Armored |
 | **Marked ring** | 3 spinning 90° purple arcs orbiting the enemy while Marked status is active; rotates at 2.5 rad/s |
 | **Slow ring** | Cyan outer ring drawn around enemy while Slow status is active |
@@ -99,6 +115,14 @@ Armored Walkers first appear at wave 7; count ramps to 5 by wave 20. Rendered at
 | Normal | 1.0× | 1.0× | 1.0× |
 | Hard | 1.2× | 1.15× | 0.85× (15% faster) |
 
+### Wave Tension Curve Upgrade
+
+When a clumped armored wave is about to start (`ClumpArmored` with enough armored units):
+
+- Shows warning text: `"ARMORED WAVE INCOMING"`
+- Plays a short screen pulse
+- Applies `InitialSpawnDelay = 0.8s` for anticipation
+
 ---
 
 ## Draft System
@@ -108,6 +132,20 @@ Armored Walkers first appear at wave 7; count ramps to 5 by wave 20. Rendered at
 - **Wave 1**: 2 picks (one extra pick before the first wave)
 - **Wave 15**: 2 picks (second bonus pick mid-run as a lifeline)
 - Modifier cards are only offered when at least one tower can still accept them
+
+### Placement Flow (Preview → Confirm)
+
+Modifier assignment now requires explicit confirmation:
+
+1. Pick a modifier card
+2. Valid towers/slots highlight
+3. Tap once to preview ghost modifier on target
+4. Tap same target again to confirm
+
+**Input behavior details:**
+- Tapping elsewhere while preview is active cancels the preview
+- Mobile supports tapping tower body as fallback for preview/confirm
+- Short guard window prevents instant confirm from touch→mouse duplicate events
 
 ---
 
@@ -206,6 +244,7 @@ Each of the 6 tower slots is a node with persistent child visuals:
 |---|---|
 | Empty slot | Dark purple filled square + neon violet border (7 px thick outer + 1.5 px inner) |
 | Modifier pips | 3 small squares (6×6 px) below each slot; hidden until a tower is placed, then dim grey = empty slot, green = filled, orange = tower at max mods |
+| **Modifier icons** | Visual icons (18×18 px) displayed below tower showing each equipped modifier; unique symbol and color per modifier type; pulse and brighten (1.35× scale) when modifier activates |
 | **Draft highlights** | Gold for valid tower slots, white for valid modifier targets, red for occupied/ineligible; fade in/out via tween |
 | **Modifier proc halo** | Color-coded halo effect around slot when modifiers activate (0.2s duration, pulsing animation) |
 
@@ -227,6 +266,15 @@ Each placed tower renders entirely via `_Draw()`:
 | **Attack flash** | Tower briefly pulses to 1.4× brightness then fades back (0.03 s spike, 0.25 s Expo/Out decay) on each shot |
 | **Recoil animation** | Tower kicks backward 3.5px from target direction on firing, returns with elastic ease (~0.1s total) |
 
+### Tower Personality
+
+| Tower | Idle Behavior | Combat Behavior |
+|---|---|---|
+| **Rapid Shooter** | Subtle idle barrel sway | Repeated lock-on shots draw faint target line briefly |
+| **Heavy Cannon** | Slight piston-like idle motion | Heavy recoil and strongest hit stop effect |
+| **Arc Emitter** | Idle electric flicker | Electric arc visual links between chain targets |
+| **Marker Tower** | Steady targeting stance | Mark application with spinning arc effects |
+
 ---
 
 ## Projectiles & Effects
@@ -241,6 +289,15 @@ Each placed tower renders entirely via `_Draw()`:
 | **Kill hit stop** | Brief time freeze (0.04-0.055s real-time) on enemy death; Heavy Cannon kills get longer/stronger effect (0.055s, 0.16× time scale) |
 | Death burst | Expanding ring + brief white flash at centre + **16 semi-random radial sparks** + inner ring (fades in first 60%); larger/redder for armored enemies |
 | **Chain arc** | Arc Emitter bounces draw a jagged electric arc between hit positions (4 random perpendicular jitter midpoints); fades over 0.18 s with endpoint glow blooms |
+
+### Kill Satisfaction and Audio Scaling
+
+| System | Detail |
+|---|---|
+| **Kill hitstop** | Brief time slowdown (0.04-0.055s) with different intensities per tower type; Heavy Cannon gets strongest effect |
+| **Death sound scaling** | Death sound pitch scales for quick kill chains |
+| **Combo pitch ramp** | Short-window escalation: 1.00 → 1.05 → 1.10 → 1.15 (clamped) |
+| **Audio feedback** | Enhanced impact feel for satisfying kill sequences |
 
 ---
 
@@ -280,6 +337,7 @@ Visible **during wave** and **while assigning a modifier to a tower** (hides dur
 |---|---|
 | **Font** | Rajdhani Bold throughout all UI (labels, buttons, HUD, draft panel, end screen) |
 | **UI theme** | Neon synthwave palette via `UITheme.Build()` — `StyleBoxFlat` buttons with rounded corners, purple/magenta border glow; 5 button states (normal, hover, pressed, focus, disabled) |
+| **Font system** | `UITheme.Build()` default font: `Assets/Fonts/Rajdhani-SemiBold.ttf`; `UITheme.ApplyFont(...)` for runtime-generated controls; SemiBold/Bold variants for headings |
 | **Scene transitions** | `Transition.cs` autoload (CanvasLayer Layer=100, always-process) fades to black then back on every scene change; `FadeToScene(path)` is the single entry point for all scene navigation |
 | **Map rendering** | Flat `ColorRect` nodes (no textures); grass `#a6d608`, path `#8B5E3C`; `Line2D` edges + animated flow arrows on path |
 

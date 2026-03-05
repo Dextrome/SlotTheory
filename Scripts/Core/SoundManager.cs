@@ -177,7 +177,7 @@ public partial class SoundManager : Node
         }
     }
 
-    public void Play(string id)
+    public void Play(string id, float pitchScale = 1f)
     {
         if (_headless) return;
         if (!_samples.TryGetValue(id, out var samples)) return;
@@ -188,6 +188,7 @@ public partial class SoundManager : Node
         var player = _pool[idx];
 
         player.Stop();
+        player.PitchScale = Mathf.Clamp(pitchScale, 0.75f, 1.40f);
         player.Play();
         var playback = (AudioStreamGeneratorPlayback)player.GetStreamPlayback();
         playback.PushBuffer(samples);

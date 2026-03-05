@@ -18,6 +18,9 @@ public class CombatSim
     private readonly RunState _state;
     private float _spawnTimer = 0f;
     private readonly Queue<string> _spawnQueue = new();
+    private float _initialSpawnDelay = 0f;
+    private float _killComboTimer = 0f;
+    private int _killComboCount = 0;
 
     // Set externally by GameController when an enemy scene is needed
     public PackedScene? EnemyScene { get; set; }
@@ -32,19 +35,24 @@ public class CombatSim
 
     /// <summary>When true: damage is instant, no visuals spawned, enemies don't self-move.</summary>
     public bool BotMode { get; set; }
+    public float InitialSpawnDelay { get => _initialSpawnDelay; set => _initialSpawnDelay = Mathf.Max(0f, value); }
 
     /// <summary>Lightweight reset used on run restart (before wave is loaded).</summary>
     public void ResetForWave()
     {
-        _spawnTimer = 0f;
+        _spawnTimer = _initialSpawnDelay;
         _spawnQueue.Clear();
+        _killComboTimer = 0f;
+        _killComboCount = 0;
     }
 
     /// <summary>Full reset + build spawn queue. Call after WaveSystem.LoadWave().</summary>
     public void ResetForWave(WaveSystem ws)
     {
-        _spawnTimer = 0f;
+        _spawnTimer = _initialSpawnDelay;
         _spawnQueue.Clear();
+        _killComboTimer = 0f;
+        _killComboCount = 0;
 
         int walkers  = ws.GetWalkerCount();
         int tankies  = ws.GetTankyCount();
@@ -98,6 +106,7 @@ public class CombatSim
     {
         state.WaveTime += delta;
         state.TotalPlayTime += delta;  // Track total playtime across all waves
+        _killComboTimer = Mathf.Max(0f, _killComboTimer - delta);
 
         // 1. Spawn
         _spawnTimer -= delta;
@@ -150,6 +159,7 @@ public class CombatSim
                             tower, state.WaveIndex, state.EnemiesAlive);
             if (!BotMode)
             {
+                tower.OnShotFired(target);
                 tower.FlashAttack();
                 tower.KickRecoil();
             }
@@ -167,12 +177,17 @@ public class CombatSim
         // 4. Remove dead enemies
         foreach (var dead in state.EnemiesAlive.FindAll(e => e.Hp <= 0))
         {
-            Sounds?.Play(dead.EnemyTypeId switch
+            string dieSound = dead.EnemyTypeId switch
             {
                 "armored_walker" => "die_armored",
                 "swift_walker"   => "die_swift",
                 _                => "die_basic",
-            });
+            };
+            if (_killComboTimer <= 0f) _killComboCount = 0;
+            float pitch = Mathf.Clamp(1.0f + _killComboCount * 0.05f, 1.0f, 1.15f);
+            Sounds?.Play(dieSound, pitchScale: pitch);
+            _killComboCount = Mathf.Min(_killComboCount + 1, 3);
+            _killComboTimer = 0.24f;
             SpawnDeathBurst(dead.GlobalPosition, dead.EnemyTypeId);
             dead.QueueFree();
         }

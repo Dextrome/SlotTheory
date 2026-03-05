@@ -38,6 +38,9 @@ public partial class TowerInstance : Node2D
     public Label?    ModeLabel   { get; set; }
     public Polygon2D? RangeCircle { get; set; }
     public Line2D?   RangeBorder  { get; set; }
+    private float _idleTime = 0f;
+    private float _lockLineRemaining = 0f;
+    private Vector2 _lockLineTargetGlobal = Vector2.Zero;
 
     /// <summary>Rebuilds the range circle fill and border to match the tower's current Range value.</summary>
     public void RefreshRangeCircle()
@@ -58,12 +61,17 @@ public partial class TowerInstance : Node2D
 
     public override void _Process(double delta)
     {
+        float dt = (float)delta;
+        _idleTime += dt;
+        if (_lockLineRemaining > 0f)
+            _lockLineRemaining = Mathf.Max(0f, _lockLineRemaining - dt);
+
         // Smoothly rotate barrel toward last known target
         if (LastTargetPosition.HasValue)
         {
             var dir = LastTargetPosition.Value - GlobalPosition;
             float targetAngle = dir.Angle() + Mathf.Pi * 0.5f; // barrels point local -Y
-            Rotation = Mathf.LerpAngle(Rotation, targetAngle, 15f * (float)delta);
+            Rotation = Mathf.LerpAngle(Rotation, targetAngle, 15f * dt);
         }
         if (AttackInterval > 0f) QueueRedraw();
     }
@@ -87,6 +95,19 @@ public partial class TowerInstance : Node2D
              .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
         tween.TweenProperty(this, "position", Vector2.Zero, 0.075f)
              .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+    }
+
+    public void OnShotFired(EnemyInstance target)
+    {
+        ulong id = target.GetInstanceId();
+        string idStr = id.ToString();
+        LastTargetPosition = target.GlobalPosition;
+        if (LastTargetId == idStr)
+        {
+            _lockLineTargetGlobal = target.GlobalPosition;
+            _lockLineRemaining = 0.15f;
+        }
+        LastTargetId = idStr;
     }
 
     /// <summary>
@@ -151,6 +172,16 @@ public partial class TowerInstance : Node2D
             default: DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f)); break;
         }
         DrawChargeArc();
+        DrawTargetLockLine();
+    }
+
+    private void DrawTargetLockLine()
+    {
+        if (_lockLineRemaining <= 0f) return;
+        var localTo = ToLocal(_lockLineTargetGlobal);
+        float t = _lockLineRemaining / 0.15f;
+        var c = new Color(BodyColor.R, BodyColor.G, BodyColor.B, 0.10f + 0.20f * t);
+        DrawLine(Vector2.Zero, localTo, c, 1.6f);
     }
 
     private void DrawChargeArc()
@@ -178,15 +209,16 @@ public partial class TowerInstance : Node2D
         var cyan  = new Color(0.10f, 0.75f, 1.00f);
         var dark  = new Color(0.02f, 0.02f, 0.12f);
         var flash = new Color(0.70f, 0.95f, 1.00f);
+        float sway = Mathf.Sin(_idleTime * 2.7f) * 1.2f;
         // Soft glow behind everything
         DrawCircle(Vector2.Zero, 22f, new Color(cyan.R, cyan.G, cyan.B, 0.07f));
         DrawCircle(Vector2.Zero, 15f, new Color(cyan.R, cyan.G, cyan.B, 0.14f));
         // Barrel ΓÇö bright outer, dark inner
-        DrawRect(new Rect2(-3.5f, -23f, 7f, 18f), cyan);
-        DrawRect(new Rect2(-2.0f, -22f, 4f, 16f), dark);
+        DrawRect(new Rect2(-3.5f + sway, -23f, 7f, 18f), cyan);
+        DrawRect(new Rect2(-2.0f + sway, -22f, 4f, 16f), dark);
         // Muzzle glow
-        DrawCircle(new Vector2(0f, -23f), 7f, new Color(flash.R, flash.G, flash.B, 0.20f));
-        DrawCircle(new Vector2(0f, -23f), 4f, flash);
+        DrawCircle(new Vector2(sway, -23f), 7f, new Color(flash.R, flash.G, flash.B, 0.20f));
+        DrawCircle(new Vector2(sway, -23f), 4f, flash);
         // Hexagonal base ΓÇö bright outer hex + dark inner hex
         DrawPolygon(RegularPoly(6, 12f, -Mathf.Pi / 6f), new[] { cyan });
         DrawPolygon(RegularPoly(6, 10f, -Mathf.Pi / 6f), new[] { dark });
@@ -198,15 +230,16 @@ public partial class TowerInstance : Node2D
         var orange = new Color(1.00f, 0.55f, 0.00f);
         var dark   = new Color(0.10f, 0.04f, 0.00f);
         var rim    = new Color(1.00f, 0.82f, 0.30f);
+        float piston = Mathf.Sin(_idleTime * 1.8f) * 1.4f;
         // Soft glow
         DrawCircle(Vector2.Zero, 24f, new Color(orange.R, orange.G, orange.B, 0.07f));
         DrawCircle(Vector2.Zero, 17f, new Color(orange.R, orange.G, orange.B, 0.14f));
         // Wide barrel ΓÇö bright outer, dark inner
-        DrawRect(new Rect2(-6.5f, -19f, 13f, 15f), orange);
-        DrawRect(new Rect2(-5.0f, -18f, 10f, 13f), dark);
+        DrawRect(new Rect2(-6.5f, -19f + piston, 13f, 15f), orange);
+        DrawRect(new Rect2(-5.0f, -18f + piston, 10f, 13f), dark);
         // Muzzle ring glow
-        DrawRect(new Rect2(-5.0f, -22f, 10f, 4f), rim);
-        DrawRect(new Rect2(-3.5f, -23f,  7f, 4f), new Color(rim.R, rim.G, rim.B, 0.30f));
+        DrawRect(new Rect2(-5.0f, -22f + piston, 10f, 4f), rim);
+        DrawRect(new Rect2(-3.5f, -23f + piston,  7f, 4f), new Color(rim.R, rim.G, rim.B, 0.30f));
         // Octagonal base ΓÇö bright outer, dark inner
         DrawPolygon(RegularPoly(8, 14f, 0f), new[] { orange });
         DrawPolygon(RegularPoly(8, 12f, 0f), new[] { dark });
@@ -235,10 +268,11 @@ public partial class TowerInstance : Node2D
     {
         var blue  = new Color(0.50f, 0.85f, 1.00f);
         var dark  = new Color(0.02f, 0.05f, 0.15f);
-        var white = new Color(0.90f, 0.97f, 1.00f);
+        float flicker = 0.78f + 0.22f * Mathf.Sin(_idleTime * 16f);
+        var white = new Color(0.90f, 0.97f, 1.00f, flicker);
         // Soft glow
-        DrawCircle(Vector2.Zero, 22f, new Color(blue.R, blue.G, blue.B, 0.07f));
-        DrawCircle(Vector2.Zero, 15f, new Color(blue.R, blue.G, blue.B, 0.14f));
+        DrawCircle(Vector2.Zero, 22f, new Color(blue.R, blue.G, blue.B, 0.07f + 0.03f * flicker));
+        DrawCircle(Vector2.Zero, 15f, new Color(blue.R, blue.G, blue.B, 0.14f + 0.03f * flicker));
         // Circular base
         DrawCircle(Vector2.Zero, 11f, blue);
         DrawCircle(Vector2.Zero,  9f, dark);
