@@ -127,8 +127,8 @@ public partial class PauseScreen : CanvasLayer
 
     // ── Actions ──────────────────────────────────────────────────────────
 
-    private void Pause()   { Visible = true;  GetTree().Paused = true; }
-    private void Unpause() { Visible = false; GetTree().Paused = false; }
+    public void Pause()   { Visible = true;  GetTree().Paused = true; }
+    public void Unpause() { Visible = false; GetTree().Paused = false; }
 
     private void OnResume()  => Unpause();
     private void OnRestart() { Unpause(); GameController.Instance.RestartRun(); }

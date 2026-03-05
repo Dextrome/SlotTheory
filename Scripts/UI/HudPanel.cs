@@ -141,14 +141,14 @@ public partial class HudPanel : CanvasLayer
 
     private void OnMobileMenuPressed()
     {
-        // Find and show pause screen on mobile
+        // Find and pause game on mobile
         var pauseScreens = GetTree().GetNodesInGroup("pause_screen");
         
         foreach (Node node in pauseScreens)
         {
-            if (node is CanvasLayer pauseScreen)
+            if (node is PauseScreen pauseScreen)
             {
-                pauseScreen.Show();
+                pauseScreen.Pause();
                 break;
             }
         }
