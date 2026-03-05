@@ -36,6 +36,7 @@ public partial class GameController : Node
 	private Node2D _mapVisuals = null!;
 	private Panel _tooltipPanel = null!;
 	private Label _tooltipLabel = null!;
+	private TowerInstance? _selectedTooltipTower;
 	private Label _waveAnnounce = null!;
 	private Label _placementLabel = null!;
 	private ColorRect _waveClearFlash = null!;
@@ -381,10 +382,13 @@ public partial class GameController : Node
 
 	public override void _Input(InputEvent @event)
 	{
-		if (@event is not InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true }) return;
-
-		var mousePos = GetViewport().GetMousePosition();
-
+		Vector2 pressPos;
+		if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
+			pressPos = GetViewport().GetMousePosition();
+		else if (@event is InputEventScreenTouch { Pressed: true } touch)
+			pressPos = touch.Position;
+		else
+			return;
 		// Draft assignment: click a slot in the world to place tower / assign modifier
 		if (CurrentPhase == GamePhase.Draft && (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower))
 		{
@@ -392,17 +396,29 @@ public partial class GameController : Node
 			{
 				if (!_draftPanel.IsSlotValidTarget(i)) continue;
 				var hitRect = new Rect2(_slotNodes[i].GlobalPosition - new Vector2(22f, 22f), new Vector2(44f, 44f));
-				if (hitRect.HasPoint(mousePos))
+				if (hitRect.HasPoint(pressPos))
 				{
 					_draftPanel.SelectSlot(i);
 					GetViewport().SetInputAsHandled();
 					return;
 				}
 			}
+			if (MobileOptimization.IsMobile() && _draftPanel.IsAwaitingTower)
+			{
+				for (int i = 0; i < _runState.Slots.Length; i++)
+				{
+					var tower = _runState.Slots[i].Tower;
+					if (tower == null) continue;
+					var hitRect = new Rect2(tower.GlobalPosition - new Vector2(25f, 25f), new Vector2(50f, 50f));
+					if (!hitRect.HasPoint(pressPos)) continue;
+					_selectedTooltipTower = tower;
+					GetViewport().SetInputAsHandled();
+					return;
+				}
+				_selectedTooltipTower = null;
+			}
 			return;
 		}
-
-		// Wave phase only: click tower to cycle targeting mode
 		if (CurrentPhase == GamePhase.Wave)
 		{
 			for (int i = 0; i < _runState.Slots.Length; i++)
@@ -410,16 +426,25 @@ public partial class GameController : Node
 				var tower = _runState.Slots[i].Tower;
 				if (tower == null) continue;
 				var hitRect = new Rect2(tower.GlobalPosition - new Vector2(25f, 25f), new Vector2(50f, 50f));
-				if (hitRect.HasPoint(mousePos))
+				if (!hitRect.HasPoint(pressPos)) continue;
+				if (MobileOptimization.IsMobile())
+				{
+					if (_selectedTooltipTower == tower)
+						tower.CycleTargetingMode();
+					else
+						_selectedTooltipTower = tower;
+				}
+				else
 				{
 					tower.CycleTargetingMode();
-					GetViewport().SetInputAsHandled();
-					return;
 				}
+				GetViewport().SetInputAsHandled();
+				return;
 			}
+			if (MobileOptimization.IsMobile())
+				_selectedTooltipTower = null;
 		}
 	}
-
 	private void SetupSlots()
 	{
 		var slotsNode = _worldNode.GetNode<Node2D>("Slots");
@@ -635,17 +660,29 @@ public partial class GameController : Node
 		if (!tooltipAllowed)
 		{
 			_tooltipPanel.Visible = false;
+			_selectedTooltipTower = null;
 			return;
 		}
-
-		var mousePos = GetViewport().GetMousePosition();
+		Vector2 mousePos;
+		if (MobileOptimization.IsMobile())
+		{
+			if (_selectedTooltipTower == null || !GodotObject.IsInstanceValid(_selectedTooltipTower))
+			{
+				_tooltipPanel.Visible = false;
+				return;
+			}
+			mousePos = _selectedTooltipTower.GlobalPosition;
+		}
+		else
+		{
+			mousePos = GetViewport().GetMousePosition();
+		}
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
 			var tower = _runState.Slots[i].Tower;
 			if (tower == null) continue;
 			var hitRect = new Rect2(tower.GlobalPosition - new Vector2(25f, 25f), new Vector2(50f, 50f));
 			if (!hitRect.HasPoint(mousePos)) continue;
-
 			// Build tooltip text
 			var def = DataLoader.GetTowerDef(tower.TowerId);
 			var targetingName = tower.TargetingMode switch
@@ -659,41 +696,45 @@ public partial class GameController : Node
 			float effInterval = tower.AttackInterval;
 			foreach (var mod in tower.Modifiers)
 				mod.ModifyAttackInterval(ref effInterval, tower);
-
 			// Effective damage: unconditional modifiers (FocusLens) + baked changes
 			float effDamage = tower.GetEffectiveDamageForPreview();
-
-			var text = $"Slot {i + 1}  ·  {def.Name}  [{targetingName}]\n";
-			text += $"{effDamage:0.#} dmg  ·  {effInterval:0.##} s  ·  {(int)tower.Range} px\n";
+			var text = $"Slot {i + 1}  -  {def.Name}  [{targetingName}]\n";
+			text += $"{effDamage:0.#} dmg  -  {effInterval:0.##} s  -  {(int)tower.Range} px\n";
 			if (tower.IsChainTower)
-				text += $"⚡ chains ×{tower.ChainCount}  ({(int)(tower.ChainDamageDecay * 100)}% per bounce)  range {(int)tower.ChainRange} px\n";
+				text += $"chains x{tower.ChainCount}  ({(int)(tower.ChainDamageDecay * 100)}% per bounce)  range {(int)tower.ChainRange} px\n";
 			if (tower.Modifiers.Count == 0)
 				text += "(no modifiers)";
 			else
 				foreach (var mod in tower.Modifiers)
 				{
 					var mdef = DataLoader.GetModifierDef(mod.ModifierId);
-					text += "• " + mdef.Name + "  \u2014  " + mdef.Description + "\n";
+					text += "* " + mdef.Name + " - " + mdef.Description + "\n";
 				}
 			_tooltipLabel.Text = text.TrimEnd();
-
 			// Size panel to fit label
 			var labelSize = _tooltipLabel.GetMinimumSize();
 			_tooltipPanel.Size = labelSize + new Vector2(16, 12);
-
-			// Position near cursor, clamped to viewport
-			var pos = mousePos + new Vector2(20, 10);
+			// Positioning: mobile shows above selected tower; desktop follows cursor.
+			Vector2 pos;
+			if (MobileOptimization.IsMobile())
+			{
+				pos = new Vector2(
+					mousePos.X - _tooltipPanel.Size.X * 0.5f,
+					mousePos.Y - _tooltipPanel.Size.Y - 14f
+				);
+			}
+			else
+			{
+				pos = mousePos + new Vector2(20, 10);
+			}
 			pos.X = Mathf.Min(pos.X, 1280 - _tooltipPanel.Size.X - 4);
 			pos.Y = Mathf.Min(pos.Y, 720  - _tooltipPanel.Size.Y - 4);
 			_tooltipPanel.Position = pos;
 			_tooltipPanel.Visible = true;
 			return;
 		}
-
 		_tooltipPanel.Visible = false;
 	}
-
-
 	// -- Bot multi-step simulation -------------------------------------------------
 
 	private const float BOT_DT    = 0.05f;
@@ -896,3 +937,7 @@ public partial class GameController : Node
 	}
 
 }
+
+
+
+

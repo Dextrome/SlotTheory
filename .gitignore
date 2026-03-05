@@ -46,3 +46,7 @@ ANDROID_PLAN.md
 ANDROID_SETUP.md
 ANDROID_STATUS.md
 ANDROID_TEMPLATE_INSTALL.md
+*.sentinel
+.dotnet/10.0.100.dotnetFirstUseSentinel
+.dotnet/10.0.100.aspNetCertificateSentinel
+.dotnet/.workloadAdvertisingManifestSentinel10.0.100
