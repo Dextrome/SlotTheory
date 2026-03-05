@@ -24,7 +24,8 @@ public partial class MapSelectPanel : Node
 	public override void _Ready()
 	{
 		// Reset to default state when MapSelectPanel loads
-		_selectedMapId = "random_map";
+		// Will be auto-updated to first map in PopulateMapList if maps exist
+		_selectedMapId = "random_map";  
 		_selectedDifficulty = DifficultyMode.Normal;  // Always default to Normal
 
 		var canvas = new CanvasLayer();
@@ -133,6 +134,13 @@ public partial class MapSelectPanel : Node
 				GD.PrintErr("MapSelectPanel: No maps loaded in DataLoader");
 				return;
 			}
+			
+			// Auto-select the first map if still on default "random_map"
+			if (_selectedMapId == "random_map" && maps.Any())
+			{
+				_selectedMapId = maps.First().Id;
+			}
+			
 			foreach (var mapDef in maps)
 			{
 				var mapButton = CreateMapButton(mapDef.Id, mapDef.Name, mapDef.Description);
