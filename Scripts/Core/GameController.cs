@@ -44,8 +44,10 @@ public partial class GameController : Node
 	private Label _tooltipLabel = null!;
 	private TowerInstance? _selectedTooltipTower;
 	private Label _waveAnnounce = null!;
+	private Label _threatWarn = null!;
 	private Label _placementLabel = null!;
 	private ColorRect _waveClearFlash = null!;
+	private ColorRect _threatPulse = null!;
 	private Node2D _worldNode = null!;
 	private BotRunner? _botRunner;
 	private int _extraPicksRemaining;
@@ -368,20 +370,39 @@ public partial class GameController : Node
 		tower.RangeBorder = rangeBorder;
 		tower.AddChild(rangeBorder);
 
-// Targeting mode icon — centred on the tower square
+		// Targeting mode badge — always visible on the right side of each tower.
+		var modeBadge = new ColorRect
+		{
+			Color = new Color(0.02f, 0.03f, 0.09f, 0.86f),
+			Position = new Vector2(24f, -11f),
+			Size = new Vector2(18f, 18f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		_slotNodes[slotIndex].AddChild(modeBadge);
+		var modeBadgeBorder = new Line2D
+		{
+			Points = new[]
+			{
+				new Vector2(24f, -11f), new Vector2(42f, -11f), new Vector2(42f, 7f),
+				new Vector2(24f, 7f), new Vector2(24f, -11f)
+			},
+			Width = 1.6f,
+			DefaultColor = new Color(0.68f, 0.94f, 1.00f, 0.90f),
+			Antialiased = true,
+		};
+		_slotNodes[slotIndex].AddChild(modeBadgeBorder);
 		var modeLabel = new Label
 		{
-			Text                  = TowerInstance.ModeIcon(TargetingMode.First),
-			Position              = new Vector2(-15f, -10f),
-			Size                  = new Vector2(30f, 20f),
-			HorizontalAlignment   = HorizontalAlignment.Center,
-			VerticalAlignment     = VerticalAlignment.Center,
-			MouseFilter           = Control.MouseFilterEnum.Ignore,
+			Text = TowerInstance.ModeIcon(TargetingMode.First),
+			HorizontalAlignment = HorizontalAlignment.Center,
+			VerticalAlignment = VerticalAlignment.Center,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
-		UITheme.ApplyFont(modeLabel, semiBold: true, size: 14);
+		modeLabel.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		UITheme.ApplyFont(modeLabel, semiBold: true, size: 13);
 		modeLabel.AddThemeColorOverride("font_color", Colors.White);
+		modeBadge.AddChild(modeLabel);
 		tower.ModeLabel = modeLabel;
-		_slotNodes[slotIndex].AddChild(modeLabel);  // parented to slot so it doesn't rotate with tower
 
 		_slotNodes[slotIndex].AddChild(tower);
 		_runState.Slots[slotIndex].Tower = tower;
@@ -548,7 +569,7 @@ public partial class GameController : Node
 				float px = (p - 1) * 9f;  // centers at -9, 0, +9
 				var pip = new ColorRect
 				{
-					Position    = new Vector2(px - 3f, 23f),
+					Position    = new Vector2(px - 3f, 27f),
 					Size        = new Vector2(6f, 6f),
 					Color       = new Color(0.22f, 0.22f, 0.22f, 0.45f),
 					MouseFilter = Control.MouseFilterEnum.Ignore,
@@ -561,7 +582,7 @@ public partial class GameController : Node
 				float ix = (p - 1) * 12f;
 				var icon = new ModifierIcon
 				{
-					Position = new Vector2(ix - 5f, 31f),
+					Position = new Vector2(ix - 5f, 38f),
 					Size = new Vector2(10f, 10f),
 					CustomMinimumSize = new Vector2(10f, 10f),
 					Visible = false,
@@ -895,6 +916,23 @@ public partial class GameController : Node
 		_waveAnnounce.AddThemeColorOverride("font_color", new Color(0.85f, 0.20f, 1.00f));
 		anchor.AddChild(_waveAnnounce);
 
+		_threatWarn = new Label
+		{
+			Text = "",
+			HorizontalAlignment = HorizontalAlignment.Center,
+			AnchorLeft = 0f,
+			AnchorRight = 1f,
+			AnchorTop = 0f,
+			AnchorBottom = 0f,
+			OffsetTop = 94f,
+			OffsetBottom = 124f,
+			Visible = false,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		UITheme.ApplyFont(_threatWarn, semiBold: true, size: 24);
+		_threatWarn.AddThemeColorOverride("font_color", new Color(1.00f, 0.56f, 0.25f));
+		anchor.AddChild(_threatWarn);
+
 		_placementLabel = new Label();
 		_placementLabel.HorizontalAlignment = HorizontalAlignment.Center;
 		_placementLabel.AnchorLeft   = 0f;
@@ -916,6 +954,13 @@ public partial class GameController : Node
 		_waveClearFlash.Visible = false;
 		_waveClearFlash.MouseFilter = Control.MouseFilterEnum.Ignore;
 		anchor.AddChild(_waveClearFlash);
+
+		_threatPulse = new ColorRect();
+		_threatPulse.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		_threatPulse.Color = new Color(1.00f, 0.48f, 0.16f, 0f);
+		_threatPulse.Visible = false;
+		_threatPulse.MouseFilter = Control.MouseFilterEnum.Ignore;
+		anchor.AddChild(_threatPulse);
 	}
 
 	private void ShowWaveAnnouncement(int wave)
@@ -928,6 +973,29 @@ public partial class GameController : Node
 			 .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);
 		tween.TweenInterval(0.35f);
 		tween.TweenProperty(_waveAnnounce, "modulate:a", 0f, 0.45f);
+	}
+
+	private void ShowArmoredWaveWarning()
+	{
+		_threatWarn.Text = "⚠ ARMORED WAVE INCOMING";
+		_threatWarn.Visible = true;
+		_threatWarn.Modulate = new Color(1f, 1f, 1f, 0f);
+		_threatPulse.Visible = true;
+		_threatPulse.Color = new Color(1.00f, 0.48f, 0.16f, 0f);
+
+		var tw = CreateTween();
+		tw.SetParallel(true);
+		tw.TweenProperty(_threatWarn, "modulate:a", 1f, 0.16f);
+		tw.TweenProperty(_threatPulse, "color:a", 0.18f, 0.12f);
+		tw.Chain().TweenInterval(0.42f);
+		tw.SetParallel(true);
+		tw.TweenProperty(_threatWarn, "modulate:a", 0f, 0.22f);
+		tw.TweenProperty(_threatPulse, "color:a", 0f, 0.24f);
+		tw.Chain().TweenCallback(Callable.From(() =>
+		{
+			_threatWarn.Visible = false;
+			_threatPulse.Visible = false;
+		}));
 	}
 
 	private string BuildBuildSummary()
@@ -955,6 +1023,11 @@ public partial class GameController : Node
 	{
 		CurrentPhase = GamePhase.Wave;
 		if (_botRunner == null) ShowWaveAnnouncement(_runState.WaveIndex + 1);
+		var nextCfg = DataLoader.GetWaveConfig(_runState.WaveIndex);
+		bool clumpedArmored = nextCfg.ClumpArmored && nextCfg.TankyCount >= 2;
+		_combatSim.InitialSpawnDelay = (_botRunner == null && clumpedArmored) ? 0.8f : 0f;
+		if (_botRunner == null && clumpedArmored)
+			ShowArmoredWaveWarning();
 		
 		// Initialize tracking for the new wave
 		_runState.StartNewWave(_runState.WaveIndex + 1);
