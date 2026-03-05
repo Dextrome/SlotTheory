@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using Godot;
 using SlotTheory.Combat;
 using SlotTheory.Data;
@@ -45,9 +46,12 @@ public partial class GameController : Node
 	private Panel _tooltipPanel = null!;
 	private Label _tooltipLabel = null!;
 	private TowerInstance? _selectedTooltipTower;
+	private CanvasLayer _announceLayer = null!;
 	private Label _waveAnnounce = null!;
+	private Label _halfwayBeat = null!;
 	private Label _threatWarn = null!;
 	private Label _placementLabel = null!;
+	private Button _undoPlacementButton = null!;
 	private Label _clutchToast = null!;
 	private ColorRect _waveClearFlash = null!;
 	private ColorRect _threatPulse = null!;
@@ -67,6 +71,14 @@ public partial class GameController : Node
 	private readonly System.Collections.Generic.Dictionary<string, ulong> _combatCalloutNextMs = new();
 	private readonly System.Collections.Generic.Dictionary<ulong, (ulong firstMs, int count)> _feedbackLoopBurst = new();
 	private readonly System.Collections.Generic.Dictionary<string, int> _modifierProcCounts = new();
+	private bool _undoPlacementActive = false;
+	private ulong _undoPlacementToken = 0;
+	private int _undoPlacementSlot = -1;
+	private List<DraftOption> _undoDraftOptions = new();
+	private int _undoDraftWave = 1;
+	private int _undoDraftPick = 1;
+	private int _undoDraftTotal = 1;
+	private System.Action? _undoPlacementCommit;
 
 	public override void _Ready()
 	{
@@ -89,6 +101,8 @@ public partial class GameController : Node
 		
 		// Apply pending map selection from MapSelectPanel if available
 		_runState.SelectedMapId = SlotTheory.UI.MapSelectPanel.PendingMapSelection;
+		if (_runState.SelectedMapId == "random_map" && SlotTheory.UI.MapSelectPanel.PendingProceduralSeed > 0)
+			_runState.RngSeed = (int)SlotTheory.UI.MapSelectPanel.PendingProceduralSeed;
 		
 		_draftSystem = new DraftSystem();
 		_waveSystem = new WaveSystem();
@@ -122,12 +136,12 @@ public partial class GameController : Node
 	{
 		if (_botRunner == null) UpdateTooltip();
 
-		if (CurrentPhase == GamePhase.Draft && (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower))
+		if (!_undoPlacementActive && CurrentPhase == GamePhase.Draft && (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower))
 			UpdateSlotHighlights();
 		else if (_highlightedSlot != -1)
 			ClearSlotHighlights();
 
-		if (CurrentPhase == GamePhase.Draft && _draftPanel.IsAwaitingTower)
+		if (!_undoPlacementActive && CurrentPhase == GamePhase.Draft && _draftPanel.IsAwaitingTower)
 			UpdateModifierPreviewGhost((float)delta);
 		else
 			ClearModifierPreviewGhost();
@@ -236,10 +250,12 @@ public partial class GameController : Node
 
 	public void StartDraftPhase()
 	{
+		ClearUndoPlacementState();
 		CurrentPhase = GamePhase.Draft;
+		_hudPanel.SetBuildName("", visible: false);
 		var options = _draftSystem.GenerateOptions(_runState);
 
-		// All slots full AND all towers at modifier cap → nothing to offer, skip draft.
+		// All slots full AND all towers at modifier cap ? nothing to offer, skip draft.
 		if (options.Count == 0)
 		{
 			GD.Print("No draft options available — skipping draft.");
@@ -297,7 +313,9 @@ public partial class GameController : Node
 		_combatCalloutNextMs.Clear();
 		_feedbackLoopBurst.Clear();
 		_modifierProcCounts.Clear();
+		ClearUndoPlacementState();
 		_hudPanel.Refresh(1, Balance.StartingLives);
+		_hudPanel.SetBuildName("", visible: false);
 		_hudPanel.ResetSpeed();
 
 		ClearMapVisuals();
@@ -328,8 +346,26 @@ public partial class GameController : Node
 	{
 		if (option.Type == DraftOptionType.Tower)
 		{
-			if (targetSlotIndex >= 0 && _runState.Slots[targetSlotIndex].Tower == null)
+			if (targetSlotIndex >= 0 && targetSlotIndex < _runState.Slots.Length && _runState.Slots[targetSlotIndex].Tower == null)
+			{
+				var optionsSnapshot = _draftPanel.GetLastOptionsSnapshot();
+				var (waveNumber, pickNumber, totalPicks) = _draftPanel.GetLastDraftMeta();
 				PlaceTower(option.Id, targetSlotIndex);
+
+				// Single-step undo safety net for tower misclicks.
+				if (_botRunner == null)
+				{
+					BeginTowerUndoWindow(
+						targetSlotIndex,
+						optionsSnapshot,
+						waveNumber,
+						pickNumber,
+						totalPicks,
+						AdvanceAfterDraftPickFlow
+					);
+					return;
+				}
+			}
 		}
 		else
 		{
@@ -340,6 +376,11 @@ public partial class GameController : Node
 				if (_botRunner == null) RefreshModPips(targetSlotIndex);
 			}
 		}
+		AdvanceAfterDraftPickFlow();
+	}
+
+	private void AdvanceAfterDraftPickFlow()
+	{
 		if (_extraPicksRemaining > 0)
 		{
 			_extraPicksRemaining--;
@@ -347,6 +388,107 @@ public partial class GameController : Node
 			return;
 		}
 		StartWavePhase();
+	}
+
+	private void BeginTowerUndoWindow(
+		int slotIndex,
+		List<DraftOption> draftOptions,
+		int waveNumber,
+		int pickNumber,
+		int totalPicks,
+		System.Action onCommit)
+	{
+		_undoPlacementToken++;
+		_undoPlacementActive = true;
+		_undoPlacementSlot = slotIndex;
+		_undoDraftOptions = draftOptions;
+		_undoDraftWave = waveNumber;
+		_undoDraftPick = pickNumber;
+		_undoDraftTotal = totalPicks;
+		_undoPlacementCommit = onCommit;
+
+		if (GodotObject.IsInstanceValid(_undoPlacementButton))
+		{
+			_undoPlacementButton.Visible = true;
+			_undoPlacementButton.Scale = new Vector2(1.08f, 1.08f);
+			_undoPlacementButton.Modulate = new Color(0.92f, 0.98f, 1.00f, 0f);
+			var tw = _undoPlacementButton.CreateTween();
+			tw.SetParallel(true);
+			tw.TweenProperty(_undoPlacementButton, "modulate:a", 1f, 0.08f);
+			tw.TweenProperty(_undoPlacementButton, "scale", Vector2.One, 0.10f)
+			  .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+		}
+
+		ulong token = _undoPlacementToken;
+		GetTree().CreateTimer(2.0f).Timeout += () =>
+		{
+			if (!_undoPlacementActive || token != _undoPlacementToken) return;
+			CommitPendingPlacement();
+		};
+	}
+
+	private void CommitPendingPlacement()
+	{
+		if (!_undoPlacementActive) return;
+		_undoPlacementActive = false;
+		if (GodotObject.IsInstanceValid(_undoPlacementButton))
+			_undoPlacementButton.Visible = false;
+		var commit = _undoPlacementCommit;
+		_undoPlacementCommit = null;
+		commit?.Invoke();
+	}
+
+	private void ClearUndoPlacementState()
+	{
+		_undoPlacementActive = false;
+		_undoPlacementToken++;
+		_undoPlacementSlot = -1;
+		_undoDraftOptions = new();
+		_undoDraftWave = 1;
+		_undoDraftPick = 1;
+		_undoDraftTotal = 1;
+		_undoPlacementCommit = null;
+		if (GodotObject.IsInstanceValid(_undoPlacementButton))
+			_undoPlacementButton.Visible = false;
+	}
+
+	private void OnUndoPlacementPressed()
+	{
+		if (!_undoPlacementActive || _undoPlacementSlot < 0 || _undoPlacementSlot >= _runState.Slots.Length)
+			return;
+
+		SoundManager.Instance?.Play("ui_select");
+		int slot = _undoPlacementSlot;
+		var opts = _undoDraftOptions;
+		int wave = _undoDraftWave;
+		int pick = _undoDraftPick;
+		int total = _undoDraftTotal;
+		ClearUndoPlacementState();
+
+		RemoveTowerAtSlot(slot);
+		CurrentPhase = GamePhase.Draft;
+		_draftPanel.Show(opts, wave, pick, total, null);
+	}
+
+	private void RemoveTowerAtSlot(int slotIndex)
+	{
+		if (slotIndex < 0 || slotIndex >= _runState.Slots.Length) return;
+		var tower = _runState.Slots[slotIndex].Tower;
+		if (tower == null) return;
+		if (_selectedTooltipTower == tower)
+			_selectedTooltipTower = null;
+
+		if (GodotObject.IsInstanceValid(tower.ModeIconControl))
+			tower.ModeIconControl.QueueFree();
+		if (GodotObject.IsInstanceValid(tower.ModeBadgeControl))
+			tower.ModeBadgeControl.QueueFree();
+		if (GodotObject.IsInstanceValid(tower.ModeBadgeBorder))
+			tower.ModeBadgeBorder.QueueFree();
+		if (GodotObject.IsInstanceValid(tower))
+			tower.QueueFree();
+
+		_runState.Slots[slotIndex].Tower = null;
+		RefreshModPips(slotIndex);
 	}
 
 	/// <summary>Place a tower by ID into a slot. Called by draft UI later.</summary>
@@ -417,6 +559,7 @@ public partial class GameController : Node
 			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
 		_slotNodes[slotIndex].AddChild(modeBadge);
+		tower.ModeBadgeControl = modeBadge;
 		var modeBadgeBorder = new Line2D
 		{
 			Points = new[]
@@ -429,6 +572,7 @@ public partial class GameController : Node
 			Antialiased = true,
 		};
 		_slotNodes[slotIndex].AddChild(modeBadgeBorder);
+		tower.ModeBadgeBorder = modeBadgeBorder;
 		var modeIcon = new TargetModeIcon
 		{
 			Mode = TargetingMode.First,
@@ -444,7 +588,7 @@ public partial class GameController : Node
 		_slotNodes[slotIndex].AddChild(tower);
 		_runState.Slots[slotIndex].Tower = tower;
 
-		// Placement bounce — scale from 0 → 1.15 → 1.0
+		// Placement bounce — scale from 0 ? 1.15 ? 1.0
 		if (_botRunner == null)
 		{
 			tower.Scale = Vector2.Zero;
@@ -477,6 +621,10 @@ public partial class GameController : Node
 			pressPos = touch.Position;
 		}
 		else
+		{
+			return;
+		}
+		if (_undoPlacementActive)
 		{
 			return;
 		}
@@ -563,7 +711,7 @@ public partial class GameController : Node
 			_slotNodes[i] = slotsNode.GetNode<Node2D>($"Slot{i}");
 			_slotNodes[i].Position = _currentMap.Slots[i];
 
-			// Empty slot visual ΓÇö dark purple fill + neon violet border
+			// Empty slot visual GÇö dark purple fill + neon violet border
 		_slotNodes[i].AddChild(new ColorRect
 		{
 			Color        = new Color(0.08f, 0.00f, 0.16f, 0.85f),
@@ -603,7 +751,7 @@ public partial class GameController : Node
 		_slotProcHaloRemaining[i] = 0f;
 		_slotProcHaloColor[i] = Colors.White;
 
-			// Mod-count pip — just below slot square, shown only when tower has ≥ 1 modifier
+			// Mod-count pip — just below slot square, shown only when tower has = 1 modifier
 			// Modifier pips — 3 small squares below slot, one per modifier slot
 			var pips = new ColorRect[Balance.MaxModifiersPerTower];
 			var icons = new ModifierIcon[Balance.MaxModifiersPerTower];
@@ -740,7 +888,7 @@ public partial class GameController : Node
 	{
 		// Background + neon grid
 		_mapVisuals.AddChild(new GridBackground());
-		// Neon path — layered glow: outer haze → dark road fill → edge glow → bright edge
+		// Neon path — layered glow: outer haze ? dark road fill ? edge glow ? bright edge
 		Vector2[] pts = _currentMap.Path;
 		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 120f, DefaultColor = new Color(1.0f, 0.05f, 0.55f, 0.05f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
 		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 80f,  DefaultColor = new Color(1.0f, 0.10f, 0.55f, 0.10f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
@@ -935,12 +1083,12 @@ public partial class GameController : Node
 
 	private void SetupAnnouncer()
 	{
-		var layer = new CanvasLayer { Layer = 4 };
-		AddChild(layer);
+		_announceLayer = new CanvasLayer { Layer = 4 };
+		AddChild(_announceLayer);
 
 		var anchor = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
 		anchor.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		layer.AddChild(anchor);
+		_announceLayer.AddChild(anchor);
 
 		_waveAnnounce = new Label
 		{
@@ -959,6 +1107,23 @@ public partial class GameController : Node
 		UITheme.ApplyFont(_waveAnnounce, semiBold: true, size: 54);
 		_waveAnnounce.AddThemeColorOverride("font_color", new Color(0.85f, 0.20f, 1.00f));
 		anchor.AddChild(_waveAnnounce);
+
+		_halfwayBeat = new Label
+		{
+			Text = "HALFWAY",
+			HorizontalAlignment = HorizontalAlignment.Center,
+			AnchorLeft = 0f,
+			AnchorRight = 1f,
+			AnchorTop = 0f,
+			AnchorBottom = 0f,
+			OffsetTop = 126f,
+			OffsetBottom = 156f,
+			Visible = false,
+			Modulate = new Color(0.74f, 0.90f, 1.00f, 0f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		UITheme.ApplyFont(_halfwayBeat, semiBold: true, size: 26);
+		anchor.AddChild(_halfwayBeat);
 
 		_threatWarn = new Label
 		{
@@ -991,6 +1156,23 @@ public partial class GameController : Node
 		UITheme.ApplyFont(_placementLabel, semiBold: true, size: 20);
 		_placementLabel.Modulate = new Color(1f, 0.85f, 0.15f);
 		anchor.AddChild(_placementLabel);
+
+		_undoPlacementButton = new Button
+		{
+			Text = "UNDO",
+			AnchorLeft = 0.5f,
+			AnchorRight = 0.5f,
+			AnchorTop = 1f,
+			AnchorBottom = 1f,
+			OffsetLeft = -58f,
+			OffsetRight = 58f,
+			OffsetTop = -56f,
+			OffsetBottom = -20f,
+			Visible = false,
+		};
+		UITheme.ApplyFont(_undoPlacementButton, semiBold: true, size: 18);
+		_undoPlacementButton.Pressed += OnUndoPlacementPressed;
+		anchor.AddChild(_undoPlacementButton);
 
 		_clutchToast = new Label
 		{
@@ -1040,6 +1222,7 @@ public partial class GameController : Node
 
 		if (isFinalWave)
 		{
+			PlaySignatureScanline(_waveAnnounce, new Color(1.00f, 0.72f, 0.30f, 0.90f));
 			_threatPulse.Visible = true;
 			_threatPulse.Color = new Color(1.00f, 0.42f, 0.10f, 0f);
 			var pulse = CreateTween();
@@ -1051,7 +1234,7 @@ public partial class GameController : Node
 
 	private void ShowArmoredWaveWarning()
 	{
-		_threatWarn.Text = "⚠ ARMORED WAVE INCOMING";
+		_threatWarn.Text = "? ARMORED WAVE INCOMING";
 		_threatWarn.Visible = true;
 		_threatWarn.Modulate = new Color(1f, 1f, 1f, 0f);
 		_threatPulse.Visible = true;
@@ -1069,6 +1252,48 @@ public partial class GameController : Node
 		{
 			_threatWarn.Visible = false;
 			_threatPulse.Visible = false;
+		}));
+	}
+
+	private void ShowHalfwayBeat()
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_halfwayBeat)) return;
+		_halfwayBeat.Visible = true;
+		_halfwayBeat.Scale = new Vector2(1.10f, 1.10f);
+		_halfwayBeat.Modulate = new Color(0.74f, 0.90f, 1.00f, 0f);
+		var tw = _halfwayBeat.CreateTween();
+		tw.SetParallel(true);
+		tw.TweenProperty(_halfwayBeat, "modulate:a", 1f, 0.07f);
+		tw.TweenProperty(_halfwayBeat, "scale", Vector2.One, 0.09f)
+		  .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+		tw.Chain();
+		tw.TweenProperty(_halfwayBeat, "modulate:a", 0f, 0.20f)
+		  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+		tw.TweenCallback(Callable.From(() => _halfwayBeat.Visible = false));
+		PlaySignatureScanline(_halfwayBeat, new Color(0.68f, 0.92f, 1.00f, 0.85f));
+	}
+
+	private static void PlaySignatureScanline(Control target, Color color)
+	{
+		var stripe = new ColorRect
+		{
+			Color = new Color(color.R, color.G, color.B, 0f),
+			Position = new Vector2(-82f, -8f),
+			Size = new Vector2(52f, 22f),
+			RotationDegrees = 12f,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		target.AddChild(stripe);
+		var tw = stripe.CreateTween();
+		tw.SetParallel(true);
+		tw.TweenProperty(stripe, "color:a", 0.30f, 0.05f);
+		tw.TweenProperty(stripe, "position:x", target.Size.X + 82f, 0.30f)
+		  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+		tw.Chain().TweenProperty(stripe, "color:a", 0f, 0.08f);
+		tw.TweenCallback(Callable.From(() =>
+		{
+			if (GodotObject.IsInstanceValid(stripe))
+				stripe.QueueFree();
 		}));
 	}
 
@@ -1120,6 +1345,98 @@ public partial class GameController : Node
 		_worldNode.AddChild(callout);
 		callout.GlobalPosition = worldPos + new Vector2(0f, -16f);
 		callout.Initialize(text, color);
+	}
+
+	public void SpawnTargetAcquirePing(Vector2 worldPos, Color color)
+	{
+		if (_botRunner != null || CurrentPhase != GamePhase.Wave) return;
+		var ping = new TargetAcquirePing();
+		_worldNode.AddChild(ping);
+		ping.GlobalPosition = worldPos;
+		ping.Initialize(color);
+	}
+
+	public void PlayDraftCardSpirit(Vector2 screenStart, DraftOption option)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_announceLayer)) return;
+
+		var spirit = new Control
+		{
+			TopLevel = true,
+			Position = screenStart - new Vector2(10f, 10f),
+			Size = new Vector2(20f, 20f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		_announceLayer.AddChild(spirit);
+
+		var accent = option.Type == DraftOptionType.Modifier
+			? ModifierVisuals.GetAccent(option.Id)
+			: option.Id switch
+			{
+				"rapid_shooter" => new Color(0.25f, 0.92f, 1.00f),
+				"heavy_cannon" => new Color(1.00f, 0.60f, 0.18f),
+				"marker_tower" => new Color(1.00f, 0.30f, 0.72f),
+				"chain_tower" => new Color(0.62f, 0.90f, 1.00f),
+				_ => new Color(0.75f, 0.85f, 1.00f),
+			};
+
+		if (option.Type == DraftOptionType.Modifier)
+		{
+			var icon = new ModifierIcon
+			{
+				ModifierId = option.Id,
+				IconColor = accent,
+				Size = new Vector2(20f, 20f),
+				CustomMinimumSize = new Vector2(20f, 20f),
+			};
+			icon.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+			spirit.AddChild(icon);
+		}
+		else
+		{
+			var glyph = new Label
+			{
+				Text = option.Id switch
+				{
+					"rapid_shooter" => "RS",
+					"heavy_cannon" => "HC",
+					"marker_tower" => "MK",
+					"chain_tower" => "AR",
+					_ => "TW",
+				},
+				HorizontalAlignment = HorizontalAlignment.Center,
+				VerticalAlignment = VerticalAlignment.Center,
+				Modulate = new Color(accent.R, accent.G, accent.B, 1f),
+			};
+			glyph.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+			UITheme.ApplyFont(glyph, semiBold: true, size: 13);
+			spirit.AddChild(glyph);
+		}
+
+		var glow = new ColorRect
+		{
+			Color = new Color(accent.R, accent.G, accent.B, 0.18f),
+			Position = new Vector2(-4f, -4f),
+			Size = new Vector2(28f, 28f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		spirit.AddChild(glow);
+		spirit.MoveChild(glow, 0);
+
+		Vector2 end = new Vector2(GetViewport().GetVisibleRect().Size.X * 0.5f - 10f, 58f);
+		var tw = spirit.CreateTween();
+		tw.SetParallel(true);
+		tw.TweenProperty(spirit, "position", end, 0.28f)
+		  .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
+		tw.TweenProperty(spirit, "scale", new Vector2(0.84f, 0.84f), 0.28f)
+		  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+		tw.TweenProperty(spirit, "modulate:a", 0.10f, 0.28f)
+		  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+		tw.Chain().TweenCallback(Callable.From(() =>
+		{
+			if (GodotObject.IsInstanceValid(spirit))
+				spirit.QueueFree();
+		}));
 	}
 
 	public void NotifyOverkillSpill(Vector2 worldPos, float spillDamage)
@@ -1288,13 +1605,6 @@ public partial class GameController : Node
 	private string BuildRunName()
 	{
 		var familyCounts = new System.Collections.Generic.Dictionary<string, int>();
-		bool hasOverkill = false;
-		bool hasFocusLens = false;
-		bool hasExploit = false;
-		bool hasChill = false;
-		bool hasChain = false;
-		bool hasSplit = false;
-
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
 			var tower = _runState.Slots[i].Tower;
@@ -1304,32 +1614,12 @@ public partial class GameController : Node
 				string family = ModifierFamily(mod.ModifierId);
 				familyCounts.TryGetValue(family, out int n);
 				familyCounts[family] = n + 1;
-
-				switch (mod.ModifierId)
-				{
-					case "overkill": hasOverkill = true; break;
-					case "focus_lens": hasFocusLens = true; break;
-					case "exploit_weakness": hasExploit = true; break;
-					case "slow": hasChill = true; break;
-					case "chain_reaction": hasChain = true; break;
-					case "split_shot": hasSplit = true; break;
-				}
 			}
 		}
 
 		string dominantFamily = familyCounts.Count > 0
-			? familyCounts.OrderByDescending(kvp => kvp.Value).First().Key
-			: "None";
-
-		string familyPrefix = dominantFamily switch
-		{
-			"DamageScaling" => "Orange",
-			"Utility" => "Cyan",
-			"Range" => "Violet",
-			"StatusSynergy" => "Magenta",
-			"MultiTarget" => "Mint",
-			_ => "Neon",
-		};
+			? familyCounts.OrderByDescending(kvp => kvp.Value).ThenBy(kvp => kvp.Key).First().Key
+			: "DamageScaling";
 
 		var mvp = GetAllTowerStats()
 			.GroupBy(s => s.SlotIndex)
@@ -1337,28 +1627,34 @@ public partial class GameController : Node
 			.Where(x => x.Slot >= 0)
 			.OrderByDescending(x => x.Damage)
 			.FirstOrDefault();
+
 		string mvpTowerId = (mvp != null && mvp.Slot >= 0 && mvp.Slot < _runState.Slots.Length)
 			? _runState.Slots[mvp.Slot].Tower?.TowerId ?? ""
-			: "";
+			: _runState.Slots.FirstOrDefault(s => s.Tower != null)?.Tower?.TowerId ?? "";
 
-		string suffix = dominantFamily switch
+		string[] adjectives = dominantFamily switch
 		{
-			"MultiTarget" when mvpTowerId == "chain_tower" || hasChain => "Chainstorm",
-			"DamageScaling" when mvpTowerId == "heavy_cannon" && (hasOverkill || hasFocusLens) => "Overkill Cannon",
-			"StatusSynergy" when hasExploit => "Mark Exploit",
-			"Utility" when hasChill => "Chill Control",
-			"Range" => "Longreach Grid",
-			_ => mvpTowerId switch
-			{
-				"heavy_cannon" => "Cannon Core",
-				"chain_tower" => hasSplit ? "Arc Scatter" : "Arcstorm",
-				"marker_tower" => "Mark Lattice",
-				"rapid_shooter" => "Rapid Barrage",
-				_ => "Arsenal",
-			},
+			"DamageScaling" => new[] { "Overclocked", "Brutal", "Overkill", "Hotwired" },
+			"Utility" => new[] { "Cryo", "Chill", "Control", "Frost" },
+			"Range" => new[] { "Longshot", "Horizon", "Overreach", "Linelock" },
+			"StatusSynergy" => new[] { "Marked", "Exploit", "Hex", "Punisher" },
+			"MultiTarget" => new[] { "Chain", "Split", "Cascade", "Storm" },
+			_ => new[] { "Neon", "Pulse", "Flux", "Vector" },
 		};
 
-		return $"{familyPrefix} {suffix}";
+		string[] nouns = mvpTowerId switch
+		{
+			"rapid_shooter" => new[] { "Needler", "Ripper" },
+			"heavy_cannon" => new[] { "Cannon", "Driver" },
+			"marker_tower" => new[] { "Beacon", "Painter" },
+			"chain_tower" => new[] { "Coil", "Emitter" },
+			_ => new[] { "Rig", "Array" },
+		};
+
+		int familyCount = familyCounts.TryGetValue(dominantFamily, out int count) ? count : 0;
+		int adjectiveIdx = Mathf.Abs(_runState.RngSeed ^ _runState.TotalKills ^ (familyCount << 3)) % adjectives.Length;
+		int nounIdx = Mathf.Abs((_runState.RngSeed << 1) ^ _runState.TotalDamageDealt ^ (mvp?.Damage ?? 0)) % nouns.Length;
+		return $"{adjectives[adjectiveIdx]} {nouns[nounIdx]}";
 	}
 
 	private static string ModifierFamily(string modifierId) => modifierId switch
@@ -1373,6 +1669,7 @@ public partial class GameController : Node
 
 	private void StartWavePhase()
 	{
+		ClearUndoPlacementState();
 		CurrentPhase = GamePhase.Wave;
 		int waveNumber = _runState.WaveIndex + 1;
 		if (_botRunner == null) ShowWaveAnnouncement(waveNumber);
@@ -1388,6 +1685,11 @@ public partial class GameController : Node
 		_waveSystem.LoadWave(_runState.WaveIndex, _runState);
 		_combatSim.ResetForWave(_waveSystem);
 		SoundManager.Instance?.Play("wave_start");
+		if (waveNumber == 10)
+		{
+			ShowHalfwayBeat();
+			SoundManager.Instance?.Play("wave_halfway_lift");
+		}
 		if (waveNumber >= Balance.TotalWaves)
 		{
 			SoundManager.Instance?.Play("wave20_start");
@@ -1396,6 +1698,7 @@ public partial class GameController : Node
 			_pathFlow?.TriggerSurge(1.0f);
 		}
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
+		_hudPanel.SetBuildName(BuildRunName(), visible: true);
 	}
 
 	private void ShakeWorld()
@@ -1410,6 +1713,12 @@ public partial class GameController : Node
 
 	private void UpdatePlacementLabel()
 	{
+		if (_undoPlacementActive)
+		{
+			_placementLabel.Text = "Tower placed  •  tap UNDO to revert";
+			_placementLabel.Visible = true;
+			return;
+		}
 		if (CurrentPhase != GamePhase.Draft || (!_draftPanel.IsAwaitingSlot && !_draftPanel.IsAwaitingTower))
 		{
 			_placementLabel.Visible = false;

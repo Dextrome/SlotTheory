@@ -50,3 +50,4 @@ ANDROID_TEMPLATE_INSTALL.md
 .dotnet/10.0.100.dotnetFirstUseSentinel
 .dotnet/10.0.100.aspNetCertificateSentinel
 .dotnet/.workloadAdvertisingManifestSentinel10.0.100
+FEATURES_AUDIT_FIX_PLAN.md

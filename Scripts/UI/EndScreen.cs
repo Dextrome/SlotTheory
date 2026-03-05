@@ -77,6 +77,7 @@ public partial class EndScreen : CanvasLayer
 
 		_buildLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
 		_buildLabel.AddThemeFontSizeOverride("font_size", 16);
+		_buildLabel.AddThemeConstantOverride("line_spacing", -8);
 		_buildLabel.Modulate = new Color(0.75f, 0.75f, 0.85f);
 		_buildLabel.Visible = false;
 		vbox.AddChild(_buildLabel);

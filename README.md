@@ -1,208 +1,157 @@
-# Slot Theory
+﻿# Slot Theory
 
-A constraint-driven drafting tower defense. Place towers, pick upgrades, survive 20 waves.
+A drafting tower defense game. Build a 6-slot loadout, survive 20 waves.
 
-**Available on:** Windows Desktop, Android (Phone & Tablet)
+Platforms: Windows Desktop, Android (phone and tablet)
 
 ---
 
-## How to Play
+## Core Loop
 
-### Core Loop
+1. Draft a card between waves.
+2. Place a tower or assign a modifier in the world.
+3. Run the wave (auto-combat).
+4. Repeat until wave 20 clear (win) or lives reach 0 (loss).
 
-1. **Draft** — Before each wave, pick **1 of 5 cards**.
-2. **Wave** — Enemies march automatically. No interaction mid-wave.
-3. **Repeat** — 20 waves total. Survive all of them to win.
-
-You lose a life for every enemy that reaches the exit. Lose all 10 lives and it's over.
+Starting lives: 10
 
 ---
 
 ## Controls
 
-### Desktop Controls
+### Desktop
 
-| Action | Input |
-|---|---|
-| Pick a draft card | Left-click the card |
-| Assign to a slot / tower | Left-click the target in the world |
-| Cycle tower targeting mode | Left-click a tower during a wave |
-| Pause / unpause | **Esc** |
-| Speed up / slow down | Speed button in HUD — cycles ×1 → ×2 → ×3 |
-| Quit to main menu | Pause → Main Menu |
-| Access How to Play | Main Menu → How to Play |
+- Pick draft card: left click card
+- Place tower / assign modifier: left click world slot or tower
+- Cycle targeting mode: left click tower during wave
+- Pause: `Esc`
+- Speed: HUD button cycles `1x -> 2x -> 3x`
 
-### Mobile Controls
+### Mobile
 
-| Action | Input |
-|---|---|
-| Pick a draft card | Tap the card |
-| Assign to a slot / tower | Tap the target in the world |
-| Cycle tower targeting mode | Tap a tower during a wave |
-| Pause / unpause | Hamburger menu button (☰) in top-right corner |
-| Speed up / slow down | Speed button in HUD — cycles ×1 → ×2 → ×3 |
-| Quit to main menu | Pause → Main Menu |
-| Access How to Play | Main Menu → How to Play |
+- Pick draft card: tap
+- Place tower / assign modifier: tap
+- Cycle targeting mode: tap tower during wave
+- Pause: hamburger button in HUD
+- Speed: HUD button cycles `1x -> 2x -> 3x`
 
-**Note:** The game automatically pauses when minimized on Android devices.
+Android auto-pauses when app is minimized.
 
 ---
 
-## Map Selection
+## Draft Rules
 
-Before starting a game, you can choose from multiple procedurally generated maps. Each map features:
-- A unique snake-path layout with randomized turns
-- 6 strategically placed tower slots  
-- Varied terrain providing different tactical challenges
+- With free slots: 5 options, targeting a 2 towers + 3 modifiers mix
+- If no modifier targets exist yet, missing modifier cards are backfilled with tower cards
+- With all slots occupied: 4 modifiers
+- Bonus picks:
+  - Wave 1: +1 pick
+  - Wave 15: +1 pick
+- Anti-brick: modifier options are only offered if at least one tower can still accept one
 
-The first map is automatically selected when you enter the map selection screen, but you can browse and choose any available map before starting your run.
+Modifier assignment uses `Preview -> Confirm`:
 
----
-
-## Draft Cards
-
-Which cards appear depends on your situation:
-
-- **Free slots available** → 5 cards: 2 tower cards + 3 modifier cards
-- **All slots full** → 4 modifier cards (no new towers to place)
-
-### Tower Cards
-
-Towers go into one of the 6 slots on the map. After picking a tower card, click an empty slot in the world to place it. You cannot move or sell a placed tower.
-
-### Modifier Cards
-
-Modifiers upgrade an existing tower. After picking a modifier card, click any tower in the world to assign it. Each tower holds up to **3 modifiers**. Fully upgraded towers are ineligible.
-
-If no draft options are possible (all slots full and all towers at modifier cap), the draft is skipped and the wave starts immediately.
-
-**Bonus picks**: Wave 1 and Wave 15 each give you 2 picks instead of 1 — use them to establish a strong build early and recover mid-run.
-
-**Wave preview**: The draft panel shows the enemy composition of the upcoming wave (e.g., `↓ 20 Basic · 3 Armored · 3 Swift [clumped]`) so you can plan your pick before committing.
+1. Pick modifier
+2. Tap valid tower slot to preview
+3. Tap same slot again to confirm
+4. Tap elsewhere to cancel preview
 
 ---
 
 ## Towers
 
-| Tower | Shape / Color | Damage | Attack Speed | Range | Notes |
-|---|---|---|---|---|---|
-| **Rapid Shooter** | Hexagonal cyan | 10 | 0.4 s | 300 px | High rate of fire, low damage per hit |
-| **Heavy Cannon** | Octagonal orange | 60 | 2.0 s | 250 px | Slow but hits hard |
-| **Marker Tower** | Diamond pink | 5 | 1.0 s | 350 px | Applies **Mark** on every hit |
-| **Arc Emitter** | Circular blue-white | 14 | 1.2 s | 270 px | Chains to 2 nearby enemies (60% decay per bounce) |
-
----
-
-## Targeting Modes
-
-Click a tower during a wave to cycle through targeting priorities:
-
-| Icon | Mode | Target |
-|---|---|---|
-| Right Arrow badge | **First** | Enemy furthest along the path |
-| Star badge | **Strongest** | Enemy with the most current HP |
-| Down Arrow badge | **Lowest HP** | Enemy closest to death |
-
-Target badges use procedural icons with normalized sizing so all modes read clearly at a glance.
-Hover over a tower to see its current targeting mode and equipped modifiers.
+| Tower | Damage | Attack Interval | Range | Notes |
+|---|---:|---:|---:|---|
+| Rapid Shooter | 10 | 0.45 s | 285 px | Fast pressure |
+| Heavy Cannon | 52 | 2.0 s | 238 px | Big burst hits |
+| Marker Tower | 7 | 1.0 s | 333 px | Applies Marked |
+| Arc Emitter | 14 | 1.2 s | 257 px | Base chain: 2 extra bounces |
 
 ---
 
 ## Modifiers
 
-| Modifier | Effect |
-|---|---|
-| **Momentum** | +16% damage per consecutive hit on the same target, capped at 5 stacks (×1.80 max). Resets when the tower switches targets. |
-| **Overkill** | Excess damage from a killing blow spills over to the next enemy in the lane. |
-| **Exploit Weakness** | Deal +60% damage to **Marked** enemies. Pairs with Marker Tower. |
-| **Focus Lens** | +125% damage, ×2 attack interval. Big hits, slow fire — ideal for Overkill combos and one-shotting tanky enemies. |
-| **Chill Shot** | On hit, −25% movement speed for 5 seconds. Enemies linger in range longer, giving all towers more time to fire. |
-| **Overreach** | +40% range, −20% damage. Wider coverage at a small cost — great on Marker Tower or any tower that needs to reach more of the path. |
-| **Hair Trigger** | +40% attack speed, −18% range. Close-quarters rapid-fire — pairs naturally with Momentum and Chill Shot. |
-| **Split Shot** | On hit, fires 2 projectiles at nearby enemies for 42% damage each. Each additional copy fires one more projectile. Stacks well on heavy hitters. |
-| **Feedback Loop** | Killing an enemy reduces the tower's current cooldown by 25%. Lets towers that kill quickly cycle back faster. |
-| **Chain Reaction** | After each hit, the attack jumps to 1 nearby enemy for 55% damage. Each additional copy adds 1 more bounce — 3 copies = 4 targets hit per shot. |
+- Momentum: +16% per consecutive hit stack, max 5 stacks (x1.80)
+- Overkill: 60% excess kill damage spills forward
+- Exploit Weakness: +60% vs Marked
+- Focus Lens: +125% damage, x2 attack interval
+- Chill Shot: -25% move speed for 5 s (stacking on same tower)
+- Overreach: +40% range, -20% damage
+- Hair Trigger: +40% attack speed, -18% range
+- Split Shot: 2 split projectiles at 42% each; extra copies add extra split
+- Feedback Loop: kill reduces current cooldown by 25%
+- Chain Reaction: +1 bounce per copy, sets chain carry to 55%
 
----
-
-## Marked
-
-When a **Marker Tower** hits an enemy it applies the **Mark** status for 2 seconds.
-While Marked, that enemy takes **+40% damage from all towers** (before any modifier bonuses).
-
-Pair Marker Tower + **Exploit Weakness** on another tower for a large burst damage combo.
+Max modifiers per tower: 3
 
 ---
 
 ## Enemies
 
-### Basic Walker
-- 120 px/s movement, 65 HP on wave 1, scales ×1.08 per wave (~280 HP by wave 20).
-- Leaks cost **1 life**.
-- Round teal body — easy to spot.
+- Basic Walker:
+  - HP: `65 * 1.10^(wave-1)`
+  - Speed: 120 px/s
+  - Leak cost: 1 life
+- Armored Walker:
+  - HP: 4x Basic
+  - Speed: 60 px/s
+  - Leak cost: 2 lives
+  - First appears wave 6
+- Swift Walker:
+  - HP: 1.5x Basic
+  - Speed: 240 px/s
+  - Leak cost: 1 life
+  - Appears waves 10-14
 
-### Armored Walker
-- Half speed (60 px/s), 4× the HP of a Basic Walker on the same wave.
-- Leaks cost **2 lives** — always prioritise.
-- Large hexagonal crimson body at 1.5× scale — unmistakable.
-- First appears on wave 7; up to 5 per wave by wave 20.
-
-### Swift Walker
-- Double speed (240 px/s), 1.5× the HP of a Basic Walker on the same wave.
-- Leaks cost **1 life**, but their speed makes them hard to catch.
-- Small lime-green diamond at 0.8× scale — easily identified by colour.
-- Appears waves 10–14, 2–4 per wave, spread evenly through the spawn order.
-
-Enemy count and spawn speed both increase over 20 waves (from 10 enemies at wave 1 up to 30 at wave 20).
-
-Waves 12–14 use **clumped** Armored spawns: all Armored Walkers arrive as a consecutive group after the initial basic wave, creating a mid-wave panic spike. Swift Walkers are spread into the remaining gaps.
+Waves 12-14 can use clumped Armored blocks.
 
 ---
 
-## Maps
+## Targeting Modes
 
-Each run generates a new snake-shaped path across an 8×5 grid. Tower slots are placed in grass cells adjacent to the path so every tower is always within shooting range of passing enemies.
+- First: highest path progress
+- Strongest: highest current HP
+- Lowest HP: lowest current HP
 
----
-
-## User Interface & Accessibility
-
-- **Responsive Design**: UI automatically adapts to different screen sizes and platforms
-- **Mobile Optimized**: Special considerations for touch controls, button sizing, and screen real estate on phones and tablets  
-- **How to Play**: Comprehensive in-game documentation accessible from the main menu with smooth scrolling and platform-optimized formatting
-- **Pause Menu**: Accessible via Esc (desktop) or hamburger menu (mobile) during gameplay
-- **Auto-Pause**: Game automatically pauses when minimized on Android devices
+Modes cycle on tower click/tap during waves.
 
 ---
 
-## Tips
+## UI and Polish Highlights
 
-- **Rapid Shooter + Momentum**: Stack Momentum on your fastest-firing tower for massive DPS on tanky enemies that take multiple hits to kill.
-- **Marker Tower + Exploit Weakness**: Mark the enemy, then burst it for ×2.1 total (+40% mark × +50% exploit). The Marker Tower frees up your damage towers' modifier slots for pure damage.
-- **Heavy Cannon + Overkill**: One-shots weaker enemies and spills excess damage forward — good for tightly packed groups.
-- **Arc Emitter + Chain Reaction**: Each copy adds a bounce — 3 copies hits 5 targets per shot. Best at corners where enemies cluster.
-- **Heavy Cannon + Split Shot**: Even at 42% damage per split, the cannon's high base hit still provides meaningful side pressure on clustered enemies.
-- **Feedback Loop + Hair Trigger**: Killing enemies reduces cooldown; rapid-fire towers cycle back almost instantly in waves with many weak enemies.
-- **Focus Lens** trades fire rate for huge individual hits — pairs naturally with Overkill to punch through groups.
-- **Swift Walkers (waves 10–14)** are fast but fragile — Chill Shot or Overreach helps towers catch them before they run out of range. Chain and Split Shot can hit multiple Swifts at once.
-- **Targeting mode matters late game** — switch your Marker Tower to *First* so it tags the lead enemy before your damage towers hit it.
+- Neon synthwave visual theme
+- Staggered flip reveal draft cards
+- Modifier proc halo + live icon pulse
+- Kill hitstop and tower recoil feedback
+- Target-acquire pings for readability
+- Combat callouts for major procs
+- Build name + run story on end screen
 
 ---
 
-## Platform Support
+## Settings
 
-### Windows Desktop
-- Full mouse and keyboard controls
-- Pause via Esc key
-- Optimized for desktop screen sizes
+- Master / Music / FX sliders (saved to `user://settings.cfg`)
+- Display mode toggle
+- Difficulty: Normal / Hard
 
-### Android (Phone & Tablet)  
-- Touch-optimized controls and UI scaling
-- Hamburger menu for pause access
-- Automatic pause when app is minimized
-- Responsive layout adapts to screen size and orientation
+Hard multipliers:
+- Enemy HP: 1.2x
+- Enemy count: 1.15x
+- Spawn interval: 0.85x
 
 ---
 
-**Engine:** Godot 4.6.1 with .NET 8.0  
-**Development:** 7ants Studios
+## Bot Mode
+
+Run automated balance tests:
+
+```text
+--scene res://Scenes/Main.tscn -- --bot --runs N
+```
+
+Bot rotates strategies across maps and difficulties and prints summary stats.
+
+---
+
+Engine: Godot 4.6 + .NET 8

@@ -12,7 +12,9 @@ namespace SlotTheory.UI;
 public partial class MapSelectPanel : Node
 {
 	private static string _pendingMapSelection = "random_map";
+	private static ulong _pendingProceduralSeed = 0;
 	public static string PendingMapSelection => _pendingMapSelection;
+	public static ulong PendingProceduralSeed => _pendingProceduralSeed;
 	public static void SetPendingMapSelection(string mapId) => _pendingMapSelection = mapId;
 
 	private string _selectedMapId = "random_map";  // Default to random
@@ -20,6 +22,7 @@ public partial class MapSelectPanel : Node
 	private VBoxContainer? _mapListContainer;
 	private Button? _normalButton;
 	private Button? _hardButton;
+	private ulong _proceduralPreviewSeed;
 
 	public override void _Ready()
 	{
@@ -27,6 +30,9 @@ public partial class MapSelectPanel : Node
 		// Will be auto-updated to first map in PopulateMapList if maps exist
 		_selectedMapId = "random_map";  
 		_selectedDifficulty = DifficultyMode.Normal;  // Always default to Normal
+		_proceduralPreviewSeed = _pendingProceduralSeed != 0
+			? _pendingProceduralSeed
+			: (ulong)(System.Environment.TickCount64 & 0x7FFFFFFF);
 
 		var canvas = new CanvasLayer();
 		AddChild(canvas);
@@ -143,7 +149,15 @@ public partial class MapSelectPanel : Node
 			
 			foreach (var mapDef in maps)
 			{
-				var mapButton = CreateMapButton(mapDef.Id, mapDef.Name, mapDef.Description);
+				string mapName = mapDef.Name;
+				string mapDesc = mapDef.Description;
+				if (mapDef.IsRandom || mapDef.Id == "random_map")
+				{
+					string seedName = MapGenerator.DescribeSeed((int)_proceduralPreviewSeed);
+					mapName = $"MAP: {seedName}";
+					mapDesc = $"Procedural seed {_proceduralPreviewSeed}  |  Different flow each run.";
+				}
+				var mapButton = CreateMapButton(mapDef.Id, mapName, mapDesc);
 				_mapListContainer.AddChild(mapButton);
 			}
 		}
@@ -238,6 +252,7 @@ public partial class MapSelectPanel : Node
 	{
 		// Store selected map and difficulty globally
 		_pendingMapSelection = _selectedMapId;
+		_pendingProceduralSeed = _selectedMapId == "random_map" ? _proceduralPreviewSeed : 0;
 		SlotTheory.Core.SettingsManager.Instance?.SetDifficulty(_selectedDifficulty);
 		SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
 	}

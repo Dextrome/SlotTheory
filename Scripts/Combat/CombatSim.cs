@@ -147,6 +147,9 @@ public class CombatSim
             if (target == null) continue;
 
             if (!BotMode) tower.LastTargetPosition = target.GlobalPosition;
+            string nextTargetId = target.GetInstanceId().ToString();
+            if (!BotMode && tower.LastTargetId != null && tower.LastTargetId != nextTargetId)
+                GameController.Instance?.SpawnTargetAcquirePing(target.GlobalPosition, tower.ProjectileColor);
 
             // Effective interval: base × modifier multipliers (e.g. FocusLens ×2)
             float effectiveInterval = tower.AttackInterval;
@@ -173,6 +176,8 @@ public class CombatSim
                 _               => "shoot_rapid",
             };
             Sounds?.Play(shootId);
+            if (tower.TowerId == "heavy_cannon")
+                Sounds?.DuckMusic(1.9f, 0.11f);
         }
 
         // 4. Remove dead enemies
