@@ -215,6 +215,10 @@ Full-screen overlay shown between waves:
 | Card layout | Tower cards (name + stats) or modifier cards (name + description) |
 | **Enhanced card sizing** | Cards automatically scale to fit content; taller cards (132-186px height) accommodate detailed modifier descriptions |
 | **Smooth animation** | Card entrance staggered at 0.29s intervals with 0.24s entrance duration for polished presentation |
+| **Draft REVEAL ritual** | Face-down hold + staggered flip reveal (~120ms hold, 400ms stagger), per-card shing SFX, and icon/title micro-punch animation |
+| **BONUS PICK stamp** | Animated stamp overlay on multi-pick waves (Wave 1 and Wave 15) for visual emphasis |
+| **Rare foil shimmer** | 1-in-12 drafts feature subtle foil shimmer pass effect (visual-only enhancement) |
+| **Smart synergy hints** | Modifier cards show tiny synergy tags (e.g. "GOOD WITH: MARKED"); hover (desktop) or tap-hold (mobile) pulse-highlights synergy towers in world |
 | Hover scale | Cards scale to 1.06× on mouse-over (0.08 s tween) |
 | Keyboard 1–5 | Press a number to select the corresponding card |
 | Key hints | `[ 1 ]` – `[ 5 ]` labels on each card |
@@ -233,6 +237,7 @@ On wave start (not shown in bot mode):
 - Large centred label fades in/out showing `"WAVE N"`
 - Animates with scale + alpha tween; holds briefly then fades
 - Gives the player a moment to read the wave number before enemies spawn
+- **Wave 20 special treatment**: Enhanced final-wave banner with special pulse behavior and `wave20_start` sound cue
 
 ---
 
@@ -268,12 +273,14 @@ Each placed tower renders entirely via `_Draw()`:
 
 ### Tower Personality
 
-| Tower | Idle Behavior | Combat Behavior |
+Towers now use their idle draw parts as actual firing motion when a projectile is fired.
+
+| Tower | Idle Behavior | Firing Motion |
 |---|---|---|
-| **Rapid Shooter** | Subtle idle barrel sway | Repeated lock-on shots draw faint target line briefly |
-| **Heavy Cannon** | Slight piston-like idle motion | Heavy recoil and strongest hit stop effect |
-| **Arc Emitter** | Idle electric flicker | Electric arc visual links between chain targets |
-| **Marker Tower** | Steady targeting stance | Mark application with spinning arc effects |
+| **Rapid Shooter** | Subtle idle barrel sway | Barrel and muzzle pull back briefly on shot; muzzle glow expands/brightens during impulse |
+| **Heavy Cannon** | Slight piston-like idle motion | Barrel slam-back layered on top of piston idle; stronger muzzle bloom burst on fire |
+| **Marker Tower** | Steady targeting stance | Antenna recoils and core glow pulses per shot |
+| **Arc Emitter** | Idle electric flicker | Prongs flare outward with thicker discharge lines; core/endpoint glow surges on fire |
 
 ---
 
@@ -328,6 +335,7 @@ Visible **during wave** and **while assigning a modifier to a tower** (hides dur
 | **Hit stop** | Enemy killed | Brief time slowdown (0.04-0.055s) with different intensities per tower type; Heavy Cannon gets strongest effect |
 | **Lives label flash** | Life lost | HUD lives label punches to 1.25× scale then returns (elastic tween) |
 | **UI hover sound** | Mouse enters any button | Short quiet high-pitched `"ui_hover"` SFX on all buttons (draft cards, pause menu, main menu) |
+| **Enhanced draft audio** | Card interactions | New UI/audio cues for card pick, preview ghost, lock-in confirm, and reveal shing effects |
 
 ---
 
@@ -353,6 +361,7 @@ Visible **during wave** and **while assigning a modifier to a tower** (hides dur
 Both states show:
 - **Run stats** (blue tint): `Enemies killed: N  ·  Total damage: N` — damage is actual HP removed, not overkill
 - **Build summary**: each occupied slot lists the tower name and its modifiers
+- **Run story hook**: Build Name, MVP Tower (% of total damage), Most Valuable Mod (triggered Nx)
 
 Dismiss: **left-click anywhere** or **press Enter / Space** → returns to main menu.
 

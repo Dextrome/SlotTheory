@@ -29,6 +29,7 @@ public partial class GameController : Node
 	private Node2D[]      _slotNodes           = new Node2D[Balance.SlotCount];
 	private Line2D[]      _slotHighlights      = new Line2D[Balance.SlotCount];
 	private Line2D[]      _slotPreviewGlows    = new Line2D[Balance.SlotCount];
+	private Line2D[]      _slotSynergyGlows    = new Line2D[Balance.SlotCount];
 	private Line2D[]      _slotProcHalos       = new Line2D[Balance.SlotCount];
 	private Tween?[]      _slotHighlightTweens = new Tween?[Balance.SlotCount];
 	private ColorRect[][] _slotModPips         = new ColorRect[Balance.SlotCount][];
@@ -58,6 +59,9 @@ public partial class GameController : Node
 	private bool _hitStopActive = false;
 	private double _preHitStopTimeScale = 1.0;
 	private float _hitStopCooldown = 0f;
+	private string _draftSynergyHintModifierId = "";
+	private float _draftSynergyPulseT = 0f;
+	private readonly System.Collections.Generic.Dictionary<string, int> _modifierProcCounts = new();
 
 	public override void _Ready()
 	{
@@ -123,6 +127,11 @@ public partial class GameController : Node
 		else
 			ClearModifierPreviewGhost();
 
+		if (CurrentPhase == GamePhase.Draft && !_draftPanel.IsAwaitingSlot && !_draftPanel.IsAwaitingTower)
+			UpdateDraftSynergyHighlights((float)delta);
+		else
+			ClearDraftSynergyHighlights();
+
 		if (_botRunner == null) UpdatePlacementLabel();
 		if (_botRunner == null) UpdateProcVisuals((float)delta);
 
@@ -141,7 +150,10 @@ public partial class GameController : Node
 			CurrentPhase = GamePhase.Loss;
 			int livesLost = Balance.StartingLives - _runState.Lives;
 			SoundManager.Instance?.Play("game_over");
-			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary(), _runState);
+			string runName = BuildRunName();
+			string mvpLine = BuildMvpLine();
+			string modLine = BuildMostValuableModLine();
+			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary(), _runState, runName, mvpLine, modLine);
 			return;
 		}
 
@@ -155,7 +167,10 @@ public partial class GameController : Node
 			{
 				CurrentPhase = GamePhase.Win;
 				SoundManager.Instance?.Play("victory");
-				_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary());
+				string runName = BuildRunName();
+				string mvpLine = BuildMvpLine();
+				string modLine = BuildMostValuableModLine();
+				_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary(), runName, mvpLine, modLine);
 			}
 			else
 			{
@@ -259,6 +274,9 @@ public partial class GameController : Node
 		_hitStopActive = false;
 		_hitStopCooldown = 0f;
 		_preHitStopTimeScale = 1.0;
+		_draftSynergyHintModifierId = "";
+		_draftSynergyPulseT = 0f;
+		_modifierProcCounts.Clear();
 		_hudPanel.Refresh(1, Balance.StartingLives);
 		_hudPanel.ResetSpeed();
 
@@ -374,7 +392,7 @@ public partial class GameController : Node
 		var modeBadge = new ColorRect
 		{
 			Color = new Color(0.02f, 0.03f, 0.09f, 0.86f),
-			Position = new Vector2(24f, -11f),
+			Position = new Vector2(30f, -11f),
 			Size = new Vector2(18f, 18f),
 			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
@@ -383,8 +401,8 @@ public partial class GameController : Node
 		{
 			Points = new[]
 			{
-				new Vector2(24f, -11f), new Vector2(42f, -11f), new Vector2(42f, 7f),
-				new Vector2(24f, 7f), new Vector2(24f, -11f)
+				new Vector2(30f, -11f), new Vector2(48f, -11f), new Vector2(48f, 7f),
+				new Vector2(30f, 7f), new Vector2(30f, -11f)
 			},
 			Width = 1.6f,
 			DefaultColor = new Color(0.68f, 0.94f, 1.00f, 0.90f),
@@ -396,10 +414,12 @@ public partial class GameController : Node
 			Text = TowerInstance.ModeIcon(TargetingMode.First),
 			HorizontalAlignment = HorizontalAlignment.Center,
 			VerticalAlignment = VerticalAlignment.Center,
+			Position = Vector2.Zero,
+			Size = new Vector2(18f, 18f),
 			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
-		modeLabel.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		UITheme.ApplyFont(modeLabel, semiBold: true, size: 13);
+		UITheme.ApplyFont(modeLabel, semiBold: true, size: 12);
+		modeLabel.AddThemeConstantOverride("outline_size", 0);
 		modeLabel.AddThemeColorOverride("font_color", Colors.White);
 		modeBadge.AddChild(modeLabel);
 		tower.ModeLabel = modeLabel;
@@ -552,6 +572,12 @@ public partial class GameController : Node
 		previewGlow.Modulate = Colors.Transparent;
 		_slotNodes[i].AddChild(previewGlow);
 		_slotPreviewGlows[i] = previewGlow;
+
+		// Synergy glow — shown while hovering a modifier card with known tower synergies.
+		var synergyGlow = new Line2D { Points = hlSq, Width = 3.6f, DefaultColor = new Color(0.88f, 0.95f, 1.00f, 0.82f) };
+		synergyGlow.Modulate = Colors.Transparent;
+		_slotNodes[i].AddChild(synergyGlow);
+		_slotSynergyGlows[i] = synergyGlow;
 
 		var procHalo = new Line2D { Points = hlSq, Width = 5.2f, DefaultColor = new Color(0.70f, 0.95f, 1.00f, 0.92f) };
 		procHalo.Modulate = Colors.Transparent;
@@ -965,14 +991,27 @@ public partial class GameController : Node
 
 	private void ShowWaveAnnouncement(int wave)
 	{
-		_waveAnnounce.Text     = $"WAVE {wave}";
-		_waveAnnounce.Scale    = new Vector2(1.35f, 1.35f);
+		bool isFinalWave = wave >= Balance.TotalWaves;
+		_waveAnnounce.Text     = isFinalWave ? $"WAVE {wave}  FINAL" : $"WAVE {wave}";
+		_waveAnnounce.Scale    = isFinalWave ? new Vector2(1.55f, 1.55f) : new Vector2(1.35f, 1.35f);
 		_waveAnnounce.Modulate = new Color(1f, 1f, 1f, 1f);
+		_waveAnnounce.AddThemeColorOverride("font_color",
+			isFinalWave ? new Color(1.00f, 0.62f, 0.30f) : new Color(0.85f, 0.20f, 1.00f));
 		var tween = _waveAnnounce.CreateTween();
-		tween.TweenProperty(_waveAnnounce, "scale", Vector2.One, 0.3f)
+		tween.TweenProperty(_waveAnnounce, "scale", isFinalWave ? new Vector2(1.03f, 1.03f) : Vector2.One, isFinalWave ? 0.38f : 0.3f)
 			 .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);
-		tween.TweenInterval(0.35f);
-		tween.TweenProperty(_waveAnnounce, "modulate:a", 0f, 0.45f);
+		tween.TweenInterval(isFinalWave ? 0.42f : 0.35f);
+		tween.TweenProperty(_waveAnnounce, "modulate:a", 0f, isFinalWave ? 0.52f : 0.45f);
+
+		if (isFinalWave)
+		{
+			_threatPulse.Visible = true;
+			_threatPulse.Color = new Color(1.00f, 0.42f, 0.10f, 0f);
+			var pulse = CreateTween();
+			pulse.TweenProperty(_threatPulse, "color:a", 0.22f, 0.12f);
+			pulse.TweenProperty(_threatPulse, "color:a", 0f, 0.42f);
+			pulse.TweenCallback(Callable.From(() => _threatPulse.Visible = false));
+		}
 	}
 
 	private void ShowArmoredWaveWarning()
@@ -1019,10 +1058,144 @@ public partial class GameController : Node
 		}
 		return sb.ToString().TrimEnd();
 	}
+
+	private System.Collections.Generic.IEnumerable<TowerWaveStats> GetAllTowerStats()
+	{
+		foreach (var wave in _runState.CompletedWaves)
+		{
+			foreach (var stat in wave.TowerStats)
+				yield return stat;
+		}
+
+		// Current wave is only additive when the run ends mid-wave (loss).
+		if (_runState.CurrentWave.WaveNumber > _runState.CompletedWaves.Count)
+		{
+			foreach (var stat in _runState.CurrentWave.TowerStats)
+				yield return stat;
+		}
+	}
+
+	private string BuildMvpLine()
+	{
+		if (_runState.TotalDamageDealt <= 0) return "";
+
+		var bySlot = GetAllTowerStats()
+			.GroupBy(s => s.SlotIndex)
+			.Select(g => new { Slot = g.Key, Damage = g.Sum(x => x.Damage) })
+			.Where(x => x.Slot >= 0)
+			.OrderByDescending(x => x.Damage)
+			.FirstOrDefault();
+		if (bySlot == null || bySlot.Damage <= 0) return "";
+
+		var tower = _runState.Slots[bySlot.Slot].Tower;
+		if (tower == null) return "";
+
+		var def = DataLoader.GetTowerDef(tower.TowerId);
+		float share = 100f * bySlot.Damage / Mathf.Max(1, _runState.TotalDamageDealt);
+		return $"MVP Tower: Slot {bySlot.Slot + 1} {def.Name} - {share:0.#}% of total damage";
+	}
+
+	private string BuildMostValuableModLine()
+	{
+		if (_modifierProcCounts.Count == 0) return "";
+		var best = _modifierProcCounts.OrderByDescending(kvp => kvp.Value).First();
+		if (best.Value <= 0) return "";
+
+		var def = DataLoader.GetModifierDef(best.Key);
+		return $"Most Valuable Mod: {def.Name} - triggered {best.Value}x";
+	}
+
+	private string BuildRunName()
+	{
+		var familyCounts = new System.Collections.Generic.Dictionary<string, int>();
+		bool hasOverkill = false;
+		bool hasFocusLens = false;
+		bool hasExploit = false;
+		bool hasChill = false;
+		bool hasChain = false;
+		bool hasSplit = false;
+
+		for (int i = 0; i < _runState.Slots.Length; i++)
+		{
+			var tower = _runState.Slots[i].Tower;
+			if (tower == null) continue;
+			foreach (var mod in tower.Modifiers)
+			{
+				string family = ModifierFamily(mod.ModifierId);
+				familyCounts.TryGetValue(family, out int n);
+				familyCounts[family] = n + 1;
+
+				switch (mod.ModifierId)
+				{
+					case "overkill": hasOverkill = true; break;
+					case "focus_lens": hasFocusLens = true; break;
+					case "exploit_weakness": hasExploit = true; break;
+					case "slow": hasChill = true; break;
+					case "chain_reaction": hasChain = true; break;
+					case "split_shot": hasSplit = true; break;
+				}
+			}
+		}
+
+		string dominantFamily = familyCounts.Count > 0
+			? familyCounts.OrderByDescending(kvp => kvp.Value).First().Key
+			: "None";
+
+		string familyPrefix = dominantFamily switch
+		{
+			"DamageScaling" => "Orange",
+			"Utility" => "Cyan",
+			"Range" => "Violet",
+			"StatusSynergy" => "Magenta",
+			"MultiTarget" => "Mint",
+			_ => "Neon",
+		};
+
+		var mvp = GetAllTowerStats()
+			.GroupBy(s => s.SlotIndex)
+			.Select(g => new { Slot = g.Key, Damage = g.Sum(x => x.Damage) })
+			.Where(x => x.Slot >= 0)
+			.OrderByDescending(x => x.Damage)
+			.FirstOrDefault();
+		string mvpTowerId = (mvp != null && mvp.Slot >= 0 && mvp.Slot < _runState.Slots.Length)
+			? _runState.Slots[mvp.Slot].Tower?.TowerId ?? ""
+			: "";
+
+		string suffix = dominantFamily switch
+		{
+			"MultiTarget" when mvpTowerId == "chain_tower" || hasChain => "Chainstorm",
+			"DamageScaling" when mvpTowerId == "heavy_cannon" && (hasOverkill || hasFocusLens) => "Overkill Cannon",
+			"StatusSynergy" when hasExploit => "Mark Exploit",
+			"Utility" when hasChill => "Chill Control",
+			"Range" => "Longreach Grid",
+			_ => mvpTowerId switch
+			{
+				"heavy_cannon" => "Cannon Core",
+				"chain_tower" => hasSplit ? "Arc Scatter" : "Arcstorm",
+				"marker_tower" => "Mark Lattice",
+				"rapid_shooter" => "Rapid Barrage",
+				_ => "Arsenal",
+			},
+		};
+
+		return $"{familyPrefix} {suffix}";
+	}
+
+	private static string ModifierFamily(string modifierId) => modifierId switch
+	{
+		"momentum" or "overkill" or "focus_lens" or "hair_trigger" or "feedback_loop" => "DamageScaling",
+		"slow" => "Utility",
+		"overreach" => "Range",
+		"exploit_weakness" => "StatusSynergy",
+		"split_shot" or "chain_reaction" => "MultiTarget",
+		_ => "Other",
+	};
+
 	private void StartWavePhase()
 	{
 		CurrentPhase = GamePhase.Wave;
-		if (_botRunner == null) ShowWaveAnnouncement(_runState.WaveIndex + 1);
+		int waveNumber = _runState.WaveIndex + 1;
+		if (_botRunner == null) ShowWaveAnnouncement(waveNumber);
 		var nextCfg = DataLoader.GetWaveConfig(_runState.WaveIndex);
 		bool clumpedArmored = nextCfg.ClumpArmored && nextCfg.TankyCount >= 2;
 		_combatSim.InitialSpawnDelay = (_botRunner == null && clumpedArmored) ? 0.8f : 0f;
@@ -1035,6 +1208,8 @@ public partial class GameController : Node
 		_waveSystem.LoadWave(_runState.WaveIndex, _runState);
 		_combatSim.ResetForWave(_waveSystem);
 		SoundManager.Instance?.Play("wave_start");
+		if (waveNumber >= Balance.TotalWaves)
+			SoundManager.Instance?.Play("wave20_start");
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 	}
 
@@ -1059,8 +1234,73 @@ public partial class GameController : Node
 		_placementLabel.Visible = true;
 	}
 
+	public void SetDraftSynergyHint(string modifierId)
+	{
+		_draftSynergyHintModifierId = modifierId ?? "";
+		if (_draftSynergyHintModifierId.Length == 0)
+			ClearDraftSynergyHighlights();
+	}
+
+	private void UpdateDraftSynergyHighlights(float delta)
+	{
+		if (_draftSynergyHintModifierId.Length == 0)
+		{
+			ClearDraftSynergyHighlights();
+			return;
+		}
+
+		_draftSynergyPulseT += delta;
+		float pulse = 0.58f + 0.42f * Mathf.Sin(_draftSynergyPulseT * 5.2f);
+		var accent = ModifierVisuals.GetAccent(_draftSynergyHintModifierId);
+
+		for (int i = 0; i < _slotSynergyGlows.Length; i++)
+		{
+			var glow = _slotSynergyGlows[i];
+			if (!GodotObject.IsInstanceValid(glow)) continue;
+
+			var tower = _runState.Slots[i].Tower;
+			if (tower == null || !IsSynergyTower(tower, _draftSynergyHintModifierId))
+			{
+				glow.Modulate = Colors.Transparent;
+				continue;
+			}
+
+			glow.DefaultColor = new Color(accent.R, accent.G, accent.B, 0.90f);
+			glow.Modulate = new Color(1f, 1f, 1f, 0.18f + pulse * 0.48f);
+		}
+	}
+
+	private void ClearDraftSynergyHighlights()
+	{
+		for (int i = 0; i < _slotSynergyGlows.Length; i++)
+		{
+			var glow = _slotSynergyGlows[i];
+			if (GodotObject.IsInstanceValid(glow))
+				glow.Modulate = Colors.Transparent;
+		}
+		_draftSynergyPulseT = 0f;
+	}
+
+	private static bool IsSynergyTower(TowerInstance tower, string modifierId)
+	{
+		return modifierId switch
+		{
+			"exploit_weakness" => tower.AppliesMark || tower.TowerId == "marker_tower",
+			"chain_reaction" => tower.TowerId == "chain_tower",
+			"overkill" or "focus_lens" => tower.TowerId == "heavy_cannon"
+				|| tower.Modifiers.Any(m => m.ModifierId == "focus_lens")
+				|| tower.BaseDamage >= 40f,
+			_ => false,
+		};
+	}
+
 	public void NotifyModifierProc(TowerInstance tower, string modifierId)
 	{
+		if (_modifierProcCounts.TryGetValue(modifierId, out int n))
+			_modifierProcCounts[modifierId] = n + 1;
+		else
+			_modifierProcCounts[modifierId] = 1;
+
 		int slot = -1;
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{

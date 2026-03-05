@@ -63,15 +63,21 @@ public partial class SoundManager : Node
         Reg("leak",         Sweep(230f,  90f, 0.34f, vol: 0.60f));
 
         // ── Wave events ──────────────────────────────────────────────────
-        Reg("wave_start", Seq(new[] { 300f, 500f },             gapMs: 20, noteLen: 0.09f, vol: 0.52f));
-        Reg("wave_clear", Seq(new[] { 420f, 560f, 780f },       gapMs: 20, noteLen: 0.10f, vol: 0.58f));
+        Reg("wave_start", Seq(new[] { 300f, 500f },               gapMs: 20, noteLen: 0.09f, vol: 0.52f));
+        Reg("wave20_start", Seq(new[] { 140f, 180f, 220f, 310f }, gapMs: 16, noteLen: 0.10f, vol: 0.70f));
+        Reg("wave_clear", Seq(new[] { 420f, 560f, 780f },         gapMs: 20, noteLen: 0.10f, vol: 0.58f));
         Reg("game_over",  Seq(new[] { 320f, 250f, 170f },       gapMs: 40, noteLen: 0.22f, vol: 0.65f));
         Reg("victory",    Seq(new[] { 400f, 520f, 680f, 900f }, gapMs: 25, noteLen: 0.12f, vol: 0.62f));
 
         // ── UI ───────────────────────────────────────────────────────────
-        Reg("draft_pick",  Tone(740f, 0.07f, vol: 0.40f, shape: 's', env: 'f'));
-        Reg("tower_place", Seq(new[] { 380f, 560f }, gapMs: 10, noteLen: 0.07f, vol: 0.46f));
-        Reg("ui_hover",    Tone(900f, 0.025f, vol: 0.18f, shape: 's', env: 'f'));
+        Reg("draft_pick",      Tone(740f, 0.07f, vol: 0.40f, shape: 's', env: 'f'));
+        Reg("ui_card_pick",    Tone(240f, 0.07f, vol: 0.42f, shape: 'q', env: 'f'));
+        Reg("ui_preview_ghost", Tone(640f, 0.045f, vol: 0.22f, shape: 's', env: 'f'));
+        Reg("ui_lock_in",      Seq(new[] { 320f, 460f }, gapMs: 10, noteLen: 0.08f, vol: 0.60f));
+        Reg("card_shing",      Sweep(900f, 1650f, 0.08f, vol: 0.25f));
+        Reg("ui_select",       Tone(740f, 0.05f, vol: 0.26f, shape: 's', env: 'f'));
+        Reg("tower_place",     Seq(new[] { 380f, 560f }, gapMs: 10, noteLen: 0.07f, vol: 0.46f));
+        Reg("ui_hover",        Tone(900f, 0.025f, vol: 0.18f, shape: 's', env: 'f'));
 
         StartMusic();
     }
