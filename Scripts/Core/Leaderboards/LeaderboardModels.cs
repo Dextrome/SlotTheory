@@ -18,7 +18,17 @@ public sealed record RunScorePayload(
     int TotalKills,
     float PlayTimeSeconds,
     long RunTimestampUnixSeconds,
-    string GameVersion
+    string GameVersion,
+    RunBuildSnapshot Build
+);
+
+public sealed record RunSlotBuild(
+    string TowerId,
+    string[] ModifierIds
+);
+
+public sealed record RunBuildSnapshot(
+    RunSlotBuild[] Slots
 );
 
 public sealed record PersonalBestEntry(
@@ -30,7 +40,8 @@ public sealed record PersonalBestEntry(
     int TotalKills,
     float PlayTimeSeconds,
     long RunTimestampUnixSeconds,
-    string GameVersion
+    string GameVersion,
+    RunBuildSnapshot Build
 );
 
 public sealed record LocalSubmitResult(
@@ -78,5 +89,6 @@ public sealed record LeaderboardEntryView(
     int TotalKills,
     int TotalDamageDealt,
     int TimeSeconds,
+    RunBuildSnapshot Build,
     bool IsLocal = false
 );

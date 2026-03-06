@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using Godot;
 using SlotTheory.Core;
 using SlotTheory.Core.Leaderboards;
@@ -10,6 +9,8 @@ namespace SlotTheory.UI;
 
 public partial class LeaderboardsMenu : Node
 {
+    private const int DisplayEntryLimit = 10;
+
     private static string? _pendingMapId;
     private static DifficultyMode? _pendingDifficulty;
     private static bool _pendingPreferGlobal;
@@ -37,7 +38,8 @@ public partial class LeaderboardsMenu : Node
     private Button _globalButton = null!;
     private OptionButton _mapOption = null!;
     private OptionButton _difficultyOption = null!;
-    private RichTextLabel _entries = null!;
+    private ScrollContainer _entriesScroll = null!;
+    private VBoxContainer _entryList = null!;
     private Label _status = null!;
 
     public override void _Ready()
@@ -128,17 +130,18 @@ public partial class LeaderboardsMenu : Node
         _status.AddThemeFontSizeOverride("font_size", 16);
         frame.AddChild(_status);
 
-        _entries = new RichTextLabel
+        _entriesScroll = new ScrollContainer
         {
-            BbcodeEnabled = false,
-            ScrollActive = true,
-            FitContent = false,
             CustomMinimumSize = new Vector2(900f, 380f),
-            MouseFilter = Control.MouseFilterEnum.Ignore,
         };
-        _entries.AddThemeFontOverride("normal_font", UITheme.SemiBold);
-        _entries.AddThemeFontSizeOverride("normal_font_size", 20);
-        frame.AddChild(_entries);
+        _entriesScroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
+        _entriesScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        frame.AddChild(_entriesScroll);
+
+        _entryList = new VBoxContainer();
+        _entryList.AddThemeConstantOverride("separation", 10);
+        _entryList.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        _entriesScroll.AddChild(_entryList);
 
         var footer = new HBoxContainer();
         footer.Alignment = BoxContainer.AlignmentMode.Center;
@@ -219,7 +222,7 @@ public partial class LeaderboardsMenu : Node
     private async System.Threading.Tasks.Task RefreshBoardAsync()
     {
         int token = ++_refreshToken;
-        _entries.Clear();
+        ClearRows();
 
         string diff = _selectedDifficulty == DifficultyMode.Hard ? "Hard" : "Normal";
         string mapName = _maps.FirstOrDefault(m => m.Id == _selectedMapId)?.Name ?? _selectedMapId;
@@ -228,7 +231,7 @@ public partial class LeaderboardsMenu : Node
         IReadOnlyList<LeaderboardEntryView> rows;
         if (_mode == BoardMode.Local)
         {
-            rows = HighScoreManager.Instance?.GetLocalEntries(_selectedMapId, _selectedDifficulty, 20)
+            rows = HighScoreManager.Instance?.GetLocalEntries(_selectedMapId, _selectedDifficulty, DisplayEntryLimit)
                 ?? System.Array.Empty<LeaderboardEntryView>();
             if (token != _refreshToken) return;
             RenderRows(rows);
@@ -239,12 +242,12 @@ public partial class LeaderboardsMenu : Node
 
         if (!LeaderboardKey.IsGlobalEligibleMap(_selectedMapId))
         {
-            _entries.Text = "Global leaderboard not available for Random Map.";
+            AddMessageRow("Global leaderboard not available for Random Map.");
             return;
         }
 
-        _entries.Text = "Loading global leaderboard...";
-        rows = await (LeaderboardManager.Instance?.GetTopEntriesAsync(_selectedMapId, _selectedDifficulty, 20)
+        AddMessageRow("Loading global leaderboard...");
+        rows = await (LeaderboardManager.Instance?.GetTopEntriesAsync(_selectedMapId, _selectedDifficulty, DisplayEntryLimit)
             ?? System.Threading.Tasks.Task.FromResult<IReadOnlyList<LeaderboardEntryView>>(System.Array.Empty<LeaderboardEntryView>()));
         if (token != _refreshToken) return;
         RenderRows(rows);
@@ -256,20 +259,117 @@ public partial class LeaderboardsMenu : Node
     {
         if (rows.Count == 0)
         {
-            _entries.Text = "--";
+            AddMessageRow("--");
             return;
         }
 
-        var sb = new StringBuilder();
-        sb.AppendLine("RANK  NAME                 SCORE        WAVE  LIVES  KILLS   TIME");
-        sb.AppendLine("------------------------------------------------------------------");
         foreach (var row in rows)
         {
-            string name = Truncate(row.Name, 18).PadRight(18);
-            string line = $"{row.Rank,4}  {name}  {row.Score,10:N0}  {row.WaveReached,4}/{Balance.TotalWaves,-2}  {row.LivesRemaining,5}  {row.TotalKills,5}  {FormatTime(row.TimeSeconds),6}";
-            sb.AppendLine(line);
+            _entryList.AddChild(BuildEntryCard(row));
         }
-        _entries.Text = sb.ToString();
+    }
+
+    private PanelContainer BuildEntryCard(LeaderboardEntryView row)
+    {
+        var panel = new PanelContainer();
+        panel.ThemeTypeVariation = "NoVisualHBox";
+        panel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        panel.CustomMinimumSize = new Vector2(880f, 84f);
+
+        var vbox = new VBoxContainer();
+        vbox.AddThemeConstantOverride("separation", 6);
+        panel.AddChild(vbox);
+
+        var header = new Label
+        {
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Text = $"#{row.Rank}  {Truncate(row.Name, 18)}  |  {row.Score:N0}  |  W {row.WaveReached}/{Balance.TotalWaves}  |  L {row.LivesRemaining}  |  K {row.TotalKills}  |  {FormatTime(row.TimeSeconds)}",
+        };
+        UITheme.ApplyFont(header, semiBold: true, size: 16);
+        header.Modulate = new Color(0.92f, 0.96f, 1.00f);
+        vbox.AddChild(header);
+
+        vbox.AddChild(BuildLoadoutStrip(row.Build));
+
+        return panel;
+    }
+
+    private Control BuildLoadoutStrip(RunBuildSnapshot build)
+    {
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 8);
+        row.Alignment = BoxContainer.AlignmentMode.Begin;
+
+        for (int i = 0; i < Balance.SlotCount; i++)
+        {
+            var slot = i < build.Slots.Length
+                ? build.Slots[i]
+                : new RunSlotBuild("", []);
+
+            var slotBox = new VBoxContainer();
+            slotBox.AddThemeConstantOverride("separation", 3);
+            slotBox.CustomMinimumSize = new Vector2(54f, 0f);
+            row.AddChild(slotBox);
+
+            var towerIcon = new TowerIcon
+            {
+                TowerId = slot.TowerId,
+                CustomMinimumSize = new Vector2(34f, 34f),
+                Size = new Vector2(34f, 34f),
+            };
+            slotBox.AddChild(towerIcon);
+
+            var modsRow = new HBoxContainer();
+            modsRow.AddThemeConstantOverride("separation", 2);
+            slotBox.AddChild(modsRow);
+
+            // Slight right offset so mod clusters sit more centered under tower icons.
+            modsRow.AddChild(new Control { CustomMinimumSize = new Vector2(5f, 0f) });
+
+            if (slot.ModifierIds.Length == 0)
+            {
+                var emptyMod = new ColorRect
+                {
+                    Color = new Color(0.35f, 0.40f, 0.52f, 0.35f),
+                    CustomMinimumSize = new Vector2(12f, 12f),
+                };
+                modsRow.AddChild(emptyMod);
+            }
+            else
+            {
+                foreach (var mod in slot.ModifierIds.Take(Balance.MaxModifiersPerTower))
+                {
+                    var modIcon = new ModifierIcon
+                    {
+                        ModifierId = mod,
+                        IconColor = ModifierVisuals.GetAccent(mod),
+                        CustomMinimumSize = new Vector2(12f, 12f),
+                        Size = new Vector2(12f, 12f),
+                    };
+                    modsRow.AddChild(modIcon);
+                }
+            }
+        }
+
+        return row;
+    }
+
+    private void AddMessageRow(string message)
+    {
+        var label = new Label
+        {
+            Text = message,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            Modulate = new Color(0.86f, 0.90f, 0.96f, 0.92f),
+        };
+        UITheme.ApplyFont(label, semiBold: true, size: 20);
+        _entryList.AddChild(label);
+    }
+
+    private void ClearRows()
+    {
+        for (int i = _entryList.GetChildCount() - 1; i >= 0; i--)
+            _entryList.GetChild(i).QueueFree();
     }
 
     private static string FormatTime(int seconds)
@@ -284,7 +384,7 @@ public partial class LeaderboardsMenu : Node
     {
         if (string.IsNullOrEmpty(text)) return "Player";
         if (text.Length <= maxLen) return text;
-        return text[..(maxLen - 1)] + "…";
+        return maxLen <= 3 ? text[..maxLen] : text[..(maxLen - 3)] + "...";
     }
 
     private static Button MakeButton(string text, int width, int height, int fontSize, System.Action callback)

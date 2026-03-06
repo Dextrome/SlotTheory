@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 using Steamworks;
@@ -198,7 +199,7 @@ public sealed class SteamLeaderboardService : ILeaderboardService
         var entries = new List<LeaderboardEntryView>(result.m_cEntryCount);
         for (int i = 0; i < result.m_cEntryCount; i++)
         {
-            var details = new int[8];
+            var details = new int[16];
             if (!SteamUserStats.GetDownloadedLeaderboardEntry(
                     result.m_hSteamLeaderboardEntries,
                     i,
@@ -215,6 +216,7 @@ public sealed class SteamLeaderboardService : ILeaderboardService
             int kills = details.Length > 3 ? details[3] : 0;
             int damage = details.Length > 4 ? details[4] : 0;
             int timeSeconds = details.Length > 5 ? details[5] : 0;
+            var build = BuildSnapshotCodec.Unpack(details.Skip(6).Take(Balance.SlotCount).ToArray());
 
             entries.Add(new LeaderboardEntryView(
                 entry.m_nGlobalRank,
@@ -224,7 +226,8 @@ public sealed class SteamLeaderboardService : ILeaderboardService
                 lives,
                 kills,
                 damage,
-                timeSeconds
+                timeSeconds,
+                build
             ));
         }
 
@@ -235,6 +238,7 @@ public sealed class SteamLeaderboardService : ILeaderboardService
 
     private static int[] BuildDetails(RunScorePayload payload)
     {
+        var packedBuild = BuildSnapshotCodec.Pack(payload.Build);
         return
         [
             payload.Won ? 1 : 0,
@@ -243,6 +247,12 @@ public sealed class SteamLeaderboardService : ILeaderboardService
             payload.TotalKills,
             payload.TotalDamageDealt,
             (int)MathF.Floor(payload.PlayTimeSeconds),
+            packedBuild[0],
+            packedBuild[1],
+            packedBuild[2],
+            packedBuild[3],
+            packedBuild[4],
+            packedBuild[5],
         ];
     }
 }
