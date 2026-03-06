@@ -3,6 +3,7 @@ using System.Linq;
 using Godot;
 using SlotTheory.Combat;
 using SlotTheory.Core.Leaderboards;
+using SlotTheory.Core.Naming;
 using SlotTheory.Data;
 using SlotTheory.Entities;
 using SlotTheory.Tools;
@@ -191,7 +192,7 @@ public partial class GameController : Node
 			CurrentPhase = GamePhase.Loss;
 			int livesLost = Balance.StartingLives - _runState.Lives;
 			SoundManager.Instance?.Play("game_over");
-			string runName = BuildRunName();
+				string runName = BuildRunName(registerInHistory: true, wonOverride: false, waveReachedOverride: _runState.WaveIndex + 1);
 			var runColors = BuildRunNameColors();
 			string mvpLine = BuildMvpLine();
 			string modLine = BuildMostValuableModLine();
@@ -215,7 +216,7 @@ public partial class GameController : Node
 			{
 				CurrentPhase = GamePhase.Win;
 				SoundManager.Instance?.Play("victory");
-				string runName = BuildRunName();
+					string runName = BuildRunName(registerInHistory: true, wonOverride: true, waveReachedOverride: Balance.TotalWaves);
 				var runColors = BuildRunNameColors();
 				string mvpLine = BuildMvpLine();
 				string modLine = BuildMostValuableModLine();
@@ -1690,38 +1691,40 @@ public partial class GameController : Node
 		return $"{localLine}  |  {globalText}";
 	}
 
-	private string BuildRunName()
+	private string BuildRunName(bool registerInHistory = false, bool? wonOverride = null, int? waveReachedOverride = null)
 	{
-		var (dominantFamily, mvpTowerId, familyCount, mvpDamage) = GetRunIdentity();
+		var profile = BuildRunNameProfile(wonOverride, waveReachedOverride);
+		return RunNameGenerator.GenerateName(profile, _runState.RngSeed, registerInHistory);
+	}
 
-		string[] adjectives = dominantFamily switch
+	private RunNameProfile BuildRunNameProfile(bool? wonOverride = null, int? waveReachedOverride = null)
+	{
+		string mapId = string.IsNullOrEmpty(_runState.SelectedMapId)
+			? LeaderboardKey.RandomMapId
+			: _runState.SelectedMapId!;
+		var difficulty = SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal;
+		bool won = wonOverride ?? CurrentPhase == GamePhase.Win;
+		int waveReached = waveReachedOverride ?? GuessCurrentWaveReached();
+
+		return RunNameGenerator.AnalyzeProfile(_runState, difficulty, mapId, won, waveReached);
+	}
+
+	private int GuessCurrentWaveReached()
+	{
+		int waveReached = CurrentPhase switch
 		{
-			"DamageScaling" => new[] { "Overclocked", "Brutal", "Overkill", "Hotwired" },
-			"Utility" => new[] { "Cryo", "Chill", "Control", "Frost" },
-			"Range" => new[] { "Longshot", "Horizon", "Overreach", "Linelock" },
-			"StatusSynergy" => new[] { "Marked", "Exploit", "Hex", "Punisher" },
-			"MultiTarget" => new[] { "Chain", "Split", "Cascade", "Storm" },
-			_ => new[] { "Neon", "Pulse", "Flux", "Vector" },
+			GamePhase.Wave => _runState.WaveIndex + 1,
+			GamePhase.Loss => _runState.WaveIndex + 1,
+			GamePhase.Win => Balance.TotalWaves,
+			_ => _runState.WaveIndex,
 		};
-
-		string[] nouns = mvpTowerId switch
-		{
-			"rapid_shooter" => new[] { "Needler", "Ripper" },
-			"heavy_cannon" => new[] { "Cannon", "Driver" },
-			"marker_tower" => new[] { "Beacon", "Painter" },
-			"chain_tower" => new[] { "Coil", "Emitter" },
-			_ => new[] { "Rig", "Array" },
-		};
-
-		int adjectiveIdx = Mathf.Abs(_runState.RngSeed ^ _runState.TotalKills ^ (familyCount << 3)) % adjectives.Length;
-		int nounIdx = Mathf.Abs((_runState.RngSeed << 1) ^ _runState.TotalDamageDealt ^ mvpDamage) % nouns.Length;
-		return $"{adjectives[adjectiveIdx]} {nouns[nounIdx]}";
+		return System.Math.Clamp(waveReached, 0, Balance.TotalWaves);
 	}
 
 	private (Color start, Color end) BuildRunNameColors()
 	{
-		var (dominantFamily, mvpTowerId, _, _) = GetRunIdentity();
-		var familyColor = dominantFamily switch
+		var profile = BuildRunNameProfile();
+		var familyColor = profile.PrimaryFamily switch
 		{
 			"DamageScaling" => new Color(1.00f, 0.60f, 0.20f),
 			"Utility" => new Color(0.45f, 0.92f, 1.00f),
@@ -1731,7 +1734,7 @@ public partial class GameController : Node
 			_ => new Color(0.78f, 0.88f, 1.00f),
 		};
 
-		var towerColor = mvpTowerId switch
+		var towerColor = profile.MvpTowerId switch
 		{
 			"rapid_shooter" => new Color(0.25f, 0.92f, 1.00f),
 			"heavy_cannon" => new Color(1.00f, 0.60f, 0.18f),
@@ -1753,50 +1756,6 @@ public partial class GameController : Node
 		}
 		return new Color(Mathf.Clamp(c.R, 0f, 1f), Mathf.Clamp(c.G, 0f, 1f), Mathf.Clamp(c.B, 0f, 1f), 1f);
 	}
-
-	private (string dominantFamily, string mvpTowerId, int familyCount, int mvpDamage) GetRunIdentity()
-	{
-		var familyCounts = new System.Collections.Generic.Dictionary<string, int>();
-		for (int i = 0; i < _runState.Slots.Length; i++)
-		{
-			var tower = _runState.Slots[i].Tower;
-			if (tower == null) continue;
-			foreach (var mod in tower.Modifiers)
-			{
-				string family = ModifierFamily(mod.ModifierId);
-				familyCounts.TryGetValue(family, out int n);
-				familyCounts[family] = n + 1;
-			}
-		}
-
-		string dominantFamily = familyCounts.Count > 0
-			? familyCounts.OrderByDescending(kvp => kvp.Value).ThenBy(kvp => kvp.Key).First().Key
-			: "DamageScaling";
-
-		var mvp = GetAllTowerStats()
-			.GroupBy(s => s.SlotIndex)
-			.Select(g => new { Slot = g.Key, Damage = g.Sum(x => x.Damage) })
-			.Where(x => x.Slot >= 0)
-			.OrderByDescending(x => x.Damage)
-			.FirstOrDefault();
-
-		string mvpTowerId = (mvp != null && mvp.Slot >= 0 && mvp.Slot < _runState.Slots.Length)
-			? _runState.Slots[mvp.Slot].Tower?.TowerId ?? ""
-			: _runState.Slots.FirstOrDefault(s => s.Tower != null)?.Tower?.TowerId ?? "";
-		int familyCount = familyCounts.TryGetValue(dominantFamily, out int count) ? count : 0;
-		int mvpDamage = mvp?.Damage ?? 0;
-		return (dominantFamily, mvpTowerId, familyCount, mvpDamage);
-	}
-
-	private static string ModifierFamily(string modifierId) => modifierId switch
-	{
-		"momentum" or "overkill" or "focus_lens" or "hair_trigger" or "feedback_loop" => "DamageScaling",
-		"slow" => "Utility",
-		"overreach" => "Range",
-		"exploit_weakness" => "StatusSynergy",
-		"split_shot" or "chain_reaction" => "MultiTarget",
-		_ => "Other",
-	};
 
 	private void StartWavePhase()
 	{
@@ -1828,9 +1787,9 @@ public partial class GameController : Node
 			_hudPanel.PulseWaveLabel();
 			_pathFlow?.TriggerSurge(1.0f);
 		}
-		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
-		string runName = BuildRunName();
-		var runColors = BuildRunNameColors();
+			_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
+			string runName = BuildRunName();
+			var runColors = BuildRunNameColors();
 		_hudPanel.SetBuildName(runName, visible: true, startColor: runColors.start, endColor: runColors.end);
 	}
 
