@@ -4,7 +4,7 @@ using SlotTheory.Core;
 namespace SlotTheory.UI;
 
 /// <summary>
-/// Top bar: Wave X/20, Lives, speed toggle (1x/2x/3x), ESC hint.
+/// Top bar: Wave X/20, Lives, speed toggle (1x/2x/3x/5x), ESC hint.
 /// </summary>
 public partial class HudPanel : CanvasLayer
 {
@@ -16,7 +16,7 @@ public partial class HudPanel : CanvasLayer
     private ColorRect _speedToastStreak = null!;
     private Button _speedBtn = null!;
     private int _speedIdx = 0;
-    private static readonly double[] SpeedSteps = { 1.0, 2.0, 3.0 };
+    private static readonly double[] SpeedSteps = { 1.0, 2.0, 3.0, 5.0 };
     public float CurrentSpeed => (float)SpeedSteps[_speedIdx];
 
     public override void _Ready()
