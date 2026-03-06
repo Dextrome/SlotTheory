@@ -10,6 +10,12 @@ public partial class MainMenu : Node
 {
 	public override void _Ready()
 	{
+		if (MobileOptimization.IsMobile() && SlotTheory.Core.MobileRunSession.HasSnapshot())
+		{
+			CallDeferred(nameof(AutoResumeRun));
+			return;
+		}
+
 		var canvas = new CanvasLayer();
 		AddChild(canvas);
 
@@ -78,6 +84,11 @@ public partial class MainMenu : Node
 	private void OnHowToPlay() => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/HowToPlay.tscn");
 	private void OnSettings()  => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/Settings.tscn");
 	private void OnQuit()      => GetTree().Quit();
+
+	private void AutoResumeRun()
+	{
+		SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
+	}
 
 	private static void AddSpacer(VBoxContainer vbox, int px)
 	{

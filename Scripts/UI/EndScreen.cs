@@ -21,6 +21,8 @@ public partial class EndScreen : CanvasLayer
 	private Label _buildLabel    = null!;
 	private Label _lossAnalysisLabel = null!;
 	private Button _viewLeaderboardButton = null!;
+	private Button _mainMenuButton = null!;
+	private Label _hintLabel = null!;
 	private string _leaderboardMapId = LeaderboardKey.RandomMapId;
 	private DifficultyMode _leaderboardDifficulty = DifficultyMode.Normal;
 
@@ -39,9 +41,16 @@ public partial class EndScreen : CanvasLayer
 		bg.Color = new Color(0f, 0f, 0f, 0.88f);
 		root.AddChild(bg);
 
+		var scroll = new ScrollContainer();
+		scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
+		scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+		TouchScrollHelper.EnableDragScroll(scroll);
+		root.AddChild(scroll);
+
 		var center = new CenterContainer();
-		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		root.AddChild(center);
+		center.CustomMinimumSize = GetViewport().GetVisibleRect().Size;
+		scroll.AddChild(center);
 
 		var vbox = new VBoxContainer();
 		vbox.AddThemeConstantOverride("separation", 20);
@@ -119,23 +128,37 @@ public partial class EndScreen : CanvasLayer
 		_viewLeaderboardButton.Pressed += OnViewLeaderboardPressed;
 		vbox.AddChild(_viewLeaderboardButton);
 
+		_mainMenuButton = new Button
+		{
+			Text = "Main Menu",
+			CustomMinimumSize = new Vector2(360f, 42f),
+			Visible = MobileOptimization.IsMobile(),
+		};
+		_mainMenuButton.AddThemeFontSizeOverride("font_size", 18);
+		_mainMenuButton.Pressed += OnMainMenuPressed;
+		vbox.AddChild(_mainMenuButton);
+
 		var spacer = new Control { CustomMinimumSize = new Vector2(0, 24) };
 		vbox.AddChild(spacer);
 
-		var hint = new Label
+		_hintLabel = new Label
 		{
-			Text = "Click or press Enter to return to menu",
+			Text = MobileOptimization.IsMobile()
+				? "Use buttons below to continue"
+				: "Click or press Enter to return to menu",
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
-		hint.AddThemeFontSizeOverride("font_size", 18);
-		hint.Modulate = new Color(0.65f, 0.65f, 0.65f);
-		vbox.AddChild(hint);
-		MobileOptimization.ApplyUIScale(root);
+		_hintLabel.AddThemeFontSizeOverride("font_size", 18);
+		_hintLabel.Modulate = new Color(0.65f, 0.65f, 0.65f);
+		vbox.AddChild(_hintLabel);
+		MobileOptimization.ApplyUIScale(center);
 	}
 
 	public override void _Input(InputEvent @event)
 	{
 		if (!Visible) return;
+		if (MobileOptimization.IsMobile())
+			return;
 
 		if (@event is InputEventMouseButton click
 			&& click.Pressed
@@ -233,12 +256,22 @@ public partial class EndScreen : CanvasLayer
 			_viewLeaderboardButton.Visible = eligible;
 			_viewLeaderboardButton.Disabled = !eligible;
 		}
+		if (GodotObject.IsInstanceValid(_mainMenuButton))
+		{
+			_mainMenuButton.Visible = MobileOptimization.IsMobile();
+			_mainMenuButton.Disabled = false;
+		}
 	}
 
 	private void OnViewLeaderboardPressed()
 	{
 		LeaderboardsMenu.SetPendingContext(_leaderboardMapId, _leaderboardDifficulty, preferGlobal: true);
 		Transition.Instance?.FadeToScene("res://Scenes/Leaderboards.tscn");
+	}
+
+	private void OnMainMenuPressed()
+	{
+		Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 	}
 
 	private void SetRunNameGradient(string runName, Color startColor, Color endColor)

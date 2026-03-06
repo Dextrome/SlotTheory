@@ -35,6 +35,7 @@ public partial class HowToPlay : Node
 		// Enable vertical scrollbar and disable horizontal scrolling
 		scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
 		scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+		TouchScrollHelper.EnableDragScroll(scroll);
 		canvas.AddChild(scroll);
 
 		// Wrap VBox in MarginContainer for proper margins

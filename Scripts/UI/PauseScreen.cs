@@ -140,7 +140,12 @@ public partial class PauseScreen : CanvasLayer
 
     private void OnResume()  => Unpause();
     private void OnRestart() { Unpause(); GameController.Instance.RestartRun(); }
-    private void OnMainMenu() { GetTree().Paused = false; SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn"); }
+	private void OnMainMenu()
+	{
+		GetTree().Paused = false;
+		SlotTheory.Core.MobileRunSession.Clear();
+		SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+	}
     private void OnQuit()    => GetTree().Quit();
 
     private void OnHowToPlay()

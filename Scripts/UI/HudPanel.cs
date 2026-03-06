@@ -17,6 +17,8 @@ public partial class HudPanel : CanvasLayer
     private Button _speedBtn = null!;
     private int _speedIdx = 0;
     private static readonly double[] SpeedSteps = { 1.0, 2.0, 3.0, 5.0 };
+    private const float ZoomMin = 1.0f;
+    private const float ZoomMax = 2.6f;
     public float CurrentSpeed => (float)SpeedSteps[_speedIdx];
 
     public override void _Ready()
@@ -280,6 +282,25 @@ public partial class HudPanel : CanvasLayer
     public void RefreshEnemies(int alive, int total)
     {
         _enemyLabel.Text = alive > 0 ? $"{alive} / {total}" : "";
+    }
+
+    public void SetMobileZoomReadability(float zoomLevel)
+    {
+        if (!MobileOptimization.IsMobile())
+            return;
+
+        float t = Mathf.Clamp((zoomLevel - ZoomMin) / (ZoomMax - ZoomMin), 0f, 1f);
+        int buildSize = Mathf.RoundToInt(Mathf.Lerp(30f, 40f, t));
+        int waveSize = Mathf.RoundToInt(Mathf.Lerp(22f, 30f, t));
+        int livesSize = Mathf.RoundToInt(Mathf.Lerp(22f, 30f, t));
+        int enemySize = Mathf.RoundToInt(Mathf.Lerp(16f, 22f, t));
+        int speedBtnSize = Mathf.RoundToInt(Mathf.Lerp(14f, 20f, t));
+
+        _buildLabel.AddThemeFontSizeOverride("normal_font_size", buildSize);
+        _waveLabel.AddThemeFontSizeOverride("font_size", waveSize);
+        _livesLabel.AddThemeFontSizeOverride("font_size", livesSize);
+        _enemyLabel.AddThemeFontSizeOverride("font_size", enemySize);
+        _speedBtn.AddThemeFontSizeOverride("font_size", speedBtnSize);
     }
 
     private void OnMobileMenuPressed()

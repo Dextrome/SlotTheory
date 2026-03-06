@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using System.Linq;
 using Godot;
 using SlotTheory.Core;
@@ -137,6 +138,7 @@ public partial class LeaderboardsMenu : Node
         };
         _entriesScroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
         _entriesScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        TouchScrollHelper.EnableDragScroll(_entriesScroll);
         frame.AddChild(_entriesScroll);
 
         _entryList = new VBoxContainer();
@@ -277,13 +279,14 @@ public partial class LeaderboardsMenu : Node
         panel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         panel.CustomMinimumSize = new Vector2(880f, 84f);
 
-        var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 6);
-        panel.AddChild(vbox);
+        var contentRow = new HBoxContainer();
+        contentRow.AddThemeConstantOverride("separation", 12);
+        panel.AddChild(contentRow);
 
-        var headRow = new HBoxContainer();
-        headRow.AddThemeConstantOverride("separation", 10);
-        vbox.AddChild(headRow);
+        var leftCol = new VBoxContainer();
+        leftCol.AddThemeConstantOverride("separation", 6);
+        leftCol.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        contentRow.AddChild(leftCol);
 
         var header = new Label
         {
@@ -294,29 +297,43 @@ public partial class LeaderboardsMenu : Node
         };
         UITheme.ApplyFont(header, semiBold: true, size: 16);
         header.Modulate = new Color(0.92f, 0.96f, 1.00f);
-        headRow.AddChild(header);
+        leftCol.AddChild(header);
 
-        var buildName = new Label
+        var buildStyle = ResolveBuildNameStyle(row);
+        var rightCenter = new CenterContainer
         {
-            HorizontalAlignment = HorizontalAlignment.Right,
-            VerticalAlignment = VerticalAlignment.Center,
-            ClipText = true,
-            Text = ResolveBuildName(row),
-            CustomMinimumSize = new Vector2(280f, 0f),
+            CustomMinimumSize = new Vector2(360f, 0f),
             SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
         };
-        UITheme.ApplyFont(buildName, semiBold: true, size: 28);
-        buildName.Modulate = new Color(0.77f, 0.95f, 0.34f, 0.96f);
-        headRow.AddChild(buildName);
+        contentRow.AddChild(rightCenter);
 
-        vbox.AddChild(BuildLoadoutStrip(row.Build));
+        var buildName = new RichTextLabel
+        {
+            BbcodeEnabled = true,
+            ScrollActive = false,
+            FitContent = true,
+            AutowrapMode = TextServer.AutowrapMode.Off,
+            CustomMinimumSize = new Vector2(360f, 0f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        buildName.AddThemeFontOverride("normal_font", UITheme.SemiBold);
+        buildName.AddThemeFontSizeOverride("normal_font_size", 24);
+        buildName.AddThemeConstantOverride("line_separation", 0);
+        buildName.AppendText(BuildGradientBbCode(
+            Truncate(buildStyle.Name, 30),
+            buildStyle.StartColor,
+            buildStyle.EndColor));
+        rightCenter.AddChild(buildName);
+
+        leftCol.AddChild(BuildLoadoutStrip(row.Build));
 
         return panel;
     }
 
-    private string ResolveBuildName(LeaderboardEntryView row)
+    private (string Name, Color StartColor, Color EndColor) ResolveBuildNameStyle(LeaderboardEntryView row)
     {
-        return RunNameGenerator.GenerateFromSnapshot(
+        return RunNameGenerator.GenerateStyledFromSnapshot(
             _selectedMapId,
             _selectedDifficulty,
             row.Score,
@@ -326,6 +343,25 @@ public partial class LeaderboardsMenu : Node
             row.TotalDamageDealt,
             row.TimeSeconds,
             row.Build);
+    }
+
+    private static string BuildGradientBbCode(string text, Color start, Color end)
+    {
+        if (string.IsNullOrEmpty(text))
+            return "";
+        if (text.Length == 1)
+            return $"[color=#{start.ToHtml(false)}]{text}[/color]";
+
+        var sb = new StringBuilder(text.Length * 24);
+        for (int i = 0; i < text.Length; i++)
+        {
+            float t = i / (float)(text.Length - 1);
+            var c = start.Lerp(end, t);
+            sb.Append("[color=#").Append(c.ToHtml(false)).Append(']');
+            sb.Append(text[i]);
+            sb.Append("[/color]");
+        }
+        return sb.ToString();
     }
 
     private Control BuildLoadoutStrip(RunBuildSnapshot build)
