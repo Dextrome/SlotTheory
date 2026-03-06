@@ -65,7 +65,7 @@ Modifier assignment uses `Preview -> Confirm`:
 | Rapid Shooter | 10 | 0.45 s | 285 px | Fast pressure |
 | Heavy Cannon | 52 | 2.0 s | 238 px | Big burst hits |
 | Marker Tower | 7 | 1.0 s | 333 px | Applies Marked |
-| Arc Emitter | 14 | 1.2 s | 257 px | Base chain: 2 extra bounces |
+| Arc Emitter | 18 | 1.2 s | 257 px | Base chain: 2 extra bounces, 400 px chain range |
 
 ---
 
@@ -135,10 +135,15 @@ Modes cycle on tower click/tap during waves.
 - Display mode toggle
 - Difficulty: Normal / Hard
 
+Normal multipliers:
+- Enemy HP: 1.05x
+- Enemy count: 1.05x
+- Spawn interval: 0.95x (slightly faster spawns)
+
 Hard multipliers:
-- Enemy HP: 1.2x
-- Enemy count: 1.15x
-- Spawn interval: 0.85x
+- Enemy HP: 1.1x
+- Enemy count: 1.2x
+- Spawn interval: 0.9x (faster spawns)
 
 ---
 

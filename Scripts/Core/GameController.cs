@@ -48,6 +48,7 @@ public partial class GameController : Node
 	private Panel _tooltipPanel = null!;
 	private Label _tooltipLabel = null!;
 	private int _mobileTooltipFontSize = 13;
+	private float _mobileTooltipUiScale = 1f;
 	private TowerInstance? _selectedTooltipTower;
 	private CanvasLayer _announceLayer = null!;
 	private Label _waveAnnounce = null!;
@@ -1057,12 +1058,14 @@ public partial class GameController : Node
 
 		if (GodotObject.IsInstanceValid(_tooltipLabel))
 		{
-			int targetSize = Mathf.RoundToInt(Mathf.Lerp(13f, 18f, t));
+			_mobileTooltipUiScale = Mathf.Lerp(1.0f, 2.2f, t);
+			int targetSize = Mathf.RoundToInt(13f * _mobileTooltipUiScale);
 			if (targetSize != _mobileTooltipFontSize)
 			{
 				_mobileTooltipFontSize = targetSize;
 				UITheme.ApplyFont(_tooltipLabel, size: _mobileTooltipFontSize);
 			}
+			_tooltipLabel.Position = new Vector2(8f * _mobileTooltipUiScale, 6f * _mobileTooltipUiScale);
 		}
 	}
 
@@ -1421,6 +1424,7 @@ public partial class GameController : Node
 		};
 		UITheme.ApplyFont(_tooltipLabel, size: 13);
 		_mobileTooltipFontSize = 13;
+		_mobileTooltipUiScale = 1f;
 		_tooltipPanel.AddChild(_tooltipLabel);
 		ApplyMobileZoomReadability();
 	}
@@ -1486,7 +1490,8 @@ public partial class GameController : Node
 			_tooltipLabel.Text = text.TrimEnd();
 			// Size panel to fit label
 			var labelSize = _tooltipLabel.GetMinimumSize();
-			_tooltipPanel.Size = labelSize + new Vector2(16, 12);
+			var padding = new Vector2(16f * _mobileTooltipUiScale, 12f * _mobileTooltipUiScale);
+			_tooltipPanel.Size = labelSize + padding;
 				// Positioning: mobile shows above selected tower; desktop follows cursor.
 				Vector2 pos;
 				if (MobileOptimization.IsMobile())

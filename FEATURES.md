@@ -101,7 +101,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
 | Rapid Shooter | 10 | 0.45 s | 285 px | Fast single-target fire |
 | Heavy Cannon | 52 | 2.0 s | 238 px | Heavy burst hits |
 | Marker Tower | 7 | 1.0 s | 333 px | Applies Marked on hit |
-| Arc Emitter (`chain_tower`) | 14 | 1.2 s | 257 px | Base chain: +2 bounces, 333 px chain range, 60% damage carry per hop |
+| Arc Emitter (`chain_tower`) | 18 | 1.2 s | 257 px | Base chain: +2 bounces, 400 px chain range, 60% damage carry per hop |
 
 - Towers are placed into 6 fixed world slots.
 - Each tower can hold up to 3 modifiers.
@@ -164,7 +164,7 @@ Used consistently in draft cards, proc halos, and live modifier icons.
 
 - Marked:
   - +40% incoming damage from all towers.
-  - Duration: 2.5 s.
+  - Duration: 4.0 s.
 - Slow:
   - Movement speed factor: 0.75.
   - Duration: 5 s.
@@ -175,8 +175,8 @@ Used consistently in draft cards, proc halos, and live modifier icons.
 
 | Mode | Enemy HP | Enemy Count | Spawn Interval |
 |---|---:|---:|---:|
-| Normal | 1.0x | 1.0x | 1.0x |
-| Hard | 1.2x | 1.15x | 0.85x (faster spawns) |
+| Normal | 1.05x | 1.05x | 0.95x (slightly faster spawns) |
+| Hard | 1.1x | 1.2x | 0.9x (faster spawns) |
 
 ### Tension Warning
 
@@ -502,7 +502,7 @@ Behavior:
 | SwiftHpMultiplier | 1.5 |
 | SwiftEnemySpeed | 240 |
 | MarkedDamageBonus | +40% |
-| MarkedDuration | 2.5 s |
+| MarkedDuration | 4.0 s |
 | SlowSpeedFactor | 0.75 |
 | SlowDuration | 5 s |
 | MomentumMaxStacks | 5 |
