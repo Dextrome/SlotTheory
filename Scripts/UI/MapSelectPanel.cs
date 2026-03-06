@@ -22,6 +22,7 @@ public partial class MapSelectPanel : Node
 	private VBoxContainer? _mapListContainer;
 	private Button? _normalButton;
 	private Button? _hardButton;
+	private Label? _personalBestLabel;
 	private ulong _proceduralPreviewSeed;
 
 	public override void _Ready()
@@ -118,6 +119,18 @@ public partial class MapSelectPanel : Node
 
 		_hardButton = CreateDifficultyButton("Hard", DifficultyMode.Hard);
 		difficultyContainer.AddChild(_hardButton);
+
+		_personalBestLabel = new Label
+		{
+			HorizontalAlignment = HorizontalAlignment.Center,
+			AutowrapMode = TextServer.AutowrapMode.Word,
+			CustomMinimumSize = new Vector2(260, 64),
+			Text = "",
+		};
+		_personalBestLabel.AddThemeFontSizeOverride("font_size", 15);
+		_personalBestLabel.Modulate = new Color(0.74f, 0.88f, 1.00f, 0.95f);
+		rightColumn.AddChild(_personalBestLabel);
+		UpdatePersonalBestLabel();
 
 		var actionSpacer = new Control();
 		actionSpacer.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
@@ -232,6 +245,7 @@ public partial class MapSelectPanel : Node
 	{
 		_selectedMapId = mapId;
 		SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
+		UpdatePersonalBestLabel();
 
 		// Rebuild map list to show selection highlight
 		if (_mapListContainer != null)
@@ -304,11 +318,28 @@ public partial class MapSelectPanel : Node
 	{
 		_selectedDifficulty = difficulty;
 		SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
+		UpdatePersonalBestLabel();
 
 		// Update button states to ensure only one is pressed
 		if (_normalButton != null)
 			_normalButton.ButtonPressed = (difficulty == DifficultyMode.Normal);
 		if (_hardButton != null)
 			_hardButton.ButtonPressed = (difficulty == DifficultyMode.Hard);
+	}
+
+	private void UpdatePersonalBestLabel()
+	{
+		if (_personalBestLabel == null) return;
+		var best = SlotTheory.Core.HighScoreManager.Instance?.GetPersonalBest(_selectedMapId, _selectedDifficulty);
+		if (best == null)
+		{
+			_personalBestLabel.Text = "Personal Best: --";
+			return;
+		}
+
+		string diff = _selectedDifficulty == DifficultyMode.Hard ? "Hard" : "Normal";
+		_personalBestLabel.Text =
+			$"Personal Best ({diff}): {best.Score:N0}\n" +
+			$"Wave {best.WaveReached}/{Balance.TotalWaves}  |  Lives {best.LivesRemaining}";
 	}
 }

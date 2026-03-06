@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://slotleaderboards001"]
+
+[ext_resource type="Script" path="res://Scripts/UI/LeaderboardsMenu.cs" id="1_lbmenu"]
+
+[node name="Leaderboards" type="Node" unique_id=200000007]
+script = ExtResource("1_lbmenu")
