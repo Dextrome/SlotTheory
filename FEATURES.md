@@ -404,7 +404,7 @@ Pause screen:
 
 Main menu:
 - Code-driven layout
-- Buttons: Play, How to Play, Settings, Quit
+- Buttons: Play, How to Play, Settings, Leaderboards, Quit
 - Animated neon grid background
 
 Settings:
@@ -470,6 +470,85 @@ Behavior:
 | OverkillSpillEfficiency | 60% |
 | FocusLensDamageBonus | +125% |
 | FocusLensAttackInterval | x2 |
+
+---
+
+## Leaderboards and High Scores
+
+**Steam Integration Status:** Core infrastructure implemented, Steamworks.NET integrated, awaiting Steam App ID for global leaderboards.
+
+### Local High Score System
+
+- **HighScoreManager**: Persistent local high scores stored in `user://highscores.json`
+- **Personal Best Tracking**: Wave reached + lives remaining for each map/difficulty combination
+- **Map Select Integration**: Personal best display planned for map selection screen
+
+### Global Leaderboard Infrastructure
+
+**Core Architecture:**
+- **LeaderboardManager**: Global coordinator autoload, routes between local and platform services
+- **ILeaderboardService**: Platform abstraction (Steam, future mobile platforms)
+- **SteamLeaderboardService**: Steamworks.NET implementation for Steam global leaderboards
+- **NullLeaderboardService**: Fallback when platform unavailable
+
+**Score Calculation:**
+- **ScoreCalculator**: Converts (wave reached, lives remaining) to comparable integer score
+- **Algorithm**: `wave_reached * 100 + lives_remaining` (ensures wave progression priority)
+
+### Submission Flow
+
+**Run Completion:**
+- Automatic local high score update on win/loss
+- Async global leaderboard submission (non-blocking)
+- **Retry Queue**: Failed submissions persisted to `user://leaderboard_retry_queue.json`
+- **Background Sync**: Periodic retry queue flush every 30 seconds
+
+**End Screen Integration:**
+- Leaderboard submission status line (success/fail/offline)
+- "View Global Leaderboard" button (context-aware for current map/difficulty)
+- Prevents accidental menu navigation when interacting with leaderboard UI
+- Button opens dedicated leaderboard screen with preselected map/difficulty
+
+### Dedicated Leaderboard Screen
+
+**New Implementation:** Full-featured leaderboard browser accessible from main menu and end screen.
+
+**Screen Features:**
+- **Leaderboards.tscn + LeaderboardsMenu.cs**: Dedicated leaderboard viewing interface
+- **Main Menu Integration**: "Leaderboards" button opens the screen directly
+- **End Screen Integration**: "View Global Leaderboard" button opens screen with context preselection
+- **Mode Switching**: Local personal bests vs Global leaderboards toggle
+- **Map Selection**: Browse leaderboards for all available maps
+- **Difficulty Switching**: Normal/Hard difficulty selection
+- **Policy Enforcement**: Random map restricted to local-only (global blocked)
+
+**Backend Integration:**
+- **Global Fetch API**: `LeaderboardManager.FetchGlobalLeaderboard()` for downloading entries
+- **Steam Implementation**: `SteamLeaderboardService.DownloadLeaderboard()` top-entries retrieval
+- **Local Feed**: `HighScoreManager.GetPersonalBests()` for local leaderboard display
+
+### Steam Leaderboard Setup
+
+**Required Steam Leaderboard IDs** (to be created in Steamworks backend):
+- `leaderboard_crossroads_normal`
+- `leaderboard_crossroads_hard` 
+- `leaderboard_gauntlet_normal`
+- `leaderboard_gauntlet_hard`
+- `leaderboard_sprawl_normal`
+- `leaderboard_sprawl_hard`
+- `leaderboard_random_normal`
+- `leaderboard_random_hard`
+
+**Configuration Requirements:**
+- Sort Method: Descending (higher scores better)
+- Display Type: Numeric
+- Upload Score Method: Keep Best
+
+### Platform Support
+
+- **Windows Desktop**: Full Steam leaderboard integration via Steamworks.NET
+- **Android**: Local high scores only (global leaderboards planned for future mobile backend)
+- **Offline Mode**: Graceful degradation to local-only scoring with retry queue
 
 ---
 

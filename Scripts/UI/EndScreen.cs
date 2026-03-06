@@ -1,6 +1,7 @@
 using System.Linq;
 using Godot;
 using SlotTheory.Core;
+using SlotTheory.Core.Leaderboards;
 
 namespace SlotTheory.UI;
 
@@ -13,11 +14,15 @@ public partial class EndScreen : CanvasLayer
 	private Label _titleLabel    = null!;
 	private Label _subtitleLabel = null!;
 	private Label _statsLabel    = null!;
+	private Label _leaderboardLabel = null!;
 	private RichTextLabel _runNameLabel  = null!;
 	private Label _mvpLabel      = null!;
 	private Label _modLabel      = null!;
 	private Label _buildLabel    = null!;
 	private Label _lossAnalysisLabel = null!;
+	private Button _viewLeaderboardButton = null!;
+	private string _leaderboardMapId = LeaderboardKey.RandomMapId;
+	private DifficultyMode _leaderboardDifficulty = DifficultyMode.Normal;
 
 	public override void _Ready()
 	{
@@ -56,6 +61,12 @@ public partial class EndScreen : CanvasLayer
 		_statsLabel.Modulate = new Color(0.65f, 0.85f, 1.0f);
 		_statsLabel.Visible = false;
 		vbox.AddChild(_statsLabel);
+
+		_leaderboardLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+		_leaderboardLabel.AddThemeFontSizeOverride("font_size", 18);
+		_leaderboardLabel.Modulate = new Color(0.72f, 0.93f, 0.78f);
+		_leaderboardLabel.Visible = false;
+		vbox.AddChild(_leaderboardLabel);
 
 		_runNameLabel = new RichTextLabel
 		{
@@ -98,6 +109,16 @@ public partial class EndScreen : CanvasLayer
 		_lossAnalysisLabel.Visible = false;
 		vbox.AddChild(_lossAnalysisLabel);
 
+		_viewLeaderboardButton = new Button
+		{
+			Text = "Open Leaderboards",
+			CustomMinimumSize = new Vector2(360f, 42f),
+			Visible = false,
+		};
+		_viewLeaderboardButton.AddThemeFontSizeOverride("font_size", 18);
+		_viewLeaderboardButton.Pressed += OnViewLeaderboardPressed;
+		vbox.AddChild(_viewLeaderboardButton);
+
 		var spacer = new Control { CustomMinimumSize = new Vector2(0, 24) };
 		vbox.AddChild(spacer);
 
@@ -115,6 +136,25 @@ public partial class EndScreen : CanvasLayer
 	public override void _Input(InputEvent @event)
 	{
 		if (!Visible) return;
+
+		if (@event is InputEventMouseButton click
+			&& click.Pressed
+			&& click.ButtonIndex == MouseButton.Left
+			&& GodotObject.IsInstanceValid(_viewLeaderboardButton)
+			&& _viewLeaderboardButton.Visible
+			&& _viewLeaderboardButton.GetGlobalRect().HasPoint(click.Position))
+		{
+			return;
+		}
+
+		if (@event is InputEventKey { Pressed: true, KeyLabel: Key.Enter or Key.KpEnter or Key.Space }
+			&& GodotObject.IsInstanceValid(_viewLeaderboardButton)
+			&& _viewLeaderboardButton.Visible
+			&& _viewLeaderboardButton.HasFocus())
+		{
+			return;
+		}
+
 		bool triggered = @event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }
 		              || @event is InputEventKey { Pressed: true, KeyLabel: Key.Enter or Key.KpEnter or Key.Space };
 		if (!triggered) return;
@@ -138,6 +178,7 @@ public partial class EndScreen : CanvasLayer
 		_buildLabel.Text = buildSummary;
 		_buildLabel.Visible = buildSummary.Length > 0;
 		_lossAnalysisLabel.Visible = false;
+		_leaderboardLabel.Visible = false;
 		Visible = true;
 	}
 
@@ -156,6 +197,7 @@ public partial class EndScreen : CanvasLayer
 		_modLabel.Visible = modLine.Length > 0;
 		_buildLabel.Text = buildSummary;
 		_buildLabel.Visible = buildSummary.Length > 0;
+		_leaderboardLabel.Visible = false;
 
 		// Show loss analysis for actionable insights
 		string lossAnalysis = GenerateLossAnalysis(runState);
@@ -170,6 +212,33 @@ public partial class EndScreen : CanvasLayer
 		}
 
 		Visible = true;
+	}
+
+	public void SetLeaderboardStatus(string text, bool isError = false)
+	{
+		_leaderboardLabel.Text = text;
+		_leaderboardLabel.Modulate = isError
+			? new Color(1.00f, 0.72f, 0.72f)
+			: new Color(0.72f, 0.93f, 0.78f);
+		_leaderboardLabel.Visible = text.Length > 0;
+	}
+
+	public void SetLeaderboardContext(string mapId, DifficultyMode difficulty)
+	{
+		_leaderboardMapId = string.IsNullOrEmpty(mapId) ? LeaderboardKey.RandomMapId : mapId;
+		_leaderboardDifficulty = difficulty;
+		bool eligible = LeaderboardKey.IsGlobalEligibleMap(_leaderboardMapId);
+		if (GodotObject.IsInstanceValid(_viewLeaderboardButton))
+		{
+			_viewLeaderboardButton.Visible = eligible;
+			_viewLeaderboardButton.Disabled = !eligible;
+		}
+	}
+
+	private void OnViewLeaderboardPressed()
+	{
+		LeaderboardsMenu.SetPendingContext(_leaderboardMapId, _leaderboardDifficulty, preferGlobal: true);
+		Transition.Instance?.FadeToScene("res://Scenes/Leaderboards.tscn");
 	}
 
 	private void SetRunNameGradient(string runName, Color startColor, Color endColor)

@@ -2,6 +2,7 @@
 using System.Linq;
 using Godot;
 using SlotTheory.Combat;
+using SlotTheory.Core.Leaderboards;
 using SlotTheory.Data;
 using SlotTheory.Entities;
 using SlotTheory.Tools;
@@ -194,7 +195,13 @@ public partial class GameController : Node
 			var runColors = BuildRunNameColors();
 			string mvpLine = BuildMvpLine();
 			string modLine = BuildMostValuableModLine();
+			var scorePayload = BuildRunScorePayload(won: false, waveReached: _runState.WaveIndex + 1);
+			var localSubmit = HighScoreManager.Instance?.SubmitLocal(scorePayload);
+			string leaderboardLine = BuildInitialLeaderboardLine(scorePayload, localSubmit);
+			_endScreen.SetLeaderboardContext(scorePayload.MapId, scorePayload.Difficulty);
 			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary(), _runState, runName, mvpLine, modLine, runColors.start, runColors.end);
+			_endScreen.SetLeaderboardStatus(leaderboardLine);
+			QueueGlobalSubmit(scorePayload, leaderboardLine);
 			return;
 		}
 
@@ -212,7 +219,13 @@ public partial class GameController : Node
 				var runColors = BuildRunNameColors();
 				string mvpLine = BuildMvpLine();
 				string modLine = BuildMostValuableModLine();
+				var scorePayload = BuildRunScorePayload(won: true, waveReached: Balance.TotalWaves);
+				var localSubmit = HighScoreManager.Instance?.SubmitLocal(scorePayload);
+				string leaderboardLine = BuildInitialLeaderboardLine(scorePayload, localSubmit);
+				_endScreen.SetLeaderboardContext(scorePayload.MapId, scorePayload.Difficulty);
 				_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end);
+				_endScreen.SetLeaderboardStatus(leaderboardLine);
+				QueueGlobalSubmit(scorePayload, leaderboardLine);
 			}
 			else
 			{
@@ -1596,6 +1609,84 @@ public partial class GameController : Node
 
 		var def = DataLoader.GetModifierDef(best.Key);
 		return $"Most Valuable Mod: {def.Name} - triggered {best.Value}x";
+	}
+
+	private RunScorePayload BuildRunScorePayload(bool won, int waveReached)
+	{
+		string mapId = string.IsNullOrEmpty(_runState.SelectedMapId)
+			? LeaderboardKey.RandomMapId
+			: _runState.SelectedMapId!;
+		var difficulty = SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal;
+		long nowUnix = (long)System.Math.Floor(Time.GetUnixTimeFromSystem());
+		string gameVersion = ProjectSettings.GetSetting("application/config/version", "dev").AsString();
+		return new RunScorePayload(
+			mapId,
+			difficulty,
+			won,
+			waveReached,
+			_runState.Lives,
+			_runState.TotalDamageDealt,
+			_runState.TotalKills,
+			_runState.TotalPlayTime,
+			nowUnix,
+			gameVersion
+		);
+	}
+
+	private static string BuildInitialLeaderboardLine(RunScorePayload payload, LocalSubmitResult? localSubmit)
+	{
+		if (localSubmit == null)
+			return $"Score: {ScoreCalculator.ComputeScore(payload):N0}";
+
+		if (localSubmit.IsNewPersonalBest)
+			return $"Score: {localSubmit.Score:N0}  |  NEW PERSONAL BEST";
+
+		return $"Score: {localSubmit.Score:N0}  |  Personal Best: {localSubmit.CurrentBest.Score:N0}";
+	}
+
+	private void QueueGlobalSubmit(RunScorePayload payload, string localLine)
+	{
+		_endScreen.SetLeaderboardStatus($"{localLine}  |  Global: submitting...");
+		_ = SubmitGlobalScoreAsync(payload, localLine);
+	}
+
+	private async System.Threading.Tasks.Task SubmitGlobalScoreAsync(RunScorePayload payload, string localLine)
+	{
+		var manager = LeaderboardManager.Instance;
+		if (manager == null)
+		{
+			CallDeferred(nameof(ApplyLeaderboardStatus), $"{localLine}  |  Global: unavailable", true);
+			return;
+		}
+
+		var result = await manager.SubmitAsync(payload);
+		string line = BuildGlobalLeaderboardLine(localLine, result);
+		bool isError = result.State == GlobalSubmitState.Failed;
+		CallDeferred(nameof(ApplyLeaderboardStatus), line, isError);
+	}
+
+	private void ApplyLeaderboardStatus(string line, bool isError)
+	{
+		if (!GodotObject.IsInstanceValid(_endScreen) || !_endScreen.Visible) return;
+		_endScreen.SetLeaderboardStatus(line, isError);
+	}
+
+	private static string BuildGlobalLeaderboardLine(string localLine, GlobalSubmitResult result)
+	{
+		string globalText = result.State switch
+		{
+			GlobalSubmitState.Submitted when result.Rank.HasValue
+				=> $"Global ({result.Provider}): rank #{result.Rank.Value}",
+			GlobalSubmitState.Submitted
+				=> $"Global ({result.Provider}): submitted",
+			GlobalSubmitState.Queued
+				=> $"Global ({result.Provider}): queued",
+			GlobalSubmitState.Failed
+				=> $"Global ({result.Provider}): failed",
+			_ => result.Message,
+		};
+
+		return $"{localLine}  |  {globalText}";
 	}
 
 	private string BuildRunName()
