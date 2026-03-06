@@ -27,7 +27,15 @@ public static class MobileOptimization
     /// </summary>
     public static bool IsMobile()
     {
-        return OS.GetName() == "Android" || OS.GetName() == "iOS";
+        var os = OS.GetName();
+        if (os == "Android" || os == "iOS")
+            return true;
+
+        // Web exports on phones report "Web", so rely on touch capability there.
+        if (os == "Web" && DisplayServer.IsTouchscreenAvailable())
+            return true;
+
+        return OS.HasFeature("mobile");
     }
 
     /// <summary>

@@ -379,17 +379,20 @@ public partial class DraftPanel : CanvasLayer
         foreach (Node child in _cardRow.GetChildren())
             child.Free();
 
-        var vpW = GetViewport().GetVisibleRect().Size.X;
+        float vpW = GetViewport().GetVisibleRect().Size.X;
+        // Card width must be computed in unscaled UI space; otherwise mobile UI scaling can overflow the row.
+        float uiScale = Mathf.Max(0.01f, _center.Scale.X);
+        float layoutW = vpW / uiScale;
         int cardCount = Mathf.Max(1, options.Count);
         int spacing = 14;
         float sidePadding = 44f;
         float cardWidth = 230f;
 
         // Adaptive sizing keeps all five cards visible on tablet / narrow viewports.
-        if (MobileOptimization.IsTablet() || vpW < 1240f)
+        if (MobileOptimization.IsTablet() || layoutW < 1240f)
         {
-            spacing = vpW < 980f ? 8 : 10;
-            cardWidth = (vpW - sidePadding - spacing * (cardCount - 1)) / cardCount;
+            spacing = layoutW < 980f ? 8 : 10;
+            cardWidth = (layoutW - sidePadding - spacing * (cardCount - 1)) / cardCount;
             cardWidth = Mathf.Clamp(cardWidth, 140f, 220f);
         }
 

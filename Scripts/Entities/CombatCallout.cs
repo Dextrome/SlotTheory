@@ -10,6 +10,7 @@ public partial class CombatCallout : Node2D
 {
     private const float Duration = 0.48f;
     private const float RiseSpeed = 26f;
+    private static float _mobileReadabilityScale = 1f;
 
     private float _life = 0f;
     private string _text = "";
@@ -19,6 +20,11 @@ public partial class CombatCallout : Node2D
     {
         _text = text;
         _color = color;
+    }
+
+    public static void SetMobileReadabilityScale(float scale)
+    {
+        _mobileReadabilityScale = Mathf.Clamp(scale, 1f, 2f);
     }
 
     public override void _Process(double delta)
@@ -37,7 +43,7 @@ public partial class CombatCallout : Node2D
     {
         float t = _life / Duration;
         float alpha = 1f - t * t;
-        int size = 16;
+        int size = Mathf.Clamp(Mathf.RoundToInt(16f * _mobileReadabilityScale), 12, 44);
         var col = new Color(_color.R, _color.G, _color.B, alpha);
         DrawString(UITheme.Bold, new Vector2(1f, 1f), _text, HorizontalAlignment.Center, -1, size, new Color(0f, 0f, 0f, alpha * 0.65f));
         DrawString(UITheme.Bold, Vector2.Zero, _text, HorizontalAlignment.Center, -1, size, col);

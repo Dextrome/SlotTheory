@@ -47,6 +47,7 @@ public partial class GameController : Node
 	private PathFlow? _pathFlow;
 	private Panel _tooltipPanel = null!;
 	private Label _tooltipLabel = null!;
+	private int _mobileTooltipFontSize = 13;
 	private TowerInstance? _selectedTooltipTower;
 	private CanvasLayer _announceLayer = null!;
 	private Label _waveAnnounce = null!;
@@ -81,6 +82,24 @@ public partial class GameController : Node
 	private int _undoDraftPick = 1;
 	private int _undoDraftTotal = 1;
 	private System.Action? _undoPlacementCommit;
+	private Camera2D? _mobileCamera;
+	private Rect2 _mobileCameraBounds = new Rect2(0f, 0f, 1280f, 720f);
+	private float _mobileZoomLevel = 1f;
+	private Vector2 _mobileLastViewportSize = Vector2.Zero;
+	private readonly Dictionary<int, Vector2> _mobileTouchPositions = new();
+	private readonly Dictionary<int, Vector2> _mobileTouchStartPositions = new();
+	private bool _mobileTapSuppressed = false;
+	private bool _mobilePinchActive = false;
+	private float _mobilePinchStartDistance = 1f;
+	private float _mobilePinchStartZoom = 1f;
+	private Vector2 _mobilePinchLastMidpoint = Vector2.Zero;
+	private bool _mobileCameraDirectZoom = true;
+	private MobileRunSnapshot? _mobileResumeSnapshot;
+	private bool _isRestoringSnapshot = false;
+	private const float MobileMinZoom = 1.0f;
+	private const float MobileMaxZoom = 2.6f;
+	private const float MobileTapMoveThreshold = 18f;
+	private const float MobilePanStartThreshold = 6f;
 
 	public override void _Ready()
 	{
@@ -115,6 +134,7 @@ public partial class GameController : Node
 		_runState.SelectedMapId = SlotTheory.UI.MapSelectPanel.PendingMapSelection;
 		if (_runState.SelectedMapId == "random_map" && SlotTheory.UI.MapSelectPanel.PendingProceduralSeed > 0)
 			_runState.RngSeed = (int)SlotTheory.UI.MapSelectPanel.PendingProceduralSeed;
+		LoadPendingMobileSnapshot();
 		
 		_draftSystem = new DraftSystem();
 		_waveSystem = new WaveSystem();
@@ -134,18 +154,30 @@ public partial class GameController : Node
 		_worldNode.AddChild(_mapVisuals);
 		_worldNode.MoveChild(_mapVisuals, 0);
 
-		GenerateMap();
-		SetupSlots();
-		SetupTooltip();
-		SetupAnnouncer();
+			GenerateMap();
+			SetupMobileCamera();
+			SetupSlots();
+			SetupTooltip();
+			SetupAnnouncer();
 
 		_extraPicksRemaining = Balance.ExtraPicksForWave(0);
 		_lastWaveReport = null;
-		StartDraftPhase();
+		if (!TryRestoreMobileSnapshot())
+			StartDraftPhase();
 	}
 
 	public override void _Process(double delta)
 	{
+		if (MobileOptimization.IsMobile() && GodotObject.IsInstanceValid(_mobileCamera))
+		{
+			var vpSize = GetViewport().GetVisibleRect().Size;
+			if (!_mobileLastViewportSize.IsEqualApprox(vpSize))
+			{
+				_mobileLastViewportSize = vpSize;
+				ClampMobileCameraToBounds();
+			}
+		}
+
 		if (_botRunner == null) UpdateTooltip();
 
 		if (!_undoPlacementActive && CurrentPhase == GamePhase.Draft && (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower))
@@ -190,6 +222,7 @@ public partial class GameController : Node
 		if (result == WaveResult.Loss)
 		{
 			CurrentPhase = GamePhase.Loss;
+			MobileRunSession.Clear();
 			int livesLost = Balance.StartingLives - _runState.Lives;
 			SoundManager.Instance?.Play("game_over");
 				string runName = BuildRunName(registerInHistory: true, wonOverride: false, waveReachedOverride: _runState.WaveIndex + 1);
@@ -215,6 +248,7 @@ public partial class GameController : Node
 			if (_runState.WaveIndex >= Balance.TotalWaves)
 			{
 				CurrentPhase = GamePhase.Win;
+				MobileRunSession.Clear();
 				SoundManager.Instance?.Play("victory");
 					string runName = BuildRunName(registerInHistory: true, wonOverride: true, waveReachedOverride: Balance.TotalWaves);
 				var runColors = BuildRunNameColors();
@@ -251,27 +285,122 @@ public partial class GameController : Node
 
 	public override void _Notification(int what)
 	{
-		// Handle Android app lifecycle for mobile devices
-		if (OS.GetName() == "Android")
-		{
-			switch (what)
-			{
-				case (int)NotificationApplicationPaused:
-					// Auto-pause when app goes to background (minimized/phone call/etc)
-					if (CurrentPhase == GamePhase.Wave && GetTree().Paused == false)
-					{
-						GD.Print("App paused - auto-pausing game");
-						var pauseScreen = GetNode<PauseScreen>("../PauseScreen");
-						pauseScreen?.Pause();
-					}
-					break;
+		if (!MobileOptimization.IsMobile())
+			return;
 
-				case (int)NotificationApplicationResumed:
-					// App returned from background - game stays paused for user control
-					GD.Print("App resumed from background");
-					break;
+		switch (what)
+		{
+			case (int)NotificationApplicationPaused:
+				// Auto-pause when app goes to background (minimized/phone call/etc).
+				if (CurrentPhase == GamePhase.Wave && GetTree().Paused == false)
+				{
+					GD.Print("App paused - auto-pausing game");
+					var pauseScreen = GetNode<PauseScreen>("../PauseScreen");
+					pauseScreen?.Pause();
+				}
+				SaveMobileRunSnapshot("app_paused");
+				break;
+
+			case (int)NotificationApplicationResumed:
+				// App returned from background - game stays paused for user control.
+				GD.Print("App resumed from background");
+				break;
+		}
+	}
+
+	public override void _ExitTree()
+	{
+		SaveMobileRunSnapshot("exit_tree");
+	}
+
+	private void LoadPendingMobileSnapshot()
+	{
+		if (!MobileOptimization.IsMobile())
+			return;
+		if (!MobileRunSession.TryLoad(out var snapshot))
+			return;
+
+		_mobileResumeSnapshot = snapshot;
+		_runState.SelectedMapId = string.IsNullOrWhiteSpace(snapshot.MapId)
+			? LeaderboardKey.RandomMapId
+			: snapshot.MapId;
+		_runState.RngSeed = snapshot.RngSeed;
+		_runState.WaveIndex = Mathf.Clamp(snapshot.WaveIndex, 0, Balance.TotalWaves - 1);
+		_runState.Lives = Mathf.Clamp(snapshot.Lives, 0, Balance.StartingLives);
+		_runState.TotalKills = Mathf.Max(0, snapshot.TotalKills);
+		_runState.TotalDamageDealt = Mathf.Max(0, snapshot.TotalDamageDealt);
+		_runState.TotalPlayTime = Mathf.Max(0f, snapshot.TotalPlayTime);
+	}
+
+	private bool TryRestoreMobileSnapshot()
+	{
+		var snapshot = _mobileResumeSnapshot;
+		_mobileResumeSnapshot = null;
+		if (snapshot == null)
+			return false;
+
+		try
+		{
+			_isRestoringSnapshot = true;
+			foreach (var slot in snapshot.Slots.OrderBy(s => s.SlotIndex))
+			{
+				if (slot.SlotIndex < 0 || slot.SlotIndex >= _runState.Slots.Length)
+					continue;
+				if (string.IsNullOrWhiteSpace(slot.TowerId))
+					continue;
+
+				PlaceTower(slot.TowerId, slot.SlotIndex);
+				var tower = _runState.Slots[slot.SlotIndex].Tower;
+				if (tower == null)
+					continue;
+
+				foreach (string modifierId in slot.ModifierIds)
+				{
+					if (tower.Modifiers.Count >= Balance.MaxModifiersPerTower)
+						break;
+					if (string.IsNullOrWhiteSpace(modifierId))
+						continue;
+					_draftSystem.ApplyModifier(modifierId, tower);
+				}
+
+				RefreshModPips(slot.SlotIndex);
 			}
 		}
+		catch (System.Exception ex)
+		{
+			GD.PrintErr($"[MobileSession] Failed to restore snapshot: {ex.Message}");
+			MobileRunSession.Clear();
+			_isRestoringSnapshot = false;
+			return false;
+		}
+		finally
+		{
+			_isRestoringSnapshot = false;
+		}
+
+		_extraPicksRemaining = Balance.ExtraPicksForWave(_runState.WaveIndex);
+		_lastWaveReport = null;
+		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
+
+		if (snapshot.Phase == "wave")
+			StartWavePhase();
+		else
+			StartDraftPhase();
+
+		SaveMobileRunSnapshot("restored");
+		GD.Print("[MobileSession] Restored active run snapshot.");
+		return true;
+	}
+
+	private void SaveMobileRunSnapshot(string reason)
+	{
+		if (!MobileOptimization.IsMobile())
+			return;
+		if (!MobileRunSession.IsActiveRunPhase(CurrentPhase))
+			return;
+
+		MobileRunSession.Save(CurrentPhase, _runState);
+		GD.Print($"[MobileSession] Snapshot saved ({reason}).");
 	}
 
 	public void StartDraftPhase()
@@ -300,6 +429,7 @@ public partial class GameController : Node
 		int pickNum    = totalPicks - _extraPicksRemaining;
 		_draftPanel.Show(options, _runState.WaveIndex + 1, pickNum, totalPicks, _lastWaveReport);
 		_lastWaveReport = null; // Clear after use
+		SaveMobileRunSnapshot("start_draft");
 	}
 
 	public RunState GetRunState() => _runState;
@@ -308,6 +438,8 @@ public partial class GameController : Node
 	/// <summary>Wipe all in-flight state and restart from wave 1 draft.</summary>
 	public void RestartRun()
 	{
+		MobileRunSession.Clear();
+
 		// Free all enemies currently in the scene
 		foreach (var e in _runState.EnemiesAlive)
 		{
@@ -344,10 +476,11 @@ public partial class GameController : Node
 		_hudPanel.SetBuildName("", visible: false);
 		_hudPanel.ResetSpeed();
 
-		ClearMapVisuals();
-		GenerateMap();
-		ClearSlotVisuals();
-		SetupSlots();
+			ClearMapVisuals();
+			GenerateMap();
+			SetupMobileCamera();
+			ClearSlotVisuals();
+			SetupSlots();
 
 		_extraPicksRemaining = Balance.ExtraPicksForWave(0);
 		
@@ -599,7 +732,7 @@ public partial class GameController : Node
 		_runState.Slots[slotIndex].Tower = tower;
 
 		// Placement bounce — scale from 0 ? 1.15 ? 1.0
-		if (_botRunner == null)
+		if (_botRunner == null && !_isRestoringSnapshot)
 		{
 			tower.Scale = Vector2.Zero;
 			var placeTween = tower.CreateTween();
@@ -610,7 +743,8 @@ public partial class GameController : Node
 		}
 
 		RefreshModPips(slotIndex);
-		SoundManager.Instance?.Play("tower_place");
+		if (!_isRestoringSnapshot)
+			SoundManager.Instance?.Play("tower_place");
 	}
 
 	public override void _Input(InputEvent @event)
@@ -618,22 +752,27 @@ public partial class GameController : Node
 		Vector2 pressPos;
 		if (MobileOptimization.IsMobile())
 		{
-			if (@event is not InputEventScreenTouch { Pressed: true } touch)
+			if (!TryGetMobileGameplayTap(@event, out pressPos))
 				return;
-			pressPos = touch.Position;
 		}
 		else if (@event is InputEventMouseButton { ButtonIndex: MouseButton.Left, Pressed: true })
 		{
-			pressPos = GetViewport().GetMousePosition();
+			pressPos = ScreenToWorld(GetViewport().GetMousePosition());
 		}
 		else if (@event is InputEventScreenTouch { Pressed: true } touch)
 		{
-			pressPos = touch.Position;
+			pressPos = ScreenToWorld(touch.Position);
 		}
 		else
 		{
 			return;
 		}
+
+		HandleGameplayPress(pressPos);
+	}
+
+	private void HandleGameplayPress(Vector2 pressPos)
+	{
 		if (_undoPlacementActive)
 		{
 			return;
@@ -712,6 +851,335 @@ public partial class GameController : Node
 			if (MobileOptimization.IsMobile())
 				_selectedTooltipTower = null;
 		}
+	}
+
+	private bool TryGetMobileGameplayTap(InputEvent @event, out Vector2 worldTapPos)
+	{
+		worldTapPos = Vector2.Zero;
+
+		switch (@event)
+		{
+			case InputEventScreenTouch touch:
+			{
+				if (touch.Pressed)
+				{
+					_mobileTouchPositions[touch.Index] = touch.Position;
+					_mobileTouchStartPositions[touch.Index] = touch.Position;
+					if (_mobileTouchPositions.Count >= 2)
+					{
+						_mobileTapSuppressed = true;
+						StartMobilePinch();
+					}
+					return false;
+				}
+
+				bool wasSingleTouch = _mobileTouchPositions.Count == 1 && _mobileTouchPositions.ContainsKey(touch.Index);
+				Vector2 startPos = _mobileTouchStartPositions.TryGetValue(touch.Index, out var storedStart) ? storedStart : touch.Position;
+				float moved = startPos.DistanceTo(touch.Position);
+
+				_mobileTouchPositions.Remove(touch.Index);
+				_mobileTouchStartPositions.Remove(touch.Index);
+
+				if (_mobileTouchPositions.Count == 0)
+				{
+					bool isTap = wasSingleTouch && !_mobileTapSuppressed && moved <= MobileTapMoveThreshold;
+					ResetMobileGestureState();
+					if (isTap)
+					{
+						worldTapPos = ScreenToWorld(touch.Position);
+						return true;
+					}
+					return false;
+				}
+
+				if (_mobileTouchPositions.Count == 1)
+				{
+					_mobilePinchActive = false;
+					int remainingId = _mobileTouchPositions.Keys.First();
+					_mobileTouchStartPositions[remainingId] = _mobileTouchPositions[remainingId];
+				}
+				else
+				{
+					StartMobilePinch();
+				}
+				return false;
+			}
+
+			case InputEventScreenDrag drag:
+			{
+				if (!_mobileTouchPositions.ContainsKey(drag.Index))
+					return false;
+
+				Vector2 prevPos = _mobileTouchPositions[drag.Index];
+				_mobileTouchPositions[drag.Index] = drag.Position;
+
+				if (_mobileTouchPositions.Count >= 2)
+				{
+					if (!_mobilePinchActive)
+						StartMobilePinch();
+					UpdateMobilePinch();
+					_mobileTapSuppressed = true;
+					GetViewport().SetInputAsHandled();
+					return false;
+				}
+
+				if (GodotObject.IsInstanceValid(_mobileCamera) && _mobileZoomLevel > MobileMinZoom + 0.001f)
+				{
+					Vector2 delta = drag.Position - prevPos;
+					if (delta.Length() >= MobilePanStartThreshold)
+						_mobileTapSuppressed = true;
+
+					if (_mobileTapSuppressed)
+					{
+						PanMobileCameraByScreenDelta(delta);
+						GetViewport().SetInputAsHandled();
+					}
+				}
+				return false;
+			}
+		}
+
+		return false;
+	}
+
+	private void StartMobilePinch()
+	{
+		if (!GodotObject.IsInstanceValid(_mobileCamera) || _mobileTouchPositions.Count < 2)
+		{
+			_mobilePinchActive = false;
+			return;
+		}
+
+		var points = _mobileTouchPositions.Values.Take(2).ToArray();
+		_mobilePinchStartDistance = Mathf.Max(1f, points[0].DistanceTo(points[1]));
+		_mobilePinchStartZoom = _mobileZoomLevel;
+		_mobilePinchLastMidpoint = (points[0] + points[1]) * 0.5f;
+		_mobilePinchActive = true;
+	}
+
+	private void UpdateMobilePinch()
+	{
+		if (!_mobilePinchActive || !GodotObject.IsInstanceValid(_mobileCamera) || _mobileTouchPositions.Count < 2)
+			return;
+
+		var points = _mobileTouchPositions.Values.Take(2).ToArray();
+		Vector2 midpoint = (points[0] + points[1]) * 0.5f;
+		float distance = Mathf.Max(1f, points[0].DistanceTo(points[1]));
+
+		Vector2 midDelta = midpoint - _mobilePinchLastMidpoint;
+		if (midDelta.LengthSquared() > 0.0001f)
+			PanMobileCameraByScreenDelta(midDelta);
+		_mobilePinchLastMidpoint = midpoint;
+
+		float scale = distance / _mobilePinchStartDistance;
+		float nextZoom = Mathf.Clamp(_mobilePinchStartZoom * scale, MobileMinZoom, MobileMaxZoom);
+		Vector2 worldBefore = ScreenToWorld(midpoint);
+		ApplyMobileZoom(nextZoom);
+		Vector2 worldAfter = ScreenToWorld(midpoint);
+
+		if (GodotObject.IsInstanceValid(_mobileCamera))
+		{
+			_mobileCamera.Position += worldBefore - worldAfter;
+			ClampMobileCameraToBounds();
+		}
+	}
+
+	private void PanMobileCameraByScreenDelta(Vector2 deltaScreen)
+	{
+		if (!GodotObject.IsInstanceValid(_mobileCamera))
+			return;
+
+		float worldPerScreenUnit = 1f / Mathf.Max(0.001f, _mobileZoomLevel);
+		_mobileCamera.Position -= deltaScreen * worldPerScreenUnit;
+		ClampMobileCameraToBounds();
+	}
+
+	private void SetupMobileCamera()
+	{
+		if (!MobileOptimization.IsMobile())
+			return;
+
+		if (!GodotObject.IsInstanceValid(_mobileCamera))
+		{
+			_mobileCamera = _worldNode.GetNodeOrNull<Camera2D>("MobileCamera");
+			if (!GodotObject.IsInstanceValid(_mobileCamera))
+			{
+				_mobileCamera = new Camera2D
+				{
+					Name = "MobileCamera",
+					Enabled = true,
+					ProcessCallback = Camera2D.Camera2DProcessCallback.Idle,
+					PositionSmoothingEnabled = false,
+				};
+				_worldNode.AddChild(_mobileCamera);
+			}
+		}
+
+		_mobileCamera.AnchorMode = Camera2D.AnchorModeEnum.DragCenter;
+		_mobileCamera.IgnoreRotation = true;
+		_mobileCamera.Offset = Vector2.Zero;
+		_mobileCameraBounds = ComputeMobileCameraBounds();
+		CalibrateMobileCameraZoomMode();
+		ApplyMobileZoom(1f);
+		Vector2 boundsCenter = _mobileCameraBounds.Position + (_mobileCameraBounds.Size * 0.5f);
+		_mobileCamera.Position = ClampMobileCameraPosition(boundsCenter);
+		_mobileCamera.MakeCurrent();
+		_mobileLastViewportSize = GetViewport().GetVisibleRect().Size;
+		ResetMobileGestureState();
+	}
+
+	private void ApplyMobileZoom(float zoomLevel)
+	{
+		if (!GodotObject.IsInstanceValid(_mobileCamera))
+			return;
+
+		_mobileZoomLevel = Mathf.Clamp(zoomLevel, MobileMinZoom, MobileMaxZoom);
+		float cameraZoom = _mobileCameraDirectZoom
+			? _mobileZoomLevel
+			: 1f / Mathf.Max(0.001f, _mobileZoomLevel);
+		_mobileCamera.Zoom = new Vector2(cameraZoom, cameraZoom);
+		ApplyMobileZoomReadability();
+		ClampMobileCameraToBounds();
+	}
+
+	private void ApplyMobileZoomReadability()
+	{
+		if (!MobileOptimization.IsMobile())
+			return;
+
+		float t = Mathf.Clamp((_mobileZoomLevel - MobileMinZoom) / (MobileMaxZoom - MobileMinZoom), 0f, 1f);
+		float combatScale = Mathf.Lerp(1.0f, 1.65f, t);
+		DamageNumber.SetMobileReadabilityScale(combatScale);
+		CombatCallout.SetMobileReadabilityScale(combatScale);
+
+		if (GodotObject.IsInstanceValid(_hudPanel))
+			_hudPanel.SetMobileZoomReadability(_mobileZoomLevel);
+
+		if (GodotObject.IsInstanceValid(_tooltipLabel))
+		{
+			int targetSize = Mathf.RoundToInt(Mathf.Lerp(13f, 18f, t));
+			if (targetSize != _mobileTooltipFontSize)
+			{
+				_mobileTooltipFontSize = targetSize;
+				UITheme.ApplyFont(_tooltipLabel, size: _mobileTooltipFontSize);
+			}
+		}
+	}
+
+	private void CalibrateMobileCameraZoomMode()
+	{
+		if (!GodotObject.IsInstanceValid(_mobileCamera))
+			return;
+
+		Vector2 prevZoom = _mobileCamera.Zoom;
+		Vector2 prevPos = _mobileCamera.Position;
+
+		Vector2 center = _mobileCameraBounds.Position + (_mobileCameraBounds.Size * 0.5f);
+		_mobileCamera.Position = center;
+		_mobileCamera.Zoom = Vector2.One;
+
+		Vector2 vp = GetViewport().GetVisibleRect().Size;
+		Vector2 a = vp * 0.5f + new Vector2(-120f, 0f);
+		Vector2 b = vp * 0.5f + new Vector2(120f, 0f);
+		float worldSpanAt1 = ScreenToWorld(a).DistanceTo(ScreenToWorld(b));
+
+		_mobileCamera.Zoom = new Vector2(1.2f, 1.2f);
+		float worldSpanAt12 = ScreenToWorld(a).DistanceTo(ScreenToWorld(b));
+
+		_mobileCameraDirectZoom = worldSpanAt12 < worldSpanAt1;
+		GD.Print($"[MobileCamera] Zoom mapping: {(_mobileCameraDirectZoom ? "direct" : "inverse")}");
+
+		_mobileCamera.Zoom = prevZoom;
+		_mobileCamera.Position = prevPos;
+	}
+
+	private Rect2 ComputeMobileCameraBounds()
+	{
+		if (_currentMap.Path.Length == 0 && _currentMap.Slots.Length == 0)
+			return new Rect2(0f, 0f, 1280f, 720f);
+
+		float minX = float.MaxValue;
+		float minY = float.MaxValue;
+		float maxX = float.MinValue;
+		float maxY = float.MinValue;
+
+		foreach (var p in _currentMap.Path)
+		{
+			minX = Mathf.Min(minX, p.X);
+			minY = Mathf.Min(minY, p.Y);
+			maxX = Mathf.Max(maxX, p.X);
+			maxY = Mathf.Max(maxY, p.Y);
+		}
+
+		foreach (var s in _currentMap.Slots)
+		{
+			minX = Mathf.Min(minX, s.X);
+			minY = Mathf.Min(minY, s.Y);
+			maxX = Mathf.Max(maxX, s.X);
+			maxY = Mathf.Max(maxY, s.Y);
+		}
+
+		float margin = 200f;
+		minX -= margin;
+		minY -= margin;
+		maxX += margin;
+		maxY += margin;
+
+		if (maxX - minX < 1f) maxX = minX + 1f;
+		if (maxY - minY < 1f) maxY = minY + 1f;
+
+		return new Rect2(minX, minY, maxX - minX, maxY - minY);
+	}
+
+	private Vector2 ClampMobileCameraPosition(Vector2 position)
+	{
+		if (!GodotObject.IsInstanceValid(_mobileCamera))
+			return position;
+
+		var viewportSize = GetViewport().GetVisibleRect().Size;
+		Vector2 halfView = viewportSize * (0.5f / Mathf.Max(0.001f, _mobileZoomLevel));
+		Vector2 min = _mobileCameraBounds.Position + halfView;
+		Vector2 max = _mobileCameraBounds.End - halfView;
+
+		if (min.X > max.X)
+			position.X = (_mobileCameraBounds.Position.X + _mobileCameraBounds.End.X) * 0.5f;
+		else
+			position.X = Mathf.Clamp(position.X, min.X, max.X);
+
+		if (min.Y > max.Y)
+			position.Y = (_mobileCameraBounds.Position.Y + _mobileCameraBounds.End.Y) * 0.5f;
+		else
+			position.Y = Mathf.Clamp(position.Y, min.Y, max.Y);
+
+		return position;
+	}
+
+	private void ClampMobileCameraToBounds()
+	{
+		if (!GodotObject.IsInstanceValid(_mobileCamera))
+			return;
+		_mobileCamera.Position = ClampMobileCameraPosition(_mobileCamera.Position);
+	}
+
+	private void ResetMobileGestureState()
+	{
+		_mobileTouchPositions.Clear();
+		_mobileTouchStartPositions.Clear();
+		_mobileTapSuppressed = false;
+		_mobilePinchActive = false;
+		_mobilePinchStartDistance = 1f;
+		_mobilePinchStartZoom = _mobileZoomLevel;
+		_mobilePinchLastMidpoint = Vector2.Zero;
+	}
+
+	private Vector2 ScreenToWorld(Vector2 screenPos)
+	{
+		return GetViewport().GetCanvasTransform().AffineInverse() * screenPos;
+	}
+
+	private Vector2 WorldToScreen(Vector2 worldPos)
+	{
+		return GetViewport().GetCanvasTransform() * worldPos;
 	}
 	private void SetupSlots()
 	{
@@ -952,7 +1420,9 @@ public partial class GameController : Node
 			AutowrapMode = TextServer.AutowrapMode.Off,
 		};
 		UITheme.ApplyFont(_tooltipLabel, size: 13);
+		_mobileTooltipFontSize = 13;
 		_tooltipPanel.AddChild(_tooltipLabel);
+		ApplyMobileZoomReadability();
 	}
 
 	private void UpdateTooltip()
@@ -1017,24 +1487,26 @@ public partial class GameController : Node
 			// Size panel to fit label
 			var labelSize = _tooltipLabel.GetMinimumSize();
 			_tooltipPanel.Size = labelSize + new Vector2(16, 12);
-			// Positioning: mobile shows above selected tower; desktop follows cursor.
-			Vector2 pos;
-			if (MobileOptimization.IsMobile())
-			{
-				pos = new Vector2(
-					mousePos.X - _tooltipPanel.Size.X * 0.5f,
-					mousePos.Y - _tooltipPanel.Size.Y - 14f
-				);
-			}
-			else
-			{
-				pos = mousePos + new Vector2(20, 10);
-			}
-			pos.X = Mathf.Min(pos.X, 1280 - _tooltipPanel.Size.X - 4);
-			pos.Y = Mathf.Min(pos.Y, 720  - _tooltipPanel.Size.Y - 4);
-			_tooltipPanel.Position = pos;
-			_tooltipPanel.Visible = true;
-			return;
+				// Positioning: mobile shows above selected tower; desktop follows cursor.
+				Vector2 pos;
+				if (MobileOptimization.IsMobile())
+				{
+					Vector2 screenAnchor = WorldToScreen(mousePos);
+					pos = new Vector2(
+						screenAnchor.X - _tooltipPanel.Size.X * 0.5f,
+						screenAnchor.Y - _tooltipPanel.Size.Y - 14f
+					);
+				}
+				else
+				{
+					pos = mousePos + new Vector2(20, 10);
+				}
+				var vpSize = GetViewport().GetVisibleRect().Size;
+				pos.X = Mathf.Clamp(pos.X, 4f, vpSize.X - _tooltipPanel.Size.X - 4f);
+				pos.Y = Mathf.Clamp(pos.Y, 4f, vpSize.Y - _tooltipPanel.Size.Y - 4f);
+				_tooltipPanel.Position = pos;
+				_tooltipPanel.Visible = true;
+				return;
 		}
 		_tooltipPanel.Visible = false;
 	}
@@ -1724,37 +2196,7 @@ public partial class GameController : Node
 	private (Color start, Color end) BuildRunNameColors()
 	{
 		var profile = BuildRunNameProfile();
-		var familyColor = profile.PrimaryFamily switch
-		{
-			"DamageScaling" => new Color(1.00f, 0.60f, 0.20f),
-			"Utility" => new Color(0.45f, 0.92f, 1.00f),
-			"Range" => new Color(0.72f, 0.58f, 1.00f),
-			"StatusSynergy" => new Color(1.00f, 0.36f, 0.80f),
-			"MultiTarget" => new Color(0.48f, 1.00f, 0.76f),
-			_ => new Color(0.78f, 0.88f, 1.00f),
-		};
-
-		var towerColor = profile.MvpTowerId switch
-		{
-			"rapid_shooter" => new Color(0.25f, 0.92f, 1.00f),
-			"heavy_cannon" => new Color(1.00f, 0.60f, 0.18f),
-			"marker_tower" => new Color(1.00f, 0.30f, 0.72f),
-			"chain_tower" => new Color(0.62f, 0.90f, 1.00f),
-			_ => new Color(0.84f, 0.92f, 1.00f),
-		};
-
-		return (EnsureBrightColor(familyColor), EnsureBrightColor(towerColor));
-	}
-
-	private static Color EnsureBrightColor(Color c)
-	{
-		float max = Mathf.Max(c.R, Mathf.Max(c.G, c.B));
-		if (max < 0.78f)
-		{
-			float scale = 0.78f / Mathf.Max(0.001f, max);
-			c = new Color(c.R * scale, c.G * scale, c.B * scale, 1f);
-		}
-		return new Color(Mathf.Clamp(c.R, 0f, 1f), Mathf.Clamp(c.G, 0f, 1f), Mathf.Clamp(c.B, 0f, 1f), 1f);
+		return RunNameGenerator.ResolveNameColors(profile);
 	}
 
 	private void StartWavePhase()
@@ -1787,10 +2229,11 @@ public partial class GameController : Node
 			_hudPanel.PulseWaveLabel();
 			_pathFlow?.TriggerSurge(1.0f);
 		}
-			_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
-			string runName = BuildRunName();
-			var runColors = BuildRunNameColors();
+		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
+		string runName = BuildRunName();
+		var runColors = BuildRunNameColors();
 		_hudPanel.SetBuildName(runName, visible: true, startColor: runColors.start, endColor: runColors.end);
+		SaveMobileRunSnapshot("start_wave");
 	}
 
 	private void ShakeWorld()
