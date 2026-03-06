@@ -2,7 +2,14 @@
 
 This document reflects the current implementation in code/data.
 
-**Current Status:** All documented features are fully implemented and production-ready. Recent implementation includes enhanced undo system, combat callout notifications, low-life tension feedback, and comprehensive audio polish.
+
+**Current Status:** All documented features are fully implemented and production-ready. Recent implementation includes:
+- Enhanced undo system
+- Combat callout notifications
+- Low-life tension feedback
+- Comprehensive audio polish
+- **Leaderboard build-name label:** Each leaderboard row now displays a large build-name label on the right, generated per entry from map/difficulty/stats/build snapshot (see below for details).
+- **Run naming engine:** Dedicated naming engine with richer profile analysis and anti-repeat logic (see below).
 
 Platforms: Windows Desktop, Android (phone and tablet)
 
@@ -18,7 +25,13 @@ Platforms: Windows Desktop, Android (phone and tablet)
 
 **Run Arc Pacing:** Wave 10 HALFWAY banner pulse with short music lift cue for mid-run momentum.
 
-**Enhanced Build Identity:** Deterministic build naming with [family adjective] + [tower noun] style. MVP tower tracking (% of total damage) and Most Valuable Modifier (proc count).
+
+**Enhanced Build Identity:**
+- Deterministic build naming with a dedicated engine (see RunNameGenerator section).
+- Build names now consider: primary/secondary modifier family, MVP/support tower, map, difficulty, pace, win/loss, clutch state, tower diversity.
+- Multiple templates and richer vocabulary (not just adjective+noun).
+- Anti-repeat history is persisted to `user://run_name_history.cfg` and applied to final run names (win/loss) to avoid recent duplicates.
+- MVP tower tracking (% of total damage) and Most Valuable Modifier (proc count).
 
 **Speed Enhancement:** "Speed feels like power" - center SPEED X× toast with neon streak on toggle, subtle SFX/music pitch lift at 2×/3×.
 
@@ -473,6 +486,7 @@ Behavior:
 
 ---
 
+
 ## Leaderboards and High Scores
 
 **Steam Integration Status:** Core infrastructure implemented, Steamworks.NET integrated, awaiting Steam App ID for global leaderboards.
@@ -509,7 +523,35 @@ Behavior:
 - Prevents accidental menu navigation when interacting with leaderboard UI
 - Button opens dedicated leaderboard screen with preselected map/difficulty
 
+
 ### Dedicated Leaderboard Screen
+
+**Build Name Label:**
+- Each leaderboard row (local and global) now displays a large build-name label on the right side.
+- Build names are generated per entry from that row’s map/difficulty/stats/build snapshot via `RunNameGenerator.cs`.
+- UI specifics: right-side label is font size 28, clipped, right-aligned, with a minimum width of 280. Left stats text remains on the same row and is clipped to avoid overlap.
+## Build Name Generation and Profile Analysis
+
+**RunNameGenerator.cs**
+- Dedicated naming engine for build/run names, used in:
+  - In-run HUD names (`BuildRunName()`)
+  - End-screen names (win/loss)
+  - Leaderboard entry names (local/global)
+  - Color gradient logic (now based on generated profile)
+- Names consider: primary/secondary modifier family, MVP/support tower, map, difficulty, pace, win/loss, clutch state, tower diversity
+- Uses multiple templates and a large vocabulary for variety
+- Anti-repeat: recent names are tracked in `user://run_name_history.cfg` and avoided for final run names
+
+**RunNameProfile.cs**
+- Structured profile model for build/run analysis
+- Used by `RunNameGenerator` to select templates, vocabulary, and color gradients
+
+**GameController.cs**
+- Rewired to use `RunNameGenerator` for all build/run name generation and color logic
+
+**UI Details:**
+- LeaderboardsMenu.cs: Each leaderboard row displays the build name label on the right (font size 28, right-aligned, min width 280, clipped)
+- Left stats text is clipped to avoid overlap with the build name
 
 **New Implementation:** Full-featured leaderboard browser accessible from main menu and end screen.
 
