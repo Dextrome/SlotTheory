@@ -1629,7 +1629,8 @@ public partial class GameController : Node
 			_runState.TotalKills,
 			_runState.TotalPlayTime,
 			nowUnix,
-			gameVersion
+			gameVersion,
+			BuildSnapshotCodec.CaptureFromRunState(_runState)
 		);
 	}
 

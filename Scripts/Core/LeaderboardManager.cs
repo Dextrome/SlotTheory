@@ -242,7 +242,8 @@ public partial class LeaderboardManager : Node
             0,
             0f,
             0L,
-            "dev");
+            "dev",
+            BuildSnapshotCodec.Empty());
         public string Reason { get; set; } = "";
     }
 

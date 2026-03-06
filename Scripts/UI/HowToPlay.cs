@@ -75,7 +75,7 @@ public partial class HowToPlay : Node
 		AddRow(vbox, "Assign to a slot / tower",  "Left-click the target");
 		AddRow(vbox, "Cycle targeting mode",       "Left-click a tower during a wave");
 		AddRow(vbox, "Pause / unpause",            "Esc");
-		AddRow(vbox, "Speed",                      "Click speed button to cycle  x1 -> x2 -> x3");
+		AddRow(vbox, "Speed",                      "Click speed button to cycle  x1 -> x2 -> x3 -> x5");
 		AddSpacer(vbox, 12);
 
 		// â”€â”€ Towers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -342,4 +342,3 @@ public partial class HowToPlay : Node
 		vbox.AddChild(s);
 	}
 }
-
