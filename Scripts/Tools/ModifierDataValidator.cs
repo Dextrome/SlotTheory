@@ -148,7 +148,7 @@ public static class ModifierDataValidator
             ["chain_reaction"] = new ModifierExpectation
             {
                 Name = "Chain Reaction",
-                RequiredTokens = new() { "55%" }
+                RequiredTokens = new() { "60%" }
             }
         };
     }
