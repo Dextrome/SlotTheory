@@ -3,6 +3,7 @@ using System.Linq;
 using Godot;
 using SlotTheory.Core;
 using SlotTheory.Core.Leaderboards;
+using SlotTheory.Core.Naming;
 using SlotTheory.Data;
 
 namespace SlotTheory.UI;
@@ -280,18 +281,51 @@ public partial class LeaderboardsMenu : Node
         vbox.AddThemeConstantOverride("separation", 6);
         panel.AddChild(vbox);
 
+        var headRow = new HBoxContainer();
+        headRow.AddThemeConstantOverride("separation", 10);
+        vbox.AddChild(headRow);
+
         var header = new Label
         {
             HorizontalAlignment = HorizontalAlignment.Left,
             Text = $"#{row.Rank}  {Truncate(row.Name, 18)}  |  {row.Score:N0}  |  W {row.WaveReached}/{Balance.TotalWaves}  |  L {row.LivesRemaining}  |  K {row.TotalKills}  |  {FormatTime(row.TimeSeconds)}",
+            ClipText = true,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
         };
         UITheme.ApplyFont(header, semiBold: true, size: 16);
         header.Modulate = new Color(0.92f, 0.96f, 1.00f);
-        vbox.AddChild(header);
+        headRow.AddChild(header);
+
+        var buildName = new Label
+        {
+            HorizontalAlignment = HorizontalAlignment.Right,
+            VerticalAlignment = VerticalAlignment.Center,
+            ClipText = true,
+            Text = ResolveBuildName(row),
+            CustomMinimumSize = new Vector2(280f, 0f),
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd,
+        };
+        UITheme.ApplyFont(buildName, semiBold: true, size: 28);
+        buildName.Modulate = new Color(0.77f, 0.95f, 0.34f, 0.96f);
+        headRow.AddChild(buildName);
 
         vbox.AddChild(BuildLoadoutStrip(row.Build));
 
         return panel;
+    }
+
+    private string ResolveBuildName(LeaderboardEntryView row)
+    {
+        return RunNameGenerator.GenerateFromSnapshot(
+            _selectedMapId,
+            _selectedDifficulty,
+            row.Score,
+            row.WaveReached,
+            row.LivesRemaining,
+            row.TotalKills,
+            row.TotalDamageDealt,
+            row.TimeSeconds,
+            row.Build);
     }
 
     private Control BuildLoadoutStrip(RunBuildSnapshot build)
