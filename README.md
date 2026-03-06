@@ -80,7 +80,7 @@ Modifier assignment uses `Preview -> Confirm`:
 - Hair Trigger: +40% attack speed, -18% range
 - Split Shot: 2 split projectiles at 42% each; extra copies add extra split
 - Feedback Loop: kill reduces current cooldown by 25%
-- Chain Reaction: +1 bounce per copy, sets chain carry to 55%
+- Chain Reaction: +1 bounce per copy, sets chain carry to 60%
 
 Max modifiers per tower: 3
 

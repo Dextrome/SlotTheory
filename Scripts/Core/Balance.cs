@@ -46,7 +46,7 @@ public static class Balance
 
     // Marked status
     public const float MarkedDamageBonus = 0.40f; // +40% incoming damage to all towers
-    public const float MarkedDuration = 2.5f;     // seconds
+    public const float MarkedDuration = 4.0f;     // seconds
 
     // Slow status
     public const float SlowSpeedFactor = 0.75f;   // enemy moves at 75% speed (-25%) per Chill Shot; stacks multiplicatively
@@ -85,15 +85,15 @@ public static class Balance
     // Difficulty multipliers
     public static class DifficultyMultipliers
     {
-        // Normal mode - no changes (1.0x)
-        public const float NormalEnemyHpMultiplier = 1.0f;
-        public const float NormalEnemyCountMultiplier = 1.0f;
-        public const float NormalSpawnIntervalMultiplier = 1.0f;
+        // Normal mode - light difficulty (+5% challenge) (targeting ~80% win rate)
+        public const float NormalEnemyHpMultiplier = 1.05f;
+        public const float NormalEnemyCountMultiplier = 1.05f;
+        public const float NormalSpawnIntervalMultiplier = 0.95f;
         
-        // Hard mode - more challenging
-        public const float HardEnemyHpMultiplier = 1.2f;        // +20% HP
-        public const float HardEnemyCountMultiplier = 1.15f;    // +15% more enemies (rounded up)
-        public const float HardSpawnIntervalMultiplier = 0.85f; // 15% faster spawns
+        // Hard mode - moderately more challenging (targeting ~40% win rate)
+        public const float HardEnemyHpMultiplier = 1.1f;        // +10% HP
+        public const float HardEnemyCountMultiplier = 1.2f;     // +20% more enemies 
+        public const float HardSpawnIntervalMultiplier = 0.9f;  // 10% faster spawns
     }
 
     public static float GetEnemyHpMultiplier(DifficultyMode difficulty) => difficulty switch

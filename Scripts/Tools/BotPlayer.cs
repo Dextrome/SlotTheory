@@ -194,58 +194,61 @@ public class BotPlayer
         return PickTowerFirst(opts, s);
     }
 
-    // Stack chain_reaction on a chain_tower, fill with feedback_loop + rapid shooters
+    // Improved chain strategy: flexible placement, smart modifier usage, diverse towers
     private DraftPick? PickChainFocus(List<DraftOption> opts, RunState s)
     {
         var empty    = EmptySlots(s);
         var eligible = ModSlots(s);
-        bool hasChain = s.Slots.Any(sl => sl.Tower?.TowerId == "chain_tower");
-
-        // 1. Place chain_tower first
-        if (!hasChain && empty.Count > 0)
-        {
-            var ct = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "chain_tower");
-            if (ct != null) return new DraftPick(ct, empty[0]);
-        }
 
         if (eligible.Count > 0)
         {
-            // 2. Stack chain_reaction — prefer the chain_tower slot, then any slot
+            // 1. Prioritize chain_reaction on any tower (works on all towers!)
             var cr = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "chain_reaction");
             if (cr != null)
             {
-                int chainSlot = eligible
-                    .FirstOrDefault(i => s.Slots[i].Tower?.TowerId == "chain_tower", -1);
-                int slot = chainSlot >= 0 ? chainSlot
-                         : eligible.OrderBy(i => s.Slots[i].Tower!.Modifiers.Count).First();
+                // Prefer towers with fewer modifiers, but any tower works
+                int slot = eligible.OrderBy(i => s.Slots[i].Tower!.Modifiers.Count).First();
                 return new DraftPick(cr, slot);
             }
 
-            // 3. feedback_loop on any tower (chain kills many enemies quickly)
+            // 2. feedback_loop ONLY on fast-firing towers for maximum effect
             var fl = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "feedback_loop");
             if (fl != null)
             {
-                int slot = eligible.OrderBy(i => s.Slots[i].Tower!.Modifiers.Count).First();
-                return new DraftPick(fl, slot);
-            }
-
-            // 4. momentum on non-chain towers
-            var mom = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "momentum");
-            if (mom != null)
-            {
-                int slot = eligible
-                    .Where(i => s.Slots[i].Tower?.TowerId != "chain_tower")
+                int fastSlot = eligible
+                    .Where(i => s.Slots[i].Tower?.TowerId == "rapid_shooter" || s.Slots[i].Tower?.TowerId == "heavy_cannon")
                     .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
                     .FirstOrDefault(-1);
-                if (slot >= 0) return new DraftPick(mom, slot);
+                if (fastSlot >= 0) return new DraftPick(fl, fastSlot);
+            }
+
+            // 3. Take other strong modifiers that synergize well
+            var strongMods = new[] { "hair_trigger", "split_shot", "momentum", "overkill" };
+            foreach (var modId in strongMods)
+            {
+                var mod = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == modId);
+                if (mod != null)
+                {
+                    int slot = eligible.OrderBy(i => s.Slots[i].Tower!.Modifiers.Count).First();
+                    return new DraftPick(mod, slot);
+                }
             }
         }
 
-        // 5. Fill remaining slots with rapid_shooter
+        // 4. Flexible tower placement - prefer chain_tower but take what's available
         if (empty.Count > 0)
         {
+            // First choice: chain_tower for natural chain synergy
+            var chain = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "chain_tower");
+            if (chain != null) return new DraftPick(chain, empty[0]);
+
+            // Second choice: rapid_shooter (fast firing, works great with feedback_loop)
             var rapid = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rapid_shooter");
             if (rapid != null) return new DraftPick(rapid, empty[0]);
+
+            // Third choice: heavy_cannon (high damage, good with chain_reaction stacks)
+            var heavy = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "heavy_cannon");
+            if (heavy != null) return new DraftPick(heavy, empty[0]);
         }
 
         return PickTowerFirst(opts, s);

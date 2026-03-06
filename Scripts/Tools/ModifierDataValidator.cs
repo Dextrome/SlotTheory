@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Globalization;
 using Godot;
 using SlotTheory.Core;
 using SlotTheory.Data;
@@ -16,6 +17,9 @@ public static class ModifierDataValidator
         public string Name { get; set; } = string.Empty;
         public List<string> RequiredTokens { get; set; } = new();
     }
+
+    private const string MultiplySign = "\u00D7";
+    private const string MinusSign = "\u2212";
 
     public static void ValidateModifierData(Dictionary<string, ModifierDef> modifiers)
     {
@@ -68,7 +72,7 @@ public static class ModifierDataValidator
         }
         else
         {
-            GD.PrintErr($"[VALIDATOR] ✗ {errorCount} mismatch(es) found — update tooltip!");
+            GD.PrintErr($"[VALIDATOR] \u2717 {errorCount} mismatch(es) found \u2014 update tooltip!");
         }
     }
 
@@ -83,12 +87,16 @@ public static class ModifierDataValidator
             ["momentum"] = new ModifierExpectation
             {
                 Name = "Momentum",
-                RequiredTokens = new() { $"+{Balance.MomentumBonusPerStack * 100f:0}%", $"×{momentumMaxMultiplier:0.00}" }
+                RequiredTokens = new()
+                {
+                    $"+{FormatInt(Balance.MomentumBonusPerStack * 100f)}%",
+                    $"{MultiplySign}{FormatTwoDp(momentumMaxMultiplier)}"
+                }
             },
             ["overkill"] = new ModifierExpectation
             {
                 Name = "Overkill",
-                RequiredTokens = new() { $"{Balance.OverkillSpillEfficiency * 100f:0}%" }
+                RequiredTokens = new() { $"{FormatInt(Balance.OverkillSpillEfficiency * 100f)}%" }
             },
             ["exploit_weakness"] = new ModifierExpectation
             {
@@ -98,32 +106,44 @@ public static class ModifierDataValidator
             ["focus_lens"] = new ModifierExpectation
             {
                 Name = "Focus Lens",
-                RequiredTokens = new() { $"+{focusLensPercent:0}%", $"×{Balance.FocusLensAttackInterval:0}" }
+                RequiredTokens = new()
+                {
+                    $"+{FormatInt(focusLensPercent)}%",
+                    $"{MultiplySign}{FormatInt(Balance.FocusLensAttackInterval)}"
+                }
             },
             ["slow"] = new ModifierExpectation
             {
                 Name = "Chill Shot",
-                RequiredTokens = new() { $"−{slowPercent:0}%", $"{Balance.SlowDuration:0} s" }
+                RequiredTokens = new()
+                {
+                    $"{MinusSign}{FormatInt(slowPercent)}%",
+                    $"{FormatInt(Balance.SlowDuration)} s"
+                }
             },
             ["overreach"] = new ModifierExpectation
             {
                 Name = "Overreach",
-                RequiredTokens = new() { "+40%", "−20%" }
+                RequiredTokens = new() { "+40%", $"{MinusSign}20%" }
             },
             ["hair_trigger"] = new ModifierExpectation
             {
                 Name = "Hair Trigger",
-                RequiredTokens = new() { $"+{(Balance.HairTriggerAttackSpeed - 1f) * 100f:0}%", $"−{(1f - Balance.HairTriggerRangeFactor) * 100f:0}%" }
+                RequiredTokens = new()
+                {
+                    $"+{FormatInt((Balance.HairTriggerAttackSpeed - 1f) * 100f)}%",
+                    $"{MinusSign}{FormatInt((1f - Balance.HairTriggerRangeFactor) * 100f)}%"
+                }
             },
             ["split_shot"] = new ModifierExpectation
             {
                 Name = "Split Shot",
-                RequiredTokens = new() { $"{Balance.SplitShotDamageRatio * 100f:0}%" }
+                RequiredTokens = new() { $"{FormatInt(Balance.SplitShotDamageRatio * 100f)}%" }
             },
             ["feedback_loop"] = new ModifierExpectation
             {
                 Name = "Feedback Loop",
-                RequiredTokens = new() { $"{Balance.FeedbackLoopCooldownReduction * 100f:0}%" }
+                RequiredTokens = new() { $"{FormatInt(Balance.FeedbackLoopCooldownReduction * 100f)}%" }
             },
             ["chain_reaction"] = new ModifierExpectation
             {
@@ -131,5 +151,15 @@ public static class ModifierDataValidator
                 RequiredTokens = new() { "55%" }
             }
         };
+    }
+
+    private static string FormatInt(float value)
+    {
+        return value.ToString("0", CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatTwoDp(float value)
+    {
+        return value.ToString("0.00", CultureInfo.InvariantCulture);
     }
 }
