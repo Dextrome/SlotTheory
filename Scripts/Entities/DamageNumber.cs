@@ -11,6 +11,7 @@ public partial class DamageNumber : Node2D
 {
     private const float Duration  = 0.70f;
     private const float RiseSpeed = 38f;
+    private static float _mobileReadabilityScale = 1f;
 
     private float  _life;
     private string _text   = "";
@@ -22,6 +23,11 @@ public partial class DamageNumber : Node2D
         _text   = $"{(int)damage}";
         _color  = color;
         _isKill = isKill;
+    }
+
+    public static void SetMobileReadabilityScale(float scale)
+    {
+        _mobileReadabilityScale = Mathf.Clamp(scale, 1f, 2f);
     }
 
     public override void _Process(double delta)
@@ -37,7 +43,8 @@ public partial class DamageNumber : Node2D
         float t     = _life / Duration;
         float alpha = 1f - t * t;   // stays bright longer, then drops off
         var   font  = UITheme.SemiBold;
-        int   size  = _isKill ? 24 : 18;
+        int   baseSize = _isKill ? 24 : 18;
+        int   size  = Mathf.Clamp(Mathf.RoundToInt(baseSize * _mobileReadabilityScale), 12, 52);
         var   col   = _isKill ? new Color(1f, 0.85f, 0.15f, alpha)
                                : new Color(_color.R, _color.G, _color.B, alpha);
 

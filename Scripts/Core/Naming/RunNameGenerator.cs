@@ -225,6 +225,30 @@ public static class RunNameGenerator
         int timeSeconds,
         RunBuildSnapshot build)
     {
+        var styled = GenerateStyledFromSnapshot(
+            mapId,
+            difficulty,
+            score,
+            waveReached,
+            livesRemaining,
+            totalKills,
+            totalDamage,
+            timeSeconds,
+            build);
+        return styled.Name;
+    }
+
+    public static (string Name, Color StartColor, Color EndColor) GenerateStyledFromSnapshot(
+        string mapId,
+        DifficultyMode difficulty,
+        int score,
+        int waveReached,
+        int livesRemaining,
+        int totalKills,
+        int totalDamage,
+        int timeSeconds,
+        RunBuildSnapshot build)
+    {
         bool won = waveReached >= Balance.TotalWaves;
         var profile = AnalyzeProfileFromSnapshot(
             mapId,
@@ -247,7 +271,9 @@ public static class RunNameGenerator
             totalDamage,
             timeSeconds));
 
-        return GenerateName(profile, syntheticSeed, registerInHistory: false);
+        string name = GenerateName(profile, syntheticSeed, registerInHistory: false);
+        var colors = ResolveNameColors(profile);
+        return (name, colors.start, colors.end);
     }
 
     public static string ModifierFamily(string modifierId) => modifierId switch
@@ -259,6 +285,30 @@ public static class RunNameGenerator
         "split_shot" or "chain_reaction" => "MultiTarget",
         _ => "Other",
     };
+
+    public static (Color start, Color end) ResolveNameColors(RunNameProfile profile)
+    {
+        var familyColor = profile.PrimaryFamily switch
+        {
+            "DamageScaling" => new Color(1.00f, 0.60f, 0.20f),
+            "Utility" => new Color(0.45f, 0.92f, 1.00f),
+            "Range" => new Color(0.72f, 0.58f, 1.00f),
+            "StatusSynergy" => new Color(1.00f, 0.36f, 0.80f),
+            "MultiTarget" => new Color(0.48f, 1.00f, 0.76f),
+            _ => new Color(0.78f, 0.88f, 1.00f),
+        };
+
+        var towerColor = profile.MvpTowerId switch
+        {
+            "rapid_shooter" => new Color(0.25f, 0.92f, 1.00f),
+            "heavy_cannon" => new Color(1.00f, 0.60f, 0.18f),
+            "marker_tower" => new Color(1.00f, 0.30f, 0.72f),
+            "chain_tower" => new Color(0.62f, 0.90f, 1.00f),
+            _ => new Color(0.84f, 0.92f, 1.00f),
+        };
+
+        return (EnsureBrightColor(familyColor), EnsureBrightColor(towerColor));
+    }
 
     private static (string mvpTowerId, string supportTowerId) ResolveTowerIdentity(
         RunState runState,
@@ -504,6 +554,17 @@ public static class RunNameGenerator
 
         int code = PositiveMod(baseSeed, 89) + 11;
         return NormalizeName($"{baseName} {code}");
+    }
+
+    private static Color EnsureBrightColor(Color c)
+    {
+        float max = Mathf.Max(c.R, Mathf.Max(c.G, c.B));
+        if (max < 0.78f)
+        {
+            float scale = 0.78f / Mathf.Max(0.001f, max);
+            c = new Color(c.R * scale, c.G * scale, c.B * scale, 1f);
+        }
+        return new Color(Mathf.Clamp(c.R, 0f, 1f), Mathf.Clamp(c.G, 0f, 1f), Mathf.Clamp(c.B, 0f, 1f), 1f);
     }
 
     private static string NormalizeName(string value)

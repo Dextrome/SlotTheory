@@ -10,6 +10,9 @@ This document reflects the current implementation in code/data.
 - Comprehensive audio polish
 - **Leaderboard build-name label:** Each leaderboard row now displays a large build-name label on the right, generated per entry from map/difficulty/stats/build snapshot (see below for details).
 - **Run naming engine:** Dedicated naming engine with richer profile analysis and anti-repeat logic (see below).
+- **Mobile camera system:** Pinch-to-zoom, pan controls, camera bounds, and readability scaling for mobile gameplay.
+- **Mobile session persistence:** Automatic save/restore of game state when app is paused/resumed on mobile.
+- **Touch scroll support:** Drag scrolling for all scrollable UI areas on mobile devices.
 
 Platforms: Windows Desktop, Android (phone and tablet)
 
@@ -59,6 +62,35 @@ Platforms: Windows Desktop, Android (phone and tablet)
   - Hamburger pause button in HUD.
   - Auto-pause when app is minimized.
   - Responsive UI scaling and touch sizing.
+
+---
+
+## Mobile Platform Features
+
+**Camera System:**
+- **Pinch-to-zoom:** Two-finger pinch gestures for zooming between 1.0x-2.6x
+- **Pan controls:** Single-finger drag to pan camera when zoomed in
+- **Camera bounds:** Automatic bounds calculation based on map content with margin
+- **Readability scaling:** HUD and tooltip font sizes scale with zoom level for optimal readability
+- **Direct/inverse zoom mapping:** Auto-calibrated zoom behavior based on device characteristics
+
+**Session Persistence:**
+- **Auto-save on pause:** Game state automatically saved when app goes to background
+- **Auto-restore on launch:** Seamlessly resume interrupted runs from main menu
+- **12-hour expiration:** Saved sessions expire after 12 hours to avoid stale state
+- **Complete state capture:** Saves towers placement, modifiers, progress, stats, and map seed
+
+**Touch Interface:**
+- **Drag scrolling:** All scrollable areas (leaderboards, how-to-play, end screen) support touch drag
+- **Gesture suppression:** Tap detection properly handles multi-touch and pan gestures
+- **Touch sizing:** Larger hit areas for slot placement and tower selection
+- **Mobile-specific buttons:** "Main Menu" button on end screen, mobile-optimized layout
+
+**UI Enhancements:**
+- **Auto-resume flow:** Direct launch to game scene when session exists
+- **Adaptive card sizing:** Draft cards scale properly on narrow viewports using unscaled UI space
+- **Session cleanup:** Automatic cleanup on manual menu navigation or run completion
+- **Mobile detection:** Enhanced platform detection including web exports on mobile devices
 
 ---
 
@@ -528,8 +560,10 @@ Behavior:
 
 **Build Name Label:**
 - Each leaderboard row (local and global) now displays a large build-name label on the right side.
-- Build names are generated per entry from that row’s map/difficulty/stats/build snapshot via `RunNameGenerator.cs`.
-- UI specifics: right-side label is font size 28, clipped, right-aligned, with a minimum width of 280. Left stats text remains on the same row and is clipped to avoid overlap.
+- Build names are generated per entry from that row's map/difficulty/stats/build snapshot via `RunNameGenerator.cs`.
+- **Gradient rendering:** Build names use color gradients based on modifier family and MVP tower colors.
+- **Text truncation:** Long build names are truncated to 30 characters with proper clipping.
+- **UI specifics:** right-side label is font size 24, clipped, right-aligned, with a minimum width of 360px. Left stats text remains on the same row and is clipped to avoid overlap.
 ## Build Name Generation and Profile Analysis
 
 **RunNameGenerator.cs**
@@ -541,6 +575,7 @@ Behavior:
 - Names consider: primary/secondary modifier family, MVP/support tower, map, difficulty, pace, win/loss, clutch state, tower diversity
 - Uses multiple templates and a large vocabulary for variety
 - Anti-repeat: recent names are tracked in `user://run_name_history.cfg` and avoided for final run names
+- **Color resolution:** `ResolveNameColors()` generates gradient colors based on modifier family and MVP tower
 
 **RunNameProfile.cs**
 - Structured profile model for build/run analysis
@@ -596,7 +631,7 @@ Behavior:
 
 ## Notes
 
-- This file is intentionally aligned to code/data as of 2026-03-05.
+- This file is intentionally aligned to code/data as of 2026-03-06.
 - If gameplay values change, update:
   - `Data/towers.json`
   - `Data/modifiers.json`
