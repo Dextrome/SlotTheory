@@ -22,12 +22,12 @@
   },
   "chain_tower": {
     "Name": "Arc Emitter",
-    "BaseDamage": 14.0,
+    "BaseDamage": 18.0,
     "AttackInterval": 1.2,
     "Range": 257.0,
     "AppliesMark": false,
     "ChainCount": 2,
-    "ChainRange": 333.0,
+    "ChainRange": 400.0,
     "ChainDamageDecay": 0.6
   }
 }

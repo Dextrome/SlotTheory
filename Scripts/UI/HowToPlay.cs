@@ -100,7 +100,7 @@ public partial class HowToPlay : Node
 
 		// â”€â”€ Mark â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		AddHeader(vbox, "MARK");
-		AddLine(vbox, "Marker Tower hits apply Mark for 2.5 seconds.");
+		AddLine(vbox, "Marker Tower hits apply Mark for 4 seconds.");
 		AddLine(vbox, "Marked enemies take +40% damage from all towers.");
 		AddLine(vbox, "Pair with Exploit Weakness for a x2.24 burst combo (+40% mark x +60% exploit).");
 		AddSpacer(vbox, 12);
@@ -116,7 +116,7 @@ public partial class HowToPlay : Node
 		AddModRow(vbox, "Hair Trigger",     "+40% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
 		AddModRow(vbox, "Split Shot",       "On hit, fires 2 projectiles at nearby enemies for 42% damage each. Each additional copy fires one more projectile.");
 		AddModRow(vbox, "Feedback Loop",    "Killing an enemy reduces this tower's current cooldown by 25%. Lets rapid killers fire again sooner.");
-		AddModRow(vbox, "Chain Reaction",   "After each hit, the attack jumps to 1 nearby enemy for 55% damage. Each additional copy adds 1 more bounce.");
+		AddModRow(vbox, "Chain Reaction",   "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce.");
 		AddSpacer(vbox, 12);
 
 		// â”€â”€ Enemies â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

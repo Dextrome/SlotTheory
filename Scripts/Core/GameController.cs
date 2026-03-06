@@ -84,7 +84,7 @@ public partial class GameController : Node
 	{
 		Instance = this;
 		DataLoader.LoadAll();
-		// Bot playtest mode: godot --headless --path ... -- --bot --runs N
+		// Bot playtest mode: godot --headless --path ... -- --bot --runs N --difficulty normal|hard
 		var userArgs = OS.GetCmdlineUserArgs();
 		if (userArgs.Contains("--bot"))
 		{
@@ -92,9 +92,19 @@ public partial class GameController : Node
 			int ri = System.Array.IndexOf(userArgs, "--runs");
 			if (ri >= 0 && ri + 1 < userArgs.Length)
 				int.TryParse(userArgs[ri + 1], out runs);
-			_botRunner = new BotRunner(runs);
+			
+			DifficultyMode? targetDifficulty = null;
+			int di = System.Array.IndexOf(userArgs, "--difficulty");
+			if (di >= 0 && di + 1 < userArgs.Length)
+			{
+				var diffStr = userArgs[di + 1].ToLower();
+				if (diffStr == "normal") targetDifficulty = DifficultyMode.Normal;
+				else if (diffStr == "hard") targetDifficulty = DifficultyMode.Hard;
+			}
+			
+			_botRunner = new BotRunner(runs, targetDifficulty);
 			Engine.MaxFps = 0;
-			GD.Print($"[BOT] Headless playtest: {runs} runs");
+			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}");
 		}
 
 		_runState = new RunState();

@@ -76,7 +76,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
 | Hair Trigger | +40% attack speed, -18% range |
 | Split Shot | Fires 2 split projectiles at 42% damage each, each extra copy adds +1 split projectile |
 | Feedback Loop | On kill, removes 25% of current cooldown |
-| Chain Reaction | Adds +1 chain bounce per copy and sets chain carry to 55% |
+| Chain Reaction | Adds +1 chain bounce per copy and sets chain carry to 60% |
 
 ### Modifier Color Language
 
@@ -252,12 +252,6 @@ Current behavior decision:
   - key hint labels on cards
 - Cancel while awaiting world placement:
   - ESC returns to draft choices
-- Undo safety net:
-  - Tower placement only (not modifiers)
-  - 2 s undo window with UNDO toast button
-  - Restores draft choice completely (same options, same wave state)
-  - Auto-commits after timeout to prevent blocking
-  - Single-step only (cannot chain undos)
 
 ---
 
