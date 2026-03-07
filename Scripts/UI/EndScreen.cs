@@ -25,6 +25,8 @@ public partial class EndScreen : CanvasLayer
 	private Label _hintLabel = null!;
 	private string _leaderboardMapId = LeaderboardKey.RandomMapId;
 	private DifficultyMode _leaderboardDifficulty = DifficultyMode.Normal;
+	private RunScorePayload? _pendingPayload;
+	private string _pendingLocalLine = "";
 
 	public override void _Ready()
 	{
@@ -267,6 +269,130 @@ public partial class EndScreen : CanvasLayer
 	{
 		LeaderboardsMenu.SetPendingContext(_leaderboardMapId, _leaderboardDifficulty, preferGlobal: true);
 		Transition.Instance?.FadeToScene("res://Scenes/Leaderboards.tscn");
+	}
+
+	/// <summary>
+	/// Shows a one-time display name prompt before the first global submission.
+	/// On confirm, saves the name and submits the score.
+	/// </summary>
+	public void ShowNamePrompt(RunScorePayload payload, string localLine)
+	{
+		_pendingPayload   = payload;
+		_pendingLocalLine = localLine;
+
+		var overlay = new Panel();
+		overlay.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		overlay.Modulate = new Color(0f, 0f, 0f, 0.92f);
+		overlay.Theme = SlotTheory.Core.UITheme.Build();
+		AddChild(overlay);
+
+		var center = new CenterContainer();
+		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		overlay.AddChild(center);
+
+		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 16);
+		vbox.CustomMinimumSize = new Vector2(380, 0);
+		center.AddChild(vbox);
+
+		var title = new Label
+		{
+			Text = "Enter your display name",
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		SlotTheory.Core.UITheme.ApplyFont(title, semiBold: true, size: 28);
+		title.Modulate = new Color(0.72f, 0.93f, 0.78f);
+		vbox.AddChild(title);
+
+		var sub = new Label
+		{
+			Text = "Shown on global leaderboards. Can't be changed later.",
+			HorizontalAlignment = HorizontalAlignment.Center,
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+		};
+		sub.AddThemeFontSizeOverride("font_size", 15);
+		sub.Modulate = new Color(0.65f, 0.65f, 0.65f);
+		vbox.AddChild(sub);
+
+		var nameEdit = new LineEdit
+		{
+			PlaceholderText = "Your name",
+			MaxLength = 24,
+			CustomMinimumSize = new Vector2(300, 40),
+		};
+		nameEdit.AddThemeFontSizeOverride("font_size", 20);
+		vbox.AddChild(nameEdit);
+
+		var confirmBtn = new Button
+		{
+			Text = "Submit Score",
+			CustomMinimumSize = new Vector2(300, 44),
+		};
+		confirmBtn.AddThemeFontSizeOverride("font_size", 20);
+		confirmBtn.Pressed += () =>
+		{
+			string name = nameEdit.Text.Trim();
+			if (name.Length == 0) return;
+			SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
+			SlotTheory.Core.SettingsManager.Instance?.SetPlayerName(name);
+			overlay.QueueFree();
+			_ = SubmitAfterNameAsync();
+		};
+		vbox.AddChild(confirmBtn);
+
+		var skipBtn = new Button
+		{
+			Text = "Skip (no global submission)",
+			CustomMinimumSize = new Vector2(300, 36),
+			Flat = true,
+		};
+		skipBtn.AddThemeFontSizeOverride("font_size", 15);
+		skipBtn.Modulate = new Color(0.55f, 0.55f, 0.55f);
+		skipBtn.Pressed += () =>
+		{
+			SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
+			overlay.QueueFree();
+			_pendingPayload = null;
+			SetLeaderboardStatus(localLine);
+		};
+		vbox.AddChild(skipBtn);
+
+		nameEdit.GrabFocus();
+	}
+
+	private async System.Threading.Tasks.Task SubmitAfterNameAsync()
+	{
+		if (_pendingPayload == null) return;
+		var payload   = _pendingPayload;
+		var localLine = _pendingLocalLine;
+		_pendingPayload = null;
+
+		SetLeaderboardStatus($"{localLine}  |  Global: submitting...");
+
+		var manager = LeaderboardManager.Instance;
+		if (manager == null)
+		{
+			SetLeaderboardStatus($"{localLine}  |  Global: unavailable", true);
+			return;
+		}
+
+		var result = await manager.SubmitAsync(payload);
+		string globalText = result.State switch
+		{
+			GlobalSubmitState.Submitted when result.Rank.HasValue
+				=> $"Global ({result.Provider}): rank #{result.Rank.Value}",
+			GlobalSubmitState.Submitted
+				=> $"Global ({result.Provider}): submitted",
+			GlobalSubmitState.Queued
+				=> $"Global ({result.Provider}): queued",
+			GlobalSubmitState.Failed
+				=> $"Global ({result.Provider}): failed",
+			_ => result.Message,
+		};
+
+		bool isError = result.State == GlobalSubmitState.Failed;
+		if (GodotObject.IsInstanceValid(this))
+			SetLeaderboardStatus($"{localLine}  |  {globalText}", isError);
 	}
 
 	public override void _Notification(int what)

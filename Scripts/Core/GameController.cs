@@ -2165,6 +2165,14 @@ public partial class GameController : Node
 
 	private void QueueGlobalSubmit(RunScorePayload payload, string localLine)
 	{
+		var sm = SettingsManager.Instance;
+		var bucket = new SlotTheory.Core.Leaderboards.LeaderboardBucket(payload.MapId, payload.Difficulty);
+		if (bucket.IsGlobalEligible && (sm == null || string.IsNullOrEmpty(sm.PlayerName)))
+		{
+			_endScreen.ShowNamePrompt(payload, localLine);
+			return;
+		}
+
 		_endScreen.SetLeaderboardStatus($"{localLine}  |  Global: submitting...");
 		_ = SubmitGlobalScoreAsync(payload, localLine);
 	}
