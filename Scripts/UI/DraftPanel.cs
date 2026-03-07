@@ -660,6 +660,18 @@ public partial class DraftPanel : CanvasLayer
 
     private void AnimateCardReveal(Button btn, Control front, Control cardBack, Color accent, int index, Control? iconNode, Control? titleNode, bool isFoil)
     {
+        // Reduced Motion: skip flip delay and animations entirely
+        if (SlotTheory.Core.SettingsManager.Instance?.ReducedMotion == true)
+        {
+            if (!GodotObject.IsInstanceValid(front) || !GodotObject.IsInstanceValid(cardBack)) return;
+            cardBack.Visible = false;
+            front.Visible = true;
+            front.Scale = Vector2.One;
+            btn.Scale = Vector2.One;
+            btn.Modulate = Colors.White;
+            return;
+        }
+
         float delay = CardFaceDownHoldSeconds + index * CardStaggerSeconds;
         btn.GetTree().CreateTimer(delay).Timeout += () =>
         {

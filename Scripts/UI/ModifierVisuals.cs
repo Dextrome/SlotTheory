@@ -13,21 +13,34 @@ public static class ModifierVisuals
     private static readonly Color StatusSynergy = new Color(1.00f, 0.36f, 0.80f); // magenta
     private static readonly Color MultiTarget   = new Color(0.48f, 1.00f, 0.76f); // mint-green
 
-    public static Color GetAccent(string modifierId) => modifierId switch
+    // High-contrast colorblind-safe palette (no red-green reliance)
+    private static readonly Color CB_DamageScaling = new Color(1.00f, 0.92f, 0.10f); // bright yellow
+    private static readonly Color CB_Utility       = new Color(0.20f, 0.65f, 1.00f); // bright blue
+    private static readonly Color CB_Range         = new Color(0.90f, 0.90f, 1.00f); // near-white
+    private static readonly Color CB_StatusSynergy = new Color(1.00f, 0.55f, 0.05f); // deep orange
+    private static readonly Color CB_MultiTarget   = new Color(0.25f, 1.00f, 0.95f); // bright teal
+
+    public static Color GetAccent(string modifierId)
     {
-        "momentum" => DamageScaling,
-        "overkill" => DamageScaling,
-        "focus_lens" => DamageScaling,
-        "hair_trigger" => DamageScaling,
-        "feedback_loop" => DamageScaling,
+        bool cb = SlotTheory.Core.SettingsManager.Instance?.ColorblindMode ?? false;
+        return GetAccentInternal(modifierId, cb);
+    }
 
-        "slow" => Utility,
-        "split_shot" => MultiTarget,
-        "chain_reaction" => MultiTarget,
+    private static Color GetAccentInternal(string modifierId, bool colorblind) => modifierId switch
+    {
+        "momentum"      => colorblind ? CB_DamageScaling : DamageScaling,
+        "overkill"      => colorblind ? CB_DamageScaling : DamageScaling,
+        "focus_lens"    => colorblind ? CB_DamageScaling : DamageScaling,
+        "hair_trigger"  => colorblind ? CB_DamageScaling : DamageScaling,
+        "feedback_loop" => colorblind ? CB_DamageScaling : DamageScaling,
 
-        "overreach" => Range,
+        "slow"           => colorblind ? CB_Utility : Utility,
+        "split_shot"     => colorblind ? CB_MultiTarget : MultiTarget,
+        "chain_reaction" => colorblind ? CB_MultiTarget : MultiTarget,
 
-        "exploit_weakness" => StatusSynergy,
+        "overreach" => colorblind ? CB_Range : Range,
+
+        "exploit_weakness" => colorblind ? CB_StatusSynergy : StatusSynergy,
         _ => new Color(0.80f, 0.80f, 0.95f),
     };
 
