@@ -17,9 +17,8 @@ public class ChainReaction : Modifier
     public override void OnEquip(TowerInstance tower)
     {
         tower.ChainCount += 1;
-        tower.ChainDamageDecay = 0.60f; // Buff from 55% to 60% per bounce
-        // Set chain range to match upgraded value for consistency
-        if (tower.ChainRange < 400f) 
+        tower.ChainDamageDecay = Core.Balance.ChainDamageDecay;
+        if (tower.ChainRange < 400f)
             tower.ChainRange = 400f;
     }
 }

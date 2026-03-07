@@ -83,8 +83,8 @@ public static class DamageModel
         {
             if (!ctx.IsChain || mod.ApplyToChainTargets)
             {
-                mod.OnHit(ctx);
-                GameController.Instance?.NotifyModifierProc(ctx.Attacker, mod.ModifierId);
+                if (mod.OnHit(ctx))
+                    GameController.Instance?.NotifyModifierProc(ctx.Attacker, mod.ModifierId);
             }
         }
 

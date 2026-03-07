@@ -23,24 +23,24 @@ public class Momentum : Modifier
             damage *= (1f + _stacks * Core.Balance.MomentumBonusPerStack);
     }
 
-    public override void OnHit(DamageContext ctx)
+    public override bool OnHit(DamageContext ctx)
     {
         ulong id = ctx.Target.GetInstanceId();
         bool sameTarget = _lastTargetInstanceId == id;
 
         if (sameTarget || ctx.IsChain)
         {
-            // Increment stacks if same target or in a chain/split sequence
             _stacks = System.Math.Min(_stacks + 1, Core.Balance.MomentumMaxStacks);
         }
         else
         {
-            // Reset to 1 stack for a new primary target
             _stacks = 1;
         }
 
-        // Track the last target ID (important for non-chain hits)
         if (!ctx.IsChain)
             _lastTargetInstanceId = id;
+
+        // Only show proc visual when stacks are actively building (not on a reset to 1)
+        return sameTarget || ctx.IsChain;
     }
 }
