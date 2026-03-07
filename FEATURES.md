@@ -13,6 +13,11 @@ This document reflects the current implementation in code/data.
 - **Mobile camera system:** Pinch-to-zoom, pan controls, camera bounds, and readability scaling for mobile gameplay.
 - **Mobile session persistence:** Automatic save/restore of game state when app is paused/resumed on mobile.
 - **Touch scroll support:** Drag scrolling for all scrollable UI areas on mobile devices.
+- **Haptic feedback:** Light/medium/strong haptics on card pick, tower placement, wave clear, life lost, win, and game over.
+- **Back button SFX:** `ui_select` sound plays on Android back press across all screens.
+- **Tension ramp:** Music volume and pitch gradually increase across waves 15–20 (up to +3.5 dB / +2.5% pitch at wave 20); resets each run.
+- **Colorblind mode:** Settings toggle that switches modifier accent colors to a high-contrast palette with no red/green reliance.
+- **Reduced motion toggle:** Settings toggle that skips card flip animations in draft — cards appear face-up instantly.
 
 Platforms: Windows Desktop, Android (phone and tablet)
 
@@ -62,6 +67,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
   - Hamburger pause button in HUD.
   - Auto-pause when app is minimized.
   - Responsive UI scaling and touch sizing.
+  - Back button navigation: returns to previous screen from all menu screens; shows quit confirmation during active waves; opens pause menu during draft.
 
 ---
 
@@ -76,9 +82,10 @@ Platforms: Windows Desktop, Android (phone and tablet)
 
 **Session Persistence:**
 - **Auto-save on pause:** Game state automatically saved when app goes to background
-- **Auto-restore on launch:** Seamlessly resume interrupted runs from main menu
+- **Auto-restore on launch:** Seamlessly resume interrupted runs from main menu (only when a run is genuinely in progress — navigating to main menu clears the session)
 - **12-hour expiration:** Saved sessions expire after 12 hours to avoid stale state
-- **Complete state capture:** Saves towers placement, modifiers, progress, stats, and map seed
+- **Complete state capture:** Saves towers placement, modifiers, wave progress, stats, map seed, current draft options, and pick position
+- **Anti-reroll:** Draft options are serialized into the snapshot so reloading mid-draft always restores the exact same cards
 
 **Touch Interface:**
 - **Drag scrolling:** All scrollable areas (leaderboards, how-to-play, end screen) support touch drag
@@ -91,6 +98,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
 - **Adaptive card sizing:** Draft cards scale properly on narrow viewports using unscaled UI space
 - **Session cleanup:** Automatic cleanup on manual menu navigation or run completion
 - **Mobile detection:** Enhanced platform detection including web exports on mobile devices
+- **Back button:** System back navigates contextually — menu screens return to previous screen, draft opens pause menu, active wave shows a quit confirmation dialog
 
 ---
 
@@ -125,13 +133,21 @@ Platforms: Windows Desktop, Android (phone and tablet)
 
 ### Modifier Color Language
 
-- DamageScaling (orange): Momentum, Overkill, Focus Lens, Hair Trigger, Feedback Loop
-- Utility (cyan): Chill Shot
-- Range (violet): Overreach
-- StatusSynergy (magenta): Exploit Weakness
-- MultiTarget (mint): Split Shot, Chain Reaction
+| Category | Normal Palette | Colorblind Palette |
+|---|---|---|
+| DamageScaling | orange | bright yellow |
+| Utility | cyan | bright blue |
+| Range | violet | near-white |
+| StatusSynergy | magenta | deep orange |
+| MultiTarget | mint-green | bright teal |
 
-Used consistently in draft cards, proc halos, and live modifier icons.
+- DamageScaling: Momentum, Overkill, Focus Lens, Hair Trigger, Feedback Loop
+- Utility: Chill Shot
+- Range: Overreach
+- StatusSynergy: Exploit Weakness
+- MultiTarget: Split Shot, Chain Reaction
+
+Used consistently in draft cards, proc halos, and live modifier icons. Colorblind palette toggled via Settings.
 
 ---
 
@@ -281,6 +297,7 @@ Current behavior decision:
   - Entrance duration: 0.34 s
   - Flip reveal, burst FX, icon/title punch
   - Card back shows one large `?`
+  - Reduced motion: skip flip entirely — cards appear face-up immediately (toggle in Settings)
 - Lock-in effects:
   - Card pick thunk + subtle vignette pulse
   - Modifier confirm lock-in SFX, border flash, icon snap
@@ -306,6 +323,7 @@ On wave start (not in bot mode):
 - Large center wave label with scale/alpha tween.
 - Wave 10: `HALFWAY` beat with short lift cue.
 - Wave 20: enhanced theater (special sound cues, wave label pulse, path flow surge).
+- Waves 15–20: gradual music tension ramp (up to +3.5 dB / +2.5% pitch at wave 20).
 - Signature scanline flourish on key beats.
 
 ---
@@ -454,7 +472,9 @@ Main menu:
 
 Settings:
 - Master/Music/FX sliders (0-100)
-- Display toggle
+- Display: Windowed/Fullscreen toggle
+- Colorblind mode toggle (high-contrast modifier accent palette)
+- Reduced motion toggle (skip draft card flip animations)
 - Saved to `user://settings.cfg`
 - Music and FX buses are created if missing
 
@@ -631,7 +651,7 @@ Behavior:
 
 ## Notes
 
-- This file is intentionally aligned to code/data as of 2026-03-06.
+- This file is intentionally aligned to code/data as of 2026-03-07.
 - If gameplay values change, update:
   - `Data/towers.json`
   - `Data/modifiers.json`

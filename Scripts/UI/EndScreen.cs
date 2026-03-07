@@ -272,7 +272,10 @@ public partial class EndScreen : CanvasLayer
 	public override void _Notification(int what)
 	{
 		if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */ && Visible)
+		{
+			SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
 			Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+		}
 	}
 
 	public override void _UnhandledInput(InputEvent @event)

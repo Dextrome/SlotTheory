@@ -9,6 +9,8 @@ namespace SlotTheory.UI;
 public partial class Settings : Node
 {
     private Button? _fullscreenBtn;
+    private Button? _colorblindBtn;
+    private Button? _reducedMotionBtn;
 
     public override void _Ready()
     {
@@ -71,6 +73,26 @@ public partial class Settings : Node
         _fullscreenBtn.Pressed += OnToggleFullscreen;
         vbox.AddChild(_fullscreenBtn);
 
+        bool isCb = sm?.ColorblindMode ?? false;
+        _colorblindBtn = new Button
+        {
+            Text = ColorblindLabel(isCb),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _colorblindBtn.AddThemeFontSizeOverride("font_size", 20);
+        _colorblindBtn.Pressed += OnToggleColorblind;
+        vbox.AddChild(_colorblindBtn);
+
+        bool isRm = sm?.ReducedMotion ?? false;
+        _reducedMotionBtn = new Button
+        {
+            Text = ReducedMotionLabel(isRm),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _reducedMotionBtn.AddThemeFontSizeOverride("font_size", 20);
+        _reducedMotionBtn.Pressed += OnToggleReducedMotion;
+        vbox.AddChild(_reducedMotionBtn);
+
         AddSpacer(vbox, 24);
 
         // ── Back ──────────────────────────────────────────────────────
@@ -88,7 +110,10 @@ public partial class Settings : Node
     public override void _Notification(int what)
     {
         if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */)
+        {
+            SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
             SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+        }
     }
 
     public override void _UnhandledInput(InputEvent @event)
@@ -107,8 +132,30 @@ public partial class Settings : Node
             _fullscreenBtn.Text = FullscreenLabel(SettingsManager.Instance?.Fullscreen ?? false);
     }
 
+    private void OnToggleColorblind()
+    {
+        bool next = !(SettingsManager.Instance?.ColorblindMode ?? false);
+        SettingsManager.Instance?.SetColorblindMode(next);
+        if (_colorblindBtn != null)
+            _colorblindBtn.Text = ColorblindLabel(next);
+    }
+
+    private void OnToggleReducedMotion()
+    {
+        bool next = !(SettingsManager.Instance?.ReducedMotion ?? false);
+        SettingsManager.Instance?.SetReducedMotion(next);
+        if (_reducedMotionBtn != null)
+            _reducedMotionBtn.Text = ReducedMotionLabel(next);
+    }
+
     private static string FullscreenLabel(bool full) =>
         full ? "Display:  Fullscreen" : "Display:  Windowed";
+
+    private static string ColorblindLabel(bool on) =>
+        on ? "Colorblind:  On" : "Colorblind:  Off";
+
+    private static string ReducedMotionLabel(bool on) =>
+        on ? "Reduced Motion:  On" : "Reduced Motion:  Off";
 
     private static void AddVolumeRow(VBoxContainer vbox, string label, float current,
         System.Action<float> onChange)

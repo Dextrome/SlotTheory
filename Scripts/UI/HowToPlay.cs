@@ -166,6 +166,7 @@ public partial class HowToPlay : Node
 	{
 		if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */)
 		{
+			SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
 			if (OnBack != null) { OnBack(); QueueFree(); }
 			else SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 		}
