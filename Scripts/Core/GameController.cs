@@ -514,6 +514,11 @@ public partial class GameController : Node
 		_hudPanel.SetBuildName("", visible: false);
 		_hudPanel.ResetSpeed();
 
+			// In bot mode BotRunner.StartNextRun() already called SetPendingMapSelection
+			// before RestartRun() — pick it up here since _Ready() only runs once.
+			if (_botRunner != null)
+				_runState.SelectedMapId = SlotTheory.UI.MapSelectPanel.PendingMapSelection;
+
 			ClearMapVisuals();
 			GenerateMap();
 			SetupMobileCamera();
