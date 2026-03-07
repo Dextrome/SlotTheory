@@ -16,7 +16,10 @@ public partial class HudPanel : CanvasLayer
     private ColorRect _speedToastStreak = null!;
     private Button _speedBtn = null!;
     private int _speedIdx = 0;
-    private static readonly double[] SpeedSteps = { 1.0, 2.0, 3.0, 5.0 };
+    private static readonly double[] SpeedStepsNormal = { 1.0, 2.0, 3.0 };
+    private static readonly double[] SpeedStepsDev    = { 1.0, 2.0, 3.0, 5.0, 10.0 };
+    private double[] SpeedSteps => (SlotTheory.Core.SettingsManager.Instance?.DevMode == true)
+        ? SpeedStepsDev : SpeedStepsNormal;
     private const float ZoomMin = 1.0f;
     private const float ZoomMax = 2.6f;
     public float CurrentSpeed => (float)SpeedSteps[_speedIdx];
@@ -203,11 +206,14 @@ public partial class HudPanel : CanvasLayer
 
     private void OnSpeedToggle()
     {
-        _speedIdx = (_speedIdx + 1) % SpeedSteps.Length;
-        Engine.TimeScale = SpeedSteps[_speedIdx];
-        _speedBtn.Text = $"{SpeedSteps[_speedIdx]:0}\u00D7";
+        var steps = SpeedSteps;
+        // Clamp index in case dev mode was just disabled while at a high speed
+        _speedIdx = Mathf.Min(_speedIdx, steps.Length - 1);
+        _speedIdx = (_speedIdx + 1) % steps.Length;
+        Engine.TimeScale = steps[_speedIdx];
+        _speedBtn.Text = $"{steps[_speedIdx]:0}\u00D7";
         ShowSpeedToast();
-        SoundManager.Instance?.SetSpeedFeel((float)SpeedSteps[_speedIdx]);
+        SoundManager.Instance?.SetSpeedFeel((float)steps[_speedIdx]);
         SoundManager.Instance?.Play("ui_speed_shift");
     }
 

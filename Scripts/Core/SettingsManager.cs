@@ -20,6 +20,7 @@ public partial class SettingsManager : Node
     public bool  Fullscreen    { get; private set; } = false;
     public bool  ColorblindMode { get; private set; } = false;
     public bool  ReducedMotion  { get; private set; } = false;
+    public bool  DevMode        { get; private set; } = false;
     public DifficultyMode Difficulty { get; private set; } = DifficultyMode.Normal;
 
     public override void _Ready()
@@ -74,6 +75,12 @@ public partial class SettingsManager : Node
     public void SetReducedMotion(bool enabled)
     {
         ReducedMotion = enabled;
+        Save();
+    }
+
+    public void SetDevMode(bool enabled)
+    {
+        DevMode = enabled;
         Save();
     }
 
@@ -142,6 +149,7 @@ public partial class SettingsManager : Node
         Fullscreen    = (bool) cfg.GetValue(SecDisp,  "fullscreen",    false);
         ColorblindMode = (bool)cfg.GetValue(SecDisp,  "colorblind",    false);
         ReducedMotion  = (bool)cfg.GetValue(SecDisp,  "reduced_motion", false);
+        DevMode        = (bool)cfg.GetValue(SecDisp,  "dev_mode",       false);
         Difficulty    = (DifficultyMode)(int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Normal);
     }
 
@@ -154,6 +162,7 @@ public partial class SettingsManager : Node
         cfg.SetValue(SecDisp,  "fullscreen",     Fullscreen);
         cfg.SetValue(SecDisp,  "colorblind",     ColorblindMode);
         cfg.SetValue(SecDisp,  "reduced_motion", ReducedMotion);
+        cfg.SetValue(SecDisp,  "dev_mode",       DevMode);
         cfg.SetValue("gameplay", "difficulty",   (int)Difficulty);
         cfg.Save(SavePath);
     }
