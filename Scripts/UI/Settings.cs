@@ -23,10 +23,17 @@ public partial class Settings : Node
         bg.Color = new Color("#141420");
         canvas.AddChild(bg);
 
+        var scroll = new ScrollContainer();
+        scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
+        scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        TouchScrollHelper.EnableDragScroll(scroll);
+        canvas.AddChild(scroll);
+
         var center = new CenterContainer();
-        center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         center.Theme = SlotTheory.Core.UITheme.Build();
-        canvas.AddChild(center);
+        center.CustomMinimumSize = GetViewport().GetVisibleRect().Size;
+        scroll.AddChild(center);
 
         var vbox = new VBoxContainer();
         vbox.AddThemeConstantOverride("separation", 18);
@@ -122,6 +129,7 @@ public partial class Settings : Node
         back.Pressed += () => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
         vbox.AddChild(back);
         MobileOptimization.ApplyUIScale(center);
+        AddSpacer(vbox, 24);
     }
 
     public override void _Notification(int what)
