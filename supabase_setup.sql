@@ -96,7 +96,7 @@ $$;
 
 ALTER TABLE public.scores ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY IF NOT EXISTS "scores_public_read"
+CREATE POLICY "scores_public_read"
     ON public.scores FOR SELECT USING (true);
 
 -- Grant anon role access to read scores and execute the RPC
