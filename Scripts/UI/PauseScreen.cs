@@ -13,6 +13,10 @@ public partial class PauseScreen : CanvasLayer
     private Control _settingsPanel    = null!;
     private Control _quitConfirmPanel = null!;
     private double  _lastBackTime     = -1.0;  // debounce Android back (fires on key-down AND key-up)
+    private Button? _pauseFsBtn;
+    private Button? _pauseCbBtn;
+    private Button? _pauseRmBtn;
+    private Button? _pauseDevBtn;
 
     public override void _Ready()
     {
@@ -85,20 +89,74 @@ public partial class PauseScreen : CanvasLayer
             v => SettingsManager.Instance?.SetFxVolume(v));
 
         // Fullscreen toggle
-        bool isFs   = SettingsManager.Instance?.Fullscreen ?? false;
-        var fsBtn   = new Button
+        bool isFs = SettingsManager.Instance?.Fullscreen ?? false;
+        _pauseFsBtn = new Button
         {
             Text              = "Display:  " + (isFs ? "Fullscreen" : "Windowed"),
             CustomMinimumSize = new Vector2(260, 44),
         };
-        fsBtn.AddThemeFontSizeOverride("font_size", 20);
-        fsBtn.Pressed += () =>
+        _pauseFsBtn.AddThemeFontSizeOverride("font_size", 20);
+        _pauseFsBtn.Pressed += () =>
         {
             SoundManager.Instance?.Play("ui_select");
             SettingsManager.Instance?.ToggleFullscreen();
-            fsBtn.Text = "Display:  " + ((SettingsManager.Instance?.Fullscreen ?? false) ? "Fullscreen" : "Windowed");
+            if (_pauseFsBtn != null)
+                _pauseFsBtn.Text = "Display:  " + ((SettingsManager.Instance?.Fullscreen ?? false) ? "Fullscreen" : "Windowed");
         };
-        vbox.AddChild(fsBtn);
+        vbox.AddChild(_pauseFsBtn);
+
+        // Colorblind toggle
+        bool isCb = SettingsManager.Instance?.ColorblindMode ?? false;
+        _pauseCbBtn = new Button
+        {
+            Text              = "Colorblind:  " + (isCb ? "On" : "Off"),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _pauseCbBtn.AddThemeFontSizeOverride("font_size", 20);
+        _pauseCbBtn.Pressed += () =>
+        {
+            SoundManager.Instance?.Play("ui_select");
+            bool next = !(SettingsManager.Instance?.ColorblindMode ?? false);
+            SettingsManager.Instance?.SetColorblindMode(next);
+            if (_pauseCbBtn != null) _pauseCbBtn.Text = "Colorblind:  " + (next ? "On" : "Off");
+        };
+        vbox.AddChild(_pauseCbBtn);
+
+        // Reduced motion toggle
+        bool isRm = SettingsManager.Instance?.ReducedMotion ?? false;
+        _pauseRmBtn = new Button
+        {
+            Text              = "Reduced Motion:  " + (isRm ? "On" : "Off"),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _pauseRmBtn.AddThemeFontSizeOverride("font_size", 20);
+        _pauseRmBtn.Pressed += () =>
+        {
+            SoundManager.Instance?.Play("ui_select");
+            bool next = !(SettingsManager.Instance?.ReducedMotion ?? false);
+            SettingsManager.Instance?.SetReducedMotion(next);
+            if (_pauseRmBtn != null) _pauseRmBtn.Text = "Reduced Motion:  " + (next ? "On" : "Off");
+        };
+        vbox.AddChild(_pauseRmBtn);
+
+        // Dev mode toggle
+        bool isDev = SettingsManager.Instance?.DevMode ?? false;
+        _pauseDevBtn = new Button
+        {
+            Text              = isDev ? "Dev Mode:  On  (5\u00D7 / 10\u00D7 speed)" : "Dev Mode:  Off",
+            CustomMinimumSize = new Vector2(260, 44),
+            Modulate          = new Color(0.85f, 0.65f, 1.0f),
+        };
+        _pauseDevBtn.AddThemeFontSizeOverride("font_size", 20);
+        _pauseDevBtn.Pressed += () =>
+        {
+            SoundManager.Instance?.Play("ui_select");
+            bool next = !(SettingsManager.Instance?.DevMode ?? false);
+            SettingsManager.Instance?.SetDevMode(next);
+            if (_pauseDevBtn != null)
+                _pauseDevBtn.Text = next ? "Dev Mode:  On  (5\u00D7 / 10\u00D7 speed)" : "Dev Mode:  Off";
+        };
+        vbox.AddChild(_pauseDevBtn);
 
         AddSpacer(vbox, 8);
         AddBtn(vbox, "\u2190 Back", OnCloseSettings);
