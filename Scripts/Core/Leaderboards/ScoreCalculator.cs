@@ -4,14 +4,12 @@ public static class ScoreCalculator
 {
     public static int ComputeScore(RunScorePayload payload)
     {
-        long winBonus = payload.Won ? 1_000_000_000L : 0L;
-        long wavePart = System.Math.Clamp(payload.WaveReached, 0, 99) * 10_000_000L;
+        long winBonus  = payload.Won ? 1_000_000_000L : 0L;
+        long wavePart  = System.Math.Clamp(payload.WaveReached, 0, 99) * 10_000_000L;
         long livesPart = System.Math.Clamp(payload.LivesRemaining, 0, 99) * 100_000L;
-        long damagePart = System.Math.Clamp(payload.TotalDamageDealt / 100, 0, 99_999);
-        long killsPart = System.Math.Clamp(payload.TotalKills, 0, 999) * 10L;
-        long timePart = System.Math.Clamp(9_999 - (int)System.Math.Floor(payload.PlayTimeSeconds), 0, 9_999);
+        long timePart  = System.Math.Clamp(9_999 - (int)System.Math.Floor(payload.PlayTimeSeconds), 0, 9_999);
 
-        long total = winBonus + wavePart + livesPart + damagePart + killsPart + timePart;
+        long total = winBonus + wavePart + livesPart + timePart;
         return (int)System.Math.Clamp(total, int.MinValue, int.MaxValue);
     }
 
@@ -36,8 +34,6 @@ public static class ScoreCalculator
         if (candidate.Won != existing.Won) return candidate.Won;
         if (candidate.WaveReached != existing.WaveReached) return candidate.WaveReached > existing.WaveReached;
         if (candidate.LivesRemaining != existing.LivesRemaining) return candidate.LivesRemaining > existing.LivesRemaining;
-        if (candidate.TotalDamageDealt != existing.TotalDamageDealt) return candidate.TotalDamageDealt > existing.TotalDamageDealt;
-        if (candidate.TotalKills != existing.TotalKills) return candidate.TotalKills > existing.TotalKills;
         if (candidate.PlayTimeSeconds != existing.PlayTimeSeconds) return candidate.PlayTimeSeconds < existing.PlayTimeSeconds;
 
         return false;

@@ -10,9 +10,10 @@ public partial class SettingsManager : Node
 {
     public static SettingsManager? Instance { get; private set; }
 
-    private const string SavePath = "user://settings.cfg";
-    private const string SecAudio = "audio";
-    private const string SecDisp  = "display";
+    private const string SavePath    = "user://settings.cfg";
+    private const string SecAudio    = "audio";
+    private const string SecDisp     = "display";
+    private const string SecIdentity = "identity";
 
     public float MasterVolume  { get; private set; } = 80f;  // 0–100
     public float MusicVolume   { get; private set; } = 80f;
@@ -22,6 +23,8 @@ public partial class SettingsManager : Node
     public bool  ReducedMotion  { get; private set; } = false;
     public bool  DevMode        { get; private set; } = false;
     public DifficultyMode Difficulty { get; private set; } = DifficultyMode.Normal;
+    public string PlayerName    { get; private set; } = "";
+    public string PlayerId      { get; private set; } = "";
 
     public override void _Ready()
     {
@@ -32,6 +35,12 @@ public partial class SettingsManager : Node
         ApplyMusic(MusicVolume);
         ApplyFx(FxVolume);
         ApplyFullscreen(Fullscreen);
+
+        if (string.IsNullOrEmpty(PlayerId))
+        {
+            PlayerId = System.Guid.NewGuid().ToString();
+            Save();
+        }
     }
 
     // ── Public API ───────────────────────────────────────────────────────
@@ -81,6 +90,12 @@ public partial class SettingsManager : Node
     public void SetDevMode(bool enabled)
     {
         DevMode = enabled;
+        Save();
+    }
+
+    public void SetPlayerName(string name)
+    {
+        PlayerName = name.Trim();
         Save();
     }
 
@@ -150,7 +165,9 @@ public partial class SettingsManager : Node
         ColorblindMode = (bool)cfg.GetValue(SecDisp,  "colorblind",    false);
         ReducedMotion  = (bool)cfg.GetValue(SecDisp,  "reduced_motion", false);
         DevMode        = (bool)cfg.GetValue(SecDisp,  "dev_mode",       false);
-        Difficulty    = (DifficultyMode)(int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Normal);
+        Difficulty  = (DifficultyMode)(int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Normal);
+        PlayerName  = (string)cfg.GetValue(SecIdentity, "player_name", "");
+        PlayerId    = (string)cfg.GetValue(SecIdentity, "player_id",   "");
     }
 
     private void Save()
@@ -163,7 +180,9 @@ public partial class SettingsManager : Node
         cfg.SetValue(SecDisp,  "colorblind",     ColorblindMode);
         cfg.SetValue(SecDisp,  "reduced_motion", ReducedMotion);
         cfg.SetValue(SecDisp,  "dev_mode",       DevMode);
-        cfg.SetValue("gameplay", "difficulty",   (int)Difficulty);
+        cfg.SetValue("gameplay",   "difficulty",   (int)Difficulty);
+        cfg.SetValue(SecIdentity, "player_name",  PlayerName);
+        cfg.SetValue(SecIdentity, "player_id",    PlayerId);
         cfg.Save(SavePath);
     }
 }

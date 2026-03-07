@@ -251,6 +251,6 @@ public partial class LeaderboardManager : Node
     {
         if (OS.GetName() == "Windows")
             return new SteamLeaderboardService();
-        return new NullLeaderboardService();
+        return new SupabaseLeaderboardService();
     }
 }
