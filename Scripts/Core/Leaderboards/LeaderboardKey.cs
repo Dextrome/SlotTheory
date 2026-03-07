@@ -15,8 +15,7 @@ public static class LeaderboardKey
     public static string ToSteamLeaderboardName(string mapId, DifficultyMode difficulty)
         => $"global_{mapId}_{DifficultyToken(difficulty)}";
 
-    public static bool IsGlobalEligibleMap(string mapId)
-        => !string.Equals(mapId, RandomMapId, System.StringComparison.OrdinalIgnoreCase);
+    public static bool IsGlobalEligibleMap(string mapId) => true;
 
     public static string DifficultyToken(DifficultyMode difficulty)
         => difficulty switch
