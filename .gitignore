@@ -23,7 +23,8 @@ android/
 .gradle/
 local.properties
 
-# Supabase credentials (copy supabase.cfg.example → supabase.cfg and fill in values)
+# Supabase credentials (copy SupabaseConfig.cs.example → SupabaseConfig.cs and fill in values)
+Scripts/Core/Leaderboards/SupabaseConfig.cs
 supabase.cfg
 
 # Steam (private info)
