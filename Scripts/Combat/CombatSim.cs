@@ -105,7 +105,7 @@ public class CombatSim
     public WaveResult Step(float delta, RunState state, WaveSystem waveSystem)
     {
         state.WaveTime += delta;
-        state.TotalPlayTime += delta;  // Track total playtime across all waves
+        state.TotalPlayTime += delta / (float)Engine.TimeScale;  // Real wall-clock seconds (unaffected by speed multiplier)
         _killComboTimer = Mathf.Max(0f, _killComboTimer - delta);
 
         // 1. Spawn
