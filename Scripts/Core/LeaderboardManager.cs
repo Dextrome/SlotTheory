@@ -249,7 +249,10 @@ public partial class LeaderboardManager : Node
 
     private static ILeaderboardService CreateService()
     {
-        if (OS.GetName() == "Windows")
+        // Set application/config/leaderboard_provider = "steam" in the Steam export preset.
+        // Defaults to "supabase" so itch/standalone builds work without any extra config.
+        string provider = ProjectSettings.GetSetting("application/config/leaderboard_provider", "supabase").AsString();
+        if (provider == "steam")
             return new SteamLeaderboardService();
         return new SupabaseLeaderboardService();
     }
