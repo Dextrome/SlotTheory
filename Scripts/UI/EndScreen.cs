@@ -189,12 +189,12 @@ public partial class EndScreen : CanvasLayer
 		Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 	}
 
-	public void ShowWin(int kills, int damageDealt, string buildSummary, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor)
+	public void ShowWin(int kills, int damageDealt, float totalPlayTime, string buildSummary, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor)
 	{
 		_titleLabel.Text = "VICTORY";
 		_titleLabel.Modulate = new Color(0.3f, 1.0f, 0.5f);
 		_subtitleLabel.Text = $"All {Balance.TotalWaves} waves survived!";
-		_statsLabel.Text = $"Enemies killed: {kills}  -  Total damage: {damageDealt:N0}";
+		_statsLabel.Text = $"Enemies killed: {kills}  -  Total damage: {damageDealt:N0}  -  Time: {FormatTime(totalPlayTime)}";
 		_statsLabel.Visible = true;
 		SetRunNameGradient(runName, runStartColor, runEndColor);
 		_runNameLabel.Visible = runName.Length > 0;
@@ -209,12 +209,12 @@ public partial class EndScreen : CanvasLayer
 		Visible = true;
 	}
 
-	public void ShowLoss(int waveReached, int livesLost, int kills, int damageDealt, string buildSummary, RunState runState, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor)
+	public void ShowLoss(int waveReached, int livesLost, int kills, int damageDealt, float totalPlayTime, string buildSummary, RunState runState, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor)
 	{
 		_titleLabel.Text = "GAME OVER";
 		_titleLabel.Modulate = new Color(1.0f, 0.35f, 0.35f);
 		_subtitleLabel.Text = $"Reached wave {waveReached} / {Balance.TotalWaves}  -  Lives lost: {livesLost}";
-		_statsLabel.Text = $"Enemies killed: {kills}  -  Total damage: {damageDealt:N0}";
+		_statsLabel.Text = $"Enemies killed: {kills}  -  Total damage: {damageDealt:N0}  -  Time: {FormatTime(totalPlayTime)}";
 		_statsLabel.Visible = kills > 0 || damageDealt > 0;
 		SetRunNameGradient(runName, runStartColor, runEndColor);
 		_runNameLabel.Visible = runName.Length > 0;
@@ -428,6 +428,12 @@ public partial class EndScreen : CanvasLayer
 	private void OnMainMenuPressed()
 	{
 		Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+	}
+
+	private static string FormatTime(float seconds)
+	{
+		int s = (int)seconds;
+		return $"{s / 60}:{s % 60:D2}";
 	}
 
 	private void SetRunNameGradient(string runName, Color startColor, Color endColor)
