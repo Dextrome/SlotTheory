@@ -9,26 +9,32 @@ namespace SlotTheory.Core.Leaderboards;
 
 /// <summary>
 /// Global leaderboard provider backed by Supabase REST API.
-/// Used for itch.io / standalone builds (non-Steam platforms).
-/// Fill in ProjectUrl and AnonKey from your Supabase project settings.
+/// Credentials are loaded from res://supabase.cfg (gitignored).
+/// Copy supabase.cfg.example to supabase.cfg and fill in your values.
 /// </summary>
 public sealed class SupabaseLeaderboardService : ILeaderboardService
 {
-    // ── Configuration — fill these in from Supabase dashboard ─────────────
-    private const string ProjectUrl = "https://YOUR_PROJECT_ID.supabase.co";
-    private const string AnonKey    = "YOUR_ANON_KEY_HERE";
-    // ──────────────────────────────────────────────────────────────────────
-
     private static readonly System.Net.Http.HttpClient Http = new() { Timeout = System.TimeSpan.FromSeconds(10) };
+
+    private string _projectUrl = "";
+    private string _anonKey    = "";
 
     public string ProviderName => "Supabase";
     public bool IsAvailable { get; private set; }
 
     public async Task InitializeAsync()
     {
+        LoadConfig();
+        if (string.IsNullOrEmpty(_projectUrl) || string.IsNullOrEmpty(_anonKey))
+        {
+            GD.PrintErr("[Supabase] supabase.cfg missing or incomplete — global leaderboards disabled.");
+            IsAvailable = false;
+            return;
+        }
+
         try
         {
-            using var req = MakeRequest(System.Net.Http.HttpMethod.Get, $"{ProjectUrl}/rest/v1/scores?limit=0&select=id");
+            using var req = MakeRequest(System.Net.Http.HttpMethod.Get, $"{_projectUrl}/rest/v1/scores?limit=0&select=id");
             using var resp = await Http.SendAsync(req);
             IsAvailable = resp.IsSuccessStatusCode;
         }
@@ -37,6 +43,18 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
             GD.PrintErr($"[Supabase] Init failed: {ex.Message}");
             IsAvailable = false;
         }
+    }
+
+    private void LoadConfig()
+    {
+        var cfg = new ConfigFile();
+        if (cfg.Load("res://supabase.cfg") != Error.Ok)
+        {
+            GD.PrintErr("[Supabase] res://supabase.cfg not found.");
+            return;
+        }
+        _projectUrl = (string)cfg.GetValue("supabase", "project_url", "");
+        _anonKey    = (string)cfg.GetValue("supabase", "anon_key",    "");
     }
 
     public void Tick() { }
@@ -67,7 +85,7 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
         try
         {
             string json = JsonSerializer.Serialize(body);
-            using var req = MakeRequest(System.Net.Http.HttpMethod.Post, $"{ProjectUrl}/rest/v1/rpc/submit_score");
+            using var req = MakeRequest(System.Net.Http.HttpMethod.Post, $"{_projectUrl}/rest/v1/rpc/submit_score");
             req.Content = new System.Net.Http.StringContent(json, Encoding.UTF8, "application/json");
             using var resp = await Http.SendAsync(req);
 
@@ -93,7 +111,7 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
     public async Task<IReadOnlyList<LeaderboardEntryView>> GetTopEntriesAsync(LeaderboardBucket bucket, int maxEntries = 20)
     {
         string difficulty = bucket.Difficulty.ToString().ToLowerInvariant();
-        string url = $"{ProjectUrl}/rest/v1/scores"
+        string url = $"{_projectUrl}/rest/v1/scores"
                    + $"?map_id=eq.{System.Uri.EscapeDataString(bucket.MapId)}"
                    + $"&difficulty=eq.{System.Uri.EscapeDataString(difficulty)}"
                    + $"&order=score.desc"
@@ -138,11 +156,11 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
 
     // ── Helpers ───────────────────────────────────────────────────────────
 
-    private static System.Net.Http.HttpRequestMessage MakeRequest(System.Net.Http.HttpMethod method, string url)
+    private System.Net.Http.HttpRequestMessage MakeRequest(System.Net.Http.HttpMethod method, string url)
     {
         var req = new System.Net.Http.HttpRequestMessage(method, url);
-        req.Headers.Add("apikey", AnonKey);
-        req.Headers.Add("Authorization", $"Bearer {AnonKey}");
+        req.Headers.Add("apikey", _anonKey);
+        req.Headers.Add("Authorization", $"Bearer {_anonKey}");
         return req;
     }
 
