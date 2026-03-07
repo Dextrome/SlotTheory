@@ -9,8 +9,10 @@ namespace SlotTheory.UI;
 /// </summary>
 public partial class PauseScreen : CanvasLayer
 {
-    private Control _mainPanel     = null!;
-    private Control _settingsPanel = null!;
+    private Control _mainPanel        = null!;
+    private Control _settingsPanel    = null!;
+    private Control _quitConfirmPanel = null!;
+    private double  _lastBackTime     = -1.0;  // debounce Android back (fires on key-down AND key-up)
 
     public override void _Ready()
     {
@@ -38,8 +40,10 @@ public partial class PauseScreen : CanvasLayer
 
         BuildMainPanel(stack);
         BuildSettingsPanel(stack);
+        BuildQuitConfirmPanel(stack);
 
-        _settingsPanel.Visible = false;
+        _settingsPanel.Visible    = false;
+        _quitConfirmPanel.Visible = false;
     }
 
     // ── Panel builders ───────────────────────────────────────────────────
@@ -100,36 +104,109 @@ public partial class PauseScreen : CanvasLayer
         AddBtn(vbox, "\u2190 Back", OnCloseSettings);
     }
 
+    private void BuildQuitConfirmPanel(VBoxContainer parent)
+    {
+        var vbox = new VBoxContainer();
+        vbox.AddThemeConstantOverride("separation", 28);
+        parent.AddChild(vbox);
+        _quitConfirmPanel = vbox;
+
+        var msg = new Label
+        {
+            Text = "Are you really just gonna\nquit like a little bitch?",
+            HorizontalAlignment = HorizontalAlignment.Center,
+        };
+        SlotTheory.Core.UITheme.ApplyFont(msg, semiBold: true, size: 32);
+        msg.Modulate = Colors.White;
+        vbox.AddChild(msg);
+
+        var btnRow = new HBoxContainer();
+        btnRow.AddThemeConstantOverride("separation", 20);
+        btnRow.Alignment = BoxContainer.AlignmentMode.Center;
+        vbox.AddChild(btnRow);
+
+        var yesBtn = new Button { Text = "Yes", CustomMinimumSize = new Vector2(140, 56) };
+        yesBtn.AddThemeFontSizeOverride("font_size", 24);
+        yesBtn.Pressed += () =>
+        {
+            _quitConfirmPanel.Visible = false;
+            OnMainMenu();
+        };
+        btnRow.AddChild(yesBtn);
+
+        var noBtn = new Button { Text = "No", CustomMinimumSize = new Vector2(140, 56) };
+        noBtn.AddThemeFontSizeOverride("font_size", 24);
+        noBtn.Pressed += () =>
+        {
+            SoundManager.Instance?.Play("ui_select");
+            _quitConfirmPanel.Visible = false;
+            Unpause();
+        };
+        btnRow.AddChild(noBtn);
+    }
+
     // ── Input ────────────────────────────────────────────────────────────
+
+    public override void _Notification(int what)
+    {
+        // Android back button arrives as a system notification, not a ui_cancel input event
+        if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */)
+            HandleBack(androidBack: true);
+    }
 
     public override void _UnhandledInput(InputEvent @event)
     {
         if (@event.IsActionPressed("ui_cancel"))
         {
-            var phase = GameController.Instance.CurrentPhase;
-            if (phase == GamePhase.Win || phase == GamePhase.Loss) return;
+            HandleBack(androidBack: false);
+            GetViewport().SetInputAsHandled();
+        }
+    }
 
-            if (Visible)
+    private void HandleBack(bool androidBack)
+    {
+        if (androidBack)
+        {
+            double now = Time.GetUnixTimeFromSystem();
+            if (now - _lastBackTime < 0.5) return;
+            _lastBackTime = now;
+        }
+
+        var phase = GameController.Instance.CurrentPhase;
+        if (phase == GamePhase.Win || phase == GamePhase.Loss) return;
+
+        if (Visible)
+        {
+            if (_quitConfirmPanel.Visible)
             {
-                // Esc while settings open → back to main pause panel
-                if (_settingsPanel.Visible)
-                {
-                    SoundManager.Instance?.Play("ui_select");
-                    OnCloseSettings();
-                }
-                else
-                {
-                    SoundManager.Instance?.Play("ui_select");
-                    Unpause();
-                }
+                SoundManager.Instance?.Play("ui_select");
+                _quitConfirmPanel.Visible = false;
+                Unpause();
+            }
+            else if (_settingsPanel.Visible)
+            {
+                SoundManager.Instance?.Play("ui_select");
+                OnCloseSettings();
             }
             else
             {
                 SoundManager.Instance?.Play("ui_select");
-                Pause();
+                Unpause();
             }
-
-            GetViewport().SetInputAsHandled();
+        }
+        else if (androidBack && phase == GamePhase.Wave)
+        {
+            // Android back during a wave → quit confirmation
+            SoundManager.Instance?.Play("ui_select");
+            Pause();
+            _mainPanel.Visible        = false;
+            _quitConfirmPanel.Visible = true;
+        }
+        else
+        {
+            // Android back during draft, or desktop ESC → normal pause menu
+            SoundManager.Instance?.Play("ui_select");
+            Pause();
         }
     }
 
@@ -143,7 +220,7 @@ public partial class PauseScreen : CanvasLayer
 	private void OnMainMenu()
 	{
 		GetTree().Paused = false;
-		SlotTheory.Core.MobileRunSession.Clear();
+		GameController.Instance.AbandonRun();
 		SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 	}
     private void OnQuit()    => GetTree().Quit();

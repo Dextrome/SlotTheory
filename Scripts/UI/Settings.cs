@@ -85,6 +85,21 @@ public partial class Settings : Node
         MobileOptimization.ApplyUIScale(center);
     }
 
+    public override void _Notification(int what)
+    {
+        if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */)
+            SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+    }
+
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event.IsActionPressed("ui_cancel"))
+        {
+            SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+            GetViewport().SetInputAsHandled();
+        }
+    }
+
     private void OnToggleFullscreen()
     {
         SettingsManager.Instance?.ToggleFullscreen();

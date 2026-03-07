@@ -52,3 +52,9 @@ ANDROID_TEMPLATE_INSTALL.md
 .dotnet/.workloadAdvertisingManifestSentinel10.0.100
 FEATURES_AUDIT_FIX_PLAN.md
 LEADERBOARDS_PLAN.md
+Scripts/Tools/IconBgNode.cs
+.gitignore
+Scripts/Tools/IconExport.cs
+Scripts/Tools/generate_icons.py
+Scripts/Tools/icon_32_test.py
+Scenes/IconExport.tscn

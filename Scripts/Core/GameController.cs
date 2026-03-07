@@ -62,10 +62,12 @@ public partial class GameController : Node
 	private Node2D _worldNode = null!;
 	private BotRunner? _botRunner;
 	private int _extraPicksRemaining;
+	private List<DraftOption>? _currentDraftOptions;
 	private WaveReport? _lastWaveReport;
 	private int _previewGhostSlot = -1;
 	private float _previewGhostPhase = 0f;
 	private ModifierIcon? _previewModifierIcon;
+	private bool _runAbandoned = false;  // set on intentional exit to suppress _ExitTree re-save
 	private bool _hitStopActive = false;
 	private double _preHitStopTimeScale = 1.0;
 	private float _hitStopCooldown = 0f;
@@ -311,7 +313,18 @@ public partial class GameController : Node
 
 	public override void _ExitTree()
 	{
-		SaveMobileRunSnapshot("exit_tree");
+		if (!_runAbandoned)
+			SaveMobileRunSnapshot("exit_tree");
+	}
+
+	/// <summary>
+	/// Call before intentionally navigating away (Main Menu button, quit confirm Yes).
+	/// Clears the mobile session and prevents _ExitTree from re-saving it.
+	/// </summary>
+	public void AbandonRun()
+	{
+		_runAbandoned = true;
+		MobileRunSession.Clear();
 	}
 
 	private void LoadPendingMobileSnapshot()
@@ -379,7 +392,21 @@ public partial class GameController : Node
 			_isRestoringSnapshot = false;
 		}
 
-		_extraPicksRemaining = Balance.ExtraPicksForWave(_runState.WaveIndex);
+		// Restore exact pick position within the draft (not just recalculate from wave index)
+		_extraPicksRemaining = snapshot.Phase == "draft"
+			? snapshot.ExtraPicksRemaining
+			: Balance.ExtraPicksForWave(_runState.WaveIndex);
+
+		// Restore the exact draft options that were showing — prevents reload-to-reroll exploit
+		if (snapshot.Phase == "draft" && snapshot.DraftOptions.Count > 0)
+		{
+			_currentDraftOptions = snapshot.DraftOptions
+				.Select(o => new DraftOption(
+					o.Type == "tower" ? DraftOptionType.Tower : DraftOptionType.Modifier,
+					o.Id))
+				.ToList();
+		}
+
 		_lastWaveReport = null;
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 
@@ -400,7 +427,8 @@ public partial class GameController : Node
 		if (!MobileRunSession.IsActiveRunPhase(CurrentPhase))
 			return;
 
-		MobileRunSession.Save(CurrentPhase, _runState);
+		MobileRunSession.Save(CurrentPhase, _runState, _extraPicksRemaining,
+			CurrentPhase == GamePhase.Draft ? _currentDraftOptions : null);
 		GD.Print($"[MobileSession] Snapshot saved ({reason}).");
 	}
 
@@ -409,11 +437,14 @@ public partial class GameController : Node
 		ClearUndoPlacementState();
 		CurrentPhase = GamePhase.Draft;
 		_hudPanel.SetBuildName("", visible: false);
-		var options = _draftSystem.GenerateOptions(_runState);
+		// Use restored options if available (prevents reload-to-reroll), otherwise generate fresh
+		var options = _currentDraftOptions ?? _draftSystem.GenerateOptions(_runState);
+		_currentDraftOptions = options;
 
 		// All slots full AND all towers at modifier cap ? nothing to offer, skip draft.
 		if (options.Count == 0)
 		{
+			_currentDraftOptions = null;
 			GD.Print("No draft options available — skipping draft.");
 			StartWavePhase();
 			return;
@@ -459,6 +490,7 @@ public partial class GameController : Node
 		// Memory leak fixes for bot mode
 		SlotTheory.Modifiers.ModEvents.Reset();  // Clear static event handlers
 		
+		_runAbandoned = false;
 		_runState.Reset();
 		_combatSim.ResetForWave();
 		_endScreen.Visible = false;
@@ -2206,6 +2238,7 @@ public partial class GameController : Node
 
 	private void StartWavePhase()
 	{
+		_currentDraftOptions = null;
 		ClearUndoPlacementState();
 		CurrentPhase = GamePhase.Wave;
 		int waveNumber = _runState.WaveIndex + 1;
