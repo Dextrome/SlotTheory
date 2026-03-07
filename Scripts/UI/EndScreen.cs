@@ -283,11 +283,15 @@ public partial class EndScreen : CanvasLayer
 		_pendingLocalLine = localLine;
 		_namePromptActive = true;
 
-		var overlay = new Panel();
+		var overlay = new Control();
 		overlay.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		overlay.Modulate = new Color(0f, 0f, 0f, 0.92f);
 		overlay.Theme = SlotTheory.Core.UITheme.Build();
 		AddChild(overlay);
+
+		var overlayBg = new ColorRect();
+		overlayBg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		overlayBg.Color = new Color(0f, 0f, 0f, 0.88f);
+		overlay.AddChild(overlayBg);
 
 		var center = new CenterContainer();
 		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
