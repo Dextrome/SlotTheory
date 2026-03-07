@@ -37,6 +37,9 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
             using var req = MakeRequest(System.Net.Http.HttpMethod.Get, $"{_projectUrl}/rest/v1/scores?limit=0&select=id");
             using var resp = await Http.SendAsync(req);
             IsAvailable = resp.IsSuccessStatusCode;
+            GD.Print($"[Supabase] Init {(IsAvailable ? "OK" : $"FAILED HTTP {(int)resp.StatusCode}")}");
+            if (!IsAvailable)
+                GD.PrintErr($"[Supabase] Init response: {await resp.Content.ReadAsStringAsync()}");
         }
         catch (System.Exception ex)
         {
@@ -126,6 +129,7 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
                 return System.Array.Empty<LeaderboardEntryView>();
 
             string json = await resp.Content.ReadAsStringAsync();
+            GD.Print($"[Supabase] GetTopEntries response: {json}");
             using var doc = JsonDocument.Parse(json);
             var entries = new List<LeaderboardEntryView>();
             int rank = 1;
@@ -133,7 +137,7 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
             foreach (var row in doc.RootElement.EnumerateArray())
             {
                 string name   = row.TryGetProperty("player_name", out var n) ? n.GetString() ?? "" : "";
-                int scoreVal  = row.TryGetProperty("score", out var s) ? s.GetInt32() : 0;
+                int scoreVal  = row.TryGetProperty("score", out var s) ? (int)System.Math.Min(s.GetInt64(), int.MaxValue) : 0;
                 int waves     = row.TryGetProperty("wave_reached", out var w) ? w.GetInt32() : 0;
                 int lives     = row.TryGetProperty("lives_remaining", out var l) ? l.GetInt32() : 0;
                 float time    = row.TryGetProperty("play_time_seconds", out var t) ? (float)t.GetDouble() : 0f;
