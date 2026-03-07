@@ -18,7 +18,7 @@ public partial class EnemyInstance : PathFollow2D
     public bool IsMarked => MarkedRemaining > 0f;
 
     public float SlowRemaining { get; set; } = 0f;
-    public float SlowSpeedFactor { get; set; } = 0.70f;  // speed multiplier when slowed (can be overridden by stacking)
+    public float SlowSpeedFactor { get; set; } = Balance.SlowSpeedFactor;
     public bool IsSlowed => SlowRemaining > 0f;
 
     private ColorRect? _hpFill;

@@ -101,7 +101,7 @@ public static class ModifierDataValidator
             ["exploit_weakness"] = new ModifierExpectation
             {
                 Name = "Exploit Weakness",
-                RequiredTokens = new() { "+60%" }
+                RequiredTokens = new() { $"+{FormatInt((Balance.ExploitWeaknessDamageBonus - 1f) * 100f)}%" }
             },
             ["focus_lens"] = new ModifierExpectation
             {
@@ -148,7 +148,7 @@ public static class ModifierDataValidator
             ["chain_reaction"] = new ModifierExpectation
             {
                 Name = "Chain Reaction",
-                RequiredTokens = new() { "60%" }
+                RequiredTokens = new() { $"{FormatInt(Balance.ChainDamageDecay * 100f)}%" }
             }
         };
     }
