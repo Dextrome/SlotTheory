@@ -307,9 +307,10 @@ public partial class EndScreen : CanvasLayer
 		title.Modulate = new Color(0.72f, 0.93f, 0.78f);
 		vbox.AddChild(title);
 
+		string idSuffix = GetPlayerIdSuffix();
 		var sub = new Label
 		{
-			Text = "Shown on global leaderboards. Can't be changed later.",
+			Text = $"Shown as  YourName#{idSuffix}  on global leaderboards.",
 			HorizontalAlignment = HorizontalAlignment.Center,
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 		};
@@ -319,8 +320,8 @@ public partial class EndScreen : CanvasLayer
 
 		var nameEdit = new LineEdit
 		{
-			PlaceholderText = "Your name",
-			MaxLength = 24,
+			PlaceholderText = "Your name (max 10 chars)",
+			MaxLength = 10,
 			CustomMinimumSize = new Vector2(300, 40),
 		};
 		nameEdit.AddThemeFontSizeOverride("font_size", 20);
@@ -337,7 +338,9 @@ public partial class EndScreen : CanvasLayer
 			string name = nameEdit.Text.Trim();
 			if (name.Length == 0) return;
 			SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
-			SlotTheory.Core.SettingsManager.Instance?.SetPlayerName(name);
+			// Store as "Name#suffix" so display names are unique across players
+			string fullName = $"{name}#{GetPlayerIdSuffix()}";
+			SlotTheory.Core.SettingsManager.Instance?.SetPlayerName(fullName);
 			_namePromptActive = false;
 			overlay.QueueFree();
 			_ = SubmitAfterNameAsync();
@@ -447,6 +450,12 @@ public partial class EndScreen : CanvasLayer
 			sb.Append("[/color]");
 		}
 		return sb.ToString();
+	}
+
+	private static string GetPlayerIdSuffix()
+	{
+		string id = SlotTheory.Core.SettingsManager.Instance?.PlayerId ?? "";
+		return id.Length >= 5 ? id.Substring(0, 5) : (id.Length > 0 ? id : "?????");
 	}
 
 	/// <summary>Generates causal insights about why the player lost.</summary>
