@@ -1,0 +1,11 @@
+// Copy this file to SupabaseConfig.cs and fill in your values.
+// SupabaseConfig.cs is gitignored — credentials stay out of git history.
+// Get these from: Supabase Dashboard → Settings → API
+
+namespace SlotTheory.Core.Leaderboards;
+
+internal static class SupabaseConfig
+{
+    internal const string ProjectUrl = "https://YOUR_PROJECT_ID.supabase.co";
+    internal const string AnonKey    = "YOUR_ANON_KEY_HERE";
+}
