@@ -72,6 +72,21 @@ public partial class MainMenu : Node
 		AddButton(vbox, "Quit", 260, 48, 22, OnQuit);
 	}
 
+	public override void _Notification(int what)
+	{
+		if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */)
+			GetTree().Quit();
+	}
+
+	public override void _UnhandledInput(InputEvent @event)
+	{
+		if (@event.IsActionPressed("ui_cancel"))
+		{
+			GetTree().Quit();
+			GetViewport().SetInputAsHandled();
+		}
+	}
+
 	private void OnPlay()
 	{
 		SlotTheory.Data.DataLoader.LoadAll();
