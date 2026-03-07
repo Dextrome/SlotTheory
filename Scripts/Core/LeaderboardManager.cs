@@ -18,8 +18,7 @@ public partial class LeaderboardManager : Node
 
     private ILeaderboardService _service = new NullLeaderboardService();
     private readonly List<PendingSubmission> _retryQueue = new();
-    private bool _initStarted;
-    private bool _initComplete;
+    private System.Threading.Tasks.Task? _initTask;   // all callers await the same task
     private bool _isFlushingRetryQueue;
     private double _retryFlushCountdown = RetryFlushIntervalSeconds;
 
@@ -108,12 +107,10 @@ public partial class LeaderboardManager : Node
         return await _service.ShowNativeUiAsync(defaultBucket);
     }
 
-    private async System.Threading.Tasks.Task EnsureInitializedAsync()
+    private System.Threading.Tasks.Task EnsureInitializedAsync()
     {
-        if (_initComplete || _initStarted) return;
-        _initStarted = true;
-        await _service.InitializeAsync();
-        _initComplete = true;
+        _initTask ??= _service.InitializeAsync();
+        return _initTask;
     }
 
     private async System.Threading.Tasks.Task FlushRetryQueueAsync()
