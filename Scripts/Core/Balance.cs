@@ -97,9 +97,9 @@ public static class Balance
         public const float NormalSpawnIntervalMultiplier = 0.95f;
         
         // Hard mode - moderately more challenging (targeting ~40% win rate)
-        public const float HardEnemyHpMultiplier = 1.1f;        // +10% HP
-        public const float HardEnemyCountMultiplier = 1.2f;     // +20% more enemies 
-        public const float HardSpawnIntervalMultiplier = 0.9f;  // 10% faster spawns
+        public const float HardEnemyHpMultiplier = 1.08f;       // +8% HP
+        public const float HardEnemyCountMultiplier = 1.10f;    // +10% more enemies
+        public const float HardSpawnIntervalMultiplier = 0.94f;  // ~6% faster spawns
     }
 
     public static float GetEnemyHpMultiplier(DifficultyMode difficulty) => difficulty switch
