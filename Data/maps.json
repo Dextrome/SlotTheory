@@ -4,7 +4,7 @@
       "id": "arena_classic",
       "name": "Crossroads",
       "description": "Two mid-lane crossovers + near-parallel returns. Center slot is king, but greed slots exist.",
-      "displayOrder": 0,
+      "displayOrder": 2,
       "path": [
         { "x": 160, "y": 96 },
         { "x": 1120, "y": 96 },
@@ -62,7 +62,7 @@
       "id": "sprawl",
       "name": "Orbit",
       "description": "Spiral-in then slingshot-out. One interior slot gets multi-pass value; edge slots are early bait.",
-      "displayOrder": 2,
+      "displayOrder": 0,
       "path": [
         { "x": 160, "y": 96 },
         { "x": 1120, "y": 96 },
@@ -74,11 +74,7 @@
         { "x": 352, "y": 512 },
         { "x": 352, "y": 288 },
         { "x": 928, "y": 288 },
-        { "x": 928, "y": 448 },
-        { "x": 448, "y": 448 },
-        { "x": 448, "y": 352 },
-        { "x": 832, "y": 352 },
-        { "x": 832, "y": 656 }
+        { "x": 928, "y": 656 }
       ],
       "slots": [
         { "id": 0, "x": 640, "y": 256 },

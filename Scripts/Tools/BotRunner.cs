@@ -136,7 +136,11 @@ public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null)
             GD.Print($"{difficulty}: {diffWins}/{diffResults.Count} wins ({diffWinPct:0}%)");
         }
         GD.Print("");
-        GD.Print($"Overall: {_results.Count(r => r.Won)}/{total} wins ({_results.Count(r => r.Won) * 100 / total}%)");
+        // Competitive overall excludes Random and TowerFirst (skill-independent baselines)
+        var competitive = _results.Where(r => r.Strategy != BotStrategy.Random && r.Strategy != BotStrategy.TowerFirst).ToList();
+        int compWins = competitive.Count(r => r.Won);
+        GD.Print($"Overall (competitive): {compWins}/{competitive.Count} wins ({compWins * 100 / competitive.Count}%)");
+        GD.Print($"Overall (all):         {_results.Count(r => r.Won)}/{total} wins ({_results.Count(r => r.Won) * 100 / total}%)");
         GD.Print("");
 
         // ── Per-map detailed reports ───────────────────────────────────────────────
