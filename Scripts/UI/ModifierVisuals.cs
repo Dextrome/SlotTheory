@@ -13,12 +13,12 @@ public static class ModifierVisuals
     private static readonly Color StatusSynergy = new Color(1.00f, 0.36f, 0.80f); // magenta
     private static readonly Color MultiTarget   = new Color(0.48f, 1.00f, 0.76f); // mint-green
 
-    // High-contrast colorblind-safe palette (no red-green reliance)
-    private static readonly Color CB_DamageScaling = new Color(1.00f, 0.92f, 0.10f); // bright yellow
-    private static readonly Color CB_Utility       = new Color(0.20f, 0.65f, 1.00f); // bright blue
-    private static readonly Color CB_Range         = new Color(0.90f, 0.90f, 1.00f); // near-white
-    private static readonly Color CB_StatusSynergy = new Color(1.00f, 0.55f, 0.05f); // deep orange
-    private static readonly Color CB_MultiTarget   = new Color(0.25f, 1.00f, 0.95f); // bright teal
+    // High-contrast colorblind-safe palette — each color is a clear hue-shift from its normal counterpart
+    private static readonly Color CB_DamageScaling = new Color(1.00f, 0.92f, 0.10f); // bright yellow   (was orange)
+    private static readonly Color CB_Utility       = new Color(0.10f, 0.50f, 1.00f); // cobalt blue      (was cyan)
+    private static readonly Color CB_Range         = new Color(0.95f, 0.95f, 1.00f); // near-white       (was violet)
+    private static readonly Color CB_StatusSynergy = new Color(1.00f, 0.50f, 0.00f); // pure orange      (was magenta)
+    private static readonly Color CB_MultiTarget   = new Color(0.75f, 0.25f, 1.00f); // vivid purple     (was mint-green)
 
     public static Color GetAccent(string modifierId)
     {
