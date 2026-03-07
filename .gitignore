@@ -56,6 +56,11 @@ ANDROID_TEMPLATE_INSTALL.md
 .dotnet/.workloadAdvertisingManifestSentinel10.0.100
 FEATURES_AUDIT_FIX_PLAN.md
 LEADERBOARDS_PLAN.md
+STEAM_PIPELINE.md
+PROJECT_SCOPE_v1.md
+Slot_Theory_TDD_v1.md
+Slot_Theory_Getting_Started.md
+detailed_balance_analysis_march6.md
 Scripts/Tools/IconBgNode.cs
 .gitignore
 Scripts/Tools/IconExport.cs
