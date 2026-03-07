@@ -253,6 +253,7 @@ public partial class LeaderboardsMenu : Node
         rows = await (LeaderboardManager.Instance?.GetTopEntriesAsync(_selectedMapId, _selectedDifficulty, DisplayEntryLimit)
             ?? System.Threading.Tasks.Task.FromResult<IReadOnlyList<LeaderboardEntryView>>(System.Array.Empty<LeaderboardEntryView>()));
         if (token != _refreshToken) return;
+        ClearRows();
         RenderRows(rows);
         if (rows.Count == 0)
             _status.Text += "  |  No global entries yet (or service unavailable)";
