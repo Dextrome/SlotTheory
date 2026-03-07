@@ -11,6 +11,7 @@ public partial class Settings : Node
     private Button? _fullscreenBtn;
     private Button? _colorblindBtn;
     private Button? _reducedMotionBtn;
+    private Button? _devModeBtn;
 
     public override void _Ready()
     {
@@ -95,6 +96,22 @@ public partial class Settings : Node
 
         AddSpacer(vbox, 24);
 
+        // ── Developer ─────────────────────────────────────────────────
+        AddSectionHeader(vbox, "DEVELOPER");
+
+        bool isDev = sm?.DevMode ?? false;
+        _devModeBtn = new Button
+        {
+            Text = DevModeLabel(isDev),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _devModeBtn.AddThemeFontSizeOverride("font_size", 20);
+        _devModeBtn.Modulate = new Color(0.85f, 0.65f, 1.0f); // subtle purple tint
+        _devModeBtn.Pressed += OnToggleDevMode;
+        vbox.AddChild(_devModeBtn);
+
+        AddSpacer(vbox, 24);
+
         // ── Back ──────────────────────────────────────────────────────
         var back = new Button
         {
@@ -156,6 +173,17 @@ public partial class Settings : Node
 
     private static string ReducedMotionLabel(bool on) =>
         on ? "Reduced Motion:  On" : "Reduced Motion:  Off";
+
+    private void OnToggleDevMode()
+    {
+        bool next = !(SettingsManager.Instance?.DevMode ?? false);
+        SettingsManager.Instance?.SetDevMode(next);
+        if (_devModeBtn != null)
+            _devModeBtn.Text = DevModeLabel(next);
+    }
+
+    private static string DevModeLabel(bool on) =>
+        on ? "Dev Mode:  On  (5× / 10× speed)" : "Dev Mode:  Off";
 
     private static void AddVolumeRow(VBoxContainer vbox, string label, float current,
         System.Action<float> onChange)
