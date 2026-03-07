@@ -85,6 +85,31 @@ public static class MobileOptimization
             return PerformanceLevel.Low;
     }
 
+    // ── Haptics ───────────────────────────────────────────────────────────
+
+    /// <summary>Light tap — card pick, modifier equip, UI confirm.</summary>
+    public static void HapticLight()
+    {
+        if (OS.GetName() != "Android") return;
+        Input.VibrateHandheld(20, 0.35f);
+    }
+
+    /// <summary>Medium pulse — tower placement, wave clear.</summary>
+    public static void HapticMedium()
+    {
+        if (OS.GetName() != "Android") return;
+        Input.VibrateHandheld(60, 0.65f);
+    }
+
+    /// <summary>Strong thud — win, game over, life lost.</summary>
+    public static void HapticStrong()
+    {
+        if (OS.GetName() != "Android") return;
+        Input.VibrateHandheld(120, 1.0f);
+    }
+
+    // ── UI Scale ──────────────────────────────────────────────────────────
+
     /// <summary>
     /// Uniformly scales a top-level UI control on mobile only.
     /// </summary>
