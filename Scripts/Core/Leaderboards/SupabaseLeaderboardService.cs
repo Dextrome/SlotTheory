@@ -16,25 +16,14 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
 {
     private static readonly System.Net.Http.HttpClient Http = new() { Timeout = System.TimeSpan.FromSeconds(10) };
 
-    private string _projectUrl = "";
-    private string _anonKey    = "";
-
     public string ProviderName => "Supabase";
     public bool IsAvailable { get; private set; }
 
     public async Task InitializeAsync()
     {
-        LoadConfig();
-        if (string.IsNullOrEmpty(_projectUrl) || string.IsNullOrEmpty(_anonKey))
-        {
-            GD.PrintErr("[Supabase] supabase.cfg missing or incomplete — global leaderboards disabled.");
-            IsAvailable = false;
-            return;
-        }
-
         try
         {
-            using var req = MakeRequest(System.Net.Http.HttpMethod.Get, $"{_projectUrl}/rest/v1/scores?limit=0&select=id");
+            using var req = MakeRequest(System.Net.Http.HttpMethod.Get, $"{SupabaseConfig.ProjectUrl}/rest/v1/scores?limit=0&select=id");
             using var resp = await Http.SendAsync(req);
             IsAvailable = resp.IsSuccessStatusCode;
             GD.Print($"[Supabase] Init {(IsAvailable ? "OK" : $"FAILED HTTP {(int)resp.StatusCode}")}");
@@ -46,18 +35,6 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
             GD.PrintErr($"[Supabase] Init failed: {ex.Message}");
             IsAvailable = false;
         }
-    }
-
-    private void LoadConfig()
-    {
-        var cfg = new ConfigFile();
-        if (cfg.Load("res://supabase.cfg") != Error.Ok)
-        {
-            GD.PrintErr("[Supabase] res://supabase.cfg not found.");
-            return;
-        }
-        _projectUrl = (string)cfg.GetValue("supabase", "project_url", "");
-        _anonKey    = (string)cfg.GetValue("supabase", "anon_key",    "");
     }
 
     public void Tick() { }
@@ -88,7 +65,7 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
         try
         {
             string json = JsonSerializer.Serialize(body);
-            using var req = MakeRequest(System.Net.Http.HttpMethod.Post, $"{_projectUrl}/rest/v1/rpc/submit_score");
+            using var req = MakeRequest(System.Net.Http.HttpMethod.Post, $"{SupabaseConfig.ProjectUrl}/rest/v1/rpc/submit_score");
             req.Content = new System.Net.Http.StringContent(json, Encoding.UTF8, "application/json");
             using var resp = await Http.SendAsync(req);
 
@@ -114,7 +91,7 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
     public async Task<IReadOnlyList<LeaderboardEntryView>> GetTopEntriesAsync(LeaderboardBucket bucket, int maxEntries = 20)
     {
         string difficulty = bucket.Difficulty.ToString().ToLowerInvariant();
-        string url = $"{_projectUrl}/rest/v1/scores"
+        string url = $"{SupabaseConfig.ProjectUrl}/rest/v1/scores"
                    + $"?map_id=eq.{System.Uri.EscapeDataString(bucket.MapId)}"
                    + $"&difficulty=eq.{System.Uri.EscapeDataString(difficulty)}"
                    + $"&order=score.desc"
@@ -163,8 +140,8 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
     private System.Net.Http.HttpRequestMessage MakeRequest(System.Net.Http.HttpMethod method, string url)
     {
         var req = new System.Net.Http.HttpRequestMessage(method, url);
-        req.Headers.Add("apikey", _anonKey);
-        req.Headers.Add("Authorization", $"Bearer {_anonKey}");
+        req.Headers.Add("apikey", SupabaseConfig.AnonKey);
+        req.Headers.Add("Authorization", $"Bearer {SupabaseConfig.AnonKey}");
         return req;
     }
 
