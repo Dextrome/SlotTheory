@@ -13,12 +13,12 @@ public static class ModifierVisuals
     private static readonly Color StatusSynergy = new Color(1.00f, 0.36f, 0.80f); // magenta
     private static readonly Color MultiTarget   = new Color(0.48f, 1.00f, 0.76f); // mint-green
 
-    // High-contrast colorblind-safe palette — each color is a clear hue-shift from its normal counterpart
-    private static readonly Color CB_DamageScaling = new Color(1.00f, 0.92f, 0.10f); // bright yellow   (was orange)
-    private static readonly Color CB_Utility       = new Color(0.10f, 0.50f, 1.00f); // cobalt blue      (was cyan)
-    private static readonly Color CB_Range         = new Color(0.95f, 0.95f, 1.00f); // near-white       (was violet)
-    private static readonly Color CB_StatusSynergy = new Color(1.00f, 0.50f, 0.00f); // pure orange      (was magenta)
-    private static readonly Color CB_MultiTarget   = new Color(0.75f, 0.25f, 1.00f); // vivid purple     (was mint-green)
+    // Okabe-Ito (2008) colorblind-safe palette — validated for deuteranopia, protanopia, and tritanopia
+    private static readonly Color CB_DamageScaling = new Color(0.902f, 0.624f, 0.000f); // orange    #E69F00
+    private static readonly Color CB_Utility       = new Color(0.337f, 0.706f, 0.914f); // sky blue  #56B4E9
+    private static readonly Color CB_Range         = new Color(0.000f, 0.447f, 0.698f); // blue      #0072B2
+    private static readonly Color CB_StatusSynergy = new Color(0.835f, 0.369f, 0.000f); // vermilion #D55E00
+    private static readonly Color CB_MultiTarget   = new Color(0.800f, 0.475f, 0.655f); // red-purple #CC79A7
 
     public static Color GetAccent(string modifierId)
     {
