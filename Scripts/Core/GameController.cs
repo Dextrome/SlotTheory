@@ -212,6 +212,7 @@ public partial class GameController : Node
 		int livesBefore = _runState.Lives;
 		var result = _combatSim.Step((float)delta, _runState, _waveSystem);
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
+		_hudPanel.RefreshTime(_runState.TotalPlayTime);
 		_hudPanel.RefreshEnemies(_runState.EnemiesAlive.Count, _waveSystem.GetTotalCount());
 		if (_runState.Lives < livesBefore)
 		{
@@ -238,7 +239,7 @@ public partial class GameController : Node
 			var localSubmit = HighScoreManager.Instance?.SubmitLocal(scorePayload);
 			string leaderboardLine = BuildInitialLeaderboardLine(scorePayload, localSubmit);
 			_endScreen.SetLeaderboardContext(scorePayload.MapId, scorePayload.Difficulty);
-			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary(), _runState, runName, mvpLine, modLine, runColors.start, runColors.end);
+			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), _runState, runName, mvpLine, modLine, runColors.start, runColors.end);
 			_endScreen.SetLeaderboardStatus(leaderboardLine);
 			QueueGlobalSubmit(scorePayload, leaderboardLine);
 			return;
@@ -264,7 +265,7 @@ public partial class GameController : Node
 				var localSubmit = HighScoreManager.Instance?.SubmitLocal(scorePayload);
 				string leaderboardLine = BuildInitialLeaderboardLine(scorePayload, localSubmit);
 				_endScreen.SetLeaderboardContext(scorePayload.MapId, scorePayload.Difficulty);
-				_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end);
+				_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end);
 				_endScreen.SetLeaderboardStatus(leaderboardLine);
 				QueueGlobalSubmit(scorePayload, leaderboardLine);
 			}
@@ -717,7 +718,7 @@ public partial class GameController : Node
 		};
 
 		// Range indicator — semi-transparent fill in tower's body colour
-		var rangeCircle = new Polygon2D { Color = new Color(tower.BodyColor.R, tower.BodyColor.G, tower.BodyColor.B, 0.10f) };
+		var rangeCircle = new Polygon2D { Color = new Color(tower.BodyColor.R, tower.BodyColor.G, tower.BodyColor.B, 0.08f) };
 		var pts = new Vector2[64];
 		for (int p = 0; p < 64; p++)
 		{
@@ -736,7 +737,7 @@ public partial class GameController : Node
 		{
 			Points       = borderPts,
 			Width        = 1.5f,
-			DefaultColor = new Color(tower.BodyColor.R, tower.BodyColor.G, tower.BodyColor.B, 0.28f),
+			DefaultColor = new Color(tower.BodyColor.R, tower.BodyColor.G, tower.BodyColor.B, 0.22f),
 		};
 		tower.RangeBorder = rangeBorder;
 		tower.AddChild(rangeBorder);

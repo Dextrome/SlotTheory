@@ -70,6 +70,21 @@ public partial class MainMenu : Node
 		AddButton(vbox, "Settings",       260, 48, 22, OnSettings);
 		AddSpacer(vbox, 4);
 		AddButton(vbox, "Quit", 260, 48, 22, OnQuit);
+
+		var versionLabel = new Label
+		{
+			Text = "v0.1.5",
+			HorizontalAlignment = HorizontalAlignment.Right,
+			VerticalAlignment = VerticalAlignment.Bottom,
+			AnchorLeft = 1f, AnchorRight = 1f,
+			AnchorTop = 1f,  AnchorBottom = 1f,
+			OffsetLeft = -80f, OffsetRight = -10f,
+			OffsetTop = -28f,  OffsetBottom = -8f,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		versionLabel.AddThemeFontSizeOverride("font_size", 13);
+		versionLabel.Modulate = new Color(0.38f, 0.38f, 0.38f);
+		canvas.AddChild(versionLabel);
 	}
 
 	public override void _Notification(int what)

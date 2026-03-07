@@ -12,6 +12,7 @@ public partial class HudPanel : CanvasLayer
     private RichTextLabel _buildLabel = null!;
     private Label _livesLabel = null!;
     private Label _enemyLabel = null!;
+    private Label _timeLabel = null!;
     private Label _speedToast = null!;
     private ColorRect _speedToastStreak = null!;
     private Button _speedBtn = null!;
@@ -171,6 +172,25 @@ public partial class HudPanel : CanvasLayer
         _livesLabel.AddThemeFontSizeOverride("font_size", 22);
         bar.AddChild(_livesLabel);
 
+        _timeLabel = new Label
+        {
+            Text = "0:00",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            AnchorLeft = 0.5f,
+            AnchorRight = 0.5f,
+            AnchorTop = 0f,
+            AnchorBottom = 0f,
+            OffsetLeft = -(livesOffsetX + 92f),
+            OffsetRight = -(livesOffsetX - 92f),
+            OffsetTop = 0f,
+            OffsetBottom = 44f,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Modulate = new Color(1f, 1f, 1f, 0.55f),
+        };
+        _timeLabel.AddThemeFontSizeOverride("font_size", 18);
+        bar.AddChild(_timeLabel);
+
         _speedToast = new Label
         {
             Text = "",
@@ -240,6 +260,17 @@ public partial class HudPanel : CanvasLayer
         _livesLabel.Text = $"Lives: {lives}";
         _livesLabel.Modulate = lives <= 3 ? new Color(1f, 0.35f, 0.35f) : Colors.White;
         _livesLabel.PivotOffset = _livesLabel.Size / 2f;
+    }
+
+    public void RefreshTime(float totalSeconds)
+    {
+        _timeLabel.Text = FormatTime(totalSeconds);
+    }
+
+    private static string FormatTime(float seconds)
+    {
+        int s = (int)seconds;
+        return $"{s / 60}:{s % 60:D2}";
     }
 
     public void PulseWaveLabel()
