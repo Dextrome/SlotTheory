@@ -27,6 +27,7 @@ public partial class EndScreen : CanvasLayer
 	private DifficultyMode _leaderboardDifficulty = DifficultyMode.Normal;
 	private RunScorePayload? _pendingPayload;
 	private string _pendingLocalLine = "";
+	private bool _namePromptActive;
 
 	public override void _Ready()
 	{
@@ -159,6 +160,7 @@ public partial class EndScreen : CanvasLayer
 	public override void _Input(InputEvent @event)
 	{
 		if (!Visible) return;
+		if (_namePromptActive) return;
 		if (MobileOptimization.IsMobile())
 			return;
 
@@ -279,6 +281,7 @@ public partial class EndScreen : CanvasLayer
 	{
 		_pendingPayload   = payload;
 		_pendingLocalLine = localLine;
+		_namePromptActive = true;
 
 		var overlay = new Panel();
 		overlay.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -335,6 +338,7 @@ public partial class EndScreen : CanvasLayer
 			if (name.Length == 0) return;
 			SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
 			SlotTheory.Core.SettingsManager.Instance?.SetPlayerName(name);
+			_namePromptActive = false;
 			overlay.QueueFree();
 			_ = SubmitAfterNameAsync();
 		};
@@ -351,6 +355,7 @@ public partial class EndScreen : CanvasLayer
 		skipBtn.Pressed += () =>
 		{
 			SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
+			_namePromptActive = false;
 			overlay.QueueFree();
 			_pendingPayload = null;
 			SetLeaderboardStatus(localLine);
@@ -397,7 +402,7 @@ public partial class EndScreen : CanvasLayer
 
 	public override void _Notification(int what)
 	{
-		if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */ && Visible)
+		if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */ && Visible && !_namePromptActive)
 		{
 			SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
 			Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
@@ -406,7 +411,7 @@ public partial class EndScreen : CanvasLayer
 
 	public override void _UnhandledInput(InputEvent @event)
 	{
-		if (@event.IsActionPressed("ui_cancel") && Visible)
+		if (@event.IsActionPressed("ui_cancel") && Visible && !_namePromptActive)
 		{
 			Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 			GetViewport().SetInputAsHandled();
