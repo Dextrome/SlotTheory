@@ -8,7 +8,7 @@ public class Slow : Modifier
 {
     public Slow(ModifierDef def) { ModifierId = def.Id; }
 
-    public override void OnHit(DamageContext ctx)
+    public override bool OnHit(DamageContext ctx)
     {
         // Count how many "slow" modifiers are on this tower
         int slowCount = 0;
@@ -25,5 +25,6 @@ public class Slow : Modifier
             stackedFactor *= Core.Balance.SlowSpeedFactor;
 
         Statuses.ApplySlow(ctx.Target, Core.Balance.SlowDuration, stackedFactor);
+        return true;
     }
 }

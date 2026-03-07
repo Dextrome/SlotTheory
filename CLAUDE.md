@@ -84,31 +84,33 @@ No test infrastructure exists yet. The TDD calls for:
 - A developer debug overlay (wave count, spawned/alive counts, DPS estimate, targeting mode, Marked status counts)
 - Optional "fast-forward" key for speeding through wave simulation during balancing
 
+**Priority test: draft anti-brick rule.** `DraftSystem` guarantees modifiers are never offered if no tower can accept them. This is a silent failure mode — a miscategorised modifier silently bricks a run with no error. It must be the first unit test written when test infrastructure is added.
+
 Python scripts (`Scripts/Tools/`) will handle content generation (JSON/YAML), balancing calculators, wave curve simulation, and modifier list generation.
 
 ## Data Consistency & Balance Updates
 
 ### Modifier Description Validation
 
-**Problem:** Card tooltips can drift from implementation after balance changes. Example: Split Shot said "80% damage" but code implemented "65%" (from commit 622ef70 nerf).
+**Problem:** Card tooltips can drift from implementation after balance changes.
 
 **Solution:** `ModifierDataValidator.cs` runs on startup and validates modifier descriptions match their code implementations.
 
 **How it works:**
-1. Validator checks that key stat tokens appear in descriptions (e.g., "65%", "−30%", "×1.4")
+1. Validator checks that key stat tokens appear in descriptions (e.g., "42%", "−25%", "×1.80")
 2. Runs automatically during `DataLoader.LoadAll()`
-3. Prints `[VALIDATOR] ✓ All descriptions match` or lists mismatches
+3. Prints `[VALIDATOR] OK All modifier descriptions match implementation` or lists mismatches
 4. Zero overhead once validated (no runtime checks after initial load)
 
 **When making balance changes:**
-1. Update the constant in `Balance.cs` (e.g., `SplitShotDamageRatio = 0.65f`)
-2. Update the description in `Data/modifiers.json` to match (e.g., "65% damage each")
+1. Update the constant in `Balance.cs` (e.g., `SplitShotDamageRatio = 0.42f`)
+2. Update the description in `Data/modifiers.json` to match (e.g., "42% damage each")
 3. Run the game or bot test — validator will catch mismatches on startup
 4. If validator fails, fix the description to match the constant
 
 **To add a new modifier's validation check:**
 1. Add entry to `ModifierDataValidator.cs` `expectations` list with expected tokens
-2. Use exact text from description (e.g., "+50%", "−30%", "×1.4", "5 s")
+2. Use exact text from description (e.g., "+40%", "−25%", "×1.80", "5 s")
 3. Rerun to verify
 
 ## Hand-Written .tscn Rules
@@ -149,11 +151,11 @@ Key constraints from the Getting Started guide:
 
 ### Combat simulation order (per frame, in `CombatSim`):
 1. Spawn enemies per wave interval until quota reached
-2. Move enemies: `Progress += Speed * delta / LaneLength`
+2. Move enemies: enemies self-move via `EnemyInstance._Process()` — `Progress += Speed * delta` (PathFollow2D absolute pixel offset; no LaneLength division)
 3. For each tower: reduce cooldown → acquire target via `Targeting.SelectTarget()` → run damage pipeline → reset cooldown
 4. Remove dead enemies
 5. Wave end: quota spawned AND no enemies alive
-6. Loss: any enemy reaches `Progress >= 1.0` (immediate fail in v1)
+6. Loss: player `Lives` reaches 0 — each enemy that exits (`ProgressRatio >= 1.0`) costs 1 life (`Balance.StartingLives = 10`)
 
 ### Damage pipeline (`DamageModel`):
 Build a `DamageContext` (attacker, target, base damage, wave index) → apply modifier hooks in deterministic order:
@@ -213,26 +215,59 @@ res://
     Core/
       GameController.cs     # Run lifecycle state machine + visual setup
       MapGenerator.cs       # Procedural snake-path map (pure C#)
+      Map.cs                # Static map support
       RunState.cs           # Single source of truth
       DraftSystem.cs        # Generates 5 draft options
       WaveSystem.cs         # Wave config + spawn schedule + scaling
       Balance.cs            # All tunables in one place
+      SettingsManager.cs    # Difficulty mode + persistent settings
+      SoundManager.cs       # Audio; auto-disables in headless mode
+      PathFlow.cs
+      Transition.cs
+      UITheme.cs
+      GridBackground.cs
+      MobileInput.cs
+      MobileOptimization.cs
+      MobileRunSession.cs
+      Leaderboards/
+        ILeaderboardService.cs
+        LeaderboardKey.cs
+        LeaderboardModels.cs
+        LeaderboardManager.cs  (Scripts/Core/)
+        ScoreCalculator.cs
+        BuildSnapshotCodec.cs
+        SteamLeaderboardService.cs
+        NullLeaderboardService.cs
+      Naming/
+        RunNameGenerator.cs
+        RunNameProfile.cs
+      HighScoreManager.cs
     Combat/
       CombatSim.cs          # Step-by-step wave execution
       Targeting.cs          # Target selection logic
       DamageModel.cs        # Damage pipeline with modifier hooks
-      Statuses.cs           # Status effect tracking (Marked)
+      Statuses.cs           # Status effect tracking (Marked, Slow)
     Entities/
       EnemyInstance.cs      # PathFollow2D, self-moves via _Process
       TowerInstance.cs      # Node2D, cooldown bar + targeting mode
       SlotInstance.cs
+      DeathBurst.cs
+      ChainArc.cs
+      ProjectileVisual.cs
+      TargetAcquirePing.cs
+      DamageNumber.cs
+      CombatCallout.cs
     Modifiers/
       Modifier.cs           # Base interface
       ModifierRegistry.cs   # JSON ID → concrete modifier object
       ModEvents.cs          # Event system for modifier interactions
+      (one .cs per modifier: Momentum, Overkill, ExploitWeakness, FocusLens,
+       Slow, Overreach, HairTrigger, SplitShot, FeedbackLoop, ChainReaction)
     Tools/
       BotRunner.cs          # Orchestrates automated bot playtests (N runs, per-strategy tracking)
+      BotPlayer.cs
       ModifierDataValidator.cs # Validates tooltip text matches implementation constants
+      IconBgNode.cs, IconExport.cs
     Data/
       DataLoader.cs, Models.cs
     UI/
@@ -241,9 +276,20 @@ res://
       EndScreen.cs          # Win/loss; left-click → MainMenu
       PauseScreen.cs        # Esc overlay; unpause / main menu
       MainMenu.cs           # Procedural dark main menu
+      MapSelectPanel.cs
+      LeaderboardsMenu.cs
+      Settings.cs
+      HowToPlay.cs
+      ModifierIcon.cs
+      ModifierVisuals.cs
+      TargetModeIcon.cs
+      TowerIcon.cs
+      TouchScrollHelper.cs
+      DraftBackdropFx.cs
+      NeonGridBg.cs
 
   Data/
-    towers.json, modifiers.json, waves.json
+    towers.json, modifiers.json, waves.json, maps.json
 ```
 
 ## V1 Scope Locks
@@ -259,7 +305,23 @@ If an idea requires a new system → defer to "Project 2."
 
 ## V1 Content
 
-- **4 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +30% dmg for 2s), Arc Emitter (chains to 2 enemies, 260 px range, 60% decay/bounce)
-- **10 modifiers**: Momentum (+8% dmg/hit same target, max ×1.4), Overkill (80% excess dmg spills to next enemy), Exploit Weakness (+50% dmg vs Marked), Focus Lens (+150% dmg, ×2 attack interval), Chill Shot (−30% enemy speed on hit, 5s), Overreach (+50% range, −15% dmg), Hair Trigger (+50% attack speed, −30% range), Split Shot (65% damage per copy, fires 2 projectiles), Feedback Loop (30% cooldown reduction on kill), Chain Reaction (60% damage per bounce, adds 1 more)
-- **2 enemy types**: Basic Walker (65 HP wave 1, ×1.10/wave, 120px/s, 1 life); Armored Walker (4× HP, 60px/s, 2 lives, first appears wave 7)
+- **4 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +40% dmg taken, 4s), Arc Emitter (chains to 2 enemies, 400 px chain range, 60% decay/bounce)
+- **10 modifiers** (always check `Balance.cs` + `modifiers.json` for current values — these drift after balance passes):
+  - Momentum: +16% dmg/hit same target, max ×1.80
+  - Overkill: 60% excess dmg spills to next enemy
+  - Exploit Weakness: +60% dmg vs Marked enemies
+  - Focus Lens: +125% dmg, ×2 attack interval
+  - Chill Shot: −25% enemy speed on hit, 5s (stacks multiplicatively per tower)
+  - Overreach: +40% range, −20% dmg
+  - Hair Trigger: +40% attack speed, −18% range
+  - Split Shot: fires 2 projectiles at nearby enemies for 42% damage each
+  - Feedback Loop: 25% cooldown reduction on kill
+  - Chain Reaction: adds 1 bounce (60% decay/bounce); stacks add more bounces
+- **3 enemy types**:
+  - Basic Walker: 65 HP wave 1, ×1.10/wave, 120px/s
+  - Armored Walker: 4× HP, 60px/s, first appears wave 6 (index 5)
+  - Swift Walker: 1.5× HP, 240px/s, appears waves 10–14
+- **10 player lives** — each leaked enemy costs 1 life (`Balance.StartingLives = 10`)
 - **20 waves**, 6 tower slots, max 3 modifiers per tower
+- **Extra draft picks**: +1 free pick before wave 1 and before wave 15 (`Balance.Wave1ExtraPicks`, `Balance.Wave15ExtraPicks`)
+- **Difficulty modes**: Normal (×1.05 HP/count, ×0.95 spawn interval) and Hard (×1.1 HP, ×1.2 count, ×0.9 spawn interval)

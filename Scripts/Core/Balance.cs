@@ -67,8 +67,14 @@ public static class Balance
     public const float HairTriggerAttackSpeed = 1.40f; // +40% attack speed
     public const float HairTriggerRangeFactor = 0.82f; // -18% range
 
+    // Exploit Weakness modifier
+    public const float ExploitWeaknessDamageBonus = 1.60f; // ×1.60 damage to Marked enemies (+60%)
+
     // Overkill modifier
     public const float OverkillSpillEfficiency = 0.60f; // 60% excess damage spill
+
+    // Chain decay (shared by Arc Emitter base and ChainReaction modifier)
+    public const float ChainDamageDecay = 0.60f; // damage multiplier per bounce
 
     // Focus Lens modifier
     public const float FocusLensDamageBonus = 2.25f; // +125% damage
