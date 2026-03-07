@@ -162,16 +162,21 @@ public partial class HowToPlay : Node
 		// Instead handle mobile layout through responsive margins and font sizes
 	}
 
-	public override void _UnhandledInput(InputEvent @event)
+	public override void _Notification(int what)
 	{
-		// Consume Escape key to prevent it from reaching pause screen underneath
-		if (@event.IsActionPressed("ui_cancel"))
+		if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */)
 		{
-			// Trigger back button behavior
 			if (OnBack != null) { OnBack(); QueueFree(); }
 			else SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
-			
-			// Mark event as handled
+		}
+	}
+
+	public override void _UnhandledInput(InputEvent @event)
+	{
+		if (@event.IsActionPressed("ui_cancel"))
+		{
+			if (OnBack != null) { OnBack(); QueueFree(); }
+			else SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 			GetViewport().SetInputAsHandled();
 		}
 	}

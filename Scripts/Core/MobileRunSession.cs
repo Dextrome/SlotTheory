@@ -7,6 +7,12 @@ using SlotTheory.Core.Leaderboards;
 
 namespace SlotTheory.Core;
 
+public sealed class MobileDraftOptionSnapshot
+{
+	public string Type { get; set; } = ""; // "tower" | "modifier"
+	public string Id   { get; set; } = "";
+}
+
 public sealed class MobileRunSlotSnapshot
 {
 	public int SlotIndex { get; set; }
@@ -22,11 +28,13 @@ public sealed class MobileRunSnapshot
 	public string MapId { get; set; } = LeaderboardKey.RandomMapId;
 	public int RngSeed { get; set; } = 0;
 	public int WaveIndex { get; set; } = 0;
+	public int ExtraPicksRemaining { get; set; } = 0;
 	public int Lives { get; set; } = Balance.StartingLives;
 	public int TotalKills { get; set; } = 0;
 	public int TotalDamageDealt { get; set; } = 0;
 	public float TotalPlayTime { get; set; } = 0f;
-	public List<MobileRunSlotSnapshot> Slots { get; set; } = new();
+	public List<MobileRunSlotSnapshot>     Slots        { get; set; } = new();
+	public List<MobileDraftOptionSnapshot> DraftOptions { get; set; } = new();
 }
 
 public static class MobileRunSession
@@ -46,7 +54,8 @@ public static class MobileRunSession
 		return TryLoad(out _);
 	}
 
-	public static void Save(GamePhase phase, RunState runState)
+	public static void Save(GamePhase phase, RunState runState, int extraPicksRemaining = 0,
+		IEnumerable<DraftOption>? currentDraftOptions = null)
 	{
 		if (!IsActiveRunPhase(phase))
 		{
@@ -64,11 +73,13 @@ public static class MobileRunSession
 				MapId = string.IsNullOrWhiteSpace(runState.SelectedMapId) ? LeaderboardKey.RandomMapId : runState.SelectedMapId!,
 				RngSeed = runState.RngSeed,
 				WaveIndex = runState.WaveIndex,
+				ExtraPicksRemaining = extraPicksRemaining,
 				Lives = runState.Lives,
 				TotalKills = runState.TotalKills,
 				TotalDamageDealt = runState.TotalDamageDealt,
 				TotalPlayTime = runState.TotalPlayTime,
-				Slots = CaptureSlots(runState)
+				Slots        = CaptureSlots(runState),
+				DraftOptions = CaptureDraftOptions(currentDraftOptions)
 			};
 
 			string json = JsonSerializer.Serialize(snapshot, JsonOpts);
@@ -152,6 +163,16 @@ public static class MobileRunSession
 			});
 		}
 		return slots;
+	}
+
+	private static List<MobileDraftOptionSnapshot> CaptureDraftOptions(IEnumerable<DraftOption>? options)
+	{
+		if (options == null) return new();
+		return options.Select(o => new MobileDraftOptionSnapshot
+		{
+			Type = o.Type == DraftOptionType.Tower ? "tower" : "modifier",
+			Id   = o.Id
+		}).ToList();
 	}
 
 	private static bool IsValid(MobileRunSnapshot snapshot)
