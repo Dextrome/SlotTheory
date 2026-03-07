@@ -217,6 +217,7 @@ public partial class GameController : Node
 		{
 			_hudPanel.FlashLives();
 			ShakeWorld();
+			MobileOptimization.HapticStrong();
 			if (_runState.Lives <= 2)
 				ShowClutchToast(_runState.Lives <= 1 ? "TOO CLOSE" : "CLUTCH");
 		}
@@ -226,6 +227,7 @@ public partial class GameController : Node
 		{
 			CurrentPhase = GamePhase.Loss;
 			MobileRunSession.Clear();
+			MobileOptimization.HapticStrong();
 			int livesLost = Balance.StartingLives - _runState.Lives;
 			SoundManager.Instance?.Play("game_over");
 				string runName = BuildRunName(registerInHistory: true, wonOverride: false, waveReachedOverride: _runState.WaveIndex + 1);
@@ -252,6 +254,7 @@ public partial class GameController : Node
 			{
 				CurrentPhase = GamePhase.Win;
 				MobileRunSession.Clear();
+				MobileOptimization.HapticStrong();
 				SoundManager.Instance?.Play("victory");
 					string runName = BuildRunName(registerInHistory: true, wonOverride: true, waveReachedOverride: Balance.TotalWaves);
 				var runColors = BuildRunNameColors();
@@ -268,6 +271,7 @@ public partial class GameController : Node
 			else
 			{
 				if (_botRunner == null) ShowWaveClearFlash();
+				MobileOptimization.HapticMedium();
 				SoundManager.Instance?.Play("wave_clear");
 				_extraPicksRemaining = Balance.ExtraPicksForWave(_runState.WaveIndex);
 				if (_botRunner != null)
@@ -495,6 +499,7 @@ public partial class GameController : Node
 		_combatSim.ResetForWave();
 		_endScreen.Visible = false;
 		Engine.TimeScale = 1.0;   // always reset speed on new run
+		SoundManager.Instance?.SetMusicTension(0f);
 		_hitStopActive = false;
 		_hitStopCooldown = 0f;
 		_preHitStopTimeScale = 1.0;
@@ -541,6 +546,7 @@ public partial class GameController : Node
 			if (targetSlotIndex >= 0 && targetSlotIndex < _runState.Slots.Length && _runState.Slots[targetSlotIndex].Tower == null)
 			{
 				PlaceTower(option.Id, targetSlotIndex);
+				// Tower placement haptic fired inside PlaceTower
 			}
 		}
 		else
@@ -550,6 +556,7 @@ public partial class GameController : Node
 			{
 				_draftSystem.ApplyModifier(option.Id, tower);
 				if (_botRunner == null) RefreshModPips(targetSlotIndex);
+				MobileOptimization.HapticLight(); // modifier equipped
 			}
 		}
 		AdvanceAfterDraftPickFlow();
@@ -672,6 +679,7 @@ public partial class GameController : Node
 	{
 		if (_runState.Slots[slotIndex].Tower != null) return;
 
+		MobileOptimization.HapticMedium();
 		var def = DataLoader.GetTowerDef(towerId);
 		var tower = new TowerInstance
 		{
@@ -2267,6 +2275,11 @@ public partial class GameController : Node
 			_hudPanel.PulseWaveLabel();
 			_pathFlow?.TriggerSurge(1.0f);
 		}
+		// Tension ramp: waves 15-20 gradually increase music intensity
+		if (waveNumber >= 15)
+			SoundManager.Instance?.SetMusicTension((waveNumber - 14f) / 6f);
+		else
+			SoundManager.Instance?.SetMusicTension(0f);
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 		string runName = BuildRunName();
 		var runColors = BuildRunNameColors();

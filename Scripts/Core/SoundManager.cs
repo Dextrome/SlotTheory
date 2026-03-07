@@ -31,6 +31,9 @@ public partial class SoundManager : Node
     private AudioStreamPlayer?              _musicPlayer;
     private AudioStreamGeneratorPlayback?   _musicPlayback;
     private float _speedFxPitch = 1f;
+    private float _speedMusicPitch = 1f;
+    private float _musicTensionDb = 0f;
+    private float _musicTensionPitch = 1f;
     private float _musicDuckDb = 0f;
     private float _musicDuckHold = 0f;
     private const float MusicBaseDb = -3f;
@@ -199,7 +202,7 @@ public partial class SoundManager : Node
             else
                 _musicDuckDb = Mathf.Max(0f, _musicDuckDb - 14f * (float)delta);
 
-            float targetDb = MusicBaseDb - _musicDuckDb;
+            float targetDb = MusicBaseDb + _musicTensionDb - _musicDuckDb;
             _musicPlayer.VolumeDb = Mathf.Lerp(_musicPlayer.VolumeDb, targetDb, 12f * (float)delta);
         }
     }
@@ -229,9 +232,26 @@ public partial class SoundManager : Node
         // Subtle "machine pushed harder" effect at 2x/3x.
         float speedOver = Mathf.Max(0f, speedScale - 1f);
         _speedFxPitch = 1f + speedOver * 0.026f; // 2x: 1.026, 3x: 1.052
+        _speedMusicPitch = 1f + speedOver * 0.012f;
+        UpdateMusicPitch();
+    }
 
+    /// <summary>
+    /// Ramps up music intensity for late-game tension. Call at each wave start.
+    /// level 0 = baseline; level 1 = full tension (waves 15-20).
+    /// </summary>
+    public void SetMusicTension(float level)
+    {
+        if (_headless) return;
+        _musicTensionDb    = Mathf.Clamp(level, 0f, 1f) * 3.5f;  // up to +3.5 dB
+        _musicTensionPitch = 1f + Mathf.Clamp(level, 0f, 1f) * 0.025f; // up to +2.5%
+        UpdateMusicPitch();
+    }
+
+    private void UpdateMusicPitch()
+    {
         if (_musicPlayer != null)
-            _musicPlayer.PitchScale = 1f + speedOver * 0.012f;
+            _musicPlayer.PitchScale = _speedMusicPitch * _musicTensionPitch;
     }
 
     public void DuckMusic(float amountDb = 1.8f, float holdSeconds = 0.10f)

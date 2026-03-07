@@ -14,10 +14,12 @@ public partial class SettingsManager : Node
     private const string SecAudio = "audio";
     private const string SecDisp  = "display";
 
-    public float MasterVolume { get; private set; } = 80f;  // 0–100
-    public float MusicVolume  { get; private set; } = 80f;
-    public float FxVolume     { get; private set; } = 80f;
-    public bool  Fullscreen   { get; private set; } = false;
+    public float MasterVolume  { get; private set; } = 80f;  // 0–100
+    public float MusicVolume   { get; private set; } = 80f;
+    public float FxVolume      { get; private set; } = 80f;
+    public bool  Fullscreen    { get; private set; } = false;
+    public bool  ColorblindMode { get; private set; } = false;
+    public bool  ReducedMotion  { get; private set; } = false;
     public DifficultyMode Difficulty { get; private set; } = DifficultyMode.Normal;
 
     public override void _Ready()
@@ -62,6 +64,18 @@ public partial class SettingsManager : Node
     }
 
     public void ToggleFullscreen() => SetFullscreen(!Fullscreen);
+
+    public void SetColorblindMode(bool enabled)
+    {
+        ColorblindMode = enabled;
+        Save();
+    }
+
+    public void SetReducedMotion(bool enabled)
+    {
+        ReducedMotion = enabled;
+        Save();
+    }
 
     public void SetDifficulty(DifficultyMode difficulty)
     {
@@ -122,20 +136,24 @@ public partial class SettingsManager : Node
         var cfg = new ConfigFile();
         if (cfg.Load(SavePath) != Error.Ok) return;
 
-        MasterVolume = (float)cfg.GetValue(SecAudio, "master_volume", 80f);
-        MusicVolume  = (float)cfg.GetValue(SecAudio, "music_volume",  80f);
-        FxVolume     = (float)cfg.GetValue(SecAudio, "fx_volume",     80f);
-        Fullscreen   = (bool) cfg.GetValue(SecDisp,  "fullscreen",    false);
-        Difficulty   = (DifficultyMode)(int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Normal);
+        MasterVolume  = (float)cfg.GetValue(SecAudio, "master_volume", 80f);
+        MusicVolume   = (float)cfg.GetValue(SecAudio, "music_volume",  80f);
+        FxVolume      = (float)cfg.GetValue(SecAudio, "fx_volume",     80f);
+        Fullscreen    = (bool) cfg.GetValue(SecDisp,  "fullscreen",    false);
+        ColorblindMode = (bool)cfg.GetValue(SecDisp,  "colorblind",    false);
+        ReducedMotion  = (bool)cfg.GetValue(SecDisp,  "reduced_motion", false);
+        Difficulty    = (DifficultyMode)(int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Normal);
     }
 
     private void Save()
     {
         var cfg = new ConfigFile();
-        cfg.SetValue(SecAudio, "master_volume", MasterVolume);
-        cfg.SetValue(SecAudio, "music_volume",  MusicVolume);
-        cfg.SetValue(SecAudio, "fx_volume",     FxVolume);
-        cfg.SetValue(SecDisp,  "fullscreen",    Fullscreen);
+        cfg.SetValue(SecAudio, "master_volume",  MasterVolume);
+        cfg.SetValue(SecAudio, "music_volume",   MusicVolume);
+        cfg.SetValue(SecAudio, "fx_volume",      FxVolume);
+        cfg.SetValue(SecDisp,  "fullscreen",     Fullscreen);
+        cfg.SetValue(SecDisp,  "colorblind",     ColorblindMode);
+        cfg.SetValue(SecDisp,  "reduced_motion", ReducedMotion);
         cfg.SetValue("gameplay", "difficulty",   (int)Difficulty);
         cfg.Save(SavePath);
     }
