@@ -541,6 +541,8 @@ public partial class GameController : Node
 	/// <summary>Called by DraftPanel after the player picks an option.</summary>
 	public void OnDraftPick(DraftOption option, int targetSlotIndex)
 	{
+		_currentDraftOptions = null; // always generate fresh options for the next pick
+
 		if (option.Type == DraftOptionType.Tower)
 		{
 			if (targetSlotIndex >= 0 && targetSlotIndex < _runState.Slots.Length && _runState.Slots[targetSlotIndex].Tower == null)
