@@ -23,11 +23,11 @@ config/icon="res://icon2.png"
 
 [autoload]
 
+LeaderboardManager="*res://Scripts/Core/LeaderboardManager.cs"
 SettingsManager="*res://Scripts/Core/SettingsManager.cs"
 SoundManager="*res://Scripts/Core/SoundManager.cs"
 Transition="*res://Scripts/Core/Transition.cs"
 HighScoreManager="*res://Scripts/Core/HighScoreManager.cs"
-LeaderboardManager="*res://Scripts/Core/LeaderboardManager.cs"
 
 [display]
 

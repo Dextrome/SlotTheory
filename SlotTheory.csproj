@@ -8,4 +8,8 @@
   <ItemGroup>
     <PackageReference Include="Steamworks.NET" Version="2024.8.0" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- Exclude test project from game build -->
+    <Compile Remove="SlotTheory.Tests/**" />
+  </ItemGroup>
 </Project>

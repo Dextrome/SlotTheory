@@ -292,7 +292,7 @@ public partial class LeaderboardsMenu : Node
         var header = new Label
         {
             HorizontalAlignment = HorizontalAlignment.Left,
-            Text = $"#{row.Rank}  {Truncate(row.Name, 18)}  |  {row.Score:N0}  |  W {row.WaveReached}/{Balance.TotalWaves}  |  L {row.LivesRemaining}  |  K {row.TotalKills}  |  {FormatTime(row.TimeSeconds)}",
+            Text = $"#{row.Rank}  {Truncate(row.Name, 18)}  |  {row.Score:N0}  |  W {row.WaveReached}/{Balance.TotalWaves}  |  L {row.LivesRemaining}  |  {FormatTime(row.TimeSeconds)}",
             ClipText = true,
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
         };
