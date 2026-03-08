@@ -54,21 +54,70 @@ public partial class PauseScreen : CanvasLayer
 
     private void BuildMainPanel(VBoxContainer parent)
     {
-        var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 14);
-        parent.AddChild(vbox);
-        _mainPanel = vbox;
+        var card = new PanelContainer();
+        card.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.04f, 0.04f, 0.12f),
+            border: new Color(0.18f, 0.22f, 0.18f),
+            corners: 12, borderWidth: 1, padH: 24, padV: 20));
+        parent.AddChild(card);
+        _mainPanel = card;
 
-        AddLabel(vbox, "PAUSED", 52, Colors.White);
-        AddSpacer(vbox, 10);
-        AddBtn(vbox, "Resume",       OnResume);
+        var vbox = new VBoxContainer();
+        vbox.AddThemeConstantOverride("separation", 8);
+        card.AddChild(vbox);
+
+        AddLabel(vbox, "PAUSED", 48, UITheme.Lime);
+        AddSpacer(vbox, 6);
+        AddSeparatorLine(vbox);
+        AddSpacer(vbox, 6);
+
+        var resumeBtn = MakePauseBtn("Resume", 260, 50, 22);
+        UITheme.ApplyPrimaryStyle(resumeBtn);
+        resumeBtn.Pressed += () => { SoundManager.Instance?.Play("ui_select"); OnResume(); };
+        resumeBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+        vbox.AddChild(resumeBtn);
+
+        AddSpacer(vbox, 4);
         AddBtn(vbox, "Restart Run",  OnRestart);
         AddBtn(vbox, "Settings",     OnOpenSettings);
         AddBtn(vbox, "How to Play",  OnHowToPlay);
         AddBtn(vbox, "Achievements", OnAchievements);
-        AddSpacer(vbox, 10);
-        AddBtn(vbox, "Main Menu",       OnMainMenu);
-        AddBtn(vbox, "Quit", OnQuit);
+        AddSpacer(vbox, 4);
+        AddSeparatorLine(vbox);
+        AddSpacer(vbox, 4);
+
+        var mmBtn = MakePauseBtn("Main Menu", 260, 44, 20);
+        UITheme.ApplyCyanStyle(mmBtn);
+        mmBtn.Pressed += () => { SoundManager.Instance?.Play("ui_select"); OnMainMenu(); };
+        mmBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+        vbox.AddChild(mmBtn);
+
+        var quitBtn = MakePauseBtn("Quit", 260, 44, 20);
+        UITheme.ApplyMutedStyle(quitBtn);
+        quitBtn.Pressed += () => { SoundManager.Instance?.Play("ui_select"); OnQuit(); };
+        quitBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+        vbox.AddChild(quitBtn);
+    }
+
+    private static Button MakePauseBtn(string text, int minW, int minH, int fontSize)
+    {
+        var btn = new Button
+        {
+            Text              = text,
+            CustomMinimumSize = new Vector2(minW, minH),
+        };
+        btn.AddThemeFontSizeOverride("font_size", fontSize);
+        return btn;
+    }
+
+    private static void AddSeparatorLine(VBoxContainer parent)
+    {
+        parent.AddChild(new ColorRect
+        {
+            CustomMinimumSize = new Vector2(0, 1),
+            Color             = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.12f),
+            MouseFilter       = Control.MouseFilterEnum.Ignore,
+        });
     }
 
     private void BuildSettingsPanel(VBoxContainer parent)
@@ -186,6 +235,7 @@ public partial class PauseScreen : CanvasLayer
 
         var yesBtn = new Button { Text = "Yes", CustomMinimumSize = new Vector2(140, 56) };
         yesBtn.AddThemeFontSizeOverride("font_size", 24);
+        UITheme.ApplyMutedStyle(yesBtn);
         yesBtn.Pressed += () =>
         {
             _quitConfirmPanel.Visible = false;
@@ -195,6 +245,7 @@ public partial class PauseScreen : CanvasLayer
 
         var noBtn = new Button { Text = "No", CustomMinimumSize = new Vector2(140, 56) };
         noBtn.AddThemeFontSizeOverride("font_size", 24);
+        UITheme.ApplyPrimaryStyle(noBtn);
         noBtn.Pressed += () =>
         {
             SoundManager.Instance?.Play("ui_select");
