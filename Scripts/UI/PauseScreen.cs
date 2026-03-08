@@ -61,10 +61,11 @@ public partial class PauseScreen : CanvasLayer
 
         AddLabel(vbox, "PAUSED", 52, Colors.White);
         AddSpacer(vbox, 10);
-        AddBtn(vbox, "Resume",      OnResume);
-        AddBtn(vbox, "Restart Run", OnRestart);
-        AddBtn(vbox, "Settings",    OnOpenSettings);
-        AddBtn(vbox, "How to Play", OnHowToPlay);
+        AddBtn(vbox, "Resume",       OnResume);
+        AddBtn(vbox, "Restart Run",  OnRestart);
+        AddBtn(vbox, "Settings",     OnOpenSettings);
+        AddBtn(vbox, "How to Play",  OnHowToPlay);
+        AddBtn(vbox, "Achievements", OnAchievements);
         AddSpacer(vbox, 10);
         AddBtn(vbox, "Main Menu",       OnMainMenu);
         AddBtn(vbox, "Quit", OnQuit);
@@ -289,6 +290,14 @@ public partial class PauseScreen : CanvasLayer
         var howTo = new HowToPlay();
         howTo.OnBack = () => _mainPanel.Visible = true;
         AddChild(howTo);
+    }
+
+    private void OnAchievements()
+    {
+        _mainPanel.Visible = false;
+        var panel = new AchievementsPanel();
+        panel.BackOverride = () => _mainPanel.Visible = true;
+        AddChild(panel);
     }
 
     private void OnOpenSettings()
