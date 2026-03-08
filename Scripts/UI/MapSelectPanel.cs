@@ -46,7 +46,15 @@ public partial class MapSelectPanel : Node
 		grid.MouseFilter = Control.MouseFilterEnum.Ignore;
 		canvas.AddChild(grid);
 
-		// Action buttons anchored DIRECTLY to the canvas bottom — always visible
+		// Center container for the main content (added first = lower z-order)
+		var center = new CenterContainer();
+		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		center.OffsetBottom = -72f;  // leave room for action buttons
+		center.Theme = UITheme.Build();
+		canvas.AddChild(center);
+
+		// Action buttons anchored to canvas bottom — added AFTER center so they
+		// sit on top in z-order and receive touch input first
 		var actionRow = new HBoxContainer();
 		actionRow.Alignment = BoxContainer.AlignmentMode.Center;
 		actionRow.AddThemeConstantOverride("separation", 16);
@@ -58,13 +66,6 @@ public partial class MapSelectPanel : Node
 
 		AddButton(actionRow, "Start Run", 220, 54, 26, OnStartRun);
 		AddButton(actionRow, "Back",      150, 54, 22, OnBack);
-
-		// Center container for the main content above the buttons
-		var center = new CenterContainer();
-		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		center.OffsetBottom = -72f;  // leave room for action buttons
-		center.Theme = UITheme.Build();
-		canvas.AddChild(center);
 
 		var vbox = new VBoxContainer();
 		vbox.AddThemeConstantOverride("separation", 14);
@@ -316,14 +317,25 @@ public partial class MapSelectPanel : Node
 
 	private void UpdateDifficultyVisuals()
 	{
+		var selected   = new Color(1.0f, 0.85f, 0.25f); // gold
+		var unselected = new Color(0.55f, 0.55f, 0.55f); // grey
+
 		if (_normalButton != null)
-			_normalButton.Modulate = _selectedDifficulty == DifficultyMode.Normal
-				? new Color(1.0f, 0.85f, 0.25f)
-				: new Color(0.65f, 0.65f, 0.65f);
+		{
+			var c = _selectedDifficulty == DifficultyMode.Normal ? selected : unselected;
+			_normalButton.AddThemeColorOverride("font_color",         c);
+			_normalButton.AddThemeColorOverride("font_hover_color",   c);
+			_normalButton.AddThemeColorOverride("font_pressed_color", c);
+			_normalButton.AddThemeColorOverride("font_focus_color",   c);
+		}
 		if (_hardButton != null)
-			_hardButton.Modulate = _selectedDifficulty == DifficultyMode.Hard
-				? new Color(1.0f, 0.85f, 0.25f)
-				: new Color(0.65f, 0.65f, 0.65f);
+		{
+			var c = _selectedDifficulty == DifficultyMode.Hard ? selected : unselected;
+			_hardButton.AddThemeColorOverride("font_color",         c);
+			_hardButton.AddThemeColorOverride("font_hover_color",   c);
+			_hardButton.AddThemeColorOverride("font_pressed_color", c);
+			_hardButton.AddThemeColorOverride("font_focus_color",   c);
+		}
 	}
 
 	private void UpdatePersonalBestLabel()
