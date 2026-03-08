@@ -16,8 +16,9 @@ public partial class HowToPlay : Node
 
 	public override void _Ready()
 	{
+		ProcessMode = ProcessModeEnum.Always; // stay responsive when opened from paused PauseScreen
 		var canvas = new CanvasLayer();
-		// Set high layer when used as overlay from pause screen 
+		// Set high layer when used as overlay from pause screen
 		// (PauseScreen uses layer 8, so we need to be above it)
 		canvas.Layer = 10;
 		AddChild(canvas);
@@ -49,6 +50,7 @@ public partial class HowToPlay : Node
 		marginContainer.AddThemeConstantOverride("margin_bottom", 20);
 		marginContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		marginContainer.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		marginContainer.MouseFilter = Control.MouseFilterEnum.Pass; // let touch events reach ScrollContainer
 		scroll.AddChild(marginContainer);
 
 		// Simple VBox that can expand vertically

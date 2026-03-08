@@ -78,6 +78,7 @@ public partial class GameController : Node
 	private readonly System.Collections.Generic.Dictionary<ulong, (ulong firstMs, int count)> _feedbackLoopBurst = new();
 	private readonly System.Collections.Generic.Dictionary<string, int> _modifierProcCounts = new();
 	private bool _undoPlacementActive = false;
+	private bool _cancelBtnShown = false;
 	private ulong _undoPlacementToken = 0;
 	private int _undoPlacementSlot = -1;
 	private List<DraftOption> _undoDraftOptions = new();
@@ -201,6 +202,22 @@ public partial class GameController : Node
 		if (_botRunner == null) UpdatePlacementLabel();
 		if (_botRunner == null) UpdateProcVisuals((float)delta);
 
+		// Show/hide cancel button when player is in tower/modifier placement step
+		if (_botRunner == null)
+		{
+			bool inPlacement = CurrentPhase == GamePhase.Draft && (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower);
+			if (inPlacement && !_cancelBtnShown)
+			{
+				_cancelBtnShown = true;
+				_hudPanel.ShowCancelButton(CancelPlacement);
+			}
+			else if (!inPlacement && _cancelBtnShown)
+			{
+				_cancelBtnShown = false;
+				_hudPanel.HideCancelButton();
+			}
+		}
+
 		if (CurrentPhase != GamePhase.Wave)
 		{
 			_lowLivesHeartbeatTimer = 0f;
@@ -300,6 +317,11 @@ public partial class GameController : Node
 
 		switch (what)
 		{
+			case 1007: // NOTIFICATION_WM_GO_BACK_REQUEST
+				if (CurrentPhase == GamePhase.Draft && (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower))
+					CancelPlacement();
+				break;
+
 			case (int)NotificationApplicationPaused:
 				// Auto-pause when app goes to background (minimized/phone call/etc).
 				if (CurrentPhase == GamePhase.Wave && GetTree().Paused == false)
@@ -570,6 +592,12 @@ public partial class GameController : Node
 			}
 		}
 		AdvanceAfterDraftPickFlow();
+	}
+
+	private void CancelPlacement()
+	{
+		_draftPanel.CancelAssignment();
+		SoundManager.Instance?.Play("ui_select");
 	}
 
 	private void AdvanceAfterDraftPickFlow()
@@ -1685,8 +1713,8 @@ public partial class GameController : Node
 		_placementLabel.AnchorRight  = 1f;
 		_placementLabel.AnchorTop    = 0f;
 		_placementLabel.AnchorBottom = 0f;
-		_placementLabel.OffsetTop    = 50f;
-		_placementLabel.OffsetBottom = 80f;
+		_placementLabel.OffsetTop    = 90f;
+		_placementLabel.OffsetBottom = 120f;
 		_placementLabel.GrowHorizontal = Control.GrowDirection.Both;
 		_placementLabel.Visible = false;
 		_placementLabel.MouseFilter = Control.MouseFilterEnum.Ignore;

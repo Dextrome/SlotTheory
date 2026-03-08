@@ -344,9 +344,7 @@ public partial class DraftPanel : CanvasLayer
 
         if (key.Keycode == Key.Escape && (_pendingTower != null || _pendingModifier != null))
         {
-            _pendingTower = null;
-            _pendingModifier = null;
-            Show(_lastOptions, _lastWaveNumber, _lastPickNumber, _lastTotalPicks, null);
+            CancelAssignment();
             GetViewport().SetInputAsHandled();
             return;
         }
@@ -371,6 +369,23 @@ public partial class DraftPanel : CanvasLayer
         {
             btn.EmitSignal(Button.SignalName.Pressed);
             GetViewport().SetInputAsHandled();
+        }
+    }
+
+    public void CancelAssignment()
+    {
+        if (_pendingTower == null && _pendingModifier == null) return;
+        _pendingTower = null;
+        _pendingModifier = null;
+        Show(_lastOptions, _lastWaveNumber, _lastPickNumber, _lastTotalPicks, null);
+    }
+
+    public override void _Notification(int what)
+    {
+        if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */ && Visible)
+        {
+            if (_pendingTower != null || _pendingModifier != null)
+                CancelAssignment();
         }
     }
 

@@ -16,7 +16,8 @@ public partial class AchievementsPanel : Node
     public System.Action? BackOverride { get; set; }
     public override void _Ready()
     {
-        var canvas = new CanvasLayer();
+        ProcessMode = ProcessModeEnum.Always;
+        var canvas = new CanvasLayer { Layer = 9 };
         AddChild(canvas);
 
         var bg = new ColorRect();
@@ -38,6 +39,7 @@ public partial class AchievementsPanel : Node
         margin.AddThemeConstantOverride("margin_top",    24);
         margin.AddThemeConstantOverride("margin_bottom", 24);
         margin.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        margin.MouseFilter = Control.MouseFilterEnum.Pass; // let touch events reach ScrollContainer
         scroll.AddChild(margin);
 
         var vbox = new VBoxContainer();
@@ -90,6 +92,12 @@ public partial class AchievementsPanel : Node
         backCenter.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         backCenter.AddChild(backBtn);
         vbox.AddChild(backCenter);
+    }
+
+    public override void _Notification(int what)
+    {
+        if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */)
+            OnBack();
     }
 
     public override void _UnhandledInput(InputEvent @event)
