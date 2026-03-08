@@ -231,30 +231,33 @@ public partial class HudPanel : CanvasLayer
         _cancelPlacementBtn = new Button
         {
             Text = "Cancel",
-            CustomMinimumSize = new Vector2(180, 34),
+            CustomMinimumSize = new Vector2(140, 26),
             AnchorLeft   = 0.5f,
             AnchorRight  = 0.5f,
             AnchorTop    = 0f,
             AnchorBottom = 0f,
-            OffsetLeft   = -90f,
-            OffsetRight  = 90f,
-            OffsetTop    = 50f,
-            OffsetBottom = 84f,
+            OffsetLeft   = -70f,
+            OffsetRight  = 70f,
+            OffsetTop    = 48f,
+            OffsetBottom = 74f,
             Visible = false,
         };
-        _cancelPlacementBtn.AddThemeFontSizeOverride("font_size", 16);
+        _cancelPlacementBtn.AddThemeFontSizeOverride("font_size", 13);
         // Border style
         var cancelStyle = new StyleBoxFlat
         {
             BgColor      = new Color(0.08f, 0.06f, 0.14f, 0.88f),
             BorderColor  = new Color(0.75f, 0.15f, 0.75f, 0.90f),  // magenta border
-            CornerRadiusTopLeft     = 6,
-            CornerRadiusTopRight    = 6,
-            CornerRadiusBottomLeft  = 6,
-            CornerRadiusBottomRight = 6,
+            CornerRadiusTopLeft     = 5,
+            CornerRadiusTopRight    = 5,
+            CornerRadiusBottomLeft  = 5,
+            CornerRadiusBottomRight = 5,
         };
         cancelStyle.SetBorderWidthAll(2);
-        cancelStyle.SetContentMarginAll(8f);
+        cancelStyle.ContentMarginLeft   = 8f;
+        cancelStyle.ContentMarginRight  = 8f;
+        cancelStyle.ContentMarginTop    = 0f;
+        cancelStyle.ContentMarginBottom = 0f;
         _cancelPlacementBtn.AddThemeStyleboxOverride("normal", cancelStyle);
         var cancelHover = (StyleBoxFlat)cancelStyle.Duplicate();
         cancelHover.BgColor     = new Color(0.18f, 0.06f, 0.22f, 0.95f);
