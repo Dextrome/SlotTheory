@@ -268,6 +268,7 @@ public partial class HighScoreManager : Node
 
     private void Load()
     {
+        SteamCloudSync.PullIfNewer(ProjectSettings.GlobalizePath(SavePath), "high_scores.cfg");
         _cfg = new ConfigFile();
         var err = _cfg.Load(SavePath);
         if (err != Error.Ok && err != Error.FileNotFound)
@@ -282,5 +283,7 @@ public partial class HighScoreManager : Node
         var err = _cfg.Save(SavePath);
         if (err != Error.Ok)
             GD.PrintErr($"[HighScore] Failed to save {SavePath}: {err}");
+        else
+            SteamCloudSync.Push(ProjectSettings.GlobalizePath(SavePath), "high_scores.cfg");
     }
 }

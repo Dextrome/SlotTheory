@@ -130,7 +130,11 @@ public sealed class SteamLeaderboardService : ILeaderboardService
 
         if (_pendingFind != null)
         {
-            // Avoid overlapping FindLeaderboard calls in this first scaffold.
+            // Same board already resolving — queue behind the in-flight find.
+            if (_pendingFindName == boardName)
+                return await _pendingFind.Task;
+            // Different board in-flight — Steam doesn't allow overlapping FindLeaderboard
+            // calls; bail and let the caller retry on the next refresh.
             return InvalidLeaderboard;
         }
 

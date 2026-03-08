@@ -155,6 +155,7 @@ public partial class SettingsManager : Node
 
     private void Load()
     {
+        SteamCloudSync.PullIfNewer(ProjectSettings.GlobalizePath(SavePath), "settings.cfg");
         var cfg = new ConfigFile();
         if (cfg.Load(SavePath) != Error.Ok) return;
 
@@ -183,6 +184,7 @@ public partial class SettingsManager : Node
         cfg.SetValue("gameplay",   "difficulty",   (int)Difficulty);
         cfg.SetValue(SecIdentity, "player_name",  PlayerName);
         cfg.SetValue(SecIdentity, "player_id",    PlayerId);
-        cfg.Save(SavePath);
+        if (cfg.Save(SavePath) == Error.Ok)
+            SteamCloudSync.Push(ProjectSettings.GlobalizePath(SavePath), "settings.cfg");
     }
 }
