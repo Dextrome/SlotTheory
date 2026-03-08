@@ -4,16 +4,23 @@ using Godot;
 /// <summary>
 /// Pinch-to-zoom + single-finger pan for a target Control node on mobile.
 /// Zoom: two-finger pinch (manual tracking, works on all Android).
-/// Pan: single-finger drag while zoomed in, via CanvasLayer.Offset.
+/// Pan: single-finger drag while zoomed in, via Control offset adjustments
+///      so the background stays static — no gray edges.
 /// </summary>
 public partial class PinchZoomHandler : Node
 {
 	private readonly Control _target;
-	private CanvasLayer? _canvasLayer;
 
 	private float _baseScale;
 	private float _minScale;
 	private float _maxScale;
+
+	// Initial Control offsets captured at _Ready so pan can be applied on top
+	private float _initOffsetLeft;
+	private float _initOffsetTop;
+	private float _initOffsetRight;
+	private float _initOffsetBottom;
+	private Vector2 _panOffset = Vector2.Zero;
 
 	// Two-finger pinch
 	private readonly Dictionary<int, Vector2> _activeTouches = new();
@@ -39,10 +46,11 @@ public partial class PinchZoomHandler : Node
 		_minScale = _baseScale * 0.55f;
 		_maxScale = _baseScale * 2.0f;
 
-		// Find CanvasLayer for pan offset (check direct parent or grandparent)
-		var p = _target.GetParent();
-		if (p is CanvasLayer cl) _canvasLayer = cl;
-		else if (p?.GetParent() is CanvasLayer cl2) _canvasLayer = cl2;
+		// Capture initial offsets — handles cases like MapSelect's OffsetBottom = -72
+		_initOffsetLeft   = _target.OffsetLeft;
+		_initOffsetTop    = _target.OffsetTop;
+		_initOffsetRight  = _target.OffsetRight;
+		_initOffsetBottom = _target.OffsetBottom;
 	}
 
 	public override void _Input(InputEvent @event)
@@ -91,11 +99,12 @@ public partial class PinchZoomHandler : Node
 				ApplyScale(_pinchStartScale * (dist / _pinchStartDist));
 				GetViewport().SetInputAsHandled();
 			}
-			else if (_activeTouches.Count == 1 && _panActive && _canvasLayer != null)
+			else if (_activeTouches.Count == 1 && _panActive)
 			{
 				// Single-finger pan while zoomed in
-				_canvasLayer.Offset += drag.Relative;
+				_panOffset += drag.Relative;
 				ClampPan();
+				ApplyPan();
 				GetViewport().SetInputAsHandled();
 			}
 		}
@@ -116,21 +125,32 @@ public partial class PinchZoomHandler : Node
 		_target.PivotOffset = _target.Size * 0.5f;
 		_target.Scale = new Vector2(s, s);
 
-		// Reset pan when returned to base scale
-		if (!IsZoomedIn() && _canvasLayer != null)
-			_canvasLayer.Offset = Vector2.Zero;
+		if (!IsZoomedIn())
+		{
+			_panOffset = Vector2.Zero;
+			ApplyPan();
+		}
+	}
+
+	/// <summary>
+	/// Shifts all four Control offsets by equal amounts — moves the control
+	/// without changing its size, and without touching the CanvasLayer.
+	/// </summary>
+	private void ApplyPan()
+	{
+		_target.OffsetLeft   = _initOffsetLeft   + _panOffset.X;
+		_target.OffsetRight  = _initOffsetRight  + _panOffset.X;
+		_target.OffsetTop    = _initOffsetTop    + _panOffset.Y;
+		_target.OffsetBottom = _initOffsetBottom + _panOffset.Y;
 	}
 
 	private void ClampPan()
 	{
-		if (_canvasLayer == null) return;
 		float zoomFactor = _target.Scale.X / _baseScale;
 		var vpSize = GetViewport().GetVisibleRect().Size;
 		float maxX = vpSize.X * (zoomFactor - 1f) * 0.5f;
 		float maxY = vpSize.Y * (zoomFactor - 1f) * 0.5f;
-		Vector2 o = _canvasLayer.Offset;
-		o.X = Mathf.Clamp(o.X, -maxX, maxX);
-		o.Y = Mathf.Clamp(o.Y, -maxY, maxY);
-		_canvasLayer.Offset = o;
+		_panOffset.X = Mathf.Clamp(_panOffset.X, -maxX, maxX);
+		_panOffset.Y = Mathf.Clamp(_panOffset.Y, -maxY, maxY);
 	}
 }
