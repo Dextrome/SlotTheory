@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://c0achievements01"]
+
+[ext_resource type="Script" path="res://Scripts/UI/AchievementsPanel.cs" id="1_ach"]
+
+[node name="Achievements" type="Node" unique_id=200000020]
+script = ExtResource("1_ach")
