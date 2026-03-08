@@ -23,6 +23,7 @@ Starting lives: 10
 
 - Pick draft card: left click card
 - Place tower / assign modifier: left click world slot or tower
+- Cancel placement: `Esc`
 - Cycle targeting mode: left click tower during wave
 - Pause: `Esc`
 - Speed: HUD button cycles `1x -> 2x -> 3x`
@@ -31,6 +32,7 @@ Starting lives: 10
 
 - Pick draft card: tap
 - Place tower / assign modifier: tap
+- Cancel placement: Cancel button (appears below HUD bar) or Android back button
 - Cycle targeting mode: tap tower during wave
 - Pause: hamburger button in HUD
 - Speed: HUD button cycles `1x -> 2x -> 3x`
@@ -55,6 +57,7 @@ Modifier assignment uses `Preview -> Confirm`:
 2. Tap valid tower slot to preview
 3. Tap same slot again to confirm
 4. Tap elsewhere to cancel preview
+5. Cancel button (or back/Esc) to return to draft cards
 
 ---
 

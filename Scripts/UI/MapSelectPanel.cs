@@ -132,12 +132,9 @@ public partial class MapSelectPanel : Node
 		rightColumn.AddChild(_personalBestLabel);
 		UpdatePersonalBestLabel();
 
-		var actionSpacer = new Control();
-		actionSpacer.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-		rightColumn.AddChild(actionSpacer);
-
-		AddButton(rightColumn, "Start Run", 260, 58, 28, OnStartRun);
-		AddButton(rightColumn, "Back", 260, 48, 22, OnBack);
+		// Buttons below the content row so they're always visible on all screen sizes
+		AddButton(vbox, "Start Run", 260, 58, 28, OnStartRun);
+		AddButton(vbox, "Back",      260, 48, 22, OnBack);
 		MobileOptimization.ApplyUIScale(center);
 	}
 

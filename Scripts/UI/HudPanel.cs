@@ -16,6 +16,7 @@ public partial class HudPanel : CanvasLayer
     private Label _speedToast = null!;
     private ColorRect _speedToastStreak = null!;
     private Button _speedBtn = null!;
+    private Button? _cancelPlacementBtn;
     private int _speedIdx = 0;
     private static readonly double[] SpeedStepsNormal = { 1.0, 2.0, 3.0 };
     private static readonly double[] SpeedStepsDev    = { 1.0, 2.0, 3.0, 5.0, 10.0 };
@@ -115,41 +116,43 @@ public partial class HudPanel : CanvasLayer
         pad.CustomMinimumSize = new Vector2(8, 0);
         rightHbox.AddChild(pad);
 
-        // Keep wave text screen-centered regardless of left build-name width.
+        // Wave label — pinned exactly to screen center via full-width anchor + center alignment.
         _waveLabel = new Label
         {
             Text = "Wave 1 / 20",
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-            AnchorLeft = 0f,
-            AnchorRight = 1f,
-            AnchorTop = 0f,
+            AnchorLeft   = 0f,
+            AnchorRight  = 1f,
+            AnchorTop    = 0f,
             AnchorBottom = 0f,
-            OffsetTop = 0f,
+            OffsetLeft   = 0f,
+            OffsetRight  = 0f,
+            OffsetTop    = 0f,
             OffsetBottom = 44f,
-            MouseFilter = Control.MouseFilterEnum.Ignore,
+            MouseFilter  = Control.MouseFilterEnum.Ignore,
         };
         _waveLabel.AddThemeFontSizeOverride("font_size", 22);
         bar.AddChild(_waveLabel);
 
         float enemyOffsetX = OS.GetName() == "Android" ? 120f : 175f;
-        float livesOffsetX = OS.GetName() == "Android" ? 220f : 310f;
+        float livesOffsetX = OS.GetName() == "Android" ? 260f : 390f;
 
         _enemyLabel = new Label
         {
             Text = "",
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-            AnchorLeft = 0.5f,
-            AnchorRight = 0.5f,
-            AnchorTop = 0f,
+            AnchorLeft   = 0.5f,
+            AnchorRight  = 0.5f,
+            AnchorTop    = 0f,
             AnchorBottom = 0f,
-            OffsetLeft = enemyOffsetX - 56f,
-            OffsetRight = enemyOffsetX + 56f,
-            OffsetTop = 0f,
+            OffsetLeft   = enemyOffsetX - 90f,
+            OffsetRight  = enemyOffsetX + 90f,
+            OffsetTop    = 0f,
             OffsetBottom = 44f,
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-            Modulate = new Color(1f, 1f, 1f, 0.62f),
+            MouseFilter  = Control.MouseFilterEnum.Ignore,
+            Modulate     = new Color(1f, 1f, 1f, 0.62f),
         };
         _enemyLabel.AddThemeFontSizeOverride("font_size", 16);
         bar.AddChild(_enemyLabel);
@@ -172,21 +175,23 @@ public partial class HudPanel : CanvasLayer
         _livesLabel.AddThemeFontSizeOverride("font_size", 22);
         bar.AddChild(_livesLabel);
 
+        // Timer — centered between build-name right edge (~370px) and screen center (50%).
+        // Anchored at 35% of screen width so it sits visually between the two.
         _timeLabel = new Label
         {
             Text = "0:00",
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-            AnchorLeft = 0.5f,
-            AnchorRight = 0.5f,
-            AnchorTop = 0f,
+            AnchorLeft   = 0.35f,
+            AnchorRight  = 0.35f,
+            AnchorTop    = 0f,
             AnchorBottom = 0f,
-            OffsetLeft = -(livesOffsetX + 92f),
-            OffsetRight = -(livesOffsetX - 92f),
-            OffsetTop = 0f,
+            OffsetLeft   = -60f,
+            OffsetRight  =  60f,
+            OffsetTop    = 0f,
             OffsetBottom = 44f,
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-            Modulate = new Color(1f, 1f, 1f, 0.55f),
+            MouseFilter  = Control.MouseFilterEnum.Ignore,
+            Modulate     = new Color(1f, 1f, 1f, 0.55f),
         };
         _timeLabel.AddThemeFontSizeOverride("font_size", 18);
         bar.AddChild(_timeLabel);
@@ -222,6 +227,67 @@ public partial class HudPanel : CanvasLayer
         };
         AddChild(_speedToastStreak);
 
+        // Cancel placement button — shown below HUD bar during tower/modifier placement
+        _cancelPlacementBtn = new Button
+        {
+            Text = "Cancel",
+            CustomMinimumSize = new Vector2(180, 34),
+            AnchorLeft   = 0.5f,
+            AnchorRight  = 0.5f,
+            AnchorTop    = 0f,
+            AnchorBottom = 0f,
+            OffsetLeft   = -90f,
+            OffsetRight  = 90f,
+            OffsetTop    = 50f,
+            OffsetBottom = 84f,
+            Visible = false,
+        };
+        _cancelPlacementBtn.AddThemeFontSizeOverride("font_size", 16);
+        // Border style
+        var cancelStyle = new StyleBoxFlat
+        {
+            BgColor      = new Color(0.08f, 0.06f, 0.14f, 0.88f),
+            BorderColor  = new Color(0.75f, 0.15f, 0.75f, 0.90f),  // magenta border
+            CornerRadiusTopLeft     = 6,
+            CornerRadiusTopRight    = 6,
+            CornerRadiusBottomLeft  = 6,
+            CornerRadiusBottomRight = 6,
+        };
+        cancelStyle.SetBorderWidthAll(2);
+        cancelStyle.SetContentMarginAll(8f);
+        _cancelPlacementBtn.AddThemeStyleboxOverride("normal", cancelStyle);
+        var cancelHover = (StyleBoxFlat)cancelStyle.Duplicate();
+        cancelHover.BgColor     = new Color(0.18f, 0.06f, 0.22f, 0.95f);
+        cancelHover.BorderColor = new Color(0.95f, 0.30f, 0.95f, 1.00f);
+        _cancelPlacementBtn.AddThemeStyleboxOverride("hover", cancelHover);
+        var cancelPress = (StyleBoxFlat)cancelStyle.Duplicate();
+        cancelPress.BgColor = new Color(0.12f, 0.04f, 0.18f, 1.00f);
+        _cancelPlacementBtn.AddThemeStyleboxOverride("pressed", cancelPress);
+        _cancelPlacementBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+        AddChild(_cancelPlacementBtn);
+    }
+
+    private System.Action? _cancelPlacementAction;
+
+    public void ShowCancelButton(System.Action onCancel)
+    {
+        if (_cancelPlacementBtn == null) return;
+        if (_cancelPlacementAction != null)
+            _cancelPlacementBtn.Pressed -= _cancelPlacementAction;
+        _cancelPlacementAction = onCancel;
+        _cancelPlacementBtn.Pressed += _cancelPlacementAction;
+        _cancelPlacementBtn.Visible = true;
+    }
+
+    public void HideCancelButton()
+    {
+        if (_cancelPlacementBtn == null) return;
+        if (_cancelPlacementAction != null)
+        {
+            _cancelPlacementBtn.Pressed -= _cancelPlacementAction;
+            _cancelPlacementAction = null;
+        }
+        _cancelPlacementBtn.Visible = false;
     }
 
     private void OnSpeedToggle()
@@ -318,7 +384,7 @@ public partial class HudPanel : CanvasLayer
 
     public void RefreshEnemies(int alive, int total)
     {
-        _enemyLabel.Text = alive > 0 ? $"{alive} / {total}" : "";
+        _enemyLabel.Text = alive > 0 ? $"Enemies: {alive} / {total}" : "";
     }
 
     public void SetMobileZoomReadability(float zoomLevel)
