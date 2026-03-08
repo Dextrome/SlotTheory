@@ -4,8 +4,8 @@ using Godot;
 /// <summary>
 /// Pinch-to-zoom + single-finger pan for a target Control node on mobile.
 /// Zoom: two-finger pinch (manual tracking, works on all Android).
-/// Pan: single-finger drag while zoomed in, via Control offset adjustments
-///      so the background stays static — no gray edges.
+/// Pan: shifting PivotOffset while zoomed — no layout/offset manipulation,
+///      no gray edges, no anchor-system conflicts.
 /// </summary>
 public partial class PinchZoomHandler : Node
 {
@@ -15,11 +15,7 @@ public partial class PinchZoomHandler : Node
 	private float _minScale;
 	private float _maxScale;
 
-	// Initial Control offsets captured at _Ready so pan can be applied on top
-	private float _initOffsetLeft;
-	private float _initOffsetTop;
-	private float _initOffsetRight;
-	private float _initOffsetBottom;
+	// Pan offset in screen space (accumulated drag delta)
 	private Vector2 _panOffset = Vector2.Zero;
 
 	// Two-finger pinch
@@ -45,17 +41,10 @@ public partial class PinchZoomHandler : Node
 		_baseScale = Mathf.Max(_target.Scale.X, MobileOptimization.GetUIScale());
 		_minScale = _baseScale * 0.55f;
 		_maxScale = _baseScale * 2.0f;
-
-		// Capture initial offsets — handles cases like MapSelect's OffsetBottom = -72
-		_initOffsetLeft   = _target.OffsetLeft;
-		_initOffsetTop    = _target.OffsetTop;
-		_initOffsetRight  = _target.OffsetRight;
-		_initOffsetBottom = _target.OffsetBottom;
 	}
 
 	public override void _Input(InputEvent @event)
 	{
-		// Platform pinch gesture (desktop trackpads, some Android)
 		if (@event is InputEventMagnifyGesture magnify)
 		{
 			ApplyScale(_target.Scale.X * magnify.Factor);
@@ -95,7 +84,6 @@ public partial class PinchZoomHandler : Node
 
 			if (_activeTouches.Count == 2 && _pinchStartDist > 0f)
 			{
-				// Two-finger zoom
 				var pts = new List<Vector2>(_activeTouches.Values);
 				float dist = pts[0].DistanceTo(pts[1]);
 				ApplyScale(_pinchStartScale * (dist / _pinchStartDist));
@@ -103,7 +91,6 @@ public partial class PinchZoomHandler : Node
 			}
 			else if (_activeTouches.Count == 1 && _panActive)
 			{
-				// Single-finger pan while zoomed in
 				_panOffset += drag.Relative;
 				ClampPan();
 				ApplyPan();
@@ -130,28 +117,40 @@ public partial class PinchZoomHandler : Node
 		if (!IsZoomedIn())
 		{
 			_panOffset = Vector2.Zero;
+			// Reset pivot to center
+			_target.PivotOffset = _target.Size * 0.5f;
+		}
+		else
+		{
+			// Re-apply pan so pivot stays consistent after zoom change
+			ClampPan();
 			ApplyPan();
 		}
 	}
 
 	/// <summary>
-	/// Shifts all four Control offsets by equal amounts — moves the control
-	/// without changing its size, and without touching the CanvasLayer.
+	/// Pan by shifting PivotOffset. For a control zoomed at scale S from its center,
+	/// shifting the pivot by delta/-(S-1) in local space produces a delta shift in screen space.
 	/// </summary>
 	private void ApplyPan()
 	{
-		_target.OffsetLeft   = _initOffsetLeft   + _panOffset.X;
-		_target.OffsetRight  = _initOffsetRight  + _panOffset.X;
-		_target.OffsetTop    = _initOffsetTop    + _panOffset.Y;
-		_target.OffsetBottom = _initOffsetBottom + _panOffset.Y;
+		float s = _target.Scale.X;
+		if (s <= 1f) return;
+		var center = _target.Size * 0.5f;
+		_target.PivotOffset = center - _panOffset / (s - 1f);
 	}
 
 	private void ClampPan()
 	{
-		float zoomFactor = _target.Scale.X / _baseScale;
-		var vpSize = GetViewport().GetVisibleRect().Size;
-		float maxX = vpSize.X * (zoomFactor - 1f) * 0.5f;
-		float maxY = vpSize.Y * (zoomFactor - 1f) * 0.5f;
+		float s = _target.Scale.X;
+		if (s <= 1f) return;
+		// PivotOffset must stay in [0, size] to avoid showing outside content bounds
+		// pivot = center - panOffset / (s - 1)
+		// panOffset = center*(s-1) - pivot*(s-1); valid when pivot in [0, size]
+		// => panOffset in [-(size/2)*(s-1), (size/2)*(s-1)]
+		var sz = _target.Size;
+		float maxX = sz.X * 0.5f * (s - 1f);
+		float maxY = sz.Y * 0.5f * (s - 1f);
 		_panOffset.X = Mathf.Clamp(_panOffset.X, -maxX, maxX);
 		_panOffset.Y = Mathf.Clamp(_panOffset.Y, -maxY, maxY);
 	}
