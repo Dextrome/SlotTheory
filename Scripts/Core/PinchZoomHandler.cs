@@ -84,6 +84,8 @@ public partial class PinchZoomHandler : Node
 				_pinchStartDist = -1f;
 				if (_activeTouches.Count == 0)
 					_panActive = false;
+				else if (_activeTouches.Count == 1)
+					_panActive = IsZoomedIn(); // remaining finger can pan after pinch ends
 			}
 		}
 		else if (@event is InputEventScreenDrag drag)
