@@ -236,7 +236,7 @@ public partial class GameController : Node
 			var runColors = BuildRunNameColors();
 			string mvpLine = BuildMvpLine();
 			string modLine = BuildMostValuableModLine();
-			var scorePayload = BuildRunScorePayload(won: false, waveReached: _runState.WaveIndex + 1);
+			var scorePayload = BuildRunScorePayload(won: false, waveReached: _runState.WaveIndex + 1, buildName: runName);
 			var localSubmit = HighScoreManager.Instance?.SubmitLocal(scorePayload);
 			string leaderboardLine = BuildInitialLeaderboardLine(scorePayload, localSubmit);
 			_endScreen.SetLeaderboardContext(scorePayload.MapId, scorePayload.Difficulty);
@@ -263,7 +263,7 @@ public partial class GameController : Node
 				var runColors = BuildRunNameColors();
 				string mvpLine = BuildMvpLine();
 				string modLine = BuildMostValuableModLine();
-				var scorePayload = BuildRunScorePayload(won: true, waveReached: Balance.TotalWaves);
+				var scorePayload = BuildRunScorePayload(won: true, waveReached: Balance.TotalWaves, buildName: runName);
 				var localSubmit = HighScoreManager.Instance?.SubmitLocal(scorePayload);
 				string leaderboardLine = BuildInitialLeaderboardLine(scorePayload, localSubmit);
 				_endScreen.SetLeaderboardContext(scorePayload.MapId, scorePayload.Difficulty);
@@ -2139,7 +2139,7 @@ public partial class GameController : Node
 		return $"Most Valuable Mod: {def.Name} - triggered {best.Value}x";
 	}
 
-	private RunScorePayload BuildRunScorePayload(bool won, int waveReached)
+	private RunScorePayload BuildRunScorePayload(bool won, int waveReached, string buildName = "")
 	{
 		string mapId = string.IsNullOrEmpty(_runState.SelectedMapId)
 			? LeaderboardKey.RandomMapId
@@ -2158,7 +2158,8 @@ public partial class GameController : Node
 			_runState.TotalPlayTime,
 			nowUnix,
 			gameVersion,
-			BuildSnapshotCodec.CaptureFromRunState(_runState)
+			BuildSnapshotCodec.CaptureFromRunState(_runState),
+			buildName
 		);
 	}
 

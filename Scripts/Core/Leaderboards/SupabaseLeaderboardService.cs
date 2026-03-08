@@ -60,6 +60,7 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
             p_play_time_seconds = payload.PlayTimeSeconds,
             p_game_version     = payload.GameVersion,
             p_build_code       = buildCode,
+            p_build_name       = payload.BuildName,
         };
 
         try
@@ -96,7 +97,7 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
                    + $"&difficulty=eq.{System.Uri.EscapeDataString(difficulty)}"
                    + $"&order=score.desc"
                    + $"&limit={maxEntries}"
-                   + $"&select=player_name,score,wave_reached,lives_remaining,play_time_seconds,build_code";
+                   + $"&select=player_name,score,wave_reached,lives_remaining,play_time_seconds,build_code,build_name";
 
         try
         {
@@ -113,15 +114,16 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
 
             foreach (var row in doc.RootElement.EnumerateArray())
             {
-                string name   = row.TryGetProperty("player_name", out var n) ? n.GetString() ?? "" : "";
-                int scoreVal  = row.TryGetProperty("score", out var s) ? (int)System.Math.Min(s.GetInt64(), int.MaxValue) : 0;
-                int waves     = row.TryGetProperty("wave_reached", out var w) ? w.GetInt32() : 0;
-                int lives     = row.TryGetProperty("lives_remaining", out var l) ? l.GetInt32() : 0;
-                float time    = row.TryGetProperty("play_time_seconds", out var t) ? (float)t.GetDouble() : 0f;
-                string code   = row.TryGetProperty("build_code", out var b) ? b.GetString() ?? "" : "";
+                string name      = row.TryGetProperty("player_name", out var n) ? n.GetString() ?? "" : "";
+                int scoreVal     = row.TryGetProperty("score", out var s) ? (int)System.Math.Min(s.GetInt64(), int.MaxValue) : 0;
+                int waves        = row.TryGetProperty("wave_reached", out var w) ? w.GetInt32() : 0;
+                int lives        = row.TryGetProperty("lives_remaining", out var l) ? l.GetInt32() : 0;
+                float time       = row.TryGetProperty("play_time_seconds", out var t) ? (float)t.GetDouble() : 0f;
+                string code      = row.TryGetProperty("build_code", out var b) ? b.GetString() ?? "" : "";
+                string buildName = row.TryGetProperty("build_name", out var bn) ? bn.GetString() ?? "" : "";
 
                 var build = TryDecodeBuild(code);
-                entries.Add(new LeaderboardEntryView(rank++, name, scoreVal, waves, lives, 0, 0, (int)time, build));
+                entries.Add(new LeaderboardEntryView(rank++, name, scoreVal, waves, lives, 0, 0, (int)time, build, BuildName: buildName));
             }
 
             return entries;
