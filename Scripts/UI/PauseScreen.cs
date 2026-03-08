@@ -323,7 +323,14 @@ public partial class PauseScreen : CanvasLayer
 
     // ── Actions ──────────────────────────────────────────────────────────
 
-    public void Pause()   { Visible = true;  GetTree().Paused = true; }
+    public void Pause()
+    {
+        _mainPanel.Visible        = true;
+        _settingsPanel.Visible    = false;
+        _quitConfirmPanel.Visible = false;
+        Visible = true;
+        GetTree().Paused = true;
+    }
     public void Unpause() { Visible = false; GetTree().Paused = false; }
 
     private void OnResume()  => Unpause();
