@@ -18,6 +18,8 @@ This document reflects the current implementation in code/data.
 - **Tension ramp:** Music volume and pitch gradually increase across waves 15–20 (up to +3.5 dB / +2.5% pitch at wave 20); resets each run.
 - **Colorblind mode:** Settings toggle that switches modifier accent colors to a high-contrast palette with no red/green reliance.
 - **Reduced motion toggle:** Settings toggle that skips card flip animations in draft — cards appear face-up instantly.
+- **In-game achievements:** 10 achievements tracked locally (persistent across sessions) with unlock toast notifications and a dedicated achievements screen. Steam forwarding wired for when Steam App ID is live.
+- **All-runs leaderboard:** Global leaderboard now stores every run as a separate row (wins and losses). Previously only kept the personal best per player.
 
 Platforms: Windows Desktop, Android (phone and tablet)
 
@@ -44,6 +46,8 @@ Platforms: Windows Desktop, Android (phone and tablet)
 **Speed Enhancement:** "Speed feels like power" - center SPEED X× toast with neon streak on toggle, subtle SFX/music pitch lift at 2×/3×.
 
 **Signature Flourish:** Scanline-style signature streak on key moments (Bonus Pick waves, wave beat labels).
+
+**In-Game Achievements:** 10 achievements with persistent local state, unlock toast notifications, and a dedicated screen accessible from main menu and pause menu. Steam forwarding is wired — each local unlock is forwarded to Steamworks when available.
 
 ---
 
@@ -461,13 +465,14 @@ Dismiss with click, Enter, or Space.
 ## Pause, Main Menu, Settings
 
 Pause screen:
-- Resume, Restart Run, Settings, How to Play, Main Menu, Quit
+- Resume, Restart Run, Settings, How to Play, Achievements, Main Menu, Quit
+- Achievements opens as an inline overlay (same pattern as How to Play — no scene change)
 - ESC/back handling supports subpanel navigation
 - Blocked during win/loss state
 
 Main menu:
 - Code-driven layout
-- Buttons: Play, How to Play, Settings, Leaderboards, Quit
+- Buttons: Play, Leaderboards, Achievements, How to Play, Settings, Quit
 - Animated neon grid background
 
 Settings:
@@ -539,6 +544,31 @@ Behavior:
 ---
 
 
+## Achievements
+
+10 achievements tracked locally via `AchievementManager` (autoload). State persisted to `user://achievements.cfg`.
+
+| ID | Name | Condition |
+|---|---|---|
+| FIRST_WIN | First Victory | Complete all 20 waves |
+| HARD_WIN | Hard Carry | Complete all 20 waves on Hard |
+| FLAWLESS | Flawless | Win without losing a life |
+| LAST_STAND | Last Stand | Win with exactly 1 life remaining |
+| HALFWAY_THERE | Halfway There | Survive to wave 10 (win or loss) |
+| FULL_HOUSE | Full House | Fill all 6 tower slots in one run |
+| STACKED | Stacked | Give any tower 3 modifiers in one run |
+| SPEED_RUN | Speed Run | Win in under 8 minutes |
+| ANNIHILATOR | Annihilator | Deal 100,000 total damage in one run |
+| CHAIN_MASTER | Chain Master | Win with all 6 slots filled by Arc Emitters |
+
+**Unlock toast:** Small fade-in/out notification in the bottom-right corner when an achievement is newly unlocked. Multiple unlocks queue and show sequentially.
+
+**Achievements screen:** Full-screen list showing all 10 achievements. Locked entries show `???` name and a generic hint. Unlocked entries show name, description, and a green border + star. Accessible from both main menu and pause menu (pause menu opens it as an inline overlay without leaving the game scene).
+
+**Steam forwarding:** `AchievementManager.AchievementUnlocked` signal is subscribed by `SteamAchievements`, which forwards each newly unlocked ID to Steamworks when available. No Steam dependency in `AchievementManager` itself.
+
+---
+
 ## Leaderboards and High Scores
 
 **Steam Integration Status:** Core infrastructure implemented, Steamworks.NET integrated, awaiting Steam App ID for global leaderboards.
@@ -558,8 +588,9 @@ Behavior:
 - **NullLeaderboardService**: Fallback when platform unavailable
 
 **Score Calculation:**
-- **ScoreCalculator**: Converts (wave reached, lives remaining) to comparable integer score
-- **Algorithm**: `wave_reached * 100 + lives_remaining` (ensures wave progression priority)
+- **ScoreCalculator**: Converts run stats to a comparable integer score
+- **Algorithm**: `win_bonus(1,000,000,000) + wave_reached × 10,000,000 + lives_remaining × 100,000 + time_bonus`
+- Wins always rank above losses; within wins/losses, wave count is the primary tiebreaker
 
 ### Submission Flow
 
@@ -639,7 +670,7 @@ Behavior:
 **Configuration Requirements:**
 - Sort Method: Descending (higher scores better)
 - Display Type: Numeric
-- Upload Score Method: Keep Best
+- Upload Score Method: Always (every run stored — no keep-best dedup)
 
 ### Platform Support
 
@@ -651,7 +682,7 @@ Behavior:
 
 ## Notes
 
-- This file is intentionally aligned to code/data as of 2026-03-07.
+- This file is intentionally aligned to code/data as of 2026-03-08.
 - If gameplay values change, update:
   - `Data/towers.json`
   - `Data/modifiers.json`
