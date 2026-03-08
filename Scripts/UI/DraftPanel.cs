@@ -205,6 +205,7 @@ public partial class DraftPanel : CanvasLayer
 
         if (!MobileOptimization.IsTablet())
             MobileOptimization.ApplyUIScale(_center);
+        AddChild(new PinchZoomHandler(_center));
     }
 
     public override void _Process(double delta)

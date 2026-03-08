@@ -157,6 +157,7 @@ public partial class EndScreen : CanvasLayer
 		_hintLabel.Modulate = new Color(0.65f, 0.65f, 0.65f);
 		vbox.AddChild(_hintLabel);
 		MobileOptimization.ApplyUIScale(center);
+	AddChild(new PinchZoomHandler(center));
 	}
 
 	public override void _Input(InputEvent @event)

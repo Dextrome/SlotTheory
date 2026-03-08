@@ -175,6 +175,7 @@ public partial class LeaderboardsMenu : Node
             }
         }
         _ = RefreshBoardAsync();
+        AddChild(new PinchZoomHandler(center));
     }
 
     private void OnMapSelected(long index)
