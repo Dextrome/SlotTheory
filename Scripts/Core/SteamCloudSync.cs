@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using Godot;
 
 namespace SlotTheory.Core;
@@ -5,6 +6,8 @@ namespace SlotTheory.Core;
 /// <summary>
 /// Thin wrapper around SteamRemoteStorage for syncing save files to Steam Cloud.
 /// All methods are safe to call when Steam is unavailable — failures are logged and swallowed.
+/// All Steamworks.NET references are isolated in NoInlining helpers so the JIT never loads
+/// the Steamworks assembly on platforms where it doesn't exist (Android, iOS).
 ///
 /// Usage pattern:
 ///   PullIfNewer(globalizedPath, cloudName)  ← call BEFORE loading the local file
@@ -16,6 +19,34 @@ public static class SteamCloudSync
     public static bool IsAvailable()
     {
         if (OS.GetName() != "Windows") return false;
+        return CheckSteamAvailable();
+    }
+
+    /// <summary>
+    /// Downloads <paramref name="cloudFileName"/> from Steam Cloud and overwrites the local file
+    /// only when the cloud copy is strictly newer than the local copy.
+    /// </summary>
+    public static void PullIfNewer(string localPath, string cloudFileName)
+    {
+        if (!IsAvailable()) return;
+        DoPull(localPath, cloudFileName);
+    }
+
+    /// <summary>
+    /// Uploads the local file at <paramref name="localPath"/> to Steam Cloud under
+    /// <paramref name="cloudFileName"/>. Called immediately after each successful local save.
+    /// </summary>
+    public static void Push(string localPath, string cloudFileName)
+    {
+        if (!IsAvailable()) return;
+        DoPush(localPath, cloudFileName);
+    }
+
+    // ── Steamworks-dependent helpers (NoInlining = JIT only compiles if actually called) ──
+
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static bool CheckSteamAvailable()
+    {
         try
         {
             return Steamworks.SteamAPI.IsSteamRunning()
@@ -24,15 +55,9 @@ public static class SteamCloudSync
         catch { return false; }
     }
 
-    /// <summary>
-    /// Downloads <paramref name="cloudFileName"/> from Steam Cloud and overwrites the local file
-    /// only when the cloud copy is strictly newer than the local copy.
-    /// </summary>
-    /// <param name="localPath">Absolute path to the local file (use ProjectSettings.GlobalizePath).</param>
-    /// <param name="cloudFileName">Key used in SteamRemoteStorage (e.g. "high_scores.cfg").</param>
-    public static void PullIfNewer(string localPath, string cloudFileName)
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void DoPull(string localPath, string cloudFileName)
     {
-        if (!IsAvailable()) return;
         try
         {
             if (!Steamworks.SteamRemoteStorage.FileExists(cloudFileName)) return;
@@ -45,7 +70,7 @@ public static class SteamCloudSync
                 localUnix = new System.DateTimeOffset(utc).ToUnixTimeSeconds();
             }
 
-            if (cloudUnix <= localUnix) return;  // local is current
+            if (cloudUnix <= localUnix) return;
 
             int size = Steamworks.SteamRemoteStorage.GetFileSize(cloudFileName);
             if (size <= 0) return;
@@ -64,13 +89,9 @@ public static class SteamCloudSync
         }
     }
 
-    /// <summary>
-    /// Uploads the local file at <paramref name="localPath"/> to Steam Cloud under
-    /// <paramref name="cloudFileName"/>. Called immediately after each successful local save.
-    /// </summary>
-    public static void Push(string localPath, string cloudFileName)
+    [MethodImpl(MethodImplOptions.NoInlining)]
+    private static void DoPush(string localPath, string cloudFileName)
     {
-        if (!IsAvailable()) return;
         try
         {
             if (!System.IO.File.Exists(localPath)) return;
