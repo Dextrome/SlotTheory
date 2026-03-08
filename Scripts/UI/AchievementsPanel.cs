@@ -5,10 +5,15 @@ namespace SlotTheory.UI;
 
 /// <summary>
 /// Full-screen achievements list. All UI built procedurally.
-/// Navigate here via MainMenu → Achievements.
+/// Navigate here via MainMenu → Achievements, or as an inline overlay from PauseScreen.
 /// </summary>
 public partial class AchievementsPanel : Node
 {
+    /// <summary>
+    /// When set, the Back button calls this and frees the node instead of navigating to MainMenu.
+    /// Used by PauseScreen to dismiss the overlay without leaving the game scene.
+    /// </summary>
+    public System.Action? BackOverride { get; set; }
     public override void _Ready()
     {
         var canvas = new CanvasLayer();
@@ -97,7 +102,10 @@ public partial class AchievementsPanel : Node
     }
 
     private void OnBack()
-        => Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+    {
+        if (BackOverride != null) { BackOverride(); QueueFree(); return; }
+        Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+    }
 
     // ── Row builder ───────────────────────────────────────────────────────────
 
