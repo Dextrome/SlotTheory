@@ -1,5 +1,9 @@
 -- Slot Theory — Supabase Leaderboard Setup
 -- Run this in the Supabase SQL Editor (Dashboard → SQL Editor → New query)
+--
+-- Design: every run is stored as a separate row (no upsert, no dedup).
+-- The leaderboard shows all runs ordered by score — same player can appear
+-- multiple times. Use supabase_migration_all_runs.sql on an existing database.
 
 -- ── Table ─────────────────────────────────────────────────────────────────────
 
@@ -16,16 +20,17 @@ CREATE TABLE IF NOT EXISTS public.scores (
     play_time_seconds   float           NOT NULL DEFAULT 0,
     game_version        text            NOT NULL DEFAULT '',
     build_code          text            NOT NULL DEFAULT '',  -- packed slot ints, comma-separated
-    submitted_at        timestamptz     NOT NULL DEFAULT now(),
-
-    UNIQUE (player_id, map_id, difficulty)
+    submitted_at        timestamptz     NOT NULL DEFAULT now()
+    -- No UNIQUE constraint: every run gets its own row
 );
 
 -- Index for leaderboard fetch (filter by map+difficulty, sort by score desc)
 CREATE INDEX IF NOT EXISTS scores_leaderboard_idx ON public.scores (map_id, difficulty, score DESC);
 
--- ── RPC: submit_score (keep-best upsert) ──────────────────────────────────────
--- Returns JSON: { "rank": <int>, "updated": <bool> }
+-- ── RPC: submit_score (always insert) ─────────────────────────────────────────
+-- Every run is stored as a new row regardless of previous scores.
+-- Returns JSON: { "rank": <int> }
+-- Rank = position of this run among all runs on the same map/difficulty.
 
 CREATE OR REPLACE FUNCTION public.submit_score(
     p_player_id         text,
@@ -44,50 +49,26 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
-    v_existing_score bigint;
-    v_updated        boolean := false;
-    v_rank           bigint;
+    v_rank bigint;
 BEGIN
-    -- Check existing personal best for this player/map/difficulty
-    SELECT score INTO v_existing_score
-    FROM public.scores
-    WHERE player_id = p_player_id
-      AND map_id    = p_map_id
-      AND difficulty = p_difficulty;
+    INSERT INTO public.scores (
+        player_id, player_name, map_id, difficulty,
+        score, won, wave_reached, lives_remaining,
+        play_time_seconds, game_version, build_code, submitted_at
+    ) VALUES (
+        p_player_id, p_player_name, p_map_id, p_difficulty,
+        p_score, p_won, p_wave_reached, p_lives_remaining,
+        p_play_time_seconds, p_game_version, p_build_code, now()
+    );
 
-    -- Only write if this is a new personal best (or first submission)
-    IF v_existing_score IS NULL OR p_score > v_existing_score THEN
-        INSERT INTO public.scores (
-            player_id, player_name, map_id, difficulty,
-            score, won, wave_reached, lives_remaining,
-            play_time_seconds, game_version, build_code, submitted_at
-        ) VALUES (
-            p_player_id, p_player_name, p_map_id, p_difficulty,
-            p_score, p_won, p_wave_reached, p_lives_remaining,
-            p_play_time_seconds, p_game_version, p_build_code, now()
-        )
-        ON CONFLICT (player_id, map_id, difficulty) DO UPDATE SET
-            player_name       = EXCLUDED.player_name,
-            score             = EXCLUDED.score,
-            won               = EXCLUDED.won,
-            wave_reached      = EXCLUDED.wave_reached,
-            lives_remaining   = EXCLUDED.lives_remaining,
-            play_time_seconds = EXCLUDED.play_time_seconds,
-            game_version      = EXCLUDED.game_version,
-            build_code        = EXCLUDED.build_code,
-            submitted_at      = now();
-
-        v_updated := true;
-    END IF;
-
-    -- Compute rank: count of scores strictly higher than this one, + 1
+    -- Rank = number of runs with a strictly higher score + 1
     SELECT COUNT(*) + 1 INTO v_rank
     FROM public.scores
     WHERE map_id    = p_map_id
       AND difficulty = p_difficulty
       AND score > p_score;
 
-    RETURN json_build_object('rank', v_rank, 'updated', v_updated);
+    RETURN json_build_object('rank', v_rank);
 END;
 $$;
 
