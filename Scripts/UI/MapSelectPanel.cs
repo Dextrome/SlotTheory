@@ -46,16 +46,10 @@ public partial class MapSelectPanel : Node
 		grid.MouseFilter = Control.MouseFilterEnum.Ignore;
 		canvas.AddChild(grid);
 
-		// Root layout: full-screen VBox — content expands to fill, action row pins to bottom
-		var rootVbox = new VBoxContainer();
-		rootVbox.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		rootVbox.Theme = UITheme.Build();
-		canvas.AddChild(rootVbox);
-
-		// Content area — centered horizontally, expands vertically to fill remaining space
 		var center = new CenterContainer();
-		center.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-		rootVbox.AddChild(center);
+		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		center.Theme = UITheme.Build();
+		canvas.AddChild(center);
 
 		var vbox = new VBoxContainer();
 		vbox.AddThemeConstantOverride("separation", 14);
@@ -132,17 +126,28 @@ public partial class MapSelectPanel : Node
 		rightColumn.AddChild(_personalBestLabel);
 		UpdatePersonalBestLabel();
 
-		// Action buttons pinned at the bottom of the root VBox — always visible
-		var actionRow = new HBoxContainer();
-		actionRow.Alignment = BoxContainer.AlignmentMode.Center;
-		actionRow.AddThemeConstantOverride("separation", 16);
-		actionRow.AddThemeConstantOverride("margin_top", 8);
-		actionRow.AddThemeConstantOverride("margin_bottom", 14);
-		actionRow.Theme = UITheme.Build();
-		rootVbox.AddChild(actionRow);
+		// Start Run + Back in the right column — always visible, no layout tricks needed
+		var startBtn = new Button
+		{
+			Text = "Start Run",
+			CustomMinimumSize = new Vector2(0, 54),
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+		};
+		startBtn.AddThemeFontSizeOverride("font_size", 24);
+		startBtn.Pressed      += OnStartRun;
+		startBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		rightColumn.AddChild(startBtn);
 
-		AddButton(actionRow, "Start Run", 220, 54, 26, OnStartRun);
-		AddButton(actionRow, "Back",      150, 54, 22, OnBack);
+		var backBtn = new Button
+		{
+			Text = "Back",
+			CustomMinimumSize = new Vector2(0, 44),
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+		};
+		backBtn.AddThemeFontSizeOverride("font_size", 20);
+		backBtn.Pressed      += OnBack;
+		backBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		rightColumn.AddChild(backBtn);
 
 		AddChild(new PinchZoomHandler(center));
 	}
