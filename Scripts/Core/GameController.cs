@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using SlotTheory.Combat;
@@ -54,7 +54,6 @@ public partial class GameController : Node
 	private Label _waveAnnounce = null!;
 	private Label _halfwayBeat = null!;
 	private Label _threatWarn = null!;
-	private Label _placementLabel = null!;
 	private Button _undoPlacementButton = null!;
 	private Label _clutchToast = null!;
 	private ColorRect _waveClearFlash = null!;
@@ -209,12 +208,12 @@ public partial class GameController : Node
 			if (inPlacement && !_cancelBtnShown)
 			{
 				_cancelBtnShown = true;
-				_hudPanel.ShowCancelButton(CancelPlacement);
+				_draftPanel.ShowPlacementUI(CancelPlacement);
 			}
 			else if (!inPlacement && _cancelBtnShown)
 			{
 				_cancelBtnShown = false;
-				_hudPanel.HideCancelButton();
+				_draftPanel.HidePlacementUI();
 			}
 		}
 
@@ -1707,27 +1706,6 @@ public partial class GameController : Node
 		_threatWarn.AddThemeColorOverride("font_color", new Color(1.00f, 0.56f, 0.25f));
 		anchor.AddChild(_threatWarn);
 
-		_placementLabel = new Label();
-		_placementLabel.HorizontalAlignment = HorizontalAlignment.Center;
-		_placementLabel.AnchorLeft   = 0f;
-		_placementLabel.AnchorRight  = 1f;
-		_placementLabel.AnchorTop    = 0f;
-		_placementLabel.AnchorBottom = 0f;
-		_placementLabel.OffsetTop    = 80f;
-		_placementLabel.OffsetBottom = 104f;
-		_placementLabel.GrowHorizontal = Control.GrowDirection.Both;
-		_placementLabel.Visible = false;
-		_placementLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
-		var placementLs = new LabelSettings();
-		placementLs.Font        = UITheme.SemiBold;
-		placementLs.FontSize    = 17;
-		placementLs.FontColor   = new Color(0.74f, 0.88f, 1.00f);  // HUD blue-white
-		placementLs.ShadowColor = new Color(0f, 0f, 0f, 0.70f);    // dark drop shadow for legibility
-		placementLs.ShadowSize  = 3;
-		placementLs.ShadowOffset = new Vector2(0f, 1f);
-		_placementLabel.LabelSettings = placementLs;
-		anchor.AddChild(_placementLabel);
-
 		_undoPlacementButton = new Button
 		{
 			Text = "UNDO",
@@ -2354,17 +2332,12 @@ public partial class GameController : Node
 	{
 		if (_undoPlacementActive)
 		{
-			_placementLabel.Text = "Tower placed  •  tap UNDO to revert";
-			_placementLabel.Visible = true;
+			_draftPanel.SetPlacementHintText("Tower placed  •  tap UNDO to revert");
 			return;
 		}
 		if (CurrentPhase != GamePhase.Draft || (!_draftPanel.IsAwaitingSlot && !_draftPanel.IsAwaitingTower))
-		{
-			_placementLabel.Visible = false;
 			return;
-		}
-		_placementLabel.Text = _draftPanel.PlacementHint;
-		_placementLabel.Visible = true;
+		_draftPanel.SetPlacementHintText(_draftPanel.PlacementHint);
 	}
 
 	public void SetDraftSynergyHint(string modifierId)

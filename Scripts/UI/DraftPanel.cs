@@ -27,6 +27,10 @@ public partial class DraftPanel : CanvasLayer
     private ColorRect _bg = null!;
     private DraftBackdropFx _bgFx = null!;
     private CenterContainer _center = null!;
+    private VBoxContainer _placementGroup = null!;
+    private Button _cancelBtn = null!;
+    private Label _placementHintLbl = null!;
+    private System.Action? _cancelCallback;
     private List<DraftOption> _lastOptions = new();
     private int _lastWaveNumber = 1;
     private int _lastPickNumber = 1;
@@ -206,11 +210,82 @@ public partial class DraftPanel : CanvasLayer
         if (!MobileOptimization.IsTablet())
             MobileOptimization.ApplyUIScale(_center);
         AddChild(new PinchZoomHandler(_center));
+
+        // ── Placement UI: cancel button + hint label, scales with zoom in _Process ──
+        _placementGroup = new VBoxContainer();
+        _placementGroup.AnchorLeft    = 0.5f;
+        _placementGroup.AnchorRight   = 0.5f;
+        _placementGroup.AnchorTop     = 0f;
+        _placementGroup.AnchorBottom  = 0f;
+        _placementGroup.OffsetLeft    = -120f;
+        _placementGroup.OffsetRight   = 120f;
+        _placementGroup.OffsetTop     = 48f;
+        _placementGroup.OffsetBottom  = 130f;
+        _placementGroup.GrowHorizontal = Control.GrowDirection.Both;
+        _placementGroup.AddThemeConstantOverride("separation", 14);
+        _placementGroup.Visible = false;
+        AddChild(_placementGroup);
+
+        _cancelBtn = new Button
+        {
+            Text = "Cancel",
+            CustomMinimumSize = new Vector2(0, 38),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        _cancelBtn.AddThemeFontSizeOverride("font_size", 16);
+        var cancelStyle = new StyleBoxFlat
+        {
+            BgColor     = new Color(0.08f, 0.06f, 0.14f, 0.88f),
+            BorderColor = new Color(0.75f, 0.15f, 0.75f, 0.90f),
+            CornerRadiusTopLeft     = 6,
+            CornerRadiusTopRight    = 6,
+            CornerRadiusBottomLeft  = 6,
+            CornerRadiusBottomRight = 6,
+        };
+        cancelStyle.SetBorderWidthAll(2);
+        cancelStyle.ContentMarginLeft   = 12f;
+        cancelStyle.ContentMarginRight  = 12f;
+        cancelStyle.ContentMarginTop    = 4f;
+        cancelStyle.ContentMarginBottom = 4f;
+        _cancelBtn.AddThemeStyleboxOverride("normal", cancelStyle);
+        var cancelHover = (StyleBoxFlat)cancelStyle.Duplicate();
+        cancelHover.BgColor     = new Color(0.18f, 0.06f, 0.22f, 0.95f);
+        cancelHover.BorderColor = new Color(0.95f, 0.30f, 0.95f, 1.00f);
+        _cancelBtn.AddThemeStyleboxOverride("hover", cancelHover);
+        var cancelPress = (StyleBoxFlat)cancelStyle.Duplicate();
+        cancelPress.BgColor = new Color(0.12f, 0.04f, 0.18f, 1.00f);
+        _cancelBtn.AddThemeStyleboxOverride("pressed", cancelPress);
+        _cancelBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+        _placementGroup.AddChild(_cancelBtn);
+
+        _placementHintLbl = new Label
+        {
+            HorizontalAlignment = HorizontalAlignment.Center,
+            AutowrapMode = TextServer.AutowrapMode.Word,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        var hintLs = new LabelSettings
+        {
+            Font         = UITheme.SemiBold,
+            FontSize     = 17,
+            FontColor    = new Color(0.74f, 0.88f, 1.00f),
+            ShadowColor  = new Color(0f, 0f, 0f, 0.70f),
+            ShadowSize   = 3,
+            ShadowOffset = new Vector2(0f, 1f),
+        };
+        _placementHintLbl.LabelSettings = hintLs;
+        _placementGroup.AddChild(_placementHintLbl);
     }
 
     public override void _Process(double delta)
     {
         if (!Visible) return;
+
+        // Keep placement group scaled with zoom (grows downward from top of screen)
+        float s = _center.Scale.X;
+        _placementGroup.Scale = new Vector2(s, s);
+        _placementGroup.PivotOffset = new Vector2(_placementGroup.Size.X * 0.5f, 0f);
+
         ulong nowMs = Time.GetTicksMsec();
 
         if (_touchPreviewCard != null && !_touchPreviewActive && nowMs - _touchPreviewStartMs >= TouchCardPreviewMs)
@@ -228,6 +303,30 @@ public partial class DraftPanel : CanvasLayer
 
         _touchHintShown = true;
         SetModifierSynergyHint(_touchHoldModifierId);
+    }
+
+    public void ShowPlacementUI(System.Action onCancel)
+    {
+        if (_cancelCallback != null)
+            _cancelBtn.Pressed -= _cancelCallback;
+        _cancelCallback = onCancel;
+        _cancelBtn.Pressed += _cancelCallback;
+        _placementGroup.Visible = true;
+    }
+
+    public void HidePlacementUI()
+    {
+        if (_cancelCallback != null)
+        {
+            _cancelBtn.Pressed -= _cancelCallback;
+            _cancelCallback = null;
+        }
+        _placementGroup.Visible = false;
+    }
+
+    public void SetPlacementHintText(string text)
+    {
+        _placementHintLbl.Text = text;
     }
 
     public void Show(List<DraftOption> options, int waveNumber, int pickNumber = 1, int totalPicks = 1, WaveReport? lastWaveReport = null)

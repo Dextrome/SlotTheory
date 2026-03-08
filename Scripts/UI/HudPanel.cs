@@ -16,7 +16,6 @@ public partial class HudPanel : CanvasLayer
     private Label _speedToast = null!;
     private ColorRect _speedToastStreak = null!;
     private Button _speedBtn = null!;
-    private Button? _cancelPlacementBtn;
     private int _speedIdx = 0;
     private static readonly double[] SpeedStepsNormal = { 1.0, 2.0, 3.0 };
     private static readonly double[] SpeedStepsDev    = { 1.0, 2.0, 3.0, 5.0, 10.0 };
@@ -226,71 +225,6 @@ public partial class HudPanel : CanvasLayer
             Size = new Vector2(180f, 4f),
         };
         AddChild(_speedToastStreak);
-
-        // Cancel placement button — shown below HUD bar during tower/modifier placement
-        _cancelPlacementBtn = new Button
-        {
-            Text = "Cancel",
-            CustomMinimumSize = new Vector2(140, 26),
-            AnchorLeft   = 0.5f,
-            AnchorRight  = 0.5f,
-            AnchorTop    = 0f,
-            AnchorBottom = 0f,
-            OffsetLeft   = -70f,
-            OffsetRight  = 70f,
-            OffsetTop    = 48f,
-            OffsetBottom = 74f,
-            Visible = false,
-        };
-        _cancelPlacementBtn.AddThemeFontSizeOverride("font_size", 13);
-        // Border style
-        var cancelStyle = new StyleBoxFlat
-        {
-            BgColor      = new Color(0.08f, 0.06f, 0.14f, 0.88f),
-            BorderColor  = new Color(0.75f, 0.15f, 0.75f, 0.90f),  // magenta border
-            CornerRadiusTopLeft     = 5,
-            CornerRadiusTopRight    = 5,
-            CornerRadiusBottomLeft  = 5,
-            CornerRadiusBottomRight = 5,
-        };
-        cancelStyle.SetBorderWidthAll(2);
-        cancelStyle.ContentMarginLeft   = 8f;
-        cancelStyle.ContentMarginRight  = 8f;
-        cancelStyle.ContentMarginTop    = 0f;
-        cancelStyle.ContentMarginBottom = 0f;
-        _cancelPlacementBtn.AddThemeStyleboxOverride("normal", cancelStyle);
-        var cancelHover = (StyleBoxFlat)cancelStyle.Duplicate();
-        cancelHover.BgColor     = new Color(0.18f, 0.06f, 0.22f, 0.95f);
-        cancelHover.BorderColor = new Color(0.95f, 0.30f, 0.95f, 1.00f);
-        _cancelPlacementBtn.AddThemeStyleboxOverride("hover", cancelHover);
-        var cancelPress = (StyleBoxFlat)cancelStyle.Duplicate();
-        cancelPress.BgColor = new Color(0.12f, 0.04f, 0.18f, 1.00f);
-        _cancelPlacementBtn.AddThemeStyleboxOverride("pressed", cancelPress);
-        _cancelPlacementBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
-        AddChild(_cancelPlacementBtn);
-    }
-
-    private System.Action? _cancelPlacementAction;
-
-    public void ShowCancelButton(System.Action onCancel)
-    {
-        if (_cancelPlacementBtn == null) return;
-        if (_cancelPlacementAction != null)
-            _cancelPlacementBtn.Pressed -= _cancelPlacementAction;
-        _cancelPlacementAction = onCancel;
-        _cancelPlacementBtn.Pressed += _cancelPlacementAction;
-        _cancelPlacementBtn.Visible = true;
-    }
-
-    public void HideCancelButton()
-    {
-        if (_cancelPlacementBtn == null) return;
-        if (_cancelPlacementAction != null)
-        {
-            _cancelPlacementBtn.Pressed -= _cancelPlacementAction;
-            _cancelPlacementAction = null;
-        }
-        _cancelPlacementBtn.Visible = false;
     }
 
     private void OnSpeedToggle()
