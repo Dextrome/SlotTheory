@@ -46,10 +46,16 @@ public partial class MapSelectPanel : Node
 		grid.MouseFilter = Control.MouseFilterEnum.Ignore;
 		canvas.AddChild(grid);
 
+		// Root layout: full-screen VBox — content expands to fill, action row pins to bottom
+		var rootVbox = new VBoxContainer();
+		rootVbox.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		rootVbox.Theme = UITheme.Build();
+		canvas.AddChild(rootVbox);
+
+		// Content area — centered horizontally, expands vertically to fill remaining space
 		var center = new CenterContainer();
-		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		center.Theme = UITheme.Build();
-		canvas.AddChild(center);
+		center.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		rootVbox.AddChild(center);
 
 		var vbox = new VBoxContainer();
 		vbox.AddThemeConstantOverride("separation", 14);
@@ -76,7 +82,7 @@ public partial class MapSelectPanel : Node
 		contentRow.AddChild(leftColumn);
 
 		var scrollContainer = new ScrollContainer();
-		scrollContainer.CustomMinimumSize = new Vector2(420, 320);
+		scrollContainer.CustomMinimumSize = new Vector2(420, 200);
 		scrollContainer.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
 		scrollContainer.SizeFlagsHorizontal  = Control.SizeFlags.ExpandFill;
 		scrollContainer.SizeFlagsVertical    = Control.SizeFlags.ExpandFill;
@@ -126,12 +132,14 @@ public partial class MapSelectPanel : Node
 		rightColumn.AddChild(_personalBestLabel);
 		UpdatePersonalBestLabel();
 
-		// Action buttons at the bottom of the layout — inside vbox, no z-order issues
+		// Action buttons pinned at the bottom of the root VBox — always visible
 		var actionRow = new HBoxContainer();
 		actionRow.Alignment = BoxContainer.AlignmentMode.Center;
 		actionRow.AddThemeConstantOverride("separation", 16);
+		actionRow.AddThemeConstantOverride("margin_top", 8);
+		actionRow.AddThemeConstantOverride("margin_bottom", 14);
 		actionRow.Theme = UITheme.Build();
-		vbox.AddChild(actionRow);
+		rootVbox.AddChild(actionRow);
 
 		AddButton(actionRow, "Start Run", 220, 54, 26, OnStartRun);
 		AddButton(actionRow, "Back",      150, 54, 22, OnBack);

@@ -249,8 +249,23 @@ public partial class LeaderboardManager : Node
         // Set application/config/leaderboard_provider = "steam" in the Steam export preset.
         // Defaults to "supabase" so itch/standalone builds work without any extra config.
         string provider = ProjectSettings.GetSetting("application/config/leaderboard_provider", "supabase").AsString();
-        if (provider == "steam")
-            return new SteamLeaderboardService();
+        if (provider == "steam" && OS.GetName() != "Android" && OS.GetName() != "iOS")
+            return TryCreateSteamService();
         return new SupabaseLeaderboardService();
+    }
+
+    // NoInlining ensures the JIT only compiles this method if it's actually called.
+    // SteamLeaderboardService references Steamworks.NET types that don't exist on Android —
+    // keeping this in a separate non-inlined method prevents TypeLoadException at startup.
+    [System.Runtime.CompilerServices.MethodImpl(
+        System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+    private static ILeaderboardService TryCreateSteamService()
+    {
+        try { return new SteamLeaderboardService(); }
+        catch (System.Exception ex)
+        {
+            GD.PrintErr($"[Leaderboards] Steam service failed to load: {ex.Message}");
+            return new SupabaseLeaderboardService();
+        }
     }
 }
