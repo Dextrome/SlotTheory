@@ -24,6 +24,8 @@ config/icon="res://icon2.png"
 [autoload]
 
 LeaderboardManager="*res://Scripts/Core/LeaderboardManager.cs"
+AchievementManager="*res://Scripts/Core/AchievementManager.cs"
+AchievementToast="*res://Scripts/UI/AchievementToast.cs"
 SettingsManager="*res://Scripts/Core/SettingsManager.cs"
 SoundManager="*res://Scripts/Core/SoundManager.cs"
 Transition="*res://Scripts/Core/Transition.cs"

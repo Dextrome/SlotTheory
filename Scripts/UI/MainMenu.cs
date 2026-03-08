@@ -66,6 +66,7 @@ public partial class MainMenu : Node
 		AddButton(vbox, "Play",            260, 58, 28, OnPlay);
 		AddSpacer(vbox, 8);
 		AddButton(vbox, "Leaderboards",    260, 48, 22, OnLeaderboards);
+		AddButton(vbox, "Achievements",   260, 48, 22, OnAchievements);
 		AddButton(vbox, "How to Play",    260, 48, 22, OnHowToPlay);
 		AddButton(vbox, "Settings",       260, 48, 22, OnSettings);
 		AddSpacer(vbox, 4);
@@ -111,6 +112,7 @@ public partial class MainMenu : Node
 	{
 		SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/Leaderboards.tscn");
 	}
+	private void OnAchievements() => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/Achievements.tscn");
 	private void OnHowToPlay() => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/HowToPlay.tscn");
 	private void OnSettings()  => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/Settings.tscn");
 	private void OnQuit()      => GetTree().Quit();

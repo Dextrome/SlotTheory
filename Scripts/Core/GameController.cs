@@ -229,7 +229,7 @@ public partial class GameController : Node
 			CurrentPhase = GamePhase.Loss;
 			MobileRunSession.Clear();
 			MobileOptimization.HapticStrong();
-			SteamAchievements.CheckRunEnd(_runState, SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal, won: false);
+			AchievementManager.Instance?.CheckRunEnd(_runState, SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal, won: false);
 			int livesLost = Balance.StartingLives - _runState.Lives;
 			SoundManager.Instance?.Play("game_over");
 				string runName = BuildRunName(registerInHistory: true, wonOverride: false, waveReachedOverride: _runState.WaveIndex + 1);
@@ -257,7 +257,7 @@ public partial class GameController : Node
 				CurrentPhase = GamePhase.Win;
 				MobileRunSession.Clear();
 				MobileOptimization.HapticStrong();
-				SteamAchievements.CheckRunEnd(_runState, SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal, won: true);
+				AchievementManager.Instance?.CheckRunEnd(_runState, SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal, won: true);
 				SoundManager.Instance?.Play("victory");
 					string runName = BuildRunName(registerInHistory: true, wonOverride: true, waveReachedOverride: Balance.TotalWaves);
 				var runColors = BuildRunNameColors();
