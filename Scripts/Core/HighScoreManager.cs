@@ -42,7 +42,8 @@ public partial class HighScoreManager : Node
             payload.PlayTimeSeconds,
             payload.RunTimestampUnixSeconds,
             payload.GameVersion,
-            payload.Build
+            payload.Build,
+            payload.BuildName
         );
 
         history.Add(entry);
@@ -97,7 +98,8 @@ public partial class HighScoreManager : Node
                 TotalDamageDealt: entry.TotalDamageDealt,
                 TimeSeconds: (int)System.Math.Floor(entry.PlayTimeSeconds),
                 Build: entry.Build,
-                IsLocal: true
+                IsLocal: true,
+                BuildName: entry.BuildName
             ));
         }
         return rows;
@@ -149,7 +151,8 @@ public partial class HighScoreManager : Node
             (float)_cfg.GetValue(section, $"{prefix}_time_seconds", 0f),
             (long)_cfg.GetValue(section, $"{prefix}_run_unix", 0L),
             (string)_cfg.GetValue(section, $"{prefix}_game_version", ""),
-            ReadBuildSnapshot(section, $"{prefix}_slot_pack_")
+            ReadBuildSnapshot(section, $"{prefix}_slot_pack_"),
+            (string)_cfg.GetValue(section, $"{prefix}_build_name", "")
         );
         return true;
     }
@@ -183,6 +186,7 @@ public partial class HighScoreManager : Node
         _cfg.SetValue(section, $"{prefix}_time_seconds", entry.PlayTimeSeconds);
         _cfg.SetValue(section, $"{prefix}_run_unix", entry.RunTimestampUnixSeconds);
         _cfg.SetValue(section, $"{prefix}_game_version", entry.GameVersion);
+        _cfg.SetValue(section, $"{prefix}_build_name", entry.BuildName);
         WriteBuildSnapshot(section, $"{prefix}_slot_pack_", entry.Build);
     }
 
@@ -201,7 +205,8 @@ public partial class HighScoreManager : Node
             (float)_cfg.GetValue(section, "best_time_seconds", 0f),
             (long)_cfg.GetValue(section, "best_run_unix", 0L),
             (string)_cfg.GetValue(section, "best_game_version", ""),
-            ReadBuildSnapshot(section, "best_slot_pack_")
+            ReadBuildSnapshot(section, "best_slot_pack_"),
+            (string)_cfg.GetValue(section, "best_build_name", "")
         );
     }
 
@@ -217,6 +222,7 @@ public partial class HighScoreManager : Node
         _cfg.SetValue(section, "best_time_seconds", entry.PlayTimeSeconds);
         _cfg.SetValue(section, "best_run_unix", entry.RunTimestampUnixSeconds);
         _cfg.SetValue(section, "best_game_version", entry.GameVersion);
+        _cfg.SetValue(section, "best_build_name", entry.BuildName);
         WriteBuildSnapshot(section, "best_slot_pack_", entry.Build);
     }
 

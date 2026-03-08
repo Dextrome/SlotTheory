@@ -334,6 +334,17 @@ public partial class LeaderboardsMenu : Node
 
     private (string Name, Color StartColor, Color EndColor) ResolveBuildNameStyle(LeaderboardEntryView row)
     {
+        // Use the stored name when available (computed once at run end — consistent across all views).
+        // Fall back to regeneration for legacy entries that predate this field.
+        if (!string.IsNullOrEmpty(row.BuildName))
+        {
+            var colors = RunNameGenerator.GenerateStyledFromSnapshot(
+                _selectedMapId, _selectedDifficulty,
+                row.Score, row.WaveReached, row.LivesRemaining,
+                row.TotalKills, row.TotalDamageDealt, row.TimeSeconds, row.Build);
+            return (row.BuildName, colors.StartColor, colors.EndColor);
+        }
+
         return RunNameGenerator.GenerateStyledFromSnapshot(
             _selectedMapId,
             _selectedDifficulty,

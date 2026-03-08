@@ -19,7 +19,8 @@ public sealed record RunScorePayload(
     float PlayTimeSeconds,
     long RunTimestampUnixSeconds,
     string GameVersion,
-    RunBuildSnapshot Build
+    RunBuildSnapshot Build,
+    string BuildName = ""   // computed once at run end; avoids regeneration inconsistency
 );
 
 public sealed record RunSlotBuild(
@@ -41,7 +42,8 @@ public sealed record PersonalBestEntry(
     float PlayTimeSeconds,
     long RunTimestampUnixSeconds,
     string GameVersion,
-    RunBuildSnapshot Build
+    RunBuildSnapshot Build,
+    string BuildName = ""
 );
 
 public sealed record LocalSubmitResult(
@@ -90,5 +92,6 @@ public sealed record LeaderboardEntryView(
     int TotalDamageDealt,
     int TimeSeconds,
     RunBuildSnapshot Build,
-    bool IsLocal = false
+    bool IsLocal = false,
+    string BuildName = ""
 );

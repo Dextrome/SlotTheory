@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS public.scores (
     play_time_seconds   float           NOT NULL DEFAULT 0,
     game_version        text            NOT NULL DEFAULT '',
     build_code          text            NOT NULL DEFAULT '',  -- packed slot ints, comma-separated
+    build_name          text            NOT NULL DEFAULT '',  -- generated once at run end
     submitted_at        timestamptz     NOT NULL DEFAULT now()
     -- No UNIQUE constraint: every run gets its own row
 );
@@ -43,7 +44,8 @@ CREATE OR REPLACE FUNCTION public.submit_score(
     p_lives_remaining   integer,
     p_play_time_seconds float,
     p_game_version      text,
-    p_build_code        text
+    p_build_code        text,
+    p_build_name        text DEFAULT ''
 ) RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -54,11 +56,11 @@ BEGIN
     INSERT INTO public.scores (
         player_id, player_name, map_id, difficulty,
         score, won, wave_reached, lives_remaining,
-        play_time_seconds, game_version, build_code, submitted_at
+        play_time_seconds, game_version, build_code, build_name, submitted_at
     ) VALUES (
         p_player_id, p_player_name, p_map_id, p_difficulty,
         p_score, p_won, p_wave_reached, p_lives_remaining,
-        p_play_time_seconds, p_game_version, p_build_code, now()
+        p_play_time_seconds, p_game_version, p_build_code, p_build_name, now()
     );
 
     -- Rank = number of runs with a strictly higher score + 1
