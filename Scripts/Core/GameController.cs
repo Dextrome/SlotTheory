@@ -1713,13 +1713,19 @@ public partial class GameController : Node
 		_placementLabel.AnchorRight  = 1f;
 		_placementLabel.AnchorTop    = 0f;
 		_placementLabel.AnchorBottom = 0f;
-		_placementLabel.OffsetTop    = 90f;
-		_placementLabel.OffsetBottom = 120f;
+		_placementLabel.OffsetTop    = 80f;
+		_placementLabel.OffsetBottom = 104f;
 		_placementLabel.GrowHorizontal = Control.GrowDirection.Both;
 		_placementLabel.Visible = false;
 		_placementLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
-		UITheme.ApplyFont(_placementLabel, semiBold: true, size: 20);
-		_placementLabel.Modulate = new Color(1f, 0.85f, 0.15f);
+		var placementLs = new LabelSettings();
+		placementLs.Font        = UITheme.SemiBold;
+		placementLs.FontSize    = 17;
+		placementLs.FontColor   = new Color(0.74f, 0.88f, 1.00f);  // HUD blue-white
+		placementLs.ShadowColor = new Color(0f, 0f, 0f, 0.70f);    // dark drop shadow for legibility
+		placementLs.ShadowSize  = 3;
+		placementLs.ShadowOffset = new Vector2(0f, 1f);
+		_placementLabel.LabelSettings = placementLs;
 		anchor.AddChild(_placementLabel);
 
 		_undoPlacementButton = new Button
