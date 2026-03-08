@@ -128,6 +128,7 @@ public partial class EndScreen : CanvasLayer
 			Visible = false,
 		};
 		_viewLeaderboardButton.AddThemeFontSizeOverride("font_size", 18);
+		UITheme.ApplyCyanStyle(_viewLeaderboardButton);
 		_viewLeaderboardButton.Pressed += OnViewLeaderboardPressed;
 		vbox.AddChild(_viewLeaderboardButton);
 
@@ -137,7 +138,8 @@ public partial class EndScreen : CanvasLayer
 			CustomMinimumSize = new Vector2(360f, 42f),
 			Visible = MobileOptimization.IsMobile(),
 		};
-		_mainMenuButton.AddThemeFontSizeOverride("font_size", 18);
+		_mainMenuButton.AddThemeFontSizeOverride("font_size", 20);
+		UITheme.ApplyPrimaryStyle(_mainMenuButton);
 		_mainMenuButton.Pressed += OnMainMenuPressed;
 		vbox.AddChild(_mainMenuButton);
 

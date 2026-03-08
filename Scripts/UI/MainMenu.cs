@@ -1,4 +1,5 @@
 using Godot;
+using SlotTheory.Core;
 
 namespace SlotTheory.UI;
 
@@ -10,7 +11,7 @@ public partial class MainMenu : Node
 {
 	public override void _Ready()
 	{
-		if (MobileOptimization.IsMobile() && SlotTheory.Core.MobileRunSession.HasSnapshot())
+		if (MobileOptimization.IsMobile() && MobileRunSession.HasSnapshot())
 		{
 			CallDeferred(nameof(AutoResumeRun));
 			return;
@@ -22,7 +23,7 @@ public partial class MainMenu : Node
 		// Background
 		var bg = new ColorRect();
 		bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		bg.Color = new Color("#141420");
+		bg.Color = new Color("#07071a");
 		canvas.AddChild(bg);
 
 		// Animated neon grid — rendered above solid bg, below all UI
@@ -34,11 +35,12 @@ public partial class MainMenu : Node
 		// Centre everything
 		var center = new CenterContainer();
 		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		center.Theme = SlotTheory.Core.UITheme.Build();
+		center.Theme = UITheme.Build();
 		canvas.AddChild(center);
 
 		var vbox = new VBoxContainer();
-		vbox.AddThemeConstantOverride("separation", 20);
+		vbox.AddThemeConstantOverride("separation", 0);
+		vbox.CustomMinimumSize = new Vector2(300, 0);
 		center.AddChild(vbox);
 
 		// Title
@@ -47,44 +49,74 @@ public partial class MainMenu : Node
 			Text = "SLOT THEORY",
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
-		SlotTheory.Core.UITheme.ApplyFont(title, semiBold: true, size: 80);
-		title.Modulate = new Color("#a6d608");
+		title.LabelSettings = MakeTitleSettings();
 		vbox.AddChild(title);
 
 		// Sub-title
 		var sub = new Label
 		{
-			Text = "Tower Defense  ·  Draft  ·  Survive 20 Waves",
+			Text = "TOWER DEFENSE  ·  DRAFT  ·  SURVIVE 20 WAVES",
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
-		sub.AddThemeFontSizeOverride("font_size", 20);
-		sub.Modulate = new Color(0.65f, 0.65f, 0.65f);
+		sub.AddThemeFontSizeOverride("font_size", 15);
+		sub.Modulate = UITheme.Lime;
 		vbox.AddChild(sub);
 
-		AddSpacer(vbox, 36);
+		AddSpacer(vbox, 28);
 
-		AddButton(vbox, "Play",            260, 58, 28, OnPlay);
-		AddSpacer(vbox, 8);
-		AddButton(vbox, "Leaderboards",    260, 48, 22, OnLeaderboards);
-		AddButton(vbox, "Achievements",   260, 48, 22, OnAchievements);
-		AddButton(vbox, "How to Play",    260, 48, 22, OnHowToPlay);
-		AddButton(vbox, "Settings",       260, 48, 22, OnSettings);
-		AddSpacer(vbox, 4);
-		AddButton(vbox, "Quit", 260, 48, 22, OnQuit);
+		// Menu card
+		var card = new PanelContainer();
+		card.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+			bg: new Color(0.04f, 0.04f, 0.12f),
+			border: new Color(0.18f, 0.22f, 0.18f),
+			corners: 12, borderWidth: 1, padH: 24, padV: 24));
+		card.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
+		card.CustomMinimumSize   = new Vector2(320, 0);
+		vbox.AddChild(card);
 
+		var cardVbox = new VBoxContainer();
+		cardVbox.AddThemeConstantOverride("separation", 8);
+		card.AddChild(cardVbox);
+
+		// Play — primary
+		var playBtn = MakeMenuButton("PLAY", 260, 56, 24);
+		UITheme.ApplyPrimaryStyle(playBtn);
+		playBtn.Pressed += OnPlay;
+		cardVbox.AddChild(playBtn);
+
+		AddSpacer(cardVbox, 4);
+		AddSeparator(cardVbox);
+		AddSpacer(cardVbox, 4);
+
+		AddNavButton(cardVbox, "Leaderboards", OnLeaderboards);
+		AddNavButton(cardVbox, "Achievements",  OnAchievements);
+		AddNavButton(cardVbox, "How to Play",   OnHowToPlay);
+		AddNavButton(cardVbox, "Settings",      OnSettings);
+
+		AddSpacer(cardVbox, 4);
+		AddSeparator(cardVbox);
+		AddSpacer(cardVbox, 4);
+
+		// Quit — muted
+		var quitBtn = MakeMenuButton("Quit", 260, 42, 18);
+		UITheme.ApplyMutedStyle(quitBtn);
+		quitBtn.Pressed += OnQuit;
+		cardVbox.AddChild(quitBtn);
+
+		// Version label (bottom-right, outside card)
 		var versionLabel = new Label
 		{
 			Text = "v0.1.5",
 			HorizontalAlignment = HorizontalAlignment.Right,
-			VerticalAlignment = VerticalAlignment.Bottom,
-			AnchorLeft = 1f, AnchorRight = 1f,
-			AnchorTop = 1f,  AnchorBottom = 1f,
-			OffsetLeft = -80f, OffsetRight = -10f,
-			OffsetTop = -28f,  OffsetBottom = -8f,
-			MouseFilter = Control.MouseFilterEnum.Ignore,
+			VerticalAlignment   = VerticalAlignment.Bottom,
+			AnchorLeft   = 1f, AnchorRight  = 1f,
+			AnchorTop    = 1f, AnchorBottom = 1f,
+			OffsetLeft   = -80f, OffsetRight  = -10f,
+			OffsetTop    = -28f, OffsetBottom = -8f,
+			MouseFilter  = Control.MouseFilterEnum.Ignore,
 		};
 		versionLabel.AddThemeFontSizeOverride("font_size", 13);
-		versionLabel.Modulate = new Color(0.38f, 0.38f, 0.38f);
+		versionLabel.Modulate = new Color(0.30f, 0.30f, 0.38f);
 		canvas.AddChild(versionLabel);
 	}
 
@@ -106,39 +138,76 @@ public partial class MainMenu : Node
 	private void OnPlay()
 	{
 		SlotTheory.Data.DataLoader.LoadAll();
-		SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MapSelect.tscn");
+		Transition.Instance?.FadeToScene("res://Scenes/MapSelect.tscn");
 	}
-	private void OnLeaderboards()
-	{
-		SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/Leaderboards.tscn");
-	}
-	private void OnAchievements() => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/Achievements.tscn");
-	private void OnHowToPlay() => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/HowToPlay.tscn");
-	private void OnSettings()  => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/Settings.tscn");
-	private void OnQuit()      => GetTree().Quit();
+	private void OnLeaderboards() => Transition.Instance?.FadeToScene("res://Scenes/Leaderboards.tscn");
+	private void OnAchievements() => Transition.Instance?.FadeToScene("res://Scenes/Achievements.tscn");
+	private void OnHowToPlay()    => Transition.Instance?.FadeToScene("res://Scenes/HowToPlay.tscn");
+	private void OnSettings()     => Transition.Instance?.FadeToScene("res://Scenes/Settings.tscn");
+	private void OnQuit()         => GetTree().Quit();
 
 	private void AutoResumeRun()
 	{
-		SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
+		Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
 	}
 
-	private static void AddSpacer(VBoxContainer vbox, int px)
+	// ── Helpers ────────────────────────────────────────────────────────────
+
+	private void AddNavButton(VBoxContainer parent, string text, System.Action callback)
 	{
-		var s = new Control { CustomMinimumSize = new Vector2(0, px) };
-		vbox.AddChild(s);
+		var btn = MakeMenuButton(text, 260, 44, 20);
+		btn.Pressed += callback;
+		parent.AddChild(btn);
 	}
 
-	private static void AddButton(VBoxContainer vbox, string text,
-		int minW, int minH, int fontSize, System.Action callback)
+	private Button MakeMenuButton(string text, int minW, int minH, int fontSize)
 	{
 		var btn = new Button
 		{
 			Text = text,
 			CustomMinimumSize = new Vector2(minW, minH),
+			SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter,
 		};
 		btn.AddThemeFontSizeOverride("font_size", fontSize);
-		btn.Pressed += callback;
-		btn.MouseEntered += () => SlotTheory.Core.SoundManager.Instance?.Play("ui_hover");
-		vbox.AddChild(btn);
+		btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		return btn;
+	}
+
+	private static void AddSpacer(Control parent, int px)
+	{
+		var s = new Control { CustomMinimumSize = new Vector2(0, px) };
+		(parent as Container)?.AddChild(s);
+		if (parent is not Container)
+			parent.AddChild(s);
+	}
+
+	private static void AddSpacer(VBoxContainer parent, int px)
+	{
+		parent.AddChild(new Control { CustomMinimumSize = new Vector2(0, px) });
+	}
+
+	private static void AddSeparator(VBoxContainer parent)
+	{
+		var line = new ColorRect
+		{
+			CustomMinimumSize = new Vector2(0, 1),
+			Color             = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.12f),
+			MouseFilter       = Control.MouseFilterEnum.Ignore,
+		};
+		parent.AddChild(line);
+	}
+
+	private static LabelSettings MakeTitleSettings()
+	{
+		var ls = new LabelSettings();
+		ls.Font          = UITheme.Bold;
+		ls.FontSize      = 120;
+		ls.FontColor     = new Color("#d4f020");     // bright core lime (slightly lighter)
+		ls.OutlineColor  = new Color("#1a4400");    // very dark green → creates bright-center-dark-edge look
+		ls.OutlineSize   = 4;
+		ls.ShadowColor   = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.55f);
+		ls.ShadowSize    = 14;
+		ls.ShadowOffset  = Vector2.Zero;
+		return ls;
 	}
 }
