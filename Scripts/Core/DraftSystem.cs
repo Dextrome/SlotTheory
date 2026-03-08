@@ -10,9 +10,27 @@ public enum DraftOptionType { Tower, Modifier }
 
 public record DraftOption(DraftOptionType Type, string Id);
 
+/// <summary>Abstraction over DataLoader so DraftSystem can be unit-tested without Godot.</summary>
+public interface IDraftDataSource
+{
+    IEnumerable<string> GetAllTowerIds();
+    IEnumerable<string> GetAllModifierIds();
+}
+
+/// <summary>Production implementation — delegates to the static DataLoader.</summary>
+public sealed class DataLoaderDraftDataSource : IDraftDataSource
+{
+    public IEnumerable<string> GetAllTowerIds()    => DataLoader.GetAllTowerIds();
+    public IEnumerable<string> GetAllModifierIds() => DataLoader.GetAllModifierIds();
+}
+
 public class DraftSystem
 {
     private readonly Random _rng = new();
+    private readonly IDraftDataSource _data;
+
+    public DraftSystem() : this(new DataLoaderDraftDataSource()) { }
+    public DraftSystem(IDraftDataSource data) { _data = data; }
 
     public List<DraftOption> GenerateOptions(RunState state)
     {
@@ -57,7 +75,7 @@ public class DraftSystem
 
     private void AddTowerOptions(List<DraftOption> list, int count, RunState state)
     {
-        var pool = DataLoader.GetAllTowerIds().OrderBy(_ => _rng.Next()).Take(count);
+        var pool = _data.GetAllTowerIds().OrderBy(_ => _rng.Next()).Take(count);
         foreach (var id in pool)
             list.Add(new DraftOption(DraftOptionType.Tower, id));
     }
@@ -71,7 +89,7 @@ public class DraftSystem
 
         if (towersWithSpace.Count == 0) return; // full anti-brick: no eligible towers
 
-        var pool = DataLoader.GetAllModifierIds().OrderBy(_ => _rng.Next()).Take(count);
+        var pool = _data.GetAllModifierIds().OrderBy(_ => _rng.Next()).Take(count);
         foreach (var id in pool)
             list.Add(new DraftOption(DraftOptionType.Modifier, id));
     }

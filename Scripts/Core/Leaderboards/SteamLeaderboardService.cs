@@ -49,6 +49,12 @@ public sealed class SteamLeaderboardService : ILeaderboardService
             _findResult = CallResult<LeaderboardFindResult_t>.Create(OnFindLeaderboardResult);
             _uploadResult = CallResult<LeaderboardScoreUploaded_t>.Create(OnUploadScoreResult);
             _downloadResult = CallResult<LeaderboardScoresDownloaded_t>.Create(OnScoresDownloadedResult);
+
+            // Required before GetAchievement / SetAchievement calls will return correct data.
+            // The response fires asynchronously via UserStatsReceived_t; stats are ready
+            // well before any run ends so no need to await the callback.
+            SteamUserStats.RequestCurrentStats();
+
             GD.Print("[Leaderboards] Steam service initialized.");
         }
         catch (Exception ex)
