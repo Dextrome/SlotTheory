@@ -46,26 +46,10 @@ public partial class MapSelectPanel : Node
 		grid.MouseFilter = Control.MouseFilterEnum.Ignore;
 		canvas.AddChild(grid);
 
-		// Center container for the main content (added first = lower z-order)
 		var center = new CenterContainer();
 		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		center.OffsetBottom = -72f;  // leave room for action buttons
 		center.Theme = UITheme.Build();
 		canvas.AddChild(center);
-
-		// Action buttons anchored to canvas bottom — added AFTER center so they
-		// sit on top in z-order and receive touch input first
-		var actionRow = new HBoxContainer();
-		actionRow.Alignment = BoxContainer.AlignmentMode.Center;
-		actionRow.AddThemeConstantOverride("separation", 16);
-		actionRow.SetAnchorsPreset(Control.LayoutPreset.BottomWide);
-		actionRow.OffsetBottom = -14f;
-		actionRow.OffsetTop    = -72f;  // 58px tall
-		actionRow.Theme = UITheme.Build();
-		canvas.AddChild(actionRow);
-
-		AddButton(actionRow, "Start Run", 220, 54, 26, OnStartRun);
-		AddButton(actionRow, "Back",      150, 54, 22, OnBack);
 
 		var vbox = new VBoxContainer();
 		vbox.AddThemeConstantOverride("separation", 14);
@@ -141,6 +125,16 @@ public partial class MapSelectPanel : Node
 		_personalBestLabel.Modulate = new Color(0.74f, 0.88f, 1.00f, 0.95f);
 		rightColumn.AddChild(_personalBestLabel);
 		UpdatePersonalBestLabel();
+
+		// Action buttons at the bottom of the layout — inside vbox, no z-order issues
+		var actionRow = new HBoxContainer();
+		actionRow.Alignment = BoxContainer.AlignmentMode.Center;
+		actionRow.AddThemeConstantOverride("separation", 16);
+		actionRow.Theme = UITheme.Build();
+		vbox.AddChild(actionRow);
+
+		AddButton(actionRow, "Start Run", 220, 54, 26, OnStartRun);
+		AddButton(actionRow, "Back",      150, 54, 22, OnBack);
 
 		AddChild(new PinchZoomHandler(center));
 	}
