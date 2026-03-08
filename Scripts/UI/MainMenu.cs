@@ -103,21 +103,17 @@ public partial class MainMenu : Node
 		quitBtn.Pressed += OnQuit;
 		cardVbox.AddChild(quitBtn);
 
-		// Version label (bottom-right, outside card)
+		// Version label — inside vbox so it scales with pinch zoom
 		var versionLabel = new Label
 		{
-			Text = "v0.1.5",
+			Text = "v0.1.6",
 			HorizontalAlignment = HorizontalAlignment.Right,
-			VerticalAlignment   = VerticalAlignment.Bottom,
-			AnchorLeft   = 1f, AnchorRight  = 1f,
-			AnchorTop    = 1f, AnchorBottom = 1f,
-			OffsetLeft   = -80f, OffsetRight  = -10f,
-			OffsetTop    = -28f, OffsetBottom = -8f,
-			MouseFilter  = Control.MouseFilterEnum.Ignore,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
 		versionLabel.AddThemeFontSizeOverride("font_size", 13);
 		versionLabel.Modulate = new Color(0.30f, 0.30f, 0.38f);
-		canvas.AddChild(versionLabel);
+		vbox.AddChild(versionLabel);
+		AddChild(new PinchZoomHandler(center));
 	}
 
 	public override void _Notification(int what)

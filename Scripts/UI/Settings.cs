@@ -130,6 +130,7 @@ public partial class Settings : Node
         vbox.AddChild(back);
         MobileOptimization.ApplyUIScale(center);
         AddSpacer(vbox, 24);
+        AddChild(new PinchZoomHandler(center));
     }
 
     public override void _Notification(int what)
