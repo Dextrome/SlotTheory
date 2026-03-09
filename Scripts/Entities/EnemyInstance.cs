@@ -7,7 +7,7 @@ namespace SlotTheory.Entities;
 /// Enemy node. Extends PathFollow2D so it self-moves along LanePath.
 /// RunState.EnemiesAlive holds references to these nodes.
 /// </summary>
-public partial class EnemyInstance : PathFollow2D
+public partial class EnemyInstance : PathFollow2D, IEnemyView
 {
     public string EnemyTypeId { get; private set; } = "basic_walker";
     public float Hp { get; set; }

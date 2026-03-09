@@ -34,22 +34,34 @@ public class DraftSystem
 
     public List<DraftOption> GenerateOptions(RunState state)
     {
+        var placedTowers = state.Slots
+            .Where(s => s.Tower != null)
+            .Select(s => (Entities.ITowerView)s.Tower!);
+        return GenerateOptions(state.HasFreeSlots(), placedTowers);
+    }
+
+    /// <summary>
+    /// Overload for unit tests: supply free-slot status and tower views directly,
+    /// with no dependency on RunState or Godot-backed TowerInstance.
+    /// </summary>
+    public List<DraftOption> GenerateOptions(bool hasFreeSlots, IEnumerable<Entities.ITowerView> placedTowers)
+    {
         var options = new List<DraftOption>(Balance.DraftOptionsCount);
 
-        if (state.HasFreeSlots())
+        if (hasFreeSlots)
         {
-            AddTowerOptions(options, Balance.DraftTowerOptions, state);
-            AddModifierOptions(options, Balance.DraftModifierOptions, state);
+            AddTowerOptions(options, Balance.DraftTowerOptions);
+            AddModifierOptions(options, Balance.DraftModifierOptions, placedTowers);
         }
         else
         {
-            AddModifierOptions(options, Balance.DraftModifierOptionsFull, state);
+            AddModifierOptions(options, Balance.DraftModifierOptionsFull, placedTowers);
         }
 
         // Pad to 5 with tower options if modifiers couldn't fill the list
         // (e.g. wave 1 with no towers yet, or all towers at modifier cap)
-        if (options.Count < Balance.DraftOptionsCount && state.HasFreeSlots())
-            AddTowerOptions(options, Balance.DraftOptionsCount - options.Count, state);
+        if (options.Count < Balance.DraftOptionsCount && hasFreeSlots)
+            AddTowerOptions(options, Balance.DraftOptionsCount - options.Count);
 
         return options;
     }
@@ -65,7 +77,7 @@ public class DraftSystem
         freeSlot.PendingTowerId = towerId;
     }
 
-    public void ApplyModifier(string modifierId, TowerInstance tower)
+    public void ApplyModifier(string modifierId, Entities.ITowerView tower)
     {
         if (!tower.CanAddModifier) return;
         var mod = Modifiers.ModifierRegistry.Create(modifierId);
@@ -73,19 +85,17 @@ public class DraftSystem
         mod.OnEquip(tower);
     }
 
-    private void AddTowerOptions(List<DraftOption> list, int count, RunState state)
+    private void AddTowerOptions(List<DraftOption> list, int count)
     {
         var pool = _data.GetAllTowerIds().OrderBy(_ => _rng.Next()).Take(count);
         foreach (var id in pool)
             list.Add(new DraftOption(DraftOptionType.Tower, id));
     }
 
-    private void AddModifierOptions(List<DraftOption> list, int count, RunState state)
+    private void AddModifierOptions(List<DraftOption> list, int count,
+                                     IEnumerable<Entities.ITowerView> placedTowers)
     {
-        var towersWithSpace = state.Slots
-            .Where(s => s.Tower != null && s.Tower.CanAddModifier)
-            .Select(s => s.Tower!)
-            .ToList();
+        var towersWithSpace = placedTowers.Where(t => t.CanAddModifier).ToList();
 
         if (towersWithSpace.Count == 0) return; // full anti-brick: no eligible towers
 

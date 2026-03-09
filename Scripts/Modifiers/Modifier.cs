@@ -11,8 +11,8 @@ public abstract class Modifier
     public virtual bool ApplyToChainTargets => true;
 
     /// <summary>Called once when the modifier is equipped to a tower. Use for permanent stat changes.</summary>
-    public virtual void OnEquip(TowerInstance tower) { }
-    public virtual void ModifyAttackInterval(ref float interval, TowerInstance tower) { }
+    public virtual void OnEquip(ITowerView tower) { }
+    public virtual void ModifyAttackInterval(ref float interval, ITowerView tower) { }
     public virtual void ModifyDamage(ref float damage, DamageContext ctx) { }
     /// <summary>Called on every hit. Return true if the modifier did something (triggers proc visual).</summary>
     public virtual bool OnHit(DamageContext ctx) => false;

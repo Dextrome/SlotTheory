@@ -14,7 +14,7 @@ public class SplitShot : Modifier
 {
     public SplitShot(ModifierDef def) { ModifierId = def.Id; }
 
-    public override void OnEquip(TowerInstance tower)
+    public override void OnEquip(ITowerView tower)
     {
         tower.SplitCount += 1;
     }

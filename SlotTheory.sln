@@ -70,6 +70,9 @@ Global
 		{D514AA10-1356-40F3-B11C-AFD52E7C3B6F}.Release|x86.ActiveCfg = Release|Any CPU
 		{D514AA10-1356-40F3-B11C-AFD52E7C3B6F}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
+	GlobalSection(ProjectDependencies) = postSolution
+		{D514AA10-1356-40F3-B11C-AFD52E7C3B6F}.0 = {C7328F26-4597-4C55-BF39-F95C5435BCE0}
+	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection

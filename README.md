@@ -6,6 +6,12 @@ Platforms: Windows Desktop, Android (phone and tablet)
 
 ---
 
+## Downloads
+
+Compiled Windows & Android downloads can be found at https://dextrome.itch.io/slot-theory
+
+---
+
 ## Core Loop
 
 1. Draft a card between waves.

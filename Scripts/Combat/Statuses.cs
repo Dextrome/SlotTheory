@@ -7,11 +7,11 @@ namespace SlotTheory.Combat;
 public static class Statuses
 {
     /// <summary>Apply or refresh Marked. Duration resets on reapplication.</summary>
-    public static void ApplyMarked(EnemyInstance target, float duration) =>
+    public static void ApplyMarked(IEnemyView target, float duration) =>
         target.MarkedRemaining = duration;
 
     /// <summary>Apply or refresh Slow. Duration resets on reapplication. Optional speedFactor defaults to Balance.SlowSpeedFactor.</summary>
-    public static void ApplySlow(EnemyInstance target, float duration, float? speedFactor = null)
+    public static void ApplySlow(IEnemyView target, float duration, float? speedFactor = null)
     {
         target.SlowRemaining = duration;
         target.SlowSpeedFactor = speedFactor ?? Balance.SlowSpeedFactor;

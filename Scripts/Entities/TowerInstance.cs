@@ -11,7 +11,7 @@ public enum TargetingMode { First, Strongest, LowestHp }
 /// <summary>
 /// Tower node. Positioned as a child of its Slot node so GlobalPosition is correct for range checks.
 /// </summary>
-public partial class TowerInstance : Node2D
+public partial class TowerInstance : Node2D, ITowerView
 {
     public string TowerId { get; set; } = string.Empty;
     public float BaseDamage { get; set; }
@@ -138,7 +138,7 @@ public partial class TowerInstance : Node2D
             {
                 // Create a minimal context for unconditional damage modifiers.
                 // Modifiers like FocusLens only care about the tower, not the target.
-                var ctx = new Combat.DamageContext(this, null!, 0, new());
+                var ctx = new Combat.DamageContext(this, null!, 0, new List<Entities.IEnemyView>());
                 mod.ModifyDamage(ref damage, ctx);
             }
             catch

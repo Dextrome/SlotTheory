@@ -6,10 +6,10 @@ namespace SlotTheory.Combat;
 
 public class DamageContext
 {
-    public TowerInstance Attacker { get; }
-    public EnemyInstance Target { get; }
+    public ITowerView Attacker { get; }
+    public IEnemyView Target { get; }
     public int WaveIndex { get; }
-    public List<EnemyInstance> EnemiesAlive { get; }
+    public IEnumerable<IEnemyView> EnemiesAlive { get; }
 
     public float BaseDamage { get; }
     public float FinalDamage { get; set; }
@@ -17,8 +17,8 @@ public class DamageContext
 
     public bool IsChain { get; }
 
-    public DamageContext(TowerInstance attacker, EnemyInstance target, int waveIndex,
-                         List<EnemyInstance> enemies, RunState? state = null,
+    public DamageContext(ITowerView attacker, IEnemyView target, int waveIndex,
+                         IEnumerable<IEnemyView> enemies, RunState? state = null,
                          bool isChain = false, float damageOverride = -1f)
     {
         Attacker = attacker;
@@ -59,7 +59,7 @@ public static class DamageModel
         {
             int damageDealt = (int)(hpBefore - System.MathF.Max(0f, ctx.Target.Hp));
             ctx.State.TotalDamageDealt += damageDealt;
-            
+
             // Track damage for the specific tower for micro reports
             var attackerSlotIndex = FindTowerSlotIndex(ctx.State, ctx.Attacker);
             if (attackerSlotIndex >= 0)
@@ -67,7 +67,7 @@ public static class DamageModel
                 ctx.State.TrackTowerDamage(attackerSlotIndex, damageDealt);
             }
 
-            if (ctx.Target.Hp <= 0) 
+            if (ctx.Target.Hp <= 0)
             {
                 ctx.State.TotalKills++;
                 // Track kill for the specific tower
@@ -103,13 +103,13 @@ public static class DamageModel
     }
 
     /// <summary>Finds which slot index a tower belongs to for damage tracking.</summary>
-    private static int FindTowerSlotIndex(RunState state, TowerInstance tower)
+    private static int FindTowerSlotIndex(RunState state, ITowerView tower)
     {
         for (int i = 0; i < state.Slots.Length; i++)
         {
-            if (state.Slots[i].Tower == tower)
+            if (ReferenceEquals(state.Slots[i].Tower, tower))
                 return i;
         }
-        return -1; // Not found (should not happen in normal play)
+        return -1;
     }
 }

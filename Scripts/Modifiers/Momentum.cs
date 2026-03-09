@@ -8,15 +8,14 @@ namespace SlotTheory.Modifiers;
 public class Momentum : Modifier
 {
     private int _stacks = 0;
-    private ulong _lastTargetInstanceId = 0;
+    private Entities.IEnemyView? _lastTarget = null;
 
     public Momentum(ModifierDef def) { ModifierId = def.Id; }
 
     public override void ModifyDamage(ref float damage, DamageContext ctx)
     {
         // Apply bonus if hitting same target, or continuing a chain/split sequence
-        ulong targetId = ctx.Target.GetInstanceId();
-        bool sameTarget = _lastTargetInstanceId == targetId;
+        bool sameTarget = ReferenceEquals(_lastTarget, ctx.Target);
         bool inChainSequence = ctx.IsChain && _stacks > 0;
 
         if (sameTarget || inChainSequence)
@@ -25,8 +24,7 @@ public class Momentum : Modifier
 
     public override bool OnHit(DamageContext ctx)
     {
-        ulong id = ctx.Target.GetInstanceId();
-        bool sameTarget = _lastTargetInstanceId == id;
+        bool sameTarget = ReferenceEquals(_lastTarget, ctx.Target);
 
         if (sameTarget || ctx.IsChain)
         {
@@ -38,7 +36,7 @@ public class Momentum : Modifier
         }
 
         if (!ctx.IsChain)
-            _lastTargetInstanceId = id;
+            _lastTarget = ctx.Target;
 
         // Only show proc visual when stacks are actively building (not on a reset to 1)
         return sameTarget || ctx.IsChain;

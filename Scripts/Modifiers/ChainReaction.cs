@@ -14,7 +14,7 @@ public class ChainReaction : Modifier
 {
     public ChainReaction(ModifierDef def) { ModifierId = def.Id; }
 
-    public override void OnEquip(TowerInstance tower)
+    public override void OnEquip(ITowerView tower)
     {
         tower.ChainCount += 1;
         tower.ChainDamageDecay = Core.Balance.ChainDamageDecay;
