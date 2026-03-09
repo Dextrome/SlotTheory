@@ -311,7 +311,12 @@ public partial class DraftPanel : CanvasLayer
             _cancelBtn.Pressed -= _cancelCallback;
         _cancelCallback = onCancel;
         _cancelBtn.Pressed += _cancelCallback;
+        // Hide card overlay content but keep CanvasLayer visible so _placementGroup shows.
+        _bg.Visible = false;
+        _bgFx.Visible = false;
+        _center.Visible = false;
         _placementGroup.Visible = true;
+        Visible = true;
     }
 
     public void HidePlacementUI()
@@ -322,6 +327,12 @@ public partial class DraftPanel : CanvasLayer
             _cancelCallback = null;
         }
         _placementGroup.Visible = false;
+        // Restore card overlay nodes for next Show() call. Do NOT set Visible = false here —
+        // OnSlotPicked / OnModifierSlotPicked already do that, and Show() (for a next pick) may
+        // have already set Visible = true; hiding it here would break the second-pick display.
+        _bg.Visible = true;
+        _bgFx.Visible = true;
+        _center.Visible = true;
     }
 
     public void SetPlacementHintText(string text)
@@ -428,10 +439,13 @@ public partial class DraftPanel : CanvasLayer
         var vpSize = GetViewport().GetVisibleRect().Size;
         _bg.Position = Vector2.Zero;
         _bg.Size = vpSize;
+        _bg.Visible = true;
         _bgFx.Position = Vector2.Zero;
         _bgFx.Size = vpSize;
+        _bgFx.Visible = true;
         _center.Position = Vector2.Zero;
         _center.Size = vpSize;
+        _center.Visible = true;
 
         BuildCardRow(options);
         Visible = true;
@@ -643,7 +657,8 @@ public partial class DraftPanel : CanvasLayer
         PulseDraftVignette();
         GetTree().CreateTimer(0.06f).Timeout += () =>
         {
-            if (GodotObject.IsInstanceValid(this))
+            // Don't hide if player is already in slot-selection — ShowPlacementUI already owns Visible.
+            if (GodotObject.IsInstanceValid(this) && !IsAwaitingSlot && !IsAwaitingTower)
                 Visible = false;
         };
     }
