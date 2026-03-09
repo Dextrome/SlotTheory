@@ -21,6 +21,7 @@ public class BotRunner
         int         WaveReached,   // 1-based; last wave fought (20 = won)
         int         LivesEnd,
         int[]       WaveLives,     // lives after each completed wave (index 0 = wave 1)
+        float[]     WaveInRange,   // avg enemies in range per step, per wave
         string[]    Towers,
         string[]    Mods,
         DifficultyMode Difficulty
@@ -35,7 +36,8 @@ public class BotRunner
     private BotStrategy       _curStrategy;
     private DifficultyMode    _curDifficulty = DifficultyMode.Normal;
     private string            _curMap = "random_map";
-    private readonly List<int> _waveLives = new();
+    private readonly List<int>   _waveLives   = new();
+    private readonly List<float> _waveInRange = new();
 
     public BotPlayer CurrentBot  { get; private set; } = null!;
     public bool      HasMoreRuns => _results.Count < _totalRuns;
@@ -71,6 +73,7 @@ public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null)
         
         CurrentBot   = new BotPlayer(_curStrategy, idx * 7919);
         _waveLives.Clear();
+        _waveInRange.Clear();
         
         // Set the map for this bot run
         SlotTheory.UI.MapSelectPanel.SetPendingMapSelection(_curMap);
@@ -78,7 +81,11 @@ public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null)
     }
 
     /// <summary>Call after each wave completes, before WaveIndex increments.</summary>
-    public void RecordWaveEnd(int lives) => _waveLives.Add(lives);
+    public void RecordWaveEnd(int lives, float avgInRange = 0f)
+    {
+        _waveLives.Add(lives);
+        _waveInRange.Add(avgInRange);
+    }
 
     /// <summary>Call on win or loss. Automatically prepares the next run if needed.</summary>
     public void RecordResult(bool won, int waveReached, RunState state)
@@ -94,7 +101,7 @@ public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null)
 
         _results.Add(new RunResult(
             _curStrategy, _curMap, won, waveReached, state.Lives,
-            [.. _waveLives], towers, mods, _curDifficulty));
+            [.. _waveLives], [.. _waveInRange], towers, mods, _curDifficulty));
 
         if (HasMoreRuns) StartNextRun();
     }
@@ -185,17 +192,23 @@ public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null)
             }
 
             // Per-map wave difficulty
-            GD.Print($"| WAVE DIFFICULTY:                                               |");
+            GD.Print($"| WAVE DIFFICULTY (lives / avg enemies in range / enemies alive): |");
             for (int w = 0; w < Balance.TotalWaves; w++)
             {
-                var samples = mapResults
+                var liveSamples = mapResults
                     .Where(r => r.WaveLives.Length > w)
                     .Select(r => r.WaveLives[w])
                     .ToList();
-                if (samples.Count == 0) break;
-                float avg = (float)samples.Average();
-                string bar = new string('*', (int)(avg * 10 / Balance.StartingLives));
-                GD.Print($"|   Wave {w + 1,2}: {avg,4:0.0} lives  [{bar,-10}]                                 |");
+                if (liveSamples.Count == 0) break;
+                float avgLives = (float)liveSamples.Average();
+
+                var densitySamples = mapResults
+                    .Where(r => r.WaveInRange.Length > w)
+                    .Select(r => r.WaveInRange[w])
+                    .ToList();
+                float avgInRange = densitySamples.Count > 0 ? (float)densitySamples.Average() : 0f;
+
+                GD.Print($"|   Wave {w + 1,2}: {avgLives,4:0.0} lives  in-range={avgInRange,4:0.0}              |");
             }
 
             // Per-map loss distribution

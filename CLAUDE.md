@@ -74,8 +74,8 @@ dotnet build SlotTheory.sln
 - Output (strategy table, wave difficulty, tower/modifier usage) goes to **stdout** — captured directly by the shell.
 - Bot log file also written to `C:/Users/kenny/AppData/Roaming/Godot/app_userdata/Slot Theory/logs/godot.log` (note the space in "Slot Theory" — different from the old "SlotTheory" directory).
 - `SoundManager` auto-detects headless mode (`DisplayServer.GetName() == "headless"`) and skips all audio init, preventing the per-frame `GetFramesAvailable()` hang.
-- `Targeting.SelectTarget(..., ignoreRange: BotMode)` skips range checks in bot mode (enemies' `GlobalPosition` is still updated via manual `Progress` increments in `BotTick`, but skipping range avoids misses on early-spawn enemies before they move).
-- 4 strategies cycle round-robin: `Random`, `TowerFirst`, `GreedyDps`, `MarkerSynergy`.
+- Range checks are **fully enforced** in bot mode (`ignoreRange: false` hardcoded in `CombatSim.Step`). Enemy `GlobalPosition` is correctly updated by `PathFollow2D` whenever `Progress` is set in `BotTick`.
+- 7 strategies cycle round-robin: `Random`, `TowerFirst`, `GreedyDps`, `MarkerSynergy`, `ChainFocus`, `SplitFocus`, `HeavyStack`.
 
 ## Testing
 

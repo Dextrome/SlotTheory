@@ -60,6 +60,8 @@ public partial class GameController : Node
 	private ColorRect _threatPulse = null!;
 	private Node2D _worldNode = null!;
 	private BotRunner? _botRunner;
+	private int   _botWaveInRangeSum;
+	private int   _botWaveInRangeSamples;
 	private int _extraPicksRemaining;
 	private List<DraftOption>? _currentDraftOptions;
 	private WaveReport? _lastWaveReport;
@@ -1613,6 +1615,15 @@ public partial class GameController : Node
 
 			var result = _combatSim.Step(BOT_DT, _runState, _waveSystem);
 
+			// Sample how many enemies are currently in range of at least one tower
+			int inRange = 0;
+			foreach (var e in _runState.EnemiesAlive)
+				foreach (var sl in _runState.Slots)
+					if (sl.Tower != null && sl.Tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= sl.Tower.Range)
+					{ inRange++; break; }
+			_botWaveInRangeSum     += inRange;
+			_botWaveInRangeSamples += 1;
+
 			if (result == WaveResult.Loss)
 			{
 				CurrentPhase = GamePhase.Loss;
@@ -1625,7 +1636,9 @@ public partial class GameController : Node
 
 			if (result == WaveResult.WaveComplete)
 			{
-				_botRunner!.RecordWaveEnd(_runState.Lives);
+				float avgInRange = _botWaveInRangeSamples > 0 ? (float)_botWaveInRangeSum / _botWaveInRangeSamples : 0f;
+				_botWaveInRangeSum = _botWaveInRangeSamples = 0;
+				_botRunner!.RecordWaveEnd(_runState.Lives, avgInRange);
 				_runState.WaveIndex++;
 				if (_runState.WaveIndex >= Balance.TotalWaves)
 				{
