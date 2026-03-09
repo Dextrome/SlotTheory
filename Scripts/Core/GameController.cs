@@ -145,6 +145,8 @@ public partial class GameController : Node
 		_runState.SelectedMapId = SlotTheory.UI.MapSelectPanel.PendingMapSelection;
 		if (_runState.SelectedMapId == "random_map" && SlotTheory.UI.MapSelectPanel.PendingProceduralSeed > 0)
 			_runState.RngSeed = (int)SlotTheory.UI.MapSelectPanel.PendingProceduralSeed;
+		if (_botRunner != null && _runState.SelectedMapId == "random_map")
+			_runState.RngSeed = ResolveBotProceduralSeed();
 		LoadPendingMobileSnapshot();
 		
 		_draftSystem = new DraftSystem();
@@ -550,7 +552,16 @@ public partial class GameController : Node
 			// In bot mode BotRunner.StartNextRun() already called SetPendingMapSelection
 			// before RestartRun() — pick it up here since _Ready() only runs once.
 			if (_botRunner != null)
+			{
 				_runState.SelectedMapId = SlotTheory.UI.MapSelectPanel.PendingMapSelection;
+				if (_runState.SelectedMapId == "random_map")
+					_runState.RngSeed = ResolveBotProceduralSeed();
+			}
+			else if (_runState.SelectedMapId == "random_map")
+			{
+				// Fresh procedural seed on player restarts for random_map.
+				_runState.RngSeed = (int)(System.Environment.TickCount64 & 0x7FFFFFFF);
+			}
 
 			ClearMapVisuals();
 			GenerateMap();
@@ -574,6 +585,13 @@ public partial class GameController : Node
 		}
 		
 		StartDraftPhase();
+	}
+
+	private int ResolveBotProceduralSeed()
+	{
+		// CompletedRuns is 0 for run 1, 1 for run 2, etc.
+		// Shift by +1 to avoid seed 0.
+		return (_botRunner?.CompletedRuns ?? 0) + 1;
 	}
 
 	/// <summary>Called by DraftPanel after the player picks an option.</summary>
@@ -2187,7 +2205,7 @@ public partial class GameController : Node
 			difficulty,
 			won,
 			waveReached,
-			_runState.Lives,
+			System.Math.Max(0, _runState.Lives),
 			_runState.TotalDamageDealt,
 			_runState.TotalKills,
 			_runState.TotalPlayTime,

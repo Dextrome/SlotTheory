@@ -24,14 +24,13 @@ public partial class MapSelectPanel : Node
 	private Button? _hardButton;
 	private Label? _personalBestLabel;
 	private ulong _proceduralPreviewSeed;
+	private bool _isMobile;
 
 	public override void _Ready()
 	{
-		_selectedMapId = "random_map";
+		_selectedMapId = DataLoader.GetAllMapDefs().FirstOrDefault()?.Id ?? "random_map";
 		_selectedDifficulty = DifficultyMode.Normal;
-		_proceduralPreviewSeed = _pendingProceduralSeed != 0
-			? _pendingProceduralSeed
-			: (ulong)(System.Environment.TickCount64 & 0x7FFFFFFF);
+		_proceduralPreviewSeed = (ulong)(System.Environment.TickCount64 & 0x7FFFFFFF);
 
 		var canvas = new CanvasLayer();
 		AddChild(canvas);
@@ -75,8 +74,11 @@ public partial class MapSelectPanel : Node
 		leftColumn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		contentRow.AddChild(leftColumn);
 
+		_isMobile = MobileOptimization.IsMobile();
 		var scrollContainer = new ScrollContainer();
-		scrollContainer.CustomMinimumSize = new Vector2(420, 200);
+		scrollContainer.CustomMinimumSize = _isMobile
+			? new Vector2(420, 200)
+			: new Vector2(760, 320);
 		scrollContainer.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
 		scrollContainer.SizeFlagsHorizontal  = Control.SizeFlags.ExpandFill;
 		scrollContainer.SizeFlagsVertical    = Control.SizeFlags.ExpandFill;
@@ -90,10 +92,15 @@ public partial class MapSelectPanel : Node
 		PopulateMapList();
 
 		// Right column: difficulty + personal best
+		var rightColumnWrap = new MarginContainer();
+		if (!_isMobile)
+			rightColumnWrap.AddThemeConstantOverride("margin_top", -32);
+		contentRow.AddChild(rightColumnWrap);
+
 		var rightColumn = new VBoxContainer();
 		rightColumn.AddThemeConstantOverride("separation", 14);
 		rightColumn.CustomMinimumSize = new Vector2(240, 0);
-		contentRow.AddChild(rightColumn);
+		rightColumnWrap.AddChild(rightColumn);
 
 		var difficultyLabel = new Label
 		{
@@ -189,12 +196,6 @@ public partial class MapSelectPanel : Node
 			{
 				string mapName = mapDef.Name;
 				string mapDesc = mapDef.Description;
-				if (mapDef.IsRandom || mapDef.Id == "random_map")
-				{
-					string seedName = MapGenerator.DescribeSeed((int)_proceduralPreviewSeed);
-					mapName = $"MAP: {seedName}";
-					mapDesc = $"Procedural seed {_proceduralPreviewSeed}  |  Different flow each run.";
-				}
 				_mapListContainer.AddChild(CreateMapButton(mapDef.Id, mapName, mapDesc));
 			}
 		}
@@ -246,7 +247,9 @@ public partial class MapSelectPanel : Node
 		{
 			Text = description,
 			HorizontalAlignment = HorizontalAlignment.Left,
-			AutowrapMode = TextServer.AutowrapMode.Word,
+			AutowrapMode = _isMobile
+				? TextServer.AutowrapMode.Word
+				: TextServer.AutowrapMode.Off,
 		};
 		descLabel.AddThemeFontSizeOverride("font_size", 13);
 		descLabel.Modulate = new Color(0.7f, 0.7f, 0.7f);
