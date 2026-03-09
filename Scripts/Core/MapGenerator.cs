@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace SlotTheory.Core;
@@ -16,7 +17,7 @@ public static class MapGenerator
 	{
 		var rng         = new Random(seed);
 		var waypoints   = GeneratePathWaypoints(rng, out var pathGrid);
-		var slots       = PlaceSlots(rng, pathGrid);
+		var slots       = PlaceSlots(rng, pathGrid, waypoints);
 		var decorations = PlaceDecorations(rng, pathGrid, slots);
 		return new MapLayout(waypoints, slots, pathGrid, decorations);
 	}
@@ -72,41 +73,161 @@ public static class MapGenerator
 	public static Vector2 CellCenter(int col, int row)
 		=> new(col * CELL_W + CELL_W / 2f, GRID_Y + row * CELL_H + CELL_H / 2f);
 
-	// ── Path generation — dispatch to shape variant ──────────────────────
+	// ── Path generation ──────────────────────────────────────────────────
 
 	private static Vector2[] GeneratePathWaypoints(Random rng, out bool[,] pathGrid)
 	{
-		pathGrid = new bool[COLS, ROWS];
-		return rng.Next(3) switch
+		var canonicalGrid = new bool[COLS, ROWS];
+		Vector2[] canonical = rng.Next(3) switch
 		{
-			0 => GenerateUShape(rng, pathGrid),
-			1 => GenerateSShape(rng, pathGrid),
-			_ => GenerateWShape(rng, pathGrid),
+			0 => GenerateZigzag(rng, canonicalGrid),
+			1 => GenerateTopFirstZigzag(rng, canonicalGrid),
+			_ => GenerateDualLoopZigzag(rng, canonicalGrid),
+		};
+
+		// Symmetry transform broadens visual variety and allows starts/exits on
+		// different map sides while keeping path length and balance consistent.
+		bool mirrorX = rng.Next(2) == 1;
+		// Vertical mirrors are visually strong but tend to create harder outliers.
+		// Keep them in the pool at lower frequency.
+		bool mirrorY = rng.Next(4) == 0;
+		if (!mirrorX && !mirrorY)
+		{
+			pathGrid = canonicalGrid;
+			return canonical;
+		}
+
+		pathGrid = TransformGrid(canonicalGrid, mirrorX, mirrorY);
+		return TransformWaypoints(canonical, mirrorX, mirrorY);
+	}
+
+	/// <summary>
+	/// Zigzag path with top-row backtrack and column variation.
+	/// Randomized knobs:
+	/// - midRow in [2,3]
+	/// - returnCol in [1,2] (where path comes back up)
+	/// - exitCol = returnCol + 5 (6 or 7) to keep top sweep length stable.
+	/// This gives multiple visible layouts while preserving overall difficulty.
+	/// </summary>
+	private static Vector2[] GenerateZigzag(Random rng, bool[,] pathGrid)
+	{
+		int midRow = rng.Next(2, 4);   // [2, 3]
+		int returnCol = rng.Next(1, 3); // [1, 2]
+		int exitCol = returnCol + 5;    // 6 or 7
+
+		// Mark path cells.
+		MarkVertical  (pathGrid, 0,         0,        midRow);   // col 0: entry vertical
+		MarkHorizontal(pathGrid, 0,         7,        midRow);   // mid-row sweep
+		MarkVertical  (pathGrid, 7,         midRow,   ROWS - 1); // col 7: down to bottom
+		MarkHorizontal(pathGrid, returnCol, 7,        ROWS - 1); // bottom sweep
+		MarkVertical  (pathGrid, returnCol, 0,        ROWS - 1); // return column: up to top
+		MarkHorizontal(pathGrid, returnCol, exitCol,  0);        // top sweep cells
+
+		float cx0 = CellCenter(0,        0).X;
+		float cxR = CellCenter(returnCol, 0).X;
+		float cx7 = CellCenter(7,        0).X;
+		float cxE = CellCenter(exitCol,  0).X;
+		float cy0 = CellCenter(0,        0).Y;
+		float cyM = CellCenter(0,        midRow).Y;
+		float cyB = CellCenter(0,        ROWS - 1).Y;
+
+		// Extra top-row backtrack adds a full additional firing window for row-1 slots.
+		return new Vector2[]
+		{
+			new(cx0, 50),    // entry above grid
+			new(cx0, cyM),   // bottom of entry vertical
+			new(cx7, cyM),   // end of mid-row horizontal
+			new(cx7, cyB),   // bottom of col 7
+			new(cxR, cyB),   // end of bottom horizontal
+			new(cxR, cy0),   // top of return column
+			new(cxE, cy0),   // top sweep pass 1 end
+			new(cxR, cy0),   // pass 2 back to return column
+			new(cxE, cy0),   // pass 3 to exit column
+			new(cxE, 50),    // exit above grid
 		};
 	}
 
 	/// <summary>
-	/// U-shape: one horizontal leg.
-	/// entry → col 0 DOWN → full row right → col 7 UP → exit
+	/// Variant with an early top loop and a repeated bottom sweep.
+	/// Visibly different from GenerateZigzag while keeping similar total path length.
 	/// </summary>
-	private static Vector2[] GenerateUShape(Random rng, bool[,] pathGrid)
+	private static Vector2[] GenerateTopFirstZigzag(Random rng, bool[,] pathGrid)
 	{
-		int r0 = rng.Next(2, 4);   // [2, 3] — capped at 3 so zone 1 (top-centre) always has path-adjacent cells
+		int midRow = rng.Next(2, 4);    // [2, 3]
+		int returnCol = rng.Next(1, 3); // [1, 2]
+		int exitCol = returnCol + 5;    // 6 or 7
 
-		MarkVertical  (pathGrid, 0, 0, r0);
-		MarkHorizontal(pathGrid, 0, 7, r0);
-		MarkVertical  (pathGrid, 7, 0, r0);
+		MarkVertical  (pathGrid, 0,         0,        midRow);   // entry vertical
+		MarkHorizontal(pathGrid, 0,         7,        midRow);   // mid sweep
+		MarkVertical  (pathGrid, 7,         0,        midRow);   // rise to top
+		MarkHorizontal(pathGrid, returnCol, 7,        0);        // top sweep
+		MarkVertical  (pathGrid, returnCol, 0,        ROWS - 1); // drop to bottom
+		MarkHorizontal(pathGrid, returnCol, exitCol,  ROWS - 1); // bottom sweep cells
+		MarkVertical  (pathGrid, exitCol,   0,        ROWS - 1); // exit column back up
 
-		float cx0  = CellCenter(0, 0).X;
-		float cx7  = CellCenter(7, 0).X;
-		float cyR0 = CellCenter(0, r0).Y;
+		float cx0 = CellCenter(0,         0).X;
+		float cxR = CellCenter(returnCol, 0).X;
+		float cx7 = CellCenter(7,         0).X;
+		float cxE = CellCenter(exitCol,   0).X;
+		float cy0 = CellCenter(0,         0).Y;
+		float cyM = CellCenter(0,         midRow).Y;
+		float cyB = CellCenter(0,         ROWS - 1).Y;
 
 		return new Vector2[]
 		{
-			new(cx0, 50),
-			new(cx0, cyR0),
-			new(cx7, cyR0),
-			new(cx7, 50),
+			new(cx0, 50),    // entry
+			new(cx0, cyM),
+			new(cx7, cyM),
+			new(cx7, cy0),
+			new(cxR, cy0),
+			new(cxR, cyB),
+			new(cxE, cyB),   // bottom pass 1
+			new(cxR, cyB),   // bottom pass 2 backtrack
+			new(cxE, cyB),   // bottom pass 3 to exit column
+			new(cxE, cy0),
+			new(cxE, 50),    // exit
+		};
+	}
+
+	/// <summary>
+	/// Variant with top loop, bottom sweep, then a top-row backtrack finish.
+	/// </summary>
+	private static Vector2[] GenerateDualLoopZigzag(Random rng, bool[,] pathGrid)
+	{
+		int midRow = rng.Next(2, 4);    // [2, 3]
+		int returnCol = rng.Next(1, 3); // [1, 2]
+		int exitCol = returnCol + 5;    // 6 or 7
+
+		MarkVertical  (pathGrid, 0,         0,        midRow);   // entry vertical
+		MarkHorizontal(pathGrid, 0,         7,        midRow);   // mid sweep
+		MarkVertical  (pathGrid, 7,         0,        midRow);   // rise to top
+		MarkHorizontal(pathGrid, returnCol, 7,        0);        // top sweep
+		MarkVertical  (pathGrid, returnCol, 0,        ROWS - 1); // drop to bottom
+		MarkHorizontal(pathGrid, returnCol, exitCol,  ROWS - 1); // bottom sweep
+		MarkVertical  (pathGrid, exitCol,   0,        ROWS - 1); // rise to top for exit
+		MarkHorizontal(pathGrid, returnCol, exitCol,  0);        // top backtrack cells
+
+		float cx0 = CellCenter(0,         0).X;
+		float cxR = CellCenter(returnCol, 0).X;
+		float cx7 = CellCenter(7,         0).X;
+		float cxE = CellCenter(exitCol,   0).X;
+		float cy0 = CellCenter(0,         0).Y;
+		float cyM = CellCenter(0,         midRow).Y;
+		float cyB = CellCenter(0,         ROWS - 1).Y;
+
+		return new Vector2[]
+		{
+			new(cx0, 50),    // entry
+			new(cx0, cyM),
+			new(cx7, cyM),
+			new(cx7, cy0),
+			new(cxR, cy0),
+			new(cxR, cyB),
+			new(cxE, cyB),
+			new(cxE, cy0),
+			new(cxR, cy0),   // top backtrack
+			new(cxE, cy0),   // finish top pass
+			new(cxE, 50),    // exit
 		};
 	}
 
@@ -207,6 +328,70 @@ public static class MapGenerator
 
 	// ── Slot placement ───────────────────────────────────────────────────
 
+	// Score range: slightly above arc emitter range (333px) to capture bend multi-leg coverage.
+	private const float SlotScoreRange     = 340f;
+	// Sample spacing along path for coverage scoring.
+	private const float ScoreSampleSpacing = 30f;
+	// Search radius when finding best non-path cell near a path segment midpoint.
+	private const float SlotSearchRadius   = 340f;
+
+	/// <summary>
+	/// Score a cell by weighted path coverage within SlotScoreRange.
+	/// Waypoints (bends) count 5× — slots near bends cover enemies from both approaching legs.
+	/// </summary>
+	private static int ScoreCell(Vector2 cellCenter, Vector2[] waypoints)
+	{
+		int count = 0;
+		for (int i = 1; i < waypoints.Length - 1; i++)
+			if (cellCenter.DistanceTo(waypoints[i]) <= SlotScoreRange)
+				count += 5;
+
+		for (int i = 0; i < waypoints.Length - 1; i++)
+		{
+			var a = waypoints[i];
+			var b = waypoints[i + 1];
+			float segLen = a.DistanceTo(b);
+			if (segLen < 1f) continue;
+			int steps = Math.Max(1, (int)(segLen / ScoreSampleSpacing));
+			for (int s = 0; s <= steps; s++)
+			{
+				var sample = a.Lerp(b, (float)s / steps);
+				if (cellCenter.DistanceTo(sample) <= SlotScoreRange)
+					count++;
+			}
+		}
+		return count;
+	}
+
+	/// <summary>
+	/// Compute path length segments and return the world-space point at a given distance along the path.
+	/// </summary>
+	private static Vector2 SamplePathAt(Vector2[] waypoints, float targetDist)
+	{
+		float travelled = 0f;
+		for (int i = 0; i < waypoints.Length - 1; i++)
+		{
+			float segLen = waypoints[i].DistanceTo(waypoints[i + 1]);
+			if (travelled + segLen >= targetDist)
+			{
+				float t = (targetDist - travelled) / segLen;
+				return waypoints[i].Lerp(waypoints[i + 1], t);
+			}
+			travelled += segLen;
+		}
+		return waypoints[^1];
+	}
+
+	private static float PathLength(Vector2[] waypoints)
+	{
+		float len = 0f;
+		for (int i = 0; i < waypoints.Length - 1; i++)
+			len += waypoints[i].DistanceTo(waypoints[i + 1]);
+		return len;
+	}
+
+	// Six spatial zones covering the full grid — guarantees one slot per map area.
+	// Zones: top-left | top-center | top-right | bottom-left | bottom-center | bottom-right
 	private static readonly (int minCol, int maxCol, int minRow, int maxRow)[] Zones =
 	{
 		(0, 2, 0, 2),   // 0: top-left
@@ -217,76 +402,48 @@ public static class MapGenerator
 		(6, 7, 3, 4),   // 5: bottom-right
 	};
 
-	private static Vector2[] PlaceSlots(Random rng, bool[,] pathGrid)
+	private static Vector2[] PlaceSlots(Random rng, bool[,] pathGrid, Vector2[] waypoints)
 	{
-		var result    = new Vector2[6];
-		var usedCells = new HashSet<(int, int)>();
+		const int NumSlots = 6;
 
-		for (int z = 0; z < 6; z++)
+		// Find the horizontal leg: the row with the most path cells.
+		// For U-shape this is always the bottom bend row (r0).
+		int hRow = 0, maxCount = 0;
+		for (int r = 0; r < ROWS; r++)
 		{
-			var (minCol, maxCol, minRow, maxRow) = Zones[z];
+			int n = 0;
+			for (int c = 0; c < COLS; c++) if (pathGrid[c, r]) n++;
+			if (n > maxCount) { maxCount = n; hRow = r; }
+		}
 
-			var adjacent  = new List<(int col, int row)>();
-			var grassOnly = new List<(int col, int row)>();
+		// Place all 6 slots in the row just above the horizontal leg (cols 1–6).
+		// Every slot then covers overlapping sections of the path, giving all towers
+		// active targets for the full enemy traverse — no dead-zone slots.
+		// Fall back to the row below if hRow == 0 (shouldn't happen with r0 ∈ [2,4]).
+		int slotRow = hRow > 0 ? hRow - 1 : hRow + 1;
 
-			for (int c = minCol; c <= maxCol; c++)
-			for (int r = minRow; r <= maxRow; r++)
+		var result = new Vector2[NumSlots];
+		int placed = 0;
+
+		// Scan cols 1–COLS-1 to handle both U-shape (slots at cols 1–6)
+		// and zigzag (slots at cols 2–7, since col 1 is the return vertical).
+		for (int c = 1; c < COLS && placed < NumSlots; c++)
+		{
+			if (!pathGrid[c, slotRow])
+				result[placed++] = CellCenter(c, slotRow);
+		}
+
+		// Rare fallback: fill any remaining slots from the adjacent row on the other side.
+		if (placed < NumSlots)
+		{
+			int altRow = (hRow > 0 && hRow < ROWS - 1)
+				? hRow + 1
+				: (hRow == 0 ? 1 : ROWS - 2);
+			for (int c = 1; c < COLS && placed < NumSlots; c++)
 			{
-				if (pathGrid[c, r]) continue;
-				if (usedCells.Contains((c, r))) continue;
-
-				if (IsAdjacentToPath(pathGrid, c, r))
-					adjacent.Add((c, r));
-				else
-					grassOnly.Add((c, r));
+				if (!pathGrid[c, altRow])
+					result[placed++] = CellCenter(c, altRow);
 			}
-
-			(int col, int row) chosen;
-			if (adjacent.Count > 0)
-				chosen = adjacent[rng.Next(adjacent.Count)];
-			else if (grassOnly.Count > 0)
-			{
-				// Pick whichever grass cell is closest to any path cell (maximises chance of being in tower range)
-				float bestDist = float.MaxValue;
-				var   bestCells = new List<(int col, int row)>();
-				foreach (var (gc, gr) in grassOnly)
-				{
-					float minD = float.MaxValue;
-					for (int pc = 0; pc < COLS; pc++)
-					for (int pr = 0; pr < ROWS; pr++)
-					{
-						if (!pathGrid[pc, pr]) continue;
-						float d = (CellCenter(gc, gr) - CellCenter(pc, pr)).Length();
-						if (d < minD) minD = d;
-					}
-					if      (minD < bestDist - 0.5f) { bestDist = minD; bestCells.Clear(); bestCells.Add((gc, gr)); }
-					else if (minD <= bestDist + 0.5f)  bestCells.Add((gc, gr));
-				}
-				chosen = bestCells.Count > 0 ? bestCells[rng.Next(bestCells.Count)] : grassOnly[rng.Next(grassOnly.Count)];
-			}
-			else
-			{
-				// Entire zone is path — search zone first, then full grid, always excluding path cells
-				var any = new List<(int, int)>();
-				for (int c = minCol; c <= maxCol; c++)
-				for (int r = minRow; r <= maxRow; r++)
-					if (!pathGrid[c, r] && !usedCells.Contains((c, r)))
-						any.Add((c, r));
-
-				if (any.Count == 0)
-				{
-					// Zone is 100% path; fall back to any grass cell on the whole grid
-					for (int c = 0; c < COLS; c++)
-					for (int r = 0; r < ROWS; r++)
-						if (!pathGrid[c, r] && !usedCells.Contains((c, r)))
-							any.Add((c, r));
-				}
-
-				chosen = any.Count > 0 ? any[rng.Next(any.Count)] : (minCol, minRow);
-			}
-
-			usedCells.Add(chosen);
-			result[z] = CellCenter(chosen.col, chosen.row);
 		}
 
 		return result;
@@ -332,6 +489,34 @@ public static class MapGenerator
 		   (row < ROWS - 1 && pathGrid[col, row + 1]);
 
 	// ── Helpers ──────────────────────────────────────────────────────────
+
+	private static bool[,] TransformGrid(bool[,] source, bool mirrorX, bool mirrorY)
+	{
+		var result = new bool[COLS, ROWS];
+		for (int c = 0; c < COLS; c++)
+		for (int r = 0; r < ROWS; r++)
+		{
+			if (!source[c, r]) continue;
+			int tc = mirrorX ? (COLS - 1 - c) : c;
+			int tr = mirrorY ? (ROWS - 1 - r) : r;
+			result[tc, tr] = true;
+		}
+		return result;
+	}
+
+	private static Vector2[] TransformWaypoints(Vector2[] source, bool mirrorX, bool mirrorY)
+	{
+		var result = new Vector2[source.Length];
+		for (int i = 0; i < source.Length; i++)
+		{
+			float x = source[i].X;
+			float y = source[i].Y;
+			if (mirrorX) x = COLS * CELL_W - x;
+			if (mirrorY) y = GRID_Y + ROWS * CELL_H + GRID_Y - y;
+			result[i] = new Vector2(x, y);
+		}
+		return result;
+	}
 
 	private static void MarkVertical(bool[,] pathGrid, int col, int fromRow, int toRow)
 	{

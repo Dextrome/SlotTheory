@@ -122,7 +122,7 @@ public class CombatSim
         foreach (var e in leaked)
         {
             int livesLost = e.EnemyTypeId == "armored_walker" ? 2 : 1;
-            state.Lives -= livesLost;
+            state.Lives = Math.Max(0, state.Lives - livesLost);
 
             // Track leaks for post-wave micro reports and loss analysis
             state.TrackLeak(e.EnemyTypeId);
