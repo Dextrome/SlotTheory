@@ -313,8 +313,8 @@ If an idea requires a new system → defer to "Project 2."
   - Focus Lens: +125% dmg, ×2 attack interval
   - Chill Shot: −25% enemy speed on hit, 5s (stacks multiplicatively per tower)
   - Overreach: +40% range, −20% dmg
-  - Hair Trigger: +40% attack speed, −18% range
-  - Split Shot: fires 2 projectiles at nearby enemies for 40% damage each (search radius 280px)
+  - Hair Trigger: +35% attack speed, −18% range
+  - Split Shot: fires 2 projectiles at nearby enemies for 35% damage each (search radius 280px)
   - Feedback Loop: 25% cooldown reduction on kill
   - Chain Reaction: adds 1 bounce (60% decay/bounce); stacks add more bounces
 - **3 enemy types**:

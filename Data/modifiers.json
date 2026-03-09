@@ -32,12 +32,12 @@
   "hair_trigger": {
     "Id": "hair_trigger",
     "Name": "Hair Trigger",
-    "Description": "+40% attack speed, \u221218% range."
+    "Description": "+35% attack speed, \u221218% range."
   },
   "split_shot": {
     "Id": "split_shot",
     "Name": "Split Shot",
-    "Description": "On hit, fires 2 projectiles at nearby enemies for 40% damage each. Each additional copy fires one more."
+    "Description": "On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more."
   },
   "feedback_loop": {
     "Id": "feedback_loop",
