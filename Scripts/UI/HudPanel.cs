@@ -134,8 +134,9 @@ public partial class HudPanel : CanvasLayer
         _waveLabel.AddThemeFontSizeOverride("font_size", 22);
         bar.AddChild(_waveLabel);
 
-        float enemyOffsetX = OS.GetName() == "Android" ? 120f : 175f;
-        float livesOffsetX = OS.GetName() == "Android" ? 260f : 390f;
+        float uiScale = MobileOptimization.GetUIScale();
+        float enemyOffsetX = MobileOptimization.IsMobile() ? 120f * uiScale : 175f;
+        float livesOffsetX = MobileOptimization.IsMobile() ? 260f * uiScale : 390f;
 
         _enemyLabel = new Label
         {

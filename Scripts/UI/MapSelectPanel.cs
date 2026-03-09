@@ -149,6 +149,7 @@ public partial class MapSelectPanel : Node
 		backBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		rightColumn.AddChild(backBtn);
 
+		MobileOptimization.ApplyUIScale(center);
 		AddChild(new PinchZoomHandler(center));
 	}
 

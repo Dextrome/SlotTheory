@@ -48,6 +48,7 @@ public partial class PauseScreen : CanvasLayer
 
         _settingsPanel.Visible    = false;
         _quitConfirmPanel.Visible = false;
+        MobileOptimization.ApplyUIScale(center);
         AddChild(new PinchZoomHandler(center));
     }
 

@@ -1,4 +1,5 @@
 ﻿using Godot;
+using SlotTheory.Core;
 
 /// <summary>
 /// Mobile-specific balance and optimization settings.
@@ -122,6 +123,23 @@ public static class MobileOptimization
 
         root.PivotOffset = root.Size * 0.5f;
         root.Scale = new Vector2(scale, scale);
+    }
+
+    /// <summary>
+    /// Creates a full-rect CenterContainer scaled for the current device,
+    /// adds it to <paramref name="parent"/>, and attaches a PinchZoomHandler.
+    /// Use this as the root content node for every new UI screen.
+    /// </summary>
+    public static CenterContainer MakeScaledRoot(Node parent, bool pinchZoom = true)
+    {
+        var center = new CenterContainer();
+        center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        center.Theme = UITheme.Build();
+        parent.AddChild(center);
+        ApplyUIScale(center);
+        if (pinchZoom)
+            parent.AddChild(new PinchZoomHandler(center));
+        return center;
     }
 }
 
