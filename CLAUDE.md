@@ -319,7 +319,7 @@ If an idea requires a new system → defer to "Project 2."
   - Chain Reaction: adds 1 bounce (60% decay/bounce); stacks add more bounces
 - **3 enemy types**:
   - Basic Walker: 65 HP wave 1, ×1.10/wave, 120px/s
-  - Armored Walker: 4× HP, 60px/s, first appears wave 6 (index 5)
+  - Armored Walker: 3.5× HP, 60px/s, first appears wave 6 (index 5)
   - Swift Walker: 1.5× HP, 240px/s, appears waves 10–14
 - **10 player lives** — each leaked enemy costs 1 life (`Balance.StartingLives = 10`)
 - **20 waves**, 6 tower slots, max 3 modifiers per tower

@@ -41,7 +41,7 @@ public static class Balance
     public const float BaseEnemySpeed = 120f;     // pixels per second along path
 
     // Enemies — Armored Walker
-    public const float TankyHpMultiplier = 4f;    // 4× basic walker HP
+    public const float TankyHpMultiplier = 3.5f;  // 3.5× basic walker HP
     public const float TankyEnemySpeed = 60f;     // pixels per second (half speed)
 
     // Marked status

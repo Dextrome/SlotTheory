@@ -102,7 +102,7 @@ Max modifiers per tower: 3
   - Speed: 120 px/s
   - Leak cost: 1 life
 - Armored Walker:
-  - HP: 4x Basic
+  - HP: 3.5x Basic
   - Speed: 60 px/s
   - Leak cost: 2 lives
   - First appears wave 6
