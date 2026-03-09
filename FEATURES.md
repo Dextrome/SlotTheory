@@ -160,7 +160,7 @@ Used consistently in draft cards, proc halos, and live modifier icons. Colorblin
 | Enemy | HP Base | Speed | Leak Cost |
 |---|---|---|---:|
 | Basic Walker | `65 * 1.10^(wave-1)` | 120 px/s | 1 |
-| Armored Walker | 4x Basic HP | 60 px/s | 2 |
+| Armored Walker | 3.5x Basic HP | 60 px/s | 2 |
 | Swift Walker | 1.5x Basic HP | 240 px/s | 1 |
 
 - Armored first appears on wave 6.
@@ -522,7 +522,7 @@ Behavior:
 | BaseEnemyHp | 65 |
 | HpGrowthPerWave | 1.10 |
 | BaseEnemySpeed | 120 |
-| TankyHpMultiplier | 4 |
+| TankyHpMultiplier | 3.5 |
 | TankyEnemySpeed | 60 |
 | SwiftHpMultiplier | 1.5 |
 | SwiftEnemySpeed | 240 |
