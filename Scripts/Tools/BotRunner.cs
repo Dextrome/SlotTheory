@@ -34,7 +34,7 @@ public class BotRunner
 
     private readonly int              _totalRuns;
     private readonly BotStrategy[]    _strategies;
-    private readonly string[]         _maps = { "arena_classic", "gauntlet", "sprawl" };
+    private readonly string[]         _maps;
 	private readonly DifficultyMode? _targetDifficulty;
 	private DifficultyMode[] _difficulties = { DifficultyMode.Normal, DifficultyMode.Hard };
     private readonly List<RunResult>  _results = new();
@@ -51,11 +51,14 @@ public class BotRunner
     public bool      HasMoreRuns => _results.Count < _totalRuns;
     public int       CompletedRuns => _results.Count;
 
-public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null)
+public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null, string? targetMap = null)
 	{
 		_totalRuns  = totalRuns;
 		_strategies = (BotStrategy[])Enum.GetValues(typeof(BotStrategy));
 		_targetDifficulty = targetDifficulty;
+		_maps = targetMap != null
+			? new[] { targetMap }
+			: new[] { "arena_classic", "gauntlet", "sprawl" };
 		// Filter difficulties if specific one requested
 		if (targetDifficulty.HasValue)
 			_difficulties = new[] { targetDifficulty.Value };

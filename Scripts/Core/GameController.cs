@@ -129,9 +129,14 @@ public partial class GameController : Node
 				else if (diffStr == "hard") targetDifficulty = DifficultyMode.Hard;
 			}
 			
-			_botRunner = new BotRunner(runs, targetDifficulty);
+			string? targetMap = null;
+			int mi = System.Array.IndexOf(userArgs, "--map");
+			if (mi >= 0 && mi + 1 < userArgs.Length)
+				targetMap = userArgs[mi + 1];
+
+			_botRunner = new BotRunner(runs, targetDifficulty, targetMap);
 			Engine.MaxFps = 0;
-			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}");
+			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}{(targetMap != null ? $" on {targetMap}" : "")}");
 		}
 
 		_runState = new RunState();

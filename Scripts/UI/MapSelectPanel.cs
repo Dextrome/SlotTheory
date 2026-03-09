@@ -184,8 +184,6 @@ public partial class MapSelectPanel : Node
 				return;
 			}
 
-			if (_selectedMapId == "random_map" && maps.Any())
-				_selectedMapId = maps.First().Id;
 
 			foreach (var mapDef in maps)
 			{
