@@ -23,6 +23,13 @@ public class WaveSystem
 
     public static float GetScaledHp(string typeId, int waveIndex)
     {
+        var difficulty = SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal;
+        return GetScaledHp(typeId, waveIndex, difficulty);
+    }
+
+    /// <summary>Deterministic overload for unit tests — pass difficulty explicitly.</summary>
+    public static float GetScaledHp(string typeId, int waveIndex, DifficultyMode difficulty)
+    {
         float baseHp = typeId switch
         {
             "armored_walker" => Balance.BaseEnemyHp * Balance.TankyHpMultiplier,
@@ -30,9 +37,6 @@ public class WaveSystem
             _                => Balance.BaseEnemyHp,
         };
         float scaledHp = baseHp * MathF.Pow(Balance.HpGrowthPerWave, waveIndex);
-        
-        // Apply difficulty multiplier
-        var difficulty = SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal;
         return scaledHp * Balance.GetEnemyHpMultiplier(difficulty);
     }
 

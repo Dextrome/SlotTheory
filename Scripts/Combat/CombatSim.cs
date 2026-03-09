@@ -139,6 +139,8 @@ public class CombatSim
         {
             if (slot.Tower == null) continue;
             var tower = slot.Tower;
+            // towerNode is null only in tests (FakeTower); in production it is always TowerInstance
+            var towerNode = slot.TowerNode;
 
             tower.Cooldown -= delta;
             if (tower.Cooldown > 0f) continue;
@@ -146,10 +148,10 @@ public class CombatSim
             var target = Targeting.SelectTarget(tower, state.EnemiesAlive, ignoreRange: false);
             if (target == null) continue;
 
-            if (!BotMode) tower.LastTargetPosition = target.GlobalPosition;
+            if (!BotMode && towerNode != null) towerNode.LastTargetPosition = target.GlobalPosition;
             string nextTargetId = target.GetInstanceId().ToString();
-            if (!BotMode && tower.LastTargetId != null && tower.LastTargetId != nextTargetId)
-                GameController.Instance?.SpawnTargetAcquirePing(target.GlobalPosition, tower.ProjectileColor);
+            if (!BotMode && towerNode != null && towerNode.LastTargetId != null && towerNode.LastTargetId != nextTargetId)
+                GameController.Instance?.SpawnTargetAcquirePing(target.GlobalPosition, towerNode.ProjectileColor);
 
             // Effective interval: base × modifier multipliers (e.g. FocusLens ×2)
             float effectiveInterval = tower.AttackInterval;
@@ -158,14 +160,14 @@ public class CombatSim
             tower.Cooldown = effectiveInterval;
 
             // Damage applied on projectile arrival, not here
-            SpawnProjectile(tower.GlobalPosition, target, tower.ProjectileColor,
+            SpawnProjectile(tower.GlobalPosition, target, towerNode?.ProjectileColor ?? Godot.Colors.Yellow,
                             tower, state.WaveIndex, state.EnemiesAlive);
-            if (!BotMode)
+            if (!BotMode && towerNode != null)
             {
-                tower.OnShotFired(target);
-                tower.FlashAttack();
+                towerNode.OnShotFired(target);
+                towerNode.FlashAttack();
                 float recoilPx = tower.TowerId == "heavy_cannon" ? 6.4f : 3.5f;
-                tower.KickRecoil(recoilPx);
+                towerNode.KickRecoil(recoilPx);
             }
 
             string shootId = tower.TowerId switch
@@ -208,7 +210,7 @@ public class CombatSim
     }
 
     private void SpawnProjectile(Vector2 fromGlobal, EnemyInstance target, Color color,
-                                 TowerInstance tower, int waveIndex, List<EnemyInstance> enemies)
+                                 ITowerView tower, int waveIndex, List<EnemyInstance> enemies)
     {
         if (BotMode)
         {
@@ -222,10 +224,10 @@ public class CombatSim
         if (LanePath == null) return;
         var proj = new ProjectileVisual();
         LanePath.GetParent().AddChild(proj);
-        proj.Initialize(fromGlobal, target, color, speed: 500f, tower, waveIndex, enemies, _state);
+        proj.Initialize(fromGlobal, target, color, speed: 500f, (TowerInstance)tower, waveIndex, enemies, _state);
     }
 
-    private void ApplyChainBotMode(TowerInstance tower, EnemyInstance primary,
+    private void ApplyChainBotMode(ITowerView tower, EnemyInstance primary,
                                    int waveIndex, List<EnemyInstance> enemies)
     {
         // Use proper range-based chaining even in bot mode for fairness
@@ -265,7 +267,7 @@ public class CombatSim
         }
     }
 
-    private void ApplySplitBotMode(TowerInstance tower, EnemyInstance primary,
+    private void ApplySplitBotMode(ITowerView tower, EnemyInstance primary,
                                     int waveIndex, List<EnemyInstance> enemies)
     {
         // Use proper range-based splitting for fairness

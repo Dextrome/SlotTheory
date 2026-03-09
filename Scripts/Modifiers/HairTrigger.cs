@@ -8,7 +8,7 @@ public class HairTrigger : Modifier
 {
     public HairTrigger(ModifierDef def) { ModifierId = def.Id; }
 
-    public override void OnEquip(TowerInstance tower)
+    public override void OnEquip(ITowerView tower)
     {
         tower.AttackInterval *= 1f / SlotTheory.Core.Balance.HairTriggerAttackSpeed;
         tower.Range          *= SlotTheory.Core.Balance.HairTriggerRangeFactor;

@@ -8,7 +8,7 @@ public class Overreach : Modifier
 {
     public Overreach(ModifierDef def) { ModifierId = def.Id; }
 
-    public override void OnEquip(TowerInstance tower)
+    public override void OnEquip(ITowerView tower)
     {
         tower.Range      *= 1.40f;
         tower.BaseDamage *= 0.80f;

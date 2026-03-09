@@ -68,3 +68,4 @@ Scripts/Tools/generate_icons.py
 Scripts/Tools/icon_32_test.py
 Scenes/IconExport.tscn
 MOBILE_UI_SCALING_PLAN.md
+UNIT_TEST_ANALYSIS.md

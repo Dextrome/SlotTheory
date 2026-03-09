@@ -74,7 +74,7 @@ public partial class GameController : Node
 	private float _draftSynergyPulseT = 0f;
 	private float _lowLivesHeartbeatTimer = 0f;
 	private readonly System.Collections.Generic.Dictionary<string, ulong> _combatCalloutNextMs = new();
-	private readonly System.Collections.Generic.Dictionary<ulong, (ulong firstMs, int count)> _feedbackLoopBurst = new();
+	private readonly System.Collections.Generic.Dictionary<SlotTheory.Entities.ITowerView, (ulong firstMs, int count)> _feedbackLoopBurst = new();
 	private readonly System.Collections.Generic.Dictionary<string, int> _modifierProcCounts = new();
 	private bool _undoPlacementActive = false;
 	private bool _cancelBtnShown = false;
@@ -510,7 +510,7 @@ public partial class GameController : Node
 		// doesn't encounter QueueFree-pending nodes when it iterates slot children.
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
-			var tower = _runState.Slots[i].Tower;
+			var tower = _runState.Slots[i].TowerNode;
 			if (tower != null && GodotObject.IsInstanceValid(tower))
 				tower.Free();
 		}
@@ -693,7 +693,7 @@ public partial class GameController : Node
 	private void RemoveTowerAtSlot(int slotIndex)
 	{
 		if (slotIndex < 0 || slotIndex >= _runState.Slots.Length) return;
-		var tower = _runState.Slots[slotIndex].Tower;
+		var tower = _runState.Slots[slotIndex].TowerNode;
 		if (tower == null) return;
 		if (_selectedTooltipTower == tower)
 			_selectedTooltipTower = null;
@@ -875,7 +875,7 @@ public partial class GameController : Node
 			{
 				for (int i = 0; i < _runState.Slots.Length; i++)
 				{
-					var tower = _runState.Slots[i].Tower;
+					var tower = _runState.Slots[i].TowerNode;
 					if (tower == null) continue;
 					var hitRect = new Rect2(tower.GlobalPosition - new Vector2(34f, 34f), new Vector2(68f, 68f));
 					if (!hitRect.HasPoint(pressPos)) continue;
@@ -908,7 +908,7 @@ public partial class GameController : Node
 		{
 			for (int i = 0; i < _runState.Slots.Length; i++)
 			{
-				var tower = _runState.Slots[i].Tower;
+				var tower = _runState.Slots[i].TowerNode;
 				if (tower == null) continue;
 				var hitRect = new Rect2(tower.GlobalPosition - new Vector2(25f, 25f), new Vector2(50f, 50f));
 				if (!hitRect.HasPoint(pressPos)) continue;
@@ -1995,21 +1995,20 @@ public partial class GameController : Node
 		SpawnCombatCallout("OVERKILL SPILL", worldPos, new Color(1.00f, 0.56f, 0.25f));
 	}
 
-	public void NotifyFeedbackLoopProc(TowerInstance tower)
+	public void NotifyFeedbackLoopProc(SlotTheory.Entities.ITowerView tower)
 	{
 		if (_botRunner != null || CurrentPhase != GamePhase.Wave) return;
 
-		ulong id = tower.GetInstanceId();
 		ulong now = Time.GetTicksMsec();
-		if (_feedbackLoopBurst.TryGetValue(id, out var state) && now - state.firstMs <= 1300)
-			_feedbackLoopBurst[id] = (state.firstMs, state.count + 1);
+		if (_feedbackLoopBurst.TryGetValue(tower, out var state) && now - state.firstMs <= 1300)
+			_feedbackLoopBurst[tower] = (state.firstMs, state.count + 1);
 		else
-			_feedbackLoopBurst[id] = (now, 1);
+			_feedbackLoopBurst[tower] = (now, 1);
 
-		var burst = _feedbackLoopBurst[id];
+		var burst = _feedbackLoopBurst[tower];
 		if (burst.count < 3) return;
 
-		_feedbackLoopBurst.Remove(id);
+		_feedbackLoopBurst.Remove(tower);
 		if (!TryCombatCallout("feedback_loop", 8.0f)) return;
 		SpawnCombatCallout("FEEDBACK LOOP", tower.GlobalPosition + new Vector2(0f, -10f), new Color(0.62f, 1.00f, 0.88f));
 	}
@@ -2387,7 +2386,7 @@ public partial class GameController : Node
 		_draftSynergyPulseT = 0f;
 	}
 
-	private static bool IsSynergyTower(TowerInstance tower, string modifierId)
+	private static bool IsSynergyTower(SlotTheory.Entities.ITowerView tower, string modifierId)
 	{
 		return modifierId switch
 		{
@@ -2400,7 +2399,7 @@ public partial class GameController : Node
 		};
 	}
 
-	public void NotifyModifierProc(TowerInstance tower, string modifierId)
+	public void NotifyModifierProc(SlotTheory.Entities.ITowerView tower, string modifierId)
 	{
 		if (_modifierProcCounts.TryGetValue(modifierId, out int n))
 			_modifierProcCounts[modifierId] = n + 1;
@@ -2410,7 +2409,7 @@ public partial class GameController : Node
 		int slot = -1;
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
-			if (_runState.Slots[i].Tower == tower) { slot = i; break; }
+			if (ReferenceEquals(_runState.Slots[i].Tower, tower)) { slot = i; break; }
 		}
 		if (slot < 0) return;
 

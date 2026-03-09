@@ -14,6 +14,6 @@ public class FocusLens : Modifier
         damage *= SlotTheory.Core.Balance.FocusLensDamageBonus;
     }
 
-    public override void ModifyAttackInterval(ref float interval, TowerInstance tower) =>
+    public override void ModifyAttackInterval(ref float interval, ITowerView tower) =>
         interval *= SlotTheory.Core.Balance.FocusLensAttackInterval;
 }
