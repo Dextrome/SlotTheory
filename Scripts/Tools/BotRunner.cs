@@ -22,9 +22,14 @@ public class BotRunner
         int         LivesEnd,
         int[]       WaveLives,     // lives after each completed wave (index 0 = wave 1)
         float[]     WaveInRange,   // avg enemies in range per step, per wave
+        int[]       WaveSteps,     // bot steps to complete each wave
         string[]    Towers,
         string[]    Mods,
-        DifficultyMode Difficulty
+        DifficultyMode Difficulty,
+        int[]       SlotDamage,    // total damage per slot index (6 entries)
+        float[]     SlotFireRate,  // fire rate utilisation per slot (0-1); -1 = no tower in slot
+        Dictionary<string, int>   LeaksByType,   // total leaks per enemy type
+        Dictionary<string, float> LeakHpByType   // summed HP remaining on leaked enemies
     );
 
     private readonly int              _totalRuns;
@@ -38,6 +43,9 @@ public class BotRunner
     private string            _curMap = "random_map";
     private readonly List<int>   _waveLives   = new();
     private readonly List<float> _waveInRange = new();
+    private readonly List<int>   _waveSteps   = new();
+    private readonly Dictionary<string, int>   _pickOffered = new();
+    private readonly Dictionary<string, int>   _pickChosen  = new();
 
     public BotPlayer CurrentBot  { get; private set; } = null!;
     public bool      HasMoreRuns => _results.Count < _totalRuns;
@@ -74,6 +82,7 @@ public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null)
         CurrentBot   = new BotPlayer(_curStrategy, idx * 7919);
         _waveLives.Clear();
         _waveInRange.Clear();
+        _waveSteps.Clear();
         
         // Set the map for this bot run
         SlotTheory.UI.MapSelectPanel.SetPendingMapSelection(_curMap);
@@ -81,10 +90,26 @@ public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null)
     }
 
     /// <summary>Call after each wave completes, before WaveIndex increments.</summary>
-    public void RecordWaveEnd(int lives, float avgInRange = 0f)
+    public void RecordWaveEnd(int lives, float avgInRange = 0f, int waveSteps = 0)
     {
         _waveLives.Add(lives);
         _waveInRange.Add(avgInRange);
+        _waveSteps.Add(waveSteps);
+    }
+
+    /// <summary>Records which cards were offered and which was chosen (bot mode only).</summary>
+    public void RecordPick(List<DraftOption> options, string? chosenId)
+    {
+        foreach (var opt in options)
+        {
+            _pickOffered.TryGetValue(opt.Id, out int o);
+            _pickOffered[opt.Id] = o + 1;
+        }
+        if (chosenId != null)
+        {
+            _pickChosen.TryGetValue(chosenId, out int c);
+            _pickChosen[chosenId] = c + 1;
+        }
     }
 
     /// <summary>Call on win or loss. Automatically prepares the next run if needed.</summary>
@@ -99,9 +124,22 @@ public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null)
             .SelectMany(s => s.Tower!.Modifiers.Select(m => m.ModifierId))
             .ToArray();
 
+        var slotDamage   = new int[Balance.SlotCount];
+        var slotFireRate = new float[Balance.SlotCount];
+        for (int i = 0; i < Balance.SlotCount; i++)
+        {
+            slotDamage[i]   = state.GetTowerTotalDamage(i);
+            slotFireRate[i] = state.SlotEligibleSteps[i] > 0
+                ? (float)state.SlotFiredSteps[i] / state.SlotEligibleSteps[i]
+                : (state.Slots[i].Tower != null ? 0f : -1f);  // -1 = no tower placed in slot
+        }
+
         _results.Add(new RunResult(
             _curStrategy, _curMap, won, waveReached, state.Lives,
-            [.. _waveLives], [.. _waveInRange], towers, mods, _curDifficulty));
+            [.. _waveLives], [.. _waveInRange], [.. _waveSteps], towers, mods, _curDifficulty,
+            slotDamage, slotFireRate,
+            new Dictionary<string, int>(state.TotalLeaksByType),
+            new Dictionary<string, float>(state.TotalLeakHpByType)));
 
         if (HasMoreRuns) StartNextRun();
     }
@@ -192,7 +230,7 @@ public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null)
             }
 
             // Per-map wave difficulty
-            GD.Print($"| WAVE DIFFICULTY (lives / avg enemies in range / enemies alive): |");
+            GD.Print($"| WAVE DIFFICULTY (lives / avg enemies in range / steps):          |");
             for (int w = 0; w < Balance.TotalWaves; w++)
             {
                 var liveSamples = mapResults
@@ -208,7 +246,13 @@ public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null)
                     .ToList();
                 float avgInRange = densitySamples.Count > 0 ? (float)densitySamples.Average() : 0f;
 
-                GD.Print($"|   Wave {w + 1,2}: {avgLives,4:0.0} lives  in-range={avgInRange,4:0.0}              |");
+                var stepSamples = mapResults
+                    .Where(r => r.WaveSteps.Length > w)
+                    .Select(r => r.WaveSteps[w])
+                    .ToList();
+                float avgSteps = stepSamples.Count > 0 ? (float)stepSamples.Average() : 0f;
+
+                GD.Print($"|   Wave {w + 1,2}: {avgLives,4:0.0} lives  in-range={avgInRange,4:0.0}  steps={avgSteps,5:0}  |");
             }
 
             // Per-map loss distribution
@@ -260,13 +304,57 @@ public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null)
         }
 
         GD.Print("");
-        
+
+        // ── Leak analysis ─────────────────────────────────────────────────────────
+        GD.Print("\nLEAK ANALYSIS (all runs):");
+        var allLeakTypes = _results.SelectMany(r => r.LeaksByType.Keys).Distinct().OrderBy(k => k).ToList();
+        if (allLeakTypes.Count == 0)
+        {
+            GD.Print("  No leaks recorded.");
+        }
+        else
+        {
+            GD.Print($"  {"TYPE",-18} {"TOTAL LEAKS",12} {"AVG HP REMAINING",18}");
+            GD.Print("  " + new string('-', 50));
+            foreach (var t in allLeakTypes)
+            {
+                int totalLeaks = _results.Sum(r => r.LeaksByType.GetValueOrDefault(t, 0));
+                float totalHp  = _results.Sum(r => r.LeakHpByType.GetValueOrDefault(t, 0f));
+                float avgHp    = totalLeaks > 0 ? totalHp / totalLeaks : 0f;
+                GD.Print($"  {t,-18} {totalLeaks,12} {avgHp,18:0.0}");
+            }
+        }
+
+        // ── Per-slot damage & fire rate ───────────────────────────────────────────
+        GD.Print("\nSLOT DAMAGE & FIRE RATE UTILISATION (avg across runs with tower in slot):");
+        GD.Print($"  {"SLOT",4} {"AVG DAMAGE",12} {"AVG FIRE RATE",14}");
+        GD.Print("  " + new string('-', 32));
+        for (int si = 0; si < Balance.SlotCount; si++)
+        {
+            var runsWithTower = _results.Where(r => r.SlotFireRate[si] >= 0f).ToList();
+            if (runsWithTower.Count == 0) continue;
+            float avgDmg  = (float)runsWithTower.Average(r => r.SlotDamage[si]);
+            float avgRate = (float)runsWithTower.Average(r => r.SlotFireRate[si]);
+            GD.Print($"  {si,4} {avgDmg,12:0} {avgRate,13:0.0%}");
+        }
+
+        // ── Card pick frequency ───────────────────────────────────────────────────
+        GD.Print("\nCARD PICK FREQUENCY (offered → chosen):");
+        GD.Print($"  {"CARD",-20} {"OFFERED",8} {"CHOSEN",8} {"PICK%",7}");
+        GD.Print("  " + new string('-', 46));
+        foreach (var kv in _pickOffered.OrderByDescending(kv => kv.Value))
+        {
+            _pickChosen.TryGetValue(kv.Key, out int chosen);
+            float pickPct = chosen * 100f / kv.Value;
+            GD.Print($"  {kv.Key,-20} {kv.Value,8} {chosen,8} {pickPct,6:0}%");
+        }
+
         // ── Wave Difficulty Analysis for Balancing ─────────────────────────────────
         GD.Print("\n╔═══════════════════════════════════════════════════════════════════╗");
         GD.Print("║                    WAVE DIFFICULTY ANALYSIS                       ║");
         GD.Print("║  For balancing SpawnInterval, TankyCount, SwiftCount adjustments  ║");
         GD.Print("╚═══════════════════════════════════════════════════════════════════╝");
-        
+
         AnalyzeWaveDifficulty();
     }
 

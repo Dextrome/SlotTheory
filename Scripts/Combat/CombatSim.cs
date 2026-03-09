@@ -123,9 +123,10 @@ public class CombatSim
         {
             int livesLost = e.EnemyTypeId == "armored_walker" ? 2 : 1;
             state.Lives -= livesLost;
-            
+
             // Track leaks for post-wave micro reports and loss analysis
             state.TrackLeak(e.EnemyTypeId);
+            if (BotMode) state.TrackLeakHp(e.EnemyTypeId, e.Hp);
             
             Sounds?.Play("leak");
             e.QueueFree();
@@ -135,8 +136,9 @@ public class CombatSim
             return WaveResult.Loss;
 
         // 3. Tower attacks (hitscan — no projectiles)
-        foreach (var slot in state.Slots)
+        for (int si = 0; si < state.Slots.Length; si++)
         {
+            var slot = state.Slots[si];
             if (slot.Tower == null) continue;
             var tower = slot.Tower;
             // towerNode is null only in tests (FakeTower); in production it is always TowerInstance
@@ -145,8 +147,12 @@ public class CombatSim
             tower.Cooldown -= delta;
             if (tower.Cooldown > 0f) continue;
 
+            if (BotMode) state.SlotEligibleSteps[si]++;
+
             var target = Targeting.SelectTarget(tower, state.EnemiesAlive, ignoreRange: false);
             if (target == null) continue;
+
+            if (BotMode) state.SlotFiredSteps[si]++;
 
             if (!BotMode && towerNode != null) towerNode.LastTargetPosition = target.GlobalPosition;
             string nextTargetId = target.GetInstanceId().ToString();

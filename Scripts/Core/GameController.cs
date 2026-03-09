@@ -62,6 +62,7 @@ public partial class GameController : Node
 	private BotRunner? _botRunner;
 	private int   _botWaveInRangeSum;
 	private int   _botWaveInRangeSamples;
+	private int   _botWaveSteps;
 	private int _extraPicksRemaining;
 	private List<DraftOption>? _currentDraftOptions;
 	private WaveReport? _lastWaveReport;
@@ -483,6 +484,7 @@ public partial class GameController : Node
 		if (_botRunner != null)
 		{
 			var pick = _botRunner.CurrentBot.Pick(options, _runState);
+			_botRunner.RecordPick(options, pick?.Option.Id);
 			if (pick != null) OnDraftPick(pick.Option, pick.SlotIndex);
 			else              StartWavePhase();
 			return;
@@ -1614,6 +1616,7 @@ public partial class GameController : Node
 			}
 
 			var result = _combatSim.Step(BOT_DT, _runState, _waveSystem);
+			_botWaveSteps++;
 
 			// Sample how many enemies are currently in range of at least one tower
 			int inRange = 0;
@@ -1627,6 +1630,7 @@ public partial class GameController : Node
 			if (result == WaveResult.Loss)
 			{
 				CurrentPhase = GamePhase.Loss;
+				_runState.CompleteWave();
 				_botRunner!.RecordResult(false, _runState.WaveIndex + 1, _runState);
 				if (_botRunner.HasMoreRuns) { RestartRun(); return; }
 				_botRunner.PrintSummary();
@@ -1636,9 +1640,11 @@ public partial class GameController : Node
 
 			if (result == WaveResult.WaveComplete)
 			{
+				_runState.CompleteWave();
 				float avgInRange = _botWaveInRangeSamples > 0 ? (float)_botWaveInRangeSum / _botWaveInRangeSamples : 0f;
 				_botWaveInRangeSum = _botWaveInRangeSamples = 0;
-				_botRunner!.RecordWaveEnd(_runState.Lives, avgInRange);
+				_botRunner!.RecordWaveEnd(_runState.Lives, avgInRange, _botWaveSteps);
+				_botWaveSteps = 0;
 				_runState.WaveIndex++;
 				if (_runState.WaveIndex >= Balance.TotalWaves)
 				{
