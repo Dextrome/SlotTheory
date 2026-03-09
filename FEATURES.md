@@ -130,8 +130,8 @@ Platforms: Windows Desktop, Android (phone and tablet)
 | Focus Lens | +125% damage, x2 attack interval |
 | Chill Shot (`slow`) | On hit: enemy speed factor 0.75 for 5 s; copies on the same tower stack multiplicatively |
 | Overreach | +40% range, -20% damage |
-| Hair Trigger | +40% attack speed, -18% range |
-| Split Shot | Fires 2 split projectiles at 40% damage each, each extra copy adds +1 split projectile |
+| Hair Trigger | +35% attack speed, -18% range |
+| Split Shot | Fires 2 split projectiles at 35% damage each, each extra copy adds +1 split projectile |
 | Feedback Loop | On kill, removes 25% of current cooldown |
 | Chain Reaction | Adds +1 chain bounce per copy and sets chain carry to 60% |
 
@@ -532,10 +532,10 @@ Behavior:
 | SlowDuration | 5 s |
 | MomentumMaxStacks | 5 |
 | MomentumBonusPerStack | +16% |
-| SplitShotDamageRatio | 40% |
+| SplitShotDamageRatio | 35% |
 | SplitShotRange | 280 |
 | FeedbackLoopCooldownReduction | 25% |
-| HairTriggerAttackSpeed | +40% |
+| HairTriggerAttackSpeed | +35% |
 | HairTriggerRangeFactor | -18% |
 | OverkillSpillEfficiency | 60% |
 | FocusLensDamageBonus | +125% |

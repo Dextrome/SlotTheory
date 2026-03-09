@@ -57,14 +57,14 @@ public static class Balance
     public const float MomentumBonusPerStack = 0.16f;
 
     // Split Shot modifier
-    public const float SplitShotDamageRatio = 0.40f; // 40% of base damage per split projectile
+    public const float SplitShotDamageRatio = 0.35f; // 35% of base damage per split projectile
     public const float SplitShotRange       = 280f;  // search radius from impact point for split targets
 
     // Feedback Loop modifier
     public const float FeedbackLoopCooldownReduction = 0.25f; // 25% of remaining cooldown removed on kill
 
     // Hair Trigger modifier
-    public const float HairTriggerAttackSpeed = 1.40f; // +40% attack speed
+    public const float HairTriggerAttackSpeed = 1.35f; // +35% attack speed
     public const float HairTriggerRangeFactor = 0.82f; // -18% range
 
     // Exploit Weakness modifier
