@@ -44,8 +44,13 @@ public class RunState
 
     // Loss analysis tracking
     public WaveReport? WorstWave => CompletedWaves.OrderByDescending(w => w.Leaks).FirstOrDefault();
-    public Dictionary<string, int> TotalLeaksByType { get; } = new();
+    public Dictionary<string, int>   TotalLeaksByType  { get; } = new();
+    public Dictionary<string, float> TotalLeakHpByType { get; } = new();  // sum of HP remaining on leaked enemies per type
     public string? LastLeakedType { get; set; }
+
+    // Fire rate utilization tracking (bot mode only)
+    public int[] SlotEligibleSteps { get; } = new int[Balance.SlotCount];  // steps where tower was ready to fire
+    public int[] SlotFiredSteps    { get; } = new int[Balance.SlotCount];   // steps where tower actually fired
 
     // Map selection
     public string? SelectedMapId { get; set; } = null;  // null = random
@@ -111,11 +116,18 @@ public class RunState
         CurrentWave.Leaks++;
         CurrentWave.LeaksByType.TryGetValue(enemyType, out int currentCount);
         CurrentWave.LeaksByType[enemyType] = currentCount + 1;
-        
+
         TotalLeaksByType.TryGetValue(enemyType, out int totalCount);
         TotalLeaksByType[enemyType] = totalCount + 1;
-        
+
         LastLeakedType = enemyType;
+    }
+
+    /// <summary>Tracks HP remaining on a leaked enemy (bot mode diagnostics).</summary>
+    public void TrackLeakHp(string enemyType, float remainingHp)
+    {
+        TotalLeakHpByType.TryGetValue(enemyType, out float current);
+        TotalLeakHpByType[enemyType] = current + remainingHp;
     }
 
     public void Reset()
@@ -135,7 +147,10 @@ public class RunState
         CurrentWave = new();
         CompletedWaves.Clear();
         TotalLeaksByType.Clear();
+        TotalLeakHpByType.Clear();
         LastLeakedType = null;
+        System.Array.Clear(SlotEligibleSteps, 0, SlotEligibleSteps.Length);
+        System.Array.Clear(SlotFiredSteps,    0, SlotFiredSteps.Length);
     }
 
     /// <summary>Gets total damage dealt by a specific tower across all completed waves.</summary>
