@@ -133,16 +133,19 @@ public partial class AchievementsPanel : Node
         var panel = new PanelContainer();
         panel.AddThemeStyleboxOverride("panel", style);
         panel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        panel.MouseFilter = Control.MouseFilterEnum.Ignore;
 
         var inner = new MarginContainer();
         inner.AddThemeConstantOverride("margin_left",   14);
         inner.AddThemeConstantOverride("margin_right",  14);
         inner.AddThemeConstantOverride("margin_top",    10);
         inner.AddThemeConstantOverride("margin_bottom", 10);
+        inner.MouseFilter = Control.MouseFilterEnum.Ignore;
         panel.AddChild(inner);
 
         var hbox = new HBoxContainer();
         hbox.AddThemeConstantOverride("separation", 14);
+        hbox.MouseFilter = Control.MouseFilterEnum.Ignore;
         inner.AddChild(hbox);
 
         // Icon badge
@@ -156,6 +159,7 @@ public partial class AchievementsPanel : Node
         var textCol = new VBoxContainer();
         textCol.AddThemeConstantOverride("separation", 2);
         textCol.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        textCol.MouseFilter = Control.MouseFilterEnum.Ignore;
         hbox.AddChild(textCol);
 
         var nameLabel = new Label { Text = isUnlocked ? def.Name : "???" };
