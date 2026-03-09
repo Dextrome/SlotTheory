@@ -87,7 +87,7 @@ Modifier assignment uses `Preview -> Confirm`:
 - Chill Shot: -25% move speed for 5 s (stacking on same tower)
 - Overreach: +40% range, -20% damage
 - Hair Trigger: +40% attack speed, -18% range
-- Split Shot: 2 split projectiles at 42% each; extra copies add extra split
+- Split Shot: 2 split projectiles at 40% each (280px search radius); extra copies add extra split
 - Feedback Loop: kill reduces current cooldown by 25%
 - Chain Reaction: +1 bounce per copy, sets chain carry to 60%
 

@@ -131,7 +131,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
 | Chill Shot (`slow`) | On hit: enemy speed factor 0.75 for 5 s; copies on the same tower stack multiplicatively |
 | Overreach | +40% range, -20% damage |
 | Hair Trigger | +40% attack speed, -18% range |
-| Split Shot | Fires 2 split projectiles at 42% damage each, each extra copy adds +1 split projectile |
+| Split Shot | Fires 2 split projectiles at 40% damage each, each extra copy adds +1 split projectile |
 | Feedback Loop | On kill, removes 25% of current cooldown |
 | Chain Reaction | Adds +1 chain bounce per copy and sets chain carry to 60% |
 
@@ -532,8 +532,8 @@ Behavior:
 | SlowDuration | 5 s |
 | MomentumMaxStacks | 5 |
 | MomentumBonusPerStack | +16% |
-| SplitShotDamageRatio | 42% |
-| SplitShotRange | 300 |
+| SplitShotDamageRatio | 40% |
+| SplitShotRange | 280 |
 | FeedbackLoopCooldownReduction | 25% |
 | HairTriggerAttackSpeed | +40% |
 | HairTriggerRangeFactor | -18% |
