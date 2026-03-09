@@ -82,7 +82,7 @@ public partial class DraftPanel : CanvasLayer
                 var def = DataLoader.GetModifierDef(_pendingModifier.Id);
                 if (_previewModifierSlot >= 0)
                     return $"Preview: {def.Name} on slot {_previewModifierSlot + 1}  -  tap same slot to confirm, tap elsewhere to cancel\n{def.Description}";
-                return $"Tap a tower to preview  {def.Name}\n{def.Description}";
+                return $"Tap a tower to apply {def.Name}\n{def.Description}";
             }
 
             return "";
@@ -261,7 +261,7 @@ public partial class DraftPanel : CanvasLayer
         _placementHintLbl = new Label
         {
             HorizontalAlignment = HorizontalAlignment.Center,
-            AutowrapMode = TextServer.AutowrapMode.Word,
+            AutowrapMode = TextServer.AutowrapMode.Off,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         var hintLs = new LabelSettings

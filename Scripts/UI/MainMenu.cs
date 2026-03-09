@@ -113,6 +113,8 @@ public partial class MainMenu : Node
 		versionLabel.AddThemeFontSizeOverride("font_size", 13);
 		versionLabel.Modulate = new Color(0.30f, 0.30f, 0.38f);
 		vbox.AddChild(versionLabel);
+		if (MobileOptimization.IsMobile())
+			CallDeferred(nameof(ApplyFitScale), center);
 		AddChild(new PinchZoomHandler(center));
 	}
 
@@ -141,6 +143,18 @@ public partial class MainMenu : Node
 	private void OnHowToPlay()    => Transition.Instance?.FadeToScene("res://Scenes/HowToPlay.tscn");
 	private void OnSettings()     => Transition.Instance?.FadeToScene("res://Scenes/Settings.tscn");
 	private void OnQuit()         => GetTree().Quit();
+
+	private void ApplyFitScale(CenterContainer center)
+	{
+		var vp = GetViewport().GetVisibleRect().Size;
+		center.Size = vp; // anchor-independent size for reliable pivot
+		var content = center.GetChild<Control>(0);
+		float contentH = content.Size.Y;
+		float maxScale = MobileOptimization.GetUIScale();
+		float fitScale = contentH > 0 ? Mathf.Min(maxScale, vp.Y * 0.92f / contentH) : maxScale;
+		center.PivotOffset = vp * 0.5f;
+		center.Scale = new Vector2(fitScale, fitScale);
+	}
 
 	private void AutoResumeRun()
 	{
