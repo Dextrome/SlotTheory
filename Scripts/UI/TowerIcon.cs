@@ -40,6 +40,7 @@ public partial class TowerIcon : Control
             "heavy_cannon" => (new Color(1.00f, 0.60f, 0.20f), new Color(0.24f, 0.12f, 0.03f)),
             "marker_tower" => (new Color(1.00f, 0.34f, 0.74f), new Color(0.24f, 0.08f, 0.20f)),
             "chain_tower" => (new Color(0.62f, 0.95f, 1.00f), new Color(0.05f, 0.15f, 0.25f)),
+            "rift_prism" => (new Color(0.62f, 1.00f, 0.62f), new Color(0.08f, 0.20f, 0.10f)),
             _ => (new Color(0.42f, 0.48f, 0.60f), new Color(0.18f, 0.20f, 0.26f)),
         };
 
@@ -59,6 +60,7 @@ public partial class TowerIcon : Control
             "heavy_cannon" => "H",
             "marker_tower" => "M",
             "chain_tower" => "C",
+            "rift_prism" => "P",
             _ => "?",
         };
 

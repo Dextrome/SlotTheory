@@ -173,6 +173,7 @@ public partial class TowerInstance : Node2D, ITowerView
             case "heavy_cannon":  DrawHeavyCannon();  break;
             case "marker_tower":  DrawMarkerTower();  break;
             case "chain_tower":   DrawChainTower();   break;
+            case "rift_prism":    DrawRiftPrism();    break;
             default: DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f)); break;
         }
         DrawReadabilityAccent();
@@ -325,6 +326,37 @@ public partial class TowerInstance : Node2D, ITowerView
         // Inner energy core
         DrawCircle(Vector2.Zero, 4f + surge * 0.6f, new Color(blue.R, blue.G, blue.B, 0.55f + shot * 0.20f));
         DrawCircle(Vector2.Zero, 2.5f + surge * 0.4f, white);
+    }
+
+    private void DrawRiftPrism()
+    {
+        var lime = new Color(0.62f, 1.00f, 0.58f);
+        var dark = LiftInnerTone(new Color(0.04f, 0.13f, 0.08f));
+        float shot = ShotKick();
+        float pulse = 0.72f + 0.28f * Mathf.Sin(_idleTime * 8.2f);
+        float surge = shot * 0.85f;
+
+        DrawCircle(Vector2.Zero, 23f, new Color(lime.R, lime.G, lime.B, 0.08f + 0.04f * pulse));
+        DrawCircle(Vector2.Zero, 16f, new Color(lime.R, lime.G, lime.B, 0.14f + 0.05f * pulse));
+
+        DrawPolygon(RegularPoly(6, 13.5f + surge * 0.6f, Mathf.Pi / 6f), new[] { lime });
+        DrawPolygon(RegularPoly(6, 11.2f + surge * 0.4f, Mathf.Pi / 6f), new[] { dark });
+
+        float spokeLen = 18f + surge * 3.5f;
+        float spokeWidth = 2.4f + surge * 0.7f;
+        var spokeColor = new Color(0.90f, 1.00f, 0.84f, 0.78f + 0.18f * pulse);
+        for (int i = 0; i < 4; i++)
+        {
+            float angle = Mathf.Pi * 0.25f + i * Mathf.Pi * 0.5f;
+            var dir = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+            var from = dir * 6.2f;
+            var to = dir * spokeLen;
+            DrawLine(from, to, spokeColor, spokeWidth);
+            DrawCircle(to, 2.8f + surge * 0.5f, new Color(lime.R, lime.G, lime.B, 0.52f + 0.18f * shot));
+        }
+
+        DrawCircle(Vector2.Zero, 5.5f + surge * 0.7f, new Color(0.84f, 1.00f, 0.76f, 0.66f + 0.20f * shot));
+        DrawCircle(Vector2.Zero, 2.7f + surge * 0.4f, new Color(0.95f, 1.00f, 0.92f, 0.94f));
     }
 
     private static Vector2[] RegularPoly(int sides, float radius, float angleOffset)

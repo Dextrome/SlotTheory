@@ -132,7 +132,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
 | Overreach | +40% range, -20% damage |
 | Hair Trigger | +35% attack speed, -18% range |
 | Split Shot | Fires 2 split projectiles at 35% damage each, each extra copy adds +1 split projectile |
-| Feedback Loop | On kill, removes 25% of current cooldown |
+| Feedback Loop | On kill, removes 50% of current cooldown |
 | Chain Reaction | Adds +1 chain bounce per copy and sets chain carry to 60% |
 
 ### Modifier Color Language

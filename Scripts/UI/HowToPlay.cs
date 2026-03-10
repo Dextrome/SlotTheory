@@ -89,8 +89,10 @@ public partial class HowToPlay : Node
 			"Slow but hits hard. Great with Overkill and Focus Lens.");
 		AddTowerRow(vbox, "Marker Tower",  "7 dmg, 1.0 s, 333 px range",
 			"Applies Mark on every hit. Synergises with Exploit Weakness.");
-		AddTowerRow(vbox, "Arc Emitter",   "14 dmg, 1.2 s, 257 px range",
+		AddTowerRow(vbox, "Arc Emitter",   "18 dmg, 1.2 s, 257 px range",
 			"Chains to 2 nearby enemies per shot (60% damage decay per bounce). Excellent in dense clusters.");
+		AddTowerRow(vbox, "Rift Prism (unlock)", "14 dmg, 0.95 s, 296 px range",
+			"Unlock by beating Orbit on Normal or Hard. Built-in split shots + short chain for lane-wide pressure.");
 		AddSpacer(vbox, 12);
 
 		// â”€â”€ Targeting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -118,7 +120,7 @@ public partial class HowToPlay : Node
 		AddModRow(vbox, "Overreach",        "+55% range, -10% damage. Wider coverage with a light damage tradeoff.");
 		AddModRow(vbox, "Hair Trigger",     "+30% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
 		AddModRow(vbox, "Split Shot",       "On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
-		AddModRow(vbox, "Feedback Loop",    "Killing an enemy reduces this tower's current cooldown by 25%. Lets rapid killers fire again sooner.");
+		AddModRow(vbox, "Feedback Loop",    "Killing an enemy reduces this tower's current cooldown by 50%. Lets rapid killers fire again sooner.");
 		AddModRow(vbox, "Chain Reaction",   "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce.");
 		AddSpacer(vbox, 12);
 

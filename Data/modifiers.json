@@ -42,7 +42,7 @@
   "feedback_loop": {
     "Id": "feedback_loop",
     "Name": "Feedback Loop",
-    "Description": "Kill: -25% current cooldown."
+    "Description": "Kill: -50% current cooldown."
   },
   "chain_reaction": {
     "Id": "chain_reaction",

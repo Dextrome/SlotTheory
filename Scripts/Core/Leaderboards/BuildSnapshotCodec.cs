@@ -15,6 +15,7 @@ public static class BuildSnapshotCodec
         ["heavy_cannon"] = 2,
         ["marker_tower"] = 3,
         ["chain_tower"] = 4,
+        ["rift_prism"] = 5,
     };
 
     private static readonly Dictionary<int, string> CodeToTower = TowerToCode.ToDictionary(kv => kv.Value, kv => kv.Key);
