@@ -45,7 +45,7 @@ public partial class ProjectileVisual : Node2D
 
     public override void _Draw()
     {
-        // Trail — taper from thin/transparent at tail to full at head
+        // Trail â€” taper from thin/transparent at tail to full at head
         for (int i = 1; i < _trail.Count; i++)
         {
             float t = i / (float)_trail.Count;
@@ -67,7 +67,7 @@ public partial class ProjectileVisual : Node2D
 
     public override void _Process(double delta)
     {
-        // Target already dead or freed — dissolve
+        // Target already dead or freed â€” dissolve
         if (_target == null || !GodotObject.IsInstanceValid(_target) || _target.Hp <= 0)
         {
             QueueFree();
@@ -85,7 +85,7 @@ public partial class ProjectileVisual : Node2D
 
         if (dist <= _speed * (float)delta)
         {
-            // Arrived — apply primary damage
+            // Arrived â€” apply primary damage
             if (_tower != null && _enemies != null && _target.Hp > 0)
             {
                 float hpBefore = _target.Hp;
@@ -101,6 +101,7 @@ public partial class ProjectileVisual : Node2D
                 {
                     bool isKill = _target.Hp <= 0;
                     SpawnDamageNumber(_target.GlobalPosition, dealt, isKill, _tower?.TowerId ?? "");
+                    SpawnImpactSparks(_target.GlobalPosition, heavy: _tower?.TowerId == "heavy_cannon");
                     if (isKill)
                     {
                         bool heavy = _tower?.TowerId == "heavy_cannon";
@@ -112,11 +113,11 @@ public partial class ProjectileVisual : Node2D
                         _target.FlashHit();
                 }
 
-                // Chain bounces first (hitscan) — split shot then picks from surviving enemies
+                // Chain bounces first (hitscan) â€” split shot then picks from surviving enemies
                 if (_tower!.IsChainTower && !_isSplitProjectile)
                     ApplyChainHits(_target.GlobalPosition);
 
-                // Split Shot — fires at enemies that weren't already killed by chain
+                // Split Shot â€” fires at enemies that weren't already killed by chain
                 if (_tower!.SplitCount > 0 && !_isSplitProjectile)
                     SpawnSplitProjectiles(_target.GlobalPosition);
             }
@@ -167,6 +168,7 @@ public partial class ProjectileVisual : Node2D
             {
                 bool isKill = chainTarget.Hp <= 0;
                 SpawnDamageNumber(chainTarget.GlobalPosition, dealt, isKill, tower.TowerId);
+                SpawnImpactSparks(chainTarget.GlobalPosition);
                 if (isKill)
                     GameController.Instance?.TriggerHitStop(realDuration: 0.038f, slowScale: 0.24f);
                 if (!isKill && GodotObject.IsInstanceValid(chainTarget))
@@ -223,5 +225,20 @@ public partial class ProjectileVisual : Node2D
         GetParent().AddChild(num);
         num.GlobalPosition = worldPos + new Vector2(0f, -14f);
         num.Initialize(damage, _color, isKill, sourceTowerId);
+    }
+
+    private void SpawnImpactSparks(Vector2 worldPos, bool heavy = false)
+    {
+        if (SettingsManager.Instance?.ReducedMotion == true)
+            return;
+
+        var parent = GetParent();
+        if (parent == null)
+            return;
+
+        var burst = new ImpactSparkBurst();
+        parent.AddChild(burst);
+        burst.GlobalPosition = worldPos;
+        burst.Initialize(_color, heavy);
     }
 }

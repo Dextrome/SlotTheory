@@ -775,10 +775,15 @@ public partial class GameController : Node
 		};
 		tower.ZIndex = 20;
 
+		bool mobile = MobileOptimization.IsMobile();
+		float rangeFillAlpha = mobile ? 0.050f : 0.035f;
+		float rangeBorderAlpha = mobile ? 0.16f : 0.11f;
+		float rangeBorderWidth = mobile ? 1.25f : 1.05f;
+
 		// Range indicator — semi-transparent fill in tower's body colour
 		var rangeCircle = new Polygon2D
 		{
-			Color = new Color(tower.BodyColor.R, tower.BodyColor.G, tower.BodyColor.B, 0.08f),
+			Color = new Color(tower.BodyColor.R, tower.BodyColor.G, tower.BodyColor.B, rangeFillAlpha),
 			ZIndex = -1,
 			ShowBehindParent = true,
 		};
@@ -799,8 +804,8 @@ public partial class GameController : Node
 		var rangeBorder = new Line2D
 		{
 			Points       = borderPts,
-			Width        = 1.5f,
-			DefaultColor = new Color(tower.BodyColor.R, tower.BodyColor.G, tower.BodyColor.B, 0.22f),
+			Width        = rangeBorderWidth,
+			DefaultColor = new Color(tower.BodyColor.R, tower.BodyColor.G, tower.BodyColor.B, rangeBorderAlpha),
 			ZIndex       = -1,
 			ShowBehindParent = true,
 		};
@@ -1480,15 +1485,24 @@ public partial class GameController : Node
 
 	private void RenderMap()
 	{
-		// Background + neon grid
+		// Neon grid background
 		_mapVisuals.AddChild(new GridBackground());
-		// Neon path — layered glow: outer haze ? dark road fill ? edge glow ? bright edge
+
+		// Procedural scenery props (trees/rocks) are generated but previously not rendered.
+		if (_currentMap is ProceduralMap procedural && procedural.Decorations.Length > 0)
+		{
+			var decoLayer = new MapDecorationLayer();
+			decoLayer.Initialize(procedural.Decorations, _runState.RngSeed);
+			_mapVisuals.AddChild(decoLayer);
+		}
+
+		// Neon path — tuned to keep lane separation dark and reduce red bleed between segments.
 		Vector2[] pts = _currentMap.Path;
-		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 120f, DefaultColor = new Color(1.0f, 0.05f, 0.55f, 0.05f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
-		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 80f,  DefaultColor = new Color(1.0f, 0.10f, 0.55f, 0.10f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
-		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 50f,  DefaultColor = new Color(0.10f, 0.00f, 0.18f, 0.95f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
-		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 16f,  DefaultColor = new Color(1.0f, 0.10f, 0.55f, 0.18f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
-		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 3f,   DefaultColor = new Color(1.0f, 0.25f, 0.65f, 0.85f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
+		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 112f, DefaultColor = new Color(0.72f, 0.01f, 0.50f, 0.015f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
+		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 70f,  DefaultColor = new Color(0.64f, 0.03f, 0.46f, 0.030f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
+		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 46f,  DefaultColor = new Color(0.06f, 0.00f, 0.12f, 0.97f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
+		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 14f,  DefaultColor = new Color(1.00f, 0.12f, 0.58f, 0.11f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
+		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 2.6f, DefaultColor = new Color(1.00f, 0.27f, 0.70f, 0.78f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
 		// Path flow arrows
 		_pathFlow = new PathFlow();
 		_mapVisuals.AddChild(_pathFlow);
@@ -1598,7 +1612,7 @@ public partial class GameController : Node
 				foreach (var mod in tower.Modifiers)
 				{
 					var mdef = DataLoader.GetModifierDef(mod.ModifierId);
-					text += "* " + mdef.Name + " - " + mdef.Description + "\n";
+				text += "* " + mdef.Name + " " + mdef.Description + "\n";
 				}
 			_tooltipLabel.Text = text.TrimEnd();
 			// Size panel to fit label
