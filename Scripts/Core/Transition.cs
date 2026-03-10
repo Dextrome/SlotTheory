@@ -18,10 +18,11 @@ public partial class Transition : CanvasLayer
 
     private bool _busy;
     private bool _postFxReducedMotion;
+    private bool _postFxEnabled;
     private Vector2 _cachedViewportSize = Vector2.Zero;
 
-    private const float FadeOutSeconds = 0.26f;
-    private const float FadeInSeconds = 0.30f;
+    private const float FadeOutSeconds = 0.34f;
+    private const float FadeInSeconds = 0.40f;
 
     public override void _Ready()
     {
@@ -30,8 +31,10 @@ public partial class Transition : CanvasLayer
         ProcessMode = ProcessModeEnum.Always;
 
         _postFxReducedMotion = IsReducedMotionEnabled();
+        _postFxEnabled = IsPostFxEnabled();
         SetupPostFx();
         SetupTransitionLayers();
+        ApplyPostFxState();
         RefreshFxLayout(force: true);
         PlayFadeIn();
     }
@@ -41,11 +44,13 @@ public partial class Transition : CanvasLayer
         RefreshFxLayout();
 
         bool reducedMotion = IsReducedMotionEnabled();
-        if (reducedMotion == _postFxReducedMotion)
+        bool postFxEnabled = IsPostFxEnabled();
+        if (reducedMotion == _postFxReducedMotion && postFxEnabled == _postFxEnabled)
             return;
 
         _postFxReducedMotion = reducedMotion;
-        _worldEnvironment.Environment = BuildEnvironment(_postFxReducedMotion);
+        _postFxEnabled = postFxEnabled;
+        ApplyPostFxState();
     }
 
     public void FadeToScene(string scenePath)
@@ -56,6 +61,7 @@ public partial class Transition : CanvasLayer
         _busy = true;
 
         bool reducedMotion = IsReducedMotionEnabled();
+        bool postFxEnabled = IsPostFxEnabled();
         _overlay.Color = Colors.Transparent;
         _tintOverlay.Color = new Color(0.15f, 0.05f, 0.26f, 0f);
 
@@ -65,10 +71,13 @@ public partial class Transition : CanvasLayer
         tween.SetParallel(true);
         tween.TweenProperty(_overlay, "color", Colors.Black, reducedMotion ? FadeOutSeconds * 0.72f : FadeOutSeconds)
              .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.In);
-        tween.TweenProperty(_tintOverlay, "color:a", reducedMotion ? 0.08f : 0.28f, reducedMotion ? FadeOutSeconds * 0.72f : FadeOutSeconds * 0.88f)
-             .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+        if (postFxEnabled)
+        {
+            tween.TweenProperty(_tintOverlay, "color:a", reducedMotion ? 0.08f : 0.28f, reducedMotion ? FadeOutSeconds * 0.72f : FadeOutSeconds * 0.88f)
+                 .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+        }
 
-        if (!reducedMotion)
+        if (postFxEnabled && !reducedMotion)
             PlayTransitionAccents(FadeOutSeconds);
 
         tween.Chain();
@@ -88,7 +97,7 @@ public partial class Transition : CanvasLayer
     {
         _worldEnvironment = new WorldEnvironment
         {
-            Environment = BuildEnvironment(_postFxReducedMotion)
+            Environment = BuildEnvironment(_postFxReducedMotion, _postFxEnabled)
         };
         AddChild(_worldEnvironment);
         MoveChild(_worldEnvironment, 0);
@@ -128,8 +137,11 @@ public partial class Transition : CanvasLayer
         AddChild(_sweep);
     }
 
-    private Environment BuildEnvironment(bool reducedMotion)
+    private static Environment? BuildEnvironment(bool reducedMotion, bool postFxEnabled)
     {
+        if (!postFxEnabled)
+            return null;
+
         var env = new Environment();
 
         // Bloom / glow
@@ -157,9 +169,10 @@ public partial class Transition : CanvasLayer
     private void PlayFadeIn()
     {
         bool reducedMotion = IsReducedMotionEnabled();
+        bool postFxEnabled = IsPostFxEnabled();
 
         _overlay.Color = Colors.Black;
-        _tintOverlay.Color = new Color(0.15f, 0.05f, 0.26f, reducedMotion ? 0.06f : 0.22f);
+        _tintOverlay.Color = new Color(0.15f, 0.05f, 0.26f, postFxEnabled ? (reducedMotion ? 0.06f : 0.22f) : 0f);
 
         RefreshFxLayout(force: true);
 
@@ -174,24 +187,27 @@ public partial class Transition : CanvasLayer
         tween.SetParallel(true);
         tween.TweenProperty(_overlay, "color:a", 0f, reducedMotion ? FadeInSeconds * 0.72f : FadeInSeconds)
              .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
-        tween.TweenProperty(_tintOverlay, "color:a", 0f, reducedMotion ? FadeInSeconds * 0.72f : FadeInSeconds * 0.92f)
-             .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+        if (postFxEnabled)
+        {
+            tween.TweenProperty(_tintOverlay, "color:a", 0f, reducedMotion ? FadeInSeconds * 0.72f : FadeInSeconds * 0.92f)
+                 .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+        }
 
-        if (!reducedMotion)
+        if (postFxEnabled && !reducedMotion)
         {
             var fx = CreateTween();
             fx.SetParallel(true);
-            fx.TweenProperty(_scanline, "color:a", 0.32f, 0.06f)
+            fx.TweenProperty(_scanline, "color:a", 0.30f, 0.12f)
               .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
-            fx.TweenProperty(_scanline, "position:y", -10f, FadeInSeconds * 0.88f)
-              .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
-            fx.TweenProperty(_sweep, "color:a", 0.18f, 0.09f)
+            fx.TweenProperty(_scanline, "position:y", -10f, FadeInSeconds * 1.10f)
+              .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+            fx.TweenProperty(_sweep, "color:a", 0.16f, 0.14f)
               .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
-            fx.TweenProperty(_sweep, "position:x", -_sweep.Size.X, FadeInSeconds)
-              .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
+            fx.TweenProperty(_sweep, "position:x", -_sweep.Size.X, FadeInSeconds * 1.15f)
+              .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
             fx.Chain();
-            fx.TweenProperty(_scanline, "color:a", 0f, 0.12f);
-            fx.TweenProperty(_sweep, "color:a", 0f, 0.12f);
+            fx.TweenProperty(_scanline, "color:a", 0f, 0.18f);
+            fx.TweenProperty(_sweep, "color:a", 0f, 0.18f);
         }
     }
 
@@ -205,17 +221,17 @@ public partial class Transition : CanvasLayer
 
         var fx = CreateTween();
         fx.SetParallel(true);
-        fx.TweenProperty(_scanline, "color:a", 0.34f, 0.05f)
+        fx.TweenProperty(_scanline, "color:a", 0.30f, 0.10f)
           .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
-        fx.TweenProperty(_scanline, "position:y", _cachedViewportSize.Y + 10f, duration * 0.86f)
-          .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.InOut);
-        fx.TweenProperty(_sweep, "color:a", 0.26f, 0.08f)
+        fx.TweenProperty(_scanline, "position:y", _cachedViewportSize.Y + 10f, duration * 1.08f)
+          .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+        fx.TweenProperty(_sweep, "color:a", 0.22f, 0.12f)
           .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
-        fx.TweenProperty(_sweep, "position:x", _cachedViewportSize.X + _sweep.Size.X, duration)
-          .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.InOut);
+        fx.TweenProperty(_sweep, "position:x", _cachedViewportSize.X + _sweep.Size.X, duration * 1.12f)
+          .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
         fx.Chain();
-        fx.TweenProperty(_scanline, "color:a", 0f, 0.10f);
-        fx.TweenProperty(_sweep, "color:a", 0f, 0.10f);
+        fx.TweenProperty(_scanline, "color:a", 0f, 0.16f);
+        fx.TweenProperty(_sweep, "color:a", 0f, 0.16f);
     }
 
     private void RefreshFxLayout(bool force = false)
@@ -226,17 +242,30 @@ public partial class Transition : CanvasLayer
 
         _cachedViewportSize = size;
 
-        _scanline.Size = new Vector2(size.X, 6f);
+        _scanline.Size = new Vector2(size.X, 8f);
         _scanline.Position = new Vector2(0f, -10f);
 
-        _sweep.Size = new Vector2(Mathf.Max(180f, size.X * 0.16f), size.Y * 1.8f);
+        _sweep.Size = new Vector2(Mathf.Max(220f, size.X * 0.20f), size.Y * 1.8f);
         _sweep.PivotOffset = _sweep.Size * 0.5f;
         _sweep.Position = new Vector2(-_sweep.Size.X, size.Y * 0.5f);
         _sweep.RotationDegrees = 15f;
     }
 
+    private void ApplyPostFxState()
+    {
+        _worldEnvironment.Environment = BuildEnvironment(_postFxReducedMotion, _postFxEnabled);
+        _tintOverlay.Visible = _postFxEnabled;
+        _scanline.Visible = _postFxEnabled;
+        _sweep.Visible = _postFxEnabled;
+    }
+
     private static bool IsReducedMotionEnabled()
     {
         return SettingsManager.Instance?.ReducedMotion ?? false;
+    }
+
+    private static bool IsPostFxEnabled()
+    {
+        return SettingsManager.Instance?.PostFxEnabled ?? true;
     }
 }
