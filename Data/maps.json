@@ -89,7 +89,7 @@
   "random": {
     "id": "random_map",
     "name": "Unstable Anomaly",
-    "description": "Procedurally generated layout. Different every run.",
+    "description": "Procedural zigzag variants with mirrored starts/exits. New seed every run.",
     "displayOrder": 999,
     "isRandom": true,
     "path": [],
