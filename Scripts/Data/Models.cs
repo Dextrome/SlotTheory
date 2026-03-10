@@ -8,6 +8,7 @@ public record TowerDef(
     float AttackInterval,
     float Range,
     bool AppliesMark = false,
+    int SplitCount = 0,
     int ChainCount = 0,
     float ChainRange = 260f,
     float ChainDamageDecay = 0.57f

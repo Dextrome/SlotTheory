@@ -753,6 +753,7 @@ public partial class GameController : Node
 			AttackInterval    = def.AttackInterval,
 			Range             = def.Range,
 			AppliesMark       = def.AppliesMark,
+			SplitCount        = def.SplitCount,
 			ChainCount        = def.ChainCount,
 			ChainRange        = def.ChainRange,
 			ChainDamageDecay  = def.ChainDamageDecay,
@@ -762,6 +763,7 @@ public partial class GameController : Node
 				"heavy_cannon"  => new Color(1.00f, 0.55f, 0.00f),  // orange
 				"marker_tower"  => new Color(0.75f, 0.30f, 1.00f),  // purple
 				"chain_tower"   => new Color(0.55f, 0.90f, 1.00f),  // electric blue
+				"rift_prism"    => new Color(0.70f, 1.00f, 0.56f),  // lime
 				_               => Colors.Yellow,
 			},
 			BodyColor = towerId switch
@@ -770,6 +772,7 @@ public partial class GameController : Node
 				"heavy_cannon"  => new Color(1.00f, 0.55f, 0.00f),
 				"marker_tower"  => new Color(1.00f, 0.15f, 0.60f),
 				"chain_tower"   => new Color(0.50f, 0.85f, 1.00f),
+				"rift_prism"    => new Color(0.58f, 0.98f, 0.50f),
 				_               => new Color(0.20f, 0.50f, 1.00f),
 			},
 		};
@@ -1606,6 +1609,8 @@ public partial class GameController : Node
 			text += $"{effDamage:0.#} dmg  -  {effInterval:0.##} s  -  {(int)tower.Range} px\n";
 			if (tower.IsChainTower)
 				text += $"chains x{tower.ChainCount}  ({(int)(tower.ChainDamageDecay * 100)}% per bounce)  range {(int)tower.ChainRange} px\n";
+			if (tower.SplitCount > 0)
+				text += $"split shots x{tower.SplitCount + 1}  ({(int)(Balance.SplitShotDamageRatio * 100)}% each)\n";
 			if (tower.Modifiers.Count == 0)
 				text += "(no modifiers)";
 			else
@@ -1991,6 +1996,7 @@ public partial class GameController : Node
 				"heavy_cannon" => new Color(1.00f, 0.60f, 0.18f),
 				"marker_tower" => new Color(1.00f, 0.30f, 0.72f),
 				"chain_tower" => new Color(0.62f, 0.90f, 1.00f),
+				"rift_prism" => new Color(0.60f, 1.00f, 0.58f),
 				_ => new Color(0.75f, 0.85f, 1.00f),
 			};
 
@@ -2016,6 +2022,7 @@ public partial class GameController : Node
 					"heavy_cannon" => "HC",
 					"marker_tower" => "MK",
 					"chain_tower" => "AR",
+					"rift_prism" => "RP",
 					_ => "TW",
 				},
 				HorizontalAlignment = HorizontalAlignment.Center,
@@ -2346,7 +2353,10 @@ public partial class GameController : Node
 		CurrentPhase = GamePhase.Wave;
 		int waveNumber = _runState.WaveIndex + 1;
 		if (_botRunner == null) ShowWaveAnnouncement(waveNumber);
-		var nextCfg = DataLoader.GetWaveConfig(_runState.WaveIndex);
+		var nextCfg = DataLoader.GetWaveConfig(
+			_runState.WaveIndex,
+			SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy,
+			_runState.SelectedMapId);
 		bool clumpedArmored = nextCfg.ClumpArmored && nextCfg.TankyCount >= 2;
 		_combatSim.InitialSpawnDelay = (_botRunner == null && clumpedArmored) ? 0.8f : 0f;
 		if (_botRunner == null && clumpedArmored)
@@ -2456,7 +2466,7 @@ public partial class GameController : Node
 		return modifierId switch
 		{
 			"exploit_weakness" => tower.AppliesMark || tower.TowerId == "marker_tower",
-			"chain_reaction" => tower.TowerId == "chain_tower",
+			"chain_reaction" => tower.IsChainTower,
 			"overkill" or "focus_lens" => tower.TowerId == "heavy_cannon"
 				|| tower.Modifiers.Any(m => m.ModifierId == "focus_lens")
 				|| tower.BaseDamage >= 40f,

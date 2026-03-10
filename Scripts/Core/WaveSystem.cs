@@ -9,7 +9,8 @@ public class WaveSystem
 
     public void LoadWave(int waveIndex, RunState state)
     {
-        _current = DataLoader.GetWaveConfig(waveIndex);
+        var difficulty = SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy;
+        _current = DataLoader.GetWaveConfig(waveIndex, difficulty, state.SelectedMapId);
         state.EnemiesSpawnedThisWave = 0;
         state.WaveTime = 0f;
     }

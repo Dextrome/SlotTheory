@@ -290,7 +290,7 @@ public class ModifierTests
     // ── FeedbackLoop ──────────────────────────────────────────────────────
 
     [Fact]
-    public void FeedbackLoop_OnKill_ReducesCooldownBy25Percent()
+    public void FeedbackLoop_OnKill_ReducesCooldownByConfiguredPercent()
     {
         var tower = new FakeTower { Cooldown = 0.8f };
         var enemy = new FakeEnemy { Hp = 0f }; // dead

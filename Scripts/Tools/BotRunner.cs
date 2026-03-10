@@ -368,11 +368,17 @@ public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null, string?
     private void AnalyzeWaveDifficulty()
     {
         var problemWaves = new List<(int wave, string issue, string suggestion)>();
+        string? mapForConfig = _results.Select(r => r.Map).Distinct().Count() == 1
+            ? _results[0].Map
+            : null;
+        DifficultyMode difficultyForConfig = _results.Select(r => r.Difficulty).Distinct().Count() == 1
+            ? _results[0].Difficulty
+            : (SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy);
         
         for (int w = 0; w < Balance.TotalWaves; w++)
         {
             int waveNum = w + 1;
-            var waveConfig = DataLoader.GetWaveConfig(w);
+            var waveConfig = DataLoader.GetWaveConfig(w, difficultyForConfig, mapForConfig);
             
             // Gather loss data for this wave
             var lossesAtWave = _results.Where(r => !r.Won && r.WaveReached == waveNum).Count();

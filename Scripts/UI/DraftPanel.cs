@@ -378,8 +378,10 @@ public partial class DraftPanel : CanvasLayer
         if (totalPicks > 1 && pickNumber == totalPicks)
             AnimateBonusPickStamp();
 
+        string? mapId = GameController.Instance?.GetRunState().SelectedMapId;
+        var difficulty = SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy;
         var cfg = waveNumber >= 1 && waveNumber <= Balance.TotalWaves
-            ? DataLoader.GetWaveConfig(waveNumber - 1)
+            ? DataLoader.GetWaveConfig(waveNumber - 1, difficulty, mapId)
             : null;
 
         if (cfg != null)
@@ -1191,6 +1193,7 @@ public partial class DraftPanel : CanvasLayer
         "heavy_cannon" => new Color(1.00f, 0.60f, 0.18f),
         "marker_tower" => new Color(1.00f, 0.30f, 0.72f),
         "chain_tower" => new Color(0.62f, 0.90f, 1.00f),
+        "rift_prism" => new Color(0.60f, 1.00f, 0.58f),
         _ => new Color(0.75f, 0.85f, 1.00f),
     };
 
@@ -1200,6 +1203,7 @@ public partial class DraftPanel : CanvasLayer
         "heavy_cannon" => "HC",
         "marker_tower" => "MK",
         "chain_tower" => "AR",
+        "rift_prism" => "RP",
         _ => "TW",
     };
 
@@ -1209,6 +1213,7 @@ public partial class DraftPanel : CanvasLayer
         "heavy_cannon" => "Slow burst shots with heavy hits.",
         "marker_tower" => "Applies mark to amplify team damage.",
         "chain_tower" => "Bounces into grouped enemy packs.",
+        "rift_prism" => "Built-in split + short chain. Great for lane-wide combo setups.",
         _ => "Generalist tower.",
     };
 

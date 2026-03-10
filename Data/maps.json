@@ -4,7 +4,7 @@
       "id": "arena_classic",
       "name": "Crossroads",
       "description": "Two mid-lane crossovers + near-parallel returns. Center slot is king, but greed slots exist.",
-      "displayOrder": 2,
+      "displayOrder": 1,
       "path": [
         { "x": 160, "y": 96 },
         { "x": 1120, "y": 96 },
@@ -34,7 +34,7 @@
       "id": "gauntlet",
       "name": "Pinch & Bleed",
       "description": "Asymmetric S-curve with a brutal central pinch. You either stack synergy in the choke or you leak.",
-      "displayOrder": 1,
+      "displayOrder": 2,
       "path": [
         { "x": 240, "y": 80 },
         { "x": 240, "y": 208 },

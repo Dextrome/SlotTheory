@@ -82,6 +82,11 @@ public static class RunNameGenerator
             "Coil", "Emitter", "Arcgrid", "Stormline", "Forknode", "Conduit", "Relay", "Surge",
             "Tesla", "Lattice", "Sparkweb", "Arcforge"
         ],
+        ["rift_prism"] =
+        [
+            "Prism", "Riftline", "Fracture", "Shardweb", "Bloom", "Splicer", "Forkglass", "Glimmer",
+            "Prismcore", "Refraction", "Splitline", "Riftforge"
+        ],
     };
 
     private static readonly Dictionary<string, string[]> FamilySuffixWords = new(StringComparer.OrdinalIgnoreCase)
@@ -305,6 +310,7 @@ public static class RunNameGenerator
             "heavy_cannon" => new Color(1.00f, 0.60f, 0.18f),
             "marker_tower" => new Color(1.00f, 0.30f, 0.72f),
             "chain_tower" => new Color(0.62f, 0.90f, 1.00f),
+            "rift_prism" => new Color(0.62f, 1.00f, 0.58f),
             _ => new Color(0.84f, 0.92f, 1.00f),
         };
 
@@ -403,6 +409,7 @@ public static class RunNameGenerator
         return dominantTower switch
         {
             "chain_tower" => "MultiTarget",
+            "rift_prism" => "MultiTarget",
             "marker_tower" => "StatusSynergy",
             "rapid_shooter" => "DamageScaling",
             "heavy_cannon" => "DamageScaling",

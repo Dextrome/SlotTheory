@@ -88,7 +88,7 @@ Modifier assignment uses `Preview -> Confirm`:
 - Overreach: +40% range, -20% damage
 - Hair Trigger: +35% attack speed, -18% range
 - Split Shot: 2 split projectiles at 35% each (280px search radius); extra copies add extra split
-- Feedback Loop: kill reduces current cooldown by 25%
+- Feedback Loop: kill reduces current cooldown by 50%
 - Chain Reaction: +1 bounce per copy, sets chain carry to 60%
 
 Max modifiers per tower: 3
