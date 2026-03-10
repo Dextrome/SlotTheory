@@ -49,8 +49,8 @@ public static class Balance
     public const float MarkedDuration = 4.0f;     // seconds
 
     // Slow status
-    public const float SlowSpeedFactor = 0.75f;   // enemy moves at 75% speed (-25%) per Chill Shot; stacks multiplicatively
-    public const float SlowDuration = 5f;          // seconds
+    public const float SlowSpeedFactor = 0.70f;   // enemy moves at 70% speed (-30%) per Chill Shot; stacks multiplicatively
+    public const float SlowDuration = 6f;          // seconds
 
     // Momentum modifier
     public const int   MomentumMaxStacks    = 5;     // 5 stacks × 16% = ×1.80 max multiplier
@@ -64,8 +64,12 @@ public static class Balance
     public const float FeedbackLoopCooldownReduction = 0.25f; // 25% of remaining cooldown removed on kill
 
     // Hair Trigger modifier
-    public const float HairTriggerAttackSpeed = 1.35f; // +35% attack speed
+    public const float HairTriggerAttackSpeed = 1.30f; // +30% attack speed
     public const float HairTriggerRangeFactor = 0.82f; // -18% range
+
+    // Overreach modifier
+    public const float OverreachRangeFactor = 1.55f;  // +55% range
+    public const float OverreachDamageFactor = 0.90f; // -10% damage
 
     // Exploit Weakness modifier
     public const float ExploitWeaknessDamageBonus = 1.60f; // ×1.60 damage to Marked enemies (+60%)
@@ -77,8 +81,8 @@ public static class Balance
     public const float ChainDamageDecay = 0.60f; // damage multiplier per bounce
 
     // Focus Lens modifier
-    public const float FocusLensDamageBonus = 2.25f; // +125% damage
-    public const float FocusLensAttackInterval = 2f; // x2 attack interval
+    public const float FocusLensDamageBonus = 2.40f; // +140% damage
+    public const float FocusLensAttackInterval = 1.85f; // x1.85 attack interval
 
     // Enemies — Swift Walker
     public const float SwiftHpMultiplier = 1.5f;  // 1.5× basic walker HP

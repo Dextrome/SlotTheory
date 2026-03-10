@@ -81,6 +81,8 @@ public static class ModifierDataValidator
         float momentumMaxMultiplier = 1f + (Balance.MomentumBonusPerStack * Balance.MomentumMaxStacks);
         float focusLensPercent = (Balance.FocusLensDamageBonus - 1f) * 100f;
         float slowPercent = (1f - Balance.SlowSpeedFactor) * 100f;
+        float overreachRangePercent = (Balance.OverreachRangeFactor - 1f) * 100f;
+        float overreachDamagePenalty = (1f - Balance.OverreachDamageFactor) * 100f;
 
         return new Dictionary<string, ModifierExpectation>
         {
@@ -109,7 +111,7 @@ public static class ModifierDataValidator
                 RequiredTokens = new()
                 {
                     $"+{FormatInt(focusLensPercent)}%",
-                    $"{MultiplySign}{FormatInt(Balance.FocusLensAttackInterval)}"
+                    $"{MultiplySign}{FormatTwoDp(Balance.FocusLensAttackInterval)}"
                 }
             },
             ["slow"] = new ModifierExpectation
@@ -124,7 +126,11 @@ public static class ModifierDataValidator
             ["overreach"] = new ModifierExpectation
             {
                 Name = "Overreach",
-                RequiredTokens = new() { "+40%", $"{MinusSign}20%" }
+                RequiredTokens = new()
+                {
+                    $"+{FormatInt(overreachRangePercent)}%",
+                    $"{MinusSign}{FormatInt(overreachDamagePenalty)}%"
+                }
             },
             ["hair_trigger"] = new ModifierExpectation
             {

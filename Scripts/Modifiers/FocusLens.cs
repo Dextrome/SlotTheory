@@ -4,7 +4,7 @@ using SlotTheory.Entities;
 
 namespace SlotTheory.Modifiers;
 
-/// <summary>+125% damage, ×2 attack interval. Big hits, slow fire — ideal for Overkill combos.</summary>
+/// <summary>+140% damage, x1.85 attack interval. Big hits, slow fire - ideal for Overkill combos.</summary>
 public class FocusLens : Modifier
 {
     public FocusLens(ModifierDef def) { ModifierId = def.Id; }

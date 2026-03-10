@@ -17,22 +17,22 @@
   "focus_lens": {
     "Id": "focus_lens",
     "Name": "Focus Lens",
-    "Description": "+125% damage, \u00D72 attack interval."
+    "Description": "+140% damage, \u00D71.85 attack interval."
   },
   "slow": {
     "Id": "slow",
     "Name": "Chill Shot",
-    "Description": "On hit: \u221225% move speed for 5 s. Stacks multiplicatively on same tower."
+    "Description": "On hit: \u221230% move speed for 6 s. Stacks multiplicatively on same tower."
   },
   "overreach": {
     "Id": "overreach",
     "Name": "Overreach",
-    "Description": "+40% range, \u221220% damage."
+    "Description": "+55% range, \u221210% damage."
   },
   "hair_trigger": {
     "Id": "hair_trigger",
     "Name": "Hair Trigger",
-    "Description": "+35% attack speed, \u221218% range."
+    "Description": "+30% attack speed, \u221218% range."
   },
   "split_shot": {
     "Id": "split_shot",

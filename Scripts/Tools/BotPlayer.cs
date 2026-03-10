@@ -133,9 +133,9 @@ public class BotPlayer
                     "feedback_loop"    =>  8f,
                     "overkill"         =>  7f,
                     "chain_reaction"   =>  6f,
-                    "focus_lens"       =>  6f,
-                    "overreach"        =>  4f,
-                    "slow"             =>  5f,
+                    "focus_lens"       =>  7f,
+                    "overreach"        =>  6f,
+                    "slow"             =>  6f,
                     _                  =>  2f,
                 };
                 // Context-aware slot: some mods prefer specific tower types
@@ -272,7 +272,9 @@ public class BotPlayer
                     "overkill"         => 5f,
                     "split_shot"       => 5f,
                     "chain_reaction"   => 4f,
-                    "slow"             => 3f,
+                    "focus_lens"       => 5f,
+                    "overreach"        => 5f,
+                    "slow"             => 5f,
                     _                  => 2f,
                 };
                 if (score > bestScore) { bestScore = score; bestMod = opt; }
@@ -363,9 +365,10 @@ public class BotPlayer
                     "feedback_loop"  =>  8f,
                     "split_shot"     =>  7f,
                     "overkill"       =>  6f,
-                    "focus_lens"     =>  5f,
+                    "focus_lens"     =>  6f,
                     "chain_reaction" =>  3f,  // already have 2, deprioritize
-                    "slow"           =>  4f,
+                    "overreach"      =>  5f,
+                    "slow"           =>  6f,
                     _                =>  2f,
                 };
                 if (score > bestScore) { bestScore = score; bestMod = opt; }
@@ -453,7 +456,7 @@ public class BotPlayer
 
         if (eligible.Count > 0)
         {
-            // 1. Focus Lens on heavy_cannon: ×2.25 damage, ×2 interval — still a big DPS gain
+                        // 1. Focus Lens on heavy_cannon: x2.40 damage, x1.85 interval for burst-heavy scaling
             var fl = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "focus_lens");
             if (fl != null)
             {

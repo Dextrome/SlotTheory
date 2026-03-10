@@ -73,3 +73,8 @@ UNIT_TEST_ANALYSIS.md
 CHANGELOG_0.1.7.md
 *.stdout.log
 *.stderr.log
+bot_runs_parallel_20260310_122725/aggregate_1000_report.json
+bot_runs_parallel_20260310_122725/balance_report_1000.md
+bot_runs_post_tune_1000_20260310_143046/balance_report_post_tune_1000.md
+bot_runs_post_tune_20260310_130706/aggregate_post_tune_300.json
+bot_runs_post_tune_1000_20260310_143046/aggregate_post_tune_1000.json
