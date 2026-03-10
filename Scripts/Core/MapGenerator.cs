@@ -102,7 +102,7 @@ public static class MapGenerator
 	}
 
 	/// <summary>
-	/// Zigzag path with top-row backtrack and column variation.
+	/// Zigzag path with column variation.
 	/// Randomized knobs:
 	/// - midRow in [2,3]
 	/// - returnCol in [1,2] (where path comes back up)
@@ -131,7 +131,6 @@ public static class MapGenerator
 		float cyM = CellCenter(0,        midRow).Y;
 		float cyB = CellCenter(0,        ROWS - 1).Y;
 
-		// Extra top-row backtrack adds a full additional firing window for row-1 slots.
 		return new Vector2[]
 		{
 			new(cx0, 50),    // entry above grid
@@ -140,16 +139,14 @@ public static class MapGenerator
 			new(cx7, cyB),   // bottom of col 7
 			new(cxR, cyB),   // end of bottom horizontal
 			new(cxR, cy0),   // top of return column
-			new(cxE, cy0),   // top sweep pass 1 end
-			new(cxR, cy0),   // pass 2 back to return column
-			new(cxE, cy0),   // pass 3 to exit column
+			new(cxE, cy0),   // top sweep to exit column
 			new(cxE, 50),    // exit above grid
 		};
 	}
 
 	/// <summary>
-	/// Variant with an early top loop and a repeated bottom sweep.
-	/// Visibly different from GenerateZigzag while keeping similar total path length.
+	/// Variant with an early top loop and bottom finish.
+	/// Visibly different from GenerateZigzag while keeping similar flow.
 	/// </summary>
 	private static Vector2[] GenerateTopFirstZigzag(Random rng, bool[,] pathGrid)
 	{
@@ -181,16 +178,14 @@ public static class MapGenerator
 			new(cx7, cy0),
 			new(cxR, cy0),
 			new(cxR, cyB),
-			new(cxE, cyB),   // bottom pass 1
-			new(cxR, cyB),   // bottom pass 2 backtrack
-			new(cxE, cyB),   // bottom pass 3 to exit column
+			new(cxE, cyB),   // bottom sweep to exit column
 			new(cxE, cy0),
 			new(cxE, 50),    // exit
 		};
 	}
 
 	/// <summary>
-	/// Variant with top loop, bottom sweep, then a top-row backtrack finish.
+	/// Variant with top loop and bottom sweep before final ascent.
 	/// </summary>
 	private static Vector2[] GenerateDualLoopZigzag(Random rng, bool[,] pathGrid)
 	{
@@ -225,8 +220,6 @@ public static class MapGenerator
 			new(cxR, cyB),
 			new(cxE, cyB),
 			new(cxE, cy0),
-			new(cxR, cy0),   // top backtrack
-			new(cxE, cy0),   // finish top pass
 			new(cxE, 50),    // exit
 		};
 	}
@@ -416,40 +409,86 @@ public static class MapGenerator
 			if (n > maxCount) { maxCount = n; hRow = r; }
 		}
 
-		// Place all 6 slots in the row just above the horizontal leg (cols 1–6).
-		// Every slot then covers overlapping sections of the path, giving all towers
-		// active targets for the full enemy traverse — no dead-zone slots.
-		// Fall back to the row below if hRow == 0 (shouldn't happen with r0 ∈ [2,4]).
 		int slotRow = hRow > 0 ? hRow - 1 : hRow + 1;
+		int altRow;
+		if (hRow == 0)
+			altRow = Math.Min(ROWS - 1, slotRow + 1);
+		else if (hRow == ROWS - 1)
+			altRow = Math.Max(0, slotRow - 1);
+		else
+			altRow = hRow + 1;
 
 		var result = new Vector2[NumSlots];
+		var used = new HashSet<(int Col, int Row)>();
 		int placed = 0;
 
-		// Scan cols 1–COLS-1 to handle both U-shape (slots at cols 1–6)
-		// and zigzag (slots at cols 2–7, since col 1 is the return vertical).
-		for (int c = 1; c < COLS && placed < NumSlots; c++)
+		bool TryPlace(int col, int row)
 		{
-			if (!pathGrid[c, slotRow])
-				result[placed++] = CellCenter(c, slotRow);
+			if (placed >= NumSlots) return false;
+			if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return false;
+			if (pathGrid[col, row]) return false;
+			if (!used.Add((col, row))) return false;
+			result[placed++] = CellCenter(col, row);
+			return true;
 		}
 
-		// Rare fallback: fill any remaining slots from the adjacent row on the other side.
+		// Pass 1: preferred row.
+		for (int c = 1; c < COLS && placed < NumSlots; c++)
+			TryPlace(c, slotRow);
+
+		// Pass 2: opposite-side row.
+		if (altRow != slotRow)
+		{
+			for (int c = 1; c < COLS && placed < NumSlots; c++)
+				TryPlace(c, altRow);
+		}
+
+		// Pass 3: nearest rows first, favoring adjacent-to-path cells.
 		if (placed < NumSlots)
 		{
-			int altRow = (hRow > 0 && hRow < ROWS - 1)
-				? hRow + 1
-				: (hRow == 0 ? 1 : ROWS - 2);
-			for (int c = 1; c < COLS && placed < NumSlots; c++)
+			var rowOrder = Enumerable.Range(0, ROWS)
+				.OrderBy(r => Math.Abs(r - slotRow))
+				.ThenBy(r => Math.Abs(r - hRow))
+				.ToArray();
+
+			foreach (int r in rowOrder)
 			{
-				if (!pathGrid[c, altRow])
-					result[placed++] = CellCenter(c, altRow);
+				for (int c = 1; c < COLS && placed < NumSlots; c++)
+				{
+					if (IsAdjacentToPath(pathGrid, c, r))
+						TryPlace(c, r);
+				}
+				if (placed >= NumSlots) break;
+			}
+
+			foreach (int r in rowOrder)
+			{
+				for (int c = 1; c < COLS && placed < NumSlots; c++)
+					TryPlace(c, r);
+				if (placed >= NumSlots) break;
+			}
+		}
+
+		// Hard safety net: include edge-column cells only if needed.
+		if (placed < NumSlots)
+		{
+			for (int r = 0; r < ROWS && placed < NumSlots; r++)
+				TryPlace(0, r);
+		}
+
+		// Last resort: fill with any unused cell (should never be reached).
+		if (placed < NumSlots)
+		{
+			for (int c = 0; c < COLS && placed < NumSlots; c++)
+			for (int r = 0; r < ROWS && placed < NumSlots; r++)
+			{
+				if (used.Add((c, r)))
+					result[placed++] = CellCenter(c, r);
 			}
 		}
 
 		return result;
 	}
-
-	// ── Decoration placement ─────────────────────────────────────────────
 
 	private static DecorationData[] PlaceDecorations(Random rng, bool[,] pathGrid, Vector2[] slotPositions)
 	{
