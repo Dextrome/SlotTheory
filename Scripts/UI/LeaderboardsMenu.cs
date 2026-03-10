@@ -116,8 +116,9 @@ public partial class LeaderboardsMenu : Node
             _mapOption.AddItem(map.Name);
         _mapOption.ItemSelected += OnMapSelected;
 
-        _difficultyOption = new OptionButton { CustomMinimumSize = new Vector2(180, 40) };
+        _difficultyOption = new OptionButton { CustomMinimumSize = new Vector2(220, 40) };
         _difficultyOption.AddThemeFontSizeOverride("font_size", 18);
+        _difficultyOption.AddItem("Easy");
         _difficultyOption.AddItem("Normal");
         _difficultyOption.AddItem("Hard");
         _difficultyOption.ItemSelected += OnDifficultySelected;
@@ -161,7 +162,7 @@ public partial class LeaderboardsMenu : Node
             int selectedIndex = _maps.FindIndex(m => m.Id == _selectedMapId);
             _mapOption.Selected = selectedIndex >= 0 ? selectedIndex : 0;
         }
-        _difficultyOption.Selected = _selectedDifficulty == DifficultyMode.Hard ? 1 : 0;
+        _difficultyOption.Selected = DifficultyToOptionIndex(_selectedDifficulty);
         UpdateModeButtons();
 
         if (_mode == BoardMode.Global && _selectedMapId == LeaderboardKey.RandomMapId)
@@ -188,7 +189,7 @@ public partial class LeaderboardsMenu : Node
 
     private void OnDifficultySelected(long index)
     {
-        _selectedDifficulty = index == 1 ? DifficultyMode.Hard : DifficultyMode.Normal;
+        _selectedDifficulty = OptionIndexToDifficulty(index);
         _ = RefreshBoardAsync();
     }
 
@@ -228,7 +229,7 @@ public partial class LeaderboardsMenu : Node
         int token = ++_refreshToken;
         ClearRows();
 
-        string diff = _selectedDifficulty == DifficultyMode.Hard ? "Hard" : "Normal";
+        string diff = DifficultyToLabel(_selectedDifficulty);
         string mapName = _maps.FirstOrDefault(m => m.Id == _selectedMapId)?.Name ?? _selectedMapId;
         _status.Text = $"{(_mode == BoardMode.Local ? "Local" : "Global")} - {mapName} - {diff}";
 
@@ -469,6 +470,30 @@ public partial class LeaderboardsMenu : Node
         if (text.Length <= maxLen) return text;
         return maxLen <= 3 ? text[..maxLen] : text[..(maxLen - 3)] + "...";
     }
+
+    private static int DifficultyToOptionIndex(DifficultyMode difficulty) => difficulty switch
+    {
+        DifficultyMode.Easy => 0,
+        DifficultyMode.Normal => 1,
+        DifficultyMode.Hard => 2,
+        _ => 0,
+    };
+
+    private static DifficultyMode OptionIndexToDifficulty(long index) => index switch
+    {
+        0 => DifficultyMode.Easy,
+        1 => DifficultyMode.Normal,
+        2 => DifficultyMode.Hard,
+        _ => DifficultyMode.Easy,
+    };
+
+    private static string DifficultyToLabel(DifficultyMode difficulty) => difficulty switch
+    {
+        DifficultyMode.Easy => "Easy",
+        DifficultyMode.Normal => "Normal",
+        DifficultyMode.Hard => "Hard",
+        _ => "Easy",
+    };
 
     private static Button MakeButton(string text, int width, int height, int fontSize, System.Action callback)
     {

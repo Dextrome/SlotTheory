@@ -103,7 +103,7 @@ public partial class LeaderboardManager : Node
         if (!_service.IsAvailable) return false;
 
         // Steam overlay route opens the leaderboards hub; bucket is only used by non-hub providers.
-        var defaultBucket = new LeaderboardBucket("arena_classic", DifficultyMode.Normal);
+        var defaultBucket = new LeaderboardBucket("arena_classic", DifficultyMode.Easy);
         return await _service.ShowNativeUiAsync(defaultBucket);
     }
 
@@ -231,7 +231,7 @@ public partial class LeaderboardManager : Node
         public int Score { get; set; }
         public RunScorePayload Payload { get; set; } = new(
             LeaderboardKey.RandomMapId,
-            DifficultyMode.Normal,
+            DifficultyMode.Easy,
             false,
             0,
             0,

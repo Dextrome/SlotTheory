@@ -111,7 +111,7 @@ public partial class GameController : Node
 	{
 		Instance = this;
 		DataLoader.LoadAll();
-		// Bot playtest mode: godot --headless --path ... -- --bot --runs N --difficulty normal|hard
+		// Bot playtest mode: godot --headless --path ... -- --bot --runs N --difficulty easy|normal|hard
 		var userArgs = OS.GetCmdlineUserArgs();
 		if (userArgs.Contains("--bot"))
 		{
@@ -125,7 +125,8 @@ public partial class GameController : Node
 			if (di >= 0 && di + 1 < userArgs.Length)
 			{
 				var diffStr = userArgs[di + 1].ToLower();
-				if (diffStr == "normal") targetDifficulty = DifficultyMode.Normal;
+				if (diffStr == "easy") targetDifficulty = DifficultyMode.Easy;
+				else if (diffStr == "normal") targetDifficulty = DifficultyMode.Normal;
 				else if (diffStr == "hard") targetDifficulty = DifficultyMode.Hard;
 			}
 			
@@ -255,7 +256,7 @@ public partial class GameController : Node
 			CurrentPhase = GamePhase.Loss;
 			MobileRunSession.Clear();
 			MobileOptimization.HapticStrong();
-			AchievementManager.Instance?.CheckRunEnd(_runState, SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal, won: false);
+			AchievementManager.Instance?.CheckRunEnd(_runState, SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy, won: false);
 			int livesLost = Balance.StartingLives - _runState.Lives;
 			SoundManager.Instance?.Play("game_over");
 				string runName = BuildRunName(registerInHistory: true, wonOverride: false, waveReachedOverride: _runState.WaveIndex + 1);
@@ -283,7 +284,7 @@ public partial class GameController : Node
 				CurrentPhase = GamePhase.Win;
 				MobileRunSession.Clear();
 				MobileOptimization.HapticStrong();
-				AchievementManager.Instance?.CheckRunEnd(_runState, SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal, won: true);
+				AchievementManager.Instance?.CheckRunEnd(_runState, SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy, won: true);
 				SoundManager.Instance?.Play("victory");
 					string runName = BuildRunName(registerInHistory: true, wonOverride: true, waveReachedOverride: Balance.TotalWaves);
 				var runColors = BuildRunNameColors();
@@ -2205,7 +2206,7 @@ public partial class GameController : Node
 		string mapId = string.IsNullOrEmpty(_runState.SelectedMapId)
 			? LeaderboardKey.RandomMapId
 			: _runState.SelectedMapId!;
-		var difficulty = SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal;
+		var difficulty = SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy;
 		long nowUnix = (long)System.Math.Floor(Time.GetUnixTimeFromSystem());
 		string gameVersion = ProjectSettings.GetSetting("application/config/version", "dev").AsString();
 		return new RunScorePayload(
@@ -2299,7 +2300,7 @@ public partial class GameController : Node
 		string mapId = string.IsNullOrEmpty(_runState.SelectedMapId)
 			? LeaderboardKey.RandomMapId
 			: _runState.SelectedMapId!;
-		var difficulty = SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal;
+		var difficulty = SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy;
 		bool won = wonOverride ?? CurrentPhase == GamePhase.Win;
 		int waveReached = waveReachedOverride ?? GuessCurrentWaveReached();
 

@@ -23,7 +23,7 @@ public class WaveSystem
 
     public static float GetScaledHp(string typeId, int waveIndex)
     {
-        var difficulty = SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal;
+        var difficulty = SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy;
         return GetScaledHp(typeId, waveIndex, difficulty);
     }
 

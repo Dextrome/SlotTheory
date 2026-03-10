@@ -104,7 +104,8 @@ public static class RunNameGenerator
 
     private static readonly string[] DefaultMapWords = ["Frontline", "Lattice", "Route", "Circuit", "Grid", "Track", "Path"];
     private static readonly string[] HardWords = ["Iron", "Savage", "Ruthless", "Apex", "Night", "Elite", "Dire", "Relentless"];
-    private static readonly string[] NormalWords = ["Prime", "Clean", "Steady", "Balanced", "Classic", "True", "Core", "Mainline"];
+    private static readonly string[] NormalWords = ["Tempered", "Focused", "Adaptive", "Sharpened", "Steadfast", "Tactical", "Forward", "Charged"];
+    private static readonly string[] EasyWords = ["Prime", "Clean", "Steady", "Balanced", "Classic", "True", "Core", "Mainline"];
     private static readonly string[] BlazingWords = ["Blitz", "Flash", "Rapid", "Breakneck", "Snap"];
     private static readonly string[] FastWords = ["Quick", "Swift", "Surge", "Dash", "Rush"];
     private static readonly string[] SteadyWords = ["Steady", "Measured", "Rhythm", "Flow", "Balanced"];
@@ -590,7 +591,13 @@ public static class RunNameGenerator
         => MapWords.TryGetValue(mapId ?? "", out var words) ? words : DefaultMapWords;
 
     private static string[] GetDifficultyWords(DifficultyMode difficulty)
-        => difficulty == DifficultyMode.Hard ? HardWords : NormalWords;
+        => difficulty switch
+        {
+            DifficultyMode.Easy => EasyWords,
+            DifficultyMode.Normal => NormalWords,
+            DifficultyMode.Hard => HardWords,
+            _ => EasyWords,
+        };
 
     private static string[] GetPaceWords(RunPaceBucket pace) => pace switch
     {

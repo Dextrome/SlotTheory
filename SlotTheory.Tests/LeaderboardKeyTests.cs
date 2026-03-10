@@ -9,6 +9,10 @@ public class LeaderboardKeyTests
     // ── DifficultyToken ────────────────────────────────────────────────────────
 
     [Fact]
+    public void DifficultyToken_Easy_ReturnsEasy()
+        => Assert.Equal("easy", LeaderboardKey.DifficultyToken(DifficultyMode.Easy));
+
+    [Fact]
     public void DifficultyToken_Normal_ReturnsNormal()
         => Assert.Equal("normal", LeaderboardKey.DifficultyToken(DifficultyMode.Normal));
 
@@ -19,8 +23,10 @@ public class LeaderboardKeyTests
     // ── ToBucketId ─────────────────────────────────────────────────────────────
 
     [Theory]
+    [InlineData("arena_classic", DifficultyMode.Easy,   "arena_classic_easy")]
     [InlineData("arena_classic", DifficultyMode.Normal, "arena_classic_normal")]
     [InlineData("arena_classic", DifficultyMode.Hard,   "arena_classic_hard")]
+    [InlineData("forest_run",    DifficultyMode.Easy,   "forest_run_easy")]
     [InlineData("forest_run",    DifficultyMode.Normal, "forest_run_normal")]
     public void ToBucketId_FormatsCorrectly(string mapId, DifficultyMode diff, string expected)
         => Assert.Equal(expected, LeaderboardKey.ToBucketId(mapId, diff));
@@ -28,6 +34,7 @@ public class LeaderboardKeyTests
     // ── ToSectionKey ───────────────────────────────────────────────────────────
 
     [Theory]
+    [InlineData("arena_classic", DifficultyMode.Easy,   "bucket.arena_classic.easy")]
     [InlineData("arena_classic", DifficultyMode.Normal, "bucket.arena_classic.normal")]
     [InlineData("arena_classic", DifficultyMode.Hard,   "bucket.arena_classic.hard")]
     public void ToSectionKey_FormatsCorrectly(string mapId, DifficultyMode diff, string expected)
@@ -36,6 +43,7 @@ public class LeaderboardKeyTests
     // ── ToSteamLeaderboardName ─────────────────────────────────────────────────
 
     [Theory]
+    [InlineData("arena_classic", DifficultyMode.Easy,   "global_arena_classic_easy")]
     [InlineData("arena_classic", DifficultyMode.Normal, "global_arena_classic_normal")]
     [InlineData("arena_classic", DifficultyMode.Hard,   "global_arena_classic_hard")]
     public void ToSteamLeaderboardName_FormatsCorrectly(string mapId, DifficultyMode diff, string expected)
@@ -50,19 +58,25 @@ public class LeaderboardKeyTests
     // ── Key uniqueness ─────────────────────────────────────────────────────────
 
     [Fact]
-    public void BucketId_NormalAndHard_AreDistinct()
+    public void BucketId_EasyNormalHard_AreDistinct()
     {
+        string easy = LeaderboardKey.ToBucketId("arena_classic", DifficultyMode.Easy);
         string normal = LeaderboardKey.ToBucketId("arena_classic", DifficultyMode.Normal);
-        string hard   = LeaderboardKey.ToBucketId("arena_classic", DifficultyMode.Hard);
+        string hard = LeaderboardKey.ToBucketId("arena_classic", DifficultyMode.Hard);
+        Assert.NotEqual(easy, normal);
         Assert.NotEqual(normal, hard);
+        Assert.NotEqual(easy, hard);
     }
 
     [Fact]
-    public void SectionKey_NormalAndHard_AreDistinct()
+    public void SectionKey_EasyNormalHard_AreDistinct()
     {
+        string easy = LeaderboardKey.ToSectionKey("arena_classic", DifficultyMode.Easy);
         string normal = LeaderboardKey.ToSectionKey("arena_classic", DifficultyMode.Normal);
-        string hard   = LeaderboardKey.ToSectionKey("arena_classic", DifficultyMode.Hard);
+        string hard = LeaderboardKey.ToSectionKey("arena_classic", DifficultyMode.Hard);
+        Assert.NotEqual(easy, normal);
         Assert.NotEqual(normal, hard);
+        Assert.NotEqual(easy, hard);
     }
 
     [Fact]

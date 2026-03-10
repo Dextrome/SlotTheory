@@ -22,7 +22,7 @@ public partial class SettingsManager : Node
     public bool  ColorblindMode { get; private set; } = false;
     public bool  ReducedMotion  { get; private set; } = false;
     public bool  DevMode        { get; private set; } = false;
-    public DifficultyMode Difficulty { get; private set; } = DifficultyMode.Normal;
+    public DifficultyMode Difficulty { get; private set; } = DifficultyMode.Easy;
     public string PlayerName    { get; private set; } = "";
     public string PlayerId      { get; private set; } = "";
 
@@ -166,7 +166,14 @@ public partial class SettingsManager : Node
         ColorblindMode = (bool)cfg.GetValue(SecDisp,  "colorblind",    false);
         ReducedMotion  = (bool)cfg.GetValue(SecDisp,  "reduced_motion", false);
         DevMode        = (bool)cfg.GetValue(SecDisp,  "dev_mode",       false);
-        Difficulty  = (DifficultyMode)(int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Normal);
+        int rawDifficulty = (int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Easy);
+        Difficulty = rawDifficulty switch
+        {
+            (int)DifficultyMode.Easy => DifficultyMode.Easy,
+            (int)DifficultyMode.Normal => DifficultyMode.Normal,
+            (int)DifficultyMode.Hard => DifficultyMode.Hard,
+            _ => DifficultyMode.Easy,
+        };
         PlayerName  = (string)cfg.GetValue(SecIdentity, "player_name", "");
         PlayerId    = (string)cfg.GetValue(SecIdentity, "player_id",   "");
     }

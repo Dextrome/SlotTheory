@@ -24,7 +24,7 @@ public partial class EndScreen : CanvasLayer
 	private Button _mainMenuButton = null!;
 	private Label _hintLabel = null!;
 	private string _leaderboardMapId = LeaderboardKey.RandomMapId;
-	private DifficultyMode _leaderboardDifficulty = DifficultyMode.Normal;
+	private DifficultyMode _leaderboardDifficulty = DifficultyMode.Easy;
 	private RunScorePayload? _pendingPayload;
 	private string _pendingLocalLine = "";
 	private bool _namePromptActive;

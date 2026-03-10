@@ -142,17 +142,22 @@ Modes cycle on tower click/tap during waves.
 
 - Master / Music / FX sliders (saved to `user://settings.cfg`)
 - Display mode toggle
-- Difficulty: Normal / Hard
+- Difficulty: Easy / Normal / Hard
 
-Normal multipliers:
+Easy multipliers:
 - Enemy HP: 1.0x
 - Enemy count: 1.0x
 - Spawn interval: 1.0x
 
+Normal multipliers:
+- Enemy HP: 1.05x
+- Enemy count: 1.05x
+- Spawn interval: 0.97x
+
 Hard multipliers:
 - Enemy HP: 1.1x
 - Enemy count: 1.1x
-- Spawn interval: 0.95x (faster spawns)
+- Spawn interval: 0.94x
 
 ---
 
@@ -162,6 +167,12 @@ Run automated balance tests:
 
 ```text
 --scene res://Scenes/Main.tscn -- --bot --runs N
+```
+
+Optional difficulty override:
+
+```text
+--difficulty easy|normal|hard
 ```
 
 Bot rotates strategies across maps and difficulties and prints summary stats.
