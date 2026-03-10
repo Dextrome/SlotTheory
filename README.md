@@ -145,14 +145,14 @@ Modes cycle on tower click/tap during waves.
 - Difficulty: Normal / Hard
 
 Normal multipliers:
-- Enemy HP: 1.05x
-- Enemy count: 1.05x
-- Spawn interval: 0.95x (slightly faster spawns)
+- Enemy HP: 1.0x
+- Enemy count: 1.0x
+- Spawn interval: 1.0x
 
 Hard multipliers:
 - Enemy HP: 1.1x
-- Enemy count: 1.2x
-- Spawn interval: 0.9x (faster spawns)
+- Enemy count: 1.1x
+- Spawn interval: 0.95x (faster spawns)
 
 ---
 

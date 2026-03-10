@@ -195,8 +195,8 @@ Used consistently in draft cards, proc halos, and live modifier icons. Colorblin
 
 | Mode | Enemy HP | Enemy Count | Spawn Interval |
 |---|---:|---:|---:|
-| Normal | 1.05x | 1.05x | 0.95x (slightly faster spawns) |
-| Hard | 1.1x | 1.2x | 0.9x (faster spawns) |
+| Normal | 1.0x | 1.0x | 1.0x |
+| Hard | 1.1x | 1.1x | 0.95x (faster spawns) |
 
 ### Tension Warning
 
@@ -259,8 +259,9 @@ Target mode icon is drawn in a fixed upright badge on the slot node (to the righ
 ## Procedural Map (random map pathing)
 
 - Grid: 8 columns x 5 rows, cell size 160 x 128, origin y=80.
-- Path generation supports U, S, and W style route variants.
-- Slot placement: 6 zone-based placements (3 x 2 zones), preferring grass adjacent to path.
+- Path generation uses 3 long zigzag archetypes with seeded row/column variation.
+- Optional horizontal mirroring (plus occasional vertical mirroring) varies start/end sides.
+- Slot placement uses 6 non-path cells in a row adjacent to the dominant horizontal leg (with fallback row fill).
 - Rendering:
   - Neon grid background (`GridBackground`).
   - Multi-layer path rendering (5 Line2D passes for haze/fill/edges).

@@ -15,6 +15,7 @@ obj/
 # Export builds
 builds/
 export/
+release/
 
 # Android development
 *.apk
@@ -69,3 +70,4 @@ Scripts/Tools/icon_32_test.py
 Scenes/IconExport.tscn
 MOBILE_UI_SCALING_PLAN.md
 UNIT_TEST_ANALYSIS.md
+CHANGELOG_0.1.7.md

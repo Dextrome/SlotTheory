@@ -106,7 +106,7 @@ public partial class MainMenu : Node
 		// Version label — inside vbox so it scales with pinch zoom
 		var versionLabel = new Label
 		{
-			Text = "v0.1.6",
+			Text = $"v{GetGameVersion()}",
 			HorizontalAlignment = HorizontalAlignment.Right,
 			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
@@ -219,5 +219,11 @@ public partial class MainMenu : Node
 		ls.ShadowSize    = 14;
 		ls.ShadowOffset  = Vector2.Zero;
 		return ls;
+	}
+
+	private static string GetGameVersion()
+	{
+		string gameVersion = ProjectSettings.GetSetting("application/config/version", "dev").AsString();
+		return string.IsNullOrWhiteSpace(gameVersion) ? "dev" : gameVersion;
 	}
 }
