@@ -175,6 +175,7 @@ public partial class TowerInstance : Node2D, ITowerView
             case "chain_tower":   DrawChainTower();   break;
             default: DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f)); break;
         }
+        DrawMobileReadabilityAccent();
         DrawTargetLockLine();
     }
 
@@ -222,7 +223,7 @@ public partial class TowerInstance : Node2D, ITowerView
     private void DrawRapidShooter()
     {
         var cyan  = new Color(0.10f, 0.75f, 1.00f);
-        var dark  = new Color(0.02f, 0.02f, 0.12f);
+        var dark  = LiftInnerTone(new Color(0.02f, 0.02f, 0.12f));
         var flash = new Color(0.70f, 0.95f, 1.00f);
         float shot = ShotKick();
         float sway = Mathf.Sin(_idleTime * 2.7f) * 1.2f;
@@ -248,7 +249,7 @@ public partial class TowerInstance : Node2D, ITowerView
     private void DrawHeavyCannon()
     {
         var orange = new Color(1.00f, 0.55f, 0.00f);
-        var dark   = new Color(0.10f, 0.04f, 0.00f);
+        var dark   = LiftInnerTone(new Color(0.10f, 0.04f, 0.00f));
         var rim    = new Color(1.00f, 0.82f, 0.30f);
         float shot = ShotKick();
         float piston = Mathf.Sin(_idleTime * 1.8f) * 1.1f;
@@ -277,7 +278,7 @@ public partial class TowerInstance : Node2D, ITowerView
     private void DrawMarkerTower()
     {
         var pink = new Color(1.00f, 0.15f, 0.60f);
-        var dark = new Color(0.12f, 0.00f, 0.08f);
+        var dark = LiftInnerTone(new Color(0.12f, 0.00f, 0.08f));
         float shot = ShotKick();
         float antennaRecoil = shot * 1.7f;
         var beam = new Color(0.90f, 0.70f, 1.00f);
@@ -299,7 +300,7 @@ public partial class TowerInstance : Node2D, ITowerView
     private void DrawChainTower()
     {
         var blue  = new Color(0.50f, 0.85f, 1.00f);
-        var dark  = new Color(0.02f, 0.05f, 0.15f);
+        var dark  = LiftInnerTone(new Color(0.02f, 0.05f, 0.15f));
         float shot = ShotKick();
         float surge = shot * 0.6f;
         float flicker = 0.78f + 0.22f * Mathf.Sin(_idleTime * 16f);
@@ -335,5 +336,33 @@ public partial class TowerInstance : Node2D, ITowerView
             pts[i] = new Vector2(Mathf.Cos(a) * radius, Mathf.Sin(a) * radius);
         }
         return pts;
+    }
+
+    private static Color LiftInnerTone(Color color)
+    {
+        if (!MobileOptimization.IsMobile())
+            return color;
+
+        // Mobile OLED + neon backgrounds can swallow near-black fills.
+        // Keep an inner dark tone, but raise the floor for readability.
+        const float floorR = 0.12f;
+        const float floorG = 0.12f;
+        const float floorB = 0.16f;
+        return new Color(
+            Mathf.Max(color.R, floorR),
+            Mathf.Max(color.G, floorG),
+            Mathf.Max(color.B, floorB),
+            color.A
+        );
+    }
+
+    private void DrawMobileReadabilityAccent()
+    {
+        if (!MobileOptimization.IsMobile())
+            return;
+
+        var ring = new Color(BodyColor.R, BodyColor.G, BodyColor.B, 0.58f);
+        DrawArc(Vector2.Zero, 13.5f, 0f, Mathf.Tau, 36, ring, 1.7f);
+        DrawCircle(Vector2.Zero, 1.6f, new Color(1f, 1f, 1f, 0.78f));
     }
 }
