@@ -2,51 +2,51 @@
   "momentum": {
     "Id": "momentum",
     "Name": "Momentum",
-    "Description": "Gain +16% damage per consecutive hit on same target, up to \u00D71.80. Resets on target switch."
+    "Description": "+16% same-target dmg/shot (max x1.8)."
   },
   "overkill": {
     "Id": "overkill",
     "Name": "Overkill",
-    "Description": "60% excess damage from a kill spills to the next enemy in the lane."
+    "Description": "60% overkill dmg to next enemy in lane."
   },
   "exploit_weakness": {
     "Id": "exploit_weakness",
     "Name": "Exploit Weakness",
-    "Description": "Deal +60% damage to Marked enemies."
+    "Description": "+60% dmg vs Marked."
   },
   "focus_lens": {
     "Id": "focus_lens",
     "Name": "Focus Lens",
-    "Description": "+140% damage, \u00D71.85 attack interval."
+    "Description": "+140% dmg, +85% attack interval."
   },
   "slow": {
     "Id": "slow",
     "Name": "Chill Shot",
-    "Description": "On hit: \u221230% move speed for 6 s. Stacks multiplicatively on same tower."
+    "Description": "Hit: -30% move speed for 6s."
   },
   "overreach": {
     "Id": "overreach",
     "Name": "Overreach",
-    "Description": "+55% range, \u221210% damage."
+    "Description": "+55% range, -10% dmg."
   },
   "hair_trigger": {
     "Id": "hair_trigger",
     "Name": "Hair Trigger",
-    "Description": "+30% attack speed, \u221218% range."
+    "Description": "+30% atk speed, -18% range."
   },
   "split_shot": {
     "Id": "split_shot",
     "Name": "Split Shot",
-    "Description": "On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more."
+    "Description": "Hit: +2 nearby shots @35%. +1 shot/copy."
   },
   "feedback_loop": {
     "Id": "feedback_loop",
     "Name": "Feedback Loop",
-    "Description": "Killing an enemy reduces this tower's current cooldown by 25%."
+    "Description": "Kill: -25% current cooldown."
   },
   "chain_reaction": {
     "Id": "chain_reaction",
     "Name": "Chain Reaction",
-    "Description": "After hitting a target, the attack jumps to 1 nearby enemy for 60% damage. Stacks: each copy adds 1 more bounce."
+    "Description": "Hit: +1 bounce @60%. +1 bounce/copy."
   }
 }
