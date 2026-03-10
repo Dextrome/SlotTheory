@@ -20,7 +20,9 @@ public static class LeaderboardKey
     public static string DifficultyToken(DifficultyMode difficulty)
         => difficulty switch
         {
+            DifficultyMode.Easy => "easy",
+            DifficultyMode.Normal => "normal",
             DifficultyMode.Hard => "hard",
-            _ => "normal",
+            _ => "easy",
         };
 }

@@ -20,6 +20,7 @@ public partial class MapSelectPanel : Node
 	private string _selectedMapId = "random_map";
 	private DifficultyMode _selectedDifficulty = DifficultyMode.Normal;
 	private VBoxContainer? _mapListContainer;
+	private Button? _easyButton;
 	private Button? _normalButton;
 	private Button? _hardButton;
 	private Label? _personalBestLabel;
@@ -115,6 +116,8 @@ public partial class MapSelectPanel : Node
 		difficultyContainer.AddThemeConstantOverride("separation", 12);
 		rightColumn.AddChild(difficultyContainer);
 
+		_easyButton = CreateDifficultyButton("Easy", DifficultyMode.Easy);
+		difficultyContainer.AddChild(_easyButton);
 		_normalButton = CreateDifficultyButton("Normal", DifficultyMode.Normal);
 		difficultyContainer.AddChild(_normalButton);
 		_hardButton = CreateDifficultyButton("Hard", DifficultyMode.Hard);
@@ -307,7 +310,7 @@ public partial class MapSelectPanel : Node
 		var btn = new Button
 		{
 			Text = text,
-			CustomMinimumSize = new Vector2(114, 40),
+			CustomMinimumSize = new Vector2(86, 40),
 			ToggleMode = false,
 		};
 		btn.AddThemeFontSizeOverride("font_size", 18);
@@ -329,22 +332,12 @@ public partial class MapSelectPanel : Node
 		var selected   = new Color(1.0f, 0.85f, 0.25f); // gold
 		var unselected = new Color(0.55f, 0.55f, 0.55f); // grey
 
+		if (_easyButton != null)
+			ApplyDifficultyButtonColor(_easyButton, _selectedDifficulty == DifficultyMode.Easy ? selected : unselected);
 		if (_normalButton != null)
-		{
-			var c = _selectedDifficulty == DifficultyMode.Normal ? selected : unselected;
-			_normalButton.AddThemeColorOverride("font_color",         c);
-			_normalButton.AddThemeColorOverride("font_hover_color",   c);
-			_normalButton.AddThemeColorOverride("font_pressed_color", c);
-			_normalButton.AddThemeColorOverride("font_focus_color",   c);
-		}
+			ApplyDifficultyButtonColor(_normalButton, _selectedDifficulty == DifficultyMode.Normal ? selected : unselected);
 		if (_hardButton != null)
-		{
-			var c = _selectedDifficulty == DifficultyMode.Hard ? selected : unselected;
-			_hardButton.AddThemeColorOverride("font_color",         c);
-			_hardButton.AddThemeColorOverride("font_hover_color",   c);
-			_hardButton.AddThemeColorOverride("font_pressed_color", c);
-			_hardButton.AddThemeColorOverride("font_focus_color",   c);
-		}
+			ApplyDifficultyButtonColor(_hardButton, _selectedDifficulty == DifficultyMode.Hard ? selected : unselected);
 	}
 
 	private void UpdatePersonalBestLabel()
@@ -357,9 +350,23 @@ public partial class MapSelectPanel : Node
 			return;
 		}
 
-		string diff = _selectedDifficulty == DifficultyMode.Hard ? "Hard" : "Normal";
+		string diff = _selectedDifficulty switch
+		{
+			DifficultyMode.Easy => "Easy",
+			DifficultyMode.Normal => "Normal",
+			DifficultyMode.Hard => "Hard",
+			_ => "Easy"
+		};
 		_personalBestLabel.Text =
 			$"Personal Best ({diff}): {best.Score:N0}\n" +
 			$"Wave {best.WaveReached}/{Balance.TotalWaves}  |  Lives {best.LivesRemaining}";
+	}
+
+	private static void ApplyDifficultyButtonColor(Button button, Color color)
+	{
+		button.AddThemeColorOverride("font_color", color);
+		button.AddThemeColorOverride("font_hover_color", color);
+		button.AddThemeColorOverride("font_pressed_color", color);
+		button.AddThemeColorOverride("font_focus_color", color);
 	}
 }

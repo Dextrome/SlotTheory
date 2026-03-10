@@ -33,14 +33,14 @@ public static class DataLoader
 
     public static TowerDef GetTowerDef(string id) => _towers[id];
     public static ModifierDef GetModifierDef(string id) => _modifiers[id];
-    public static WaveConfig GetWaveConfig(int index) => GetWaveConfig(index, Core.SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal);
+    public static WaveConfig GetWaveConfig(int index) => GetWaveConfig(index, Core.SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy);
     public static WaveConfig GetWaveConfig(int index, DifficultyMode difficulty)
     {
         var baseWave = _waves[index];
-        if (difficulty == DifficultyMode.Normal)
+        if (difficulty == DifficultyMode.Easy)
             return baseWave;
-        
-        // Apply difficulty multipliers for Hard mode
+
+        // Apply difficulty multipliers for scaled modes (Normal/Hard)
         return new WaveConfig(
             EnemyCount: Mathf.CeilToInt(baseWave.EnemyCount * Balance.GetEnemyCountMultiplier(difficulty)),
             SpawnInterval: baseWave.SpawnInterval * Balance.GetSpawnIntervalMultiplier(difficulty),

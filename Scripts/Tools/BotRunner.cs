@@ -36,10 +36,10 @@ public class BotRunner
     private readonly BotStrategy[]    _strategies;
     private readonly string[]         _maps;
 	private readonly DifficultyMode? _targetDifficulty;
-	private DifficultyMode[] _difficulties = { DifficultyMode.Normal, DifficultyMode.Hard };
+	private DifficultyMode[] _difficulties = { DifficultyMode.Easy, DifficultyMode.Normal, DifficultyMode.Hard };
     private readonly List<RunResult>  _results = new();
     private BotStrategy       _curStrategy;
-    private DifficultyMode    _curDifficulty = DifficultyMode.Normal;
+    private DifficultyMode    _curDifficulty = DifficultyMode.Easy;
     private string            _curMap = "random_map";
     private readonly List<int>   _waveLives   = new();
     private readonly List<float> _waveInRange = new();
