@@ -11,6 +11,7 @@ public partial class Settings : Node
     private Button? _fullscreenBtn;
     private Button? _colorblindBtn;
     private Button? _reducedMotionBtn;
+    private Button? _postFxBtn;
     private Button? _devModeBtn;
 
     public override void _Ready()
@@ -101,6 +102,16 @@ public partial class Settings : Node
         _reducedMotionBtn.Pressed += OnToggleReducedMotion;
         vbox.AddChild(_reducedMotionBtn);
 
+        bool isPostFx = sm?.PostFxEnabled ?? true;
+        _postFxBtn = new Button
+        {
+            Text = PostFxLabel(isPostFx),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _postFxBtn.AddThemeFontSizeOverride("font_size", 20);
+        _postFxBtn.Pressed += OnTogglePostFx;
+        vbox.AddChild(_postFxBtn);
+
         AddSpacer(vbox, 24);
 
         // ── Developer ─────────────────────────────────────────────────
@@ -173,6 +184,14 @@ public partial class Settings : Node
             _reducedMotionBtn.Text = ReducedMotionLabel(next);
     }
 
+    private void OnTogglePostFx()
+    {
+        bool next = !(SettingsManager.Instance?.PostFxEnabled ?? true);
+        SettingsManager.Instance?.SetPostFxEnabled(next);
+        if (_postFxBtn != null)
+            _postFxBtn.Text = PostFxLabel(next);
+    }
+
     private static string FullscreenLabel(bool full) =>
         full ? "Display:  Fullscreen" : "Display:  Windowed";
 
@@ -181,6 +200,9 @@ public partial class Settings : Node
 
     private static string ReducedMotionLabel(bool on) =>
         on ? "Reduced Motion:  On" : "Reduced Motion:  Off";
+
+    private static string PostFxLabel(bool on) =>
+        on ? "Post FX:  On" : "Post FX:  Off";
 
     private void OnToggleDevMode()
     {

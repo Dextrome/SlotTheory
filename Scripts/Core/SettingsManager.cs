@@ -21,6 +21,7 @@ public partial class SettingsManager : Node
     public bool  Fullscreen    { get; private set; } = false;
     public bool  ColorblindMode { get; private set; } = false;
     public bool  ReducedMotion  { get; private set; } = false;
+    public bool  PostFxEnabled  { get; private set; } = true;
     public bool  DevMode        { get; private set; } = false;
     public DifficultyMode Difficulty { get; private set; } = DifficultyMode.Easy;
     public string PlayerName    { get; private set; } = "";
@@ -84,6 +85,12 @@ public partial class SettingsManager : Node
     public void SetReducedMotion(bool enabled)
     {
         ReducedMotion = enabled;
+        Save();
+    }
+
+    public void SetPostFxEnabled(bool enabled)
+    {
+        PostFxEnabled = enabled;
         Save();
     }
 
@@ -165,6 +172,7 @@ public partial class SettingsManager : Node
         Fullscreen    = (bool) cfg.GetValue(SecDisp,  "fullscreen",    false);
         ColorblindMode = (bool)cfg.GetValue(SecDisp,  "colorblind",    false);
         ReducedMotion  = (bool)cfg.GetValue(SecDisp,  "reduced_motion", false);
+        PostFxEnabled  = (bool)cfg.GetValue(SecDisp,  "post_fx",       true);
         DevMode        = (bool)cfg.GetValue(SecDisp,  "dev_mode",       false);
         int rawDifficulty = (int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Easy);
         Difficulty = rawDifficulty switch
@@ -187,6 +195,7 @@ public partial class SettingsManager : Node
         cfg.SetValue(SecDisp,  "fullscreen",     Fullscreen);
         cfg.SetValue(SecDisp,  "colorblind",     ColorblindMode);
         cfg.SetValue(SecDisp,  "reduced_motion", ReducedMotion);
+        cfg.SetValue(SecDisp,  "post_fx",        PostFxEnabled);
         cfg.SetValue(SecDisp,  "dev_mode",       DevMode);
         cfg.SetValue("gameplay",   "difficulty",   (int)Difficulty);
         cfg.SetValue(SecIdentity, "player_name",  PlayerName);
