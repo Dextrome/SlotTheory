@@ -25,19 +25,19 @@ public class ModifierTests
     // ── Overreach ─────────────────────────────────────────────────────────
 
     [Fact]
-    public void Overreach_OnEquip_IncreasesRange140Percent()
+    public void Overreach_OnEquip_IncreasesRange155Percent()
     {
         var tower = new FakeTower { Range = 200f };
         new Overreach(Def("overreach")).OnEquip(tower);
-        Assert.Equal(280f, tower.Range, precision: 2);
+        Assert.Equal(310f, tower.Range, precision: 2);
     }
 
     [Fact]
-    public void Overreach_OnEquip_ReducesDamage80Percent()
+    public void Overreach_OnEquip_ReducesDamage90Percent()
     {
         var tower = new FakeTower { BaseDamage = 10f };
         new Overreach(Def("overreach")).OnEquip(tower);
-        Assert.Equal(8f, tower.BaseDamage, precision: 2);
+        Assert.Equal(9f, tower.BaseDamage, precision: 2);
     }
 
     // ── HairTrigger ───────────────────────────────────────────────────────
@@ -121,7 +121,7 @@ public class ModifierTests
     }
 
     [Fact]
-    public void FocusLens_ModifyAttackInterval_DoublesInterval()
+    public void FocusLens_ModifyAttackInterval_AppliesConfiguredMultiplier()
     {
         var tower = new FakeTower { AttackInterval = 1f };
         var mod = new FocusLens(Def("focus_lens"));

@@ -113,11 +113,11 @@ public partial class HowToPlay : Node
 		AddModRow(vbox, "Momentum",         "+16% damage per consecutive hit on same target, up to x1.80. Resets on target switch.");
 		AddModRow(vbox, "Overkill",         "Excess damage from a kill spills to the next enemy in the lane.");
 		AddModRow(vbox, "Exploit Weakness", "+60% damage to Marked enemies. Pairs with Marker Tower.");
-		AddModRow(vbox, "Focus Lens",       "+125% damage, x2 attack interval. Big hits, slow fire - ideal for Overkill combos.");
-		AddModRow(vbox, "Chill Shot",       "On hit: -25% move speed for 5 s. Keeps enemies in range longer.");
-		AddModRow(vbox, "Overreach",        "+40% range, -20% damage. Wider coverage at a small cost - great on Marker Tower.");
-		AddModRow(vbox, "Hair Trigger",     "+40% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
-		AddModRow(vbox, "Split Shot",       "On hit, fires 2 projectiles at nearby enemies for 42% damage each. Each additional copy fires one more projectile.");
+		AddModRow(vbox, "Focus Lens",       "+140% damage, x1.85 attack interval. Big hits, slow fire - ideal for Overkill combos.");
+		AddModRow(vbox, "Chill Shot",       "On hit: -30% move speed for 6 s. Keeps enemies in range longer.");
+		AddModRow(vbox, "Overreach",        "+55% range, -10% damage. Wider coverage with a light damage tradeoff.");
+		AddModRow(vbox, "Hair Trigger",     "+30% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
+		AddModRow(vbox, "Split Shot",       "On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
 		AddModRow(vbox, "Feedback Loop",    "Killing an enemy reduces this tower's current cooldown by 25%. Lets rapid killers fire again sooner.");
 		AddModRow(vbox, "Chain Reaction",   "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce.");
 		AddSpacer(vbox, 12);
@@ -136,7 +136,7 @@ public partial class HowToPlay : Node
 		AddLine(vbox, "Marker Tower + Exploit Weakness - marks the target then bursts it for x2.24 total damage.");
 		AddLine(vbox, "Heavy Cannon + Overkill - chain-kills tightly packed groups; spill damage carries forward.");
 		AddLine(vbox, "Arc Emitter + Chain Reaction - each copy adds a bounce; with 3 copies, Arc Emitter can hit 6 targets per shot.");
-		AddLine(vbox, "Heavy Cannon + Split Shot - even at 42%, cannon hits still add meaningful side pressure to nearby enemies.");
+		AddLine(vbox, "Heavy Cannon + Split Shot - even at 35%, cannon hits still add meaningful side pressure to nearby enemies.");
 		AddLine(vbox, "Feedback Loop + Hair Trigger - killing enemies reduces cooldown faster; rapid shooters cycle almost instantly.");
 		AddLine(vbox, "Set your Marker Tower to First so it tags the lead enemy before damage towers fire.");
 		AddLine(vbox, "Hair Trigger + Chill Shot - rapid-fire slows stack to keep enemies frozen in range.");

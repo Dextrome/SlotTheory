@@ -3,15 +3,16 @@ using SlotTheory.Entities;
 
 namespace SlotTheory.Modifiers;
 
-/// <summary>+40% range, −20% damage. Wider coverage at damage cost.</summary>
+/// <summary>+55% range, -10% damage. Wider coverage with a light damage tradeoff.</summary>
 public class Overreach : Modifier
 {
     public Overreach(ModifierDef def) { ModifierId = def.Id; }
 
     public override void OnEquip(ITowerView tower)
     {
-        tower.Range      *= 1.40f;
-        tower.BaseDamage *= 0.80f;
+        tower.Range      *= Core.Balance.OverreachRangeFactor;
+        tower.BaseDamage *= Core.Balance.OverreachDamageFactor;
         tower.RefreshRangeCircle();
     }
 }
+
