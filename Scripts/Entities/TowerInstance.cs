@@ -175,7 +175,7 @@ public partial class TowerInstance : Node2D, ITowerView
             case "chain_tower":   DrawChainTower();   break;
             default: DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f)); break;
         }
-        DrawMobileReadabilityAccent();
+        DrawReadabilityAccent();
         DrawTargetLockLine();
     }
 
@@ -340,29 +340,31 @@ public partial class TowerInstance : Node2D, ITowerView
 
     private static Color LiftInnerTone(Color color)
     {
-        if (!MobileOptimization.IsMobile())
+        // Preserve hue while lifting very dark fills so they stay readable on neon maps.
+        bool mobile = MobileOptimization.IsMobile();
+        float minLuma = mobile ? 0.17f : 0.13f;
+        float maxChannel = mobile ? 0.44f : 0.38f;
+        float luma = color.R * 0.2126f + color.G * 0.7152f + color.B * 0.0722f;
+        if (luma >= minLuma)
             return color;
 
-        // Mobile OLED + neon backgrounds can swallow near-black fills.
-        // Keep an inner dark tone, but raise the floor for readability.
-        const float floorR = 0.12f;
-        const float floorG = 0.12f;
-        const float floorB = 0.16f;
+        float gain = minLuma / Mathf.Max(0.001f, luma);
         return new Color(
-            Mathf.Max(color.R, floorR),
-            Mathf.Max(color.G, floorG),
-            Mathf.Max(color.B, floorB),
+            Mathf.Min(color.R * gain, maxChannel),
+            Mathf.Min(color.G * gain, maxChannel),
+            Mathf.Min(color.B * gain, maxChannel),
             color.A
         );
     }
 
-    private void DrawMobileReadabilityAccent()
+    private void DrawReadabilityAccent()
     {
-        if (!MobileOptimization.IsMobile())
-            return;
-
-        var ring = new Color(BodyColor.R, BodyColor.G, BodyColor.B, 0.58f);
-        DrawArc(Vector2.Zero, 13.5f, 0f, Mathf.Tau, 36, ring, 1.7f);
-        DrawCircle(Vector2.Zero, 1.6f, new Color(1f, 1f, 1f, 0.78f));
+        bool mobile = MobileOptimization.IsMobile();
+        float ringAlpha = mobile ? 0.58f : 0.42f;
+        float ringWidth = mobile ? 1.7f : 1.45f;
+        float coreAlpha = mobile ? 0.78f : 0.62f;
+        var ring = new Color(BodyColor.R, BodyColor.G, BodyColor.B, ringAlpha);
+        DrawArc(Vector2.Zero, 13.5f, 0f, Mathf.Tau, 36, ring, ringWidth);
+        DrawCircle(Vector2.Zero, 1.6f, new Color(1f, 1f, 1f, coreAlpha));
     }
 }

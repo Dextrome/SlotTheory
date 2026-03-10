@@ -772,9 +772,15 @@ public partial class GameController : Node
 				_               => new Color(0.20f, 0.50f, 1.00f),
 			},
 		};
+		tower.ZIndex = 20;
 
 		// Range indicator — semi-transparent fill in tower's body colour
-		var rangeCircle = new Polygon2D { Color = new Color(tower.BodyColor.R, tower.BodyColor.G, tower.BodyColor.B, 0.08f) };
+		var rangeCircle = new Polygon2D
+		{
+			Color = new Color(tower.BodyColor.R, tower.BodyColor.G, tower.BodyColor.B, 0.08f),
+			ZIndex = -1,
+			ShowBehindParent = true,
+		};
 		var pts = new Vector2[64];
 		for (int p = 0; p < 64; p++)
 		{
@@ -794,6 +800,8 @@ public partial class GameController : Node
 			Points       = borderPts,
 			Width        = 1.5f,
 			DefaultColor = new Color(tower.BodyColor.R, tower.BodyColor.G, tower.BodyColor.B, 0.22f),
+			ZIndex       = -1,
+			ShowBehindParent = true,
 		};
 		tower.RangeBorder = rangeBorder;
 		tower.AddChild(rangeBorder);
