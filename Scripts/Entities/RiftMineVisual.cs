@@ -8,9 +8,11 @@ namespace SlotTheory.Entities;
 public partial class RiftMineVisual : Node2D
 {
     private const float ChainFlashDuration = 0.20f;
+    private const float MiniVisualScale = 0.80f;
 
     private Color _accent = new Color(0.60f, 1.00f, 0.56f);
     private float _damageScale = 1f;
+    private bool _isMiniMine;
     private bool _armed;
     private int _chargesRemaining = 1;
     private int _chargesMax = 1;
@@ -18,10 +20,11 @@ public partial class RiftMineVisual : Node2D
     private float _chainFlash;
     private float _chainFlashStrength = 1f;
 
-    public void Initialize(Color accent, float damageScale)
+    public void Initialize(Color accent, float damageScale, bool isMiniMine = false)
     {
         _accent = accent;
         _damageScale = Mathf.Clamp(damageScale, 0.25f, 1.5f);
+        _isMiniMine = isMiniMine;
         SetProcess(true);
         QueueRedraw();
     }
@@ -67,6 +70,8 @@ public partial class RiftMineVisual : Node2D
         float pulse = 0.72f + 0.28f * Mathf.Sin(_pulseT * 6.0f);
         float armAlpha = _armed ? 1f : 0.44f;
         float mini = Mathf.Lerp(0.72f, 1f, _damageScale);
+        if (_isMiniMine)
+            mini *= MiniVisualScale;
 
         var glow = new Color(_accent.R, _accent.G, _accent.B, (0.12f + 0.08f * pulse) * armAlpha);
         DrawCircle(Vector2.Zero, 13f * mini, glow);

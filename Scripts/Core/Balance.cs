@@ -88,6 +88,7 @@ public static class Balance
     public const float RiftMineTickDamageMultiplier  = 0.65f; // damage for non-final charge triggers
     public const float RiftMineFinalDamageMultiplier = 1.15f; // damage for final charge trigger
 public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine damage scale (matches Split Shot ratio)
+    public const float RiftMineMiniPlantSpacingMultiplier = 0.62f; // mini mines can pack tighter than base mines
     public const float RiftMineArmTime           = 0.16f; // seconds before planted mine can trigger
     public const float RiftMineRetriggerDelay    = 0.18f; // per-mine lockout between charge triggers
     public const float RiftMineTriggerRadius     = 32f;   // enemy must enter this radius to trigger
