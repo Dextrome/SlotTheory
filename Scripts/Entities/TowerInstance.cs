@@ -173,7 +173,7 @@ public partial class TowerInstance : Node2D, ITowerView
             case "heavy_cannon":  DrawHeavyCannon();  break;
             case "marker_tower":  DrawMarkerTower();  break;
             case "chain_tower":   DrawChainTower();   break;
-            case "rift_prism":    DrawRiftPrism();    break;
+            case "rift_prism":    DrawRiftSapper();   break;
             default: DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f)); break;
         }
         DrawReadabilityAccent();
@@ -328,35 +328,34 @@ public partial class TowerInstance : Node2D, ITowerView
         DrawCircle(Vector2.Zero, 2.5f + surge * 0.4f, white);
     }
 
-    private void DrawRiftPrism()
+    private void DrawRiftSapper()
     {
         var lime = new Color(0.62f, 1.00f, 0.58f);
-        var dark = LiftInnerTone(new Color(0.04f, 0.13f, 0.08f));
+        var dark = LiftInnerTone(new Color(0.03f, 0.11f, 0.07f));
         float shot = ShotKick();
-        float pulse = 0.72f + 0.28f * Mathf.Sin(_idleTime * 8.2f);
-        float surge = shot * 0.85f;
+        float pulse = 0.70f + 0.30f * Mathf.Sin(_idleTime * 6.9f);
+        float surge = shot * 0.75f;
 
-        DrawCircle(Vector2.Zero, 23f, new Color(lime.R, lime.G, lime.B, 0.08f + 0.04f * pulse));
-        DrawCircle(Vector2.Zero, 16f, new Color(lime.R, lime.G, lime.B, 0.14f + 0.05f * pulse));
+        DrawCircle(Vector2.Zero, 25f, new Color(lime.R, lime.G, lime.B, 0.09f + 0.03f * pulse));
+        DrawCircle(Vector2.Zero, 17f, new Color(lime.R, lime.G, lime.B, 0.14f + 0.05f * pulse));
 
-        DrawPolygon(RegularPoly(6, 13.5f + surge * 0.6f, Mathf.Pi / 6f), new[] { lime });
-        DrawPolygon(RegularPoly(6, 11.2f + surge * 0.4f, Mathf.Pi / 6f), new[] { dark });
+        // Outer body shell.
+        DrawPolygon(RegularPoly(8, 14.2f + surge * 0.6f, Mathf.Pi / 8f), new[] { lime });
+        DrawPolygon(RegularPoly(8, 11.6f + surge * 0.4f, Mathf.Pi / 8f), new[] { dark });
 
-        float spokeLen = 18f + surge * 3.5f;
-        float spokeWidth = 2.4f + surge * 0.7f;
-        var spokeColor = new Color(0.90f, 1.00f, 0.84f, 0.78f + 0.18f * pulse);
-        for (int i = 0; i < 4; i++)
-        {
-            float angle = Mathf.Pi * 0.25f + i * Mathf.Pi * 0.5f;
-            var dir = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
-            var from = dir * 6.2f;
-            var to = dir * spokeLen;
-            DrawLine(from, to, spokeColor, spokeWidth);
-            DrawCircle(to, 2.8f + surge * 0.5f, new Color(lime.R, lime.G, lime.B, 0.52f + 0.18f * shot));
-        }
+        // Mine-cell fins.
+        var fin = new Color(0.88f, 1.00f, 0.82f, 0.80f + 0.14f * pulse);
+        DrawRect(new Rect2(-10f, -22f - surge * 1.4f, 20f, 4.6f), fin);
+        DrawRect(new Rect2(-10f,  17.4f + surge * 1.4f, 20f, 4.6f), fin);
+        DrawRect(new Rect2(-22f - surge * 1.4f, -10f, 4.6f, 20f), fin);
+        DrawRect(new Rect2(17.4f + surge * 1.4f, -10f, 4.6f, 20f), fin);
 
-        DrawCircle(Vector2.Zero, 5.5f + surge * 0.7f, new Color(0.84f, 1.00f, 0.76f, 0.66f + 0.20f * shot));
-        DrawCircle(Vector2.Zero, 2.7f + surge * 0.4f, new Color(0.95f, 1.00f, 0.92f, 0.94f));
+        // Central mine glyph.
+        var glyph = new Color(0.96f, 1.00f, 0.90f, 0.86f + 0.08f * pulse);
+        DrawCircle(Vector2.Zero, 5.3f + surge * 0.45f, new Color(lime.R, lime.G, lime.B, 0.58f + 0.18f * shot));
+        DrawLine(new Vector2(-4f, 0f), new Vector2(4f, 0f), glyph, 1.7f);
+        DrawLine(new Vector2(0f, -4f), new Vector2(0f, 4f), glyph, 1.7f);
+        DrawCircle(Vector2.Zero, 2.2f + surge * 0.3f, new Color(1f, 1f, 0.95f, 0.94f));
     }
 
     private static Vector2[] RegularPoly(int sides, float radius, float angleOffset)

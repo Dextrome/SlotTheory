@@ -89,10 +89,10 @@ public partial class HowToPlay : Node
 			"Slow but hits hard. Great with Overkill and Focus Lens.");
 		AddTowerRow(vbox, "Marker Tower",  "7 dmg, 1.0 s, 333 px range",
 			"Applies Mark on every hit. Synergises with Exploit Weakness.");
-		AddTowerRow(vbox, "Arc Emitter",   "18 dmg, 1.2 s, 257 px range",
-			"Chains to 2 nearby enemies per shot (60% damage decay per bounce). Excellent in dense clusters.");
-		AddTowerRow(vbox, "Rift Prism (unlock)", "14 dmg, 0.95 s, 296 px range",
-			"Unlock by beating Orbit on Normal or Hard. Built-in split shots + short chain for lane-wide pressure.");
+		AddTowerRow(vbox, "Arc Emitter (unlock)",   "18 dmg, 1.2 s, 257 px range",
+			"Unlock by beating the first map on Normal or Hard. Chains to 2 nearby enemies per shot (60% damage decay per bounce).");
+		AddTowerRow(vbox, "Rift Sapper (unlock)", "20 dmg, 0.98 s, 230 px range",
+			"Unlock by beating the second map on Normal or Hard. Plants up to 7 mines with 3 charges each; final charge causes the big pop. Wave start gets rapid seeding for 2.4s.");
 		AddSpacer(vbox, 12);
 
 		// â”€â”€ Targeting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -101,6 +101,10 @@ public partial class HowToPlay : Node
 		AddTargetModeRow(vbox, TargetingMode.First, "First", "Enemy furthest along the path");
 		AddTargetModeRow(vbox, TargetingMode.Strongest, "Strongest", "Enemy with the most current HP");
 		AddTargetModeRow(vbox, TargetingMode.LowestHp, "Lowest HP", "Enemy closest to death");
+		AddLine(vbox, "Rift Sapper uses its own targeting set (same cycle keybind):");
+		AddTargetModeRow(vbox, TargetingMode.First, "Random", "Place mines at random valid lane points within range.", TargetModeIconSet.RiftSapper);
+		AddTargetModeRow(vbox, TargetingMode.Strongest, "Closest", "Place mines at the closest valid lane point within range.", TargetModeIconSet.RiftSapper);
+		AddTargetModeRow(vbox, TargetingMode.LowestHp, "Furthest", "Place mines at the furthest valid lane point within range.", TargetModeIconSet.RiftSapper);
 		AddSpacer(vbox, 12);
 
 		// â”€â”€ Mark â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -244,7 +248,12 @@ public partial class HowToPlay : Node
 		hbox.AddChild(lblRight);
 	}
 
-	private static void AddTargetModeRow(VBoxContainer vbox, TargetingMode mode, string label, string value)
+	private static void AddTargetModeRow(
+		VBoxContainer vbox,
+		TargetingMode mode,
+		string label,
+		string value,
+		TargetModeIconSet iconSet = TargetModeIconSet.Default)
 	{
 		var hbox = new HBoxContainer();
 		hbox.AddThemeConstantOverride("separation", 8);
@@ -278,6 +287,7 @@ public partial class HowToPlay : Node
 		var icon = new TargetModeIcon
 		{
 			Mode = mode,
+			IconSet = iconSet,
 			Position = new Vector2(3f, 3f),
 			Size = new Vector2(14f, 14f),
 			CustomMinimumSize = new Vector2(14f, 14f),

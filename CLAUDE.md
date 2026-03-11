@@ -180,6 +180,26 @@ Build a `DamageContext` (attacker, target, base damage, wave index) → apply mo
 - **First**: highest `Progress` in range
 - **Strongest**: highest current HP in range
 - **Lowest HP**: lowest current HP in range
+- **Rift Sapper UI mapping** (tower-specific labels/icons):
+  - `First` => `Random` (die icon)
+  - `Strongest` => `Closest` (down-arrow icon)
+  - `Lowest HP` => `Furthest` (up-arrow icon)
+
+### Rift Sapper combat model (`rift_prism`):
+- Rift Sapper is a trap/setup tower; it does not need a current enemy target to act.
+- Plants lane mines at anchor points in range using tower-specific targeting mode semantics.
+- Active mine cap per tower: `Balance.RiftMineMaxActivePerTower` (currently 7).
+- Mines are charge-based:
+  - `Balance.RiftMineChargesPerMine` (currently 3) charges per mine.
+  - Non-final triggers use `Balance.RiftMineTickDamageMultiplier` (currently 0.65).
+  - Final trigger uses `Balance.RiftMineFinalDamageMultiplier` (currently 1.15).
+  - Per-trigger lockout: `Balance.RiftMineRetriggerDelay` (currently 0.18s).
+- Wave-start seeding burst:
+  - During first `Balance.RiftMineBurstWindow` seconds (currently 2.4s), plant interval is multiplied by `Balance.RiftMineBurstIntervalMultiplier` (currently 0.55).
+  - Burst acceleration is capped by `Balance.RiftMineBurstFastPlantsPerTower` (currently +3 accelerated plants per tower per wave).
+- Modifier behavior on mines:
+  - Split Shot and chain-propagation effects trigger on final-charge pops only.
+  - Chain-triggered mine pops force the target mine into a final pop to preserve cascade behavior.
 
 ### Procedural Map System (`MapGenerator.cs`):
 - **Grid**: 8 cols × 5 rows, cell 160×128 px, grid origin (0, 80)
@@ -257,6 +277,8 @@ res://
       TargetAcquirePing.cs
       DamageNumber.cs
       CombatCallout.cs
+      RiftMineVisual.cs
+      RiftMineBurst.cs
     Modifiers/
       Modifier.cs           # Base interface
       ModifierRegistry.cs   # JSON ID → concrete modifier object
@@ -305,7 +327,7 @@ If an idea requires a new system → defer to "Project 2."
 
 ## V1 Content
 
-- **4 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +40% dmg taken, 4s), Arc Emitter (chains to 2 enemies, 400 px chain range, 60% decay/bounce)
+- **5 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +40% dmg taken, 4s), Arc Emitter (chains to 2 enemies, 400 px chain range, 60% decay/bounce), Rift Sapper (charged lane-mine trap tower with wave-start seeding burst)
 - **10 modifiers** (always check `Balance.cs` + `modifiers.json` for current values — these drift after balance passes):
   - Momentum: +16% dmg/hit same target, max ×1.80
   - Overkill: 60% excess dmg spills to next enemy

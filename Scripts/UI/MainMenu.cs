@@ -1,4 +1,5 @@
 using Godot;
+using System.Linq;
 using SlotTheory.Core;
 
 namespace SlotTheory.UI;
@@ -11,6 +12,12 @@ public partial class MainMenu : Node
 {
 	public override void _Ready()
 	{
+		if (OS.GetCmdlineUserArgs().Contains("--bot"))
+		{
+			CallDeferred(nameof(AutoStartBotRun));
+			return;
+		}
+
 		if (MobileOptimization.IsMobile() && MobileRunSession.HasSnapshot())
 		{
 			CallDeferred(nameof(AutoResumeRun));
@@ -90,6 +97,7 @@ public partial class MainMenu : Node
 
 		AddNavButton(cardVbox, "Leaderboards", OnLeaderboards);
 		AddNavButton(cardVbox, "Achievements",  OnAchievements);
+		AddNavButton(cardVbox, "Slot Codex",    OnSlotCodex);
 		AddNavButton(cardVbox, "How to Play",   OnHowToPlay);
 		AddNavButton(cardVbox, "Settings",      OnSettings);
 
@@ -140,6 +148,7 @@ public partial class MainMenu : Node
 	}
 	private void OnLeaderboards() => Transition.Instance?.FadeToScene("res://Scenes/Leaderboards.tscn");
 	private void OnAchievements() => Transition.Instance?.FadeToScene("res://Scenes/Achievements.tscn");
+	private void OnSlotCodex()   => Transition.Instance?.FadeToScene("res://Scenes/SlotCodex.tscn");
 	private void OnHowToPlay()    => Transition.Instance?.FadeToScene("res://Scenes/HowToPlay.tscn");
 	private void OnSettings()     => Transition.Instance?.FadeToScene("res://Scenes/Settings.tscn");
 	private void OnQuit()         => GetTree().Quit();
@@ -159,6 +168,12 @@ public partial class MainMenu : Node
 	private void AutoResumeRun()
 	{
 		Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
+	}
+
+	private void AutoStartBotRun()
+	{
+		// Headless bot mode bypasses menu/map-select and enters gameplay directly.
+		GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
 	}
 
 	// ── Helpers ────────────────────────────────────────────────────────────

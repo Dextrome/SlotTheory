@@ -7,7 +7,7 @@ namespace SlotTheory.UI;
 
 /// <summary>
 /// Full-screen score overlay shown at run end (win or loss).
-/// Any left-click returns the player to the main menu.
+/// Navigation is explicit via buttons (Open Leaderboards / Main Menu).
 /// </summary>
 public partial class EndScreen : CanvasLayer
 {
@@ -136,11 +136,12 @@ public partial class EndScreen : CanvasLayer
 		{
 			Text = "Main Menu",
 			CustomMinimumSize = new Vector2(360f, 42f),
-			Visible = MobileOptimization.IsMobile(),
+			Visible = true,
 		};
 		_mainMenuButton.AddThemeFontSizeOverride("font_size", 20);
 		UITheme.ApplyPrimaryStyle(_mainMenuButton);
 		_mainMenuButton.Pressed += OnMainMenuPressed;
+		_mainMenuButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		vbox.AddChild(_mainMenuButton);
 
 		var spacer = new Control { CustomMinimumSize = new Vector2(0, 24) };
@@ -148,9 +149,7 @@ public partial class EndScreen : CanvasLayer
 
 		_hintLabel = new Label
 		{
-			Text = MobileOptimization.IsMobile()
-				? "Use buttons below to continue"
-				: "Click or press Enter to return to menu",
+			Text = "Use buttons below to continue",
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
 		_hintLabel.AddThemeFontSizeOverride("font_size", 18);
@@ -158,38 +157,6 @@ public partial class EndScreen : CanvasLayer
 		vbox.AddChild(_hintLabel);
 		MobileOptimization.ApplyUIScale(center);
 	AddChild(new PinchZoomHandler(center));
-	}
-
-	public override void _Input(InputEvent @event)
-	{
-		if (!Visible) return;
-		if (_namePromptActive) return;
-		if (MobileOptimization.IsMobile())
-			return;
-
-		if (@event is InputEventMouseButton click
-			&& click.Pressed
-			&& click.ButtonIndex == MouseButton.Left
-			&& GodotObject.IsInstanceValid(_viewLeaderboardButton)
-			&& _viewLeaderboardButton.Visible
-			&& _viewLeaderboardButton.GetGlobalRect().HasPoint(click.Position))
-		{
-			return;
-		}
-
-		if (@event is InputEventKey { Pressed: true, KeyLabel: Key.Enter or Key.KpEnter or Key.Space }
-			&& GodotObject.IsInstanceValid(_viewLeaderboardButton)
-			&& _viewLeaderboardButton.Visible
-			&& _viewLeaderboardButton.HasFocus())
-		{
-			return;
-		}
-
-		bool triggered = @event is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left }
-		              || @event is InputEventKey { Pressed: true, KeyLabel: Key.Enter or Key.KpEnter or Key.Space };
-		if (!triggered) return;
-		GetViewport().SetInputAsHandled();
-		Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 	}
 
 	public void ShowWin(int kills, int damageDealt, float totalPlayTime, string buildSummary, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor)
@@ -265,7 +232,7 @@ public partial class EndScreen : CanvasLayer
 		}
 		if (GodotObject.IsInstanceValid(_mainMenuButton))
 		{
-			_mainMenuButton.Visible = MobileOptimization.IsMobile();
+			_mainMenuButton.Visible = true;
 			_mainMenuButton.Disabled = false;
 		}
 	}

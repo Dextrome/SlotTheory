@@ -62,9 +62,10 @@ public static class DataLoader
     }
 
     public static MapDef GetMapDef(string id) => _maps[id];
-    public static IEnumerable<string> GetAllTowerIds()
-        => _towers.Keys.Where(Core.Unlocks.IsTowerUnlocked);
-    public static IEnumerable<string> GetAllModifierIds() => _modifiers.Keys;
+    public static IEnumerable<string> GetAllTowerIds(bool includeLocked = false)
+        => includeLocked ? _towers.Keys : _towers.Keys.Where(Core.Unlocks.IsTowerUnlocked);
+    public static IEnumerable<string> GetAllModifierIds(bool includeLocked = false)
+        => includeLocked ? _modifiers.Keys : _modifiers.Keys.Where(Core.Unlocks.IsModifierUnlocked);
     public static IEnumerable<MapDef> GetAllMapDefs() => _maps.Values.OrderBy(m => m.DisplayOrder);
 
     private static void LoadMaps()

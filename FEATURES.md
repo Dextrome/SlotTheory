@@ -106,7 +106,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
 
 ---
 
-## Towers (4)
+## Towers (5)
 
 | Tower | Base Damage | Attack Interval | Range | Special |
 |---|---:|---:|---:|---|
@@ -114,9 +114,36 @@ Platforms: Windows Desktop, Android (phone and tablet)
 | Heavy Cannon | 52 | 2.0 s | 238 px | Heavy burst hits |
 | Marker Tower | 7 | 1.0 s | 333 px | Applies Marked on hit |
 | Arc Emitter (`chain_tower`) | 18 | 1.2 s | 257 px | Base chain: +2 bounces, 400 px chain range, 60% damage carry per hop |
+| Rift Sapper (`rift_prism`) | 20 | 0.98 s | 230 px | Charged mine trap tower with wave-start rapid seeding |
 
 - Towers are placed into 6 fixed world slots.
 - Each tower can hold up to 3 modifiers.
+
+### Rift Sapper Deep-Dive
+
+- Unlock: beat the second campaign map on Normal or Hard (`RIFT_UNSEALED`).
+- Placement model:
+  - plants mines on lane anchors within tower range
+  - mine cap per tower: `7`
+  - mine spacing: `46 px`
+- Mine trigger model:
+  - trigger radius: `32 px`
+  - blast target radius: `82 px`
+  - arm time after plant: `0.16 s`
+- Charge model:
+  - charges per mine: `3`
+  - charge 1/2 damage multiplier: `0.65`
+  - final charge damage multiplier: `1.15`
+  - per-trigger rearm lockout: `0.18 s`
+  - base mine multiplier: `1.00x` tower base damage (before charge multipliers)
+- Wave-start burst model:
+  - burst window: first `2.4 s` of each wave
+  - burst interval multiplier: `x0.55` (faster planting)
+  - burst cap: `+3` accelerated plants per Rift Sapper per wave
+- Modifier interactions on mines:
+  - Split Shot mini-mine planting occurs on final-charge pops only
+  - Chain Reaction mine-chain propagation occurs on final-charge pops only
+  - chain-triggered mine detonations force final-pop behavior to preserve cascade feel
 
 ---
 
@@ -253,6 +280,11 @@ Each tower cycles modes via left click/tap during waves:
 - Down arrow icon: Lowest HP (finisher)
 
 Target mode icon is drawn in a fixed upright badge on the slot node (to the right of tower), not rotated with the tower.
+
+Rift Sapper uses a tower-specific label/icon set for the same internal modes:
+- Die icon: Random (`First` internally)
+- Down arrow icon: Closest (`Strongest` internally)
+- Up arrow icon: Furthest (`Lowest HP` internally)
 
 ---
 

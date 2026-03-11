@@ -135,9 +135,27 @@ public partial class GameController : Node
 			if (mi >= 0 && mi + 1 < userArgs.Length)
 				targetMap = userArgs[mi + 1];
 
-			_botRunner = new BotRunner(runs, targetDifficulty, targetMap);
+			BotStrategy? targetStrategy = null;
+			int si = System.Array.IndexOf(userArgs, "--strategy");
+			if (si >= 0 && si + 1 < userArgs.Length &&
+				System.Enum.TryParse<BotStrategy>(userArgs[si + 1], ignoreCase: true, out var parsedStrategy))
+			{
+				targetStrategy = parsedStrategy;
+			}
+
+			string? forcedTower = null;
+			int fi = System.Array.IndexOf(userArgs, "--force_tower");
+			if (fi >= 0 && fi + 1 < userArgs.Length)
+				forcedTower = userArgs[fi + 1];
+
+			string? forcedMod = null;
+			int fmi = System.Array.IndexOf(userArgs, "--force_mod");
+			if (fmi >= 0 && fmi + 1 < userArgs.Length)
+				forcedMod = userArgs[fmi + 1];
+
+			_botRunner = new BotRunner(runs, targetDifficulty, targetMap, targetStrategy, forcedTower, forcedMod);
 			Engine.MaxFps = 0;
-			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}{(targetMap != null ? $" on {targetMap}" : "")}");
+			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}{(targetMap != null ? $" on {targetMap}" : "")}{(targetStrategy.HasValue ? $" strategy={targetStrategy.Value}" : "")}{(forcedTower != null ? $" tower={forcedTower}" : "")}{(forcedMod != null ? $" mod={forcedMod}" : "")}");
 		}
 
 		_runState = new RunState();
@@ -841,6 +859,7 @@ public partial class GameController : Node
 		var modeIcon = new TargetModeIcon
 		{
 			Mode = TargetingMode.First,
+			IconSet = tower.TowerId == "rift_prism" ? TargetModeIconSet.RiftSapper : TargetModeIconSet.Default,
 			IconColor = new Color(0.95f, 0.98f, 1.00f),
 			Position = new Vector2(2f, 2f),
 			Size = new Vector2(14f, 14f),
@@ -1592,13 +1611,21 @@ public partial class GameController : Node
 			if (!hitRect.HasPoint(mousePos)) continue;
 			// Build tooltip text
 			var def = DataLoader.GetTowerDef(tower.TowerId);
-			var targetingName = tower.TargetingMode switch
-			{
-				TargetingMode.First     => "First",
-				TargetingMode.Strongest => "Strongest",
-				TargetingMode.LowestHp  => "Lowest HP",
-				_                       => "First",
-			};
+			var targetingName = tower.TowerId == "rift_prism"
+				? tower.TargetingMode switch
+				{
+					TargetingMode.First     => "Random",
+					TargetingMode.Strongest => "Closest",
+					TargetingMode.LowestHp  => "Furthest",
+					_                       => "Random",
+				}
+				: tower.TargetingMode switch
+				{
+					TargetingMode.First     => "First",
+					TargetingMode.Strongest => "Strongest",
+					TargetingMode.LowestHp  => "Lowest HP",
+					_                       => "First",
+				};
 			// Effective attack interval: baked (HairTrigger) + runtime hooks (FocusLens)
 			float effInterval = tower.AttackInterval;
 			foreach (var mod in tower.Modifiers)
@@ -1607,6 +1634,11 @@ public partial class GameController : Node
 			float effDamage = tower.GetEffectiveDamageForPreview();
 			var text = $"Slot {i + 1}  -  {def.Name}  [{targetingName}]\n";
 			text += $"{effDamage:0.#} dmg  -  {effInterval:0.##} s  -  {(int)tower.Range} px\n";
+			if (tower.TowerId == "rift_prism")
+			{
+				text += $"plants up to {Balance.RiftMineMaxActivePerTower} mines  ({Balance.RiftMineChargesPerMine} charges each)\n";
+				text += $"trigger {Balance.RiftMineTriggerRadius:0}px  burst seed {Balance.RiftMineBurstWindow:0.#}s (+{Balance.RiftMineBurstFastPlantsPerTower} fast plants)\n";
+			}
 			if (tower.IsChainTower)
 				text += $"chains x{tower.ChainCount}  ({(int)(tower.ChainDamageDecay * 100)}% per bounce)  range {(int)tower.ChainRange} px\n";
 			if (tower.SplitCount > 0)
@@ -2022,7 +2054,7 @@ public partial class GameController : Node
 					"heavy_cannon" => "HC",
 					"marker_tower" => "MK",
 					"chain_tower" => "AR",
-					"rift_prism" => "RP",
+					"rift_prism" => "SA",
 					_ => "TW",
 				},
 				HorizontalAlignment = HorizontalAlignment.Center,

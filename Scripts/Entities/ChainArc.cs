@@ -8,61 +8,89 @@ namespace SlotTheory.Entities;
 /// </summary>
 public partial class ChainArc : Node2D
 {
-    private const float Duration = 0.18f;
+    private const float BaseDuration = 0.20f;
+    private const float MineDuration = 0.22f;
 
-    private float    _life;
-    private Color    _color;
-    private Vector2  _from;
-    private Vector2  _to;
+    private float _life;
+    private float _duration = BaseDuration;
+    private float _intensity = 1f;
+    private bool _mineChainStyle;
+    private Color _color;
+    private Vector2 _from;
+    private Vector2 _to;
     private Vector2[] _jitter = System.Array.Empty<Vector2>();
 
-    public void Initialize(Vector2 worldFrom, Vector2 worldTo, Color color)
+    public void Initialize(
+        Vector2 worldFrom,
+        Vector2 worldTo,
+        Color color,
+        float intensity = 1f,
+        bool mineChainStyle = false)
     {
-        _from  = worldFrom;
-        _to    = worldTo;
+        _from = worldFrom;
+        _to = worldTo;
         _color = color;
+        _intensity = Mathf.Clamp(intensity, 0.85f, 2.20f);
+        _mineChainStyle = mineChainStyle;
+        float t = Mathf.Clamp((_intensity - 1f) / 1.2f, 0f, 1f);
+        _duration = _mineChainStyle ? Mathf.Lerp(MineDuration, 0.30f, t) : BaseDuration;
 
-        // 4 midpoints with random perpendicular jitter for electric zigzag look
-        var rng  = new System.Random();
+        // Midpoints with random perpendicular jitter for electric zigzag look.
+        var rng = new System.Random();
         var span = worldTo - worldFrom;
         var perp = new Vector2(-span.Y, span.X).Normalized();
-        _jitter = new Vector2[4];
-        for (int i = 0; i < 4; i++)
+        int midpointCount = _mineChainStyle ? 5 : 5;
+        float jitterScale = (_mineChainStyle ? 0.31f : 0.30f) * (0.95f + (_intensity - 1f) * 0.30f);
+        _jitter = new Vector2[midpointCount];
+
+        for (int i = 0; i < midpointCount; i++)
         {
-            float t      = (i + 1) / 5f;
-            float offset = (float)(rng.NextDouble() - 0.5) * span.Length() * 0.28f;
-            _jitter[i]   = worldFrom + span * t + perp * offset;
+            float ptT = (i + 1) / (float)(midpointCount + 1);
+            float offset = (float)(rng.NextDouble() - 0.5) * span.Length() * jitterScale;
+            _jitter[i] = worldFrom + span * ptT + perp * offset;
         }
     }
 
     public override void _Process(double delta)
     {
         _life += (float)delta;
-        if (_life >= Duration) { QueueFree(); return; }
+        if (_life >= _duration)
+        {
+            QueueFree();
+            return;
+        }
         QueueRedraw();
     }
 
     public override void _Draw()
     {
-        float alpha = 1f - _life / Duration;
-        float width = alpha * 2f + 0.5f;
-        var   col   = new Color(_color.R, _color.G, _color.B, alpha * 0.90f);
+        float alpha = 1f - _life / _duration;
+        float width = (alpha * 2f + 0.55f) * (0.85f + _intensity * 0.55f);
+        float glowWidth = width * (_mineChainStyle ? 2.05f : 1.95f);
+        var coreCol = new Color(_color.R, _color.G, _color.B,
+            alpha * (_mineChainStyle ? 0.93f : 0.94f));
+        var glowCol = new Color(_color.R, _color.G, _color.B,
+            alpha * (_mineChainStyle ? 0.38f : 0.36f));
 
-        // Jagged chain segments: from → 4 jitter points → to
-        var pts = new Vector2[6];
+        // Jagged chain segments: from -> jitter points -> to
+        var pts = new Vector2[_jitter.Length + 2];
         pts[0] = ToLocal(_from);
-        pts[1] = ToLocal(_jitter[0]);
-        pts[2] = ToLocal(_jitter[1]);
-        pts[3] = ToLocal(_jitter[2]);
-        pts[4] = ToLocal(_jitter[3]);
-        pts[5] = ToLocal(_to);
+        for (int i = 0; i < _jitter.Length; i++)
+            pts[i + 1] = ToLocal(_jitter[i]);
+        pts[pts.Length - 1] = ToLocal(_to);
 
         for (int i = 0; i < pts.Length - 1; i++)
-            DrawLine(pts[i], pts[i + 1], col, width);
+        {
+            DrawLine(pts[i], pts[i + 1], glowCol, glowWidth);
+            DrawLine(pts[i], pts[i + 1], coreCol, width);
+        }
 
-        // Glow bloom at each endpoint
-        DrawCircle(pts[0], 5f, new Color(_color.R, _color.G, _color.B, alpha * 0.35f));
-        DrawCircle(pts[5], 5f, new Color(_color.R, _color.G, _color.B, alpha * 0.35f));
-        DrawCircle(pts[5], 2.5f, new Color(1f, 1f, 1f, alpha * 0.70f));
+        // Endpoint glows.
+        float endR = _mineChainStyle ? 6.2f : 5.8f;
+        float endGlowA = _mineChainStyle ? 0.40f : 0.37f;
+        DrawCircle(pts[0], endR, new Color(_color.R, _color.G, _color.B, alpha * endGlowA));
+        DrawCircle(pts[pts.Length - 1], endR, new Color(_color.R, _color.G, _color.B, alpha * endGlowA));
+        DrawCircle(pts[pts.Length - 1], _mineChainStyle ? 3.0f : 2.8f,
+            new Color(1f, 1f, 1f, alpha * (_mineChainStyle ? 0.78f : 0.76f)));
     }
 }

@@ -68,6 +68,15 @@ public partial class SoundManager : Node
         Reg("die_armored",  Sweep(155f,  50f, 0.24f, vol: 0.70f));
         Reg("die_swift",    Sweep(900f, 400f, 0.08f, vol: 0.45f));
         Reg("leak",         Sweep(230f,  90f, 0.34f, vol: 0.60f));
+        Reg("mine_pop", Layer(
+            Sweep(220f, 72f, 0.16f, vol: 0.44f),
+            Tone(96f, 0.11f, vol: 0.22f, shape: 'q', env: 'f'),
+            Tone(1800f, 0.05f, vol: 0.06f, shape: 'n', env: 'f')));
+        Reg("mine_chain_pop", Layer(
+            Sweep(360f, 84f, 0.24f, vol: 0.68f),
+            Tone(180f, 0.14f, vol: 0.24f, shape: 'q', env: 'f'),
+            Tone(3200f, 0.06f, vol: 0.10f, shape: 'n', env: 'f'),
+            Tone(4100f, 0.024f, vol: 0.10f, shape: 'q', env: 'f')));
 
         // ── Wave events ──────────────────────────────────────────────────
         Reg("wave_start", Seq(new[] { 300f, 500f },               gapMs: 20, noteLen: 0.09f, vol: 0.52f));
@@ -344,5 +353,32 @@ public partial class SoundManager : Node
             // gap entries stay at Vector2.Zero (silence)
         }
         return (arr, (float)total / Rate);
+    }
+
+    /// <summary>Layers multiple synthesized clips for richer one-shot effects.</summary>
+    private static (Vector2[] s, float d) Layer(params (Vector2[] s, float d)[] clips)
+    {
+        int max = 0;
+        for (int i = 0; i < clips.Length; i++)
+            max = Math.Max(max, clips[i].s.Length);
+
+        if (max <= 0)
+            return (Array.Empty<Vector2>(), 0f);
+
+        var mixed = new Vector2[max];
+        for (int c = 0; c < clips.Length; c++)
+        {
+            var src = clips[c].s;
+            for (int i = 0; i < src.Length; i++)
+                mixed[i] += src[i];
+        }
+
+        for (int i = 0; i < mixed.Length; i++)
+        {
+            float l = Mathf.Clamp(mixed[i].X, -1f, 1f);
+            float r = Mathf.Clamp(mixed[i].Y, -1f, 1f);
+            mixed[i] = new Vector2(l, r);
+        }
+        return (mixed, max / (float)Rate);
     }
 }
