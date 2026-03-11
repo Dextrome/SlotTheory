@@ -416,6 +416,21 @@ public class CombatSim
     {
         float splitRadius = Balance.RiftMineSplitPlantRadius;
         float ownerRangeLimit = owner.Range * 0.98f;
+        float miniSpacing = Balance.RiftMinePlantSpacing * Balance.RiftMineMiniPlantSpacingMultiplier;
+
+        // First try re-seeding at the exact detonation spot. This keeps Split Shot
+        // behavior consistent even when nearby anchors are sparse/crowded.
+        if (owner.GlobalPosition.DistanceTo(center) <= ownerRangeLimit
+            && IsMineSpotFree(center, miniSpacing))
+        {
+            return AddMine(
+                owner,
+                center,
+                damageScale,
+                armTime: Balance.RiftMineArmTime * 0.75f,
+                isMiniMine: true,
+                minSpacing: miniSpacing);
+        }
 
         // Prefer valid lane anchors near the pop (stable/readable placement).
         Vector2? best = null;
@@ -425,7 +440,7 @@ public class CombatSim
             float toCenter = anchor.Position.DistanceTo(center);
             if (toCenter > splitRadius) continue;
             if (owner.GlobalPosition.DistanceTo(anchor.Position) > ownerRangeLimit) continue;
-            if (!IsMineSpotFree(anchor.Position)) continue;
+            if (!IsMineSpotFree(anchor.Position, miniSpacing)) continue;
 
             float score = anchor.Score - toCenter * 0.014f;
             if (score > bestScore)
@@ -436,7 +451,13 @@ public class CombatSim
         }
 
         if (best != null)
-            return AddMine(owner, best.Value, damageScale, armTime: Balance.RiftMineArmTime * 0.75f, isMiniMine: true);
+            return AddMine(
+                owner,
+                best.Value,
+                damageScale,
+                armTime: Balance.RiftMineArmTime * 0.75f,
+                isMiniMine: true,
+                minSpacing: miniSpacing);
 
         // Fallback: sample the lane curve at finer resolution near the blast point.
         // This preserves "on-path only" placement while avoiding sparse-anchor misses.
@@ -456,7 +477,7 @@ public class CombatSim
             float toCenter = p.DistanceTo(center);
             if (toCenter > splitRadius) continue;
             if (owner.GlobalPosition.DistanceTo(p) > ownerRangeLimit) continue;
-            if (!IsMineSpotFree(p)) continue;
+            if (!IsMineSpotFree(p, miniSpacing)) continue;
 
             float score = -toCenter;
             if (score > fallbackBestScore)
@@ -467,7 +488,13 @@ public class CombatSim
         }
 
         if (fallbackBest == null) return false;
-        return AddMine(owner, fallbackBest.Value, damageScale, armTime: Balance.RiftMineArmTime * 0.75f, isMiniMine: true);
+        return AddMine(
+            owner,
+            fallbackBest.Value,
+            damageScale,
+            armTime: Balance.RiftMineArmTime * 0.75f,
+            isMiniMine: true,
+            minSpacing: miniSpacing);
     }
 
     private Vector2? PickMineAnchor(TowerInstance tower, List<EnemyInstance> enemies)
@@ -577,11 +604,12 @@ public class CombatSim
         Vector2 worldPos,
         float damageScale,
         float armTime = Balance.RiftMineArmTime,
-        bool isMiniMine = false)
+        bool isMiniMine = false,
+        float minSpacing = Balance.RiftMinePlantSpacing)
     {
         if (!isMiniMine && CountActiveBaseMinesFor(owner) >= Balance.RiftMineMaxActivePerTower)
             return false;
-        if (!IsMineSpotFree(worldPos))
+        if (!IsMineSpotFree(worldPos, minSpacing))
             return false;
 
         int initialCharges = isMiniMine ? 1 : Balance.RiftMineChargesPerMine;
@@ -595,7 +623,7 @@ public class CombatSim
             };
             LanePath.GetParent().AddChild(visual);
             visual.GlobalPosition = worldPos;
-            visual.Initialize(owner.ProjectileColor, damageScale);
+            visual.Initialize(owner.ProjectileColor, damageScale, isMiniMine);
             visual.SetCharges(initialCharges, initialCharges);
             visual.SetArmed(armTime <= 0f);
         }
@@ -619,8 +647,8 @@ public class CombatSim
     private int CountActiveBaseMinesFor(TowerInstance owner)
         => _activeMines.Count(m => ReferenceEquals(m.Owner, owner) && !m.IsMiniMine);
 
-    private bool IsMineSpotFree(Vector2 worldPos)
-        => _activeMines.All(m => m.Position.DistanceTo(worldPos) >= Balance.RiftMinePlantSpacing);
+    private bool IsMineSpotFree(Vector2 worldPos, float minSpacing = Balance.RiftMinePlantSpacing)
+        => _activeMines.All(m => m.Position.DistanceTo(worldPos) >= minSpacing);
 
     private EnemyInstance? FindTriggerTarget(Vector2 minePos, List<EnemyInstance> enemies)
     {
@@ -943,13 +971,13 @@ public class CombatSim
         var burst = new DeathBurst();
         LanePath.GetParent().AddChild(burst);
         burst.GlobalPosition = worldPos;
-        var (color, scale) = typeId switch
+        var (color, scale, style) = typeId switch
         {
-            "armored_walker" => (new Color(0.62f, 0.07f, 0.07f), 1.5f),
-            "swift_walker"   => (new Color(0.60f, 1.00f, 0.10f), 0.75f),
-            _                => (new Color(0.95f, 0.22f, 0.12f), 1.0f),
+            "armored_walker" => (new Color(0.62f, 0.07f, 0.07f), 1.5f, DeathBurstStyle.Armored),
+            "swift_walker"   => (new Color(0.60f, 1.00f, 0.10f), 0.75f, DeathBurstStyle.Swift),
+            _                => (new Color(0.95f, 0.22f, 0.12f), 1.0f, DeathBurstStyle.Basic),
         };
-        burst.Initialize(color, scale);
+        burst.Initialize(color, scale, style);
     }
 
     private void SpawnEnemy(RunState state, string typeId)
