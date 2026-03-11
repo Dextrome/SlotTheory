@@ -20,8 +20,23 @@ This document reflects the current implementation in code/data.
 - **Reduced motion toggle:** Settings toggle that skips card flip animations in draft — cards appear face-up instantly.
 - **In-game achievements:** 10 achievements tracked locally (persistent across sessions) with unlock toast notifications and a dedicated achievements screen. Steam forwarding wired for when Steam App ID is live.
 - **All-runs leaderboard:** Global leaderboard now stores every run as a separate row (wins and losses). Previously only kept the personal best per player.
+- **Spectacle system integration:** Surge/global surge spectacle gameplay payloads are active in both live and bot simulations; tooltip and bot analytics now expose spectacle behavior.
 
 Platforms: Windows Desktop, Android (phone and tablet)
+
+---
+
+## Since v1.0.8
+
+- Added spectacle combat system with per-tower meter signatures and global surge triggers.
+- Minor spectacle triggers were removed; only surge/global surge tiers are active for balance and gameplay.
+- Bot simulation now includes spectacle gameplay payload resolution (surge + global surge), not only non-gameplay spectacle hooks.
+- Bot report now includes spectacle trigger totals and top effect breakdowns.
+- Tooltip now displays all possible spectacle trigger outcomes based on current supported modifiers.
+- Added spectacle-specific bot strategies:
+  - `SpectacleSingleStack`
+  - `SpectacleComboPairing`
+  - `SpectacleTriadDiversity`
 
 ---
 
@@ -441,6 +456,10 @@ Shows:
 - Targeting mode
 - Effective damage, effective interval, range
 - Modifier list with descriptions
+- Spectacle trigger section:
+  - Current previewed spectacle effect
+  - All possible spectacle outcomes for the tower's currently equipped supported modifiers
+  - Single/Combo/Triad labeling based on available supported modifier diversity
 
 Mobile:
 - Tooltip anchors to selected tower rather than cursor.
@@ -529,15 +548,21 @@ Launch example:
 Behavior:
 - High-speed simulation loop.
 - Strategies rotate across map/difficulty combinations.
-- Current strategy set has 7 entries:
+- Spectacle gameplay payloads are applied in bot mode for surge/global surge triggers (matching live gameplay logic).
+- Minor spectacle trigger tier no longer exists in runtime or bot reporting.
+- Current strategy set has 11 entries:
   - Random
   - TowerFirst
   - GreedyDps
   - MarkerSynergy
   - ChainFocus
   - SplitFocus
-  - WeirdnessMix
-- Summary output includes win rates, wave curves, and usage analysis.
+  - HeavyStack
+  - RiftPrismFocus
+  - SpectacleSingleStack
+  - SpectacleComboPairing
+  - SpectacleTriadDiversity
+- Summary output includes win rates, wave curves, usage analysis, and spectacle trigger analysis (tier totals + top effects).
 
 ---
 

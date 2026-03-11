@@ -29,7 +29,11 @@ public class BotRunner
         int[]       SlotDamage,    // total damage per slot index (6 entries)
         float[]     SlotFireRate,  // fire rate utilisation per slot (0-1); -1 = no tower in slot
         Dictionary<string, int>   LeaksByType,   // total leaks per enemy type
-        Dictionary<string, float> LeakHpByType   // summed HP remaining on leaked enemies
+        Dictionary<string, float> LeakHpByType,  // summed HP remaining on leaked enemies
+        int SpectacleSurgeTriggers,
+        int SpectacleGlobalTriggers,
+        Dictionary<string, int> SpectacleSurgeByEffect,
+        Dictionary<string, int> SpectacleGlobalByEffect
     );
 
     private readonly int              _totalRuns;
@@ -157,7 +161,11 @@ public BotRunner(
             [.. _waveLives], [.. _waveInRange], [.. _waveSteps], towers, mods, _curDifficulty,
             slotDamage, slotFireRate,
             new Dictionary<string, int>(state.TotalLeaksByType),
-            new Dictionary<string, float>(state.TotalLeakHpByType)));
+            new Dictionary<string, float>(state.TotalLeakHpByType),
+            state.SpectacleSurgeTriggers,
+            state.SpectacleGlobalTriggers,
+            new Dictionary<string, int>(state.SpectacleSurgeByEffect),
+            new Dictionary<string, int>(state.SpectacleGlobalByEffect)));
 
         if (HasMoreRuns) StartNextRun();
     }
@@ -347,6 +355,51 @@ public BotRunner(
         }
 
         // ── Per-slot damage & fire rate ───────────────────────────────────────────
+        GD.Print("\nSPECTACLE TRIGGER ANALYSIS (all runs):");
+        GD.Print("  Only surge and global surge triggers are active.");
+        int totalSurgeTriggers = _results.Sum(r => r.SpectacleSurgeTriggers);
+        int totalGlobalTriggers = _results.Sum(r => r.SpectacleGlobalTriggers);
+        float runCount = _results.Count;
+        GD.Print($"  {"TIER",-12} {"TOTAL",8} {"AVG/RUN",9}");
+        GD.Print("  " + new string('-', 34));
+        GD.Print($"  {"Surge",-12} {totalSurgeTriggers,8} {(runCount > 0 ? totalSurgeTriggers / runCount : 0f),9:0.00}");
+        GD.Print($"  {"Global Surge",-12} {totalGlobalTriggers,8} {(runCount > 0 ? totalGlobalTriggers / runCount : 0f),9:0.00}");
+
+        var surgeEffectTotals = new Dictionary<string, int>(StringComparer.Ordinal);
+        var globalEffectTotals = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var run in _results)
+        {
+            foreach (var kv in run.SpectacleSurgeByEffect)
+            {
+                surgeEffectTotals.TryGetValue(kv.Key, out int cur);
+                surgeEffectTotals[kv.Key] = cur + kv.Value;
+            }
+            foreach (var kv in run.SpectacleGlobalByEffect)
+            {
+                globalEffectTotals.TryGetValue(kv.Key, out int cur);
+                globalEffectTotals[kv.Key] = cur + kv.Value;
+            }
+        }
+
+        void PrintTopEffects(string label, Dictionary<string, int> totals, int tierTotal)
+        {
+            GD.Print($"  {label}:");
+            if (totals.Count == 0)
+            {
+                GD.Print("    (none)");
+                return;
+            }
+
+            foreach (var kv in totals.OrderByDescending(k => k.Value).ThenBy(k => k.Key).Take(8))
+            {
+                float pct = tierTotal > 0 ? kv.Value * 100f / tierTotal : 0f;
+                GD.Print($"    {kv.Key,-28} {kv.Value,6} ({pct,5:0.0}%)");
+            }
+        }
+
+        PrintTopEffects("Top Surge Effects", surgeEffectTotals, totalSurgeTriggers);
+        PrintTopEffects("Top Global Surge Effects", globalEffectTotals, totalGlobalTriggers);
+
         GD.Print("\nSLOT DAMAGE & FIRE RATE UTILISATION (avg across runs with tower in slot):");
         GD.Print($"  {"SLOT",4} {"AVG DAMAGE",12} {"AVG FIRE RATE",14}");
         GD.Print("  " + new string('-', 32));

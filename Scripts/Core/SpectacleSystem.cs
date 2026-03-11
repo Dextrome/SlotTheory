@@ -15,8 +15,7 @@ public readonly record struct SpectacleSignature(
     float PrimaryShare,
     float SecondaryShare,
     float TertiaryShare,
-    float MajorPower,
-    float MinorPower,
+    float SurgePower,
     float AugmentStrength,
     string EffectId,
     string EffectName,
@@ -27,11 +26,11 @@ public readonly record struct SpectacleSignature(
 
 public readonly record struct SpectacleTriggerInfo(
     ITowerView Tower,
-    bool IsMajor,
+    bool IsSurge,
     SpectacleSignature Signature,
     float MeterAfter);
 
-public readonly record struct GlobalSpectacleTriggerInfo(float MeterAfter, int UniqueContributors, string EffectId, string EffectName);
+public readonly record struct GlobalSurgeTriggerInfo(float MeterAfter, int UniqueContributors, string EffectId, string EffectName);
 
 public sealed class SpectacleSystem
 {
@@ -49,12 +48,12 @@ public sealed class SpectacleSystem
         }
     }
 
-    private readonly struct MajorContribution
+    private readonly struct SurgeContribution
     {
         public float Time { get; }
         public ITowerView Tower { get; }
 
-        public MajorContribution(float time, ITowerView tower)
+        public SurgeContribution(float time, ITowerView tower)
         {
             Time = time;
             Tower = tower;
@@ -64,8 +63,7 @@ public sealed class SpectacleSystem
     private sealed class TowerState
     {
         public float Meter;
-        public float MinorCooldown;
-        public float MajorCooldown;
+        public float SurgeCooldown;
         public float InactivityTime;
         public float Pulse;
         public float PulseHold;
@@ -82,8 +80,7 @@ public sealed class SpectacleSystem
         public void Clear()
         {
             Meter = 0f;
-            MinorCooldown = 0f;
-            MajorCooldown = 0f;
+            SurgeCooldown = 0f;
             InactivityTime = 0f;
             Pulse = 0f;
             PulseHold = 0f;
@@ -113,20 +110,19 @@ public sealed class SpectacleSystem
     };
 
     private readonly Dictionary<ITowerView, TowerState> _towerStates = new();
-    private readonly Queue<MajorContribution> _majorContributions = new();
+    private readonly Queue<SurgeContribution> _surgeContributions = new();
     private float _time;
     private float _globalMeter;
 
-    public event Action<SpectacleTriggerInfo>? OnMinorTriggered;
-    public event Action<SpectacleTriggerInfo>? OnMajorTriggered;
-    public event Action<GlobalSpectacleTriggerInfo>? OnGlobalTriggered;
+    public event Action<SpectacleTriggerInfo>? OnSurgeTriggered;
+    public event Action<GlobalSurgeTriggerInfo>? OnGlobalTriggered;
 
     public float GlobalMeter => _globalMeter;
 
     public void Reset()
     {
         _towerStates.Clear();
-        _majorContributions.Clear();
+        _surgeContributions.Clear();
         _time = 0f;
         _globalMeter = 0f;
     }
@@ -145,8 +141,7 @@ public sealed class SpectacleSystem
 
         foreach (var state in _towerStates.Values)
         {
-            state.MinorCooldown = Max(0f, state.MinorCooldown - delta);
-            state.MajorCooldown = Max(0f, state.MajorCooldown - delta);
+            state.SurgeCooldown = Max(0f, state.SurgeCooldown - delta);
             if (state.PulseHold > 0f)
             {
                 state.PulseHold = Max(0f, state.PulseHold - delta);
@@ -173,7 +168,7 @@ public sealed class SpectacleSystem
 
         var signature = ResolveSignature(state, tower, useLockedRoles: true);
         return new SpectacleVisualState(
-            MeterNormalized: Clamp(state.Meter / SpectacleDefinitions.MajorThreshold, 0f, 1f),
+            MeterNormalized: Clamp(state.Meter / SpectacleDefinitions.SurgeThreshold, 0f, 1f),
             Pulse: state.Pulse,
             PrimaryModId: signature.PrimaryModId);
     }
@@ -248,7 +243,7 @@ public sealed class SpectacleSystem
             return;
 
         state.InactivityTime = 0f;
-        state.Meter = Clamp(state.Meter + gain, 0f, SpectacleDefinitions.MajorThreshold);
+        state.Meter = Clamp(state.Meter + gain, 0f, SpectacleDefinitions.SurgeThreshold);
         AddContribution(state, modId, gain);
 
         if (!state.RolesLocked && state.Meter >= 20f)
@@ -259,11 +254,11 @@ public sealed class SpectacleSystem
 
     private void TryTriggerEvents(ITowerView tower, TowerState state)
     {
-        if (state.Meter >= SpectacleDefinitions.MajorThreshold && state.MajorCooldown <= 0f)
+        if (state.Meter >= SpectacleDefinitions.SurgeThreshold && state.SurgeCooldown <= 0f)
         {
             var signature = ResolveSignature(state, tower, useLockedRoles: true);
-            state.Meter = SpectacleDefinitions.MajorMeterAfterTrigger;
-            state.MajorCooldown = SpectacleDefinitions.MajorCooldownSeconds;
+            state.Meter = SpectacleDefinitions.SurgeMeterAfterTrigger;
+            state.SurgeCooldown = SpectacleDefinitions.SurgeCooldownSeconds;
             state.Pulse = Max(state.Pulse, 1.0f);
             state.PulseHold = Max(state.PulseHold, 0.42f);
             state.RolesLocked = false;
@@ -271,39 +266,25 @@ public sealed class SpectacleSystem
             state.LockedSecondary = string.Empty;
             state.LockedTertiary = string.Empty;
 
-            _globalMeter = Clamp(_globalMeter + SpectacleDefinitions.GlobalMeterPerMajor, 0f, SpectacleDefinitions.GlobalThreshold);
-            _majorContributions.Enqueue(new MajorContribution(_time, tower));
+            _globalMeter = Clamp(_globalMeter + SpectacleDefinitions.GlobalMeterPerSurge, 0f, SpectacleDefinitions.GlobalThreshold);
+            _surgeContributions.Enqueue(new SurgeContribution(_time, tower));
             PruneGlobalContributions();
 
-            OnMajorTriggered?.Invoke(new SpectacleTriggerInfo(tower, IsMajor: true, signature, state.Meter));
+            OnSurgeTriggered?.Invoke(new SpectacleTriggerInfo(tower, IsSurge: true, signature, state.Meter));
 
             if (_globalMeter >= SpectacleDefinitions.GlobalThreshold)
             {
-                int uniqueContributors = CountUniqueGlobalContributors();
-                if (uniqueContributors >= 2)
-                {
-                    _globalMeter = SpectacleDefinitions.GlobalMeterAfterTrigger;
-                    OnGlobalTriggered?.Invoke(new GlobalSpectacleTriggerInfo(
-                        MeterAfter: _globalMeter,
-                        UniqueContributors: uniqueContributors,
-                        EffectId: "G_SPECTACLE_CATHARSIS",
-                        EffectName: "Catastrophe"));
-                }
+                // If the meter is full, fire on this surge instead of waiting on contributor gating.
+                int uniqueContributors = Math.Max(1, CountUniqueGlobalContributors());
+                _globalMeter = SpectacleDefinitions.GlobalMeterAfterTrigger;
+                OnGlobalTriggered?.Invoke(new GlobalSurgeTriggerInfo(
+                    MeterAfter: _globalMeter,
+                    UniqueContributors: uniqueContributors,
+                    EffectId: "G_SPECTACLE_CATHARSIS",
+                    EffectName: "Catastrophe"));
             }
 
             return;
-        }
-
-        if (SpectacleDefinitions.MinorTriggersEnabled
-            && state.Meter >= SpectacleDefinitions.MinorThreshold
-            && state.MinorCooldown <= 0f)
-        {
-            var signature = ResolveSignature(state, tower, useLockedRoles: true);
-            state.Meter = Max(0f, state.Meter - SpectacleDefinitions.MinorThreshold);
-            state.MinorCooldown = SpectacleDefinitions.MinorCooldownSeconds;
-            state.Pulse = Max(state.Pulse, 0.82f);
-            state.PulseHold = Max(state.PulseHold, 0.22f);
-            OnMinorTriggered?.Invoke(new SpectacleTriggerInfo(tower, IsMajor: false, signature, state.Meter));
         }
     }
 
@@ -332,8 +313,7 @@ public sealed class SpectacleSystem
                 PrimaryShare: 0f,
                 SecondaryShare: 0f,
                 TertiaryShare: 0f,
-                MajorPower: 1f,
-                MinorPower: 0.55f,
+                SurgePower: 1f,
                 AugmentStrength: 0f,
                 EffectId: string.Empty,
                 EffectName: string.Empty,
@@ -388,9 +368,8 @@ public sealed class SpectacleSystem
         if (!string.IsNullOrEmpty(r3) && counts.TryGetValue(r3, out int count3))
             copyBoost += 0.10f * (count3 - 1);
 
-        float majorPower = SpectacleDefinitions.GetModeBase(mode) * copyBoost;
-        float minorPower = 0.55f * majorPower;
-        float augmentStrength = mode == SpectacleMode.Triad ? w3 * majorPower : 0f;
+        float surgePower = SpectacleDefinitions.GetModeBase(mode) * copyBoost;
+        float augmentStrength = mode == SpectacleMode.Triad ? w3 * surgePower : 0f;
 
         string effectId;
         string effectName;
@@ -433,8 +412,7 @@ public sealed class SpectacleSystem
             PrimaryShare: w1,
             SecondaryShare: w2,
             TertiaryShare: w3,
-            MajorPower: majorPower,
-            MinorPower: minorPower,
+            SurgePower: surgePower,
             AugmentStrength: augmentStrength,
             EffectId: effectId,
             EffectName: effectName,
@@ -573,17 +551,17 @@ public sealed class SpectacleSystem
     private void PruneGlobalContributions()
     {
         float cutoff = _time - SpectacleDefinitions.GlobalContributionWindowSeconds;
-        while (_majorContributions.Count > 0 && _majorContributions.Peek().Time < cutoff)
-            _majorContributions.Dequeue();
+        while (_surgeContributions.Count > 0 && _surgeContributions.Peek().Time < cutoff)
+            _surgeContributions.Dequeue();
     }
 
     private int CountUniqueGlobalContributors()
     {
-        if (_majorContributions.Count == 0)
+        if (_surgeContributions.Count == 0)
             return 0;
 
         var set = new HashSet<ITowerView>();
-        foreach (var c in _majorContributions)
+        foreach (var c in _surgeContributions)
             set.Add(c.Tower);
         return set.Count;
     }

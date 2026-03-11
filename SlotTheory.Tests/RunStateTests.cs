@@ -91,6 +91,20 @@ public class RunStateTests
         Assert.Equal("heavy_cannon", state.CurrentWave.TopDamageDealer?.TowerId);
     }
 
+    [Fact]
+    public void TrackSpectacleTriggers_AccumulatesTierAndEffectCounts()
+    {
+        var state = new RunState();
+
+        state.TrackSpectacleSurge("C_MOMENTUM_SPLIT");
+        state.TrackSpectacleGlobal("G_SPECTACLE_CATHARSIS");
+
+        Assert.Equal(1, state.SpectacleSurgeTriggers);
+        Assert.Equal(1, state.SpectacleGlobalTriggers);
+        Assert.Equal(1, state.SpectacleSurgeByEffect["C_MOMENTUM_SPLIT"]);
+        Assert.Equal(1, state.SpectacleGlobalByEffect["G_SPECTACLE_CATHARSIS"]);
+    }
+
     // ── Reset ─────────────────────────────────────────────────────────────
 
     [Fact]
@@ -100,10 +114,16 @@ public class RunStateTests
         state.WaveIndex = 5;
         state.Lives = 3;
         state.TotalKills = 100;
+        state.TrackSpectacleSurge("C_MOMENTUM_SPLIT");
+        state.TrackSpectacleGlobal("G_SPECTACLE_CATHARSIS");
         state.Reset();
 
         Assert.Equal(0, state.WaveIndex);
         Assert.Equal(Balance.StartingLives, state.Lives);
         Assert.Equal(0, state.TotalKills);
+        Assert.Equal(0, state.SpectacleSurgeTriggers);
+        Assert.Equal(0, state.SpectacleGlobalTriggers);
+        Assert.Empty(state.SpectacleSurgeByEffect);
+        Assert.Empty(state.SpectacleGlobalByEffect);
     }
 }

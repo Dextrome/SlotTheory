@@ -252,7 +252,7 @@ public partial class HudPanel : CanvasLayer
         };
         AddChild(_speedToastStreak);
 
-        BuildGlobalSpectacleMeter();
+        BuildGlobalSurgeMeter();
     }
 
     private void OnSpeedToggle()
@@ -262,7 +262,7 @@ public partial class HudPanel : CanvasLayer
         _speedIdx = Mathf.Min(_speedIdx, steps.Length - 1);
         _speedIdx = (_speedIdx + 1) % steps.Length;
         Engine.TimeScale = steps[_speedIdx];
-        _speedBtn.Text = $"{steps[_speedIdx]:0}\u00D7";
+        RefreshSpeedLabelFromActual((float)Engine.TimeScale);
         ShowSpeedToast();
         SoundManager.Instance?.SetSpeedFeel((float)steps[_speedIdx]);
         SoundManager.Instance?.Play("ui_speed_shift");
@@ -272,8 +272,15 @@ public partial class HudPanel : CanvasLayer
     {
         _speedIdx = 0;
         Engine.TimeScale = 1.0;
-        _speedBtn.Text = $"1\u00D7";
+        RefreshSpeedLabelFromActual((float)Engine.TimeScale);
         SoundManager.Instance?.SetSpeedFeel(1.0f);
+    }
+
+    public void RefreshSpeedLabelFromActual(float timeScale)
+    {
+        if (!GodotObject.IsInstanceValid(_speedBtn))
+            return;
+        _speedBtn.Text = $"{FormatSpeedMultiplier(timeScale)}\u00D7";
     }
 
     public void FlashLives()
@@ -302,6 +309,17 @@ public partial class HudPanel : CanvasLayer
     {
         int s = (int)seconds;
         return $"{s / 60}:{s % 60:D2}";
+    }
+
+    private static string FormatSpeedMultiplier(float speed)
+    {
+        float clamped = Mathf.Max(0f, speed);
+        float roundedInt = Mathf.Round(clamped);
+        if (Mathf.Abs(clamped - roundedInt) < 0.05f)
+            return $"{(int)roundedInt}";
+        if (clamped >= 1f)
+            return $"{clamped:0.##}";
+        return $"{clamped:0.###}";
     }
 
     public void PulseWaveLabel()
@@ -352,7 +370,7 @@ public partial class HudPanel : CanvasLayer
         _enemyLabel.Text = alive > 0 ? $"Enemies: {alive} / {total}" : "";
     }
 
-    public void RefreshGlobalSpectacleMeter(float meter, float threshold, bool visible)
+    public void RefreshGlobalSurgeMeter(float meter, float threshold, bool visible)
     {
         if (!GodotObject.IsInstanceValid(_globalSpectaclePanel)
             || !GodotObject.IsInstanceValid(_globalSpectacleBar)
@@ -368,7 +386,7 @@ public partial class HudPanel : CanvasLayer
         float clampedMeter = Mathf.Clamp(meter, 0f, clampedThreshold);
         _globalSpectacleBar.MaxValue = clampedThreshold;
         _globalSpectacleBar.Value = clampedMeter;
-        _globalSpectacleLabel.Text = $"GLOBAL SPECTACLE {Mathf.RoundToInt(clampedMeter)}/{Mathf.RoundToInt(clampedThreshold)}";
+        _globalSpectacleLabel.Text = $"GLOBAL SURGE {Mathf.RoundToInt(clampedMeter)}/{Mathf.RoundToInt(clampedThreshold)}";
     }
 
     public void RefreshDevRenderStats(bool enabled, int enemiesAlive, string perfSummary)
@@ -470,7 +488,7 @@ public partial class HudPanel : CanvasLayer
         }));
     }
 
-    private void BuildGlobalSpectacleMeter()
+    private void BuildGlobalSurgeMeter()
     {
         _globalSpectaclePanel = new Panel
         {
@@ -499,7 +517,7 @@ public partial class HudPanel : CanvasLayer
 
         _globalSpectacleLabel = new Label
         {
-            Text = "GLOBAL SPECTACLE 0/100",
+            Text = "GLOBAL SURGE 0/100",
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             AnchorLeft = 0f,
