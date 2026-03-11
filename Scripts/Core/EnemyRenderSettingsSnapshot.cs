@@ -16,22 +16,19 @@ public readonly struct EnemyRenderSettingsSnapshot
     public bool EmissiveEnabled { get; }
     public bool DamageMaterialEnabled { get; }
     public bool BloomEnabled { get; }
-    public bool DevModeEnabled { get; }
 
     public EnemyRenderSettingsSnapshot(
         bool postFxEnabled,
         bool layeredEnabled,
         bool emissiveEnabled,
         bool damageMaterialEnabled,
-        bool bloomEnabled,
-        bool devModeEnabled)
+        bool bloomEnabled)
     {
         PostFxEnabled = postFxEnabled;
         LayeredEnabled = layeredEnabled;
         EmissiveEnabled = emissiveEnabled;
         DamageMaterialEnabled = damageMaterialEnabled;
         BloomEnabled = bloomEnabled;
-        DevModeEnabled = devModeEnabled;
     }
 
     public static EnemyRenderSettingsSnapshot ReadFrom(ConfigFile cfg, bool defaultBloomEnabled)
@@ -40,8 +37,7 @@ public readonly struct EnemyRenderSettingsSnapshot
             layeredEnabled: (bool)cfg.GetValue(DisplaySection, "enemy_layered", true),
             emissiveEnabled: (bool)cfg.GetValue(DisplaySection, "enemy_emissive", true),
             damageMaterialEnabled: (bool)cfg.GetValue(DisplaySection, "enemy_damage_material", true),
-            bloomEnabled: (bool)cfg.GetValue(DisplaySection, "enemy_bloom", defaultBloomEnabled),
-            devModeEnabled: (bool)cfg.GetValue(DisplaySection, "dev_mode", false));
+            bloomEnabled: (bool)cfg.GetValue(DisplaySection, "enemy_bloom", defaultBloomEnabled));
 
     public static EnemyRenderSettingsSnapshot ReadFrom(
         IReadOnlyDictionary<string, bool> values,
@@ -55,8 +51,7 @@ public readonly struct EnemyRenderSettingsSnapshot
             layeredEnabled: Read("enemy_layered", true),
             emissiveEnabled: Read("enemy_emissive", true),
             damageMaterialEnabled: Read("enemy_damage_material", true),
-            bloomEnabled: Read("enemy_bloom", defaultBloomEnabled),
-            devModeEnabled: Read("dev_mode", false));
+            bloomEnabled: Read("enemy_bloom", defaultBloomEnabled));
     }
 
     public void WriteTo(ConfigFile cfg)
@@ -66,7 +61,6 @@ public readonly struct EnemyRenderSettingsSnapshot
         cfg.SetValue(DisplaySection, "enemy_emissive", EmissiveEnabled);
         cfg.SetValue(DisplaySection, "enemy_damage_material", DamageMaterialEnabled);
         cfg.SetValue(DisplaySection, "enemy_bloom", BloomEnabled);
-        cfg.SetValue(DisplaySection, "dev_mode", DevModeEnabled);
     }
 
     public Dictionary<string, bool> ToDictionary()
@@ -77,6 +71,5 @@ public readonly struct EnemyRenderSettingsSnapshot
             ["enemy_emissive"] = EmissiveEnabled,
             ["enemy_damage_material"] = DamageMaterialEnabled,
             ["enemy_bloom"] = BloomEnabled,
-            ["dev_mode"] = DevModeEnabled,
         };
 }

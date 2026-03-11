@@ -55,6 +55,8 @@ public static class DamageModel
         // 3. Apply damage; track run-wide and per-tower stats when RunState is available
         float hpBefore = ctx.Target.Hp;
         ctx.Target.Hp -= damage;
+        float damageDealtRaw = hpBefore - System.MathF.Max(0f, ctx.Target.Hp);
+        bool isKill = ctx.Target.Hp <= 0f;
         if (ctx.State != null)
         {
             int damageDealt = (int)(hpBefore - System.MathF.Max(0f, ctx.Target.Hp));
@@ -78,6 +80,8 @@ public static class DamageModel
             }
         }
 
+        RegisterSpectacleDamageProcs(ctx, damageDealtRaw, isKill);
+
         // 4. On-hit effects (skipped for chain bounces if modifier opts out)
         foreach (var mod in ctx.Attacker.Modifiers)
         {
@@ -100,6 +104,49 @@ public static class DamageModel
                 GameController.Instance?.NotifyModifierProc(ctx.Attacker, mod.ModifierId);
             }
         }
+    }
+
+    private static void RegisterSpectacleDamageProcs(DamageContext ctx, float damageDealt, bool isKill)
+    {
+        var gc = GameController.Instance;
+        if (gc == null)
+            return;
+
+        if (CountModifier(ctx.Attacker, SpectacleDefinitions.ExploitWeakness) > 0 && ctx.Target.IsMarked)
+        {
+            float scalar = SpectacleDefinitions.ExploitWeaknessEventScalar(markedHit: true, markedKill: isKill);
+            gc.RegisterSpectacleProc(ctx.Attacker, SpectacleDefinitions.ExploitWeakness, scalar);
+        }
+
+        if (CountModifier(ctx.Attacker, SpectacleDefinitions.FocusLens) > 0)
+        {
+            float baseShotDamage = System.MathF.Max(1f, ctx.Attacker.BaseDamage);
+            float damageNorm = System.MathF.Max(0f, damageDealt) / baseShotDamage;
+            float scalar = SpectacleDefinitions.FocusLensEventScalar(damageNorm);
+            gc.RegisterSpectacleProc(ctx.Attacker, SpectacleDefinitions.FocusLens, scalar);
+        }
+
+        int overreachCopies = CountModifier(ctx.Attacker, SpectacleDefinitions.Overreach);
+        if (overreachCopies > 0)
+        {
+            float overreachFactor = System.MathF.Pow(Balance.OverreachRangeFactor, overreachCopies);
+            float baseRange = ctx.Attacker.Range / System.MathF.Max(0.001f, overreachFactor);
+            float rangeNorm = (ctx.Attacker.Range / System.MathF.Max(1f, baseRange)) - 1f;
+            float scalar = SpectacleDefinitions.OverreachEventScalar(rangeNorm);
+            gc.RegisterSpectacleProc(ctx.Attacker, SpectacleDefinitions.Overreach, scalar);
+        }
+    }
+
+    private static int CountModifier(ITowerView tower, string modifierId)
+    {
+        string normalized = SpectacleDefinitions.NormalizeModId(modifierId);
+        int count = 0;
+        foreach (var mod in tower.Modifiers)
+        {
+            if (SpectacleDefinitions.NormalizeModId(mod.ModifierId) == normalized)
+                count++;
+        }
+        return count;
     }
 
     /// <summary>Finds which slot index a tower belongs to for damage tracking.</summary>

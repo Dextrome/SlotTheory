@@ -17,6 +17,9 @@ public partial class HudPanel : CanvasLayer
     private Label _devStatsLabel = null!;
     private Label _speedToast = null!;
     private ColorRect _speedToastStreak = null!;
+    private Panel _globalSpectaclePanel = null!;
+    private ProgressBar _globalSpectacleBar = null!;
+    private Label _globalSpectacleLabel = null!;
     private Button _speedBtn = null!;
     private int _speedIdx = 0;
     private static readonly double[] SpeedStepsNormal = { 1.0, 2.0, 3.0 };
@@ -248,6 +251,8 @@ public partial class HudPanel : CanvasLayer
             Size = new Vector2(180f, 4f),
         };
         AddChild(_speedToastStreak);
+
+        BuildGlobalSpectacleMeter();
     }
 
     private void OnSpeedToggle()
@@ -347,6 +352,25 @@ public partial class HudPanel : CanvasLayer
         _enemyLabel.Text = alive > 0 ? $"Enemies: {alive} / {total}" : "";
     }
 
+    public void RefreshGlobalSpectacleMeter(float meter, float threshold, bool visible)
+    {
+        if (!GodotObject.IsInstanceValid(_globalSpectaclePanel)
+            || !GodotObject.IsInstanceValid(_globalSpectacleBar)
+            || !GodotObject.IsInstanceValid(_globalSpectacleLabel))
+            return;
+
+        bool canShow = visible && threshold > 0.001f;
+        _globalSpectaclePanel.Visible = canShow;
+        if (!canShow)
+            return;
+
+        float clampedThreshold = Mathf.Max(1f, threshold);
+        float clampedMeter = Mathf.Clamp(meter, 0f, clampedThreshold);
+        _globalSpectacleBar.MaxValue = clampedThreshold;
+        _globalSpectacleBar.Value = clampedMeter;
+        _globalSpectacleLabel.Text = $"GLOBAL SPECTACLE {Mathf.RoundToInt(clampedMeter)}/{Mathf.RoundToInt(clampedThreshold)}";
+    }
+
     public void RefreshDevRenderStats(bool enabled, int enemiesAlive, string perfSummary)
     {
         if (!enabled)
@@ -444,5 +468,91 @@ public partial class HudPanel : CanvasLayer
             _speedToast.Visible = false;
             _speedToastStreak.Visible = false;
         }));
+    }
+
+    private void BuildGlobalSpectacleMeter()
+    {
+        _globalSpectaclePanel = new Panel
+        {
+            AnchorLeft = 0.5f,
+            AnchorRight = 0.5f,
+            AnchorTop = 1f,
+            AnchorBottom = 1f,
+            OffsetLeft = -240f,
+            OffsetRight = 240f,
+            OffsetTop = -54f,
+            OffsetBottom = -14f,
+            Visible = false,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Modulate = new Color(1f, 1f, 1f, 0.97f),
+        };
+        _globalSpectaclePanel.AddThemeStyleboxOverride(
+            "panel",
+            UITheme.MakePanel(
+                bg: new Color(0.04f, 0.09f, 0.15f, 0.88f),
+                border: new Color(0.62f, 0.92f, 1.00f, 0.82f),
+                corners: 10,
+                borderWidth: 2,
+                padH: 10,
+                padV: 7));
+        AddChild(_globalSpectaclePanel);
+
+        _globalSpectacleLabel = new Label
+        {
+            Text = "GLOBAL SPECTACLE 0/100",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            AnchorLeft = 0f,
+            AnchorRight = 1f,
+            AnchorTop = 0f,
+            AnchorBottom = 0f,
+            OffsetLeft = 0f,
+            OffsetRight = 0f,
+            OffsetTop = 0f,
+            OffsetBottom = 18f,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Modulate = new Color(1.00f, 0.95f, 0.76f, 1f),
+        };
+        UITheme.ApplyFont(_globalSpectacleLabel, semiBold: true, size: 16);
+        _globalSpectacleLabel.AddThemeConstantOverride("outline_size", 2);
+        _globalSpectacleLabel.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.78f));
+        _globalSpectaclePanel.AddChild(_globalSpectacleLabel);
+
+        _globalSpectacleBar = new ProgressBar
+        {
+            MinValue = 0f,
+            MaxValue = 100f,
+            Value = 0f,
+            Step = 0.01f,
+            ShowPercentage = false,
+            AnchorLeft = 0f,
+            AnchorRight = 1f,
+            AnchorTop = 1f,
+            AnchorBottom = 1f,
+            OffsetLeft = 10f,
+            OffsetRight = -10f,
+            OffsetTop = -14f,
+            OffsetBottom = -4f,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        _globalSpectacleBar.AddThemeStyleboxOverride(
+            "background",
+            UITheme.MakePanel(
+                bg: new Color(0.07f, 0.16f, 0.25f, 0.95f),
+                border: new Color(0.32f, 0.70f, 0.90f, 0.85f),
+                corners: 6,
+                borderWidth: 1,
+                padH: 0,
+                padV: 0));
+        _globalSpectacleBar.AddThemeStyleboxOverride(
+            "fill",
+            UITheme.MakePanel(
+                bg: new Color(1.00f, 0.90f, 0.44f, 0.95f),
+                border: new Color(1.00f, 0.98f, 0.80f, 0.95f),
+                corners: 6,
+                borderWidth: 1,
+                padH: 0,
+                padV: 0));
+        _globalSpectaclePanel.AddChild(_globalSpectacleBar);
     }
 }

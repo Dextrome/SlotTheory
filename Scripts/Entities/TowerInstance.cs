@@ -41,6 +41,10 @@ public partial class TowerInstance : Node2D, ITowerView
     public Line2D? ModeBadgeBorder { get; set; }
     public Polygon2D? RangeCircle { get; set; }
     public Line2D?   RangeBorder  { get; set; }
+    public float SpectacleMeterNormalized { get; set; } = 0f;
+    public float SpectaclePulse { get; set; } = 0f;
+    public string SpectacleAccent { get; set; } = string.Empty;
+    private Tween? _spectacleFlashTween;
     private float _idleTime = 0f;
     private float _lockLineRemaining = 0f;
     private Vector2 _lockLineTargetGlobal = Vector2.Zero;
@@ -90,6 +94,33 @@ public partial class TowerInstance : Node2D, ITowerView
         tween.TweenProperty(this, "modulate", new Color(1.4f, 1.4f, 1.4f), 0.03f);
         tween.TweenProperty(this, "modulate", Colors.White, 0.25f)
              .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);
+    }
+
+    public void FlashSpectacle(Color accent, bool major)
+    {
+        if (_spectacleFlashTween != null && GodotObject.IsInstanceValid(_spectacleFlashTween))
+            _spectacleFlashTween.Kill();
+
+        float tintBoost = major ? 0.62f : 0.40f;
+        Color flash = new Color(
+            1f + accent.R * tintBoost,
+            1f + accent.G * tintBoost,
+            1f + accent.B * tintBoost,
+            1f);
+        Vector2 peakScale = Vector2.One * (major ? 1.11f : 1.07f);
+        float inTime = major ? 0.055f : 0.045f;
+        float outTime = major ? 0.22f : 0.16f;
+
+        _spectacleFlashTween = CreateTween();
+        _spectacleFlashTween.SetParallel(true);
+        _spectacleFlashTween.TweenProperty(this, "modulate", flash, inTime);
+        _spectacleFlashTween.TweenProperty(this, "scale", peakScale, inTime)
+            .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+        _spectacleFlashTween.Chain().SetParallel(true);
+        _spectacleFlashTween.TweenProperty(this, "modulate", Colors.White, outTime)
+            .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);
+        _spectacleFlashTween.TweenProperty(this, "scale", Vector2.One, outTime)
+            .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
     }
 
     public void KickRecoil(float distance = 3.5f)
@@ -166,6 +197,7 @@ public partial class TowerInstance : Node2D, ITowerView
     {
         // Draw cooldown ring first so tower/barrel geometry sits on top.
         DrawChargeArc();
+        DrawSpectacleArc();
 
         switch (TowerId)
         {
@@ -206,6 +238,30 @@ public partial class TowerInstance : Node2D, ITowerView
             float end   = start + fill * Mathf.Tau;
             DrawArc(Vector2.Zero, r, start, end, 48,
                 new Color(BodyColor.R, BodyColor.G, BodyColor.B, 0.88f), 2.5f);
+        }
+    }
+
+    private void DrawSpectacleArc()
+    {
+        float meter = Mathf.Clamp(SpectacleMeterNormalized, 0f, 1f);
+        float pulse = Mathf.Clamp(SpectaclePulse, 0f, 1f);
+        if (meter <= 0.001f && pulse <= 0.001f)
+            return;
+
+        Color accent = string.IsNullOrEmpty(SpectacleAccent)
+            ? BodyColor
+            : ModifierVisuals.GetAccent(SpectacleAccent);
+        float glow = 0.08f + meter * 0.26f + pulse * 0.42f;
+        DrawCircle(Vector2.Zero, 28f + pulse * 3.0f, new Color(accent.R, accent.G, accent.B, glow * 0.62f));
+
+        float ringAlpha = 0.24f + meter * 0.42f + pulse * 0.40f;
+        DrawArc(Vector2.Zero, 24f, 0f, Mathf.Tau, 48, new Color(accent.R, accent.G, accent.B, ringAlpha * 0.40f), 2.1f);
+
+        if (meter > 0.01f)
+        {
+            float start = -Mathf.Pi / 2f;
+            float end = start + meter * Mathf.Tau;
+            DrawArc(Vector2.Zero, 24f, start, end, 48, new Color(accent.R, accent.G, accent.B, ringAlpha), 3.0f);
         }
     }
 

@@ -16,7 +16,6 @@ public partial class PauseScreen : CanvasLayer
     private Button? _pauseFsBtn;
     private Button? _pauseCbBtn;
     private Button? _pauseRmBtn;
-    private Button? _pauseDevBtn;
 
     public override void _Ready()
     {
@@ -191,25 +190,6 @@ public partial class PauseScreen : CanvasLayer
             if (_pauseRmBtn != null) _pauseRmBtn.Text = "Reduced Motion:  " + (next ? "On" : "Off");
         };
         vbox.AddChild(_pauseRmBtn);
-
-        // Dev mode toggle
-        bool isDev = SettingsManager.Instance?.DevMode ?? false;
-        _pauseDevBtn = new Button
-        {
-            Text              = isDev ? "Dev Mode:  On  (5\u00D7 / 10\u00D7 speed)" : "Dev Mode:  Off",
-            CustomMinimumSize = new Vector2(260, 44),
-            Modulate          = new Color(0.85f, 0.65f, 1.0f),
-        };
-        _pauseDevBtn.AddThemeFontSizeOverride("font_size", 20);
-        _pauseDevBtn.Pressed += () =>
-        {
-            SoundManager.Instance?.Play("ui_select");
-            bool next = !(SettingsManager.Instance?.DevMode ?? false);
-            SettingsManager.Instance?.SetDevMode(next);
-            if (_pauseDevBtn != null)
-                _pauseDevBtn.Text = next ? "Dev Mode:  On  (5\u00D7 / 10\u00D7 speed)" : "Dev Mode:  Off";
-        };
-        vbox.AddChild(_pauseDevBtn);
 
         AddSpacer(vbox, 8);
         AddBtn(vbox, "\u2190 Back", OnCloseSettings);

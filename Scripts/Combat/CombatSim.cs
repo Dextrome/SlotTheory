@@ -212,6 +212,7 @@ public class CombatSim
                 {
                     if (BotMode) state.SlotFiredSteps[si]++;
                     tower.Cooldown = riftInterval;
+                    GameController.Instance?.RegisterSpectacleShotFired(tower);
                     if (burstActive)
                         IncrementRiftBurstFastPlantsUsed(tower);
                     if (!BotMode)
@@ -243,6 +244,7 @@ public class CombatSim
                 mod.ModifyAttackInterval(ref effectiveInterval, tower);
 
             tower.Cooldown = effectiveInterval;
+            GameController.Instance?.RegisterSpectacleShotFired(tower);
 
             // Damage applied on projectile arrival, not here
             SpawnProjectile(tower.GlobalPosition, target, towerNode?.ProjectileColor ?? Godot.Colors.Yellow,
@@ -754,8 +756,17 @@ public class CombatSim
         {
             // Mirror projectile Split Shot semantics: one copy = two extra spawns.
             int splitSeeds = owner.SplitCount + 1;
+            int plantedMiniMines = 0;
             for (int i = 0; i < splitSeeds; i++)
-                TryPlantMineNear(owner, mine.Position, Balance.RiftMineMiniDamageFactor * mine.DamageScale);
+            {
+                if (TryPlantMineNear(owner, mine.Position, Balance.RiftMineMiniDamageFactor * mine.DamageScale))
+                    plantedMiniMines++;
+            }
+            if (plantedMiniMines > 0)
+            {
+                float splitScalar = SpectacleDefinitions.SplitShotEventScalar(plantedMiniMines);
+                GameController.Instance?.RegisterSpectacleProc(owner, SpectacleDefinitions.SplitShot, splitScalar);
+            }
         }
 
         if (finalPop && mineChainDepth > 0)
@@ -785,6 +796,10 @@ public class CombatSim
                     chainSource: true,
                     chainHop: chainHop + 1,
                     forceFinalPop: true);
+                GameController.Instance?.RegisterSpectacleProc(
+                    owner,
+                    SpectacleDefinitions.ChainReaction,
+                    SpectacleDefinitions.ChainReactionEventScalar(1));
             }
         }
 
@@ -856,6 +871,12 @@ public class CombatSim
             current = next;
             damage *= tower.ChainDamageDecay;
             bounces++;
+        }
+
+        if (bounces > 0)
+        {
+            float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(bounces);
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar);
         }
     }
 
@@ -941,6 +962,12 @@ public class CombatSim
             damage *= tower.ChainDamageDecay;
             bounces++;
         }
+
+        if (bounces > 0)
+        {
+            float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(bounces);
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar);
+        }
     }
 
     private void ApplySplitBotMode(ITowerView tower, EnemyInstance primary,
@@ -962,6 +989,12 @@ public class CombatSim
             DamageModel.Apply(new DamageContext(tower, candidate, waveIndex, enemies, _state,
                                                 isChain: true, damageOverride: splitDamage));
             spawned++;
+        }
+
+        if (spawned > 0)
+        {
+            float splitScalar = SpectacleDefinitions.SplitShotEventScalar(spawned);
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.SplitShot, splitScalar);
         }
     }
 
