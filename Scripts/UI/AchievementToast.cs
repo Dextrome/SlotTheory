@@ -23,6 +23,7 @@ public partial class AchievementToast : CanvasLayer
     private Label?  _title;
     private Label?  _desc;
     private float   _timer;
+    private double  _lastTickSec;
     private bool    _visible;
     private readonly System.Collections.Generic.Queue<string> _queue = new();
 
@@ -106,6 +107,7 @@ public partial class AchievementToast : CanvasLayer
         if (AchievementManager.Instance != null)
             AchievementManager.Instance.AchievementUnlocked += OnAchievementUnlocked;
 
+        _lastTickSec = Time.GetTicksUsec() / 1_000_000.0;
         SetProcess(false);
     }
 
@@ -122,7 +124,11 @@ public partial class AchievementToast : CanvasLayer
 
     public override void _Process(double delta)
     {
-        _timer -= (float)delta;
+        double nowSec = Time.GetTicksUsec() / 1_000_000.0;
+        float realDelta = _lastTickSec > 0 ? (float)(nowSec - _lastTickSec) : (float)delta;
+        _lastTickSec = nowSec;
+
+        _timer -= realDelta;
         if (_timer <= 0)
             DismissToast();
     }
@@ -142,12 +148,14 @@ public partial class AchievementToast : CanvasLayer
 
         _visible = true;
         _timer   = ShowDuration;
+        _lastTickSec = Time.GetTicksUsec() / 1_000_000.0;
         SetProcess(true);
 
         // Fade in
         if (_panel != null)
         {
             var tween = CreateTween();
+            tween.SetIgnoreTimeScale(true);
             tween.TweenProperty(_panel, "modulate:a", 1.0f, SlideDuration);
         }
     }
@@ -159,6 +167,7 @@ public partial class AchievementToast : CanvasLayer
 
         if (_panel == null) return;
         var tween = CreateTween();
+        tween.SetIgnoreTimeScale(true);
         tween.TweenProperty(_panel, "modulate:a", 0.0f, SlideDuration);
         tween.TweenCallback(Callable.From(ShowNext));
     }

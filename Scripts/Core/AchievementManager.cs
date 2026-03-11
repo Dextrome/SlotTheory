@@ -1,4 +1,5 @@
 using Godot;
+using System.Linq;
 
 namespace SlotTheory.Core;
 
@@ -31,7 +32,8 @@ public partial class AchievementManager : Node
     [
         new("FIRST_WIN",     "First Victory",     "Complete all 20 waves for the first time."),
         new("HARD_WIN",      "Hard Carry",         "Complete all 20 waves on Hard difficulty."),
-        new(Unlocks.RiftPrismAchievementId, "Rift Unsealed", "Beat Orbit on Normal or Hard to unlock Rift Prism."),
+        new(Unlocks.ArcEmitterAchievementId, "Arc Unsealed", "Beat the first map on Normal or Hard to unlock Arc Emitter."),
+        new(Unlocks.RiftPrismAchievementId, "Rift Unsealed", "Beat the second map on Normal or Hard to unlock Rift Sapper."),
         new("FLAWLESS",      "Flawless",           "Win a run without losing a single life."),
         new("LAST_STAND",    "Last Stand",         "Win a run with exactly 1 life remaining."),
         new("HALFWAY_THERE", "Halfway There",      "Survive to wave 10 in any run."),
@@ -79,6 +81,11 @@ public partial class AchievementManager : Node
     /// </summary>
     public void CheckRunEnd(RunState state, DifficultyMode difficulty, bool won)
     {
+        // Keep progression/achievement saves deterministic for real play only.
+        // Bot simulations should not consume unlocks or suppress toasts in normal runs.
+        if (OS.GetCmdlineUserArgs().Contains("--bot"))
+            return;
+
         // Wave milestone (win or loss)
         if (state.WaveIndex >= HalfwayWaveIndex)
             Unlock("HALFWAY_THERE");
@@ -107,6 +114,9 @@ public partial class AchievementManager : Node
 
             if (difficulty == DifficultyMode.Hard)
                 Unlock("HARD_WIN");
+
+            if (Unlocks.ShouldUnlockArcEmitter(state, difficulty))
+                Unlock(Unlocks.ArcEmitterAchievementId);
 
             if (Unlocks.ShouldUnlockRiftPrism(state, difficulty))
                 Unlock(Unlocks.RiftPrismAchievementId);

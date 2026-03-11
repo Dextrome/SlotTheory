@@ -15,12 +15,43 @@ public enum WaveResult { Ongoing, WaveComplete, Loss }
 /// </summary>
 public class CombatSim
 {
+    private readonly struct MineAnchor
+    {
+        public Vector2 Position { get; }
+        public float Score { get; }
+
+        public MineAnchor(Vector2 position, float score)
+        {
+            Position = position;
+            Score = score;
+        }
+    }
+
+    private sealed class ActiveMine
+    {
+        public ulong Id { get; init; }
+        public TowerInstance Owner { get; init; } = null!;
+        public Vector2 Position { get; init; }
+        public float DamageScale { get; init; } = 1f;
+        public bool IsMiniMine { get; init; }
+        public int MaxCharges { get; init; } = Balance.RiftMineChargesPerMine;
+        public float ArmRemaining { get; set; }
+        public float RearmRemaining { get; set; }
+        public int ChargesRemaining { get; set; } = Balance.RiftMineChargesPerMine;
+        public RiftMineVisual? Visual { get; init; }
+    }
+
     private readonly RunState _state;
     private float _spawnTimer = 0f;
     private readonly Queue<string> _spawnQueue = new();
     private float _initialSpawnDelay = 0f;
     private float _killComboTimer = 0f;
     private int _killComboCount = 0;
+    private readonly List<ActiveMine> _activeMines = new();
+    private readonly List<MineAnchor> _mineAnchors = new();
+    private readonly Dictionary<ulong, int> _riftBurstFastPlantsUsed = new();
+    private ulong _nextMineId = 1;
+    private readonly Random _mineRng;
 
     // Set externally by GameController when an enemy scene is needed
     public PackedScene? EnemyScene { get; set; }
@@ -28,7 +59,12 @@ public class CombatSim
     // Set externally — the Path2D node enemies are added to as PathFollow2D children
     public Path2D? LanePath { get; set; }
 
-    public CombatSim(RunState state) => _state = state;
+    public CombatSim(RunState state)
+    {
+        _state = state;
+        int seed = state.RngSeed != 0 ? state.RngSeed : System.Environment.TickCount;
+        _mineRng = new Random(unchecked(seed * 1103515245 + 12345));
+    }
 
     // Injected by GameController after scene is ready
     public SoundManager? Sounds { get; set; }
@@ -44,6 +80,9 @@ public class CombatSim
         _spawnQueue.Clear();
         _killComboTimer = 0f;
         _killComboCount = 0;
+        _riftBurstFastPlantsUsed.Clear();
+        ClearMines();
+        RebuildMineAnchors();
     }
 
     /// <summary>Full reset + build spawn queue. Call after WaveSystem.LoadWave().</summary>
@@ -53,6 +92,9 @@ public class CombatSim
         _spawnQueue.Clear();
         _killComboTimer = 0f;
         _killComboCount = 0;
+        _riftBurstFastPlantsUsed.Clear();
+        ClearMines();
+        RebuildMineAnchors();
 
         int walkers  = ws.GetWalkerCount();
         int tankies  = ws.GetTankyCount();
@@ -133,7 +175,12 @@ public class CombatSim
         }
         state.EnemiesAlive.RemoveAll(e => !GodotObject.IsInstanceValid(e) || e.ProgressRatio >= 1.0f);
         if (state.Lives <= 0)
+        {
+            ClearMines();
             return WaveResult.Loss;
+        }
+
+        ResolveMineTriggers(delta, state.WaveIndex, state.EnemiesAlive);
 
         // 3. Tower attacks (hitscan — no projectiles)
         for (int si = 0; si < state.Slots.Length; si++)
@@ -149,6 +196,37 @@ public class CombatSim
 
             if (BotMode) state.SlotEligibleSteps[si]++;
 
+            // Rift Sapper plants mines directly on the lane, so it does not require an enemy target.
+            if (tower.TowerId == "rift_prism")
+            {
+                float riftInterval = tower.AttackInterval;
+                foreach (var mod in tower.Modifiers)
+                    mod.ModifyAttackInterval(ref riftInterval, tower);
+
+                bool burstActive = state.WaveTime <= Balance.RiftMineBurstWindow
+                    && GetRiftBurstFastPlantsUsed(tower) < Balance.RiftMineBurstFastPlantsPerTower;
+                if (burstActive)
+                    riftInterval *= Balance.RiftMineBurstIntervalMultiplier;
+
+                if (TryPlantMine(tower, state.EnemiesAlive))
+                {
+                    if (BotMode) state.SlotFiredSteps[si]++;
+                    tower.Cooldown = riftInterval;
+                    if (burstActive)
+                        IncrementRiftBurstFastPlantsUsed(tower);
+                    if (!BotMode)
+                    {
+                        towerNode?.FlashAttack();
+                        Sounds?.Play("shoot_marker", pitchScale: 0.92f);
+                    }
+                }
+                else
+                {
+                    tower.Cooldown = 0.12f;
+                }
+                continue;
+            }
+
             var target = Targeting.SelectTarget(tower, state.EnemiesAlive, ignoreRange: false);
             if (target == null) continue;
 
@@ -163,6 +241,7 @@ public class CombatSim
             float effectiveInterval = tower.AttackInterval;
             foreach (var mod in tower.Modifiers)
                 mod.ModifyAttackInterval(ref effectiveInterval, tower);
+
             tower.Cooldown = effectiveInterval;
 
             // Damage applied on projectile arrival, not here
@@ -210,9 +289,544 @@ public class CombatSim
         // 5. Wave complete
         bool quotaDone = state.EnemiesSpawnedThisWave >= quota;
         if (quotaDone && state.EnemiesAlive.Count == 0)
+        {
+            ClearMines();
             return WaveResult.WaveComplete;
+        }
 
         return WaveResult.Ongoing;
+    }
+
+    private void ClearMines()
+    {
+        foreach (var mine in _activeMines)
+        {
+            if (mine.Visual != null && GodotObject.IsInstanceValid(mine.Visual))
+                mine.Visual.QueueFree();
+        }
+        _activeMines.Clear();
+    }
+
+    private int GetRiftBurstFastPlantsUsed(ITowerView tower)
+    {
+        if (tower is not TowerInstance inst)
+            return Balance.RiftMineBurstFastPlantsPerTower;
+        ulong id = inst.GetInstanceId();
+        return _riftBurstFastPlantsUsed.TryGetValue(id, out int count) ? count : 0;
+    }
+
+    private void IncrementRiftBurstFastPlantsUsed(ITowerView tower)
+    {
+        if (tower is not TowerInstance inst)
+            return;
+        ulong id = inst.GetInstanceId();
+        _riftBurstFastPlantsUsed.TryGetValue(id, out int count);
+        _riftBurstFastPlantsUsed[id] = count + 1;
+    }
+
+    private void RebuildMineAnchors()
+    {
+        _mineAnchors.Clear();
+        if (LanePath?.Curve == null) return;
+
+        var curve = LanePath.Curve;
+        float length = curve.GetBakedLength();
+        if (length <= 0.01f) return;
+
+        float step = Mathf.Max(8f, Balance.RiftMineAnchorStep);
+        int count = Mathf.Max(8, Mathf.CeilToInt(length / step));
+        if (count < 3) return;
+
+        for (int i = 1; i < count - 1; i++)
+        {
+            float d0 = Mathf.Max(0f, (i - 1) * step);
+            float d1 = i * step;
+            float d2 = Mathf.Min(length, (i + 1) * step);
+
+            Vector2 p0 = LanePath.ToGlobal(curve.SampleBaked(d0));
+            Vector2 p1 = LanePath.ToGlobal(curve.SampleBaked(d1));
+            Vector2 p2 = LanePath.ToGlobal(curve.SampleBaked(d2));
+
+            var a = (p1 - p0).Normalized();
+            var b = (p2 - p1).Normalized();
+            float turn = 1f - Mathf.Clamp(a.Dot(b), -1f, 1f); // 0 = straight, 1 = hard bend
+
+            // Slight anti-symmetry jitter avoids all mines selecting identical mirrored anchors.
+            float jitter = 0.11f * Mathf.Sin(i * 0.73f);
+            _mineAnchors.Add(new MineAnchor(p1, turn * 2.2f + jitter));
+        }
+    }
+
+    private void ResolveMineTriggers(float delta, int waveIndex, List<EnemyInstance> enemies)
+    {
+        if (_activeMines.Count == 0) return;
+
+        foreach (var mine in _activeMines)
+        {
+            mine.ArmRemaining = Mathf.Max(0f, mine.ArmRemaining - delta);
+            mine.RearmRemaining = Mathf.Max(0f, mine.RearmRemaining - delta);
+            if (mine.Visual != null && GodotObject.IsInstanceValid(mine.Visual))
+            {
+                mine.Visual.SetArmed(mine.ArmRemaining <= 0f && mine.RearmRemaining <= 0f);
+                mine.Visual.SetCharges(mine.ChargesRemaining, mine.MaxCharges);
+            }
+        }
+
+        var triggers = new List<(ActiveMine Mine, EnemyInstance Target)>();
+        foreach (var mine in _activeMines)
+        {
+            if (mine.ArmRemaining > 0f || mine.RearmRemaining > 0f) continue;
+            var target = FindTriggerTarget(mine.Position, enemies);
+            if (target != null)
+                triggers.Add((mine, target));
+        }
+
+        foreach (var t in triggers)
+        {
+            if (!_activeMines.Contains(t.Mine)) continue;
+            bool finalPop = t.Mine.ChargesRemaining <= 1;
+            float stageMult = finalPop
+                ? Balance.RiftMineFinalDamageMultiplier
+                : Balance.RiftMineTickDamageMultiplier;
+            float damage = t.Mine.Owner.BaseDamage
+                * Balance.RiftMineDamageMultiplier
+                * t.Mine.DamageScale
+                * stageMult;
+            DetonateMine(t.Mine, t.Target, waveIndex, enemies, damage, t.Mine.Owner.ChainCount,
+                chainSource: false, chainHop: 0, forceFinalPop: false);
+        }
+    }
+
+    private bool TryPlantMine(ITowerView towerView, List<EnemyInstance> enemies)
+    {
+        if (towerView is not TowerInstance tower) return false;
+        if (CountActiveBaseMinesFor(tower) >= Balance.RiftMineMaxActivePerTower)
+            return false;
+
+        Vector2? chosen = PickMineAnchor(tower, enemies);
+        if (chosen == null) return false;
+
+        if (!AddMine(tower, chosen.Value, damageScale: 1f))
+            return false;
+
+        return true;
+    }
+
+    private bool TryPlantMineNear(TowerInstance owner, Vector2 center, float damageScale)
+    {
+        Vector2? best = null;
+        float bestScore = float.MinValue;
+        foreach (var anchor in _mineAnchors)
+        {
+            float toCenter = anchor.Position.DistanceTo(center);
+            if (toCenter > Balance.RiftMineSplitPlantRadius) continue;
+            if (owner.GlobalPosition.DistanceTo(anchor.Position) > owner.Range * 0.98f) continue;
+            if (!IsMineSpotFree(anchor.Position)) continue;
+
+            float score = anchor.Score - toCenter * 0.014f;
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = anchor.Position;
+            }
+        }
+
+        if (best == null) return false;
+        return AddMine(owner, best.Value, damageScale, armTime: Balance.RiftMineArmTime * 0.75f, isMiniMine: true);
+    }
+
+    private Vector2? PickMineAnchor(TowerInstance tower, List<EnemyInstance> enemies)
+    {
+        Vector2? fromAnchors = tower.TargetingMode switch
+        {
+            TargetingMode.First => PickRandomAnchorInRange(tower),
+            TargetingMode.Strongest => PickEdgeAnchorInRange(tower, farthest: false),
+            TargetingMode.LowestHp => PickEdgeAnchorInRange(tower, farthest: true),
+            _ => PickRandomAnchorInRange(tower),
+        };
+        if (fromAnchors != null)
+            return fromAnchors;
+
+        // If all sampled path anchors are occupied, fall back to current path positions of enemies in range.
+        return tower.TargetingMode switch
+        {
+            TargetingMode.First => PickRandomEnemyPointInRange(tower, enemies),
+            TargetingMode.Strongest => PickEdgeEnemyPointInRange(tower, enemies, farthest: false),
+            TargetingMode.LowestHp => PickEdgeEnemyPointInRange(tower, enemies, farthest: true),
+            _ => PickRandomEnemyPointInRange(tower, enemies),
+        };
+    }
+
+    private Vector2? PickRandomAnchorInRange(TowerInstance tower)
+    {
+        Vector2? picked = null;
+        int seen = 0;
+        float rangeLimit = tower.Range * 0.98f;
+
+        foreach (var anchor in _mineAnchors)
+        {
+            if (tower.GlobalPosition.DistanceTo(anchor.Position) > rangeLimit) continue;
+            if (!IsMineSpotFree(anchor.Position)) continue;
+
+            seen++;
+            if (_mineRng.Next(seen) == 0)
+                picked = anchor.Position;
+        }
+        return picked;
+    }
+
+    private Vector2? PickEdgeAnchorInRange(TowerInstance tower, bool farthest)
+    {
+        Vector2? picked = null;
+        float pickedDist = farthest ? float.MinValue : float.MaxValue;
+        float rangeLimit = tower.Range * 0.98f;
+
+        foreach (var anchor in _mineAnchors)
+        {
+            float dist = tower.GlobalPosition.DistanceTo(anchor.Position);
+            if (dist > rangeLimit) continue;
+            if (!IsMineSpotFree(anchor.Position)) continue;
+
+            bool better = farthest ? dist > pickedDist : dist < pickedDist;
+            if (better)
+            {
+                picked = anchor.Position;
+                pickedDist = dist;
+            }
+        }
+        return picked;
+    }
+
+    private Vector2? PickRandomEnemyPointInRange(TowerInstance tower, List<EnemyInstance> enemies)
+    {
+        Vector2? picked = null;
+        int seen = 0;
+        foreach (var enemy in enemies)
+        {
+            if (!GodotObject.IsInstanceValid(enemy) || enemy.Hp <= 0f) continue;
+            Vector2 p = enemy.GlobalPosition;
+            if (tower.GlobalPosition.DistanceTo(p) > tower.Range) continue;
+            if (!IsMineSpotFree(p)) continue;
+
+            seen++;
+            if (_mineRng.Next(seen) == 0)
+                picked = p;
+        }
+        return picked;
+    }
+
+    private Vector2? PickEdgeEnemyPointInRange(TowerInstance tower, List<EnemyInstance> enemies, bool farthest)
+    {
+        Vector2? picked = null;
+        float pickedDist = farthest ? float.MinValue : float.MaxValue;
+        foreach (var enemy in enemies)
+        {
+            if (!GodotObject.IsInstanceValid(enemy) || enemy.Hp <= 0f) continue;
+            Vector2 p = enemy.GlobalPosition;
+            float dist = tower.GlobalPosition.DistanceTo(p);
+            if (dist > tower.Range) continue;
+            if (!IsMineSpotFree(p)) continue;
+
+            bool better = farthest ? dist > pickedDist : dist < pickedDist;
+            if (better)
+            {
+                picked = p;
+                pickedDist = dist;
+            }
+        }
+        return picked;
+    }
+
+    private bool AddMine(
+        TowerInstance owner,
+        Vector2 worldPos,
+        float damageScale,
+        float armTime = Balance.RiftMineArmTime,
+        bool isMiniMine = false)
+    {
+        if (!isMiniMine && CountActiveBaseMinesFor(owner) >= Balance.RiftMineMaxActivePerTower)
+            return false;
+        if (!IsMineSpotFree(worldPos))
+            return false;
+
+        int initialCharges = isMiniMine ? 1 : Balance.RiftMineChargesPerMine;
+
+        RiftMineVisual? visual = null;
+        if (!BotMode && LanePath != null)
+        {
+            visual = new RiftMineVisual
+            {
+                ZIndex = 9,
+            };
+            LanePath.GetParent().AddChild(visual);
+            visual.GlobalPosition = worldPos;
+            visual.Initialize(owner.ProjectileColor, damageScale);
+            visual.SetCharges(initialCharges, initialCharges);
+            visual.SetArmed(armTime <= 0f);
+        }
+
+        _activeMines.Add(new ActiveMine
+        {
+            Id = _nextMineId++,
+            Owner = owner,
+            Position = worldPos,
+            DamageScale = damageScale,
+            IsMiniMine = isMiniMine,
+            MaxCharges = initialCharges,
+            ArmRemaining = Mathf.Max(0f, armTime),
+            RearmRemaining = 0f,
+            ChargesRemaining = initialCharges,
+            Visual = visual
+        });
+        return true;
+    }
+
+    private int CountActiveBaseMinesFor(TowerInstance owner)
+        => _activeMines.Count(m => ReferenceEquals(m.Owner, owner) && !m.IsMiniMine);
+
+    private bool IsMineSpotFree(Vector2 worldPos)
+        => _activeMines.All(m => m.Position.DistanceTo(worldPos) >= Balance.RiftMinePlantSpacing);
+
+    private EnemyInstance? FindTriggerTarget(Vector2 minePos, List<EnemyInstance> enemies)
+    {
+        EnemyInstance? best = null;
+        float bestProgress = -1f;
+        foreach (var e in enemies)
+        {
+            if (!GodotObject.IsInstanceValid(e) || e.Hp <= 0f) continue;
+            if (e.GlobalPosition.DistanceTo(minePos) > Balance.RiftMineTriggerRadius) continue;
+            if (e.ProgressRatio > bestProgress)
+            {
+                bestProgress = e.ProgressRatio;
+                best = e;
+            }
+        }
+        return best;
+    }
+
+    private EnemyInstance? FindBlastTarget(Vector2 minePos, List<EnemyInstance> enemies, EnemyInstance? preferred)
+    {
+        if (preferred != null
+            && GodotObject.IsInstanceValid(preferred)
+            && preferred.Hp > 0f
+            && preferred.GlobalPosition.DistanceTo(minePos) <= Balance.RiftMineBlastRadius)
+        {
+            return preferred;
+        }
+
+        EnemyInstance? best = null;
+        float bestProgress = -1f;
+        foreach (var e in enemies)
+        {
+            if (!GodotObject.IsInstanceValid(e) || e.Hp <= 0f) continue;
+            if (e.GlobalPosition.DistanceTo(minePos) > Balance.RiftMineBlastRadius) continue;
+            if (e.ProgressRatio > bestProgress)
+            {
+                bestProgress = e.ProgressRatio;
+                best = e;
+            }
+        }
+        return best;
+    }
+
+    private void DetonateMine(
+        ActiveMine mine,
+        EnemyInstance? preferredTarget,
+        int waveIndex,
+        List<EnemyInstance> enemies,
+        float damage,
+        int mineChainDepth,
+        bool chainSource,
+        int chainHop,
+        bool forceFinalPop)
+    {
+        bool finalPop = forceFinalPop || mine.ChargesRemaining <= 1;
+        if (finalPop)
+        {
+            if (!_activeMines.Remove(mine))
+                return;
+        }
+        else if (!_activeMines.Contains(mine))
+        {
+            return;
+        }
+
+        var owner = mine.Owner;
+        bool heavyPop = finalPop || damage >= owner.BaseDamage * 1.8f;
+        bool chainPop = finalPop && (chainSource || mineChainDepth > 0 || chainHop > 0);
+        SpawnMineBurst(mine.Position, owner.ProjectileColor, heavy: heavyPop, chainPop: chainPop, chainHop: chainHop);
+
+        string mineSound = chainPop ? "mine_chain_pop" : "mine_pop";
+        float pitch = chainPop
+            ? Mathf.Clamp(1.02f + chainHop * 0.055f, 1.02f, 1.30f)
+            : Mathf.Clamp(0.94f + mine.DamageScale * 0.15f, 0.92f, 1.10f);
+        Sounds?.Play(mineSound, pitchScale: pitch);
+        if (chainPop)
+            Sounds?.DuckMusic(1.8f, 0.09f);
+
+        var target = FindBlastTarget(mine.Position, enemies, preferredTarget);
+        if (target != null)
+        {
+            float hpBefore = target.Hp;
+            var ctx = new DamageContext(owner, target, waveIndex, enemies, _state, isChain: chainSource, damageOverride: damage);
+            DamageModel.Apply(ctx);
+            float dealt = hpBefore - target.Hp;
+            if (dealt > 0.01f)
+            {
+                bool isKill = target.Hp <= 0f;
+                // Mine tick damage can be fractional after armor/resists; keep feedback visible.
+                SpawnDamageNumber(target.GlobalPosition, Mathf.Max(1f, dealt), isKill, owner.TowerId, owner.ProjectileColor);
+                if (!isKill && GodotObject.IsInstanceValid(target))
+                    target.FlashHit();
+                if (isKill)
+                    GameController.Instance?.TriggerHitStop(realDuration: 0.040f, slowScale: 0.22f);
+            }
+
+            if (finalPop && owner.ChainCount > 0)
+                ApplyMineEnemyChain(owner, target, waveIndex, enemies, damage * owner.ChainDamageDecay);
+        }
+
+        // Only base mines should seed split-shot mini mines (avoid recursive mini-mine loops).
+        if (finalPop && owner.SplitCount > 0 && !mine.IsMiniMine)
+        {
+            for (int i = 0; i < owner.SplitCount; i++)
+                TryPlantMineNear(owner, mine.Position, Balance.RiftMineMiniDamageFactor * mine.DamageScale);
+        }
+
+        if (finalPop && mineChainDepth > 0)
+        {
+            var chainMine = _activeMines
+                .Where(m => ReferenceEquals(m.Owner, owner))
+                .OrderBy(m => m.Position.DistanceTo(mine.Position))
+                .FirstOrDefault(m => m.Position.DistanceTo(mine.Position) <= owner.ChainRange);
+
+            if (chainMine != null)
+            {
+                if (chainMine.Visual != null && GodotObject.IsInstanceValid(chainMine.Visual))
+                    chainMine.Visual.TriggerChainFlash(0.96f + chainHop * 0.06f);
+                SpawnChainArc(
+                    mine.Position,
+                    chainMine.Position,
+                    owner.ProjectileColor,
+                    intensity: 1.10f + chainHop * 0.08f,
+                    mineChainStyle: true);
+                DetonateMine(
+                    chainMine,
+                    preferredTarget: null,
+                    waveIndex,
+                    enemies,
+                    damage * owner.ChainDamageDecay,
+                    mineChainDepth - 1,
+                    chainSource: true,
+                    chainHop: chainHop + 1,
+                    forceFinalPop: true);
+            }
+        }
+
+        if (finalPop)
+        {
+            if (mine.Visual != null && GodotObject.IsInstanceValid(mine.Visual))
+                mine.Visual.QueueFree();
+        }
+        else
+        {
+            mine.ChargesRemaining = Mathf.Max(0, mine.ChargesRemaining - 1);
+            mine.RearmRemaining = Balance.RiftMineRetriggerDelay;
+            if (mine.Visual != null && GodotObject.IsInstanceValid(mine.Visual))
+            {
+                mine.Visual.SetCharges(mine.ChargesRemaining, mine.MaxCharges);
+                mine.Visual.SetArmed(false);
+            }
+        }
+    }
+
+    private void ApplyMineEnemyChain(
+        TowerInstance tower,
+        EnemyInstance primary,
+        int waveIndex,
+        List<EnemyInstance> enemies,
+        float initialDamage)
+    {
+        if (tower.ChainCount <= 0) return;
+
+        var alreadyHit = new HashSet<EnemyInstance> { primary };
+        var current = primary;
+        float damage = initialDamage;
+        int bounces = 0;
+
+        while (bounces < tower.ChainCount)
+        {
+            EnemyInstance? next = null;
+            float bestDist = tower.ChainRange;
+
+            foreach (var e in enemies)
+            {
+                if (!GodotObject.IsInstanceValid(e) || e.Hp <= 0f || alreadyHit.Contains(e))
+                    continue;
+                float d = current.GlobalPosition.DistanceTo(e.GlobalPosition);
+                if (d < bestDist) { bestDist = d; next = e; }
+            }
+
+            if (next == null) break;
+
+            float hpBefore = next.Hp;
+            DamageModel.Apply(new DamageContext(tower, next, waveIndex, enemies, _state, isChain: true, damageOverride: damage));
+            SpawnChainArc(
+                current.GlobalPosition,
+                next.GlobalPosition,
+                tower.ProjectileColor,
+                intensity: 1.05f + bounces * 0.06f,
+                mineChainStyle: true);
+
+            float dealt = hpBefore - next.Hp;
+            if (dealt > 0.01f)
+            {
+                bool isKill = next.Hp <= 0f;
+                SpawnDamageNumber(next.GlobalPosition, Mathf.Max(1f, dealt), isKill, tower.TowerId, tower.ProjectileColor);
+                if (!isKill && GodotObject.IsInstanceValid(next))
+                    next.FlashHit();
+            }
+
+            alreadyHit.Add(next);
+            current = next;
+            damage *= tower.ChainDamageDecay;
+            bounces++;
+        }
+    }
+
+    private void SpawnMineBurst(Vector2 worldPos, Color color, bool heavy = false, bool chainPop = false, int chainHop = 0)
+    {
+        if (BotMode || LanePath == null) return;
+
+        var parent = LanePath.GetParent();
+        var burst = new RiftMineBurst();
+        parent.AddChild(burst);
+        burst.GlobalPosition = worldPos;
+        float intensity = (heavy ? 1.02f : 0.92f) + Mathf.Clamp(chainHop, 0, 4) * 0.05f;
+        burst.Initialize(color, chainPop, intensity);
+    }
+
+    private void SpawnChainArc(
+        Vector2 worldFrom,
+        Vector2 worldTo,
+        Color color,
+        float intensity = 1f,
+        bool mineChainStyle = false)
+    {
+        if (BotMode || LanePath == null) return;
+        var arc = new ChainArc();
+        LanePath.GetParent().AddChild(arc);
+        arc.GlobalPosition = Vector2.Zero;
+        arc.Initialize(worldFrom, worldTo, color, intensity, mineChainStyle);
+    }
+
+    private void SpawnDamageNumber(Vector2 worldPos, float damage, bool isKill, string sourceTowerId, Color color)
+    {
+        if (BotMode || LanePath == null) return;
+        var num = new DamageNumber();
+        LanePath.GetParent().AddChild(num);
+        num.GlobalPosition = worldPos + new Vector2(0f, -14f);
+        num.Initialize(damage, color, isKill, sourceTowerId);
     }
 
     private void SpawnProjectile(Vector2 fromGlobal, EnemyInstance target, Color color,

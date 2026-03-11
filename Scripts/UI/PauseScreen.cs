@@ -84,6 +84,7 @@ public partial class PauseScreen : CanvasLayer
         AddBtn(vbox, "Settings",     OnOpenSettings);
         AddBtn(vbox, "How to Play",  OnHowToPlay);
         AddBtn(vbox, "Achievements", OnAchievements);
+        AddBtn(vbox, "Slot Codex",   OnSlotCodex);
         AddSpacer(vbox, 4);
         AddSeparatorLine(vbox);
         AddSpacer(vbox, 4);
@@ -356,6 +357,14 @@ public partial class PauseScreen : CanvasLayer
     {
         _mainPanel.Visible = false;
         var panel = new AchievementsPanel();
+        panel.BackOverride = () => _mainPanel.Visible = true;
+        AddChild(panel);
+    }
+
+    private void OnSlotCodex()
+    {
+        _mainPanel.Visible = false;
+        var panel = new SlotCodexPanel();
         panel.BackOverride = () => _mainPanel.Visible = true;
         AddChild(panel);
     }

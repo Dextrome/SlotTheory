@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://c0slotcodex01"]
+
+[ext_resource type="Script" path="res://Scripts/UI/SlotCodexPanel.cs" id="1_codex"]
+
+[node name="SlotCodex" type="Node" unique_id=200000030]
+script = ExtResource("1_codex")

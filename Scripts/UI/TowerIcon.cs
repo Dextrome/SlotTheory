@@ -60,7 +60,7 @@ public partial class TowerIcon : Control
             "heavy_cannon" => "H",
             "marker_tower" => "M",
             "chain_tower" => "C",
-            "rift_prism" => "P",
+            "rift_prism" => "S",
             _ => "?",
         };
 

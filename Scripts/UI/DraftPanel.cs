@@ -1203,7 +1203,7 @@ public partial class DraftPanel : CanvasLayer
         "heavy_cannon" => "HC",
         "marker_tower" => "MK",
         "chain_tower" => "AR",
-        "rift_prism" => "RP",
+        "rift_prism" => "SA",
         _ => "TW",
     };
 
@@ -1213,7 +1213,7 @@ public partial class DraftPanel : CanvasLayer
         "heavy_cannon" => "Slow burst shots with heavy hits.",
         "marker_tower" => "Applies mark to amplify team damage.",
         "chain_tower" => "Bounces into grouped enemy packs.",
-        "rift_prism" => "Built-in split + short chain. Great for lane-wide combo setups.",
+        "rift_prism" => "Plants charged mines along the lane. Final charge pops harder; rapid seeding at wave start.",
         _ => "Generalist tower.",
     };
 

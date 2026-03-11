@@ -36,6 +36,8 @@ public class BotRunner
     private readonly BotStrategy[]    _strategies;
     private readonly string[]         _maps;
 	private readonly DifficultyMode? _targetDifficulty;
+    private readonly string?          _forcedTowerId;
+    private readonly string?          _forcedModifierId;
 	private DifficultyMode[] _difficulties = { DifficultyMode.Easy, DifficultyMode.Normal, DifficultyMode.Hard };
     private readonly List<RunResult>  _results = new();
     private BotStrategy       _curStrategy;
@@ -51,11 +53,21 @@ public class BotRunner
     public bool      HasMoreRuns => _results.Count < _totalRuns;
     public int       CompletedRuns => _results.Count;
 
-public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null, string? targetMap = null)
+public BotRunner(
+    int totalRuns,
+    DifficultyMode? targetDifficulty = null,
+    string? targetMap = null,
+    BotStrategy? targetStrategy = null,
+    string? forcedTowerId = null,
+    string? forcedModifierId = null)
 	{
 		_totalRuns  = totalRuns;
-		_strategies = (BotStrategy[])Enum.GetValues(typeof(BotStrategy));
+		_strategies = targetStrategy.HasValue
+            ? new[] { targetStrategy.Value }
+            : (BotStrategy[])Enum.GetValues(typeof(BotStrategy));
 		_targetDifficulty = targetDifficulty;
+        _forcedTowerId = string.IsNullOrWhiteSpace(forcedTowerId) ? null : forcedTowerId;
+        _forcedModifierId = string.IsNullOrWhiteSpace(forcedModifierId) ? null : forcedModifierId;
 		_maps = targetMap != null
 			? new[] { targetMap }
 			: new[] { "arena_classic", "gauntlet", "sprawl" };
@@ -82,14 +94,17 @@ public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null, string?
         // Set difficulty for this run
         SettingsManager.Instance?.SetDifficulty(_curDifficulty);
         
-        CurrentBot   = new BotPlayer(_curStrategy, idx * 7919);
+        CurrentBot = new BotPlayer(_curStrategy, idx * 7919, _forcedTowerId, _forcedModifierId);
         _waveLives.Clear();
         _waveInRange.Clear();
         _waveSteps.Clear();
         
         // Set the map for this bot run
         SlotTheory.UI.MapSelectPanel.SetPendingMapSelection(_curMap);
-        GD.Print($"[BOT] Run {idx + 1}/{_totalRuns} - {_curStrategy} on {_curMap} ({_curDifficulty})");
+        string forcedLabel = (_forcedTowerId != null || _forcedModifierId != null)
+            ? $" [forced tower={_forcedTowerId ?? "any"}, mod={_forcedModifierId ?? "any"}]"
+            : "";
+        GD.Print($"[BOT] Run {idx + 1}/{_totalRuns} - {_curStrategy} on {_curMap} ({_curDifficulty}){forcedLabel}");
     }
 
     /// <summary>Call after each wave completes, before WaveIndex increments.</summary>
@@ -187,8 +202,11 @@ public BotRunner(int totalRuns, DifficultyMode? targetDifficulty = null, string?
         // Competitive overall excludes Random and TowerFirst (skill-independent baselines)
         var competitive = _results.Where(r => r.Strategy != BotStrategy.Random && r.Strategy != BotStrategy.TowerFirst).ToList();
         int compWins = competitive.Count(r => r.Won);
-        GD.Print($"Overall (competitive): {compWins}/{competitive.Count} wins ({compWins * 100 / competitive.Count}%)");
-        GD.Print($"Overall (all):         {_results.Count(r => r.Won)}/{total} wins ({_results.Count(r => r.Won) * 100 / total}%)");
+        int compPct = competitive.Count > 0 ? (int)(compWins * 100f / competitive.Count) : 0;
+        int allWins = _results.Count(r => r.Won);
+        int allPct  = total > 0 ? (int)(allWins * 100f / total) : 0;
+        GD.Print($"Overall (competitive): {compWins}/{competitive.Count} wins ({compPct}%)");
+        GD.Print($"Overall (all):         {allWins}/{total} wins ({allPct}%)");
         GD.Print("");
 
         // ── Per-map detailed reports ───────────────────────────────────────────────

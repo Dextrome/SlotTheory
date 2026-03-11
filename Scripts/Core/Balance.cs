@@ -81,6 +81,24 @@ public static class Balance
     // Chain decay (shared by Arc Emitter base and ChainReaction modifier)
     public const float ChainDamageDecay = 0.60f; // damage multiplier per bounce
 
+    // Rift Sapper mines
+    public const int   RiftMineMaxActivePerTower = 7;
+    public const float RiftMineDamageMultiplier  = 1.00f; // base multiplier before per-charge stage multipliers
+    public const int   RiftMineChargesPerMine    = 3;     // number of triggers before mine is consumed
+    public const float RiftMineTickDamageMultiplier  = 0.65f; // damage for non-final charge triggers
+    public const float RiftMineFinalDamageMultiplier = 1.15f; // damage for final charge trigger
+public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine damage scale (matches Split Shot ratio)
+    public const float RiftMineArmTime           = 0.16f; // seconds before planted mine can trigger
+    public const float RiftMineRetriggerDelay    = 0.18f; // per-mine lockout between charge triggers
+    public const float RiftMineTriggerRadius     = 32f;   // enemy must enter this radius to trigger
+    public const float RiftMineBlastRadius       = 82f;   // detonation target search radius
+    public const float RiftMinePlantSpacing      = 46f;   // min spacing between active mines
+    public const float RiftMineAnchorStep        = 26f;   // path sampling resolution
+    public const float RiftMineSplitPlantRadius  = 104f;  // where split-shot mini mines can be planted
+    public const float RiftMineBurstWindow       = 2.4f;  // wave-start rapid seeding window
+    public const float RiftMineBurstIntervalMultiplier = 0.55f; // attack interval multiplier during burst
+    public const int   RiftMineBurstFastPlantsPerTower  = 3;    // cap of burst-boosted plants per tower per wave
+
     // Focus Lens modifier
     public const float FocusLensDamageBonus = 2.40f; // +140% damage
     public const float FocusLensAttackInterval = 1.85f; // x1.85 attack interval

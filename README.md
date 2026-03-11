@@ -75,6 +75,38 @@ Modifier assignment uses `Preview -> Confirm`:
 | Heavy Cannon | 52 | 2.0 s | 238 px | Big burst hits |
 | Marker Tower | 7 | 1.0 s | 333 px | Applies Marked |
 | Arc Emitter | 18 | 1.2 s | 257 px | Base chain: 2 extra bounces, 400 px chain range |
+| Rift Sapper | 20 | 0.98 s | 230 px | Charged mine trap tower with setup/burst playstyle |
+
+Unlock flow:
+- Arc Emitter: beat the first campaign map on Normal or Hard
+- Rift Sapper: beat the second campaign map on Normal or Hard
+
+### Rift Sapper Mechanics
+
+- Internal tower ID: `rift_prism` (display name: Rift Sapper)
+- Passive behavior: plants mines on valid lane anchors in range
+- Mine cap: 7 active mines per Rift Sapper
+- Charge system:
+  - each mine has 3 charges
+  - trigger 1-2: 0.65x base mine damage
+  - trigger 3 (final): 1.15x base mine damage
+  - non-final triggers rearm for 0.18 s before they can trigger again
+- Damage basis:
+  - base mine multiplier: 1.00x tower base damage (before charge-stage multipliers)
+  - split mini-mine damage scale: 0.55x of source mine scale
+- Trigger/blast:
+  - trigger radius: 32 px
+  - blast target radius: 82 px
+- Placement tuning:
+  - anchor sampling step: 26 px
+  - minimum spacing between mines: 46 px
+  - split-mini plant radius: 104 px
+- Wave-start burst seeding:
+  - first 2.4 s of each wave uses a faster plant interval (x0.55)
+  - capped to 3 burst-speed plants per tower per wave
+- Modifier interaction rules:
+  - Split Shot: extra mini-mines are spawned only on final-charge pops
+  - Chain Reaction: mine-to-mine chaining and enemy chain pops occur only on final-charge pops
 
 ---
 
@@ -123,6 +155,11 @@ Waves 12-14 can use clumped Armored blocks.
 - Lowest HP: lowest current HP
 
 Modes cycle on tower click/tap during waves.
+
+Rift Sapper uses tower-specific labels/icons for the same 3 internal modes:
+- Random (die icon) = internal First
+- Closest (down-arrow icon) = internal Strongest
+- Furthest (up-arrow icon) = internal Lowest HP
 
 ---
 

@@ -84,8 +84,8 @@ public static class RunNameGenerator
         ],
         ["rift_prism"] =
         [
-            "Prism", "Riftline", "Fracture", "Shardweb", "Bloom", "Splicer", "Forkglass", "Glimmer",
-            "Prismcore", "Refraction", "Splitline", "Riftforge"
+            "Sapper", "Minegrid", "Trapline", "Riftcharge", "Detonator", "Demolisher", "Saboteur", "Fuseweb",
+            "Chokemine", "Burrowline", "Blastnet", "Voidmine"
         ],
     };
 
@@ -409,7 +409,7 @@ public static class RunNameGenerator
         return dominantTower switch
         {
             "chain_tower" => "MultiTarget",
-            "rift_prism" => "MultiTarget",
+            "rift_prism" => "Utility",
             "marker_tower" => "StatusSynergy",
             "rapid_shooter" => "DamageScaling",
             "heavy_cannon" => "DamageScaling",

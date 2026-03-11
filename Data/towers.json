@@ -31,14 +31,10 @@
     "ChainDamageDecay": 0.6
   },
   "rift_prism": {
-    "Name": "Rift Prism",
-    "BaseDamage": 14.0,
-    "AttackInterval": 0.95,
-    "Range": 296.0,
-    "AppliesMark": false,
-    "ChainCount": 1,
-    "ChainRange": 330.0,
-    "ChainDamageDecay": 0.6,
-    "SplitCount": 1
+    "Name": "Rift Sapper",
+    "BaseDamage": 20.0,
+    "AttackInterval": 0.98,
+    "Range": 230.0,
+    "AppliesMark": false
   }
 }
