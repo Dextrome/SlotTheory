@@ -79,7 +79,7 @@ public partial class HowToPlay : Node
 		AddRow(vbox, "Assign tower / modifier",   "Click target to preview, click same target again to confirm");
 		AddRow(vbox, "Cycle targeting mode",       "Left-click a tower during a wave");
 		AddRow(vbox, "Pause / unpause",            "Esc");
-		AddRow(vbox, "Speed",                      "Click speed button to cycle  x1 -> x2 -> x3  (Dev Mode adds x5/x10)");
+		AddRow(vbox, "Speed",                      "Click speed button to cycle available game-speed steps");
 		AddSpacer(vbox, 12);
 
 		// â”€â”€ Towers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€

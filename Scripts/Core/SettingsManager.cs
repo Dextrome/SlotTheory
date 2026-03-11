@@ -14,6 +14,8 @@ public partial class SettingsManager : Node
     private const string SecAudio    = "audio";
     private const string SecDisp     = "display";
     private const string SecIdentity = "identity";
+    private const string SecProfileFlags = "profile_flags";
+    private const string LegacyDevModeKey = "dev_mode";
 
     public float MasterVolume  { get; private set; } = 80f;  // 0–100
     public float MusicVolume   { get; private set; } = 80f;
@@ -26,6 +28,7 @@ public partial class SettingsManager : Node
     public bool  EnemyEmissiveLines { get; private set; } = true;
     public bool  EnemyDamageMaterial { get; private set; } = true;
     public bool  EnemyBloomHighlights { get; private set; } = !MobileOptimization.IsMobile();
+    // Hidden per-profile capability flag (not exposed in user-facing settings UI).
     public bool  DevMode        { get; private set; } = false;
     public DifficultyMode Difficulty { get; private set; } = DifficultyMode.Easy;
     public string PlayerName    { get; private set; } = "";
@@ -206,7 +209,6 @@ public partial class SettingsManager : Node
         EnemyEmissiveLines    = enemyRenderSettings.EmissiveEnabled;
         EnemyDamageMaterial   = enemyRenderSettings.DamageMaterialEnabled;
         EnemyBloomHighlights  = enemyRenderSettings.BloomEnabled;
-        DevMode               = enemyRenderSettings.DevModeEnabled;
         int rawDifficulty = (int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Easy);
         Difficulty = rawDifficulty switch
         {
@@ -217,6 +219,10 @@ public partial class SettingsManager : Node
         };
         PlayerName  = (string)cfg.GetValue(SecIdentity, "player_name", "");
         PlayerId    = (string)cfg.GetValue(SecIdentity, "player_id",   "");
+        bool migratedFromLegacy;
+        DevMode = ReadHiddenDevModeForProfile(cfg, PlayerId, out migratedFromLegacy);
+        if (migratedFromLegacy)
+            Save();
     }
 
     private void Save()
@@ -233,13 +239,35 @@ public partial class SettingsManager : Node
             layeredEnabled: LayeredEnemyRendering,
             emissiveEnabled: EnemyEmissiveLines,
             damageMaterialEnabled: EnemyDamageMaterial,
-            bloomEnabled: EnemyBloomHighlights,
-            devModeEnabled: DevMode);
+            bloomEnabled: EnemyBloomHighlights);
         enemyRenderSettings.WriteTo(cfg);
+        if (cfg.HasSectionKey(SecDisp, LegacyDevModeKey))
+            cfg.EraseSectionKey(SecDisp, LegacyDevModeKey);
+        cfg.SetValue(SecProfileFlags, BuildHiddenDevModeProfileKey(PlayerId), DevMode);
         cfg.SetValue("gameplay",   "difficulty",   (int)Difficulty);
         cfg.SetValue(SecIdentity, "player_name",  PlayerName);
         cfg.SetValue(SecIdentity, "player_id",    PlayerId);
         if (cfg.Save(SavePath) == Error.Ok)
             SteamCloudSync.Push(ProjectSettings.GlobalizePath(SavePath), "settings.cfg");
     }
+
+    private static bool ReadHiddenDevModeForProfile(ConfigFile cfg, string playerId, out bool migratedFromLegacy)
+    {
+        migratedFromLegacy = false;
+        string profileKey = BuildHiddenDevModeProfileKey(playerId);
+        if (cfg.HasSectionKey(SecProfileFlags, profileKey))
+            return (bool)cfg.GetValue(SecProfileFlags, profileKey, false);
+
+        // Legacy fallback for migration from old display setting.
+        if (cfg.HasSectionKey(SecDisp, LegacyDevModeKey))
+        {
+            migratedFromLegacy = true;
+            return (bool)cfg.GetValue(SecDisp, LegacyDevModeKey, false);
+        }
+
+        return false;
+    }
+
+    private static string BuildHiddenDevModeProfileKey(string playerId)
+        => string.IsNullOrWhiteSpace(playerId) ? "dev_mode_default" : $"dev_mode_{playerId}";
 }

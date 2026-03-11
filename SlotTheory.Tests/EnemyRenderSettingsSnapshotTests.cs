@@ -13,8 +13,7 @@ public sealed class EnemyRenderSettingsSnapshotTests
             layeredEnabled: true,
             emissiveEnabled: false,
             damageMaterialEnabled: true,
-            bloomEnabled: false,
-            devModeEnabled: true);
+            bloomEnabled: false);
 
         var serialized = original.ToDictionary();
         var restored = EnemyRenderSettingsSnapshot.ReadFrom(serialized, defaultBloomEnabled: true);
@@ -24,7 +23,6 @@ public sealed class EnemyRenderSettingsSnapshotTests
         Assert.Equal(original.EmissiveEnabled, restored.EmissiveEnabled);
         Assert.Equal(original.DamageMaterialEnabled, restored.DamageMaterialEnabled);
         Assert.Equal(original.BloomEnabled, restored.BloomEnabled);
-        Assert.Equal(original.DevModeEnabled, restored.DevModeEnabled);
     }
 
     [Fact]

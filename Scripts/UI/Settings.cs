@@ -16,7 +16,6 @@ public partial class Settings : Node
     private Button? _enemyEmissiveBtn;
     private Button? _enemyDamageBtn;
     private Button? _enemyBloomBtn;
-    private Button? _devModeBtn;
 
     public override void _Ready()
     {
@@ -45,7 +44,7 @@ public partial class Settings : Node
         vbox.CustomMinimumSize = new Vector2(420, 0);
         center.AddChild(vbox);
 
-        // ── Title ─────────────────────────────────────────────────────
+        // Title
         var title = new Label
         {
             Text = "SETTINGS",
@@ -57,7 +56,7 @@ public partial class Settings : Node
 
         AddSpacer(vbox, 20);
 
-        // ── Audio ─────────────────────────────────────────────────────
+        // Audio
         AddSectionHeader(vbox, "AUDIO");
 
         var sm = SettingsManager.Instance;
@@ -73,7 +72,7 @@ public partial class Settings : Node
 
         AddSpacer(vbox, 8);
 
-        // ── Display ───────────────────────────────────────────────────
+        // Display
         AddSectionHeader(vbox, "DISPLAY");
 
         bool isFs = sm?.Fullscreen ?? false;
@@ -161,26 +160,10 @@ public partial class Settings : Node
 
         AddSpacer(vbox, 24);
 
-        // ── Developer ─────────────────────────────────────────────────
-        AddSectionHeader(vbox, "DEVELOPER");
-
-        bool isDev = sm?.DevMode ?? false;
-        _devModeBtn = new Button
-        {
-            Text = DevModeLabel(isDev),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _devModeBtn.AddThemeFontSizeOverride("font_size", 20);
-        _devModeBtn.Modulate = new Color(0.85f, 0.65f, 1.0f); // subtle purple tint
-        _devModeBtn.Pressed += OnToggleDevMode;
-        vbox.AddChild(_devModeBtn);
-
-        AddSpacer(vbox, 24);
-
-        // ── Back ──────────────────────────────────────────────────────
+        // Back
         var back = new Button
         {
-            Text = "← Back",
+            Text = "<- Back",
             CustomMinimumSize = new Vector2(160, 44),
         };
         back.AddThemeFontSizeOverride("font_size", 20);
@@ -294,17 +277,6 @@ public partial class Settings : Node
 
     private static string EnemyBloomLabel(bool on) =>
         on ? "Enemy Bloom:  On" : "Enemy Bloom:  Off";
-
-    private void OnToggleDevMode()
-    {
-        bool next = !(SettingsManager.Instance?.DevMode ?? false);
-        SettingsManager.Instance?.SetDevMode(next);
-        if (_devModeBtn != null)
-            _devModeBtn.Text = DevModeLabel(next);
-    }
-
-    private static string DevModeLabel(bool on) =>
-        on ? "Dev Mode:  On  (5× / 10× speed)" : "Dev Mode:  Off";
 
     private static void AddVolumeRow(VBoxContainer vbox, string label, float current,
         System.Action<float> onChange)

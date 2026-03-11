@@ -8,9 +8,20 @@ namespace SlotTheory.Entities;
 /// </summary>
 public partial class CombatCallout : Node2D
 {
-    private const float Duration = 0.48f;
-    private const float RiseSpeed = 26f;
+    private const float Duration = 0.96f;
+    private const float RiseSpeed = 13f;
     private static float _mobileReadabilityScale = 1f;
+    private static readonly Vector2[] OutlineDirs =
+    {
+        new Vector2(-1f, 0f),
+        new Vector2(1f, 0f),
+        new Vector2(0f, -1f),
+        new Vector2(0f, 1f),
+        new Vector2(-0.7071f, -0.7071f),
+        new Vector2(0.7071f, -0.7071f),
+        new Vector2(-0.7071f, 0.7071f),
+        new Vector2(0.7071f, 0.7071f),
+    };
 
     private float _life = 0f;
     private string _text = "";
@@ -42,10 +53,22 @@ public partial class CombatCallout : Node2D
     public override void _Draw()
     {
         float t = _life / Duration;
-        float alpha = 1f - t * t;
+        float alpha = 1f - t * t * t;
         int size = Mathf.Clamp(Mathf.RoundToInt(16f * _mobileReadabilityScale), 12, 44);
         var col = new Color(_color.R, _color.G, _color.B, alpha);
-        DrawString(UITheme.Bold, new Vector2(1f, 1f), _text, HorizontalAlignment.Center, -1, size, new Color(0f, 0f, 0f, alpha * 0.65f));
+
+        // High-contrast layered outline: dark outer ring + light inner ring.
+        DrawOutline(UITheme.Bold, size, 2.2f, new Color(0f, 0f, 0f, alpha * 0.92f));
+        DrawOutline(UITheme.Bold, size, 1.1f, new Color(1f, 1f, 1f, alpha * 0.94f));
         DrawString(UITheme.Bold, Vector2.Zero, _text, HorizontalAlignment.Center, -1, size, col);
+    }
+
+    private void DrawOutline(Font font, int size, float radius, Color color)
+    {
+        for (int i = 0; i < OutlineDirs.Length; i++)
+        {
+            Vector2 offset = OutlineDirs[i] * radius;
+            DrawString(font, offset, _text, HorizontalAlignment.Center, -1, size, color);
+        }
     }
 }

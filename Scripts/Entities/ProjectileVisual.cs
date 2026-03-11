@@ -183,6 +183,11 @@ public partial class ProjectileVisual : Node2D
 
         if (tower.ChainCount > 0 && bounceHits >= tower.ChainCount)
             GameController.Instance?.NotifyChainMaxBounce(chainFrom, bounceHits);
+        if (bounceHits > 0)
+        {
+            float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(bounceHits);
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar);
+        }
     }
 
     private void SpawnSplitProjectiles(Vector2 impactPos)
@@ -208,6 +213,12 @@ public partial class ProjectileVisual : Node2D
                              _tower, _waveIndex, _enemies, _runState,
                              isSplitProjectile: true, damageOverride: splitDamage);
             spawned++;
+        }
+
+        if (spawned > 0)
+        {
+            float splitScalar = SpectacleDefinitions.SplitShotEventScalar(spawned);
+            GameController.Instance?.RegisterSpectacleProc(_tower, SpectacleDefinitions.SplitShot, splitScalar);
         }
     }
 

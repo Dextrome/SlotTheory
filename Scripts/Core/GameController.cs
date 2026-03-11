@@ -56,8 +56,10 @@ public partial class GameController : Node
 	private Label _threatWarn = null!;
 	private Button _undoPlacementButton = null!;
 	private Label _clutchToast = null!;
+	private Label _globalSpectacleBanner = null!;
 	private ColorRect _waveClearFlash = null!;
 	private ColorRect _threatPulse = null!;
+	private ColorRect _spectaclePulse = null!;
 	private Node2D _worldNode = null!;
 	private BotRunner? _botRunner;
 	private int   _botWaveInRangeSum;
@@ -77,6 +79,10 @@ public partial class GameController : Node
 	private bool _hitStopActive = false;
 	private double _preHitStopTimeScale = 1.0;
 	private float _hitStopCooldown = 0f;
+	private bool _spectacleSlowMoActive = false;
+	private float _spectacleSlowMoScale = 1.0f;
+	private double _spectacleSlowMoRestoreScale = 1.0;
+	private ulong _spectacleSlowMoToken = 0;
 	private string _draftSynergyHintModifierId = "";
 	private float _draftSynergyPulseT = 0f;
 	private float _lowLivesHeartbeatTimer = 0f;
@@ -112,6 +118,7 @@ public partial class GameController : Node
 	private const float MobilePanStartThreshold = 6f;
 	private readonly EnemyRenderPerfProfiler _enemyRenderPerfProfiler = new();
 	private bool _perfReportHotkeyLatch;
+	private readonly SpectacleSystem _spectacleSystem = new();
 
 	public override void _Ready()
 	{
@@ -183,6 +190,13 @@ public partial class GameController : Node
 			Sounds     = SoundManager.Instance,
 		};
 		_combatSim.BotMode = _botRunner != null;
+		_spectacleSystem.Reset();
+		_spectacleSystem.OnMinorTriggered -= OnSpectacleMinorTriggered;
+		_spectacleSystem.OnMajorTriggered -= OnSpectacleMajorTriggered;
+		_spectacleSystem.OnGlobalTriggered -= OnGlobalSpectacleTriggered;
+		_spectacleSystem.OnMinorTriggered += OnSpectacleMinorTriggered;
+		_spectacleSystem.OnMajorTriggered += OnSpectacleMajorTriggered;
+		_spectacleSystem.OnGlobalTriggered += OnGlobalSpectacleTriggered;
 		_draftPanel = GetNode<DraftPanel>("../DraftPanel");
 		_hudPanel   = GetNode<HudPanel>("../HudPanel");
 		_endScreen  = GetNode<EndScreen>("../EndScreen");
@@ -238,8 +252,18 @@ public partial class GameController : Node
 		else
 			ClearDraftSynergyHighlights();
 
+		if (CurrentPhase == GamePhase.Wave)
+			_spectacleSystem.Update((float)delta);
+
+		bool showGlobalSpectacleMeter = CurrentPhase == GamePhase.Draft || CurrentPhase == GamePhase.Wave;
+		_hudPanel.RefreshGlobalSpectacleMeter(
+			_spectacleSystem.GlobalMeter,
+			SpectacleDefinitions.GlobalThreshold,
+			showGlobalSpectacleMeter);
+
 		if (_botRunner == null) UpdatePlacementLabel();
 		if (_botRunner == null) UpdateProcVisuals((float)delta);
+		if (_botRunner == null) UpdateSpectacleVisuals();
 		if (_botRunner == null)
 		{
 			_enemyRenderPerfProfiler.RecordFrame((float)delta, _runState.EnemiesAlive.Count);
@@ -575,12 +599,17 @@ public partial class GameController : Node
 		_hitStopActive = false;
 		_hitStopCooldown = 0f;
 		_preHitStopTimeScale = 1.0;
+		_spectacleSlowMoActive = false;
+		_spectacleSlowMoScale = 1.0f;
+		_spectacleSlowMoRestoreScale = 1.0;
+		_spectacleSlowMoToken = 0;
 		_draftSynergyHintModifierId = "";
 		_draftSynergyPulseT = 0f;
 		_lowLivesHeartbeatTimer = 0f;
 		_combatCalloutNextMs.Clear();
 		_feedbackLoopBurst.Clear();
 		_modifierProcCounts.Clear();
+		_spectacleSystem.Reset();
 		ClearUndoPlacementState();
 		_hudPanel.Refresh(1, Balance.StartingLives);
 		_hudPanel.SetBuildName("", visible: false);
@@ -762,6 +791,7 @@ public partial class GameController : Node
 		if (slotIndex < 0 || slotIndex >= _runState.Slots.Length) return;
 		var tower = _runState.Slots[slotIndex].TowerNode;
 		if (tower == null) return;
+		_spectacleSystem.RemoveTower(tower);
 		if (_selectedTooltipTower == tower)
 			_selectedTooltipTower = null;
 
@@ -1683,6 +1713,7 @@ public partial class GameController : Node
 					var mdef = DataLoader.GetModifierDef(mod.ModifierId);
 				text += "* " + mdef.Name + " " + mdef.Description + "\n";
 				}
+			text += "\n\n" + BuildUpcomingSpectacleTooltipLine(tower);
 			_tooltipLabel.Text = text.TrimEnd();
 			// Size panel to fit label
 			var labelSize = _tooltipLabel.GetMinimumSize();
@@ -1710,6 +1741,21 @@ public partial class GameController : Node
 				return;
 		}
 		_tooltipPanel.Visible = false;
+	}
+
+	private string BuildUpcomingSpectacleTooltipLine(ITowerView tower)
+	{
+		SpectacleSignature signature = _spectacleSystem.PreviewSignature(tower);
+		if (string.IsNullOrWhiteSpace(signature.EffectName))
+			return "Major Spectacle: (none)";
+
+		string modeLabel = signature.Mode switch
+		{
+			SpectacleMode.Single => "Single",
+			SpectacleMode.Combo => "Combo",
+			_ => "Triad",
+		};
+		return $"Major Spectacle [{modeLabel}]: {signature.EffectName}";
 	}
 	// -- Bot multi-step simulation -------------------------------------------------
 
@@ -1874,6 +1920,25 @@ public partial class GameController : Node
 		UITheme.ApplyFont(_clutchToast, semiBold: true, size: 30);
 		anchor.AddChild(_clutchToast);
 
+		_globalSpectacleBanner = new Label
+		{
+			Text = "",
+			HorizontalAlignment = HorizontalAlignment.Center,
+			VerticalAlignment = VerticalAlignment.Center,
+			AnchorLeft = 0f,
+			AnchorRight = 1f,
+			AnchorTop = 0f,
+			AnchorBottom = 1f,
+			Visible = false,
+			Modulate = new Color(1f, 1f, 1f, 0f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		UITheme.ApplyFont(_globalSpectacleBanner, bold: true, size: 86);
+		_globalSpectacleBanner.AddThemeColorOverride("font_color", new Color(1.00f, 0.95f, 0.76f));
+		_globalSpectacleBanner.AddThemeConstantOverride("outline_size", 8);
+		_globalSpectacleBanner.AddThemeColorOverride("font_outline_color", new Color(0.04f, 0.10f, 0.16f, 0.98f));
+		anchor.AddChild(_globalSpectacleBanner);
+
 		_waveClearFlash = new ColorRect();
 		_waveClearFlash.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		_waveClearFlash.Color   = new Color(0.10f, 1f, 0.45f, 0f);
@@ -1887,6 +1952,13 @@ public partial class GameController : Node
 		_threatPulse.Visible = false;
 		_threatPulse.MouseFilter = Control.MouseFilterEnum.Ignore;
 		anchor.AddChild(_threatPulse);
+
+		_spectaclePulse = new ColorRect();
+		_spectaclePulse.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		_spectaclePulse.Color = new Color(0.72f, 0.98f, 1.00f, 0f);
+		_spectaclePulse.Visible = false;
+		_spectaclePulse.MouseFilter = Control.MouseFilterEnum.Ignore;
+		anchor.AddChild(_spectaclePulse);
 	}
 
 	private void ShowWaveAnnouncement(int wave)
@@ -2011,6 +2083,36 @@ public partial class GameController : Node
 		tw.TweenCallback(Callable.From(() => _clutchToast.Visible = false));
 	}
 
+	private void ShowGlobalSpectacleBanner(string effectName, Color accent)
+	{
+		if (!GodotObject.IsInstanceValid(_globalSpectacleBanner) || _botRunner != null)
+			return;
+
+		string displayName = string.IsNullOrWhiteSpace(effectName)
+			? "GLOBAL SPECTACLE"
+			: $"GLOBAL SPECTACLE\n{effectName.ToUpperInvariant()}";
+		_globalSpectacleBanner.Text = displayName;
+		_globalSpectacleBanner.Visible = true;
+		_globalSpectacleBanner.Scale = new Vector2(1.26f, 1.26f);
+		_globalSpectacleBanner.Modulate = new Color(accent.R, accent.G, accent.B, 0f);
+		_globalSpectacleBanner.AddThemeColorOverride(
+			"font_color",
+			new Color(
+				Mathf.Clamp(accent.R * 0.82f + 0.18f, 0f, 1f),
+				Mathf.Clamp(accent.G * 0.82f + 0.18f, 0f, 1f),
+				Mathf.Clamp(accent.B * 0.82f + 0.18f, 0f, 1f),
+				1f));
+
+		var tw = _globalSpectacleBanner.CreateTween();
+		tw.SetParallel(true);
+		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 1f, 0.11f);
+		tw.TweenProperty(_globalSpectacleBanner, "scale", Vector2.One, 0.15f)
+			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+		tw.Chain().TweenInterval(0.68f);
+		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 0f, 0.36f);
+		tw.TweenCallback(Callable.From(() => _globalSpectacleBanner.Visible = false));
+	}
+
 	private bool TryCombatCallout(string id, float cooldownSec)
 	{
 		ulong now = Time.GetTicksMsec();
@@ -2028,6 +2130,1398 @@ public partial class GameController : Node
 		_worldNode.AddChild(callout);
 		callout.GlobalPosition = worldPos + new Vector2(0f, -16f);
 		callout.Initialize(text, color);
+	}
+
+	private void OnSpectacleMinorTriggered(SpectacleTriggerInfo info)
+	{
+		if (_botRunner != null || CurrentPhase != GamePhase.Wave)
+			return;
+
+		Color accent = ResolveSpectacleColor(info.Signature.PrimaryModId);
+		if (info.Tower is TowerInstance triggerTower && GodotObject.IsInstanceValid(triggerTower))
+			triggerTower.FlashSpectacle(accent, major: false);
+		float linkDistance = Mathf.Max(240f, info.Tower.Range * 0.90f);
+		SpawnSpectacleBurstFx(info.Tower.GlobalPosition, accent, major: false, power: info.Signature.MinorPower);
+		SpawnSpectacleLinks(
+			info.Tower.GlobalPosition,
+			accent,
+			maxLinks: 3,
+			maxDistance: linkDistance,
+			majorStyle: false);
+		SpawnSpectacleTowerVolleyFx(info.Tower, accent, major: false, power: info.Signature.MinorPower);
+		FlashSpectacleScreen(accent, peakAlpha: 0.072f, rampSec: 0.05f, fadeSec: 0.24f);
+		QueueSpectacleEcho(info.Tower.GlobalPosition, accent, major: false, power: info.Signature.MinorPower, maxDistance: linkDistance);
+		ApplySpectacleGameplayPayload(info, isMajor: false);
+		TriggerSpectacleSlowMo(realDuration: 1.0f, speedFactor: 0.25f);
+
+		SpawnCombatCallout($"MINOR {info.Signature.EffectName}".ToUpperInvariant(), info.Tower.GlobalPosition, accent);
+	}
+
+	private void OnSpectacleMajorTriggered(SpectacleTriggerInfo info)
+	{
+		if (_botRunner != null || CurrentPhase != GamePhase.Wave)
+			return;
+
+		Color accent = ResolveSpectacleColor(info.Signature.PrimaryModId);
+		if (info.Tower is TowerInstance triggerTower && GodotObject.IsInstanceValid(triggerTower))
+			triggerTower.FlashSpectacle(accent, major: true);
+		float linkDistance = Mathf.Max(340f, info.Tower.Range * 1.30f);
+		SpawnSpectacleBurstFx(info.Tower.GlobalPosition, accent, major: true, power: info.Signature.MajorPower);
+		SpawnSpectacleLinks(
+			info.Tower.GlobalPosition,
+			accent,
+			maxLinks: 6,
+			maxDistance: linkDistance,
+			majorStyle: true);
+		SpawnSpectacleTowerVolleyFx(info.Tower, accent, major: true, power: info.Signature.MajorPower);
+		FlashSpectacleScreen(accent, peakAlpha: 0.17f, rampSec: 0.06f, fadeSec: 0.34f);
+		QueueSpectacleEcho(info.Tower.GlobalPosition, accent, major: true, power: info.Signature.MajorPower, maxDistance: linkDistance);
+		SoundManager.Instance?.Play("mine_chain_pop", pitchScale: 1.08f);
+		ApplySpectacleGameplayPayload(info, isMajor: true);
+		TriggerSpectacleSlowMo(realDuration: 1.0f, speedFactor: 0.25f);
+
+		SpawnCombatCallout($"SPECTACLE {info.Signature.EffectName}".ToUpperInvariant(), info.Tower.GlobalPosition, accent);
+		TriggerHitStop(realDuration: 0.034f, slowScale: 0.40f);
+	}
+
+	private void OnGlobalSpectacleTriggered(GlobalSpectacleTriggerInfo info)
+	{
+		if (_botRunner != null || CurrentPhase != GamePhase.Wave)
+			return;
+
+		Vector2 center = ScreenToWorld(GetViewport().GetVisibleRect().Size * 0.5f);
+		var globalColor = new Color(1.00f, 0.90f, 0.56f);
+		SpawnSpectacleBurstFx(center, globalColor, major: true, power: 2.15f);
+		FlashSpectacleScreen(globalColor, peakAlpha: 0.28f, rampSec: 0.09f, fadeSec: 0.42f);
+		SoundManager.Instance?.Play("wave20_swell");
+
+		for (int i = 0; i < _runState.Slots.Length; i++)
+		{
+			var tower = _runState.Slots[i].TowerNode;
+			if (tower == null || !GodotObject.IsInstanceValid(tower))
+				continue;
+			Color accent = ResolveSpectacleColor(_spectacleSystem.PreviewSignature(tower).PrimaryModId);
+			tower.FlashSpectacle(accent, major: true);
+			SpawnSpectacleBurstFx(tower.GlobalPosition, accent, major: true, power: 1.12f);
+			SpawnSpectacleLinks(
+				tower.GlobalPosition,
+				accent,
+				maxLinks: 2,
+				maxDistance: Mathf.Max(280f, tower.Range * 1.15f),
+				majorStyle: true);
+			SpawnSpectacleTowerVolleyFx(tower, accent, major: true, power: 1.10f);
+		}
+		ApplyGlobalSpectacleGameplayPayload(info);
+		QueueSpectacleEcho(center, globalColor, major: true, power: 1.65f, maxDistance: 420f);
+		TriggerSpectacleSlowMo(realDuration: 1.1f, speedFactor: 0.25f);
+		ShowGlobalSpectacleBanner(info.EffectName, globalColor);
+
+		SpawnCombatCallout(info.EffectName.ToUpperInvariant(), center, globalColor);
+		TriggerHitStop(realDuration: 0.050f, slowScale: 0.26f);
+	}
+
+	private void ApplyGlobalSpectacleGameplayPayload(GlobalSpectacleTriggerInfo info)
+	{
+		if (_runState == null || _runState.Slots == null)
+			return;
+
+		int contributors = Mathf.Max(2, info.UniqueContributors);
+		float perTowerScale = Mathf.Clamp(0.72f + 0.08f * contributors, 0.72f, 1.08f);
+		float cooldownRefund = Mathf.Clamp(0.24f + 0.04f * contributors, 0.24f, 0.46f);
+
+		for (int i = 0; i < _runState.Slots.Length; i++)
+		{
+			var tower = _runState.Slots[i].TowerNode;
+			if (tower == null || !GodotObject.IsInstanceValid(tower))
+				continue;
+
+			ReduceTowerCooldown(tower, cooldownRefund);
+			SpectacleSignature signature = _spectacleSystem.PreviewSignature(tower);
+			ApplySpectacleGameplayPayload(
+				new SpectacleTriggerInfo(tower, IsMajor: true, signature, MeterAfter: 0f),
+				isMajor: true,
+				effectScale: perTowerScale);
+		}
+
+		float markDuration = 2.2f + 0.28f * contributors;
+		float slowDuration = 1.8f + 0.24f * contributors;
+		float slowFactor = Mathf.Clamp(0.88f - 0.06f * contributors, 0.58f, 0.90f);
+		foreach (var enemy in _runState.EnemiesAlive)
+		{
+			if (!IsEnemyUsable(enemy))
+				continue;
+			Statuses.ApplyMarked(enemy, markDuration);
+			Statuses.ApplySlow(enemy, slowDuration, slowFactor);
+		}
+	}
+
+	private void ApplySpectacleGameplayPayload(SpectacleTriggerInfo info, bool isMajor, float effectScale = 1f)
+	{
+		GodotObject? towerObj = info.Tower as GodotObject;
+		if (_runState == null
+			|| info.Tower == null
+			|| towerObj == null
+			|| !GodotObject.IsInstanceValid(towerObj)
+			|| effectScale <= 0f)
+		{
+			return;
+		}
+
+		float modePower = info.Signature.Mode switch
+		{
+			SpectacleMode.Single => isMajor ? 1.24f : 1.12f,
+			SpectacleMode.Combo => isMajor ? 1.14f : 1.05f,
+			_ => isMajor ? 1.20f : 1.10f,
+		};
+		float modeRange = info.Signature.Mode switch
+		{
+			SpectacleMode.Single => 0.96f,
+			SpectacleMode.Combo => 1.06f,
+			_ => 1.14f,
+		};
+		int modeTargetBonus = info.Signature.Mode switch
+		{
+			SpectacleMode.Single => 0,
+			SpectacleMode.Combo => 1,
+			_ => 2,
+		};
+
+		float basePower = isMajor ? info.Signature.MajorPower : info.Signature.MinorPower;
+		float power = Mathf.Max(0.30f, basePower * modePower * Mathf.Max(0.20f, effectScale));
+		float maxDistance = Mathf.Max(220f, info.Tower.Range * (isMajor ? 1.20f : 0.96f) * modeRange);
+		int maxTargets = (isMajor ? 3 : 2) + modeTargetBonus;
+		var seededTargets = GetSpectacleTargets(info.Tower.GlobalPosition, maxDistance, maxTargets, preferFront: true);
+		Color accent = ResolveSpectacleColor(info.Signature.PrimaryModId);
+
+		float coreDamage = info.Tower.BaseDamage * (isMajor ? (1.05f + 0.56f * power) : (0.42f + 0.44f * power));
+		for (int i = 0; i < seededTargets.Count; i++)
+		{
+			float falloff = Mathf.Max(0.58f, 1f - i * 0.15f);
+			ApplySpectacleDamage(
+				info.Tower,
+				seededTargets[i],
+				coreDamage * falloff,
+				accent,
+				heavyHit: isMajor);
+		}
+
+		ApplyModSpectacleEffect(
+			info.Tower,
+			info.Signature.PrimaryModId,
+			seededTargets,
+			isMajor,
+			power,
+			accent,
+			weight: info.Signature.Mode == SpectacleMode.Single ? 1.18f : 1.04f);
+
+		if (info.Signature.Mode != SpectacleMode.Single && !string.IsNullOrEmpty(info.Signature.SecondaryModId))
+		{
+			float secondaryWeight = info.Signature.Mode == SpectacleMode.Combo
+				? Mathf.Lerp(0.84f, 1.02f, info.Signature.SecondaryShare)
+				: Mathf.Lerp(0.70f, 0.92f, info.Signature.SecondaryShare);
+			ApplyModSpectacleEffect(
+				info.Tower,
+				info.Signature.SecondaryModId,
+				seededTargets,
+				isMajor,
+				power * secondaryWeight,
+				ResolveSpectacleColor(info.Signature.SecondaryModId),
+				weight: secondaryWeight);
+			ApplyComboSpectacleFinisher(info, seededTargets, isMajor, power * secondaryWeight);
+		}
+
+		if (info.Signature.Mode == SpectacleMode.Triad && !string.IsNullOrEmpty(info.Signature.TertiaryModId))
+		{
+			float augmentScale = isMajor
+				? Mathf.Lerp(2.10f, 2.55f, info.Signature.TertiaryShare)
+				: Mathf.Lerp(1.50f, 1.95f, info.Signature.TertiaryShare);
+			ApplyTriadAugmentSpectacleEffect(
+				info,
+				seededTargets,
+				isMajor,
+				effectScale * augmentScale,
+				ResolveSpectacleColor(info.Signature.TertiaryModId));
+		}
+	}
+
+	private void ApplyComboSpectacleFinisher(
+		SpectacleTriggerInfo info,
+		List<EnemyInstance> seededTargets,
+		bool isMajor,
+		float power)
+	{
+		if (string.IsNullOrEmpty(info.Signature.PrimaryModId) || string.IsNullOrEmpty(info.Signature.SecondaryModId))
+			return;
+
+		string a = SpectacleDefinitions.NormalizeModId(info.Signature.PrimaryModId);
+		string b = SpectacleDefinitions.NormalizeModId(info.Signature.SecondaryModId);
+		string key = BuildModPairKey(a, b);
+		var tower = info.Tower;
+		EnemyInstance? primary = seededTargets.FirstOrDefault(IsEnemyUsable);
+		if (primary == null)
+			return;
+
+		float finisherPower = Mathf.Clamp(power * (isMajor ? 0.80f : 0.54f), 0.22f, 2.4f);
+		Color secondaryColor = ResolveSpectacleColor(info.Signature.SecondaryModId);
+
+		List<EnemyInstance> PickTargets(Vector2 center, float radius, int count, bool preferFront = false)
+			=> GetSpectacleTargets(center, radius, count, preferFront).Where(IsEnemyUsable).ToList();
+
+		EnemyInstance? FindFarthestInRange(float radius)
+			=> _runState.EnemiesAlive
+				.Where(IsEnemyUsable)
+				.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= radius)
+				.OrderByDescending(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
+				.ThenByDescending(e => e.ProgressRatio)
+				.FirstOrDefault();
+
+		void ApplyMarkMany(IEnumerable<EnemyInstance> targets, float duration)
+		{
+			foreach (var e in targets)
+				Statuses.ApplyMarked(e, duration);
+		}
+
+		void ApplySlowMany(IEnumerable<EnemyInstance> targets, float duration, float factor)
+		{
+			foreach (var e in targets)
+				Statuses.ApplySlow(e, duration, factor);
+		}
+
+		void DamageWave(
+			IReadOnlyList<EnemyInstance> targets,
+			float baseDamage,
+			float falloffPerStep,
+			Color color,
+			bool heavy,
+			Vector2? arcOrigin = null)
+		{
+			for (int i = 0; i < targets.Count; i++)
+			{
+				float falloff = Mathf.Max(0.56f, 1f - i * falloffPerStep);
+				if (arcOrigin.HasValue)
+				{
+					SpawnSpectacleArc(
+						arcOrigin.Value,
+						targets[i].GlobalPosition,
+						color,
+						intensity: 0.92f + i * 0.06f,
+						mineChainStyle: heavy);
+				}
+				ApplySpectacleDamage(tower, targets[i], baseDamage * falloff, color, heavyHit: heavy);
+			}
+		}
+
+		switch (key)
+		{
+			case "momentum|overkill":
+			{
+				ReduceTowerCooldown(tower, 0.10f + 0.12f * finisherPower);
+				var blast = PickTargets(primary.GlobalPosition, 150f + 50f * finisherPower, isMajor ? 4 : 3);
+				DamageWave(blast, tower.BaseDamage * (isMajor ? 0.78f : 0.44f) * finisherPower, 0.14f, secondaryColor, isMajor, primary.GlobalPosition);
+				break;
+			}
+			case "exploit_weakness|momentum":
+			{
+				bool wasMarked = primary.IsMarked;
+				Statuses.ApplyMarked(primary, (isMajor ? 3.8f : 2.6f) + 1.2f * finisherPower);
+				float execute = tower.BaseDamage * (wasMarked ? (isMajor ? 1.02f : 0.60f) : (isMajor ? 0.66f : 0.40f)) * finisherPower;
+				ApplySpectacleDamage(tower, primary, execute, secondaryColor, heavyHit: isMajor, triggerHitStopOnKill: wasMarked && isMajor);
+				ReduceTowerCooldown(tower, 0.06f + 0.08f * finisherPower);
+				break;
+			}
+			case "focus_lens|momentum":
+			{
+				float beam = tower.BaseDamage * (isMajor ? 1.10f : 0.70f) * finisherPower;
+				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.20f, mineChainStyle: true);
+				ApplySpectacleDamage(tower, primary, beam, secondaryColor, heavyHit: true, triggerHitStopOnKill: isMajor);
+				ReduceTowerCooldown(tower, 0.10f + 0.08f * finisherPower);
+				break;
+			}
+			case "momentum|slow":
+			{
+				var pack = PickTargets(primary.GlobalPosition, 180f + 30f * finisherPower, isMajor ? 4 : 3);
+				float slowFactor = isMajor
+					? Mathf.Clamp(0.66f - 0.10f * finisherPower, 0.26f, 0.78f)
+					: Mathf.Clamp(0.78f - 0.08f * finisherPower, 0.36f, 0.88f);
+				ApplySlowMany(pack, (isMajor ? 3.4f : 2.4f) + 0.9f * finisherPower, slowFactor);
+				DamageWave(pack, tower.BaseDamage * (isMajor ? 0.64f : 0.38f) * finisherPower, 0.13f, secondaryColor, false);
+				break;
+			}
+			case "momentum|overreach":
+			{
+				var far = _runState.EnemiesAlive
+					.Where(IsEnemyUsable)
+					.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= tower.Range * 1.45f)
+					.OrderByDescending(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
+					.Take(isMajor ? 4 : 3)
+					.ToList();
+				DamageWave(far, tower.BaseDamage * (isMajor ? 0.74f : 0.42f) * finisherPower, 0.15f, secondaryColor, isMajor);
+				break;
+			}
+			case "hair_trigger|momentum":
+			{
+				ReduceTowerCooldown(tower, 0.16f + 0.14f * finisherPower);
+				float hit = tower.BaseDamage * (isMajor ? 0.54f : 0.32f) * finisherPower;
+				int bursts = isMajor ? 3 : 2;
+				for (int i = 0; i < bursts; i++)
+				{
+					float falloff = Mathf.Pow(0.72f, i);
+					ApplySpectacleDamage(tower, primary, hit * falloff, secondaryColor, heavyHit: false);
+				}
+				break;
+			}
+			case "momentum|split_shot":
+			{
+				var targets = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.25f, isMajor ? 5 : 3)
+					.Where(e => !ReferenceEquals(e, primary))
+					.ToList();
+				DamageWave(targets, tower.BaseDamage * (isMajor ? 0.70f : 0.44f) * finisherPower, 0.12f, secondaryColor, false, primary.GlobalPosition);
+				break;
+			}
+			case "feedback_loop|momentum":
+			{
+				ReduceTowerCooldown(tower, 0.24f + 0.16f * finisherPower);
+				float burst = tower.BaseDamage * (isMajor ? 0.82f : 0.52f) * finisherPower;
+				ApplySpectacleDamage(tower, primary, burst, secondaryColor, heavyHit: isMajor);
+				if (tower.Cooldown <= Mathf.Max(0.06f, tower.AttackInterval * 0.08f))
+					ApplySpectacleDamage(tower, primary, burst * 0.58f, secondaryColor, heavyHit: false);
+				break;
+			}
+			case "chain_reaction|momentum":
+			{
+				ReduceTowerCooldown(tower, 0.08f + 0.08f * finisherPower);
+				ApplySpectacleChain(
+					tower,
+					primary,
+					maxBounces: (isMajor ? 4 : 2) + Mathf.FloorToInt(finisherPower),
+					startDamage: tower.BaseDamage * (isMajor ? 0.62f : 0.36f) * finisherPower,
+					decay: 0.74f,
+					linkRange: Mathf.Max(220f, tower.ChainRange * 1.12f),
+					secondaryColor,
+					heavy: isMajor);
+				break;
+			}
+			case "exploit_weakness|overkill":
+			{
+				var markedPack = PickTargets(primary.GlobalPosition, 170f, isMajor ? 4 : 3, preferFront: true);
+				ApplyMarkMany(markedPack, (isMajor ? 3.6f : 2.5f) + 1.0f * finisherPower);
+				DamageWave(markedPack, tower.BaseDamage * (isMajor ? 0.70f : 0.40f) * finisherPower, 0.16f, secondaryColor, isMajor, primary.GlobalPosition);
+				break;
+			}
+			case "focus_lens|overkill":
+			{
+				float beam = tower.BaseDamage * (isMajor ? 1.24f : 0.80f) * finisherPower;
+				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.26f, mineChainStyle: true);
+				ApplySpectacleDamage(tower, primary, beam, secondaryColor, heavyHit: true, triggerHitStopOnKill: isMajor);
+				var spill = PickTargets(primary.GlobalPosition, 150f, isMajor ? 3 : 2);
+				DamageWave(spill, tower.BaseDamage * (isMajor ? 0.44f : 0.26f) * finisherPower, 0.20f, secondaryColor, false);
+				break;
+			}
+			case "overkill|slow":
+			{
+				var pack = PickTargets(primary.GlobalPosition, 190f, isMajor ? 4 : 3);
+				ApplySlowMany(pack, (isMajor ? 3.2f : 2.2f) + 0.8f * finisherPower, Mathf.Clamp(0.74f - 0.10f * finisherPower, 0.30f, 0.86f));
+				DamageWave(pack, tower.BaseDamage * (isMajor ? 0.58f : 0.34f) * finisherPower, 0.15f, secondaryColor, false);
+				break;
+			}
+			case "overkill|overreach":
+			{
+				var line = _runState.EnemiesAlive
+					.Where(IsEnemyUsable)
+					.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= tower.Range * 1.44f)
+					.OrderByDescending(e => e.ProgressRatio)
+					.Take(isMajor ? 4 : 3)
+					.ToList();
+				DamageWave(line, tower.BaseDamage * (isMajor ? 0.76f : 0.42f) * finisherPower, 0.14f, secondaryColor, isMajor, tower.GlobalPosition);
+				break;
+			}
+			case "hair_trigger|overkill":
+			{
+				ReduceTowerCooldown(tower, 0.14f + 0.14f * finisherPower);
+				float burst = tower.BaseDamage * (isMajor ? 0.66f : 0.38f) * finisherPower;
+				ApplySpectacleDamage(tower, primary, burst, secondaryColor, heavyHit: isMajor);
+				var extra = PickTargets(primary.GlobalPosition, 150f, isMajor ? 2 : 1).Where(e => !ReferenceEquals(e, primary)).ToList();
+				DamageWave(extra, burst * 0.82f, 0.18f, secondaryColor, false, primary.GlobalPosition);
+				break;
+			}
+			case "overkill|split_shot":
+			{
+				var shards = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.22f, isMajor ? 5 : 3, preferFront: false)
+					.Where(e => !ReferenceEquals(e, primary))
+					.ToList();
+				DamageWave(shards, tower.BaseDamage * (isMajor ? 0.74f : 0.46f) * finisherPower, 0.13f, secondaryColor, false, primary.GlobalPosition);
+				break;
+			}
+			case "feedback_loop|overkill":
+			{
+				ReduceTowerCooldown(tower, 0.20f + 0.14f * finisherPower);
+				float before = primary.Hp;
+				float slam = tower.BaseDamage * (isMajor ? 0.94f : 0.56f) * finisherPower;
+				ApplySpectacleDamage(tower, primary, slam, secondaryColor, heavyHit: isMajor);
+				if (before <= slam * 1.08f)
+				{
+					var over = PickTargets(primary.GlobalPosition, 165f, isMajor ? 3 : 2).Where(e => !ReferenceEquals(e, primary)).ToList();
+					DamageWave(over, slam * 0.52f, 0.18f, secondaryColor, false, primary.GlobalPosition);
+				}
+				break;
+			}
+			case "chain_reaction|overkill":
+			{
+				var spill = PickTargets(primary.GlobalPosition, 145f, isMajor ? 3 : 2).Where(e => !ReferenceEquals(e, primary)).ToList();
+				DamageWave(spill, tower.BaseDamage * (isMajor ? 0.44f : 0.26f) * finisherPower, 0.18f, secondaryColor, false);
+				ApplySpectacleChain(
+					tower,
+					primary,
+					maxBounces: isMajor ? 4 : 2,
+					startDamage: tower.BaseDamage * (isMajor ? 0.52f : 0.30f) * finisherPower,
+					decay: 0.72f,
+					linkRange: Mathf.Max(220f, tower.ChainRange * 1.10f),
+					secondaryColor,
+					heavy: isMajor);
+				break;
+			}
+			case "exploit_weakness|focus_lens":
+			{
+				Statuses.ApplyMarked(primary, (isMajor ? 4.1f : 2.9f) + 1.2f * finisherPower);
+				float beam = tower.BaseDamage * (isMajor ? 1.12f : 0.70f) * finisherPower;
+				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.24f, mineChainStyle: true);
+				ApplySpectacleDamage(tower, primary, beam, secondaryColor, heavyHit: true, triggerHitStopOnKill: isMajor);
+				break;
+			}
+			case "exploit_weakness|slow":
+			{
+				var hunted = PickTargets(primary.GlobalPosition, 185f, isMajor ? 4 : 3, preferFront: true);
+				ApplyMarkMany(hunted, (isMajor ? 3.4f : 2.2f) + 1.0f * finisherPower);
+				ApplySlowMany(hunted, (isMajor ? 2.8f : 2.0f) + 0.8f * finisherPower, Mathf.Clamp(0.76f - 0.10f * finisherPower, 0.28f, 0.86f));
+				DamageWave(hunted, tower.BaseDamage * (isMajor ? 0.52f : 0.30f) * finisherPower, 0.15f, secondaryColor, false);
+				break;
+			}
+			case "exploit_weakness|overreach":
+			{
+				var far = FindFarthestInRange(tower.Range * 1.45f);
+				if (far == null) break;
+				Statuses.ApplyMarked(far, (isMajor ? 4.2f : 3.0f) + 1.2f * finisherPower);
+				SpawnSpectacleArc(tower.GlobalPosition, far.GlobalPosition, secondaryColor, intensity: 1.16f, mineChainStyle: isMajor);
+				ApplySpectacleDamage(tower, far, tower.BaseDamage * (isMajor ? 1.04f : 0.64f) * finisherPower, secondaryColor, heavyHit: isMajor);
+				break;
+			}
+			case "exploit_weakness|hair_trigger":
+			{
+				Statuses.ApplyMarked(primary, (isMajor ? 3.6f : 2.4f) + 0.9f * finisherPower);
+				ReduceTowerCooldown(tower, 0.16f + 0.12f * finisherPower);
+				float tick = tower.BaseDamage * (isMajor ? 0.58f : 0.36f) * finisherPower;
+				ApplySpectacleDamage(tower, primary, tick, secondaryColor, heavyHit: false);
+				ApplySpectacleDamage(tower, primary, tick * 0.82f, secondaryColor, heavyHit: false);
+				if (isMajor)
+					ApplySpectacleDamage(tower, primary, tick * 0.56f, secondaryColor, heavyHit: false);
+				break;
+			}
+			case "exploit_weakness|split_shot":
+			{
+				var marked = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.30f, isMajor ? 5 : 3, preferFront: true);
+				ApplyMarkMany(marked, (isMajor ? 3.1f : 2.2f) + 0.8f * finisherPower);
+				DamageWave(marked, tower.BaseDamage * (isMajor ? 0.54f : 0.32f) * finisherPower, 0.12f, secondaryColor, false, primary.GlobalPosition);
+				break;
+			}
+			case "exploit_weakness|feedback_loop":
+			{
+				Statuses.ApplyMarked(primary, (isMajor ? 4.0f : 2.8f) + 1.1f * finisherPower);
+				ReduceTowerCooldown(tower, 0.24f + 0.16f * finisherPower);
+				float execute = tower.BaseDamage * (isMajor ? 0.94f : 0.60f) * finisherPower;
+				ApplySpectacleDamage(tower, primary, execute, secondaryColor, heavyHit: isMajor);
+				break;
+			}
+			case "chain_reaction|exploit_weakness":
+			{
+				var markSet = PickTargets(primary.GlobalPosition, 220f, isMajor ? 4 : 3, preferFront: true);
+				ApplyMarkMany(markSet, (isMajor ? 3.6f : 2.4f) + 0.8f * finisherPower);
+				ApplySpectacleChain(
+					tower,
+					primary,
+					maxBounces: isMajor ? 4 : 2,
+					startDamage: tower.BaseDamage * (isMajor ? 0.50f : 0.30f) * finisherPower,
+					decay: 0.75f,
+					linkRange: Mathf.Max(220f, tower.ChainRange * 1.08f),
+					secondaryColor,
+					heavy: isMajor);
+				break;
+			}
+			case "focus_lens|slow":
+			{
+				float beam = tower.BaseDamage * (isMajor ? 1.08f : 0.66f) * finisherPower;
+				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.18f, mineChainStyle: true);
+				ApplySpectacleDamage(tower, primary, beam, secondaryColor, heavyHit: true);
+				var aura = PickTargets(primary.GlobalPosition, 165f, isMajor ? 4 : 3);
+				ApplySlowMany(aura, (isMajor ? 3.0f : 2.2f) + 0.8f * finisherPower, Mathf.Clamp(0.72f - 0.10f * finisherPower, 0.26f, 0.86f));
+				break;
+			}
+			case "focus_lens|overreach":
+			{
+				var far = FindFarthestInRange(tower.Range * 1.55f);
+				if (far == null) break;
+				float rail = tower.BaseDamage * (isMajor ? 1.06f : 0.70f) * finisherPower;
+				SpawnSpectacleArc(tower.GlobalPosition, far.GlobalPosition, secondaryColor, intensity: 1.22f, mineChainStyle: true);
+				ApplySpectacleDamage(tower, far, rail, secondaryColor, heavyHit: true, triggerHitStopOnKill: isMajor);
+				var pierce = PickTargets(far.GlobalPosition, 150f, isMajor ? 2 : 1, preferFront: true).Where(e => !ReferenceEquals(e, far)).ToList();
+				DamageWave(pierce, rail * 0.46f, 0.20f, secondaryColor, false, far.GlobalPosition);
+				break;
+			}
+			case "focus_lens|hair_trigger":
+			{
+				ReduceTowerCooldown(tower, 0.18f + 0.14f * finisherPower);
+				float beam = tower.BaseDamage * (isMajor ? 0.84f : 0.54f) * finisherPower;
+				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.12f, mineChainStyle: true);
+				ApplySpectacleDamage(tower, primary, beam, secondaryColor, heavyHit: isMajor);
+				ApplySpectacleDamage(tower, primary, beam * 0.72f, secondaryColor, heavyHit: false);
+				break;
+			}
+			case "focus_lens|split_shot":
+			{
+				var prism = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.34f, isMajor ? 6 : 4, preferFront: false)
+					.Where(e => !ReferenceEquals(e, primary))
+					.ToList();
+				DamageWave(prism, tower.BaseDamage * (isMajor ? 0.66f : 0.40f) * finisherPower, 0.11f, secondaryColor, false, primary.GlobalPosition);
+				break;
+			}
+			case "feedback_loop|focus_lens":
+			{
+				ReduceTowerCooldown(tower, 0.20f + 0.14f * finisherPower);
+				float beam = tower.BaseDamage * (isMajor ? 1.00f : 0.64f) * finisherPower;
+				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.22f, mineChainStyle: true);
+				ApplySpectacleDamage(tower, primary, beam, secondaryColor, heavyHit: true);
+				if (tower.Cooldown <= Mathf.Max(0.06f, tower.AttackInterval * 0.08f))
+					ApplySpectacleDamage(tower, primary, beam * 0.46f, secondaryColor, heavyHit: false);
+				break;
+			}
+			case "chain_reaction|focus_lens":
+			{
+				float lance = tower.BaseDamage * (isMajor ? 0.96f : 0.60f) * finisherPower;
+				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.18f, mineChainStyle: true);
+				ApplySpectacleDamage(tower, primary, lance, secondaryColor, heavyHit: true);
+				ApplySpectacleChain(
+					tower,
+					primary,
+					maxBounces: isMajor ? 4 : 2,
+					startDamage: lance * 0.62f,
+					decay: 0.76f,
+					linkRange: Mathf.Max(220f, tower.ChainRange * 1.12f),
+					secondaryColor,
+					heavy: isMajor);
+				break;
+			}
+			case "overreach|slow":
+			{
+				float radius = Mathf.Max(320f, tower.Range * 1.36f);
+				var targets = _runState.EnemiesAlive
+					.Where(IsEnemyUsable)
+					.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= radius)
+					.OrderByDescending(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
+					.ThenByDescending(e => e.ProgressRatio)
+					.Take(isMajor ? 4 : 3)
+					.ToList();
+				float dmg = tower.BaseDamage * (isMajor ? 0.62f : 0.36f) * finisherPower;
+				float slowFactor = isMajor
+					? Mathf.Clamp(0.60f - 0.12f * finisherPower, 0.24f, 0.80f)
+					: Mathf.Clamp(0.74f - 0.10f * finisherPower, 0.34f, 0.88f);
+				float slowDuration = (isMajor ? 3.8f : 2.6f) + 1.1f * finisherPower;
+				for (int i = 0; i < targets.Count; i++)
+				{
+					float falloff = Mathf.Max(0.62f, 1f - i * 0.14f);
+					Statuses.ApplySlow(targets[i], slowDuration, slowFactor);
+					ApplySpectacleDamage(tower, targets[i], dmg * falloff, secondaryColor, heavyHit: isMajor);
+				}
+				break;
+			}
+			case "hair_trigger|slow":
+			{
+				ReduceTowerCooldown(tower, 0.20f + 0.14f * finisherPower);
+				var chill = PickTargets(primary.GlobalPosition, 170f, isMajor ? 4 : 3, preferFront: false);
+				ApplySlowMany(chill, (isMajor ? 2.9f : 2.1f) + 0.8f * finisherPower, Mathf.Clamp(0.70f - 0.09f * finisherPower, 0.28f, 0.86f));
+				DamageWave(chill, tower.BaseDamage * (isMajor ? 0.66f : 0.40f) * finisherPower, 0.14f, secondaryColor, false, primary.GlobalPosition);
+				break;
+			}
+			case "slow|split_shot":
+			{
+				var bloom = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.36f, isMajor ? 6 : 4, preferFront: false);
+				ApplySlowMany(bloom, (isMajor ? 2.8f : 2.0f) + 0.7f * finisherPower, Mathf.Clamp(0.72f - 0.08f * finisherPower, 0.30f, 0.88f));
+				DamageWave(bloom, tower.BaseDamage * (isMajor ? 0.58f : 0.34f) * finisherPower, 0.11f, secondaryColor, false, primary.GlobalPosition);
+				break;
+			}
+			case "feedback_loop|slow":
+			{
+				ReduceTowerCooldown(tower, 0.22f + 0.15f * finisherPower);
+				var frosted = PickTargets(primary.GlobalPosition, 180f, isMajor ? 4 : 3, preferFront: true);
+				float slowDuration = (isMajor ? 3.4f : 2.4f) + 0.9f * finisherPower;
+				foreach (var e in frosted)
+				{
+					bool wasSlowed = e.SlowRemaining > 0f;
+					Statuses.ApplySlow(e, slowDuration, Mathf.Clamp(0.70f - 0.10f * finisherPower, 0.26f, 0.84f));
+					float dmg = tower.BaseDamage * (wasSlowed ? (isMajor ? 0.66f : 0.40f) : (isMajor ? 0.46f : 0.28f)) * finisherPower;
+					ApplySpectacleDamage(tower, e, dmg, secondaryColor, heavyHit: false);
+				}
+				break;
+			}
+			case "chain_reaction|slow":
+			{
+				Statuses.ApplySlow(primary, (isMajor ? 3.4f : 2.3f) + 0.9f * finisherPower, Mathf.Clamp(0.72f - 0.10f * finisherPower, 0.28f, 0.86f));
+				ApplySpectacleChain(
+					tower,
+					primary,
+					maxBounces: (isMajor ? 4 : 2) + Mathf.FloorToInt(finisherPower * 0.8f),
+					startDamage: tower.BaseDamage * (isMajor ? 0.56f : 0.34f) * finisherPower,
+					decay: 0.76f,
+					linkRange: Mathf.Max(220f, tower.ChainRange * 1.10f),
+					secondaryColor,
+					heavy: isMajor);
+				break;
+			}
+			case "hair_trigger|overreach":
+			{
+				ReduceTowerCooldown(tower, 0.20f + 0.12f * finisherPower);
+				var far = _runState.EnemiesAlive
+					.Where(IsEnemyUsable)
+					.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= tower.Range * 1.50f)
+					.OrderByDescending(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
+					.Take(isMajor ? 5 : 3)
+					.ToList();
+				DamageWave(far, tower.BaseDamage * (isMajor ? 0.70f : 0.40f) * finisherPower, 0.13f, secondaryColor, false);
+				break;
+			}
+			case "overreach|split_shot":
+			{
+				var center = FindFarthestInRange(tower.Range * 1.46f) ?? primary;
+				var wide = PickTargets(center.GlobalPosition, Balance.SplitShotRange * 1.46f, isMajor ? 6 : 4, preferFront: false);
+				DamageWave(wide, tower.BaseDamage * (isMajor ? 0.62f : 0.36f) * finisherPower, 0.11f, secondaryColor, false, center.GlobalPosition);
+				break;
+			}
+			case "feedback_loop|overreach":
+			{
+				ReduceTowerCooldown(tower, (isMajor ? 0.20f : 0.12f) + 0.16f * finisherPower);
+				float radius = Mathf.Max(300f, tower.Range * 1.34f);
+				var far = _runState.EnemiesAlive
+					.Where(IsEnemyUsable)
+					.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= radius)
+					.OrderByDescending(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
+					.FirstOrDefault();
+				if (far != null)
+				{
+					float dmg = tower.BaseDamage * (isMajor ? 0.88f : 0.52f) * finisherPower;
+					SpawnSpectacleArc(tower.GlobalPosition, far.GlobalPosition, secondaryColor, intensity: 1.16f, mineChainStyle: true);
+					ApplySpectacleDamage(tower, far, dmg, secondaryColor, heavyHit: true);
+				}
+				break;
+			}
+			case "chain_reaction|overreach":
+			{
+				var seed = FindFarthestInRange(tower.Range * 1.44f) ?? primary;
+				ApplySpectacleChain(
+					tower,
+					seed,
+					maxBounces: isMajor ? 5 : 3,
+					startDamage: tower.BaseDamage * (isMajor ? 0.62f : 0.36f) * finisherPower,
+					decay: 0.78f,
+					linkRange: Mathf.Max(230f, tower.ChainRange * 1.14f),
+					secondaryColor,
+					heavy: isMajor);
+				break;
+			}
+			case "hair_trigger|split_shot":
+			{
+				Vector2 center = primary.GlobalPosition;
+				int extraCount = isMajor ? 5 : 3;
+				float volley = tower.BaseDamage * (isMajor ? 0.58f : 0.34f) * finisherPower;
+				var extras = GetSpectacleTargets(center, Balance.SplitShotRange * 1.34f, extraCount, preferFront: false)
+					.Where(e => !ReferenceEquals(e, primary))
+					.ToList();
+				for (int i = 0; i < extras.Count; i++)
+				{
+					float falloff = Mathf.Max(0.68f, 1f - i * 0.10f);
+					SpawnSpectacleArc(center, extras[i].GlobalPosition, secondaryColor, intensity: 0.96f + 0.05f * i);
+					ApplySpectacleDamage(tower, extras[i], volley * falloff, secondaryColor, heavyHit: false);
+				}
+				ReduceTowerCooldown(tower, (isMajor ? 0.18f : 0.11f) + 0.10f * finisherPower);
+				break;
+			}
+			case "feedback_loop|hair_trigger":
+			{
+				ReduceTowerCooldown(tower, 0.30f + 0.16f * finisherPower);
+				float burst = tower.BaseDamage * (isMajor ? 0.74f : 0.44f) * finisherPower;
+				ApplySpectacleDamage(tower, primary, burst, secondaryColor, heavyHit: isMajor);
+				ApplySpectacleDamage(tower, primary, burst * 0.66f, secondaryColor, heavyHit: false);
+				break;
+			}
+			case "chain_reaction|hair_trigger":
+			{
+				ReduceTowerCooldown(tower, 0.14f + 0.10f * finisherPower);
+				ApplySpectacleChain(
+					tower,
+					primary,
+					maxBounces: (isMajor ? 4 : 2) + Mathf.FloorToInt(finisherPower),
+					startDamage: tower.BaseDamage * (isMajor ? 0.58f : 0.34f) * finisherPower,
+					decay: 0.74f,
+					linkRange: Mathf.Max(220f, tower.ChainRange * 1.08f),
+					secondaryColor,
+					heavy: isMajor);
+				break;
+			}
+			case "feedback_loop|split_shot":
+			{
+				ReduceTowerCooldown(tower, 0.24f + 0.14f * finisherPower);
+				var bloom = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.38f, isMajor ? 6 : 4, preferFront: false)
+					.Where(e => !ReferenceEquals(e, primary))
+					.ToList();
+				DamageWave(bloom, tower.BaseDamage * (isMajor ? 0.62f : 0.36f) * finisherPower, 0.11f, secondaryColor, false, primary.GlobalPosition);
+				break;
+			}
+			case "chain_reaction|split_shot":
+			{
+				int bounces = (isMajor ? 4 : 2) + Mathf.FloorToInt(finisherPower);
+				float startDamage = tower.BaseDamage * (isMajor ? 0.52f : 0.31f) * finisherPower;
+				ApplySpectacleChain(
+					tower,
+					primary,
+					maxBounces: bounces,
+					startDamage,
+					decay: 0.76f,
+					linkRange: Mathf.Max(220f, tower.ChainRange * 1.15f),
+					secondaryColor,
+					heavy: isMajor);
+				var extras = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.30f, isMajor ? 4 : 2, preferFront: false)
+					.Where(e => !ReferenceEquals(e, primary))
+					.ToList();
+				DamageWave(extras, startDamage * 0.52f, 0.14f, secondaryColor, false, primary.GlobalPosition);
+				break;
+			}
+			case "chain_reaction|feedback_loop":
+			{
+				ReduceTowerCooldown(tower, 0.22f + 0.12f * finisherPower);
+				ApplySpectacleChain(
+					tower,
+					primary,
+					maxBounces: isMajor ? 5 : 3,
+					startDamage: tower.BaseDamage * (isMajor ? 0.56f : 0.34f) * finisherPower,
+					decay: 0.74f,
+					linkRange: Mathf.Max(230f, tower.ChainRange * 1.14f),
+					secondaryColor,
+					heavy: isMajor);
+				break;
+			}
+			default:
+			{
+				float burst = tower.BaseDamage * (isMajor ? 0.50f : 0.30f) * finisherPower;
+				ApplySpectacleDamage(tower, primary, burst, secondaryColor, heavyHit: false);
+				break;
+			}
+		}
+	}
+
+	private void ApplyModSpectacleEffect(
+		ITowerView tower,
+		string modId,
+		List<EnemyInstance> seededTargets,
+		bool isMajor,
+		float power,
+		Color accent,
+		float weight)
+	{
+		if (tower == null || string.IsNullOrEmpty(modId))
+			return;
+
+		string normalized = SpectacleDefinitions.NormalizeModId(modId);
+		float tempoBoost = isMajor ? 1.22f : 1.10f;
+		float p = Mathf.Max(0.24f, power * Mathf.Clamp(weight, 0.25f, 1.45f) * tempoBoost);
+		EnemyInstance? primary = seededTargets.FirstOrDefault(IsEnemyUsable);
+
+		switch (normalized)
+		{
+			case SpectacleDefinitions.Momentum:
+			{
+				ReduceTowerCooldown(tower, (isMajor ? 0.14f : 0.08f) * Mathf.Clamp(p, 0.5f, 2.0f));
+				if (primary != null)
+				{
+					float bonus = tower.BaseDamage * (isMajor ? 0.38f : 0.20f) * p;
+					ApplySpectacleDamage(tower, primary, bonus, accent, heavyHit: isMajor);
+				}
+				break;
+			}
+			case SpectacleDefinitions.Overkill:
+			{
+				if (primary == null)
+					break;
+				float splashDamage = tower.BaseDamage * (isMajor ? 0.58f : 0.30f) * p;
+				var spillTargets = GetSpectacleTargets(
+					primary.GlobalPosition,
+					isMajor ? 180f : 130f,
+					isMajor ? 3 : 2,
+					preferFront: false)
+					.Where(e => !ReferenceEquals(e, primary))
+					.ToList();
+				for (int i = 0; i < spillTargets.Count; i++)
+				{
+					float falloff = Mathf.Max(0.48f, 1f - i * 0.22f);
+					SpawnSpectacleArc(primary.GlobalPosition, spillTargets[i].GlobalPosition, accent, intensity: 0.94f + 0.08f * i);
+					ApplySpectacleDamage(tower, spillTargets[i], splashDamage * falloff, accent, heavyHit: isMajor);
+				}
+				break;
+			}
+			case SpectacleDefinitions.ExploitWeakness:
+			{
+				float markDuration = (isMajor ? 4.2f : 2.6f) + 1.1f * p;
+				int count = isMajor ? 4 : 2;
+				foreach (var enemy in seededTargets.Where(IsEnemyUsable).Take(count))
+				{
+					bool wasMarked = enemy.IsMarked;
+					Statuses.ApplyMarked(enemy, markDuration);
+					if (wasMarked)
+					{
+						float execute = tower.BaseDamage * (isMajor ? 0.60f : 0.34f) * p;
+						ApplySpectacleDamage(tower, enemy, execute, accent, heavyHit: isMajor);
+					}
+				}
+				break;
+			}
+			case SpectacleDefinitions.FocusLens:
+			{
+				var focusTarget = primary
+					?? GetSpectacleTargets(tower.GlobalPosition, tower.Range * 1.35f, 1, preferFront: true).FirstOrDefault();
+				if (focusTarget != null)
+				{
+					float beam = tower.BaseDamage * (isMajor ? 1.05f : 0.60f) * p;
+					SpawnSpectacleArc(tower.GlobalPosition, focusTarget.GlobalPosition, accent, intensity: 1.20f, mineChainStyle: isMajor);
+					ApplySpectacleDamage(tower, focusTarget, beam, accent, heavyHit: true, triggerHitStopOnKill: isMajor);
+				}
+				break;
+			}
+			case SpectacleDefinitions.ChillShot:
+			{
+				float slowDuration = (isMajor ? 4.6f : 3.1f) + 0.9f * p;
+				float slowFactor = isMajor
+					? Mathf.Clamp(0.76f - 0.09f * p, 0.30f, 0.86f)
+					: Mathf.Clamp(0.84f - 0.07f * p, 0.45f, 0.92f);
+				float chip = tower.BaseDamage * (isMajor ? 0.24f : 0.12f) * p;
+				foreach (var enemy in seededTargets.Where(IsEnemyUsable).Take(isMajor ? 4 : 3))
+				{
+					Statuses.ApplySlow(enemy, slowDuration, slowFactor);
+					ApplySpectacleDamage(tower, enemy, chip, accent, heavyHit: false);
+				}
+				break;
+			}
+			case SpectacleDefinitions.Overreach:
+			{
+				float reach = Mathf.Max(isMajor ? 340f : 280f, tower.Range * (isMajor ? 1.45f : 1.25f));
+				float pulse = tower.BaseDamage * (isMajor ? 0.68f : 0.34f) * p;
+				var farTargets = _runState.EnemiesAlive
+					.Where(IsEnemyUsable)
+					.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= reach)
+					.OrderByDescending(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
+					.ThenByDescending(e => e.ProgressRatio)
+					.Take(isMajor ? 3 : 2)
+					.ToList();
+				for (int i = 0; i < farTargets.Count; i++)
+				{
+					float falloff = Mathf.Max(0.58f, 1f - i * 0.18f);
+					ApplySpectacleDamage(tower, farTargets[i], pulse * falloff, accent, heavyHit: isMajor);
+				}
+				break;
+			}
+			case SpectacleDefinitions.HairTrigger:
+			{
+				ReduceTowerCooldown(tower, (isMajor ? 0.30f : 0.18f) * Mathf.Clamp(p, 0.6f, 2.0f));
+				if (primary != null && tower.Cooldown <= Mathf.Max(0.08f, tower.AttackInterval * 0.12f))
+				{
+					float burst = tower.BaseDamage * (isMajor ? 0.44f : 0.24f) * p;
+					ApplySpectacleDamage(tower, primary, burst, accent, heavyHit: false);
+				}
+				break;
+			}
+			case SpectacleDefinitions.SplitShot:
+			{
+				Vector2 center = primary?.GlobalPosition ?? tower.GlobalPosition;
+				float splitRange = Balance.SplitShotRange * (isMajor ? 1.20f : 1.00f);
+				float splitDamage = tower.BaseDamage * (isMajor ? 0.45f : 0.24f) * p;
+				var splitTargets = GetSpectacleTargets(
+					center,
+					splitRange,
+					isMajor ? 4 : 2,
+					preferFront: false)
+					.Where(e => primary == null || !ReferenceEquals(e, primary))
+					.ToList();
+				for (int i = 0; i < splitTargets.Count; i++)
+				{
+					float falloff = Mathf.Max(0.62f, 1f - i * 0.14f);
+					SpawnSpectacleArc(center, splitTargets[i].GlobalPosition, accent, intensity: 0.88f + 0.06f * i);
+					ApplySpectacleDamage(tower, splitTargets[i], splitDamage * falloff, accent, heavyHit: false);
+				}
+				break;
+			}
+			case SpectacleDefinitions.FeedbackLoop:
+			{
+				ReduceTowerCooldown(tower, (isMajor ? 0.42f : 0.24f) * Mathf.Clamp(p, 0.55f, 2.2f));
+				if (primary != null && tower.Cooldown <= Mathf.Max(0.05f, tower.AttackInterval * 0.08f))
+				{
+					float reboot = tower.BaseDamage * (isMajor ? 0.52f : 0.28f) * p;
+					ApplySpectacleDamage(tower, primary, reboot, accent, heavyHit: isMajor);
+				}
+				break;
+			}
+			case SpectacleDefinitions.ChainReaction:
+			{
+				if (primary == null)
+					break;
+				int bounces = (isMajor ? 4 : 2) + Mathf.FloorToInt(Mathf.Clamp(p - 1f, 0f, 1.8f));
+				float chainDamage = tower.BaseDamage * (isMajor ? 0.56f : 0.30f) * p;
+				ApplySpectacleChain(
+					tower,
+					primary,
+					maxBounces: bounces,
+					startDamage: chainDamage,
+					decay: 0.72f,
+					linkRange: Mathf.Max(220f, tower.ChainRange * 1.05f),
+					accent,
+					heavy: isMajor);
+				break;
+			}
+		}
+	}
+
+	private static string BuildModPairKey(string modA, string modB)
+		=> string.CompareOrdinal(modA, modB) <= 0 ? $"{modA}|{modB}" : $"{modB}|{modA}";
+
+	private void ApplyTriadAugmentSpectacleEffect(
+		SpectacleTriggerInfo info,
+		List<EnemyInstance> seededTargets,
+		bool isMajor,
+		float effectScale,
+		Color accent)
+	{
+		if (string.IsNullOrEmpty(info.Signature.TertiaryModId))
+			return;
+
+		var augment = SpectacleDefinitions.GetTriadAugment(info.Signature.TertiaryModId);
+		float strength = info.Signature.AugmentStrength
+			* augment.Coefficient
+			* (isMajor ? 1f : 0.68f)
+			* Mathf.Max(0.15f, effectScale);
+		float aug = Mathf.Clamp(strength, 0f, 0.95f);
+		if (aug <= 0.001f)
+			return;
+
+		var tower = info.Tower;
+		EnemyInstance? primary = seededTargets.FirstOrDefault(IsEnemyUsable);
+		float durationBase = augment.DurationSec > 0f ? augment.DurationSec : (isMajor ? 1.8f : 1.2f);
+
+		switch (augment.Kind)
+		{
+			case SpectacleAugmentKind.RampCap:
+			{
+				ReduceTowerCooldown(tower, 0.08f + 0.34f * aug);
+				if (primary != null)
+				{
+					float dmg = tower.BaseDamage * (0.20f + 0.80f * aug);
+					ApplySpectacleDamage(tower, primary, dmg, accent, heavyHit: isMajor);
+				}
+				break;
+			}
+			case SpectacleAugmentKind.SpillTransfer:
+			{
+				if (primary == null) break;
+				float splash = tower.BaseDamage * (0.18f + 0.65f * aug);
+				float radius = 120f + 70f * aug;
+				var neighbors = GetSpectacleTargets(primary.GlobalPosition, radius, isMajor ? 3 : 2, preferFront: false)
+					.Where(e => !ReferenceEquals(e, primary))
+					.ToList();
+				for (int i = 0; i < neighbors.Count; i++)
+				{
+					float falloff = Mathf.Max(0.55f, 1f - i * 0.18f);
+					ApplySpectacleDamage(tower, neighbors[i], splash * falloff, accent, heavyHit: false);
+				}
+				break;
+			}
+			case SpectacleAugmentKind.MarkedVulnerability:
+			{
+				float markDuration = durationBase + 1.2f + 1.8f * aug;
+				foreach (var enemy in GetSpectacleTargets(tower.GlobalPosition, tower.Range * 1.15f, isMajor ? 4 : 3, preferFront: true))
+				{
+					bool marked = enemy.IsMarked;
+					Statuses.ApplyMarked(enemy, markDuration);
+					if (marked)
+					{
+						float vuln = tower.BaseDamage * (0.20f + 0.70f * aug);
+						ApplySpectacleDamage(tower, enemy, vuln, accent, heavyHit: false);
+					}
+				}
+				break;
+			}
+			case SpectacleAugmentKind.BeamBurst:
+			{
+				var beamTarget = primary
+					?? GetSpectacleTargets(tower.GlobalPosition, tower.Range * 1.45f, 1, preferFront: true).FirstOrDefault();
+				if (beamTarget != null)
+				{
+					float beam = tower.BaseDamage * (0.42f + 1.35f * aug);
+					SpawnSpectacleArc(tower.GlobalPosition, beamTarget.GlobalPosition, accent, intensity: 1.26f, mineChainStyle: true);
+					ApplySpectacleDamage(tower, beamTarget, beam, accent, heavyHit: true, triggerHitStopOnKill: isMajor);
+				}
+				break;
+			}
+			case SpectacleAugmentKind.SlowIntensity:
+			{
+				float slowDuration = durationBase + 1.0f + 1.8f * aug;
+				float slowFactor = Mathf.Clamp(0.82f - 0.62f * aug, 0.22f, 0.80f);
+				foreach (var enemy in GetSpectacleTargets(tower.GlobalPosition, tower.Range * 1.10f, isMajor ? 4 : 3, preferFront: true))
+					Statuses.ApplySlow(enemy, slowDuration, slowFactor);
+				break;
+			}
+			case SpectacleAugmentKind.RangePulse:
+			{
+				float pulse = tower.BaseDamage * (0.24f + 0.78f * aug);
+				float reach = Mathf.Max(320f, tower.Range * 1.48f);
+				var farTargets = _runState.EnemiesAlive
+					.Where(IsEnemyUsable)
+					.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= reach)
+					.OrderByDescending(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
+					.ThenByDescending(e => e.ProgressRatio)
+					.Take(isMajor ? 3 : 2)
+					.ToList();
+				for (int i = 0; i < farTargets.Count; i++)
+				{
+					float falloff = Mathf.Max(0.60f, 1f - i * 0.16f);
+					ApplySpectacleDamage(tower, farTargets[i], pulse * falloff, accent, heavyHit: false);
+				}
+				break;
+			}
+			case SpectacleAugmentKind.AttackSpeed:
+			{
+				ReduceTowerCooldown(tower, 0.12f + 0.42f * aug);
+				break;
+			}
+			case SpectacleAugmentKind.SplitVolley:
+			{
+				Vector2 center = primary?.GlobalPosition ?? tower.GlobalPosition;
+				int extraCount = 2 + Mathf.FloorToInt(aug * 4f);
+				float volley = tower.BaseDamage * (0.18f + 0.52f * aug);
+				var extras = GetSpectacleTargets(center, Balance.SplitShotRange * 1.28f, extraCount, preferFront: false)
+					.Where(e => primary == null || !ReferenceEquals(e, primary))
+					.ToList();
+				for (int i = 0; i < extras.Count; i++)
+				{
+					float falloff = Mathf.Max(0.64f, 1f - i * 0.12f);
+					SpawnSpectacleArc(center, extras[i].GlobalPosition, accent, intensity: 0.90f + i * 0.05f);
+					ApplySpectacleDamage(tower, extras[i], volley * falloff, accent, heavyHit: false);
+				}
+				break;
+			}
+			case SpectacleAugmentKind.CooldownRefund:
+			{
+				// Matches the spec behavior: refund X% of current cooldown where X = augmentStrength.
+				ReduceTowerCooldown(tower, aug);
+				break;
+			}
+			case SpectacleAugmentKind.ChainBounces:
+			{
+				if (primary == null) break;
+				int bounces = 1 + Mathf.FloorToInt(aug * 4f);
+				float chain = tower.BaseDamage * (0.20f + 0.70f * aug);
+				ApplySpectacleChain(
+					tower,
+					primary,
+					maxBounces: bounces,
+					startDamage: chain,
+					decay: 0.74f,
+					linkRange: Mathf.Max(220f, tower.ChainRange * 1.08f),
+					accent,
+					heavy: isMajor);
+				break;
+			}
+		}
+	}
+
+	private void ApplySpectacleChain(
+		ITowerView tower,
+		EnemyInstance start,
+		int maxBounces,
+		float startDamage,
+		float decay,
+		float linkRange,
+		Color color,
+		bool heavy)
+	{
+		if (!IsEnemyUsable(start) || maxBounces <= 0 || startDamage <= 0.01f)
+			return;
+
+		var hit = new HashSet<EnemyInstance> { start };
+		var current = start;
+		float damage = startDamage;
+
+		for (int bounce = 0; bounce < maxBounces; bounce++)
+		{
+			EnemyInstance? next = _runState.EnemiesAlive
+				.Where(IsEnemyUsable)
+				.Where(e => !hit.Contains(e))
+				.Where(e => current.GlobalPosition.DistanceTo(e.GlobalPosition) <= linkRange)
+				.OrderBy(e => current.GlobalPosition.DistanceTo(e.GlobalPosition))
+				.ThenByDescending(e => e.ProgressRatio)
+				.FirstOrDefault();
+			if (next == null)
+				break;
+
+			SpawnSpectacleArc(
+				current.GlobalPosition,
+				next.GlobalPosition,
+				color,
+				intensity: 1.0f + bounce * 0.08f,
+				mineChainStyle: heavy);
+			ApplySpectacleDamage(tower, next, damage, color, heavyHit: heavy);
+			hit.Add(next);
+			current = next;
+			damage *= Mathf.Clamp(decay, 0.45f, 0.95f);
+			if (damage <= 0.5f)
+				break;
+		}
+	}
+
+	private static bool IsEnemyUsable(EnemyInstance? enemy)
+		=> enemy != null && GodotObject.IsInstanceValid(enemy) && enemy.Hp > 0f;
+
+	private List<EnemyInstance> GetSpectacleTargets(Vector2 origin, float maxDistance, int maxTargets, bool preferFront)
+	{
+		if (_runState == null || maxTargets <= 0 || maxDistance <= 0f)
+			return new List<EnemyInstance>();
+
+		var query = _runState.EnemiesAlive
+			.Where(IsEnemyUsable)
+			.Where(e => origin.DistanceTo(e.GlobalPosition) <= maxDistance);
+
+		query = preferFront
+			? query.OrderByDescending(e => e.ProgressRatio).ThenBy(e => origin.DistanceTo(e.GlobalPosition))
+			: query.OrderBy(e => origin.DistanceTo(e.GlobalPosition)).ThenByDescending(e => e.ProgressRatio);
+
+		return query.Take(maxTargets).ToList();
+	}
+
+	private float ApplySpectacleDamage(
+		ITowerView tower,
+		EnemyInstance enemy,
+		float damage,
+		Color color,
+		bool heavyHit,
+		bool triggerHitStopOnKill = false)
+	{
+		if (!IsEnemyUsable(enemy) || damage <= 0.05f)
+			return 0f;
+
+		float hpBefore = enemy.Hp;
+		enemy.Hp = Mathf.Max(0f, enemy.Hp - damage);
+		float dealt = hpBefore - enemy.Hp;
+		if (dealt <= 0.01f)
+			return 0f;
+
+		bool isKill = enemy.Hp <= 0f;
+		TrackSpectacleDamage(tower, dealt, isKill);
+		SpawnSpectacleDamageNumber(enemy.GlobalPosition, Mathf.Max(1f, dealt), isKill, color, tower.TowerId);
+		SpawnSpectacleImpactSparks(enemy.GlobalPosition, color, heavy: heavyHit);
+		if (!isKill && GodotObject.IsInstanceValid(enemy))
+			enemy.FlashHit();
+		if (isKill && triggerHitStopOnKill)
+			TriggerHitStop(realDuration: heavyHit ? 0.042f : 0.030f, slowScale: heavyHit ? 0.20f : 0.30f);
+		return dealt;
+	}
+
+	private void TrackSpectacleDamage(ITowerView tower, float damage, bool isKill)
+	{
+		if (_runState == null)
+			return;
+
+		int dealtInt = Mathf.Max(0, (int)damage);
+		if (dealtInt > 0)
+		{
+			_runState.TotalDamageDealt += dealtInt;
+			int slotIndex = FindTowerSlotIndex(tower);
+			if (slotIndex >= 0)
+				_runState.TrackTowerDamage(slotIndex, dealtInt);
+			if (isKill)
+			{
+				_runState.TotalKills += 1;
+				if (slotIndex >= 0)
+					_runState.TrackTowerKill(slotIndex);
+			}
+		}
+	}
+
+	private int FindTowerSlotIndex(ITowerView tower)
+	{
+		for (int i = 0; i < _runState.Slots.Length; i++)
+		{
+			if (ReferenceEquals(_runState.Slots[i].Tower, tower))
+				return i;
+		}
+		return -1;
+	}
+
+	private void SpawnSpectacleDamageNumber(Vector2 worldPos, float damage, bool isKill, Color color, string sourceTowerId)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+		var num = new DamageNumber();
+		_worldNode.AddChild(num);
+		num.GlobalPosition = worldPos + new Vector2(0f, -14f);
+		num.Initialize(damage, color, isKill, sourceTowerId);
+	}
+
+	private void SpawnSpectacleImpactSparks(Vector2 worldPos, Color color, bool heavy)
+	{
+		if (_botRunner != null || SettingsManager.Instance?.ReducedMotion == true || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+		var sparks = new ImpactSparkBurst();
+		_worldNode.AddChild(sparks);
+		sparks.GlobalPosition = worldPos;
+		sparks.Initialize(color, heavy);
+	}
+
+	private void SpawnSpectacleArc(Vector2 from, Vector2 to, Color color, float intensity = 1f, bool mineChainStyle = false)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+		var arc = new ChainArc();
+		_worldNode.AddChild(arc);
+		arc.GlobalPosition = Vector2.Zero;
+		arc.Initialize(from, to, color, intensity, mineChainStyle);
+	}
+
+	private static void ReduceTowerCooldown(ITowerView tower, float refundFrac)
+	{
+		if (tower == null || refundFrac <= 0f || tower.Cooldown <= 0f)
+			return;
+		float clamped = Mathf.Clamp(refundFrac, 0f, 0.92f);
+		tower.Cooldown = Mathf.Max(0f, tower.Cooldown * (1f - clamped));
+	}
+
+	private static Color ResolveSpectacleColor(string modId)
+	{
+		if (string.IsNullOrEmpty(modId))
+			return new Color(0.80f, 0.92f, 1.00f);
+		return ModifierVisuals.GetAccent(modId);
+	}
+
+	private void SpawnSpectacleBurstFx(Vector2 worldPos, Color accent, bool major, float power = 1f)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+
+		var burst = new RiftMineBurst();
+		_worldNode.AddChild(burst);
+		burst.GlobalPosition = worldPos;
+		float intensity = Mathf.Clamp((major ? 1.26f : 1.02f) * Mathf.Max(0.60f, power), 0.85f, 2.60f);
+		burst.Initialize(accent, chainPop: major, intensity: intensity);
+
+		if (major || power >= 0.95f)
+		{
+			var afterGlow = new RiftMineBurst();
+			_worldNode.AddChild(afterGlow);
+			afterGlow.GlobalPosition = worldPos;
+			afterGlow.Modulate = new Color(1f, 1f, 1f, major ? 0.62f : 0.44f);
+			afterGlow.Initialize(new Color(1.00f, 0.98f, 0.94f), chainPop: major, intensity: intensity * (major ? 0.88f : 0.74f));
+		}
+	}
+
+	private void SpawnSpectacleLinks(Vector2 origin, Color accent, int maxLinks, float maxDistance, bool majorStyle)
+	{
+		if (_botRunner != null || maxLinks <= 0 || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+
+		var links = _runState.EnemiesAlive
+			.Where(e =>
+				GodotObject.IsInstanceValid(e)
+				&& e.Hp > 0f
+				&& origin.DistanceTo(e.GlobalPosition) <= maxDistance)
+			.OrderByDescending(e => e.ProgressRatio)
+			.ThenBy(e => origin.DistanceTo(e.GlobalPosition))
+			.Take(maxLinks)
+			.ToList();
+
+		for (int i = 0; i < links.Count; i++)
+		{
+			var enemy = links[i];
+			var arc = new ChainArc();
+			_worldNode.AddChild(arc);
+			arc.GlobalPosition = Vector2.Zero;
+			float intensity = (majorStyle ? 1.34f : 1.06f) + i * 0.08f;
+			arc.Initialize(origin, enemy.GlobalPosition, accent, intensity, mineChainStyle: majorStyle);
+
+			if (majorStyle)
+			{
+				var sparks = new ImpactSparkBurst();
+				_worldNode.AddChild(sparks);
+				sparks.GlobalPosition = enemy.GlobalPosition;
+				sparks.Initialize(accent, heavy: true);
+			}
+		}
+	}
+
+	private void SpawnSpectacleTowerVolleyFx(ITowerView tower, Color accent, bool major, float power)
+	{
+		if (_botRunner != null || _runState == null || tower == null)
+			return;
+
+		SpawnSpectacleImpactSparks(tower.GlobalPosition, accent, heavy: major);
+		float volleyRange = Mathf.Max(major ? 320f : 250f, tower.Range * (major ? 1.30f : 1.05f));
+		int volleyCount = major ? 4 : 2;
+		var targets = GetSpectacleTargets(tower.GlobalPosition, volleyRange, volleyCount, preferFront: true);
+		if (targets.Count == 0)
+			return;
+
+		float intensityBase = (major ? 1.52f : 1.22f) + 0.24f * Mathf.Clamp(power, 0.5f, 2.5f);
+		for (int i = 0; i < targets.Count; i++)
+		{
+			float intensity = intensityBase + i * 0.12f;
+			SpawnSpectacleArc(tower.GlobalPosition, targets[i].GlobalPosition, accent, intensity, mineChainStyle: major);
+			if (major)
+				SpawnSpectacleImpactSparks(targets[i].GlobalPosition, accent, heavy: true);
+		}
+	}
+
+	private void QueueSpectacleEcho(Vector2 origin, Color accent, bool major, float power, float maxDistance)
+	{
+		if (_botRunner != null || CurrentPhase != GamePhase.Wave || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+
+		float delay = major ? 0.24f : 0.16f;
+		GetTree().CreateTimer(delay).Timeout += () =>
+		{
+			if (_botRunner != null || CurrentPhase != GamePhase.Wave || !GodotObject.IsInstanceValid(this))
+				return;
+
+			SpawnSpectacleBurstFx(origin, accent, major, power * (major ? 0.72f : 0.62f));
+			SpawnSpectacleLinks(
+				origin,
+				accent,
+				maxLinks: major ? 2 : 1,
+				maxDistance: Mathf.Max(200f, maxDistance * 0.90f),
+				majorStyle: major);
+			FlashSpectacleScreen(
+				accent,
+				peakAlpha: major ? 0.055f : 0.030f,
+				rampSec: 0.03f,
+				fadeSec: major ? 0.16f : 0.12f);
+		};
+	}
+
+	private void FlashSpectacleScreen(Color accent, float peakAlpha, float rampSec, float fadeSec)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_spectaclePulse))
+			return;
+
+		_spectaclePulse.Visible = true;
+		_spectaclePulse.Color = new Color(accent.R, accent.G, accent.B, 0f);
+		var tw = _spectaclePulse.CreateTween();
+		tw.TweenProperty(_spectaclePulse, "color:a", Mathf.Clamp(peakAlpha, 0f, 0.32f), Mathf.Max(0.02f, rampSec));
+		tw.TweenProperty(_spectaclePulse, "color:a", 0f, Mathf.Max(0.05f, fadeSec))
+			.SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+		tw.TweenCallback(Callable.From(() =>
+		{
+			if (GodotObject.IsInstanceValid(_spectaclePulse))
+				_spectaclePulse.Visible = false;
+		}));
 	}
 
 	public void SpawnTargetAcquirePing(Vector2 worldPos, Color color)
@@ -2587,9 +4081,52 @@ public partial class GameController : Node
 		}
 	}
 
+	public void RegisterSpectacleShotFired(SlotTheory.Entities.ITowerView tower)
+	{
+		if (CurrentPhase != GamePhase.Wave || tower == null)
+			return;
+		_spectacleSystem.RegisterShotFired(tower);
+	}
+
+	public void RegisterSpectacleProc(SlotTheory.Entities.ITowerView tower, string modifierId, float eventScalar = 1f)
+	{
+		if (CurrentPhase != GamePhase.Wave || tower == null || string.IsNullOrEmpty(modifierId) || eventScalar <= 0f)
+			return;
+		_spectacleSystem.RegisterProc(tower, modifierId, eventScalar);
+	}
+
+	private void TriggerSpectacleSlowMo(float realDuration, float speedFactor)
+	{
+		if (_botRunner != null || CurrentPhase != GamePhase.Wave)
+			return;
+		if (_spectacleSlowMoActive)
+			return;
+
+		float duration = Mathf.Max(0.10f, realDuration);
+		float factor = Mathf.Clamp(speedFactor, 0.05f, 1.0f);
+		_spectacleSlowMoActive = true;
+		_spectacleSlowMoRestoreScale = _hitStopActive ? _preHitStopTimeScale : Engine.TimeScale;
+		_spectacleSlowMoScale = Mathf.Max(0.05f, (float)_spectacleSlowMoRestoreScale * factor);
+
+		Engine.TimeScale = Mathf.Min((float)Engine.TimeScale, _spectacleSlowMoScale);
+
+		ulong token = ++_spectacleSlowMoToken;
+		GetTree().CreateTimer(duration, true, false, true).Timeout += () =>
+		{
+			if (!_spectacleSlowMoActive || token != _spectacleSlowMoToken)
+				return;
+
+			_spectacleSlowMoActive = false;
+			_spectacleSlowMoScale = 1.0f;
+			if (!_hitStopActive)
+				Engine.TimeScale = _spectacleSlowMoRestoreScale;
+		};
+	}
+
 	public void TriggerHitStop(float realDuration = 0.042f, float slowScale = 0.20f)
 	{
 		if (_botRunner != null || CurrentPhase != GamePhase.Wave) return;
+		if (_spectacleSlowMoActive) return;
 		if (_hitStopActive || _hitStopCooldown > 0f) return;
 
 		_hitStopActive = true;
@@ -2601,7 +4138,10 @@ public partial class GameController : Node
 		float scaledWait = Mathf.Max(0.005f, realDuration * targetScale);
 		GetTree().CreateTimer(scaledWait).Timeout += () =>
 		{
-			Engine.TimeScale = _preHitStopTimeScale;
+			float restoreScale = (float)_preHitStopTimeScale;
+			if (_spectacleSlowMoActive)
+				restoreScale = Mathf.Min(restoreScale, _spectacleSlowMoScale);
+			Engine.TimeScale = restoreScale;
 			_hitStopActive = false;
 		};
 	}
@@ -2655,6 +4195,21 @@ public partial class GameController : Node
 					icon.Modulate = new Color(1f, 1f, 1f, 0.95f);
 				}
 			}
+		}
+	}
+
+	private void UpdateSpectacleVisuals()
+	{
+		for (int i = 0; i < _runState.Slots.Length; i++)
+		{
+			var tower = _runState.Slots[i].TowerNode;
+			if (tower == null || !GodotObject.IsInstanceValid(tower))
+				continue;
+
+			SpectacleVisualState visual = _spectacleSystem.GetVisualState(tower);
+			tower.SpectacleMeterNormalized = visual.MeterNormalized;
+			tower.SpectaclePulse = visual.Pulse;
+			tower.SpectacleAccent = visual.PrimaryModId;
 		}
 	}
 
