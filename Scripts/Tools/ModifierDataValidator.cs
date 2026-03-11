@@ -18,9 +18,6 @@ public static class ModifierDataValidator
         public List<string> RequiredTokens { get; set; } = new();
     }
 
-    private const string MultiplySign = "\u00D7";
-    private const string MinusSign = "\u2212";
-
     public static void ValidateModifierData(Dictionary<string, ModifierDef> modifiers)
     {
         var expectations = BuildExpectations();
@@ -80,6 +77,7 @@ public static class ModifierDataValidator
     {
         float momentumMaxMultiplier = 1f + (Balance.MomentumBonusPerStack * Balance.MomentumMaxStacks);
         float focusLensPercent = (Balance.FocusLensDamageBonus - 1f) * 100f;
+        float focusLensIntervalPercent = (Balance.FocusLensAttackInterval - 1f) * 100f;
         float slowPercent = (1f - Balance.SlowSpeedFactor) * 100f;
         float overreachRangePercent = (Balance.OverreachRangeFactor - 1f) * 100f;
         float overreachDamagePenalty = (1f - Balance.OverreachDamageFactor) * 100f;
@@ -92,7 +90,7 @@ public static class ModifierDataValidator
                 RequiredTokens = new()
                 {
                     $"+{FormatInt(Balance.MomentumBonusPerStack * 100f)}%",
-                    $"{MultiplySign}{FormatTwoDp(momentumMaxMultiplier)}"
+                    $"x{FormatUpToTwoDp(momentumMaxMultiplier)}"
                 }
             },
             ["overkill"] = new ModifierExpectation
@@ -111,7 +109,7 @@ public static class ModifierDataValidator
                 RequiredTokens = new()
                 {
                     $"+{FormatInt(focusLensPercent)}%",
-                    $"{MultiplySign}{FormatTwoDp(Balance.FocusLensAttackInterval)}"
+                    $"+{FormatInt(focusLensIntervalPercent)}%"
                 }
             },
             ["slow"] = new ModifierExpectation
@@ -119,8 +117,8 @@ public static class ModifierDataValidator
                 Name = "Chill Shot",
                 RequiredTokens = new()
                 {
-                    $"{MinusSign}{FormatInt(slowPercent)}%",
-                    $"{FormatInt(Balance.SlowDuration)} s"
+                    $"-{FormatInt(slowPercent)}%",
+                    $"{FormatInt(Balance.SlowDuration)}s"
                 }
             },
             ["overreach"] = new ModifierExpectation
@@ -129,7 +127,7 @@ public static class ModifierDataValidator
                 RequiredTokens = new()
                 {
                     $"+{FormatInt(overreachRangePercent)}%",
-                    $"{MinusSign}{FormatInt(overreachDamagePenalty)}%"
+                    $"-{FormatInt(overreachDamagePenalty)}%"
                 }
             },
             ["hair_trigger"] = new ModifierExpectation
@@ -138,7 +136,7 @@ public static class ModifierDataValidator
                 RequiredTokens = new()
                 {
                     $"+{FormatInt((Balance.HairTriggerAttackSpeed - 1f) * 100f)}%",
-                    $"{MinusSign}{FormatInt((1f - Balance.HairTriggerRangeFactor) * 100f)}%"
+                    $"-{FormatInt((1f - Balance.HairTriggerRangeFactor) * 100f)}%"
                 }
             },
             ["split_shot"] = new ModifierExpectation
@@ -164,8 +162,8 @@ public static class ModifierDataValidator
         return value.ToString("0", CultureInfo.InvariantCulture);
     }
 
-    private static string FormatTwoDp(float value)
+    private static string FormatUpToTwoDp(float value)
     {
-        return value.ToString("0.00", CultureInfo.InvariantCulture);
+        return value.ToString("0.##", CultureInfo.InvariantCulture);
     }
 }

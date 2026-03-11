@@ -22,6 +22,7 @@ public partial class SlotCodexPanel : Node
     private GridContainer _modGrid = null!;
     private Button _towerTabBtn = null!;
     private Button _modTabBtn = null!;
+    private Label _progressLabel = null!;
     private float _lastWidth = -1f;
 
     public override void _Ready()
@@ -34,24 +35,56 @@ public partial class SlotCodexPanel : Node
 
         var bg = new ColorRect();
         bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        bg.Color = new Color("#121426");
+        bg.Color = new Color(0.05f, 0.06f, 0.12f);
         canvas.AddChild(bg);
+
+        var neonBg = new NeonGridBg
+        {
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        neonBg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        neonBg.Modulate = new Color(1f, 1f, 1f, 0.42f);
+        canvas.AddChild(neonBg);
+
+        var topShade = new ColorRect
+        {
+            Color = new Color(0.02f, 0.03f, 0.08f, 0.55f),
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        topShade.SetAnchorsPreset(Control.LayoutPreset.TopWide);
+        topShade.OffsetBottom = MobileOptimization.IsMobile() ? 120f : 132f;
+        canvas.AddChild(topShade);
 
         var margin = new MarginContainer();
         margin.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         int sideMargin = MobileOptimization.IsMobile() ? 12 : 30;
         margin.AddThemeConstantOverride("margin_left", sideMargin);
         margin.AddThemeConstantOverride("margin_right", sideMargin);
-        margin.AddThemeConstantOverride("margin_top", MobileOptimization.IsMobile() ? 10 : 12);
-        margin.AddThemeConstantOverride("margin_bottom", MobileOptimization.IsMobile() ? 10 : 12);
+        margin.AddThemeConstantOverride("margin_top", MobileOptimization.IsMobile() ? 8 : 12);
+        margin.AddThemeConstantOverride("margin_bottom", MobileOptimization.IsMobile() ? 14 : 12);
         margin.Theme = UITheme.Build();
         canvas.AddChild(margin);
 
         var root = new VBoxContainer();
         root.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         root.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-        root.AddThemeConstantOverride("separation", 8);
+        root.AddThemeConstantOverride("separation", 10);
         margin.AddChild(root);
+
+        var headerPanel = new PanelContainer();
+        headerPanel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        headerPanel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.07f, 0.08f, 0.17f, 0.94f),
+            border: new Color(0.26f, 0.34f, 0.58f, 0.82f),
+            corners: 12,
+            borderWidth: 2,
+            padH: MobileOptimization.IsMobile() ? 12 : 16,
+            padV: MobileOptimization.IsMobile() ? 9 : 10));
+        root.AddChild(headerPanel);
+
+        var headerBody = new VBoxContainer();
+        headerBody.AddThemeConstantOverride("separation", 4);
+        headerPanel.AddChild(headerBody);
 
         var title = new Label
         {
@@ -60,7 +93,7 @@ public partial class SlotCodexPanel : Node
         };
         UITheme.ApplyFont(title, semiBold: true, size: MobileOptimization.IsMobile() ? 34 : 44);
         title.Modulate = UITheme.Lime;
-        root.AddChild(title);
+        headerBody.AddChild(title);
 
         var subtitle = new Label
         {
@@ -69,11 +102,19 @@ public partial class SlotCodexPanel : Node
         };
         subtitle.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 14 : 16);
         subtitle.Modulate = new Color(0.65f, 0.70f, 0.82f);
-        root.AddChild(subtitle);
+        headerBody.AddChild(subtitle);
+
+        _progressLabel = new Label
+        {
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        UITheme.ApplyFont(_progressLabel, semiBold: true, size: MobileOptimization.IsMobile() ? 13 : 14);
+        _progressLabel.Modulate = new Color(0.73f, 0.88f, 1.00f, 0.92f);
+        headerBody.AddChild(_progressLabel);
 
         var tabs = new HBoxContainer();
         tabs.Alignment = BoxContainer.AlignmentMode.Center;
-        tabs.AddThemeConstantOverride("separation", 10);
+        tabs.AddThemeConstantOverride("separation", 12);
         root.AddChild(tabs);
 
         _towerTabBtn = BuildTabButton("Towers", () => SetActiveTab(CodexTab.Towers));
@@ -81,13 +122,28 @@ public partial class SlotCodexPanel : Node
         tabs.AddChild(_towerTabBtn);
         tabs.AddChild(_modTabBtn);
 
+        var contentFrame = new PanelContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(0f, MobileOptimization.IsMobile() ? 360f : 440f)
+        };
+        contentFrame.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.05f, 0.06f, 0.13f, 0.90f),
+            border: new Color(0.18f, 0.25f, 0.42f, 0.86f),
+            corners: 12,
+            borderWidth: 2,
+            padH: 8,
+            padV: 8));
+        root.AddChild(contentFrame);
+
         var contentHolder = new Control
         {
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             SizeFlagsVertical = Control.SizeFlags.ExpandFill,
             CustomMinimumSize = new Vector2(0f, MobileOptimization.IsMobile() ? 360f : 440f)
         };
-        root.AddChild(contentHolder);
+        contentFrame.AddChild(contentHolder);
 
         _towerScroll = BuildCardScroll(contentHolder, out _towerGrid);
         _modScroll = BuildCardScroll(contentHolder, out _modGrid);
@@ -154,9 +210,10 @@ public partial class SlotCodexPanel : Node
         var btn = new Button
         {
             Text = text,
-            CustomMinimumSize = new Vector2(MobileOptimization.IsMobile() ? 130f : 170f, 42f),
+            CustomMinimumSize = new Vector2(MobileOptimization.IsMobile() ? 130f : 178f, MobileOptimization.IsMobile() ? 44f : 46f),
         };
         btn.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 17 : 19);
+        UITheme.ApplyCyanStyle(btn);
         btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         btn.Pressed += () =>
         {
@@ -225,7 +282,7 @@ public partial class SlotCodexPanel : Node
 
     private Control BuildTowerCard(string towerId, TowerDef def, bool unlocked)
     {
-        var panel = BuildCardShell(unlocked);
+        var panel = BuildCardShell(unlocked, GetTowerAccent(towerId));
         var body = BuildCardBody(panel);
 
         if (!unlocked)
@@ -284,7 +341,7 @@ public partial class SlotCodexPanel : Node
 
     private Control BuildModifierCard(string modifierId, ModifierDef def, bool unlocked)
     {
-        var panel = BuildCardShell(unlocked);
+        var panel = BuildCardShell(unlocked, ModifierVisuals.GetAccent(modifierId));
         var body = BuildCardBody(panel);
 
         if (!unlocked)
@@ -333,7 +390,7 @@ public partial class SlotCodexPanel : Node
         return panel;
     }
 
-    private static PanelContainer BuildCardShell(bool unlocked)
+    private PanelContainer BuildCardShell(bool unlocked, Color accent)
     {
         var panel = new PanelContainer
         {
@@ -341,14 +398,52 @@ public partial class SlotCodexPanel : Node
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
         };
 
+        var baseBorder = unlocked
+            ? new Color(
+                Mathf.Lerp(0.22f, accent.R, 0.35f),
+                Mathf.Lerp(0.32f, accent.G, 0.35f),
+                Mathf.Lerp(0.46f, accent.B, 0.35f),
+                0.86f)
+            : new Color(0.18f, 0.19f, 0.30f);
+
         var style = UITheme.MakePanel(
             bg: unlocked ? new Color(0.08f, 0.09f, 0.18f) : new Color(0.06f, 0.07f, 0.13f),
-            border: unlocked ? new Color(0.22f, 0.32f, 0.46f) : new Color(0.18f, 0.19f, 0.30f),
+            border: baseBorder,
             corners: 10,
             borderWidth: unlocked ? 2 : 1,
             padH: 12,
             padV: 10);
         panel.AddThemeStyleboxOverride("panel", style);
+
+        if (unlocked)
+        {
+            var hoverStyle = (StyleBoxFlat)style.Duplicate();
+            hoverStyle.BorderColor = new Color(accent.R, accent.G, accent.B, 0.95f);
+            hoverStyle.ShadowColor = new Color(accent.R, accent.G, accent.B, 0.22f);
+            hoverStyle.ShadowSize = 8;
+            hoverStyle.ShadowOffset = Vector2.Zero;
+
+            panel.MouseEntered += () =>
+            {
+                panel.ZIndex = 2;
+                panel.PivotOffset = panel.Size * 0.5f;
+                panel.AddThemeStyleboxOverride("panel", hoverStyle);
+                var tw = panel.CreateTween();
+                tw.TweenProperty(panel, "scale", new Vector2(1.015f, 1.015f), 0.09f)
+                  .SetTrans(Tween.TransitionType.Sine)
+                  .SetEase(Tween.EaseType.Out);
+            };
+            panel.MouseExited += () =>
+            {
+                panel.AddThemeStyleboxOverride("panel", style);
+                var tw = panel.CreateTween();
+                tw.TweenProperty(panel, "scale", Vector2.One, 0.09f)
+                  .SetTrans(Tween.TransitionType.Sine)
+                  .SetEase(Tween.EaseType.Out);
+                tw.TweenCallback(Callable.From(() => panel.ZIndex = 0));
+            };
+        }
+
         return panel;
     }
 
@@ -364,11 +459,11 @@ public partial class SlotCodexPanel : Node
     {
         var top = new Label
         {
-            Text = "SLOT CODEX",
+            Text = "CLASSIFIED",
             HorizontalAlignment = HorizontalAlignment.Center
         };
         UITheme.ApplyFont(top, semiBold: true, size: 17);
-        top.Modulate = new Color(0.72f, 0.76f, 0.90f);
+        top.Modulate = new Color(0.76f, 0.82f, 0.98f);
         body.AddChild(top);
 
         var sep = new ColorRect
@@ -390,7 +485,7 @@ public partial class SlotCodexPanel : Node
 
         var note = new Label
         {
-            Text = "Win runs and unlock achievements to reveal this card.",
+            Text = "Reveal by completing unlock achievements.",
             HorizontalAlignment = HorizontalAlignment.Center,
             AutowrapMode = TextServer.AutowrapMode.WordSmart
         };
@@ -406,6 +501,7 @@ public partial class SlotCodexPanel : Node
         _modScroll.Visible = !towers;
         ApplyTabButtonState(_towerTabBtn, towers);
         ApplyTabButtonState(_modTabBtn, !towers);
+        RefreshProgressLabel(tab);
     }
 
     private static void ApplyTabButtonState(Button btn, bool active)
@@ -424,10 +520,22 @@ public partial class SlotCodexPanel : Node
 
         _lastWidth = width;
         int maxCols = MobileOptimization.IsMobile() ? 2 : 4;
-        float cardMin = MobileOptimization.IsMobile() ? 250f : 290f;
+        float cardMin = MobileOptimization.IsMobile() ? 252f : 296f;
         int cols = Mathf.Clamp(Mathf.FloorToInt((width - 80f) / cardMin), 1, maxCols);
         _towerGrid.Columns = cols;
         _modGrid.Columns = cols;
+    }
+
+    private void RefreshProgressLabel(CodexTab tab)
+    {
+        int towerTotal = DataLoader.GetAllTowerIds(includeLocked: true).Count();
+        int towerUnlocked = DataLoader.GetAllTowerIds(includeLocked: true).Count(Unlocks.IsTowerUnlocked);
+        int modTotal = DataLoader.GetAllModifierIds(includeLocked: true).Count();
+        int modUnlocked = DataLoader.GetAllModifierIds(includeLocked: true).Count(Unlocks.IsModifierUnlocked);
+
+        _progressLabel.Text = tab == CodexTab.Towers
+            ? $"Unlocked Towers: {towerUnlocked}/{towerTotal}   •   Mods Discovered: {modUnlocked}/{modTotal}"
+            : $"Mods Discovered: {modUnlocked}/{modTotal}   •   Unlocked Towers: {towerUnlocked}/{towerTotal}";
     }
 
     private static Color GetTowerAccent(string towerId) => towerId switch

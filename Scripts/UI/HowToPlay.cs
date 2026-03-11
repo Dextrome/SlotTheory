@@ -1,4 +1,5 @@
 ﻿using Godot;
+using SlotTheory.Core;
 using SlotTheory.Entities;
 
 namespace SlotTheory.UI;
@@ -67,7 +68,7 @@ public partial class HowToPlay : Node
 		// â”€â”€ Core Loop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		AddHeader(vbox, "CORE LOOP");
 		AddLine(vbox, "Before each wave, draft 1 card (5 options if slots are free; 4 if all slots are occupied).");
-		AddLine(vbox, "Waves run automatically - no mid-wave interaction.");
+		AddLine(vbox, "Waves run automatically - you do not manually fire or place towers during waves.");
 		AddLine(vbox, "Survive all 20 waves to win.");
 		AddLine(vbox, "An enemy reaching the exit costs 1 life. You have 10 lives.");
 		AddSpacer(vbox, 12);
@@ -75,10 +76,10 @@ public partial class HowToPlay : Node
 		// â”€â”€ Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		AddHeader(vbox, "CONTROLS");
 		AddRow(vbox, "Pick a draft card",         "Left-click the card");
-		AddRow(vbox, "Assign to a slot / tower",  "Left-click the target");
+		AddRow(vbox, "Assign tower / modifier",   "Click target to preview, click same target again to confirm");
 		AddRow(vbox, "Cycle targeting mode",       "Left-click a tower during a wave");
 		AddRow(vbox, "Pause / unpause",            "Esc");
-		AddRow(vbox, "Speed",                      "Click speed button to cycle  x1 -> x2 -> x3 -> x5");
+		AddRow(vbox, "Speed",                      "Click speed button to cycle  x1 -> x2 -> x3  (Dev Mode adds x5/x10)");
 		AddSpacer(vbox, 12);
 
 		// â”€â”€ Towers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -90,9 +91,9 @@ public partial class HowToPlay : Node
 		AddTowerRow(vbox, "Marker Tower",  "7 dmg, 1.0 s, 333 px range",
 			"Applies Mark on every hit. Synergises with Exploit Weakness.");
 		AddTowerRow(vbox, "Arc Emitter (unlock)",   "18 dmg, 1.2 s, 257 px range",
-			"Unlock by beating the first map on Normal or Hard. Chains to 2 nearby enemies per shot (60% damage decay per bounce).");
+			"Unlock by beating the first campaign map on Normal or Hard. Chains to 2 nearby enemies per shot (60% damage decay per bounce).");
 		AddTowerRow(vbox, "Rift Sapper (unlock)", "20 dmg, 0.98 s, 230 px range",
-			"Unlock by beating the second map on Normal or Hard. Plants up to 7 mines with 3 charges each; final charge causes the big pop. Wave start gets rapid seeding for 2.4s.");
+			"Unlock by beating the second campaign map on Normal or Hard. Plants up to 7 mines with 3 charges each; final charge causes the big pop. Wave start gets rapid seeding for 2.4s. Split Shot seeds mini-mines (35% scale) on final pops only.");
 		AddSpacer(vbox, 12);
 
 		// â”€â”€ Targeting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -116,24 +117,24 @@ public partial class HowToPlay : Node
 
 		// â”€â”€ Modifiers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		AddHeader(vbox, "MODIFIERS  (max 3 per tower)");
-		AddModRow(vbox, "Momentum",         "+16% damage per consecutive hit on same target, up to x1.80. Resets on target switch.");
+		AddModRow(vbox, "Momentum",         "+16% damage per consecutive hit on same target, up to x1.8. Resets on target switch.");
 		AddModRow(vbox, "Overkill",         "Excess damage from a kill spills to the next enemy in the lane.");
 		AddModRow(vbox, "Exploit Weakness", "+60% damage to Marked enemies. Pairs with Marker Tower.");
-		AddModRow(vbox, "Focus Lens",       "+140% damage, x1.85 attack interval. Big hits, slow fire - ideal for Overkill combos.");
+		AddModRow(vbox, "Focus Lens",       "+140% damage, +85% attack interval. Big hits, slow fire - ideal for Overkill combos.");
 		AddModRow(vbox, "Chill Shot",       "On hit: -30% move speed for 6 s. Keeps enemies in range longer.");
 		AddModRow(vbox, "Overreach",        "+55% range, -10% damage. Wider coverage with a light damage tradeoff.");
 		AddModRow(vbox, "Hair Trigger",     "+30% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
 		AddModRow(vbox, "Split Shot",       "On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
 		AddModRow(vbox, "Feedback Loop",    "Killing an enemy reduces this tower's current cooldown by 50%. Lets rapid killers fire again sooner.");
-		AddModRow(vbox, "Chain Reaction",   "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce.");
+		AddModRow(vbox, "Chain Reaction",   "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
 		AddSpacer(vbox, 12);
 
 		// â”€â”€ Enemies â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 		AddHeader(vbox, "ENEMIES");
-		AddLine(vbox, "Basic Walker: 65 HP on wave 1, x1.10 per wave (~400 HP by wave 20). Speed: 120 px/s. Leaks cost 1 life. Round teal body.");
-		AddLine(vbox, "Armored Walker: 4x HP, half speed (60 px/s). Leaks cost 2 lives - priority target. First appears wave 6; up to 3 per wave by wave 20. Large hexagonal crimson body.");
-		AddLine(vbox, "Swift Walker: 1.5x HP, double speed (240 px/s). Leaks cost 1 life. Appears waves 10-14 (2-3 per wave). Small lime-green diamond - fast and hard to catch.");
-		AddLine(vbox, "Enemy count scales upward through the run. Wave 1 total is 14 enemies; wave 20 total is 35 enemies.");
+		AddLine(vbox, $"Basic Walker: {Balance.BaseEnemyHp:0} HP on wave 1, x{Balance.HpGrowthPerWave:0.00} per wave. Speed: {Balance.BaseEnemySpeed:0} px/s. Leaks cost 1 life.");
+		AddLine(vbox, $"Armored Walker: {Balance.TankyHpMultiplier:0.#}x HP, half speed ({Balance.TankyEnemySpeed:0} px/s). Leaks cost 2 lives. First appears wave 6.");
+		AddLine(vbox, $"Swift Walker: {Balance.SwiftHpMultiplier:0.#}x HP, double speed ({Balance.SwiftEnemySpeed:0} px/s). Leaks cost 1 life. Appears in mid-game surge waves.");
+		AddLine(vbox, "Enemy count scales with map and difficulty; late waves can exceed 40 total enemies on harder settings.");
 		AddSpacer(vbox, 12);
 
 		// â”€â”€ Tips â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -363,3 +364,4 @@ public partial class HowToPlay : Node
 		vbox.AddChild(s);
 	}
 }
+
