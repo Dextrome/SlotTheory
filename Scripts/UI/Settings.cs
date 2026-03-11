@@ -12,6 +12,10 @@ public partial class Settings : Node
     private Button? _colorblindBtn;
     private Button? _reducedMotionBtn;
     private Button? _postFxBtn;
+    private Button? _enemyLayeredBtn;
+    private Button? _enemyEmissiveBtn;
+    private Button? _enemyDamageBtn;
+    private Button? _enemyBloomBtn;
     private Button? _devModeBtn;
 
     public override void _Ready()
@@ -112,6 +116,49 @@ public partial class Settings : Node
         _postFxBtn.Pressed += OnTogglePostFx;
         vbox.AddChild(_postFxBtn);
 
+        AddSpacer(vbox, 8);
+        AddSectionHeader(vbox, "ENEMY FX");
+
+        bool layered = sm?.LayeredEnemyRendering ?? true;
+        _enemyLayeredBtn = new Button
+        {
+            Text = EnemyLayeredLabel(layered),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _enemyLayeredBtn.AddThemeFontSizeOverride("font_size", 20);
+        _enemyLayeredBtn.Pressed += OnToggleEnemyLayered;
+        vbox.AddChild(_enemyLayeredBtn);
+
+        bool emissive = sm?.EnemyEmissiveLines ?? true;
+        _enemyEmissiveBtn = new Button
+        {
+            Text = EnemyEmissiveLabel(emissive),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _enemyEmissiveBtn.AddThemeFontSizeOverride("font_size", 20);
+        _enemyEmissiveBtn.Pressed += OnToggleEnemyEmissive;
+        vbox.AddChild(_enemyEmissiveBtn);
+
+        bool damage = sm?.EnemyDamageMaterial ?? true;
+        _enemyDamageBtn = new Button
+        {
+            Text = EnemyDamageLabel(damage),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _enemyDamageBtn.AddThemeFontSizeOverride("font_size", 20);
+        _enemyDamageBtn.Pressed += OnToggleEnemyDamage;
+        vbox.AddChild(_enemyDamageBtn);
+
+        bool bloom = sm?.EnemyBloomHighlights ?? !MobileOptimization.IsMobile();
+        _enemyBloomBtn = new Button
+        {
+            Text = EnemyBloomLabel(bloom),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _enemyBloomBtn.AddThemeFontSizeOverride("font_size", 20);
+        _enemyBloomBtn.Pressed += OnToggleEnemyBloom;
+        vbox.AddChild(_enemyBloomBtn);
+
         AddSpacer(vbox, 24);
 
         // ── Developer ─────────────────────────────────────────────────
@@ -203,6 +250,50 @@ public partial class Settings : Node
 
     private static string PostFxLabel(bool on) =>
         on ? "Post FX:  On" : "Post FX:  Off";
+
+    private void OnToggleEnemyLayered()
+    {
+        bool next = !(SettingsManager.Instance?.LayeredEnemyRendering ?? true);
+        SettingsManager.Instance?.SetLayeredEnemyRendering(next);
+        if (_enemyLayeredBtn != null)
+            _enemyLayeredBtn.Text = EnemyLayeredLabel(next);
+    }
+
+    private void OnToggleEnemyEmissive()
+    {
+        bool next = !(SettingsManager.Instance?.EnemyEmissiveLines ?? true);
+        SettingsManager.Instance?.SetEnemyEmissiveLines(next);
+        if (_enemyEmissiveBtn != null)
+            _enemyEmissiveBtn.Text = EnemyEmissiveLabel(next);
+    }
+
+    private void OnToggleEnemyDamage()
+    {
+        bool next = !(SettingsManager.Instance?.EnemyDamageMaterial ?? true);
+        SettingsManager.Instance?.SetEnemyDamageMaterial(next);
+        if (_enemyDamageBtn != null)
+            _enemyDamageBtn.Text = EnemyDamageLabel(next);
+    }
+
+    private void OnToggleEnemyBloom()
+    {
+        bool next = !(SettingsManager.Instance?.EnemyBloomHighlights ?? !MobileOptimization.IsMobile());
+        SettingsManager.Instance?.SetEnemyBloomHighlights(next);
+        if (_enemyBloomBtn != null)
+            _enemyBloomBtn.Text = EnemyBloomLabel(next);
+    }
+
+    private static string EnemyLayeredLabel(bool on) =>
+        on ? "Layered Enemies:  On" : "Layered Enemies:  Off";
+
+    private static string EnemyEmissiveLabel(bool on) =>
+        on ? "Enemy Emissive:  On" : "Enemy Emissive:  Off";
+
+    private static string EnemyDamageLabel(bool on) =>
+        on ? "Enemy Damage FX:  On" : "Enemy Damage FX:  Off";
+
+    private static string EnemyBloomLabel(bool on) =>
+        on ? "Enemy Bloom:  On" : "Enemy Bloom:  Off";
 
     private void OnToggleDevMode()
     {
