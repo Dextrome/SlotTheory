@@ -49,13 +49,10 @@ public static class SpectacleDefinitions
     public const string FeedbackLoop = "feedback_loop";
     public const string ChainReaction = "chain_reaction";
 
-    public const float MinorThreshold = 45f;
-    public const float MajorThreshold = 100f;
-    public const bool MinorTriggersEnabled = false;
-    public const float MinorCooldownSeconds = 2.2f;
-    public const float MajorCooldownSeconds = 6.0f;
-    public const float MajorMeterAfterTrigger = 18f;
-    public const float GlobalMeterPerMajor = 25f;
+    public const float SurgeThreshold = 100f;
+    public const float SurgeCooldownSeconds = 6.0f;
+    public const float SurgeMeterAfterTrigger = 18f;
+    public const float GlobalMeterPerSurge = 25f;
     public const float GlobalThreshold = 100f;
     public const float GlobalMeterAfterTrigger = 20f;
     public const float GlobalContributionWindowSeconds = 6f;

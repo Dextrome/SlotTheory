@@ -56,35 +56,31 @@ public class SpectacleSystemTests
     }
 
     [Fact]
-    public void RegisterProc_WithMinorDisabled_OnlyMajorTriggersAtThreshold()
+    public void RegisterProc_OnlySurgeTriggersAtThreshold()
     {
         var system = new SpectacleSystem();
         var tower = TowerWithMods("split_shot");
-        int minorCount = 0;
-        int majorCount = 0;
+        int surgeCount = 0;
 
-        system.OnMinorTriggered += _ => minorCount++;
-        system.OnMajorTriggered += _ => majorCount++;
+        system.OnSurgeTriggered += _ => surgeCount++;
 
-        // 1.7 * 36 * (0.75 / 1.3) ~= 35.3 gain -> no trigger while minors are disabled.
+        // 1.7 * 36 * (0.75 / 1.3) ~= 35.3 gain -> no trigger yet.
         system.RegisterProc(tower, "split_shot", 36f);
-        Assert.Equal(0, minorCount);
-        Assert.Equal(0, majorCount);
+        Assert.Equal(0, surgeCount);
 
-        // 35.3 carried meter + (1.7 * 80 * (0.75 / 1.3) ~= 78.5) reaches major threshold.
+        // 35.3 carried meter + (1.7 * 80 * (0.75 / 1.3) ~= 78.5) reaches surge threshold.
         system.RegisterProc(tower, "split_shot", 80f);
-        Assert.Equal(0, minorCount);
-        Assert.Equal(1, majorCount);
+        Assert.Equal(1, surgeCount);
     }
 
     [Fact]
-    public void GlobalTrigger_FiresAfterFourMajorsFromTwoTowers()
+    public void GlobalTrigger_FiresAfterFourSurgesFromTwoTowers()
     {
         var system = new SpectacleSystem();
         var towerA = TowerWithMods("split_shot");
         var towerB = TowerWithMods("split_shot");
         int globalCount = 0;
-        GlobalSpectacleTriggerInfo lastGlobal = default;
+        GlobalSurgeTriggerInfo lastGlobal = default;
 
         system.OnGlobalTriggered += info =>
         {
@@ -92,19 +88,48 @@ public class SpectacleSystemTests
             lastGlobal = info;
         };
 
-        // Major #1 and #2.
+        // Surge #1 and #2.
         system.RegisterProc(towerA, "split_shot", 110f);
         system.RegisterProc(towerB, "split_shot", 110f);
 
-        // Wait for tower major cooldown to expire.
-        system.Update(SpectacleDefinitions.MajorCooldownSeconds + 0.05f);
+        // Wait for tower surge cooldown to expire.
+        system.Update(SpectacleDefinitions.SurgeCooldownSeconds + 0.05f);
 
-        // Major #3 and #4 -> global should trigger (two unique contributors in-window).
+        // Surge #3 and #4 -> global should trigger (two unique contributors in-window).
         system.RegisterProc(towerA, "split_shot", 110f);
         system.RegisterProc(towerB, "split_shot", 110f);
 
         Assert.Equal(1, globalCount);
         Assert.True(lastGlobal.UniqueContributors >= 2);
         Assert.Equal("G_SPECTACLE_CATHARSIS", lastGlobal.EffectId);
+    }
+
+    [Fact]
+    public void GlobalTrigger_FiresWhenMeterIsFull_EvenWithSingleContributor()
+    {
+        var system = new SpectacleSystem();
+        var tower = TowerWithMods("split_shot");
+        int surgeCount = 0;
+        int globalCount = 0;
+        GlobalSurgeTriggerInfo lastGlobal = default;
+
+        system.OnSurgeTriggered += _ => surgeCount++;
+        system.OnGlobalTriggered += info =>
+        {
+            globalCount++;
+            lastGlobal = info;
+        };
+
+        for (int i = 0; i < 4; i++)
+        {
+            system.RegisterProc(tower, "split_shot", 110f);
+            if (i < 3)
+                system.Update(SpectacleDefinitions.SurgeCooldownSeconds + 0.25f);
+        }
+
+        Assert.Equal(4, surgeCount);
+        Assert.Equal(1, globalCount);
+        Assert.Equal(1, lastGlobal.UniqueContributors);
+        Assert.Equal(SpectacleDefinitions.GlobalMeterAfterTrigger, lastGlobal.MeterAfter, 3);
     }
 }

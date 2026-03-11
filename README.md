@@ -6,6 +6,20 @@ Platforms: Windows Desktop, Android (phone and tablet)
 
 ---
 
+## Since v1.0.8
+
+- Spectacle system added to combat with tower-level and global meters, plus surge/global surge trigger payloads.
+- Minor spectacle triggers were removed; only surge and global surge tiers are active.
+- Bot simulation now runs full spectacle gameplay payloads (not only visuals-disabled stubs), so balance tests reflect spectacle effects.
+- Bot analytics now track spectacle trigger counts and effect distributions in summary output.
+- Tower tooltip now lists all possible spectacle outcomes from current equipped supported modifiers (not just one upcoming effect).
+- Added spectacle-focused draft bots for coverage:
+  - `SpectacleSingleStack` (single-profile stacking)
+  - `SpectacleComboPairing` (two-mod pair stability)
+  - `SpectacleTriadDiversity` (three-mod diversity/triad coverage)
+
+---
+
 ## Downloads
 
 Compiled Windows & Android downloads can be found at https://dextrome.itch.io/slot-theory
@@ -213,6 +227,21 @@ Optional difficulty override:
 ```
 
 Bot rotates strategies across maps and difficulties and prints summary stats.
+
+Current strategy set:
+- `Random`
+- `TowerFirst`
+- `GreedyDps`
+- `MarkerSynergy`
+- `ChainFocus`
+- `SplitFocus`
+- `HeavyStack`
+- `RiftPrismFocus`
+- `SpectacleSingleStack`
+- `SpectacleComboPairing`
+- `SpectacleTriadDiversity`
+
+Bot summary now includes spectacle trigger analytics by tier and effect mix. Surge/global surge metrics are the primary balance signals.
 
 ---
 

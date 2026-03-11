@@ -191,12 +191,10 @@ public partial class GameController : Node
 		};
 		_combatSim.BotMode = _botRunner != null;
 		_spectacleSystem.Reset();
-		_spectacleSystem.OnMinorTriggered -= OnSpectacleMinorTriggered;
-		_spectacleSystem.OnMajorTriggered -= OnSpectacleMajorTriggered;
-		_spectacleSystem.OnGlobalTriggered -= OnGlobalSpectacleTriggered;
-		_spectacleSystem.OnMinorTriggered += OnSpectacleMinorTriggered;
-		_spectacleSystem.OnMajorTriggered += OnSpectacleMajorTriggered;
-		_spectacleSystem.OnGlobalTriggered += OnGlobalSpectacleTriggered;
+		_spectacleSystem.OnSurgeTriggered -= OnSpectacleSurgeTriggered;
+		_spectacleSystem.OnGlobalTriggered -= OnGlobalSurgeTriggered;
+		_spectacleSystem.OnSurgeTriggered += OnSpectacleSurgeTriggered;
+		_spectacleSystem.OnGlobalTriggered += OnGlobalSurgeTriggered;
 		_draftPanel = GetNode<DraftPanel>("../DraftPanel");
 		_hudPanel   = GetNode<HudPanel>("../HudPanel");
 		_endScreen  = GetNode<EndScreen>("../EndScreen");
@@ -252,14 +250,15 @@ public partial class GameController : Node
 		else
 			ClearDraftSynergyHighlights();
 
-		if (CurrentPhase == GamePhase.Wave)
+		if (CurrentPhase == GamePhase.Wave && _botRunner == null)
 			_spectacleSystem.Update((float)delta);
 
-		bool showGlobalSpectacleMeter = CurrentPhase == GamePhase.Draft || CurrentPhase == GamePhase.Wave;
-		_hudPanel.RefreshGlobalSpectacleMeter(
+		bool showGlobalSurgeMeter = CurrentPhase == GamePhase.Draft || CurrentPhase == GamePhase.Wave;
+		_hudPanel.RefreshGlobalSurgeMeter(
 			_spectacleSystem.GlobalMeter,
 			SpectacleDefinitions.GlobalThreshold,
-			showGlobalSpectacleMeter);
+			showGlobalSurgeMeter);
+		_hudPanel.RefreshSpeedLabelFromActual((float)Engine.TimeScale);
 
 		if (_botRunner == null) UpdatePlacementLabel();
 		if (_botRunner == null) UpdateProcVisuals((float)delta);
@@ -1713,7 +1712,7 @@ public partial class GameController : Node
 					var mdef = DataLoader.GetModifierDef(mod.ModifierId);
 				text += "* " + mdef.Name + " " + mdef.Description + "\n";
 				}
-			text += "\n\n" + BuildUpcomingSpectacleTooltipLine(tower);
+			text += "\n\n" + BuildSpectacleTooltipSection(tower);
 			_tooltipLabel.Text = text.TrimEnd();
 			// Size panel to fit label
 			var labelSize = _tooltipLabel.GetMinimumSize();
@@ -1743,19 +1742,56 @@ public partial class GameController : Node
 		_tooltipPanel.Visible = false;
 	}
 
-	private string BuildUpcomingSpectacleTooltipLine(ITowerView tower)
+	private string BuildSpectacleTooltipSection(ITowerView tower)
 	{
-		SpectacleSignature signature = _spectacleSystem.PreviewSignature(tower);
-		if (string.IsNullOrWhiteSpace(signature.EffectName))
-			return "Major Spectacle: (none)";
+		var supportedMods = tower.Modifiers
+			.Select(m => SpectacleDefinitions.NormalizeModId(m.ModifierId))
+			.Where(SpectacleDefinitions.IsSupported)
+			.Distinct()
+			.ToList();
 
-		string modeLabel = signature.Mode switch
+		if (supportedMods.Count == 0)
+			return "Spectacle Triggers: (none)";
+
+		SpectacleSignature current = _spectacleSystem.PreviewSignature(tower);
+		string currentLine = string.IsNullOrWhiteSpace(current.EffectName)
+			? string.Empty
+			: $"\nCurrent: {current.EffectName}";
+
+		if (supportedMods.Count == 1)
 		{
-			SpectacleMode.Single => "Single",
-			SpectacleMode.Combo => "Combo",
-			_ => "Triad",
-		};
-		return $"Major Spectacle [{modeLabel}]: {signature.EffectName}";
+			SpectacleSingleDef single = SpectacleDefinitions.GetSingle(supportedMods[0]);
+			return $"Spectacle Triggers [Single]:{currentLine}\n* {single.Name}";
+		}
+
+		if (supportedMods.Count == 2)
+		{
+			SpectacleComboDef combo = SpectacleDefinitions.GetCombo(supportedMods[0], supportedMods[1]);
+			return $"Spectacle Triggers [Combo]:{currentLine}\n* {combo.Name}";
+		}
+
+		var triadVariants = new HashSet<string>();
+		for (int a = 0; a < supportedMods.Count; a++)
+		{
+			string augmentMod = supportedMods[a];
+			SpectacleTriadAugmentDef aug = SpectacleDefinitions.GetTriadAugment(augmentMod);
+			for (int i = 0; i < supportedMods.Count; i++)
+			{
+				if (i == a) continue;
+				for (int j = i + 1; j < supportedMods.Count; j++)
+				{
+					if (j == a) continue;
+					SpectacleComboDef combo = SpectacleDefinitions.GetCombo(supportedMods[i], supportedMods[j]);
+					triadVariants.Add($"{combo.Name} + {aug.Name}");
+				}
+			}
+		}
+
+		if (triadVariants.Count == 0)
+			return $"Spectacle Triggers [Triad]:{currentLine}\n* (none)";
+
+		var ordered = triadVariants.OrderBy(name => name, System.StringComparer.Ordinal).ToList();
+		return $"Spectacle Triggers [Triad]:{currentLine}\n* {string.Join("\n* ", ordered)}";
 	}
 	// -- Bot multi-step simulation -------------------------------------------------
 
@@ -1776,6 +1812,7 @@ public partial class GameController : Node
 				if (enemy.SlowRemaining   > 0f) enemy.SlowRemaining   -= BOT_DT;
 			}
 
+			_spectacleSystem.Update(BOT_DT);
 			var result = _combatSim.Step(BOT_DT, _runState, _waveSystem);
 			_botWaveSteps++;
 
@@ -2083,14 +2120,14 @@ public partial class GameController : Node
 		tw.TweenCallback(Callable.From(() => _clutchToast.Visible = false));
 	}
 
-	private void ShowGlobalSpectacleBanner(string effectName, Color accent)
+	private void ShowGlobalSurgeBanner(string effectName, Color accent)
 	{
 		if (!GodotObject.IsInstanceValid(_globalSpectacleBanner) || _botRunner != null)
 			return;
 
 		string displayName = string.IsNullOrWhiteSpace(effectName)
-			? "GLOBAL SPECTACLE"
-			: $"GLOBAL SPECTACLE\n{effectName.ToUpperInvariant()}";
+			? "GLOBAL SURGE"
+			: $"GLOBAL SURGE\n{effectName.ToUpperInvariant()}";
 		_globalSpectacleBanner.Text = displayName;
 		_globalSpectacleBanner.Visible = true;
 		_globalSpectacleBanner.Scale = new Vector2(1.26f, 1.26f);
@@ -2132,62 +2169,49 @@ public partial class GameController : Node
 		callout.Initialize(text, color);
 	}
 
-	private void OnSpectacleMinorTriggered(SpectacleTriggerInfo info)
+	private void OnSpectacleSurgeTriggered(SpectacleTriggerInfo info)
 	{
-		if (_botRunner != null || CurrentPhase != GamePhase.Wave)
+		if (CurrentPhase != GamePhase.Wave)
 			return;
-
-		Color accent = ResolveSpectacleColor(info.Signature.PrimaryModId);
-		if (info.Tower is TowerInstance triggerTower && GodotObject.IsInstanceValid(triggerTower))
-			triggerTower.FlashSpectacle(accent, major: false);
-		float linkDistance = Mathf.Max(240f, info.Tower.Range * 0.90f);
-		SpawnSpectacleBurstFx(info.Tower.GlobalPosition, accent, major: false, power: info.Signature.MinorPower);
-		SpawnSpectacleLinks(
-			info.Tower.GlobalPosition,
-			accent,
-			maxLinks: 3,
-			maxDistance: linkDistance,
-			majorStyle: false);
-		SpawnSpectacleTowerVolleyFx(info.Tower, accent, major: false, power: info.Signature.MinorPower);
-		FlashSpectacleScreen(accent, peakAlpha: 0.072f, rampSec: 0.05f, fadeSec: 0.24f);
-		QueueSpectacleEcho(info.Tower.GlobalPosition, accent, major: false, power: info.Signature.MinorPower, maxDistance: linkDistance);
-		ApplySpectacleGameplayPayload(info, isMajor: false);
-		TriggerSpectacleSlowMo(realDuration: 1.0f, speedFactor: 0.25f);
-
-		SpawnCombatCallout($"MINOR {info.Signature.EffectName}".ToUpperInvariant(), info.Tower.GlobalPosition, accent);
-	}
-
-	private void OnSpectacleMajorTriggered(SpectacleTriggerInfo info)
-	{
-		if (_botRunner != null || CurrentPhase != GamePhase.Wave)
+		_runState?.TrackSpectacleSurge(info.Signature.EffectId);
+		if (_botRunner != null)
+		{
+			ApplySpectacleGameplayPayload(info, isMajor: true);
 			return;
+		}
 
 		Color accent = ResolveSpectacleColor(info.Signature.PrimaryModId);
 		if (info.Tower is TowerInstance triggerTower && GodotObject.IsInstanceValid(triggerTower))
 			triggerTower.FlashSpectacle(accent, major: true);
 		float linkDistance = Mathf.Max(340f, info.Tower.Range * 1.30f);
-		SpawnSpectacleBurstFx(info.Tower.GlobalPosition, accent, major: true, power: info.Signature.MajorPower);
+		SpawnSpectacleBurstFx(info.Tower.GlobalPosition, accent, major: true, power: info.Signature.SurgePower);
 		SpawnSpectacleLinks(
 			info.Tower.GlobalPosition,
 			accent,
 			maxLinks: 6,
 			maxDistance: linkDistance,
 			majorStyle: true);
-		SpawnSpectacleTowerVolleyFx(info.Tower, accent, major: true, power: info.Signature.MajorPower);
+		SpawnSpectacleTowerVolleyFx(info.Tower, accent, major: true, power: info.Signature.SurgePower);
 		FlashSpectacleScreen(accent, peakAlpha: 0.17f, rampSec: 0.06f, fadeSec: 0.34f);
-		QueueSpectacleEcho(info.Tower.GlobalPosition, accent, major: true, power: info.Signature.MajorPower, maxDistance: linkDistance);
+		QueueSpectacleEcho(info.Tower.GlobalPosition, accent, major: true, power: info.Signature.SurgePower, maxDistance: linkDistance);
 		SoundManager.Instance?.Play("mine_chain_pop", pitchScale: 1.08f);
 		ApplySpectacleGameplayPayload(info, isMajor: true);
 		TriggerSpectacleSlowMo(realDuration: 1.0f, speedFactor: 0.25f);
 
-		SpawnCombatCallout($"SPECTACLE {info.Signature.EffectName}".ToUpperInvariant(), info.Tower.GlobalPosition, accent);
+		SpawnCombatCallout($"SURGE {info.Signature.EffectName}".ToUpperInvariant(), info.Tower.GlobalPosition, accent);
 		TriggerHitStop(realDuration: 0.034f, slowScale: 0.40f);
 	}
 
-	private void OnGlobalSpectacleTriggered(GlobalSpectacleTriggerInfo info)
+	private void OnGlobalSurgeTriggered(GlobalSurgeTriggerInfo info)
 	{
-		if (_botRunner != null || CurrentPhase != GamePhase.Wave)
+		if (CurrentPhase != GamePhase.Wave)
 			return;
+		_runState?.TrackSpectacleGlobal(info.EffectId);
+		if (_botRunner != null)
+		{
+			ApplyGlobalSurgeGameplayPayload(info);
+			return;
+		}
 
 		Vector2 center = ScreenToWorld(GetViewport().GetVisibleRect().Size * 0.5f);
 		var globalColor = new Color(1.00f, 0.90f, 0.56f);
@@ -2211,16 +2235,16 @@ public partial class GameController : Node
 				majorStyle: true);
 			SpawnSpectacleTowerVolleyFx(tower, accent, major: true, power: 1.10f);
 		}
-		ApplyGlobalSpectacleGameplayPayload(info);
+		ApplyGlobalSurgeGameplayPayload(info);
 		QueueSpectacleEcho(center, globalColor, major: true, power: 1.65f, maxDistance: 420f);
 		TriggerSpectacleSlowMo(realDuration: 1.1f, speedFactor: 0.25f);
-		ShowGlobalSpectacleBanner(info.EffectName, globalColor);
+		ShowGlobalSurgeBanner(info.EffectName, globalColor);
 
 		SpawnCombatCallout(info.EffectName.ToUpperInvariant(), center, globalColor);
 		TriggerHitStop(realDuration: 0.050f, slowScale: 0.26f);
 	}
 
-	private void ApplyGlobalSpectacleGameplayPayload(GlobalSpectacleTriggerInfo info)
+	private void ApplyGlobalSurgeGameplayPayload(GlobalSurgeTriggerInfo info)
 	{
 		if (_runState == null || _runState.Slots == null)
 			return;
@@ -2231,14 +2255,16 @@ public partial class GameController : Node
 
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
-			var tower = _runState.Slots[i].TowerNode;
-			if (tower == null || !GodotObject.IsInstanceValid(tower))
+			var tower = _runState.Slots[i].Tower;
+			if (tower == null)
+				continue;
+			if (tower is GodotObject towerObj && !GodotObject.IsInstanceValid(towerObj))
 				continue;
 
 			ReduceTowerCooldown(tower, cooldownRefund);
 			SpectacleSignature signature = _spectacleSystem.PreviewSignature(tower);
 			ApplySpectacleGameplayPayload(
-				new SpectacleTriggerInfo(tower, IsMajor: true, signature, MeterAfter: 0f),
+				new SpectacleTriggerInfo(tower, IsSurge: true, signature, MeterAfter: 0f),
 				isMajor: true,
 				effectScale: perTowerScale);
 		}
@@ -2286,7 +2312,7 @@ public partial class GameController : Node
 			_ => 2,
 		};
 
-		float basePower = isMajor ? info.Signature.MajorPower : info.Signature.MinorPower;
+		float basePower = info.Signature.SurgePower;
 		float power = Mathf.Max(0.30f, basePower * modePower * Mathf.Max(0.20f, effectScale));
 		float maxDistance = Mathf.Max(220f, info.Tower.Range * (isMajor ? 1.20f : 0.96f) * modeRange);
 		int maxTargets = (isMajor ? 3 : 2) + modeTargetBonus;
@@ -3320,7 +3346,7 @@ public partial class GameController : Node
 		TrackSpectacleDamage(tower, dealt, isKill);
 		SpawnSpectacleDamageNumber(enemy.GlobalPosition, Mathf.Max(1f, dealt), isKill, color, tower.TowerId);
 		SpawnSpectacleImpactSparks(enemy.GlobalPosition, color, heavy: heavyHit);
-		if (!isKill && GodotObject.IsInstanceValid(enemy))
+		if (_botRunner == null && !isKill && GodotObject.IsInstanceValid(enemy))
 			enemy.FlashHit();
 		if (isKill && triggerHitStopOnKill)
 			TriggerHitStop(realDuration: heavyHit ? 0.042f : 0.030f, slowScale: heavyHit ? 0.20f : 0.30f);

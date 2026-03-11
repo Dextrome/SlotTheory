@@ -52,6 +52,12 @@ public class RunState
     public int[] SlotEligibleSteps { get; } = new int[Balance.SlotCount];  // steps where tower was ready to fire
     public int[] SlotFiredSteps    { get; } = new int[Balance.SlotCount];   // steps where tower actually fired
 
+    // Spectacle trigger tracking (run-wide)
+    public int SpectacleSurgeTriggers { get; private set; } = 0;
+    public int SpectacleGlobalTriggers { get; private set; } = 0;
+    public Dictionary<string, int> SpectacleSurgeByEffect { get; } = new();
+    public Dictionary<string, int> SpectacleGlobalByEffect { get; } = new();
+
     // Map selection
     public string? SelectedMapId { get; set; } = null;  // null = random
     public int RngSeed { get; set; } = 0;
@@ -130,6 +136,18 @@ public class RunState
         TotalLeakHpByType[enemyType] = current + remainingHp;
     }
 
+    public void TrackSpectacleSurge(string effectId)
+    {
+        SpectacleSurgeTriggers++;
+        IncrementSpectacleCounter(SpectacleSurgeByEffect, effectId);
+    }
+
+    public void TrackSpectacleGlobal(string effectId)
+    {
+        SpectacleGlobalTriggers++;
+        IncrementSpectacleCounter(SpectacleGlobalByEffect, effectId);
+    }
+
     public void Reset()
     {
         WaveIndex = 0;
@@ -151,6 +169,10 @@ public class RunState
         LastLeakedType = null;
         System.Array.Clear(SlotEligibleSteps, 0, SlotEligibleSteps.Length);
         System.Array.Clear(SlotFiredSteps,    0, SlotFiredSteps.Length);
+        SpectacleSurgeTriggers = 0;
+        SpectacleGlobalTriggers = 0;
+        SpectacleSurgeByEffect.Clear();
+        SpectacleGlobalByEffect.Clear();
     }
 
     /// <summary>Gets total damage dealt by a specific tower across all completed waves.</summary>
@@ -174,5 +196,12 @@ public class RunState
     {
         if (TotalPlayTime <= 0f) return 0f;
         return GetTowerTotalDamage(slotIndex) / TotalPlayTime;
+    }
+
+    private static void IncrementSpectacleCounter(Dictionary<string, int> counters, string effectId)
+    {
+        string key = string.IsNullOrWhiteSpace(effectId) ? "UNKNOWN_EFFECT" : effectId;
+        counters.TryGetValue(key, out int n);
+        counters[key] = n + 1;
     }
 }

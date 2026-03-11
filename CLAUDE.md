@@ -8,6 +8,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Engine: **Godot 4.x .NET** (C#) · Runtime: **.NET 8+** · Target: **Windows (Steam)**
 
+## Since v1.0.8 (Documentation Baseline)
+
+- Spectacle combat system is integrated into runtime gameplay and bot simulations.
+- Spectacle analytics are now reported in bot summaries (trigger tier totals and top effects).
+- Tower tooltip now shows all possible spectacle outcomes for current supported modifier loadout.
+- New spectacle-focused bot draft strategies were added:
+  - `SpectacleSingleStack`
+  - `SpectacleComboPairing`
+  - `SpectacleTriadDiversity`
+- Minor spectacle triggers were removed; balancing should target surge/global surge spectacle cadence and effects.
+
 ## Setup Requirements
 
 - Install **Godot .NET build** (4.4+, not the standard build — required for C# support)
@@ -75,18 +86,24 @@ dotnet build SlotTheory.sln
 - Bot log file also written to `C:/Users/kenny/AppData/Roaming/Godot/app_userdata/Slot Theory/logs/godot.log` (note the space in "Slot Theory" — different from the old "SlotTheory" directory).
 - `SoundManager` auto-detects headless mode (`DisplayServer.GetName() == "headless"`) and skips all audio init, preventing the per-frame `GetFramesAvailable()` hang.
 - Range checks are **fully enforced** in bot mode (`ignoreRange: false` hardcoded in `CombatSim.Step`). Enemy `GlobalPosition` is correctly updated by `PathFollow2D` whenever `Progress` is set in `BotTick`.
-- 7 strategies cycle round-robin: `Random`, `TowerFirst`, `GreedyDps`, `MarkerSynergy`, `ChainFocus`, `SplitFocus`, `HeavyStack`.
+- Spectacle gameplay payloads are applied in bot mode for surge/global surge triggers (matching live gameplay logic).
+- Minor spectacle trigger tier no longer exists, so surge/global surge metrics are the primary balancing signal.
+- 11 strategies cycle round-robin: `Random`, `TowerFirst`, `GreedyDps`, `MarkerSynergy`, `ChainFocus`, `SplitFocus`, `HeavyStack`, `RiftPrismFocus`, `SpectacleSingleStack`, `SpectacleComboPairing`, `SpectacleTriadDiversity`.
 
 ## Testing
 
-No test infrastructure exists yet. The TDD calls for:
-- Pure C# unit tests for: targeting selection logic, damage pipeline math, modifier stacking math
-- A developer debug overlay (wave count, spawned/alive counts, DPS estimate, targeting mode, Marked status counts)
-- Optional "fast-forward" key for speeding through wave simulation during balancing
+`SlotTheory.Tests` (xUnit) is active and references the prebuilt game DLL.
 
-**Priority test: draft anti-brick rule.** `DraftSystem` guarantees modifiers are never offered if no tower can accept them. This is a silent failure mode — a miscategorised modifier silently bricks a run with no error. It must be the first unit test written when test infrastructure is added.
+- Always build game code first:
+  - `dotnet build SlotTheory.sln`
+- Then run tests:
+  - `dotnet test SlotTheory.Tests/SlotTheory.Tests.csproj`
+- Useful targeted run:
+  - `dotnet test SlotTheory.Tests/SlotTheory.Tests.csproj --filter "RunStateTests|SpectacleSystemTests"`
 
-Python scripts (`Scripts/Tools/`) will handle content generation (JSON/YAML), balancing calculators, wave curve simulation, and modifier list generation.
+`DraftSystem` anti-brick coverage remains critical because a mismapped modifier can silently brick drafts.
+
+Python scripts (`Scripts/Tools/`) can still be used for content generation (JSON/YAML), balancing calculators, wave curve simulation, and modifier list generation.
 
 ## Data Consistency & Balance Updates
 
