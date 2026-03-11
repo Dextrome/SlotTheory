@@ -52,8 +52,8 @@ public readonly struct EnemyVisualArchetype
             trailLifetime: 0.20f,
             trailSpacing: 0.016f,
             trailWidth: 1.9f,
-            turnTiltScale: 1.65f,
-            turnTiltMaxRad: 0.20f,
+            turnTiltScale: 2.35f,
+            turnTiltMaxRad: 0.34f,
             trailColor: new Color(0.72f, 1.00f, 0.45f, 0.62f)),
         "armored_walker" => new EnemyVisualArchetype(
             name: "Plated Rhino Core",
@@ -61,8 +61,8 @@ public readonly struct EnemyVisualArchetype
             trailLifetime: 0.28f,
             trailSpacing: 0.030f,
             trailWidth: 2.6f,
-            turnTiltScale: 0.75f,
-            turnTiltMaxRad: 0.09f,
+            turnTiltScale: 1.30f,
+            turnTiltMaxRad: 0.20f,
             trailColor: new Color(0.98f, 0.33f, 0.23f, 0.44f)),
         _ => new EnemyVisualArchetype(
             name: "Neon Beetle Drone",
@@ -70,8 +70,8 @@ public readonly struct EnemyVisualArchetype
             trailLifetime: 0.24f,
             trailSpacing: 0.022f,
             trailWidth: 2.1f,
-            turnTiltScale: 1.0f,
-            turnTiltMaxRad: 0.12f,
+            turnTiltScale: 1.55f,
+            turnTiltMaxRad: 0.24f,
             trailColor: new Color(0.26f, 0.96f, 0.92f, 0.50f)),
     };
 }

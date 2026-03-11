@@ -110,6 +110,8 @@ public partial class GameController : Node
 	private const float MobileMaxZoom = 2.6f;
 	private const float MobileTapMoveThreshold = 18f;
 	private const float MobilePanStartThreshold = 6f;
+	private readonly EnemyRenderPerfProfiler _enemyRenderPerfProfiler = new();
+	private bool _perfReportHotkeyLatch;
 
 	public override void _Ready()
 	{
@@ -238,6 +240,13 @@ public partial class GameController : Node
 
 		if (_botRunner == null) UpdatePlacementLabel();
 		if (_botRunner == null) UpdateProcVisuals((float)delta);
+		if (_botRunner == null)
+		{
+			_enemyRenderPerfProfiler.RecordFrame((float)delta, _runState.EnemiesAlive.Count);
+			bool devMode = SettingsManager.Instance?.DevMode ?? false;
+			_hudPanel.RefreshDevRenderStats(devMode, _runState.EnemiesAlive.Count, _enemyRenderPerfProfiler.BuildOverlaySummary());
+			HandlePerfProfilerHotkey(devMode);
+		}
 
 		// Show/hide cancel button when player is in tower/modifier placement step
 		if (_botRunner == null)
@@ -2455,6 +2464,30 @@ public partial class GameController : Node
 		tween.TweenProperty(_worldNode, "position", new Vector2( 3f, -2f), 0.04f);
 		tween.TweenProperty(_worldNode, "position", new Vector2(-2f,  3f), 0.04f);
 		tween.TweenProperty(_worldNode, "position", Vector2.Zero,          0.04f);
+	}
+
+	private void HandlePerfProfilerHotkey(bool devMode)
+	{
+		if (!devMode)
+		{
+			_perfReportHotkeyLatch = false;
+			return;
+		}
+
+		bool hotkeyPressed = Input.IsPhysicalKeyPressed(Key.F9);
+		if (hotkeyPressed && !_perfReportHotkeyLatch)
+		{
+			string mapId = string.IsNullOrWhiteSpace(_runState.SelectedMapId) ? "unknown_map" : _runState.SelectedMapId;
+			int wave = Mathf.Clamp(_runState.WaveIndex + 1, 1, Balance.TotalWaves);
+			string reportPath = _enemyRenderPerfProfiler.WriteReport(
+				mapId,
+				wave,
+				SettingsManager.Instance,
+				MobileOptimization.IsMobile());
+			GD.Print($"[PERF] Enemy render report saved: {reportPath}");
+		}
+
+		_perfReportHotkeyLatch = hotkeyPressed;
 	}
 
 	private void UpdatePlacementLabel()

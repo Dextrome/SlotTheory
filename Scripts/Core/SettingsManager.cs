@@ -22,6 +22,10 @@ public partial class SettingsManager : Node
     public bool  ColorblindMode { get; private set; } = false;
     public bool  ReducedMotion  { get; private set; } = false;
     public bool  PostFxEnabled  { get; private set; } = true;
+    public bool  LayeredEnemyRendering { get; private set; } = true;
+    public bool  EnemyEmissiveLines { get; private set; } = true;
+    public bool  EnemyDamageMaterial { get; private set; } = true;
+    public bool  EnemyBloomHighlights { get; private set; } = !MobileOptimization.IsMobile();
     public bool  DevMode        { get; private set; } = false;
     public DifficultyMode Difficulty { get; private set; } = DifficultyMode.Easy;
     public string PlayerName    { get; private set; } = "";
@@ -91,6 +95,30 @@ public partial class SettingsManager : Node
     public void SetPostFxEnabled(bool enabled)
     {
         PostFxEnabled = enabled;
+        Save();
+    }
+
+    public void SetLayeredEnemyRendering(bool enabled)
+    {
+        LayeredEnemyRendering = enabled;
+        Save();
+    }
+
+    public void SetEnemyEmissiveLines(bool enabled)
+    {
+        EnemyEmissiveLines = enabled;
+        Save();
+    }
+
+    public void SetEnemyDamageMaterial(bool enabled)
+    {
+        EnemyDamageMaterial = enabled;
+        Save();
+    }
+
+    public void SetEnemyBloomHighlights(bool enabled)
+    {
+        EnemyBloomHighlights = enabled;
         Save();
     }
 
@@ -172,8 +200,13 @@ public partial class SettingsManager : Node
         Fullscreen    = (bool) cfg.GetValue(SecDisp,  "fullscreen",    false);
         ColorblindMode = (bool)cfg.GetValue(SecDisp,  "colorblind",    false);
         ReducedMotion  = (bool)cfg.GetValue(SecDisp,  "reduced_motion", false);
-        PostFxEnabled  = (bool)cfg.GetValue(SecDisp,  "post_fx",       true);
-        DevMode        = (bool)cfg.GetValue(SecDisp,  "dev_mode",       false);
+        var enemyRenderSettings = EnemyRenderSettingsSnapshot.ReadFrom(cfg, defaultBloomEnabled: !MobileOptimization.IsMobile());
+        PostFxEnabled         = enemyRenderSettings.PostFxEnabled;
+        LayeredEnemyRendering = enemyRenderSettings.LayeredEnabled;
+        EnemyEmissiveLines    = enemyRenderSettings.EmissiveEnabled;
+        EnemyDamageMaterial   = enemyRenderSettings.DamageMaterialEnabled;
+        EnemyBloomHighlights  = enemyRenderSettings.BloomEnabled;
+        DevMode               = enemyRenderSettings.DevModeEnabled;
         int rawDifficulty = (int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Easy);
         Difficulty = rawDifficulty switch
         {
@@ -195,8 +228,14 @@ public partial class SettingsManager : Node
         cfg.SetValue(SecDisp,  "fullscreen",     Fullscreen);
         cfg.SetValue(SecDisp,  "colorblind",     ColorblindMode);
         cfg.SetValue(SecDisp,  "reduced_motion", ReducedMotion);
-        cfg.SetValue(SecDisp,  "post_fx",        PostFxEnabled);
-        cfg.SetValue(SecDisp,  "dev_mode",       DevMode);
+        var enemyRenderSettings = new EnemyRenderSettingsSnapshot(
+            postFxEnabled: PostFxEnabled,
+            layeredEnabled: LayeredEnemyRendering,
+            emissiveEnabled: EnemyEmissiveLines,
+            damageMaterialEnabled: EnemyDamageMaterial,
+            bloomEnabled: EnemyBloomHighlights,
+            devModeEnabled: DevMode);
+        enemyRenderSettings.WriteTo(cfg);
         cfg.SetValue("gameplay",   "difficulty",   (int)Difficulty);
         cfg.SetValue(SecIdentity, "player_name",  PlayerName);
         cfg.SetValue(SecIdentity, "player_id",    PlayerId);

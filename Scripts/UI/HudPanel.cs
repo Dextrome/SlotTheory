@@ -1,5 +1,6 @@
 using Godot;
 using SlotTheory.Core;
+using SlotTheory.Entities;
 
 namespace SlotTheory.UI;
 
@@ -13,6 +14,7 @@ public partial class HudPanel : CanvasLayer
     private Label _livesLabel = null!;
     private Label _enemyLabel = null!;
     private Label _timeLabel = null!;
+    private Label _devStatsLabel = null!;
     private Label _speedToast = null!;
     private ColorRect _speedToastStreak = null!;
     private Button _speedBtn = null!;
@@ -196,6 +198,26 @@ public partial class HudPanel : CanvasLayer
         _timeLabel.AddThemeFontSizeOverride("font_size", 18);
         bar.AddChild(_timeLabel);
 
+        _devStatsLabel = new Label
+        {
+            Text = "",
+            Visible = false,
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            AnchorLeft = 0f,
+            AnchorRight = 0f,
+            AnchorTop = 0f,
+            AnchorBottom = 0f,
+            OffsetLeft = 10f,
+            OffsetRight = 760f,
+            OffsetTop = 46f,
+            OffsetBottom = 66f,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Modulate = new Color(0.70f, 0.95f, 1.00f, 0.78f),
+        };
+        _devStatsLabel.AddThemeFontSizeOverride("font_size", 12);
+        AddChild(_devStatsLabel);
+
         _speedToast = new Label
         {
             Text = "",
@@ -323,6 +345,26 @@ public partial class HudPanel : CanvasLayer
     public void RefreshEnemies(int alive, int total)
     {
         _enemyLabel.Text = alive > 0 ? $"Enemies: {alive} / {total}" : "";
+    }
+
+    public void RefreshDevRenderStats(bool enabled, int enemiesAlive, string perfSummary)
+    {
+        if (!enabled)
+        {
+            _devStatsLabel.Visible = false;
+            return;
+        }
+
+        var sm = SettingsManager.Instance;
+        string layeredFlags = $"L:{(sm?.LayeredEnemyRendering == true ? 1 : 0)} E:{(sm?.EnemyEmissiveLines == true ? 1 : 0)} D:{(sm?.EnemyDamageMaterial == true ? 1 : 0)} B:{(sm?.EnemyBloomHighlights == true ? 1 : 0)}";
+
+        _devStatsLabel.Visible = true;
+        _devStatsLabel.Text =
+            $"[DEV] {perfSummary} | {layeredFlags} | alive:{enemiesAlive} " +
+            $"body:{EnemyRenderDebugCounters.BodyPassCalls} dmg:{EnemyRenderDebugCounters.DamagePassCalls} em:{EnemyRenderDebugCounters.EmissivePassCalls} " +
+            $"bloom:{EnemyRenderDebugCounters.BloomPassCalls}/{EnemyRenderDebugCounters.BloomPrimitives} " +
+            $"fallback:{EnemyRenderDebugCounters.BloomFallbackCalls}/{EnemyRenderDebugCounters.BloomFallbackPrimitives} " +
+            $"budget:{EnemyRenderDebugCounters.BloomBudgetUsed}/{EnemyRenderDebugCounters.BloomBudgetCap} drop:{EnemyRenderDebugCounters.BloomBudgetRejected}";
     }
 
     public void SetMobileZoomReadability(float zoomLevel)
