@@ -69,6 +69,10 @@ public partial class GameController : Node
 	private int _previewGhostSlot = -1;
 	private float _previewGhostPhase = 0f;
 	private ModifierIcon? _previewModifierIcon;
+	private int _previewTowerGhostSlot = -1;
+	private float _previewTowerGhostPhase = 0f;
+	private string _previewTowerGhostId = "";
+	private TowerInstance? _previewTowerGhost;
 	private bool _runAbandoned = false;  // set on intentional exit to suppress _ExitTree re-save
 	private bool _hitStopActive = false;
 	private double _preHitStopTimeScale = 1.0;
@@ -221,6 +225,11 @@ public partial class GameController : Node
 			UpdateModifierPreviewGhost((float)delta);
 		else
 			ClearModifierPreviewGhost();
+
+		if (!_undoPlacementActive && CurrentPhase == GamePhase.Draft && _draftPanel.IsAwaitingSlot)
+			UpdateTowerPlacementPreviewGhost((float)delta);
+		else
+			ClearTowerPlacementPreviewGhost();
 
 		if (CurrentPhase == GamePhase.Draft && !_draftPanel.IsAwaitingSlot && !_draftPanel.IsAwaitingTower)
 			UpdateDraftSynergyHighlights((float)delta);
@@ -622,6 +631,7 @@ public partial class GameController : Node
 		{
 			if (targetSlotIndex >= 0 && targetSlotIndex < _runState.Slots.Length && _runState.Slots[targetSlotIndex].Tower == null)
 			{
+				ClearTowerPlacementPreviewGhost();
 				PlaceTower(option.Id, targetSlotIndex);
 				// Tower placement haptic fired inside PlaceTower
 			}
@@ -641,6 +651,8 @@ public partial class GameController : Node
 
 	private void CancelPlacement()
 	{
+		ClearTowerPlacementPreviewGhost();
+		ClearModifierPreviewGhost();
 		_draftPanel.CancelAssignment();
 		SoundManager.Instance?.Play("ui_select");
 	}
@@ -775,24 +787,8 @@ public partial class GameController : Node
 			ChainCount        = def.ChainCount,
 			ChainRange        = def.ChainRange,
 			ChainDamageDecay  = def.ChainDamageDecay,
-			ProjectileColor = towerId switch
-			{
-				"rapid_shooter" => new Color(0.30f, 0.90f, 1.00f),  // cyan
-				"heavy_cannon"  => new Color(1.00f, 0.55f, 0.00f),  // orange
-				"marker_tower"  => new Color(0.75f, 0.30f, 1.00f),  // purple
-				"chain_tower"   => new Color(0.55f, 0.90f, 1.00f),  // electric blue
-				"rift_prism"    => new Color(0.70f, 1.00f, 0.56f),  // lime
-				_               => Colors.Yellow,
-			},
-			BodyColor = towerId switch
-			{
-				"rapid_shooter" => new Color(0.15f, 0.65f, 1.00f),
-				"heavy_cannon"  => new Color(1.00f, 0.55f, 0.00f),
-				"marker_tower"  => new Color(1.00f, 0.15f, 0.60f),
-				"chain_tower"   => new Color(0.50f, 0.85f, 1.00f),
-				"rift_prism"    => new Color(0.58f, 0.98f, 0.50f),
-				_               => new Color(0.20f, 0.50f, 1.00f),
-			},
+			ProjectileColor = GetTowerProjectileColor(towerId),
+			BodyColor = GetTowerBodyColor(towerId),
 		};
 		tower.ZIndex = 20;
 
@@ -888,6 +884,26 @@ public partial class GameController : Node
 			SoundManager.Instance?.Play("tower_place");
 	}
 
+	private static Color GetTowerProjectileColor(string towerId) => towerId switch
+	{
+		"rapid_shooter" => new Color(0.30f, 0.90f, 1.00f),  // cyan
+		"heavy_cannon"  => new Color(1.00f, 0.55f, 0.00f),  // orange
+		"marker_tower"  => new Color(0.75f, 0.30f, 1.00f),  // purple
+		"chain_tower"   => new Color(0.55f, 0.90f, 1.00f),  // electric blue
+		"rift_prism"    => new Color(0.70f, 1.00f, 0.56f),  // lime
+		_               => Colors.Yellow,
+	};
+
+	private static Color GetTowerBodyColor(string towerId) => towerId switch
+	{
+		"rapid_shooter" => new Color(0.15f, 0.65f, 1.00f),
+		"heavy_cannon"  => new Color(1.00f, 0.55f, 0.00f),
+		"marker_tower"  => new Color(1.00f, 0.15f, 0.60f),
+		"chain_tower"   => new Color(0.50f, 0.85f, 1.00f),
+		"rift_prism"    => new Color(0.58f, 0.98f, 0.50f),
+		_               => new Color(0.20f, 0.50f, 1.00f),
+	};
+
 	public override void _Input(InputEvent @event)
 	{
 		Vector2 pressPos;
@@ -963,6 +979,13 @@ public partial class GameController : Node
 			{
 				_draftPanel.CancelModifierPreview();
 				ClearModifierPreviewGhost();
+				GetViewport().SetInputAsHandled();
+			}
+			// Outside tap while previewing a tower cancels tower preview.
+			else if (_draftPanel.IsAwaitingSlot && _draftPanel.HasTowerPreview)
+			{
+				_draftPanel.CancelTowerPreview();
+				ClearTowerPlacementPreviewGhost();
 				GetViewport().SetInputAsHandled();
 			}
 			return;
@@ -2633,6 +2656,95 @@ public partial class GameController : Node
 				}
 			}
 		}
+	}
+
+	private void UpdateTowerPlacementPreviewGhost(float delta)
+	{
+		if (!_draftPanel.HasTowerPreview || !_draftPanel.IsAwaitingSlot)
+		{
+			ClearTowerPlacementPreviewGhost();
+			return;
+		}
+
+		int slot = _draftPanel.TowerPreviewSlot;
+		string towerId = _draftPanel.PendingTowerId;
+		if (slot < 0 || slot >= _slotNodes.Length || string.IsNullOrEmpty(towerId))
+		{
+			ClearTowerPlacementPreviewGhost();
+			return;
+		}
+		if (!_draftPanel.IsSlotValidTarget(slot))
+		{
+			_draftPanel.CancelTowerPreview();
+			ClearTowerPlacementPreviewGhost();
+			return;
+		}
+
+		bool needsRebuild = _previewTowerGhostSlot != slot
+			|| _previewTowerGhostId != towerId
+			|| !GodotObject.IsInstanceValid(_previewTowerGhost);
+		if (needsRebuild)
+		{
+			ClearTowerPlacementPreviewGhost();
+			_previewTowerGhostSlot = slot;
+			_previewTowerGhostId = towerId;
+			_previewTowerGhostPhase = 0f;
+
+			var def = DataLoader.GetTowerDef(towerId);
+			_previewTowerGhost = new TowerInstance
+			{
+				TowerId = towerId,
+				BaseDamage = def.BaseDamage,
+				AttackInterval = def.AttackInterval,
+				Range = def.Range,
+				AppliesMark = def.AppliesMark,
+				SplitCount = def.SplitCount,
+				ChainCount = def.ChainCount,
+				ChainRange = def.ChainRange,
+				ChainDamageDecay = def.ChainDamageDecay,
+				ProjectileColor = GetTowerProjectileColor(towerId),
+				BodyColor = GetTowerBodyColor(towerId),
+				ZIndex = 19,
+			};
+			_slotNodes[slot].AddChild(_previewTowerGhost);
+		}
+		else
+		{
+			_previewTowerGhostPhase += delta;
+		}
+
+		float pulse = 0.5f + 0.5f * Mathf.Sin(_previewTowerGhostPhase * 9f);
+		if (GodotObject.IsInstanceValid(_previewTowerGhost))
+		{
+			_previewTowerGhost.Modulate = new Color(1f, 1f, 1f, 0.26f + pulse * 0.28f);
+			float s = 0.94f + pulse * 0.04f;
+			_previewTowerGhost.Scale = new Vector2(s, s);
+		}
+
+		if (GodotObject.IsInstanceValid(_slotPreviewGlows[slot]))
+		{
+			var accent = GetTowerBodyColor(towerId);
+			var glow = _slotPreviewGlows[slot];
+			glow.DefaultColor = new Color(accent.R, accent.G, accent.B, 0.92f);
+			glow.Modulate = new Color(1f, 1f, 1f, 0.24f + pulse * 0.38f);
+		}
+	}
+
+	private void ClearTowerPlacementPreviewGhost()
+	{
+		if (_previewTowerGhostSlot >= 0 && _previewTowerGhostSlot < _slotPreviewGlows.Length)
+		{
+			if (GodotObject.IsInstanceValid(_slotPreviewGlows[_previewTowerGhostSlot]))
+				_slotPreviewGlows[_previewTowerGhostSlot].Modulate = Colors.Transparent;
+		}
+
+		if (GodotObject.IsInstanceValid(_previewTowerGhost))
+			_previewTowerGhost.QueueFree();
+
+		_previewTowerGhost = null;
+		_previewTowerGhostSlot = -1;
+		_previewTowerGhostPhase = 0f;
+		_previewTowerGhostId = "";
 	}
 
 	private void UpdateModifierPreviewGhost(float delta)

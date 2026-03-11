@@ -414,13 +414,17 @@ public class CombatSim
 
     private bool TryPlantMineNear(TowerInstance owner, Vector2 center, float damageScale)
     {
+        float splitRadius = Balance.RiftMineSplitPlantRadius;
+        float ownerRangeLimit = owner.Range * 0.98f;
+
+        // Prefer valid lane anchors near the pop (stable/readable placement).
         Vector2? best = null;
         float bestScore = float.MinValue;
         foreach (var anchor in _mineAnchors)
         {
             float toCenter = anchor.Position.DistanceTo(center);
-            if (toCenter > Balance.RiftMineSplitPlantRadius) continue;
-            if (owner.GlobalPosition.DistanceTo(anchor.Position) > owner.Range * 0.98f) continue;
+            if (toCenter > splitRadius) continue;
+            if (owner.GlobalPosition.DistanceTo(anchor.Position) > ownerRangeLimit) continue;
             if (!IsMineSpotFree(anchor.Position)) continue;
 
             float score = anchor.Score - toCenter * 0.014f;
@@ -431,8 +435,39 @@ public class CombatSim
             }
         }
 
-        if (best == null) return false;
-        return AddMine(owner, best.Value, damageScale, armTime: Balance.RiftMineArmTime * 0.75f, isMiniMine: true);
+        if (best != null)
+            return AddMine(owner, best.Value, damageScale, armTime: Balance.RiftMineArmTime * 0.75f, isMiniMine: true);
+
+        // Fallback: sample the lane curve at finer resolution near the blast point.
+        // This preserves "on-path only" placement while avoiding sparse-anchor misses.
+        if (LanePath == null) return false;
+        var curve = LanePath.Curve;
+        if (curve == null || curve.PointCount < 2) return false;
+
+        float length = curve.GetBakedLength();
+        if (length <= 0f) return false;
+
+        float sampleStep = Mathf.Max(6f, Balance.RiftMineAnchorStep * 0.35f);
+        Vector2? fallbackBest = null;
+        float fallbackBestScore = float.MinValue;
+        for (float d = 0f; d <= length; d += sampleStep)
+        {
+            Vector2 p = LanePath.ToGlobal(curve.SampleBaked(d));
+            float toCenter = p.DistanceTo(center);
+            if (toCenter > splitRadius) continue;
+            if (owner.GlobalPosition.DistanceTo(p) > ownerRangeLimit) continue;
+            if (!IsMineSpotFree(p)) continue;
+
+            float score = -toCenter;
+            if (score > fallbackBestScore)
+            {
+                fallbackBestScore = score;
+                fallbackBest = p;
+            }
+        }
+
+        if (fallbackBest == null) return false;
+        return AddMine(owner, fallbackBest.Value, damageScale, armTime: Balance.RiftMineArmTime * 0.75f, isMiniMine: true);
     }
 
     private Vector2? PickMineAnchor(TowerInstance tower, List<EnemyInstance> enemies)
@@ -689,7 +724,9 @@ public class CombatSim
         // Only base mines should seed split-shot mini mines (avoid recursive mini-mine loops).
         if (finalPop && owner.SplitCount > 0 && !mine.IsMiniMine)
         {
-            for (int i = 0; i < owner.SplitCount; i++)
+            // Mirror projectile Split Shot semantics: one copy = two extra spawns.
+            int splitSeeds = owner.SplitCount + 1;
+            for (int i = 0; i < splitSeeds; i++)
                 TryPlantMineNear(owner, mine.Position, Balance.RiftMineMiniDamageFactor * mine.DamageScale);
         }
 

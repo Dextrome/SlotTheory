@@ -23,7 +23,9 @@ public partial class DraftPanel : CanvasLayer
     private DraftOption? _pendingModifier;
     private DraftOption? _pendingTower;
     private int _previewModifierSlot = -1;
+    private int _previewTowerSlot = -1;
     private ulong _previewSetAtMs = 0;
+    private ulong _previewTowerSetAtMs = 0;
     private ColorRect _bg = null!;
     private DraftBackdropFx _bgFx = null!;
     private CenterContainer _center = null!;
@@ -55,8 +57,11 @@ public partial class DraftPanel : CanvasLayer
     public bool IsAwaitingSlot => _pendingTower != null;
     public bool IsAwaitingTower => _pendingModifier != null;
     public bool HasModifierPreview => _previewModifierSlot >= 0;
+    public bool HasTowerPreview => _previewTowerSlot >= 0;
     public int ModifierPreviewSlot => _previewModifierSlot;
+    public int TowerPreviewSlot => _previewTowerSlot;
     public string PendingModifierId => _pendingModifier?.Id ?? "";
+    public string PendingTowerId => _pendingTower?.Id ?? "";
     public List<DraftOption> GetLastOptionsSnapshot() => new(_lastOptions);
     public (int waveNumber, int pickNumber, int totalPicks) GetLastDraftMeta()
         => (_lastWaveNumber, _lastPickNumber, _lastTotalPicks);
@@ -67,6 +72,12 @@ public partial class DraftPanel : CanvasLayer
         _previewSetAtMs = 0;
     }
 
+    public void CancelTowerPreview()
+    {
+        _previewTowerSlot = -1;
+        _previewTowerSetAtMs = 0;
+    }
+
     public string PlacementHint
     {
         get
@@ -74,7 +85,9 @@ public partial class DraftPanel : CanvasLayer
             if (_pendingTower != null)
             {
                 var def = DataLoader.GetTowerDef(_pendingTower.Id);
-                return $"Click a slot to place  {def.Name}";
+                if (_previewTowerSlot >= 0)
+                    return $"Preview: {def.Name} on slot {_previewTowerSlot + 1}  -  tap again to confirm";
+                return $"Tap a slot to preview  {def.Name}\nTap again to confirm placement";
             }
 
             if (_pendingModifier != null)
@@ -360,7 +373,9 @@ public partial class DraftPanel : CanvasLayer
         _pendingModifier = null;
         _pendingTower = null;
         _previewModifierSlot = -1;
+        _previewTowerSlot = -1;
         _previewSetAtMs = 0;
+        _previewTowerSetAtMs = 0;
         _foilCardIndex = (_rng.RandiRange(1, 12) == 1 && options.Count > 0) ? _rng.RandiRange(0, options.Count - 1) : -1;
         ClearModifierSynergyHint();
         _touchHoldModifierId = "";
@@ -493,6 +508,8 @@ public partial class DraftPanel : CanvasLayer
         if (_pendingTower == null && _pendingModifier == null) return;
         _pendingTower = null;
         _pendingModifier = null;
+        _previewTowerSlot = -1;
+        _previewTowerSetAtMs = 0;
         Show(_lastOptions, _lastWaveNumber, _lastPickNumber, _lastTotalPicks, null);
     }
 
@@ -696,8 +713,25 @@ public partial class DraftPanel : CanvasLayer
     private void OnSlotPicked(int slotIndex)
     {
         if (_pendingTower == null) return;
-        Visible = false;
-        GameController.Instance.OnDraftPick(_pendingTower, slotIndex);
+        ulong nowMs = Time.GetTicksMsec();
+        if (_previewTowerSlot == slotIndex)
+        {
+            // Require a distinct follow-up tap (avoids touch->mouse event duplication confirming instantly).
+            if (_previewTowerSetAtMs > 0 && (nowMs - _previewTowerSetAtMs) < 120)
+                return;
+
+            Visible = false;
+            var pick = _pendingTower;
+            if (pick == null) return;
+            _previewTowerSlot = -1;
+            _previewTowerSetAtMs = 0;
+            GameController.Instance.OnDraftPick(pick, slotIndex);
+            return;
+        }
+
+        _previewTowerSlot = slotIndex;
+        _previewTowerSetAtMs = nowMs;
+        SoundManager.Instance?.Play("ui_preview_ghost");
     }
 
     private void AddHover(Button btn, DraftOption opt)
