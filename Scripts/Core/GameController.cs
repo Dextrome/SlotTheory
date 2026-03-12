@@ -223,6 +223,11 @@ public partial class GameController : Node
 				targetStrategy = parsedStrategy;
 			}
 
+			string? strategySet = null;
+			int ssi = System.Array.IndexOf(userArgs, "--strategy_set");
+			if (ssi >= 0 && ssi + 1 < userArgs.Length)
+				strategySet = userArgs[ssi + 1];
+
 			string? forcedTower = null;
 			int fi = System.Array.IndexOf(userArgs, "--force_tower");
 			if (fi >= 0 && fi + 1 < userArgs.Length)
@@ -252,9 +257,10 @@ public partial class GameController : Node
 				forcedMod,
 				metricsOutputPath,
 				traceOutputPath,
-				SpectacleTuning.ActiveLabel);
+				SpectacleTuning.ActiveLabel,
+				strategySet);
 			Engine.MaxFps = 0;
-			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}{(targetMap != null ? $" on {targetMap}" : "")}{(targetStrategy.HasValue ? $" strategy={targetStrategy.Value}" : "")}{(forcedTower != null ? $" tower={forcedTower}" : "")}{(forcedMod != null ? $" mod={forcedMod}" : "")}{(string.IsNullOrWhiteSpace(metricsOutputPath) ? "" : $" metrics={metricsOutputPath}")}{(string.IsNullOrWhiteSpace(traceOutputPath) ? "" : $" trace={traceOutputPath}")}");
+			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}{(targetMap != null ? $" on {targetMap}" : "")}{(targetStrategy.HasValue ? $" strategy={targetStrategy.Value}" : "")}{(strategySet != null ? $" strategy_set={strategySet}" : "")}{(forcedTower != null ? $" tower={forcedTower}" : "")}{(forcedMod != null ? $" mod={forcedMod}" : "")}{(string.IsNullOrWhiteSpace(metricsOutputPath) ? "" : $" metrics={metricsOutputPath}")}{(string.IsNullOrWhiteSpace(traceOutputPath) ? "" : $" trace={traceOutputPath}")}");
 		}
 
 		_runState = new RunState();
@@ -4272,14 +4278,6 @@ public partial class GameController : Node
 
 		Color detonationColor = ResolveComboSkinAccent(accent, skin);
 		float stagger = SpectacleExplosionCore.ResolveStatusDetonationStaggerSeconds(reducedMotion);
-		if (!globalSurge && _botRunner == null && TryCombatCallout("status_detonation", 5.2f))
-		{
-			SpawnCombatCallout(
-				"STATUS DETONATION",
-				origin,
-				detonationColor,
-				durationScale: 1.25f);
-		}
 
 		ITowerView? damageSource = sourceTower;
 		if (damageSource is GodotObject towerObj && !GodotObject.IsInstanceValid(towerObj))

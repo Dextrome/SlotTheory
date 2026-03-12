@@ -16,6 +16,29 @@ namespace SlotTheory.Tools;
 /// </summary>
 public class BotRunner
 {
+    public const string StrategySetAll = "all";
+    public const string StrategySetOptimization = "optimization";
+    public const string StrategySetEdge = "edge";
+
+    private static readonly BotStrategy[] OptimizationStrategies =
+    {
+        BotStrategy.Random,
+        BotStrategy.GreedyDps,
+        BotStrategy.MarkerSynergy,
+        BotStrategy.SplitFocus,
+        BotStrategy.RiftPrismFocus,
+        BotStrategy.SpectacleSingleStack,
+        BotStrategy.SpectacleComboPairing,
+        BotStrategy.SpectacleTriadDiversity,
+    };
+
+    private static readonly BotStrategy[] EdgeStrategies =
+    {
+        BotStrategy.TowerFirst,
+        BotStrategy.ChainFocus,
+        BotStrategy.HeavyStack,
+    };
+
     private record RunTrace(
         int RunIndex,
         BotStrategy Strategy,
@@ -68,6 +91,7 @@ public class BotRunner
     private readonly string?          _metricsOutputPath;
     private readonly string?          _traceOutputPath;
     private readonly string           _tuningLabel;
+    private readonly string           _strategySetLabel;
 	private DifficultyMode[] _difficulties = { DifficultyMode.Easy, DifficultyMode.Normal, DifficultyMode.Hard };
     private readonly List<RunResult>  _results = new();
     private readonly List<RunTrace>   _runTraces = new();
@@ -93,12 +117,15 @@ public BotRunner(
     string? forcedModifierId = null,
     string? metricsOutputPath = null,
     string? traceOutputPath = null,
-    string? tuningLabel = null)
+    string? tuningLabel = null,
+    string? strategySet = null)
 	{
 		_totalRuns  = totalRuns;
 		_strategies = targetStrategy.HasValue
             ? new[] { targetStrategy.Value }
-            : (BotStrategy[])Enum.GetValues(typeof(BotStrategy));
+            : ResolveStrategyPool(strategySet, out _strategySetLabel);
+        if (targetStrategy.HasValue)
+            _strategySetLabel = "single";
         _targetDifficulty = targetDifficulty;
         _forcedTowerId = string.IsNullOrWhiteSpace(forcedTowerId) ? null : forcedTowerId;
         _forcedModifierId = string.IsNullOrWhiteSpace(forcedModifierId) ? null : forcedModifierId;
@@ -112,6 +139,29 @@ public BotRunner(
 		if (targetDifficulty.HasValue)
 			_difficulties = new[] { targetDifficulty.Value };
         StartNextRun();
+    }
+
+    private static BotStrategy[] ResolveStrategyPool(string? strategySet, out string resolvedLabel)
+    {
+        string normalized = (strategySet ?? StrategySetAll).Trim().ToLowerInvariant();
+        switch (normalized)
+        {
+            case StrategySetOptimization:
+            case "opt":
+                resolvedLabel = StrategySetOptimization;
+                return OptimizationStrategies;
+            case StrategySetEdge:
+                resolvedLabel = StrategySetEdge;
+                return EdgeStrategies;
+            case StrategySetAll:
+            case "":
+                resolvedLabel = StrategySetAll;
+                return (BotStrategy[])Enum.GetValues(typeof(BotStrategy));
+            default:
+                GD.PrintErr($"[BOT] Unknown strategy set '{strategySet}'. Falling back to '{StrategySetAll}'.");
+                resolvedLabel = StrategySetAll;
+                return (BotStrategy[])Enum.GetValues(typeof(BotStrategy));
+        }
     }
 
     private void StartNextRun()
@@ -531,6 +581,7 @@ public BotRunner(
 
         GD.Print("\nAUTOMATION METRICS (all runs):");
         GD.Print($"  Tuning profile: {_tuningLabel}");
+        GD.Print($"  Strategy set: {_strategySetLabel} ({_strategies.Length} strategies)");
         GD.Print($"  Avg run duration: {avgDuration:0.00}s");
         GD.Print($"  Surges/run: {avgSurges:0.00} | Major surges/run: {avgMajorSurges:0.00}");
         GD.Print($"  Kills per surge: {avgKillsPerSurge:0.00}");
@@ -557,6 +608,13 @@ public BotRunner(
 
             int totalExplosionDamage = _results.Sum(r => r.ExplosionFollowUpDamage + r.ResidueDamage);
             int totalExplosionTriggers = _results.Sum(r => r.SpectacleExplosionBurstCount);
+            var surgesPerRun = _results.Select(r => r.SpectacleSurgeTriggers).ToList();
+            var chainDepthPerRun = _results.Select(r => r.SpectacleMaxChainDepth).ToList();
+            var waveReachedPerRun = _results.Select(r => r.WaveReached).ToList();
+            var explosionSharePerRun = _results
+                .Select(r => ResolveExplosionSharePerRun(r))
+                .ToList();
+            const float explosionShareBinSize = 0.001f; // 0.10% bins
 
             var payload = new
             {
@@ -590,6 +648,18 @@ public BotRunner(
                         simultaneous_explosions = _results.Max(r => r.PeakSimultaneousExplosions),
                         simultaneous_active_hazards = _results.Max(r => r.PeakSimultaneousActiveHazards),
                         simultaneous_hitstops_requested = _results.Max(r => r.PeakSimultaneousHitStopsRequested),
+                    },
+                    distributions = new
+                    {
+                        surges_per_run = BuildDiscreteDistribution(surgesPerRun),
+                        chain_depth_per_run = BuildDiscreteDistribution(chainDepthPerRun),
+                        wave_reached_per_run = BuildDiscreteDistribution(waveReachedPerRun),
+                        explosion_damage_share_per_run = new
+                        {
+                            bin_size_fraction = explosionShareBinSize,
+                            bin_size_percent = explosionShareBinSize * 100f,
+                            bins = BuildSparseBinnedDistribution(explosionSharePerRun, explosionShareBinSize),
+                        },
                     },
                 },
                 runs = _results.Select(r => new
@@ -630,6 +700,56 @@ public BotRunner(
         {
             GD.PrintErr($"[BOT] Failed to write metrics JSON: {ex.Message}");
         }
+    }
+
+    private static float ResolveExplosionSharePerRun(RunResult run)
+    {
+        float total = run.BaseAttackDamage + run.SurgeCoreDamage + run.ExplosionFollowUpDamage + run.ResidueDamage;
+        if (total <= 0.0001f)
+            return 0f;
+        return (run.ExplosionFollowUpDamage + run.ResidueDamage) / total;
+    }
+
+    private static List<object> BuildDiscreteDistribution(IEnumerable<int> values)
+    {
+        return values
+            .GroupBy(v => v)
+            .OrderBy(g => g.Key)
+            .Select(g => (object)new
+            {
+                value = g.Key,
+                count = g.Count(),
+            })
+            .ToList();
+    }
+
+    private static List<object> BuildSparseBinnedDistribution(IEnumerable<float> values, float binSize)
+    {
+        if (binSize <= 0f)
+            return new List<object>();
+
+        var buckets = new Dictionary<int, int>();
+        foreach (float raw in values)
+        {
+            float value = MathF.Max(0f, raw);
+            int binIndex = (int)MathF.Floor(value / binSize);
+            if (buckets.TryGetValue(binIndex, out int count))
+                buckets[binIndex] = count + 1;
+            else
+                buckets[binIndex] = 1;
+        }
+
+        return buckets
+            .OrderBy(kv => kv.Key)
+            .Select(kv => (object)new
+            {
+                bin_start = kv.Key * binSize,
+                bin_end = (kv.Key + 1) * binSize,
+                bin_start_percent = kv.Key * binSize * 100f,
+                bin_end_percent = (kv.Key + 1) * binSize * 100f,
+                count = kv.Value,
+            })
+            .ToList();
     }
 
     private static float SafeDps(int damage, float durationSeconds)

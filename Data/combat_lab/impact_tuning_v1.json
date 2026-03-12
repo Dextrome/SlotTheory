@@ -1,0 +1,15 @@
+{
+  "overkill_bloom_damage_scale_multiplier": 1.45,
+  "overkill_bloom_radius_multiplier": 1.10,
+  "detonation_max_targets_multiplier": 1.10,
+  "detonation_stagger_multiplier": 0.88,
+  "residue_duration_multiplier": 1.00,
+  "residue_potency_multiplier": 1.35,
+  "meter_gain_multiplier": 1.00,
+  "second_stage_power_threshold": 0.85,
+  "gain_multipliers": {
+    "overkill": 1.15,
+    "chain_reaction": 1.05,
+    "split_shot": 1.05
+  }
+}
