@@ -247,6 +247,15 @@ public partial class PauseScreen : CanvasLayer
             HandleBack(androidBack: true);
     }
 
+    public override void _Input(InputEvent @event)
+    {
+        if (@event is InputEventKey { Pressed: true, Echo: false, Keycode: Key.Space })
+        {
+            ToggleGameplayPause();
+            GetViewport().SetInputAsHandled();
+        }
+    }
+
     public override void _UnhandledInput(InputEvent @event)
     {
         if (@event.IsActionPressed("ui_cancel"))
@@ -307,13 +316,45 @@ public partial class PauseScreen : CanvasLayer
 
     public void Pause()
     {
+        OpenPauseMenu();
+    }
+
+    public void OpenPauseMenu()
+    {
+        var phase = GameController.Instance.CurrentPhase;
+        if (phase == GamePhase.Win || phase == GamePhase.Loss)
+            return;
+
+        if (Visible)
+        {
+            Unpause();
+            return;
+        }
+
         _mainPanel.Visible        = true;
         _settingsPanel.Visible    = false;
         _quitConfirmPanel.Visible = false;
         Visible = true;
         GetTree().Paused = true;
     }
+
     public void Unpause() { Visible = false; GetTree().Paused = false; }
+
+    public void ToggleGameplayPause()
+    {
+        var phase = GameController.Instance.CurrentPhase;
+        if (phase == GamePhase.Win || phase == GamePhase.Loss)
+            return;
+
+        if (GetTree().Paused)
+        {
+            Unpause();
+            return;
+        }
+
+        Visible = false;
+        GetTree().Paused = true;
+    }
 
     private void OnResume()  => Unpause();
     private void OnRestart() { Unpause(); GameController.Instance.RestartRun(); }

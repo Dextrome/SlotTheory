@@ -1751,23 +1751,18 @@ public partial class GameController : Node
 			.ToList();
 
 		if (supportedMods.Count == 0)
-			return "Spectacle Triggers: (none)";
-
-		SpectacleSignature current = _spectacleSystem.PreviewSignature(tower);
-		string currentLine = string.IsNullOrWhiteSpace(current.EffectName)
-			? string.Empty
-			: $"\nCurrent: {current.EffectName}";
+			return "Surge Triggers: (none)";
 
 		if (supportedMods.Count == 1)
 		{
 			SpectacleSingleDef single = SpectacleDefinitions.GetSingle(supportedMods[0]);
-			return $"Spectacle Triggers [Single]:{currentLine}\n* {single.Name}";
+			return $"Surge Triggers [Single]:\n* {single.Name}";
 		}
 
 		if (supportedMods.Count == 2)
 		{
 			SpectacleComboDef combo = SpectacleDefinitions.GetCombo(supportedMods[0], supportedMods[1]);
-			return $"Spectacle Triggers [Combo]:{currentLine}\n* {combo.Name}";
+			return $"Surge Triggers [Combo]:\n* {combo.Name}";
 		}
 
 		var triadVariants = new HashSet<string>();
@@ -1788,10 +1783,10 @@ public partial class GameController : Node
 		}
 
 		if (triadVariants.Count == 0)
-			return $"Spectacle Triggers [Triad]:{currentLine}\n* (none)";
+			return "Surge Triggers [Triad]:\n* (none)";
 
 		var ordered = triadVariants.OrderBy(name => name, System.StringComparer.Ordinal).ToList();
-		return $"Spectacle Triggers [Triad]:{currentLine}\n* {string.Join("\n* ", ordered)}";
+		return $"Surge Triggers [Triad]:\n* {string.Join("\n* ", ordered)}";
 	}
 	// -- Bot multi-step simulation -------------------------------------------------
 
@@ -1970,9 +1965,9 @@ public partial class GameController : Node
 			Modulate = new Color(1f, 1f, 1f, 0f),
 			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
-		UITheme.ApplyFont(_globalSpectacleBanner, bold: true, size: 86);
+		UITheme.ApplyFont(_globalSpectacleBanner, bold: true, size: 118);
 		_globalSpectacleBanner.AddThemeColorOverride("font_color", new Color(1.00f, 0.95f, 0.76f));
-		_globalSpectacleBanner.AddThemeConstantOverride("outline_size", 8);
+		_globalSpectacleBanner.AddThemeConstantOverride("outline_size", 10);
 		_globalSpectacleBanner.AddThemeColorOverride("font_outline_color", new Color(0.04f, 0.10f, 0.16f, 0.98f));
 		anchor.AddChild(_globalSpectacleBanner);
 
@@ -2125,12 +2120,9 @@ public partial class GameController : Node
 		if (!GodotObject.IsInstanceValid(_globalSpectacleBanner) || _botRunner != null)
 			return;
 
-		string displayName = string.IsNullOrWhiteSpace(effectName)
-			? "GLOBAL SURGE"
-			: $"GLOBAL SURGE\n{effectName.ToUpperInvariant()}";
-		_globalSpectacleBanner.Text = displayName;
+		_globalSpectacleBanner.Text = "GLOBAL SURGE";
 		_globalSpectacleBanner.Visible = true;
-		_globalSpectacleBanner.Scale = new Vector2(1.26f, 1.26f);
+		_globalSpectacleBanner.Scale = new Vector2(1.38f, 1.38f);
 		_globalSpectacleBanner.Modulate = new Color(accent.R, accent.G, accent.B, 0f);
 		_globalSpectacleBanner.AddThemeColorOverride(
 			"font_color",
@@ -2145,8 +2137,8 @@ public partial class GameController : Node
 		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 1f, 0.11f);
 		tw.TweenProperty(_globalSpectacleBanner, "scale", Vector2.One, 0.15f)
 			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
-		tw.Chain().TweenInterval(0.68f);
-		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 0f, 0.36f);
+		tw.Chain().TweenInterval(3.25f);
+		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 0f, 1.45f);
 		tw.TweenCallback(Callable.From(() => _globalSpectacleBanner.Visible = false));
 	}
 
@@ -2160,13 +2152,13 @@ public partial class GameController : Node
 		return true;
 	}
 
-	private void SpawnCombatCallout(string text, Vector2 worldPos, Color color)
+	private void SpawnCombatCallout(string text, Vector2 worldPos, Color color, float durationScale = 1f)
 	{
 		if (_botRunner != null) return;
 		var callout = new CombatCallout();
 		_worldNode.AddChild(callout);
 		callout.GlobalPosition = worldPos + new Vector2(0f, -16f);
-		callout.Initialize(text, color);
+		callout.Initialize(text, color, duration: 0.96f * Mathf.Max(0.1f, durationScale));
 	}
 
 	private void OnSpectacleSurgeTriggered(SpectacleTriggerInfo info)
@@ -2196,9 +2188,13 @@ public partial class GameController : Node
 		QueueSpectacleEcho(info.Tower.GlobalPosition, accent, major: true, power: info.Signature.SurgePower, maxDistance: linkDistance);
 		SoundManager.Instance?.Play("mine_chain_pop", pitchScale: 1.08f);
 		ApplySpectacleGameplayPayload(info, isMajor: true);
-		TriggerSpectacleSlowMo(realDuration: 1.0f, speedFactor: 0.25f);
+		TriggerSpectacleSlowMo(realDuration: 0.5f, speedFactor: 0.25f);
 
-		SpawnCombatCallout($"SURGE {info.Signature.EffectName}".ToUpperInvariant(), info.Tower.GlobalPosition, accent);
+		SpawnCombatCallout(
+			$"SURGE {info.Signature.EffectName}".ToUpperInvariant(),
+			info.Tower.GlobalPosition,
+			accent,
+			durationScale: 2f);
 		TriggerHitStop(realDuration: 0.034f, slowScale: 0.40f);
 	}
 
@@ -2236,11 +2232,11 @@ public partial class GameController : Node
 			SpawnSpectacleTowerVolleyFx(tower, accent, major: true, power: 1.10f);
 		}
 		ApplyGlobalSurgeGameplayPayload(info);
+		SpawnGlobalSurgeAffectFx(center, globalColor, Mathf.Max(2, info.UniqueContributors));
 		QueueSpectacleEcho(center, globalColor, major: true, power: 1.65f, maxDistance: 420f);
-		TriggerSpectacleSlowMo(realDuration: 1.1f, speedFactor: 0.25f);
+		TriggerSpectacleSlowMo(realDuration: 2.2f, speedFactor: 0.25f);
 		ShowGlobalSurgeBanner(info.EffectName, globalColor);
 
-		SpawnCombatCallout(info.EffectName.ToUpperInvariant(), center, globalColor);
 		TriggerHitStop(realDuration: 0.050f, slowScale: 0.26f);
 	}
 
@@ -3480,6 +3476,55 @@ public partial class GameController : Node
 				_worldNode.AddChild(sparks);
 				sparks.GlobalPosition = enemy.GlobalPosition;
 				sparks.Initialize(accent, heavy: true);
+			}
+		}
+	}
+
+	private void SpawnGlobalSurgeAffectFx(Vector2 origin, Color accent, int contributors)
+	{
+		if (_botRunner != null || _runState == null || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+
+		int maxLinks = Mathf.Clamp(10 + contributors * 4, 12, 36);
+		var targets = _runState.EnemiesAlive
+			.Where(IsEnemyUsable)
+			.OrderByDescending(e => e.ProgressRatio)
+			.ThenBy(e => origin.DistanceTo(e.GlobalPosition))
+			.Take(maxLinks)
+			.ToList();
+		if (targets.Count == 0)
+			return;
+
+		float baseIntensity = 1.14f + 0.07f * Mathf.Clamp(contributors, 1, 6);
+		const float stepDelay = 0.018f;
+		for (int i = 0; i < targets.Count; i++)
+		{
+			var enemyRef = targets[i];
+			float intensity = baseIntensity + i * 0.02f;
+			float delay = i * stepDelay;
+
+			void Emit()
+			{
+				if (CurrentPhase != GamePhase.Wave
+					|| _botRunner != null
+					|| !GodotObject.IsInstanceValid(this)
+					|| !GodotObject.IsInstanceValid(enemyRef)
+					|| enemyRef.Hp <= 0f)
+				{
+					return;
+				}
+
+				SpawnSpectacleArc(origin, enemyRef.GlobalPosition, accent, intensity, mineChainStyle: true);
+				SpawnSpectacleImpactSparks(enemyRef.GlobalPosition, accent, heavy: true);
+			}
+
+			if (delay <= 0f)
+			{
+				Emit();
+			}
+			else
+			{
+				GetTree().CreateTimer(delay).Timeout += Emit;
 			}
 		}
 	}

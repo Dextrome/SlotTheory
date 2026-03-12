@@ -1,4 +1,4 @@
-﻿using Godot;
+using Godot;
 using SlotTheory.Core;
 using SlotTheory.Entities;
 
@@ -9,359 +9,510 @@ namespace SlotTheory.UI;
 /// </summary>
 public partial class HowToPlay : Node
 {
-	/// <summary>
-	/// When set, the Back button calls this and frees the node instead of navigating to MainMenu.
-	/// Used by PauseScreen to dismiss the overlay without leaving the game scene.
-	/// </summary>
-	public System.Action? OnBack { get; set; }
+    private enum HowToTab { Basics, Surges }
 
-	public override void _Ready()
-	{
-		ProcessMode = ProcessModeEnum.Always; // stay responsive when opened from paused PauseScreen
-		var canvas = new CanvasLayer();
-		// Set high layer when used as overlay from pause screen
-		// (PauseScreen uses layer 8, so we need to be above it)
-		canvas.Layer = 10;
-		AddChild(canvas);
+    private Button _basicsTabBtn = null!;
+    private Button _surgesTabBtn = null!;
+    private VBoxContainer _basicsSection = null!;
+    private VBoxContainer _surgesSection = null!;
 
-		// Background
-		var bg = new ColorRect();
-		bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		bg.Color = new Color("#141420");
-		canvas.AddChild(bg);
+    private static readonly string[] CanonicalSurgeMods =
+    {
+        SpectacleDefinitions.Momentum,
+        SpectacleDefinitions.Overkill,
+        SpectacleDefinitions.ExploitWeakness,
+        SpectacleDefinitions.FocusLens,
+        SpectacleDefinitions.ChillShot,
+        SpectacleDefinitions.Overreach,
+        SpectacleDefinitions.HairTrigger,
+        SpectacleDefinitions.SplitShot,
+        SpectacleDefinitions.FeedbackLoop,
+        SpectacleDefinitions.ChainReaction,
+    };
 
-		// Scroll area
-		var scroll = new ScrollContainer();
-		scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		scroll.Theme = SlotTheory.Core.UITheme.Build();
-		// Enable vertical scrollbar and disable horizontal scrolling
-		scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
-		scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
-		TouchScrollHelper.EnableDragScroll(scroll);
-		canvas.AddChild(scroll);
+    /// <summary>
+    /// When set, the Back button calls this and frees the node instead of navigating to MainMenu.
+    /// Used by PauseScreen to dismiss the overlay without leaving the game scene.
+    /// </summary>
+    public System.Action? OnBack { get; set; }
 
-		// Wrap VBox in MarginContainer for proper margins
-		var marginContainer = new MarginContainer();
-		// Use smaller margins on mobile to prevent off-screen content
-		var leftMargin = MobileOptimization.IsMobile() ? 10 : 30;
-		var rightMargin = MobileOptimization.IsMobile() ? 10 : 20;
-		marginContainer.AddThemeConstantOverride("margin_left", leftMargin);
-		marginContainer.AddThemeConstantOverride("margin_right", rightMargin);
-		marginContainer.AddThemeConstantOverride("margin_top", 20);
-		marginContainer.AddThemeConstantOverride("margin_bottom", 20);
-		marginContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-		marginContainer.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-		marginContainer.MouseFilter = Control.MouseFilterEnum.Pass; // let touch events reach ScrollContainer
-		scroll.AddChild(marginContainer);
+    public override void _Ready()
+    {
+        ProcessMode = ProcessModeEnum.Always; // stay responsive when opened from paused PauseScreen
+        var canvas = new CanvasLayer();
+        // Set high layer when used as overlay from pause screen
+        // (PauseScreen uses layer 8, so we need to be above it)
+        canvas.Layer = 10;
+        AddChild(canvas);
 
-		// Simple VBox that can expand vertically
-		var vbox = new VBoxContainer();
-		vbox.AddThemeConstantOverride("separation", 6);
-		vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-		// Don't set vertical size flags - let it size naturally to content
-		marginContainer.AddChild(vbox);
+        // Background
+        var bg = new ColorRect();
+        bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        bg.Color = new Color("#141420");
+        canvas.AddChild(bg);
 
-		// â”€â”€ Title â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-		AddTitle(vbox, "HOW TO PLAY");
-		AddSpacer(vbox, 16);
+        // Scroll area
+        var scroll = new ScrollContainer();
+        scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        scroll.Theme = SlotTheory.Core.UITheme.Build();
+        // Enable vertical scrollbar and disable horizontal scrolling
+        scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
+        scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        TouchScrollHelper.EnableDragScroll(scroll);
+        canvas.AddChild(scroll);
 
-		// â”€â”€ Core Loop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-		AddHeader(vbox, "CORE LOOP");
-		AddLine(vbox, "Before each wave, draft 1 card (5 options if slots are free; 4 if all slots are occupied).");
-		AddLine(vbox, "Waves run automatically - you do not manually fire or place towers during waves.");
-		AddLine(vbox, "Survive all 20 waves to win.");
-		AddLine(vbox, "An enemy reaching the exit costs 1 life. You have 10 lives.");
-		AddSpacer(vbox, 12);
+        // Wrap VBox in MarginContainer for proper margins
+        var marginContainer = new MarginContainer();
+        // Use smaller margins on mobile to prevent off-screen content
+        var leftMargin = MobileOptimization.IsMobile() ? 10 : 30;
+        var rightMargin = MobileOptimization.IsMobile() ? 10 : 20;
+        marginContainer.AddThemeConstantOverride("margin_left", leftMargin);
+        marginContainer.AddThemeConstantOverride("margin_right", rightMargin);
+        marginContainer.AddThemeConstantOverride("margin_top", 20);
+        marginContainer.AddThemeConstantOverride("margin_bottom", 20);
+        marginContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        marginContainer.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+        marginContainer.MouseFilter = Control.MouseFilterEnum.Pass; // let touch events reach ScrollContainer
+        scroll.AddChild(marginContainer);
 
-		// â”€â”€ Controls â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-		AddHeader(vbox, "CONTROLS");
-		AddRow(vbox, "Pick a draft card",         "Left-click the card");
-		AddRow(vbox, "Assign tower / modifier",   "Click target to preview, click same target again to confirm");
-		AddRow(vbox, "Cycle targeting mode",       "Left-click a tower during a wave");
-		AddRow(vbox, "Pause / unpause",            "Esc");
-		AddRow(vbox, "Speed",                      "Click speed button to cycle available game-speed steps");
-		AddSpacer(vbox, 12);
+        // Simple VBox that can expand vertically
+        var vbox = new VBoxContainer();
+        vbox.AddThemeConstantOverride("separation", 6);
+        vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        // Don't set vertical size flags - let it size naturally to content
+        marginContainer.AddChild(vbox);
 
-		// â”€â”€ Towers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-		AddHeader(vbox, "TOWERS");
-		AddTowerRow(vbox, "Rapid Shooter", "10 dmg, 0.45 s, 285 px range",
-			"High rate of fire, low damage per hit. Shines with Momentum and Hair Trigger.");
-		AddTowerRow(vbox, "Heavy Cannon",  "52 dmg, 2.0 s, 238 px range",
-			"Slow but hits hard. Great with Overkill and Focus Lens.");
-		AddTowerRow(vbox, "Marker Tower",  "7 dmg, 1.0 s, 333 px range",
-			"Applies Mark on every hit. Synergises with Exploit Weakness.");
-		AddTowerRow(vbox, "Arc Emitter (unlock)",   "18 dmg, 1.2 s, 257 px range",
-			"Unlock by beating the first campaign map on Normal or Hard. Chains to 2 nearby enemies per shot (60% damage decay per bounce).");
-		AddTowerRow(vbox, "Rift Sapper (unlock)", "20 dmg, 0.98 s, 230 px range",
-			"Unlock by beating the second campaign map on Normal or Hard. Plants up to 7 mines with 3 charges each; final charge causes the big pop. Wave start gets rapid seeding for 2.4s. Split Shot seeds mini-mines (35% scale) on final pops only.");
-		AddSpacer(vbox, 12);
+        // Title
+        AddTitle(vbox, "HOW TO PLAY");
+        AddSpacer(vbox, 10);
 
-		// â”€â”€ Targeting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-		AddHeader(vbox, "TARGETING MODES  (click a tower mid-wave to cycle)");
-		AddLine(vbox, "The same icon badge appears beside each tower during combat.");
-		AddTargetModeRow(vbox, TargetingMode.First, "First", "Enemy furthest along the path");
-		AddTargetModeRow(vbox, TargetingMode.Strongest, "Strongest", "Enemy with the most current HP");
-		AddTargetModeRow(vbox, TargetingMode.LowestHp, "Lowest HP", "Enemy closest to death");
-		AddLine(vbox, "Rift Sapper uses its own targeting set (same cycle keybind):");
-		AddTargetModeRow(vbox, TargetingMode.First, "Random", "Place mines at random valid lane points within range.", TargetModeIconSet.RiftSapper);
-		AddTargetModeRow(vbox, TargetingMode.Strongest, "Closest", "Place mines at the closest valid lane point within range.", TargetModeIconSet.RiftSapper);
-		AddTargetModeRow(vbox, TargetingMode.LowestHp, "Furthest", "Place mines at the furthest valid lane point within range.", TargetModeIconSet.RiftSapper);
-		AddSpacer(vbox, 12);
+        var tabRow = new HBoxContainer();
+        tabRow.Alignment = BoxContainer.AlignmentMode.Center;
+        tabRow.AddThemeConstantOverride("separation", 12);
+        vbox.AddChild(tabRow);
 
-		// â”€â”€ Mark â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-		AddHeader(vbox, "MARK");
-		AddLine(vbox, "Marker Tower hits apply Mark for 4 seconds.");
-		AddLine(vbox, "Marked enemies take +40% damage from all towers.");
-		AddLine(vbox, "Pair with Exploit Weakness for a x2.24 burst combo (+40% mark x +60% exploit).");
-		AddSpacer(vbox, 12);
+        _basicsTabBtn = BuildTabButton("How To Play", () => SetActiveTab(HowToTab.Basics));
+        _surgesTabBtn = BuildTabButton("Surges", () => SetActiveTab(HowToTab.Surges));
+        tabRow.AddChild(_basicsTabBtn);
+        tabRow.AddChild(_surgesTabBtn);
 
-		// â”€â”€ Modifiers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-		AddHeader(vbox, "MODIFIERS  (max 3 per tower)");
-		AddModRow(vbox, "Momentum",         "+16% damage per consecutive hit on same target, up to x1.8. Resets on target switch.");
-		AddModRow(vbox, "Overkill",         "Excess damage from a kill spills to the next enemy in the lane.");
-		AddModRow(vbox, "Exploit Weakness", "+60% damage to Marked enemies. Pairs with Marker Tower.");
-		AddModRow(vbox, "Focus Lens",       "+140% damage, +85% attack interval. Big hits, slow fire - ideal for Overkill combos.");
-		AddModRow(vbox, "Chill Shot",       "On hit: -30% move speed for 6 s. Keeps enemies in range longer.");
-		AddModRow(vbox, "Overreach",        "+55% range, -10% damage. Wider coverage with a light damage tradeoff.");
-		AddModRow(vbox, "Hair Trigger",     "+30% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
-		AddModRow(vbox, "Split Shot",       "On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
-		AddModRow(vbox, "Feedback Loop",    "Killing an enemy reduces this tower's current cooldown by 50%. Lets rapid killers fire again sooner.");
-		AddModRow(vbox, "Chain Reaction",   "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
-		AddSpacer(vbox, 12);
+        AddSpacer(vbox, 8);
 
-		// â”€â”€ Enemies â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-		AddHeader(vbox, "ENEMIES");
-		AddLine(vbox, $"Basic Walker: {Balance.BaseEnemyHp:0} HP on wave 1, x{Balance.HpGrowthPerWave:0.00} per wave. Speed: {Balance.BaseEnemySpeed:0} px/s. Leaks cost 1 life.");
-		AddLine(vbox, $"Armored Walker: {Balance.TankyHpMultiplier:0.#}x HP, half speed ({Balance.TankyEnemySpeed:0} px/s). Leaks cost 2 lives. First appears wave 6.");
-		AddLine(vbox, $"Swift Walker: {Balance.SwiftHpMultiplier:0.#}x HP, double speed ({Balance.SwiftEnemySpeed:0} px/s). Leaks cost 1 life. Appears in mid-game surge waves.");
-		AddLine(vbox, "Enemy count scales with map and difficulty; late waves can exceed 40 total enemies on harder settings.");
-		AddSpacer(vbox, 12);
+        _basicsSection = new VBoxContainer();
+        _basicsSection.AddThemeConstantOverride("separation", 6);
+        vbox.AddChild(_basicsSection);
+        BuildBasicsSection(_basicsSection);
 
-		// â”€â”€ Tips â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-		AddHeader(vbox, "TIPS");
-		AddLine(vbox, "Rapid Shooter + Momentum - devastating DPS on enemies that take many hits to kill.");
-		AddLine(vbox, "Marker Tower + Exploit Weakness - marks the target then bursts it for x2.24 total damage.");
-		AddLine(vbox, "Heavy Cannon + Overkill - chain-kills tightly packed groups; spill damage carries forward.");
-		AddLine(vbox, "Arc Emitter + Chain Reaction - each copy adds a bounce; with 3 copies, Arc Emitter can hit 6 targets per shot.");
-		AddLine(vbox, "Heavy Cannon + Split Shot - even at 35%, cannon hits still add meaningful side pressure to nearby enemies.");
-		AddLine(vbox, "Feedback Loop + Hair Trigger - killing enemies reduces cooldown faster; rapid shooters cycle almost instantly.");
-		AddLine(vbox, "Set your Marker Tower to First so it tags the lead enemy before damage towers fire.");
-		AddLine(vbox, "Hair Trigger + Chill Shot - rapid-fire slows stack to keep enemies frozen in range.");
-		AddLine(vbox, "Swift Walkers appear waves 10-14 - Chill Shot or Overreach helps catch them before they outrun your range.");
-		AddSpacer(vbox, 32);
+        _surgesSection = new VBoxContainer();
+        _surgesSection.AddThemeConstantOverride("separation", 6);
+        vbox.AddChild(_surgesSection);
+        BuildSurgesSection(_surgesSection);
 
-		// â”€â”€ Back button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-		var backBtn = new Button
-		{
-			Text = "<- Back",
-			CustomMinimumSize = new Vector2(160, 48),
-		};
-		var backBtnSize = MobileOptimization.IsMobile() ? 18 : 22;
-		backBtn.AddThemeFontSizeOverride("font_size", backBtnSize);
-		backBtn.Pressed += () =>
-		{
-			if (OnBack != null) { OnBack(); QueueFree(); }
-			else SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
-		};
-		vbox.AddChild(backBtn);
+        SetActiveTab(HowToTab.Basics);
+        AddSpacer(vbox, 22);
 
-		AddSpacer(vbox, 40);
-		
-		// Don't use MobileOptimization.ApplyUIScale for this screen
-		// Instead handle mobile layout through responsive margins and font sizes
-	}
+        // Back button
+        var backBtn = new Button
+        {
+            Text = "<- Back",
+            CustomMinimumSize = new Vector2(160, 48),
+        };
+        var backBtnSize = MobileOptimization.IsMobile() ? 18 : 22;
+        backBtn.AddThemeFontSizeOverride("font_size", backBtnSize);
+        backBtn.Pressed += () =>
+        {
+            if (OnBack != null) { OnBack(); QueueFree(); }
+            else SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+        };
+        vbox.AddChild(backBtn);
 
-	public override void _Notification(int what)
-	{
-		if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */)
-		{
-			SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
-			if (OnBack != null) { OnBack(); QueueFree(); }
-			else SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
-		}
-	}
+        AddSpacer(vbox, 40);
+    }
 
-	public override void _UnhandledInput(InputEvent @event)
-	{
-		if (@event.IsActionPressed("ui_cancel"))
-		{
-			if (OnBack != null) { OnBack(); QueueFree(); }
-			else SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
-			GetViewport().SetInputAsHandled();
-		}
-	}
+    public override void _Notification(int what)
+    {
+        if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */)
+        {
+            SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
+            if (OnBack != null) { OnBack(); QueueFree(); }
+            else SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+        }
+    }
 
-	// â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event.IsActionPressed("ui_cancel"))
+        {
+            if (OnBack != null) { OnBack(); QueueFree(); }
+            else SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+            GetViewport().SetInputAsHandled();
+        }
+    }
 
-	private static void AddTitle(VBoxContainer vbox, string text)
-	{
-		var lbl = new Label { Text = text, HorizontalAlignment = HorizontalAlignment.Center };
-		var titleSize = MobileOptimization.IsMobile() ? 36 : 52;
-		SlotTheory.Core.UITheme.ApplyFont(lbl, semiBold: true, size: titleSize);
-		lbl.Modulate = new Color("#a6d608");
-		vbox.AddChild(lbl);
-	}
+    private static void BuildBasicsSection(VBoxContainer vbox)
+    {
+        AddHeader(vbox, "CORE LOOP");
+        AddLine(vbox, "Before each wave, draft 1 card (5 options if slots are free; 4 if all slots are occupied).");
+        AddLine(vbox, "Waves run automatically - you do not manually fire or place towers during waves.");
+        AddLine(vbox, "Survive all 20 waves to win.");
+        AddLine(vbox, "An enemy reaching the exit costs 1 life. You have 10 lives.");
+        AddSpacer(vbox, 12);
 
-	private static void AddHeader(VBoxContainer vbox, string text)
-	{
-		var sep = new HSeparator();
-		sep.Modulate = new Color(0.35f, 0.35f, 0.35f);
-		vbox.AddChild(sep);
-		AddSpacer(vbox, 6);
+        AddHeader(vbox, "CONTROLS");
+        AddRow(vbox, "Pick a draft card", "Left-click the card");
+        AddRow(vbox, "Assign tower / modifier", "Click target to preview, click same target again to confirm");
+        AddRow(vbox, "Cycle targeting mode", "Left-click a tower during a wave");
+        AddRow(vbox, "Pause / unpause", "Esc / Space / HUD Pause button");
+        AddRow(vbox, "Speed", "Click speed button to cycle available game-speed steps");
+        AddSpacer(vbox, 12);
 
-		var lbl = new Label { Text = text };
-		var headerSize = MobileOptimization.IsMobile() ? 14 : 18;
-		lbl.AddThemeFontSizeOverride("font_size", headerSize);
-		lbl.Modulate = new Color("#a6d608");
-		vbox.AddChild(lbl);
+        AddHeader(vbox, "TOWERS");
+        AddTowerRow(vbox, "Rapid Shooter", "10 dmg, 0.45 s, 285 px range",
+            "High rate of fire, low damage per hit. Shines with Momentum and Hair Trigger.");
+        AddTowerRow(vbox, "Heavy Cannon", "52 dmg, 2.0 s, 238 px range",
+            "Slow but hits hard. Great with Overkill and Focus Lens.");
+        AddTowerRow(vbox, "Marker Tower", "7 dmg, 1.0 s, 333 px range",
+            "Applies Mark on every hit. Synergises with Exploit Weakness.");
+        AddTowerRow(vbox, "Arc Emitter (unlock)", "18 dmg, 1.2 s, 257 px range",
+            "Unlock by beating the first campaign map on Normal or Hard. Chains to 2 nearby enemies per shot (60% damage decay per bounce).");
+        AddTowerRow(vbox, "Rift Sapper (unlock)", "20 dmg, 0.98 s, 230 px range",
+            "Unlock by beating the second campaign map on Normal or Hard. Plants up to 7 mines with 3 charges each; final charge causes the big pop. Wave start gets rapid seeding for 2.4s. Split Shot seeds mini-mines (35% scale) on final pops only.");
+        AddSpacer(vbox, 12);
 
-		AddSpacer(vbox, 4);
-	}
+        AddHeader(vbox, "TARGETING MODES  (click a tower mid-wave to cycle)");
+        AddLine(vbox, "The same icon badge appears beside each tower during combat.");
+        AddTargetModeRow(vbox, TargetingMode.First, "First", "Enemy furthest along the path");
+        AddTargetModeRow(vbox, TargetingMode.Strongest, "Strongest", "Enemy with the most current HP");
+        AddTargetModeRow(vbox, TargetingMode.LowestHp, "Lowest HP", "Enemy closest to death");
+        AddLine(vbox, "Rift Sapper uses its own targeting set (same cycle keybind):");
+        AddTargetModeRow(vbox, TargetingMode.First, "Random", "Place mines at random valid lane points within range.", TargetModeIconSet.RiftSapper);
+        AddTargetModeRow(vbox, TargetingMode.Strongest, "Closest", "Place mines at the closest valid lane point within range.", TargetModeIconSet.RiftSapper);
+        AddTargetModeRow(vbox, TargetingMode.LowestHp, "Furthest", "Place mines at the furthest valid lane point within range.", TargetModeIconSet.RiftSapper);
+        AddSpacer(vbox, 12);
 
-	private static void AddLine(VBoxContainer vbox, string text)
-	{
-		var lbl = new Label { Text = "  - " + text };
-		var lineSize = MobileOptimization.IsMobile() ? 14 : 16;
-		lbl.AddThemeFontSizeOverride("font_size", lineSize);
-		lbl.Modulate = new Color(0.82f, 0.82f, 0.82f);
-		lbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-		vbox.AddChild(lbl);
-	}
+        AddHeader(vbox, "MARK");
+        AddLine(vbox, "Marker Tower hits apply Mark for 4 seconds.");
+        AddLine(vbox, "Marked enemies take +40% damage from all towers.");
+        AddLine(vbox, "Pair with Exploit Weakness for a x2.24 burst combo (+40% mark x +60% exploit).");
+        AddSpacer(vbox, 12);
 
-	private static void AddRow(VBoxContainer vbox, string label, string value)
-	{
-		var hbox = new HBoxContainer();
-		hbox.AddThemeConstantOverride("separation", 0);
-		vbox.AddChild(hbox);
+        AddHeader(vbox, "MODIFIERS  (max 3 per tower)");
+        AddModRow(vbox, "Momentum", "+16% damage per consecutive hit on same target, up to x1.8. Resets on target switch.");
+        AddModRow(vbox, "Overkill", "Excess damage from a kill spills to the next enemy in the lane.");
+        AddModRow(vbox, "Exploit Weakness", "+60% damage to Marked enemies. Pairs with Marker Tower.");
+        AddModRow(vbox, "Focus Lens", "+140% damage, +85% attack interval. Big hits, slow fire - ideal for Overkill combos.");
+        AddModRow(vbox, "Chill Shot", "On hit: -30% move speed for 6 s. Keeps enemies in range longer.");
+        AddModRow(vbox, "Overreach", "+55% range, -10% damage. Wider coverage with a light damage tradeoff.");
+        AddModRow(vbox, "Hair Trigger", "+30% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
+        AddModRow(vbox, "Split Shot", "On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
+        AddModRow(vbox, "Feedback Loop", "Killing an enemy reduces this tower's current cooldown by 50%. Lets rapid killers fire again sooner.");
+        AddModRow(vbox, "Chain Reaction", "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
+        AddSpacer(vbox, 12);
 
-		var lblLeft = new Label { Text = "  " + label };
-		var rowSize = MobileOptimization.IsMobile() ? 14 : 16;
-		var minWidth = MobileOptimization.IsMobile() ? 200 : 300;
-		lblLeft.AddThemeFontSizeOverride("font_size", rowSize);
-		lblLeft.Modulate = new Color(0.90f, 0.90f, 0.90f);
-		lblLeft.CustomMinimumSize = new Vector2(minWidth, 0);
-		hbox.AddChild(lblLeft);
+        AddHeader(vbox, "ENEMIES");
+        AddLine(vbox, $"Basic Walker: {Balance.BaseEnemyHp:0} HP on wave 1, x{Balance.HpGrowthPerWave:0.00} per wave. Speed: {Balance.BaseEnemySpeed:0} px/s. Leaks cost 1 life.");
+        AddLine(vbox, $"Armored Walker: {Balance.TankyHpMultiplier:0.#}x HP, half speed ({Balance.TankyEnemySpeed:0} px/s). Leaks cost 2 lives. First appears wave 6.");
+        AddLine(vbox, $"Swift Walker: {Balance.SwiftHpMultiplier:0.#}x HP, double speed ({Balance.SwiftEnemySpeed:0} px/s). Leaks cost 1 life. Appears in mid-game surge waves.");
+        AddLine(vbox, "Enemy count scales with map and difficulty; late waves can exceed 40 total enemies on harder settings.");
+        AddSpacer(vbox, 12);
 
-		var lblRight = new Label { Text = value };
-		lblRight.AddThemeFontSizeOverride("font_size", rowSize);
-		lblRight.Modulate = new Color(0.60f, 0.60f, 0.60f);
-		lblRight.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-		hbox.AddChild(lblRight);
-	}
+        AddHeader(vbox, "TIPS");
+        AddLine(vbox, "Rapid Shooter + Momentum - devastating DPS on enemies that take many hits to kill.");
+        AddLine(vbox, "Marker Tower + Exploit Weakness - marks the target then bursts it for x2.24 total damage.");
+        AddLine(vbox, "Heavy Cannon + Overkill - chain-kills tightly packed groups; spill damage carries forward.");
+        AddLine(vbox, "Arc Emitter + Chain Reaction - each copy adds a bounce; with 3 copies, Arc Emitter can hit 6 targets per shot.");
+        AddLine(vbox, "Heavy Cannon + Split Shot - even at 35%, cannon hits still add meaningful side pressure to nearby enemies.");
+        AddLine(vbox, "Feedback Loop + Hair Trigger - killing enemies reduces cooldown faster; rapid shooters cycle almost instantly.");
+        AddLine(vbox, "Set your Marker Tower to First so it tags the lead enemy before damage towers fire.");
+        AddLine(vbox, "Hair Trigger + Chill Shot - rapid-fire slows stack to keep enemies frozen in range.");
+        AddLine(vbox, "Swift Walkers appear waves 10-14 - Chill Shot or Overreach helps catch them before they outrun your range.");
+    }
 
-	private static void AddTargetModeRow(
-		VBoxContainer vbox,
-		TargetingMode mode,
-		string label,
-		string value,
-		TargetModeIconSet iconSet = TargetModeIconSet.Default)
-	{
-		var hbox = new HBoxContainer();
-		hbox.AddThemeConstantOverride("separation", 8);
-		vbox.AddChild(hbox);
+    private static void BuildSurgesSection(VBoxContainer vbox)
+    {
+        AddHeader(vbox, "SURGES OVERVIEW");
+        AddLine(vbox, "Each tower builds spectacle charge from supported modifier events.");
+        AddLine(vbox, $"Tower surge: triggers at {SpectacleDefinitions.SurgeThreshold:0} meter, then meter resets to {SpectacleDefinitions.SurgeMeterAfterTrigger:0}.");
+        AddLine(vbox, $"Global meter gain: +{SpectacleDefinitions.GlobalMeterPerSurge:0} per tower surge; global surge triggers at {SpectacleDefinitions.GlobalThreshold:0}, then resets to {SpectacleDefinitions.GlobalMeterAfterTrigger:0}.");
+        AddLine(vbox, "Surge mode by unique supported mods on tower: 1=Single, 2=Combo, 3=Triad (combo core + augment). ");
+        AddSpacer(vbox, 12);
 
-		var indent = new Control { CustomMinimumSize = new Vector2(8f, 0f) };
-		hbox.AddChild(indent);
+        AddHeader(vbox, "SINGLE SURGE TYPES (10)");
+        foreach (string modId in CanonicalSurgeMods)
+        {
+            var single = SpectacleDefinitions.GetSingle(modId);
+            string modName = SpectacleDefinitions.GetDisplayName(modId);
+            AddModRow(vbox, single.Name.ToUpperInvariant(), $"{modName}: {DescribeSingleEffect(modId)}");
+        }
+        AddSpacer(vbox, 12);
 
-		var badge = new ColorRect
-		{
-			Color = new Color(0.02f, 0.03f, 0.09f, 0.86f),
-			CustomMinimumSize = new Vector2(20f, 20f),
-			Size = new Vector2(20f, 20f),
-			MouseFilter = Control.MouseFilterEnum.Ignore,
-		};
-		hbox.AddChild(badge);
+        AddHeader(vbox, "COMBO SURGE TYPES (45)");
+        for (int i = 0; i < CanonicalSurgeMods.Length; i++)
+        {
+            for (int j = i + 1; j < CanonicalSurgeMods.Length; j++)
+            {
+                string a = CanonicalSurgeMods[i];
+                string b = CanonicalSurgeMods[j];
+                var combo = SpectacleDefinitions.GetCombo(a, b);
+                string aName = SpectacleDefinitions.GetDisplayName(a);
+                string bName = SpectacleDefinitions.GetDisplayName(b);
+                AddModRow(vbox, combo.Name.ToUpperInvariant(),
+                    $"{aName} + {bName}: Hybrid payload combining both modifier surge families.");
+            }
+        }
+        AddSpacer(vbox, 12);
 
-		var border = new Line2D
-		{
-			Points = new[]
-			{
-				new Vector2(0f, 0f), new Vector2(20f, 0f), new Vector2(20f, 20f),
-				new Vector2(0f, 20f), new Vector2(0f, 0f)
-			},
-			Width = 1.5f,
-			DefaultColor = new Color(0.68f, 0.94f, 1.00f, 0.90f),
-			Antialiased = true,
-		};
-		badge.AddChild(border);
+        AddHeader(vbox, "TRIAD AUGMENT TYPES (10)");
+        foreach (string modId in CanonicalSurgeMods)
+        {
+            var aug = SpectacleDefinitions.GetTriadAugment(modId);
+            string modName = SpectacleDefinitions.GetDisplayName(modId);
+            string duration = aug.DurationSec > 0f ? $"{aug.DurationSec:0.0}s" : "instant";
+            AddModRow(vbox, aug.Name.ToUpperInvariant(), $"{modName}: {DescribeAugmentKind(aug.Kind)}. Coef {aug.Coefficient * 100f:0}% ({duration}).");
+        }
+        AddLine(vbox, "Triad surge output always uses one combo core C_* plus one augment package T_AUG_*.");
+        AddSpacer(vbox, 12);
 
-		var icon = new TargetModeIcon
-		{
-			Mode = mode,
-			IconSet = iconSet,
-			Position = new Vector2(3f, 3f),
-			Size = new Vector2(14f, 14f),
-			CustomMinimumSize = new Vector2(14f, 14f),
-			IconColor = Colors.White,
-			MouseFilter = Control.MouseFilterEnum.Ignore,
-		};
-		badge.AddChild(icon);
+        AddHeader(vbox, "GLOBAL SURGE");
+        AddLine(vbox, "Global surge type is fixed: Catastrophe.");
+        AddLine(vbox, "When it triggers, every placed tower gets cooldown refunded and immediately fires a major surge payload.");
+        AddLine(vbox, "All alive enemies get marked and slowed for a short window.");
+        AddLine(vbox, "Visuals: center-screen GLOBAL SURGE banner, screen pulse, and center-to-enemy surge arcs to show affected enemies.");
+    }
 
-		var rowSize = MobileOptimization.IsMobile() ? 14 : 16;
+    private static string DescribeSingleEffect(string modId) => SpectacleDefinitions.NormalizeModId(modId) switch
+    {
+        "momentum" => "Ramped burst damage from sustained same-target pressure.",
+        "overkill" => "Spill-focused burst that overflows into nearby enemies.",
+        "exploit_weakness" => "Marked-target execution burst.",
+        "focus_lens" => "Focused beam/lance burst for heavy single-target pressure.",
+        "slow" => "Cryo wave that slows packs and adds chip damage.",
+        "overreach" => "Long-range sweep that pressures distant enemies.",
+        "hair_trigger" => "Overclock burst with high hit tempo.",
+        "split_shot" => "Fractal spread burst across nearby enemies.",
+        "feedback_loop" => "Reboot burst with strong cooldown tempo value.",
+        "chain_reaction" => "Arc overload bouncing through linked targets.",
+        _ => "Modifier-specific primary surge payload.",
+    };
 
-		var lblLeft = new Label { Text = label };
-		lblLeft.AddThemeFontSizeOverride("font_size", rowSize);
-		lblLeft.Modulate = new Color(0.90f, 0.90f, 0.90f);
-		lblLeft.CustomMinimumSize = new Vector2(MobileOptimization.IsMobile() ? 86f : 110f, 0f);
-		hbox.AddChild(lblLeft);
+    private static string DescribeAugmentKind(SpectacleAugmentKind kind) => kind switch
+    {
+        SpectacleAugmentKind.RampCap => "Raises momentum ramp cap",
+        SpectacleAugmentKind.SpillTransfer => "Boosts spill transfer",
+        SpectacleAugmentKind.MarkedVulnerability => "Increases marked vulnerability",
+        SpectacleAugmentKind.BeamBurst => "Strengthens beam burst",
+        SpectacleAugmentKind.SlowIntensity => "Deepens slow intensity",
+        SpectacleAugmentKind.RangePulse => "Adds range pulse coverage",
+        SpectacleAugmentKind.AttackSpeed => "Adds temporary attack-speed overclock",
+        SpectacleAugmentKind.SplitVolley => "Amplifies split-volley burst",
+        SpectacleAugmentKind.CooldownRefund => "Increases cooldown reclaim",
+        SpectacleAugmentKind.ChainBounces => "Adds chain-bounce pressure",
+        _ => "Triad augment package",
+    };
 
-		var lblRight = new Label { Text = value };
-		lblRight.AddThemeFontSizeOverride("font_size", rowSize);
-		lblRight.Modulate = new Color(0.60f, 0.60f, 0.60f);
-		lblRight.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-		lblRight.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-		hbox.AddChild(lblRight);
-	}
+    // Helpers
+    private static Button BuildTabButton(string text, System.Action onPressed)
+    {
+        var btn = new Button
+        {
+            Text = text,
+            CustomMinimumSize = new Vector2(180f, 42f),
+        };
+        btn.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 15 : 18);
+        btn.Pressed += () =>
+        {
+            SoundManager.Instance?.Play("ui_select");
+            onPressed();
+        };
+        return btn;
+    }
 
-	private static void AddTowerRow(VBoxContainer vbox, string name, string stats, string desc)
-	{
-		var nameLbl = new Label { Text = "  " + name };
-		var nameSize = MobileOptimization.IsMobile() ? 15 : 17;
-		nameLbl.AddThemeFontSizeOverride("font_size", nameSize);
-		nameLbl.Modulate = new Color(0.95f, 0.95f, 0.95f);
-		vbox.AddChild(nameLbl);
+    private void SetActiveTab(HowToTab tab)
+    {
+        bool basics = tab == HowToTab.Basics;
+        _basicsSection.Visible = basics;
+        _surgesSection.Visible = !basics;
+        ApplyTabButtonState(_basicsTabBtn, basics);
+        ApplyTabButtonState(_surgesTabBtn, !basics);
+    }
 
-		var statsLbl = new Label { Text = "    " + stats };
-		var detailSize = MobileOptimization.IsMobile() ? 13 : 15;
-		statsLbl.AddThemeFontSizeOverride("font_size", detailSize);
-		statsLbl.Modulate = new Color(0.55f, 0.75f, 1.00f);
-		vbox.AddChild(statsLbl);
+    private static void ApplyTabButtonState(Button btn, bool active)
+    {
+        btn.Modulate = active
+            ? new Color(0.96f, 0.98f, 1.00f, 1f)
+            : new Color(0.72f, 0.76f, 0.84f, 0.85f);
+    }
 
-		var descLbl = new Label { Text = "    " + desc };
-		descLbl.AddThemeFontSizeOverride("font_size", detailSize);
-		descLbl.Modulate = new Color(0.60f, 0.60f, 0.60f);
-		descLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-		vbox.AddChild(descLbl);
+    private static void AddTitle(VBoxContainer vbox, string text)
+    {
+        var lbl = new Label { Text = text, HorizontalAlignment = HorizontalAlignment.Center };
+        var titleSize = MobileOptimization.IsMobile() ? 36 : 52;
+        SlotTheory.Core.UITheme.ApplyFont(lbl, semiBold: true, size: titleSize);
+        lbl.Modulate = new Color("#a6d608");
+        vbox.AddChild(lbl);
+    }
 
-		AddSpacer(vbox, 6);
-	}
+    private static void AddHeader(VBoxContainer vbox, string text)
+    {
+        var sep = new HSeparator();
+        sep.Modulate = new Color(0.35f, 0.35f, 0.35f);
+        vbox.AddChild(sep);
+        AddSpacer(vbox, 6);
 
-	private static void AddModRow(VBoxContainer vbox, string name, string desc)
-	{
-		var hbox = new HBoxContainer();
-		hbox.AddThemeConstantOverride("separation", 0);
-		vbox.AddChild(hbox);
+        var lbl = new Label { Text = text };
+        var headerSize = MobileOptimization.IsMobile() ? 14 : 18;
+        lbl.AddThemeFontSizeOverride("font_size", headerSize);
+        lbl.Modulate = new Color("#a6d608");
+        vbox.AddChild(lbl);
 
-		var nameLbl = new Label { Text = "  " + name };
-		var modSize = MobileOptimization.IsMobile() ? 14 : 16;
-		var modNameWidth = MobileOptimization.IsMobile() ? 150 : 220;
-		nameLbl.AddThemeFontSizeOverride("font_size", modSize);
-		nameLbl.Modulate = new Color(0.90f, 0.75f, 1.00f);
-		nameLbl.CustomMinimumSize = new Vector2(modNameWidth, 0);
-		hbox.AddChild(nameLbl);
+        AddSpacer(vbox, 4);
+    }
 
-		var descLbl = new Label { Text = desc };
-		descLbl.AddThemeFontSizeOverride("font_size", modSize);
-		descLbl.Modulate = new Color(0.65f, 0.65f, 0.65f);
-		descLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-		descLbl.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-		hbox.AddChild(descLbl);
-	}
+    private static void AddLine(VBoxContainer vbox, string text)
+    {
+        var lbl = new Label { Text = "  - " + text };
+        var lineSize = MobileOptimization.IsMobile() ? 14 : 16;
+        lbl.AddThemeFontSizeOverride("font_size", lineSize);
+        lbl.Modulate = new Color(0.82f, 0.82f, 0.82f);
+        lbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        vbox.AddChild(lbl);
+    }
 
-	private static void AddSpacer(VBoxContainer vbox, int px)
-	{
-		var s = new Control { CustomMinimumSize = new Vector2(0, px) };
-		vbox.AddChild(s);
-	}
+    private static void AddRow(VBoxContainer vbox, string label, string value)
+    {
+        var hbox = new HBoxContainer();
+        hbox.AddThemeConstantOverride("separation", 0);
+        vbox.AddChild(hbox);
+
+        var lblLeft = new Label { Text = "  " + label };
+        var rowSize = MobileOptimization.IsMobile() ? 14 : 16;
+        var minWidth = MobileOptimization.IsMobile() ? 200 : 300;
+        lblLeft.AddThemeFontSizeOverride("font_size", rowSize);
+        lblLeft.Modulate = new Color(0.90f, 0.90f, 0.90f);
+        lblLeft.CustomMinimumSize = new Vector2(minWidth, 0);
+        hbox.AddChild(lblLeft);
+
+        var lblRight = new Label { Text = value };
+        lblRight.AddThemeFontSizeOverride("font_size", rowSize);
+        lblRight.Modulate = new Color(0.60f, 0.60f, 0.60f);
+        lblRight.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        lblRight.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        hbox.AddChild(lblRight);
+    }
+
+    private static void AddTargetModeRow(
+        VBoxContainer vbox,
+        TargetingMode mode,
+        string label,
+        string value,
+        TargetModeIconSet iconSet = TargetModeIconSet.Default)
+    {
+        var hbox = new HBoxContainer();
+        hbox.AddThemeConstantOverride("separation", 8);
+        vbox.AddChild(hbox);
+
+        var indent = new Control { CustomMinimumSize = new Vector2(8f, 0f) };
+        hbox.AddChild(indent);
+
+        var badge = new ColorRect
+        {
+            Color = new Color(0.02f, 0.03f, 0.09f, 0.86f),
+            CustomMinimumSize = new Vector2(20f, 20f),
+            Size = new Vector2(20f, 20f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        hbox.AddChild(badge);
+
+        var border = new Line2D
+        {
+            Points = new[]
+            {
+                new Vector2(0f, 0f), new Vector2(20f, 0f), new Vector2(20f, 20f),
+                new Vector2(0f, 20f), new Vector2(0f, 0f)
+            },
+            Width = 1.5f,
+            DefaultColor = new Color(0.68f, 0.94f, 1.00f, 0.90f),
+            Antialiased = true,
+        };
+        badge.AddChild(border);
+
+        var icon = new TargetModeIcon
+        {
+            Mode = mode,
+            IconSet = iconSet,
+            Position = new Vector2(3f, 3f),
+            Size = new Vector2(14f, 14f),
+            CustomMinimumSize = new Vector2(14f, 14f),
+            IconColor = Colors.White,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        badge.AddChild(icon);
+
+        var rowSize = MobileOptimization.IsMobile() ? 14 : 16;
+
+        var lblLeft = new Label { Text = label };
+        lblLeft.AddThemeFontSizeOverride("font_size", rowSize);
+        lblLeft.Modulate = new Color(0.90f, 0.90f, 0.90f);
+        lblLeft.CustomMinimumSize = new Vector2(MobileOptimization.IsMobile() ? 86f : 110f, 0f);
+        hbox.AddChild(lblLeft);
+
+        var lblRight = new Label { Text = value };
+        lblRight.AddThemeFontSizeOverride("font_size", rowSize);
+        lblRight.Modulate = new Color(0.60f, 0.60f, 0.60f);
+        lblRight.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        lblRight.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        hbox.AddChild(lblRight);
+    }
+
+    private static void AddTowerRow(VBoxContainer vbox, string name, string stats, string desc)
+    {
+        var nameLbl = new Label { Text = "  " + name };
+        var nameSize = MobileOptimization.IsMobile() ? 15 : 17;
+        nameLbl.AddThemeFontSizeOverride("font_size", nameSize);
+        nameLbl.Modulate = new Color(0.95f, 0.95f, 0.95f);
+        vbox.AddChild(nameLbl);
+
+        var statsLbl = new Label { Text = "    " + stats };
+        var detailSize = MobileOptimization.IsMobile() ? 13 : 15;
+        statsLbl.AddThemeFontSizeOverride("font_size", detailSize);
+        statsLbl.Modulate = new Color(0.55f, 0.75f, 1.00f);
+        vbox.AddChild(statsLbl);
+
+        var descLbl = new Label { Text = "    " + desc };
+        descLbl.AddThemeFontSizeOverride("font_size", detailSize);
+        descLbl.Modulate = new Color(0.60f, 0.60f, 0.60f);
+        descLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        vbox.AddChild(descLbl);
+
+        AddSpacer(vbox, 6);
+    }
+
+    private static void AddModRow(VBoxContainer vbox, string name, string desc)
+    {
+        var hbox = new HBoxContainer();
+        hbox.AddThemeConstantOverride("separation", 0);
+        vbox.AddChild(hbox);
+
+        var nameLbl = new Label { Text = "  " + name };
+        var modSize = MobileOptimization.IsMobile() ? 14 : 16;
+        var modNameWidth = MobileOptimization.IsMobile() ? 260 : 390;
+        nameLbl.AddThemeFontSizeOverride("font_size", modSize);
+        nameLbl.Modulate = new Color(0.90f, 0.75f, 1.00f);
+        nameLbl.CustomMinimumSize = new Vector2(modNameWidth, 0);
+        nameLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        hbox.AddChild(nameLbl);
+
+        var descLbl = new Label { Text = desc };
+        descLbl.AddThemeFontSizeOverride("font_size", modSize);
+        descLbl.Modulate = new Color(0.65f, 0.65f, 0.65f);
+        descLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        descLbl.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        hbox.AddChild(descLbl);
+    }
+
+    private static void AddSpacer(VBoxContainer vbox, int px)
+    {
+        var s = new Control { CustomMinimumSize = new Vector2(0, px) };
+        vbox.AddChild(s);
+    }
 }
-

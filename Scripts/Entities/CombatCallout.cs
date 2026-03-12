@@ -8,7 +8,7 @@ namespace SlotTheory.Entities;
 /// </summary>
 public partial class CombatCallout : Node2D
 {
-    private const float Duration = 0.96f;
+    private const float DefaultDuration = 0.96f;
     private const float RiseSpeed = 13f;
     private static float _mobileReadabilityScale = 1f;
     private static readonly Vector2[] OutlineDirs =
@@ -24,13 +24,15 @@ public partial class CombatCallout : Node2D
     };
 
     private float _life = 0f;
+    private float _duration = DefaultDuration;
     private string _text = "";
     private Color _color = Colors.White;
 
-    public void Initialize(string text, Color color)
+    public void Initialize(string text, Color color, float duration = DefaultDuration)
     {
         _text = text;
         _color = color;
+        _duration = Mathf.Max(0.1f, duration);
     }
 
     public static void SetMobileReadabilityScale(float scale)
@@ -42,7 +44,7 @@ public partial class CombatCallout : Node2D
     {
         _life += (float)delta;
         Position += new Vector2(0f, -RiseSpeed * (float)delta);
-        if (_life >= Duration)
+        if (_life >= _duration)
         {
             QueueFree();
             return;
@@ -52,7 +54,7 @@ public partial class CombatCallout : Node2D
 
     public override void _Draw()
     {
-        float t = _life / Duration;
+        float t = _life / _duration;
         float alpha = 1f - t * t * t;
         int size = Mathf.Clamp(Mathf.RoundToInt(16f * _mobileReadabilityScale), 12, 44);
         var col = new Color(_color.R, _color.G, _color.B, alpha);
