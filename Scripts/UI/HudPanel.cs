@@ -9,6 +9,8 @@ namespace SlotTheory.UI;
 /// </summary>
 public partial class HudPanel : CanvasLayer
 {
+    private const string PlayIcon = "\u25B6";
+    private const string PauseIcon = "||";
     private Label _waveLabel = null!;
     private RichTextLabel _buildLabel = null!;
     private Label _livesLabel = null!;
@@ -21,6 +23,8 @@ public partial class HudPanel : CanvasLayer
     private ProgressBar _globalSpectacleBar = null!;
     private Label _globalSpectacleLabel = null!;
     private Button _speedBtn = null!;
+    private Button _pausePlayBtn = null!;
+    private bool _lastPausedState;
     private int _speedIdx = 0;
     private static readonly double[] SpeedStepsNormal = { 1.0, 2.0, 3.0 };
     private static readonly double[] SpeedStepsDev    = { 1.0, 2.0, 3.0, 5.0, 10.0 };
@@ -33,6 +37,7 @@ public partial class HudPanel : CanvasLayer
     public override void _Ready()
     {
         Layer = 1;
+        ProcessMode = ProcessModeEnum.Always;
 
         var bar = new Panel();
         bar.SetAnchorsPreset(Control.LayoutPreset.TopWide);
@@ -81,9 +86,17 @@ public partial class HudPanel : CanvasLayer
         rightHbox.AddThemeConstantOverride("separation", 8);
         right.AddChild(rightHbox);
 
+        _pausePlayBtn = new Button();
+        _pausePlayBtn.Text = PauseIcon;
+        _pausePlayBtn.CustomMinimumSize = new Vector2(44, 30);
+        _pausePlayBtn.AddThemeFontSizeOverride("font_size", 18);
+        _pausePlayBtn.Pressed += ToggleGameplayPause;
+        rightHbox.AddChild(_pausePlayBtn);
+
         _speedBtn = new Button();
         _speedBtn.Text = $"1\u00D7";
-        _speedBtn.CustomMinimumSize = new Vector2(50, 0);
+        _speedBtn.CustomMinimumSize = new Vector2(56, 30);
+        _speedBtn.AddThemeFontSizeOverride("font_size", 18);
         _speedBtn.Pressed += OnSpeedToggle;
         rightHbox.AddChild(_speedBtn);
 
@@ -94,14 +107,12 @@ public partial class HudPanel : CanvasLayer
         }
         else
         {
-            // Desktop ESC pause button (clickable)
-            var escBtn = new Button();
-            escBtn.Text = "ESC pause";
-            escBtn.AddThemeFontSizeOverride("font_size", 14);
-            escBtn.Modulate = new Color(1f, 1f, 1f, 0.7f);
-            escBtn.Flat = true;
-            escBtn.Pressed += OnEscButtonPressed;
-            rightHbox.AddChild(escBtn);
+            var menuBtn = new Button();
+            menuBtn.Text = "Menu";
+            menuBtn.AddThemeFontSizeOverride("font_size", 16);
+            menuBtn.CustomMinimumSize = new Vector2(84, 30);
+            menuBtn.Pressed += OnMenuButtonPressed;
+            rightHbox.AddChild(menuBtn);
         }
 
         // Mobile menu button (Android only)
@@ -121,6 +132,7 @@ public partial class HudPanel : CanvasLayer
         rightHbox.AddChild(pad);
 
         // Wave label — pinned exactly to screen center via full-width anchor + center alignment.
+        const float waveCenterShiftX = -40f;
         _waveLabel = new Label
         {
             Text = "Wave 1 / 20",
@@ -130,8 +142,8 @@ public partial class HudPanel : CanvasLayer
             AnchorRight  = 1f,
             AnchorTop    = 0f,
             AnchorBottom = 0f,
-            OffsetLeft   = 0f,
-            OffsetRight  = 0f,
+            OffsetLeft   = waveCenterShiftX,
+            OffsetRight  = waveCenterShiftX,
             OffsetTop    = 0f,
             OffsetBottom = 44f,
             MouseFilter  = Control.MouseFilterEnum.Ignore,
@@ -141,7 +153,7 @@ public partial class HudPanel : CanvasLayer
 
         float uiScale = MobileOptimization.GetUIScale();
         float enemyOffsetX = MobileOptimization.IsMobile() ? 120f * uiScale : 175f;
-        float livesOffsetX = MobileOptimization.IsMobile() ? 260f * uiScale : 390f;
+        float livesOffsetX = MobileOptimization.IsMobile() ? 240f * uiScale : 350f;
 
         _enemyLabel = new Label
         {
@@ -187,8 +199,8 @@ public partial class HudPanel : CanvasLayer
             Text = "0:00",
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
-            AnchorLeft   = 0.35f,
-            AnchorRight  = 0.35f,
+            AnchorLeft   = 0.33f,
+            AnchorRight  = 0.33f,
             AnchorTop    = 0f,
             AnchorBottom = 0f,
             OffsetLeft   = -60f,
@@ -253,6 +265,18 @@ public partial class HudPanel : CanvasLayer
         AddChild(_speedToastStreak);
 
         BuildGlobalSurgeMeter();
+        _lastPausedState = GetTree().Paused;
+        UpdatePausePlayButtonLabel();
+    }
+
+    public override void _Process(double delta)
+    {
+        bool isPaused = GetTree().Paused;
+        if (isPaused == _lastPausedState)
+            return;
+
+        _lastPausedState = isPaused;
+        UpdatePausePlayButtonLabel();
     }
 
     private void OnSpeedToggle()
@@ -391,22 +415,7 @@ public partial class HudPanel : CanvasLayer
 
     public void RefreshDevRenderStats(bool enabled, int enemiesAlive, string perfSummary)
     {
-        if (!enabled)
-        {
-            _devStatsLabel.Visible = false;
-            return;
-        }
-
-        var sm = SettingsManager.Instance;
-        string layeredFlags = $"L:{(sm?.LayeredEnemyRendering == true ? 1 : 0)} E:{(sm?.EnemyEmissiveLines == true ? 1 : 0)} D:{(sm?.EnemyDamageMaterial == true ? 1 : 0)} B:{(sm?.EnemyBloomHighlights == true ? 1 : 0)}";
-
-        _devStatsLabel.Visible = true;
-        _devStatsLabel.Text =
-            $"[DEV] {perfSummary} | {layeredFlags} | alive:{enemiesAlive} " +
-            $"body:{EnemyRenderDebugCounters.BodyPassCalls} dmg:{EnemyRenderDebugCounters.DamagePassCalls} em:{EnemyRenderDebugCounters.EmissivePassCalls} " +
-            $"bloom:{EnemyRenderDebugCounters.BloomPassCalls}/{EnemyRenderDebugCounters.BloomPrimitives} " +
-            $"fallback:{EnemyRenderDebugCounters.BloomFallbackCalls}/{EnemyRenderDebugCounters.BloomFallbackPrimitives} " +
-            $"budget:{EnemyRenderDebugCounters.BloomBudgetUsed}/{EnemyRenderDebugCounters.BloomBudgetCap} drop:{EnemyRenderDebugCounters.BloomBudgetRejected}";
+        _devStatsLabel.Visible = false;
     }
 
     public void SetMobileZoomReadability(float zoomLevel)
@@ -420,12 +429,14 @@ public partial class HudPanel : CanvasLayer
         int livesSize = Mathf.RoundToInt(Mathf.Lerp(22f, 30f, t));
         int enemySize = Mathf.RoundToInt(Mathf.Lerp(16f, 22f, t));
         int speedBtnSize = Mathf.RoundToInt(Mathf.Lerp(14f, 20f, t));
+        int pauseBtnSize = Mathf.RoundToInt(Mathf.Lerp(18f, 26f, t));
 
         _buildLabel.AddThemeFontSizeOverride("normal_font_size", buildSize);
         _waveLabel.AddThemeFontSizeOverride("font_size", waveSize);
         _livesLabel.AddThemeFontSizeOverride("font_size", livesSize);
         _enemyLabel.AddThemeFontSizeOverride("font_size", enemySize);
         _speedBtn.AddThemeFontSizeOverride("font_size", speedBtnSize);
+        _pausePlayBtn.AddThemeFontSizeOverride("font_size", pauseBtnSize);
     }
 
     private void OnMobileMenuPressed()
@@ -443,19 +454,42 @@ public partial class HudPanel : CanvasLayer
         }
     }
 
-    private void OnEscButtonPressed()
+    private void OnMenuButtonPressed()
     {
-        // Find and pause game on desktop (same as mobile menu)
+        var pauseScreen = FindPauseScreen();
+        if (pauseScreen == null)
+            return;
+
+        pauseScreen.OpenPauseMenu();
+        UpdatePausePlayButtonLabel();
+    }
+
+    private PauseScreen? FindPauseScreen()
+    {
         var pauseScreens = GetTree().GetNodesInGroup("pause_screen");
-        
         foreach (Node node in pauseScreens)
         {
             if (node is PauseScreen pauseScreen)
-            {
-                pauseScreen.Pause();
-                break;
-            }
+                return pauseScreen;
         }
+        return null;
+    }
+
+    private void ToggleGameplayPause()
+    {
+        var pauseScreen = FindPauseScreen();
+        if (pauseScreen == null)
+            return;
+
+        pauseScreen.ToggleGameplayPause();
+        UpdatePausePlayButtonLabel();
+    }
+
+    private void UpdatePausePlayButtonLabel()
+    {
+        if (!GodotObject.IsInstanceValid(_pausePlayBtn))
+            return;
+        _pausePlayBtn.Text = GetTree().Paused ? PlayIcon : PauseIcon;
     }
 
     private void ShowSpeedToast()

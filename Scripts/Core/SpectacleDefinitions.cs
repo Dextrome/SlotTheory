@@ -49,10 +49,10 @@ public static class SpectacleDefinitions
     public const string FeedbackLoop = "feedback_loop";
     public const string ChainReaction = "chain_reaction";
 
-    public const float SurgeThreshold = 100f;
+    public const float SurgeThreshold = 145f;
     public const float SurgeCooldownSeconds = 6.0f;
     public const float SurgeMeterAfterTrigger = 18f;
-    public const float GlobalMeterPerSurge = 25f;
+    public const float GlobalMeterPerSurge = 10f;
     public const float GlobalThreshold = 100f;
     public const float GlobalMeterAfterTrigger = 20f;
     public const float GlobalContributionWindowSeconds = 6f;
@@ -77,18 +77,19 @@ public static class SpectacleDefinitions
         ChainReaction,
     };
 
+    // Compressed gain spread to keep triad charge pacing more consistent across modifier groups.
     private static readonly Dictionary<string, float> BaseGain = new(StringComparer.Ordinal)
     {
-        [Momentum] = 2.2f,
-        [Overkill] = 3.0f,
-        [ExploitWeakness] = 3.2f,
-        [FocusLens] = 2.8f,
+        [Momentum] = 2.4f,
+        [Overkill] = 2.9f,
+        [ExploitWeakness] = 3.0f,
+        [FocusLens] = 2.7f,
         [ChillShot] = 2.4f,
         [Overreach] = 2.5f,
-        [HairTrigger] = 1.9f,
-        [SplitShot] = 1.7f,
-        [FeedbackLoop] = 3.6f,
-        [ChainReaction] = 1.8f,
+        [HairTrigger] = 2.2f,
+        [SplitShot] = 2.1f,
+        [FeedbackLoop] = 3.1f,
+        [ChainReaction] = 2.2f,
     };
 
     private static readonly Dictionary<string, SpectacleTokenConfig> TokenConfig = new(StringComparer.Ordinal)
