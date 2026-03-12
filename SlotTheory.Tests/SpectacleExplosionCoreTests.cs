@@ -137,4 +137,100 @@ public class SpectacleExplosionCoreTests
             ComboExplosionSkin.SplitShrapnel,
             SpectacleExplosionCore.ResolveComboExplosionSkin(SpectacleDefinitions.SplitShot, SpectacleDefinitions.FocusLens));
     }
+
+    [Theory]
+    [InlineData(ComboExplosionSkin.ChillShatter, false, 0, true, ExplosionResidueKind.FrostSlow, SpectacleExplosionCore.ResidueFrostSlowDurationSeconds)]
+    [InlineData(ComboExplosionSkin.SplitShrapnel, false, 0, true, ExplosionResidueKind.BurnPatch, SpectacleExplosionCore.ResidueBurnDurationSeconds)]
+    [InlineData(ComboExplosionSkin.ChainArc, false, 0, true, ExplosionResidueKind.VulnerabilityZone, SpectacleExplosionCore.ResidueVulnerabilityDurationSeconds)]
+    [InlineData(ComboExplosionSkin.Default, false, 0, false, ExplosionResidueKind.None, 0f)]
+    public void ResolveResidueProfile_MapsExplosionFamilyToExpectedResidue(
+        ComboExplosionSkin skin,
+        bool globalSurge,
+        int chainIndex,
+        bool shouldSpawn,
+        ExplosionResidueKind expectedKind,
+        float expectedDuration)
+    {
+        ExplosionResidueProfile profile = SpectacleExplosionCore.ResolveResidueProfile(
+            skin,
+            globalSurge,
+            surgePower: 1.2f,
+            chainIndex);
+
+        Assert.Equal(shouldSpawn, profile.ShouldSpawn);
+        Assert.Equal(expectedKind, profile.Kind);
+        Assert.Equal(expectedDuration, profile.DurationSeconds, 3);
+    }
+
+    [Fact]
+    public void ResolveResidueProfile_UsesChainStrideToAvoidVisualClutter()
+    {
+        ExplosionResidueProfile nonGlobalSkip = SpectacleExplosionCore.ResolveResidueProfile(
+            ComboExplosionSkin.ChainArc,
+            globalSurge: false,
+            surgePower: 1.0f,
+            chainIndex: 1);
+        ExplosionResidueProfile nonGlobalSpawn = SpectacleExplosionCore.ResolveResidueProfile(
+            ComboExplosionSkin.ChainArc,
+            globalSurge: false,
+            surgePower: 1.0f,
+            chainIndex: 3);
+        ExplosionResidueProfile globalSpawn = SpectacleExplosionCore.ResolveResidueProfile(
+            ComboExplosionSkin.ChainArc,
+            globalSurge: true,
+            surgePower: 1.0f,
+            chainIndex: 2);
+
+        Assert.False(nonGlobalSkip.ShouldSpawn);
+        Assert.True(nonGlobalSpawn.ShouldSpawn);
+        Assert.True(globalSpawn.ShouldSpawn);
+    }
+
+    [Fact]
+    public void ResolveExplosionHitStopProfile_MinorExplosion_DoesNotApplyHitStop()
+    {
+        ExplosionHitStopProfile profile = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
+            majorExplosion: false,
+            globalSurge: false,
+            surgePower: 1.0f);
+
+        Assert.False(profile.ShouldApply);
+    }
+
+    [Fact]
+    public void ResolveExplosionHitStopProfile_MajorExplosion_StaysWithinConfiguredBounds()
+    {
+        ExplosionHitStopProfile profile = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
+            majorExplosion: true,
+            globalSurge: true,
+            surgePower: 2.2f);
+
+        Assert.True(profile.ShouldApply);
+        Assert.InRange(
+            profile.DurationSeconds,
+            SpectacleExplosionCore.HitStopMinDurationSeconds,
+            SpectacleExplosionCore.HitStopMaxDurationSeconds);
+        Assert.InRange(profile.SlowScale, 0.20f, 0.55f);
+    }
+
+    [Fact]
+    public void ResolveLargeSurgeAfterimageStrength_OnlyTriggersForLargeOrGlobalMajorExplosions()
+    {
+        float none = SpectacleExplosionCore.ResolveLargeSurgeAfterimageStrength(
+            majorExplosion: false,
+            globalSurge: false,
+            surgePower: 2.0f);
+        float belowThreshold = SpectacleExplosionCore.ResolveLargeSurgeAfterimageStrength(
+            majorExplosion: true,
+            globalSurge: false,
+            surgePower: 1.2f);
+        float global = SpectacleExplosionCore.ResolveLargeSurgeAfterimageStrength(
+            majorExplosion: true,
+            globalSurge: true,
+            surgePower: 1.0f);
+
+        Assert.Equal(0f, none, 3);
+        Assert.Equal(0f, belowThreshold, 3);
+        Assert.True(global > 0f);
+    }
 }

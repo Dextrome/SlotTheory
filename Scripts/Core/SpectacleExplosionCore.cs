@@ -16,6 +16,27 @@ public readonly record struct GlobalSurgeWaveTiming(
     float ImpactDelay,
     float PreFlashDelay);
 
+public enum ExplosionResidueKind
+{
+    None,
+    FrostSlow,
+    VulnerabilityZone,
+    BurnPatch,
+}
+
+public readonly record struct ExplosionResidueProfile(
+    bool ShouldSpawn,
+    ExplosionResidueKind Kind,
+    float DurationSeconds,
+    float Radius,
+    float TickIntervalSeconds,
+    float Potency);
+
+public readonly record struct ExplosionHitStopProfile(
+    bool ShouldApply,
+    float DurationSeconds,
+    float SlowScale);
+
 public enum ComboExplosionSkin
 {
     Default,
@@ -49,9 +70,136 @@ public static class SpectacleExplosionCore
     public const float MarkedPopRadius = 170f;
     public const float MarkedPopDamageAmpDuration = 1.45f;
     public const float MarkedPopDamageAmpMultiplier = 0.22f;
+    public const float ResidueFrostSlowDurationSeconds = 0.80f;
+    public const float ResidueVulnerabilityDurationSeconds = 1.20f;
+    public const float ResidueBurnDurationSeconds = 0.90f;
+    public const float ResidueTickIntervalSeconds = 0.20f;
+    public const float ResidueFrostRadius = 88f;
+    public const float ResidueVulnerabilityRadius = 108f;
+    public const float ResidueBurnRadius = 96f;
+    public const float HitStopMinDurationSeconds = 0.04f;
+    public const float HitStopMaxDurationSeconds = 0.08f;
+    public const float LargeSurgeAfterimagePowerThreshold = 1.55f;
 
     public static bool ShouldEmitSecondStage(bool major, float power)
         => major || power >= 0.95f;
+
+    public static ExplosionResidueProfile ResolveResidueProfile(
+        ComboExplosionSkin skin,
+        bool globalSurge,
+        float surgePower,
+        int chainIndex)
+    {
+        ExplosionResidueKind kind = skin switch
+        {
+            ComboExplosionSkin.ChillShatter => ExplosionResidueKind.FrostSlow,
+            ComboExplosionSkin.SplitShrapnel => ExplosionResidueKind.BurnPatch,
+            ComboExplosionSkin.ChainArc => ExplosionResidueKind.VulnerabilityZone,
+            ComboExplosionSkin.FocusImplosion => ExplosionResidueKind.VulnerabilityZone,
+            _ => globalSurge ? ExplosionResidueKind.VulnerabilityZone : ExplosionResidueKind.None,
+        };
+
+        if (kind == ExplosionResidueKind.None)
+        {
+            return new ExplosionResidueProfile(
+                ShouldSpawn: false,
+                Kind: ExplosionResidueKind.None,
+                DurationSeconds: 0f,
+                Radius: 0f,
+                TickIntervalSeconds: 0f,
+                Potency: 0f);
+        }
+
+        int stride = kind switch
+        {
+            ExplosionResidueKind.FrostSlow => 2,
+            ExplosionResidueKind.BurnPatch => 2,
+            ExplosionResidueKind.VulnerabilityZone => globalSurge ? 2 : 3,
+            _ => 99,
+        };
+
+        if (chainIndex < 0)
+            chainIndex = 0;
+        bool shouldSpawn = chainIndex % stride == 0;
+        if (!shouldSpawn)
+        {
+            return new ExplosionResidueProfile(
+                ShouldSpawn: false,
+                Kind: kind,
+                DurationSeconds: 0f,
+                Radius: 0f,
+                TickIntervalSeconds: 0f,
+                Potency: 0f);
+        }
+
+        float duration = kind switch
+        {
+            ExplosionResidueKind.FrostSlow => ResidueFrostSlowDurationSeconds,
+            ExplosionResidueKind.BurnPatch => ResidueBurnDurationSeconds,
+            ExplosionResidueKind.VulnerabilityZone => ResidueVulnerabilityDurationSeconds,
+            _ => 0f,
+        };
+        float radius = kind switch
+        {
+            ExplosionResidueKind.FrostSlow => ResidueFrostRadius,
+            ExplosionResidueKind.BurnPatch => ResidueBurnRadius,
+            ExplosionResidueKind.VulnerabilityZone => ResidueVulnerabilityRadius,
+            _ => 0f,
+        };
+
+        float potency = Clamp(
+            (0.72f + 0.20f * Clamp(surgePower, 0.6f, 2.2f)) * (globalSurge ? 1.10f : 1f),
+            0.65f,
+            1.35f);
+
+        return new ExplosionResidueProfile(
+            ShouldSpawn: true,
+            Kind: kind,
+            DurationSeconds: duration,
+            Radius: radius,
+            TickIntervalSeconds: ResidueTickIntervalSeconds,
+            Potency: potency);
+    }
+
+    public static ExplosionHitStopProfile ResolveExplosionHitStopProfile(bool majorExplosion, bool globalSurge, float surgePower)
+    {
+        if (!majorExplosion)
+        {
+            return new ExplosionHitStopProfile(
+                ShouldApply: false,
+                DurationSeconds: 0f,
+                SlowScale: 1f);
+        }
+
+        float t = Clamp((surgePower - 0.85f) / 1.35f, 0f, 1f);
+        float duration = Lerp(
+            globalSurge ? 0.056f : HitStopMinDurationSeconds,
+            HitStopMaxDurationSeconds,
+            t);
+        float slowScale = Lerp(
+            globalSurge ? 0.30f : 0.38f,
+            globalSurge ? 0.22f : 0.30f,
+            t);
+
+        return new ExplosionHitStopProfile(
+            ShouldApply: true,
+            DurationSeconds: Clamp(duration, HitStopMinDurationSeconds, HitStopMaxDurationSeconds),
+            SlowScale: Clamp(slowScale, 0.20f, 0.55f));
+    }
+
+    public static float ResolveLargeSurgeAfterimageStrength(bool majorExplosion, bool globalSurge, float surgePower)
+    {
+        if (!majorExplosion)
+            return 0f;
+
+        float t = Clamp((surgePower - LargeSurgeAfterimagePowerThreshold) / 0.75f, 0f, 1f);
+        if (globalSurge)
+            t = MathF.Max(0.62f, t);
+        if (t <= 0f)
+            return 0f;
+
+        return Clamp(0.40f + 0.60f * t, 0f, 1f);
+    }
 
     public static int ResolveStatusDetonationMaxTargets(bool globalSurge, bool reducedMotion)
     {

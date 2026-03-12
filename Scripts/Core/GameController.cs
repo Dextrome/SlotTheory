@@ -59,6 +59,7 @@ public partial class GameController : Node
 	private Label _globalSpectacleBanner = null!;
 	private ColorRect _waveClearFlash = null!;
 	private ColorRect _threatPulse = null!;
+	private ColorRect _spectacleAfterimage = null!;
 	private ColorRect _spectaclePulse = null!;
 	private Node2D _worldNode = null!;
 	private BotRunner? _botRunner;
@@ -121,6 +122,22 @@ public partial class GameController : Node
 	private readonly EnemyRenderPerfProfiler _enemyRenderPerfProfiler = new();
 	private bool _perfReportHotkeyLatch;
 	private readonly SpectacleSystem _spectacleSystem = new();
+	private readonly List<ExplosionResidueState> _explosionResidues = new();
+	private ulong _nextExplosionBassHitMs;
+
+	private sealed class ExplosionResidueState
+	{
+		public ExplosionResidueKind Kind;
+		public Vector2 Origin;
+		public float Radius;
+		public float Remaining;
+		public float TickInterval;
+		public float TickRemaining;
+		public float Potency;
+		public Color Accent;
+		public ITowerView? SourceTower;
+		public bool PulseGate;
+	}
 
 	public override void _Ready()
 	{
@@ -253,7 +270,10 @@ public partial class GameController : Node
 			ClearDraftSynergyHighlights();
 
 		if (CurrentPhase == GamePhase.Wave && _botRunner == null)
+		{
 			_spectacleSystem.Update((float)delta);
+			UpdateExplosionResidues((float)delta);
+		}
 
 		bool showGlobalSurgeMeter = CurrentPhase == GamePhase.Draft || CurrentPhase == GamePhase.Wave;
 		_hudPanel.RefreshGlobalSurgeMeter(
@@ -292,6 +312,7 @@ public partial class GameController : Node
 		if (CurrentPhase != GamePhase.Wave)
 		{
 			_lowLivesHeartbeatTimer = 0f;
+			_explosionResidues.Clear();
 			return;
 		}
 
@@ -604,6 +625,8 @@ public partial class GameController : Node
 		_spectacleSlowMoScale = 1.0f;
 		_spectacleSlowMoRestoreScale = 1.0;
 		_spectacleSlowMoToken = 0;
+		_explosionResidues.Clear();
+		_nextExplosionBassHitMs = 0;
 		_draftSynergyHintModifierId = "";
 		_draftSynergyPulseT = 0f;
 		_lowLivesHeartbeatTimer = 0f;
@@ -1819,9 +1842,19 @@ public partial class GameController : Node
 				enemy.Progress     += spd * BOT_DT;
 				if (enemy.MarkedRemaining > 0f) enemy.MarkedRemaining -= BOT_DT;
 				if (enemy.SlowRemaining   > 0f) enemy.SlowRemaining   -= BOT_DT;
+				if (enemy.DamageAmpRemaining > 0f)
+				{
+					enemy.DamageAmpRemaining -= BOT_DT;
+					if (enemy.DamageAmpRemaining <= 0f)
+					{
+						enemy.DamageAmpRemaining = 0f;
+						enemy.DamageAmpMultiplier = 0f;
+					}
+				}
 			}
 
 			_spectacleSystem.Update(BOT_DT);
+			UpdateExplosionResidues(BOT_DT);
 			var result = _combatSim.Step(BOT_DT, _runState, _waveSystem);
 			_botWaveSteps++;
 
@@ -1998,6 +2031,13 @@ public partial class GameController : Node
 		_threatPulse.Visible = false;
 		_threatPulse.MouseFilter = Control.MouseFilterEnum.Ignore;
 		anchor.AddChild(_threatPulse);
+
+		_spectacleAfterimage = new ColorRect();
+		_spectacleAfterimage.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		_spectacleAfterimage.Color = new Color(0.94f, 0.99f, 1.00f, 0f);
+		_spectacleAfterimage.Visible = false;
+		_spectacleAfterimage.MouseFilter = Control.MouseFilterEnum.Ignore;
+		anchor.AddChild(_spectacleAfterimage);
 
 		_spectaclePulse = new ColorRect();
 		_spectaclePulse.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -2203,6 +2243,7 @@ public partial class GameController : Node
 		FlashSpectacleScreen(accent, peakAlpha: 0.17f, rampSec: 0.06f, fadeSec: 0.34f);
 		QueueSpectacleEcho(info.Tower.GlobalPosition, accent, major: true, power: info.Signature.SurgePower, maxDistance: linkDistance);
 		SoundManager.Instance?.Play("mine_chain_pop", pitchScale: 1.08f);
+		PlayExplosionBassHit(info.Signature.SurgePower, globalSurge: false);
 		ApplySpectacleGameplayPayload(info, isMajor: true);
 		TriggerStatusDetonationChain(
 			info.Tower,
@@ -2218,14 +2259,26 @@ public partial class GameController : Node
 			info.Tower.GlobalPosition,
 			accent,
 			durationScale: 2f);
-		TriggerHitStop(realDuration: 0.034f, slowScale: 0.40f);
+		ExplosionHitStopProfile hitStop = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
+			majorExplosion: true,
+			globalSurge: false,
+			info.Signature.SurgePower);
+		if (hitStop.ShouldApply)
+			TriggerHitStop(realDuration: hitStop.DurationSeconds, slowScale: hitStop.SlowScale);
+		float afterimageStrength = SpectacleExplosionCore.ResolveLargeSurgeAfterimageStrength(
+			majorExplosion: true,
+			globalSurge: false,
+			info.Signature.SurgePower);
+		FlashSpectacleAfterimage(accent, afterimageStrength);
 	}
 
 	private void OnGlobalSurgeTriggered(GlobalSurgeTriggerInfo info)
 	{
 		if (CurrentPhase != GamePhase.Wave)
 			return;
-		_runState?.TrackSpectacleGlobal(info.EffectId);
+		if (_runState == null)
+			return;
+		_runState.TrackSpectacleGlobal(info.EffectId);
 		if (_botRunner != null)
 		{
 			ApplyGlobalSurgeGameplayPayload(info);
@@ -2238,6 +2291,7 @@ public partial class GameController : Node
 		SpawnGlobalSurgeRipples(center, globalColor, Mathf.Max(2, info.UniqueContributors));
 		FlashSpectacleScreen(globalColor, peakAlpha: 0.28f, rampSec: 0.09f, fadeSec: 0.62f);
 		SoundManager.Instance?.Play("wave20_swell");
+		PlayExplosionBassHit(surgePower: 2.15f, globalSurge: true);
 
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
@@ -2267,8 +2321,17 @@ public partial class GameController : Node
 		QueueSpectacleEcho(center, globalColor, major: true, power: 1.65f, maxDistance: 420f);
 		TriggerSpectacleSlowMo(realDuration: 5.6f, speedFactor: 0.25f);
 		ShowGlobalSurgeBanner(info.EffectName, globalColor);
-
-		TriggerHitStop(realDuration: 0.050f, slowScale: 0.26f);
+		ExplosionHitStopProfile hitStop = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
+			majorExplosion: true,
+			globalSurge: true,
+			surgePower: 2.15f);
+		if (hitStop.ShouldApply)
+			TriggerHitStop(realDuration: hitStop.DurationSeconds, slowScale: hitStop.SlowScale);
+		float afterimageStrength = SpectacleExplosionCore.ResolveLargeSurgeAfterimageStrength(
+			majorExplosion: true,
+			globalSurge: true,
+			surgePower: 2.15f);
+		FlashSpectacleAfterimage(globalColor, afterimageStrength);
 	}
 
 	private void ApplyGlobalSurgeGameplayPayload(GlobalSurgeTriggerInfo info)
@@ -3380,7 +3443,14 @@ public partial class GameController : Node
 		if (_botRunner == null && !isKill && GodotObject.IsInstanceValid(enemy))
 			enemy.FlashHit();
 		if (isKill && triggerHitStopOnKill)
-			TriggerHitStop(realDuration: heavyHit ? 0.042f : 0.030f, slowScale: heavyHit ? 0.20f : 0.30f);
+		{
+			ExplosionHitStopProfile killHitStop = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
+				majorExplosion: heavyHit,
+				globalSurge: false,
+				surgePower: heavyHit ? 1.18f : 0.70f);
+			if (killHitStop.ShouldApply)
+				TriggerHitStop(realDuration: killHitStop.DurationSeconds, slowScale: killHitStop.SlowScale);
+		}
 		if (isKill && allowMarkedPop && wasMarked && _runState != null)
 			NotifyMarkedEnemyPop(tower, enemy, _runState.EnemiesAlive);
 		if (isKill && allowOverkillBloom && bloomProfile.ShouldTrigger)
@@ -3786,6 +3856,17 @@ public partial class GameController : Node
 					SpawnSpectacleImpactSparks(enemyRef.GlobalPosition, detonationColor, heavy: false);
 				}
 
+				ExplosionResidueProfile residueProfile = SpectacleExplosionCore.ResolveResidueProfile(
+					skin,
+					globalSurge,
+					surgePower,
+					index);
+				TrySpawnExplosionResidue(
+					residueProfile,
+					enemyRef.GlobalPosition,
+					detonationColor,
+					damageSource);
+
 				if (damageSource != null)
 				{
 					float damage = damageSource.BaseDamage
@@ -3851,6 +3932,8 @@ public partial class GameController : Node
 			{
 				ShakeWorldMicro();
 				SoundManager.Instance?.Play("mine_chain_pop", pitchScale: major ? 0.92f : 0.98f);
+				if (major)
+					PlayExplosionBassHit(power, globalSurge: false);
 			}
 		}
 
@@ -4081,6 +4164,204 @@ public partial class GameController : Node
 			if (GodotObject.IsInstanceValid(_spectaclePulse))
 				_spectaclePulse.Visible = false;
 		}));
+	}
+
+	private void FlashSpectacleAfterimage(Color accent, float strength)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_spectacleAfterimage))
+			return;
+
+		float s = Mathf.Clamp(strength, 0f, 1f);
+		if (s <= 0f)
+			return;
+
+		Vector2 viewportSize = GetViewport().GetVisibleRect().Size;
+		_spectacleAfterimage.Visible = true;
+		_spectacleAfterimage.PivotOffset = viewportSize * 0.5f;
+		_spectacleAfterimage.Position = Vector2.Zero;
+		_spectacleAfterimage.Scale = new Vector2(0.985f, 0.985f);
+		_spectacleAfterimage.Color = new Color(
+			Mathf.Clamp(accent.R * 0.82f + 0.18f, 0f, 1f),
+			Mathf.Clamp(accent.G * 0.82f + 0.18f, 0f, 1f),
+			Mathf.Clamp(accent.B * 0.82f + 0.18f, 0f, 1f),
+			0f);
+
+		float peakAlpha = Mathf.Lerp(0.05f, 0.12f, s);
+		float expandScale = Mathf.Lerp(1.02f, 1.06f, s);
+		float expandSec = Mathf.Lerp(0.10f, 0.20f, s);
+		float fadeSec = Mathf.Lerp(0.20f, 0.36f, s);
+
+		var tw = _spectacleAfterimage.CreateTween();
+		tw.SetParallel(true);
+		tw.TweenProperty(_spectacleAfterimage, "color:a", peakAlpha, 0.04f);
+		tw.TweenProperty(_spectacleAfterimage, "scale", new Vector2(expandScale, expandScale), expandSec)
+			.SetTrans(Tween.TransitionType.Sine)
+			.SetEase(Tween.EaseType.Out);
+		tw.SetParallel(false);
+		tw.TweenProperty(_spectacleAfterimage, "color:a", 0f, fadeSec)
+			.SetTrans(Tween.TransitionType.Sine)
+			.SetEase(Tween.EaseType.Out);
+		tw.TweenCallback(Callable.From(() =>
+		{
+			if (!GodotObject.IsInstanceValid(_spectacleAfterimage))
+				return;
+
+			_spectacleAfterimage.Visible = false;
+			_spectacleAfterimage.Scale = Vector2.One;
+		}));
+	}
+
+	private void PlayExplosionBassHit(float surgePower, bool globalSurge)
+	{
+		if (_botRunner != null)
+			return;
+
+		ulong now = Time.GetTicksMsec();
+		ulong minGapMs = globalSurge ? 130u : 90u;
+		if (now < _nextExplosionBassHitMs)
+			return;
+		_nextExplosionBassHitMs = now + minGapMs;
+
+		float pitch = Mathf.Clamp(
+			(globalSurge ? 0.84f : 0.90f) + Mathf.Clamp(surgePower, 0.6f, 2.2f) * 0.05f,
+			0.82f,
+			1.08f);
+		SoundManager.Instance?.Play("spectacle_bass_hit", pitchScale: pitch);
+		SoundManager.Instance?.DuckMusic(
+			amountDb: globalSurge ? 2.4f : 1.7f,
+			holdSeconds: globalSurge ? 0.18f : 0.12f);
+	}
+
+	private void TrySpawnExplosionResidue(
+		ExplosionResidueProfile profile,
+		Vector2 origin,
+		Color accent,
+		ITowerView? sourceTower)
+	{
+		if (_runState == null || !profile.ShouldSpawn || profile.Kind == ExplosionResidueKind.None)
+			return;
+
+		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
+		int maxResidues = reducedMotion ? 7 : 12;
+		while (_explosionResidues.Count >= maxResidues)
+			_explosionResidues.RemoveAt(0);
+
+		_explosionResidues.Add(new ExplosionResidueState
+		{
+			Kind = profile.Kind,
+			Origin = origin,
+			Radius = profile.Radius,
+			Remaining = profile.DurationSeconds,
+			TickInterval = Mathf.Max(0.06f, profile.TickIntervalSeconds),
+			TickRemaining = 0f,
+			Potency = profile.Potency,
+			Accent = accent,
+			SourceTower = sourceTower,
+			PulseGate = false,
+		});
+
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+
+		var fx = new ExplosionResidueZoneFx();
+		_worldNode.AddChild(fx);
+		fx.GlobalPosition = origin;
+		fx.Initialize(profile.Kind, accent, profile.Radius, profile.DurationSeconds, profile.Potency);
+	}
+
+	private void UpdateExplosionResidues(float delta)
+	{
+		if (_runState == null || CurrentPhase != GamePhase.Wave || delta <= 0f || _explosionResidues.Count == 0)
+			return;
+
+		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
+		for (int i = _explosionResidues.Count - 1; i >= 0; i--)
+		{
+			ExplosionResidueState residue = _explosionResidues[i];
+			residue.Remaining -= delta;
+			if (residue.Remaining <= 0f)
+			{
+				_explosionResidues.RemoveAt(i);
+				continue;
+			}
+
+			residue.TickRemaining -= delta;
+			if (residue.TickRemaining > 0f)
+				continue;
+
+			residue.TickRemaining += residue.TickInterval;
+			ApplyExplosionResidueTick(residue, reducedMotion);
+		}
+	}
+
+	private void ApplyExplosionResidueTick(ExplosionResidueState residue, bool reducedMotion)
+	{
+		if (_runState == null)
+			return;
+
+		ITowerView? sourceTower = residue.SourceTower;
+		if (sourceTower is GodotObject towerObj && !GodotObject.IsInstanceValid(towerObj))
+			sourceTower = null;
+		if (sourceTower == null)
+			sourceTower = _runState.Slots
+				.Select(s => s.Tower)
+				.FirstOrDefault(t => t != null && (t is not GodotObject go || GodotObject.IsInstanceValid(go)));
+
+		int maxTargets = residue.Kind == ExplosionResidueKind.BurnPatch
+			? (reducedMotion ? 4 : 6)
+			: (reducedMotion ? 5 : 8);
+		var targets = _runState.EnemiesAlive
+			.Where(IsEnemyUsable)
+			.Where(e => residue.Origin.DistanceTo(e.GlobalPosition) <= residue.Radius)
+			.OrderBy(e => residue.Origin.DistanceTo(e.GlobalPosition))
+			.Take(maxTargets)
+			.ToList();
+		if (targets.Count == 0)
+			return;
+
+		switch (residue.Kind)
+		{
+			case ExplosionResidueKind.FrostSlow:
+			{
+				float slowDuration = Mathf.Clamp(0.20f + 0.10f * residue.Potency, 0.16f, 0.36f);
+				float slowFactor = Mathf.Clamp(0.88f - 0.22f * residue.Potency, 0.56f, 0.90f);
+				for (int i = 0; i < targets.Count; i++)
+					Statuses.ApplySlow(targets[i], slowDuration, slowFactor);
+				break;
+			}
+			case ExplosionResidueKind.VulnerabilityZone:
+			{
+				float ampDuration = Mathf.Clamp(0.24f + 0.12f * residue.Potency, 0.20f, 0.40f);
+				float ampMultiplier = Mathf.Clamp(0.05f + 0.08f * residue.Potency, 0.05f, 0.16f);
+				for (int i = 0; i < targets.Count; i++)
+					Statuses.ApplyDamageAmp(targets[i], ampDuration, ampMultiplier);
+				break;
+			}
+			case ExplosionResidueKind.BurnPatch:
+			{
+				if (sourceTower == null)
+					break;
+				float baseTickDamage = sourceTower.BaseDamage * Mathf.Clamp(0.06f + 0.08f * residue.Potency, 0.05f, 0.18f);
+				for (int i = 0; i < targets.Count; i++)
+				{
+					float falloff = Mathf.Max(0.52f, 1f - i * 0.12f);
+					ApplySpectacleDamage(
+						sourceTower,
+						targets[i],
+						baseTickDamage * falloff,
+						residue.Accent,
+						heavyHit: false,
+						triggerHitStopOnKill: false,
+						allowOverkillBloom: false,
+						allowMarkedPop: false);
+				}
+				break;
+			}
+		}
+
+		if (_botRunner == null && !reducedMotion && residue.PulseGate && targets.Count > 0)
+			SpawnSpectacleImpactSparks(residue.Origin, residue.Accent, heavy: false);
+		residue.PulseGate = !residue.PulseGate;
 	}
 
 	public void SpawnTargetAcquirePing(Vector2 worldPos, Color color)
