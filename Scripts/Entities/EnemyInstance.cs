@@ -41,6 +41,9 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
     public float SlowRemaining { get; set; } = 0f;
     public float SlowSpeedFactor { get; set; } = Balance.SlowSpeedFactor;
     public bool IsSlowed => SlowRemaining > 0f;
+    public float DamageAmpRemaining { get; set; } = 0f;
+    public float DamageAmpMultiplier { get; set; } = 0f;
+    public bool IsDamageAmped => DamageAmpRemaining > 0f && DamageAmpMultiplier > 0f;
 
     private ColorRect? _hpFill;
     private float _hpBarWidth;
@@ -129,6 +132,15 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
 
         if (MarkedRemaining > 0f) MarkedRemaining -= dt;
         if (SlowRemaining > 0f) SlowRemaining -= dt;
+        if (DamageAmpRemaining > 0f)
+        {
+            DamageAmpRemaining -= dt;
+            if (DamageAmpRemaining <= 0f)
+            {
+                DamageAmpRemaining = 0f;
+                DamageAmpMultiplier = 0f;
+            }
+        }
 
         _hpRatio = MaxHp > 0f ? Mathf.Clamp(Hp / MaxHp, 0f, 1f) : 1f;
         _hitFlash = Mathf.Max(0f, _hitFlash - dt * 5.2f);

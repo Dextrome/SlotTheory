@@ -36,6 +36,7 @@ public static class DamageModel
     public static void Apply(DamageContext ctx)
     {
         float damage = ctx.BaseDamage;
+        bool wasMarkedBeforeHit = ctx.Target.IsMarked;
 
         // 1. Modifier damage pass — applies to all hits (primary, chain, split)
         foreach (var mod in ctx.Attacker.Modifiers)
@@ -49,6 +50,8 @@ public static class DamageModel
         // 2. Global Marked bonus — all towers deal +20% to Marked enemies
         if (ctx.Target.IsMarked)
             damage *= (1f + Balance.MarkedDamageBonus);
+        if (ctx.Target.DamageAmpRemaining > 0f && ctx.Target.DamageAmpMultiplier > 0f)
+            damage *= (1f + ctx.Target.DamageAmpMultiplier);
 
         ctx.FinalDamage = damage;
 
@@ -98,6 +101,8 @@ public static class DamageModel
         // 5. On-kill effects (run for all kills regardless of bounce type)
         if (ctx.Target.Hp <= 0)
         {
+            if (wasMarkedBeforeHit)
+                GameController.Instance?.NotifyMarkedEnemyPop(ctx.Attacker, ctx.Target, ctx.EnemiesAlive);
             foreach (var mod in ctx.Attacker.Modifiers)
             {
                 mod.OnKill(ctx);

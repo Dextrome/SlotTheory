@@ -16,6 +16,15 @@ public readonly record struct GlobalSurgeWaveTiming(
     float ImpactDelay,
     float PreFlashDelay);
 
+public enum ComboExplosionSkin
+{
+    Default,
+    ChillShatter,
+    ChainArc,
+    SplitShrapnel,
+    FocusImplosion,
+}
+
 /// <summary>
 /// Pure math helpers for spectacle explosion tuning.
 /// Keeps balancing and unit tests decoupled from Godot node/runtime APIs.
@@ -36,9 +45,38 @@ public static class SpectacleExplosionCore
     public const float GlobalSurgeWavePreFlashLeadSeconds = 0.05f;
     public const float GlobalSurgeWaveSpeedMin = 880f;
     public const float GlobalSurgeWaveSpeedMax = 1280f;
+    public const float SurgeStatusDetonationStaggerSeconds = 0.20f;
+    public const float MarkedPopRadius = 170f;
+    public const float MarkedPopDamageAmpDuration = 1.45f;
+    public const float MarkedPopDamageAmpMultiplier = 0.22f;
 
     public static bool ShouldEmitSecondStage(bool major, float power)
         => major || power >= 0.95f;
+
+    public static int ResolveStatusDetonationMaxTargets(bool globalSurge, bool reducedMotion)
+    {
+        if (reducedMotion)
+            return globalSurge ? 10 : 8;
+        return globalSurge ? 24 : 16;
+    }
+
+    public static ComboExplosionSkin ResolveComboExplosionSkin(string modA, string modB)
+    {
+        string a = SpectacleDefinitions.NormalizeModId(modA ?? string.Empty);
+        string b = SpectacleDefinitions.NormalizeModId(modB ?? string.Empty);
+        if (string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b))
+            return ComboExplosionSkin.Default;
+
+        if (a == SpectacleDefinitions.ChillShot || b == SpectacleDefinitions.ChillShot)
+            return ComboExplosionSkin.ChillShatter;
+        if (a == SpectacleDefinitions.ChainReaction || b == SpectacleDefinitions.ChainReaction)
+            return ComboExplosionSkin.ChainArc;
+        if (a == SpectacleDefinitions.SplitShot || b == SpectacleDefinitions.SplitShot)
+            return ComboExplosionSkin.SplitShrapnel;
+        if (a == SpectacleDefinitions.FocusLens || b == SpectacleDefinitions.FocusLens)
+            return ComboExplosionSkin.FocusImplosion;
+        return ComboExplosionSkin.Default;
+    }
 
     public static OverkillBloomProfile BuildOverkillBloomProfile(float overflowDamage)
     {
