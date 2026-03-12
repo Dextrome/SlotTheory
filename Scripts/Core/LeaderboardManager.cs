@@ -47,6 +47,9 @@ public partial class LeaderboardManager : Node
 
     public async System.Threading.Tasks.Task<GlobalSubmitResult> SubmitAsync(RunScorePayload payload)
     {
+        if (IsDevModeEnabled())
+            return GlobalSubmitResult.Skipped(_service.ProviderName, "Dev mode enabled; global leaderboard submission disabled.");
+
         var bucket = new LeaderboardBucket(payload.MapId, payload.Difficulty);
         if (!bucket.IsGlobalEligible)
             return GlobalSubmitResult.Skipped(_service.ProviderName, "Map excluded from global leaderboards.");
@@ -116,6 +119,7 @@ public partial class LeaderboardManager : Node
     private async System.Threading.Tasks.Task FlushRetryQueueAsync()
     {
         if (_isFlushingRetryQueue || _retryQueue.Count == 0) return;
+        if (IsDevModeEnabled()) return;
 
         await EnsureInitializedAsync();
         if (!_service.IsAvailable) return;
@@ -267,5 +271,10 @@ public partial class LeaderboardManager : Node
             GD.PrintErr($"[Leaderboards] Steam service failed to load: {ex.Message}");
             return new SupabaseLeaderboardService();
         }
+    }
+
+    private static bool IsDevModeEnabled()
+    {
+        return SettingsManager.Instance?.DevMode ?? false;
     }
 }

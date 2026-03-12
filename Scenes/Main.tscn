@@ -6,6 +6,7 @@
 [ext_resource type="Script" path="res://Scripts/UI/HudPanel.cs" id="4_hud"]
 [ext_resource type="Script" path="res://Scripts/UI/EndScreen.cs" id="5_end"]
 [ext_resource type="Script" path="res://Scripts/UI/PauseScreen.cs" id="6_pause"]
+[ext_resource type="Script" path="res://Scripts/UI/UnlockRevealScreen.cs" id="7_unlock"]
 
 [node name="Main" type="Node" unique_id=114020598]
 
@@ -17,6 +18,9 @@ script = ExtResource("3_draft")
 
 [node name="EndScreen" type="CanvasLayer" parent="."]
 script = ExtResource("5_end")
+
+[node name="UnlockRevealScreen" type="CanvasLayer" parent="."]
+script = ExtResource("7_unlock")
 
 [node name="PauseScreen" type="CanvasLayer" parent="."]
 script = ExtResource("6_pause")

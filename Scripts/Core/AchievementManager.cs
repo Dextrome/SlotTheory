@@ -1,5 +1,6 @@
 using Godot;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace SlotTheory.Core;
 
@@ -32,8 +33,9 @@ public partial class AchievementManager : Node
     [
         new("FIRST_WIN",     "First Victory",     "Complete all 20 waves for the first time."),
         new("HARD_WIN",      "Hard Carry",         "Complete all 20 waves on Hard difficulty."),
-        new(Unlocks.ArcEmitterAchievementId, "Arc Unsealed", "Beat the first map on Normal or Hard to unlock Arc Emitter."),
-        new(Unlocks.RiftPrismAchievementId, "Rift Unsealed", "Beat the second map on Normal or Hard to unlock Rift Sapper."),
+        new(Unlocks.ArcEmitterAchievementId, "Arc Unsealed", "Beat the first campaign map to unlock Arc Emitter."),
+        new(Unlocks.SplitShotAchievementId, "Split Unsealed", "Beat the second campaign map to unlock Split Shot."),
+        new(Unlocks.RiftPrismAchievementId, "Rift Unsealed", "Beat the third campaign map to unlock Rift Sapper."),
         new("FLAWLESS",      "Flawless",           "Win a run without losing a single life."),
         new("LAST_STAND",    "Last Stand",         "Win a run with exactly 1 life remaining."),
         new("HALFWAY_THERE", "Halfway There",      "Survive to wave 10 in any run."),
@@ -76,64 +78,101 @@ public partial class AchievementManager : Node
         => _cfg.HasSectionKey(Section, id) && (bool)_cfg.GetValue(Section, id, false);
 
     /// <summary>
+    /// Clears progression unlock flags for this profile (tower/modifier gates only).
+    /// </summary>
+    public void ResetUnlockFlags()
+    {
+        bool changed = false;
+        foreach (string id in GetProgressionUnlockIds())
+        {
+            if (!_cfg.HasSectionKey(Section, id))
+                continue;
+            _cfg.EraseSectionKey(Section, id);
+            changed = true;
+        }
+
+        if (!changed)
+            return;
+
+        Save();
+        GD.Print("[Achievements] Progression unlock flags reset for current profile.");
+    }
+
+    /// <summary>
     /// Evaluates all achievements at run end. Call from GameController with the
     /// final RunState (before it is cleared).
     /// </summary>
-    public void CheckRunEnd(RunState state, DifficultyMode difficulty, bool won)
+    public IReadOnlyList<string> CheckRunEndAndCollectUnlocks(RunState state, DifficultyMode difficulty, bool won)
     {
+        var newlyUnlocked = new List<string>();
+
+        void TryUnlock(string id)
+        {
+            if (Unlock(id))
+                newlyUnlocked.Add(id);
+        }
+
         // Keep progression/achievement saves deterministic for real play only.
         // Bot simulations should not consume unlocks or suppress toasts in normal runs.
         if (OS.GetCmdlineUserArgs().Contains("--bot"))
-            return;
+            return newlyUnlocked;
 
         // Wave milestone (win or loss)
         if (state.WaveIndex >= HalfwayWaveIndex)
-            Unlock("HALFWAY_THERE");
+            TryUnlock("HALFWAY_THERE");
 
         // Slot / modifier milestones (win or loss)
         if (state.FreeSlotCount() == 0)
-            Unlock("FULL_HOUSE");
+            TryUnlock("FULL_HOUSE");
 
         foreach (var slot in state.Slots)
         {
             if (slot.Tower?.Modifiers.Count >= Balance.MaxModifiersPerTower)
             {
-                Unlock("STACKED");
+                TryUnlock("STACKED");
                 break;
             }
         }
 
         // Damage milestone (win or loss)
         if (state.TotalDamageDealt >= AnnihilatorDamage)
-            Unlock("ANNIHILATOR");
+            TryUnlock("ANNIHILATOR");
 
         // Win-only achievements
         if (won)
         {
-            Unlock("FIRST_WIN");
+            TryUnlock("FIRST_WIN");
 
             if (difficulty == DifficultyMode.Hard)
-                Unlock("HARD_WIN");
+                TryUnlock("HARD_WIN");
 
             if (Unlocks.ShouldUnlockArcEmitter(state, difficulty))
-                Unlock(Unlocks.ArcEmitterAchievementId);
+                TryUnlock(Unlocks.ArcEmitterAchievementId);
+
+            if (Unlocks.ShouldUnlockSplitShot(state, difficulty))
+                TryUnlock(Unlocks.SplitShotAchievementId);
 
             if (Unlocks.ShouldUnlockRiftPrism(state, difficulty))
-                Unlock(Unlocks.RiftPrismAchievementId);
+                TryUnlock(Unlocks.RiftPrismAchievementId);
 
             if (state.Lives == Balance.StartingLives)
-                Unlock("FLAWLESS");
+                TryUnlock("FLAWLESS");
 
             if (state.Lives == 1)
-                Unlock("LAST_STAND");
+                TryUnlock("LAST_STAND");
 
             if (state.TotalPlayTime <= SpeedRunMaxSeconds)
-                Unlock("SPEED_RUN");
+                TryUnlock("SPEED_RUN");
 
             if (AllFilledSlotsAreArcEmitter(state))
-                Unlock("CHAIN_MASTER");
+                TryUnlock("CHAIN_MASTER");
         }
+
+        return newlyUnlocked;
     }
+
+    public void CheckRunEnd(RunState state, DifficultyMode difficulty, bool won)
+        => _ = CheckRunEndAndCollectUnlocks(state, difficulty, won);
 
     // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -148,6 +187,14 @@ public partial class AchievementManager : Node
         }
         return anyTower;
     }
+
+    private static IReadOnlyList<string> GetProgressionUnlockIds()
+        => new[]
+        {
+            Unlocks.ArcEmitterAchievementId,
+            Unlocks.SplitShotAchievementId,
+            Unlocks.RiftPrismAchievementId,
+        };
 
     private void Load()
     {

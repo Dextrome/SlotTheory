@@ -12,27 +12,33 @@ public static class Unlocks
 {
     public const string ArcEmitterTowerId = "chain_tower";
     public const string ArcEmitterAchievementId = "ARC_UNSEALED";
+    public const string SplitShotModifierId = "split_shot";
+    public const string SplitShotAchievementId = "SPLIT_UNSEALED";
     public const string RiftPrismTowerId = "rift_prism";
     public const string RiftPrismAchievementId = "RIFT_UNSEALED";
     private const string ArcEmitterFallbackMapId = "sprawl";
-    private const string RiftPrismFallbackMapId = "arena_classic";
+    private const string SplitShotFallbackMapId = "arena_classic";
+    private const string RiftPrismFallbackMapId = "gauntlet";
 
     public static bool ShouldUnlockArcEmitter(RunState state, DifficultyMode difficulty)
     {
+        _ = difficulty;
         string unlockMapId = GetArcEmitterUnlockMapId();
-        if (!string.Equals(state.SelectedMapId, unlockMapId, StringComparison.OrdinalIgnoreCase))
-            return false;
+        return IsRunOnUnlockMap(state, unlockMapId);
+    }
 
-        return difficulty == DifficultyMode.Normal || difficulty == DifficultyMode.Hard;
+    public static bool ShouldUnlockSplitShot(RunState state, DifficultyMode difficulty)
+    {
+        _ = difficulty;
+        string unlockMapId = GetSplitShotUnlockMapId();
+        return IsRunOnUnlockMap(state, unlockMapId);
     }
 
     public static bool ShouldUnlockRiftPrism(RunState state, DifficultyMode difficulty)
     {
+        _ = difficulty;
         string unlockMapId = GetRiftPrismUnlockMapId();
-        if (!string.Equals(state.SelectedMapId, unlockMapId, StringComparison.OrdinalIgnoreCase))
-            return false;
-
-        return difficulty == DifficultyMode.Normal || difficulty == DifficultyMode.Hard;
+        return IsRunOnUnlockMap(state, unlockMapId);
     }
 
     /// <summary>
@@ -43,10 +49,16 @@ public static class Unlocks
         => GetCampaignMapByOrder(order: 0, fallbackId: ArcEmitterFallbackMapId);
 
     /// <summary>
-    /// Rift Sapper unlock follows the second non-random campaign map by display order.
+    /// Split Shot unlock follows the second non-random campaign map by display order.
+    /// </summary>
+    public static string GetSplitShotUnlockMapId()
+        => GetCampaignMapByOrder(order: 1, fallbackId: SplitShotFallbackMapId);
+
+    /// <summary>
+    /// Rift Sapper unlock follows the third non-random campaign map by display order.
     /// </summary>
     public static string GetRiftPrismUnlockMapId()
-        => GetCampaignMapByOrder(order: 1, fallbackId: RiftPrismFallbackMapId);
+        => GetCampaignMapByOrder(order: 2, fallbackId: RiftPrismFallbackMapId);
 
     private static string GetCampaignMapByOrder(int order, string fallbackId)
     {
@@ -87,12 +99,16 @@ public static class Unlocks
 
     public static bool IsModifierUnlocked(string modifierId)
     {
-        // Reserved for future progression-gated modifiers.
         // Keep bots fully unlocked for deterministic balance tests.
         if (OS.GetCmdlineUserArgs().Contains("--bot"))
             return true;
 
-        _ = modifierId;
+        if (string.Equals(modifierId, SplitShotModifierId, StringComparison.OrdinalIgnoreCase))
+            return AchievementManager.Instance?.IsUnlocked(SplitShotAchievementId) == true;
+
         return true;
     }
+
+    private static bool IsRunOnUnlockMap(RunState state, string unlockMapId)
+        => string.Equals(state.SelectedMapId, unlockMapId, StringComparison.OrdinalIgnoreCase);
 }

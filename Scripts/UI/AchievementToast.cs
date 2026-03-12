@@ -12,16 +12,18 @@ public partial class AchievementToast : CanvasLayer
 {
     public static AchievementToast? Instance { get; private set; }
 
-    private const float ShowDuration  = 3.5f;
-    private const float SlideDuration = 0.25f;
-    private const int   PanelW        = 320;
-    private const int   PanelH        = 72;
+    private const float ShowDuration  = 4.8f;
+    private const float SlideDuration = 0.24f;
+    private const int   PanelW        = 390;
+    private const int   PanelH        = 110;
     private const int   MarginRight   = 16;
     private const int   MarginBottom  = 16;
+    private const float EnterShiftPx  = 34f;
 
     private Panel?  _panel;
     private Label?  _title;
     private Label?  _desc;
+    private ColorRect? _flash;
     private float   _timer;
     private double  _lastTickSec;
     private bool    _visible;
@@ -45,6 +47,7 @@ public partial class AchievementToast : CanvasLayer
         _panel.OffsetBottom = -MarginBottom;
         _panel.Modulate     = new Color(1, 1, 1, 0); // start invisible
         _panel.MouseFilter  = Control.MouseFilterEnum.Ignore;
+        _panel.PivotOffset  = new Vector2(PanelW, PanelH);
         AddChild(_panel);
 
         var style = new StyleBoxFlat
@@ -63,8 +66,8 @@ public partial class AchievementToast : CanvasLayer
         margin.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         margin.AddThemeConstantOverride("margin_left",   12);
         margin.AddThemeConstantOverride("margin_right",  12);
-        margin.AddThemeConstantOverride("margin_top",    8);
-        margin.AddThemeConstantOverride("margin_bottom", 8);
+        margin.AddThemeConstantOverride("margin_top",    10);
+        margin.AddThemeConstantOverride("margin_bottom", 10);
         margin.MouseFilter = Control.MouseFilterEnum.Ignore;
         _panel.AddChild(margin);
 
@@ -102,7 +105,14 @@ public partial class AchievementToast : CanvasLayer
         _desc.Modulate    = new Color(0.65f, 0.65f, 0.65f);
         _desc.MouseFilter = Control.MouseFilterEnum.Ignore;
         _desc.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        _desc.MaxLinesVisible = 3;
         vbox.AddChild(_desc);
+
+        _flash = new ColorRect();
+        _flash.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _flash.Color = new Color(0.85f, 1.0f, 0.80f, 0f);
+        _flash.MouseFilter = Control.MouseFilterEnum.Ignore;
+        _panel.AddChild(_flash);
 
         if (AchievementManager.Instance != null)
             AchievementManager.Instance.AchievementUnlocked += OnAchievementUnlocked;
@@ -151,12 +161,34 @@ public partial class AchievementToast : CanvasLayer
         _lastTickSec = Time.GetTicksUsec() / 1_000_000.0;
         SetProcess(true);
 
-        // Fade in
+        SoundManager.Instance?.Play("ui_hover");
+
+        // Flashy pop-in: quick flash, slight slide from right, and scale punch.
         if (_panel != null)
         {
+            _panel.OffsetLeft  = -(PanelW + MarginRight) + EnterShiftPx;
+            _panel.OffsetRight = -MarginRight + EnterShiftPx;
+            _panel.Modulate = new Color(1f, 1f, 1f, 0f);
+            _panel.Scale = new Vector2(0.94f, 0.94f);
+
+            if (_flash != null)
+                _flash.Color = new Color(_flash.Color.R, _flash.Color.G, _flash.Color.B, 0f);
+
             var tween = CreateTween();
             tween.SetIgnoreTimeScale(true);
-            tween.TweenProperty(_panel, "modulate:a", 1.0f, SlideDuration);
+            tween.SetTrans(Tween.TransitionType.Back);
+            tween.SetEase(Tween.EaseType.Out);
+            tween.TweenProperty(_panel, "modulate:a", 1.0f, 0.12f);
+            tween.Parallel().TweenProperty(_panel, "offset_left", -(PanelW + MarginRight), SlideDuration);
+            tween.Parallel().TweenProperty(_panel, "offset_right", -MarginRight, SlideDuration);
+            tween.Parallel().TweenProperty(_panel, "scale", new Vector2(1.05f, 1.05f), 0.18f);
+            tween.TweenProperty(_panel, "scale", Vector2.One, 0.12f);
+
+            if (_flash != null)
+            {
+                tween.Parallel().TweenProperty(_flash, "color:a", 0.50f, 0.06f);
+                tween.TweenProperty(_flash, "color:a", 0.0f, 0.26f);
+            }
         }
     }
 

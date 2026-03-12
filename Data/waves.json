@@ -1,10 +1,10 @@
 [
   {
-    "EnemyCount": 12,
+    "EnemyCount": 8,
     "SpawnInterval": 1.9
   },
   {
-    "EnemyCount": 14,
+    "EnemyCount": 12,
     "SpawnInterval": 1.8
   },
   {

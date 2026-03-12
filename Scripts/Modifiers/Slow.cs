@@ -26,7 +26,7 @@ public class Slow : Modifier
 
         Statuses.ApplySlow(ctx.Target, Core.Balance.SlowDuration, stackedFactor);
         float scalar = Core.SpectacleDefinitions.ChillEventScalar(affectedEnemies: 1);
-        Core.GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId, scalar);
+        Core.GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId, scalar, ctx.DamageDealt);
         return true;
     }
 }
