@@ -319,6 +319,17 @@ Current strategy set:
 - `SpectacleComboPairing`
 - `SpectacleTriadDiversity`
 
+Optional strategy pool selection:
+
+```text
+--strategy_set all|optimization|edge
+```
+
+Strategy pools:
+- `all`: all 11 strategies above (default)
+- `optimization`: `Random`, `GreedyDps`, `MarkerSynergy`, `SplitFocus`, `RiftPrismFocus`, `SpectacleSingleStack`, `SpectacleComboPairing`, `SpectacleTriadDiversity`
+- `edge`: `TowerFirst`, `ChainFocus`, `HeavyStack`
+
 Bot summary now includes spectacle trigger analytics by tier and effect mix. Surge/global surge metrics are the primary balance signals.
 
 ### Bot Metrics JSON Export
@@ -339,6 +350,12 @@ Optional tuning profile for this run:
 
 ```text
 --scene res://Scenes/Main.tscn -- --bot --runs 120 --tuning_file Data/combat_lab/sample_tuning.json --bot_metrics_out release/bot_metrics_tuned.json
+```
+
+Use optimization-only strategy pool (recommended for tuning runs):
+
+```text
+--scene res://Scenes/Main.tscn -- --bot --runs 120 --strategy_set optimization --bot_metrics_out release/bot_metrics_opt_pool.json
 ```
 
 The JSON summary includes:

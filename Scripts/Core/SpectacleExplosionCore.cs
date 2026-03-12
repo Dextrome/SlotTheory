@@ -212,15 +212,14 @@ public static class SpectacleExplosionCore
 
     public static int ResolveStatusDetonationMaxTargets(bool globalSurge, bool reducedMotion)
     {
-        int baseCap;
-        if (reducedMotion)
-            baseCap = globalSurge ? 10 : 8;
-        else
-            baseCap = globalSurge ? 24 : 16;
+        int baseCap = globalSurge
+            ? (reducedMotion ? 10 : 24)
+            : 8;
 
         float multiplier = MathF.Max(0.1f, SpectacleTuning.Current.DetonationMaxTargetsMultiplier);
         int adjusted = (int)MathF.Round(baseCap * multiplier);
-        return Clamp(adjusted, 1, 48);
+        int hardCap = globalSurge ? 48 : 8;
+        return Clamp(adjusted, 1, hardCap);
     }
 
     public static float ResolveStatusDetonationStaggerSeconds(bool reducedMotion)
