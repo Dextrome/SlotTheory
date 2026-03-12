@@ -39,15 +39,48 @@ public partial class SoundManager : Node
     private const float MusicBaseDb = -3f;
 
     private bool _headless;
+    private bool _isMobileAudio;
+    private readonly Dictionary<string, ulong> _mobileSfxLastPlayMs = new();
+    private ulong[] _poolStopAtMs = Array.Empty<ulong>();
+    private const float MobileFxBaseHeadroomDb = -4.0f;
+    private const float MobileFxSurgeExtraHeadroomDb = -2.5f;
+    private const int MobileFxBurstStartVoices = 8;
+    private const int MobileFxBusyVoiceDropThreshold = 12;
+    private const float MobileFxBurstPenaltyPerVoiceDb = 0.9f;
+    private const float MobileFxBurstPenaltyCapDb = 7.0f;
+    private static readonly HashSet<string> MobileDisabledExplosionSfx = new(StringComparer.Ordinal)
+    {
+        // Burst-heavy combat SFX can stack and distort on low-end mobile CPUs.
+        "shoot_rapid",
+        "shoot_heavy",
+        "shoot_marker",
+        "hit",
+        "die_basic",
+        "die_armored",
+        "die_swift",
+        "leak",
+        "mine_pop",
+        "mine_chain_pop",
+        "spectacle_bass_hit",
+        "wave20_swell",
+    };
+    private static readonly Dictionary<string, int> MobileSfxCooldownMs = new()
+    {
+        ["mine_chain_pop"] = 85,
+        ["spectacle_bass_hit"] = 120,
+        ["wave20_swell"] = 600,
+    };
 
     public override void _Ready()
     {
         Instance  = this;
         _headless = DisplayServer.GetName() == "headless";
+        _isMobileAudio = MobileOptimization.IsMobile();
         if (_headless) return;   // skip all audio setup in bot/headless mode
 
         _pool       = new AudioStreamPlayer[PoolSize];
         _poolTimers = new float[PoolSize];
+        _poolStopAtMs = new ulong[PoolSize];
 
         for (int i = 0; i < PoolSize; i++)
         {
@@ -56,6 +89,8 @@ public partial class SoundManager : Node
             AddChild(player);
             _pool[i] = player;
         }
+
+        EnsureMobileFxLimiter();
 
         // ── Tower attacks ────────────────────────────────────────────────
         Reg("shoot_rapid",  Tone(680f, 0.05f, vol: 0.33f, shape: 'q', env: 'f'));
@@ -187,13 +222,21 @@ public partial class SoundManager : Node
     {
         if (_headless) return;
         // Stop SFX players whose sound has finished
+        ulong nowMs = Time.GetTicksMsec();
         for (int i = 0; i < PoolSize; i++)
         {
-            if (_poolTimers[i] > 0f)
+            if (_poolStopAtMs[i] > 0)
             {
-                _poolTimers[i] -= (float)delta;
-                if (_poolTimers[i] <= 0f)
+                if (nowMs >= _poolStopAtMs[i])
+                {
                     _pool[i].Stop();
+                    _poolStopAtMs[i] = 0;
+                }
+            }
+            else if (_poolTimers[i] > 0f)
+            {
+                // Keep legacy timer bookkeeping as a soft fallback for active-voice estimation.
+                _poolTimers[i] = Mathf.Max(0f, _poolTimers[i] - (float)delta);
             }
         }
 
@@ -224,6 +267,8 @@ public partial class SoundManager : Node
     {
         if (_headless) return;
         if (!_samples.TryGetValue(id, out var samples)) return;
+        ulong nowMs = Time.GetTicksMsec();
+        if (ShouldSkipMobileSfx(id, nowMs)) return;
         float dur = _durations[id];
 
         int idx    = _poolIdx;
@@ -231,11 +276,14 @@ public partial class SoundManager : Node
         var player = _pool[idx];
 
         player.Stop();
+        player.VolumeDb = ResolveFxPlaybackDb(id);
         player.PitchScale = Mathf.Clamp(pitchScale * _speedFxPitch, 0.75f, 1.40f);
         player.Play();
         var playback = (AudioStreamGeneratorPlayback)player.GetStreamPlayback();
+        playback.ClearBuffer();
         playback.PushBuffer(samples);
         _poolTimers[idx] = dur + 0.05f;
+        _poolStopAtMs[idx] = nowMs + (ulong)Mathf.CeilToInt((dur + 0.05f) * 1000f);
     }
 
     public void SetSpeedFeel(float speedScale)
@@ -377,12 +425,115 @@ public partial class SoundManager : Node
                 mixed[i] += src[i];
         }
 
+        // Avoid hard clipping distortion on layered one-shots by normalizing peaks.
+        float peak = 0f;
         for (int i = 0; i < mixed.Length; i++)
         {
-            float l = Mathf.Clamp(mixed[i].X, -1f, 1f);
-            float r = Mathf.Clamp(mixed[i].Y, -1f, 1f);
+            float samplePeak = Mathf.Max(Mathf.Abs(mixed[i].X), Mathf.Abs(mixed[i].Y));
+            if (samplePeak > peak)
+                peak = samplePeak;
+        }
+        float targetPeak = 0.86f;
+        float normalizeScale = peak > targetPeak ? (targetPeak / peak) : 1f;
+
+        for (int i = 0; i < mixed.Length; i++)
+        {
+            float l = Mathf.Clamp(mixed[i].X * normalizeScale, -1f, 1f);
+            float r = Mathf.Clamp(mixed[i].Y * normalizeScale, -1f, 1f);
             mixed[i] = new Vector2(l, r);
         }
         return (mixed, max / (float)Rate);
+    }
+
+    private bool ShouldSkipMobileSfx(string id, ulong nowMs)
+    {
+        if (!_isMobileAudio)
+            return false;
+        if (MobileDisabledExplosionSfx.Contains(id))
+            return true;
+        if (!MobileSfxCooldownMs.TryGetValue(id, out int cooldownMs))
+        {
+            return false;
+        }
+
+        int resolvedCooldownMs = ResolveMobileCooldownMs(cooldownMs);
+        if (_mobileSfxLastPlayMs.TryGetValue(id, out ulong lastMs))
+        {
+            if (nowMs - lastMs < (ulong)resolvedCooldownMs)
+                return true;
+        }
+
+        if (CountActiveVoices(nowMs) >= MobileFxBusyVoiceDropThreshold && id != "wave20_swell")
+            return true;
+
+        _mobileSfxLastPlayMs[id] = nowMs;
+        return false;
+    }
+
+    private float ResolveFxPlaybackDb(string id)
+    {
+        if (!_isMobileAudio)
+            return 0f;
+
+        float db = MobileFxBaseHeadroomDb;
+        if (MobileSfxCooldownMs.ContainsKey(id))
+            db += MobileFxSurgeExtraHeadroomDb;
+
+        int activeVoices = 0;
+        ulong nowMs = Time.GetTicksMsec();
+        activeVoices = CountActiveVoices(nowMs);
+
+        if (activeVoices > MobileFxBurstStartVoices)
+        {
+            float extraVoices = activeVoices - MobileFxBurstStartVoices;
+            float burstPenalty = Mathf.Min(MobileFxBurstPenaltyCapDb, extraVoices * MobileFxBurstPenaltyPerVoiceDb);
+            db -= burstPenalty;
+        }
+
+        return Mathf.Clamp(db, -18f, 0f);
+    }
+
+    private int ResolveMobileCooldownMs(int baseCooldownMs)
+    {
+        float fps = (float)Engine.GetFramesPerSecond();
+        if (fps <= 0f)
+            return baseCooldownMs;
+        if (fps < 20f)
+            return (int)(baseCooldownMs * 2.0f);
+        if (fps < 30f)
+            return (int)(baseCooldownMs * 1.55f);
+        if (fps < 45f)
+            return (int)(baseCooldownMs * 1.25f);
+        return baseCooldownMs;
+    }
+
+    private int CountActiveVoices(ulong nowMs)
+    {
+        int activeVoices = 0;
+        for (int i = 0; i < _poolStopAtMs.Length; i++)
+        {
+            if (_poolStopAtMs[i] > nowMs)
+                activeVoices++;
+        }
+        return activeVoices;
+    }
+
+    private void EnsureMobileFxLimiter()
+    {
+        if (!_isMobileAudio)
+            return;
+
+        int fxBus = AudioServer.GetBusIndex("FX");
+        if (fxBus < 0)
+            return;
+
+        int effectCount = AudioServer.GetBusEffectCount(fxBus);
+        for (int i = 0; i < effectCount; i++)
+        {
+            if (AudioServer.GetBusEffect(fxBus, i) is AudioEffectHardLimiter)
+                return;
+        }
+
+        AudioServer.AddBusEffect(fxBus, new AudioEffectHardLimiter(), 0);
     }
 }

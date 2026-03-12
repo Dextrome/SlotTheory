@@ -16,6 +16,13 @@ public partial class PauseScreen : CanvasLayer
     private Button? _pauseFsBtn;
     private Button? _pauseCbBtn;
     private Button? _pauseRmBtn;
+    private Button? _pausePostFxBtn;
+    private Button? _pauseEnemyLayeredBtn;
+    private Button? _pauseEnemyEmissiveBtn;
+    private Button? _pauseEnemyDamageBtn;
+    private Button? _pauseEnemyBloomBtn;
+    private Button? _pauseResetProfileBtn;
+    private Label? _pauseResetProfileStatus;
 
     public override void _Ready()
     {
@@ -124,10 +131,43 @@ public partial class PauseScreen : CanvasLayer
 
     private void BuildSettingsPanel(VBoxContainer parent)
     {
+        var card = new PanelContainer();
+        card.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.04f, 0.04f, 0.12f),
+            border: new Color(0.18f, 0.22f, 0.18f),
+            corners: 12, borderWidth: 1, padH: 0, padV: 0));
+        parent.AddChild(card);
+        _settingsPanel = card;
+
+        float heightFactor = MobileOptimization.IsMobile() ? 0.70f : 0.78f;
+        float maxHeight = Mathf.Clamp(
+            GetViewport().GetVisibleRect().Size.Y * heightFactor,
+            320f,
+            MobileOptimization.IsMobile() ? 540f : 620f);
+
+        var scroll = new ScrollContainer();
+        scroll.CustomMinimumSize = new Vector2(360f, maxHeight);
+        scroll.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        scroll.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+        scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
+        scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        TouchScrollHelper.EnableDragScroll(scroll);
+        card.AddChild(scroll);
+
+        var margin = new MarginContainer();
+        margin.AddThemeConstantOverride("margin_left", 22);
+        margin.AddThemeConstantOverride("margin_right", 22);
+        margin.AddThemeConstantOverride("margin_top", 20);
+        margin.AddThemeConstantOverride("margin_bottom", 20);
+        margin.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        margin.MouseFilter = Control.MouseFilterEnum.Pass;
+        scroll.AddChild(margin);
+
         var vbox = new VBoxContainer();
         vbox.AddThemeConstantOverride("separation", 16);
-        parent.AddChild(vbox);
-        _settingsPanel = vbox;
+        vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        vbox.CustomMinimumSize = new Vector2(300, 0);
+        margin.AddChild(vbox);
 
         AddLabel(vbox, "SETTINGS", 42, new Color("#a6d608"));
         AddSpacer(vbox, 8);
@@ -140,11 +180,14 @@ public partial class PauseScreen : CanvasLayer
         AddVolumeRow(vbox, "FX",     sm?.FxVolume     ?? 80f,
             v => SettingsManager.Instance?.SetFxVolume(v));
 
+        AddSpacer(vbox, 6);
+        AddSectionHeader(vbox, "DISPLAY");
+
         // Fullscreen toggle
         bool isFs = SettingsManager.Instance?.Fullscreen ?? false;
         _pauseFsBtn = new Button
         {
-            Text              = "Display:  " + (isFs ? "Fullscreen" : "Windowed"),
+            Text              = FullscreenLabel(isFs),
             CustomMinimumSize = new Vector2(260, 44),
         };
         _pauseFsBtn.AddThemeFontSizeOverride("font_size", 20);
@@ -153,7 +196,7 @@ public partial class PauseScreen : CanvasLayer
             SoundManager.Instance?.Play("ui_select");
             SettingsManager.Instance?.ToggleFullscreen();
             if (_pauseFsBtn != null)
-                _pauseFsBtn.Text = "Display:  " + ((SettingsManager.Instance?.Fullscreen ?? false) ? "Fullscreen" : "Windowed");
+                _pauseFsBtn.Text = FullscreenLabel(SettingsManager.Instance?.Fullscreen ?? false);
         };
         vbox.AddChild(_pauseFsBtn);
 
@@ -161,7 +204,7 @@ public partial class PauseScreen : CanvasLayer
         bool isCb = SettingsManager.Instance?.ColorblindMode ?? false;
         _pauseCbBtn = new Button
         {
-            Text              = "Colorblind:  " + (isCb ? "On" : "Off"),
+            Text              = ColorblindLabel(isCb),
             CustomMinimumSize = new Vector2(260, 44),
         };
         _pauseCbBtn.AddThemeFontSizeOverride("font_size", 20);
@@ -170,7 +213,8 @@ public partial class PauseScreen : CanvasLayer
             SoundManager.Instance?.Play("ui_select");
             bool next = !(SettingsManager.Instance?.ColorblindMode ?? false);
             SettingsManager.Instance?.SetColorblindMode(next);
-            if (_pauseCbBtn != null) _pauseCbBtn.Text = "Colorblind:  " + (next ? "On" : "Off");
+            if (_pauseCbBtn != null)
+                _pauseCbBtn.Text = ColorblindLabel(next);
         };
         vbox.AddChild(_pauseCbBtn);
 
@@ -178,7 +222,7 @@ public partial class PauseScreen : CanvasLayer
         bool isRm = SettingsManager.Instance?.ReducedMotion ?? false;
         _pauseRmBtn = new Button
         {
-            Text              = "Reduced Motion:  " + (isRm ? "On" : "Off"),
+            Text              = ReducedMotionLabel(isRm),
             CustomMinimumSize = new Vector2(260, 44),
         };
         _pauseRmBtn.AddThemeFontSizeOverride("font_size", 20);
@@ -187,9 +231,129 @@ public partial class PauseScreen : CanvasLayer
             SoundManager.Instance?.Play("ui_select");
             bool next = !(SettingsManager.Instance?.ReducedMotion ?? false);
             SettingsManager.Instance?.SetReducedMotion(next);
-            if (_pauseRmBtn != null) _pauseRmBtn.Text = "Reduced Motion:  " + (next ? "On" : "Off");
+            if (_pauseRmBtn != null)
+                _pauseRmBtn.Text = ReducedMotionLabel(next);
         };
         vbox.AddChild(_pauseRmBtn);
+
+        bool isPostFx = sm?.PostFxEnabled ?? true;
+        _pausePostFxBtn = new Button
+        {
+            Text              = PostFxLabel(isPostFx),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _pausePostFxBtn.AddThemeFontSizeOverride("font_size", 20);
+        _pausePostFxBtn.Pressed += () =>
+        {
+            SoundManager.Instance?.Play("ui_select");
+            bool next = !(SettingsManager.Instance?.PostFxEnabled ?? true);
+            SettingsManager.Instance?.SetPostFxEnabled(next);
+            if (_pausePostFxBtn != null)
+                _pausePostFxBtn.Text = PostFxLabel(next);
+        };
+        vbox.AddChild(_pausePostFxBtn);
+
+        AddSpacer(vbox, 6);
+        AddSectionHeader(vbox, "ENEMY FX");
+
+        bool layered = sm?.LayeredEnemyRendering ?? true;
+        _pauseEnemyLayeredBtn = new Button
+        {
+            Text              = EnemyLayeredLabel(layered),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _pauseEnemyLayeredBtn.AddThemeFontSizeOverride("font_size", 20);
+        _pauseEnemyLayeredBtn.Pressed += () =>
+        {
+            SoundManager.Instance?.Play("ui_select");
+            bool next = !(SettingsManager.Instance?.LayeredEnemyRendering ?? true);
+            SettingsManager.Instance?.SetLayeredEnemyRendering(next);
+            if (_pauseEnemyLayeredBtn != null)
+                _pauseEnemyLayeredBtn.Text = EnemyLayeredLabel(next);
+        };
+        vbox.AddChild(_pauseEnemyLayeredBtn);
+
+        bool emissive = sm?.EnemyEmissiveLines ?? true;
+        _pauseEnemyEmissiveBtn = new Button
+        {
+            Text              = EnemyEmissiveLabel(emissive),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _pauseEnemyEmissiveBtn.AddThemeFontSizeOverride("font_size", 20);
+        _pauseEnemyEmissiveBtn.Pressed += () =>
+        {
+            SoundManager.Instance?.Play("ui_select");
+            bool next = !(SettingsManager.Instance?.EnemyEmissiveLines ?? true);
+            SettingsManager.Instance?.SetEnemyEmissiveLines(next);
+            if (_pauseEnemyEmissiveBtn != null)
+                _pauseEnemyEmissiveBtn.Text = EnemyEmissiveLabel(next);
+        };
+        vbox.AddChild(_pauseEnemyEmissiveBtn);
+
+        bool damage = sm?.EnemyDamageMaterial ?? true;
+        _pauseEnemyDamageBtn = new Button
+        {
+            Text              = EnemyDamageLabel(damage),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _pauseEnemyDamageBtn.AddThemeFontSizeOverride("font_size", 20);
+        _pauseEnemyDamageBtn.Pressed += () =>
+        {
+            SoundManager.Instance?.Play("ui_select");
+            bool next = !(SettingsManager.Instance?.EnemyDamageMaterial ?? true);
+            SettingsManager.Instance?.SetEnemyDamageMaterial(next);
+            if (_pauseEnemyDamageBtn != null)
+                _pauseEnemyDamageBtn.Text = EnemyDamageLabel(next);
+        };
+        vbox.AddChild(_pauseEnemyDamageBtn);
+
+        bool bloom = sm?.EnemyBloomHighlights ?? !MobileOptimization.IsMobile();
+        _pauseEnemyBloomBtn = new Button
+        {
+            Text              = EnemyBloomLabel(bloom),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _pauseEnemyBloomBtn.AddThemeFontSizeOverride("font_size", 20);
+        _pauseEnemyBloomBtn.Pressed += () =>
+        {
+            SoundManager.Instance?.Play("ui_select");
+            bool next = !(SettingsManager.Instance?.EnemyBloomHighlights ?? !MobileOptimization.IsMobile());
+            SettingsManager.Instance?.SetEnemyBloomHighlights(next);
+            if (_pauseEnemyBloomBtn != null)
+                _pauseEnemyBloomBtn.Text = EnemyBloomLabel(next);
+        };
+        vbox.AddChild(_pauseEnemyBloomBtn);
+
+        if (sm?.DevMode == true)
+        {
+            AddSpacer(vbox, 6);
+            AddSectionHeader(vbox, "DEVELOPER");
+
+            _pauseResetProfileBtn = new Button
+            {
+                Text = "Reset Profile Unlocks",
+                CustomMinimumSize = new Vector2(260, 44),
+            };
+            _pauseResetProfileBtn.AddThemeFontSizeOverride("font_size", 20);
+            UITheme.ApplyMutedStyle(_pauseResetProfileBtn);
+            _pauseResetProfileBtn.Pressed += () =>
+            {
+                SoundManager.Instance?.Play("ui_select");
+                AchievementManager.Instance?.ResetUnlockFlags();
+                if (_pauseResetProfileStatus != null)
+                    _pauseResetProfileStatus.Text = "Progression unlock flags cleared for this profile.";
+            };
+            vbox.AddChild(_pauseResetProfileBtn);
+
+            _pauseResetProfileStatus = new Label
+            {
+                Text = "",
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            };
+            _pauseResetProfileStatus.AddThemeFontSizeOverride("font_size", 14);
+            _pauseResetProfileStatus.Modulate = new Color(0.85f, 0.72f, 0.72f);
+            vbox.AddChild(_pauseResetProfileStatus);
+        }
 
         AddSpacer(vbox, 8);
         AddBtn(vbox, "\u2190 Back", OnCloseSettings);
@@ -453,6 +617,42 @@ public partial class PauseScreen : CanvasLayer
 
     private static void AddSpacer(Control parent, int px) =>
         parent.AddChild(new Control { CustomMinimumSize = new Vector2(0, px) });
+
+    private static void AddSectionHeader(Control parent, string text)
+    {
+        var sep = new HSeparator();
+        sep.Modulate = new Color(0.30f, 0.30f, 0.30f);
+        parent.AddChild(sep);
+
+        var lbl = new Label { Text = text };
+        lbl.AddThemeFontSizeOverride("font_size", 16);
+        lbl.Modulate = new Color("#a6d608");
+        parent.AddChild(lbl);
+    }
+
+    private static string FullscreenLabel(bool full) =>
+        full ? "Display:  Fullscreen" : "Display:  Windowed";
+
+    private static string ColorblindLabel(bool on) =>
+        on ? "Colorblind:  On" : "Colorblind:  Off";
+
+    private static string ReducedMotionLabel(bool on) =>
+        on ? "Reduced Motion:  On" : "Reduced Motion:  Off";
+
+    private static string PostFxLabel(bool on) =>
+        on ? "Post FX:  On" : "Post FX:  Off";
+
+    private static string EnemyLayeredLabel(bool on) =>
+        on ? "Layered Enemies:  On" : "Layered Enemies:  Off";
+
+    private static string EnemyEmissiveLabel(bool on) =>
+        on ? "Enemy Emissive:  On" : "Enemy Emissive:  Off";
+
+    private static string EnemyDamageLabel(bool on) =>
+        on ? "Enemy Damage FX:  On" : "Enemy Damage FX:  Off";
+
+    private static string EnemyBloomLabel(bool on) =>
+        on ? "Enemy Bloom:  On" : "Enemy Bloom:  Off";
 
     private static void AddBtn(Control parent, string text, System.Action callback)
     {

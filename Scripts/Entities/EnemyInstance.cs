@@ -10,6 +10,13 @@ namespace SlotTheory.Entities;
 /// </summary>
 public partial class EnemyInstance : PathFollow2D, IEnemyView
 {
+    private static float _spectacleSpeedMultiplier = 1f;
+
+    public static void SetSpectacleSpeedMultiplier(float multiplier)
+    {
+        _spectacleSpeedMultiplier = Mathf.Clamp(multiplier, 0.05f, 1f);
+    }
+
     private readonly struct TrailSample
     {
         public Vector2 WorldPos { get; }
@@ -123,7 +130,8 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
     public override void _Process(double delta)
     {
         float dt = (float)delta;
-        float effectiveSpeed = IsSlowed ? Speed * SlowSpeedFactor : Speed;
+        float statusSpeedFactor = IsSlowed ? SlowSpeedFactor : 1f;
+        float effectiveSpeed = Speed * statusSpeedFactor * _spectacleSpeedMultiplier;
 
         Vector2 worldBefore = GlobalPosition;
         Progress += effectiveSpeed * dt;
