@@ -1,5 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.IO;
+using System.Text.Json;
 using Godot;
 using SlotTheory.Combat;
 using SlotTheory.Core.Leaderboards;
@@ -88,8 +90,6 @@ public partial class GameController : Node
 	private double _preHitStopTimeScale = 1.0;
 	private float _hitStopCooldown = 0f;
 	private bool _spectacleSlowMoActive = false;
-	private float _spectacleSlowMoScale = 1.0f;
-	private double _spectacleSlowMoRestoreScale = 1.0;
 	private ulong _spectacleSlowMoToken = 0;
 	private Tween? _explosionZoomTween;
 	private string _draftSynergyHintModifierId = "";
@@ -122,11 +122,13 @@ public partial class GameController : Node
 	private bool _mobileCameraDirectZoom = true;
 	private MobileRunSnapshot? _mobileResumeSnapshot;
 	private bool _isRestoringSnapshot = false;
+	private bool _isMobilePlatform = false;
 	private const float MobileMinZoom = 1.0f;
 	private const float MobileMaxZoom = 2.6f;
 	private const float MobileZoomSnapEpsilon = 0.015f;
 	private const float MobileTapMoveThreshold = 18f;
 	private const float MobilePanStartThreshold = 6f;
+	private const float DraftOpenDelaySeconds = 0.50f;
 	private readonly EnemyRenderPerfProfiler _enemyRenderPerfProfiler = new();
 	private bool _perfReportHotkeyLatch;
 	private readonly SpectacleSystem _spectacleSystem = new();
@@ -160,10 +162,44 @@ public partial class GameController : Node
 	public override void _Ready()
 	{
 		Instance = this;
+		_isMobilePlatform = MobileOptimization.IsMobile();
+		EnemyInstance.SetSpectacleSpeedMultiplier(1f);
 		DataLoader.LoadAll();
 		SpectacleTuning.Reset();
 
 		var userArgs = OS.GetCmdlineUserArgs();
+		int dumpSeedIndex = System.Array.IndexOf(userArgs, "--dump_seed_tuning_json");
+		if (dumpSeedIndex >= 0)
+		{
+			if (dumpSeedIndex + 1 >= userArgs.Length)
+			{
+				GD.PrintErr("[TUNING] Missing output path after --dump_seed_tuning_json.");
+				GetTree().Quit();
+				return;
+			}
+
+			string outputPath = userArgs[dumpSeedIndex + 1];
+			try
+			{
+				string fullPath = Path.GetFullPath(outputPath);
+				string? dir = Path.GetDirectoryName(fullPath);
+				if (!string.IsNullOrWhiteSpace(dir))
+					Directory.CreateDirectory(dir);
+
+				var options = new JsonSerializerOptions { WriteIndented = true };
+				string json = JsonSerializer.Serialize(SpectacleTuning.Current, options);
+				File.WriteAllText(fullPath, json);
+				GD.Print($"[TUNING] Wrote current seed tuning to {fullPath}");
+			}
+			catch (System.Exception ex)
+			{
+				GD.PrintErr($"[TUNING] Failed to write seed tuning JSON: {ex.Message}");
+			}
+
+			GetTree().Quit();
+			return;
+		}
+
 		if (BotMetricsDeltaReporter.TryRunFromArgs(userArgs))
 		{
 			GetTree().Quit();
@@ -515,7 +551,7 @@ public partial class GameController : Node
 					CurrentPhase = GamePhase.Draft;
 					// Store the wave report for the next draft panel
 					_lastWaveReport = waveReport;
-					GetTree().CreateTimer(0.48f).Timeout += StartDraftPhase;
+					GetTree().CreateTimer(DraftOpenDelaySeconds).Timeout += StartDraftPhase;
 				}
 			}
 		}
@@ -553,6 +589,7 @@ public partial class GameController : Node
 
 	public override void _ExitTree()
 	{
+		EnemyInstance.SetSpectacleSpeedMultiplier(1f);
 		if (!_runAbandoned)
 			SaveMobileRunSnapshot("exit_tree");
 	}
@@ -789,9 +826,8 @@ public partial class GameController : Node
 		_hitStopCooldown = 0f;
 		_preHitStopTimeScale = 1.0;
 		_spectacleSlowMoActive = false;
-		_spectacleSlowMoScale = 1.0f;
-		_spectacleSlowMoRestoreScale = 1.0;
 		_spectacleSlowMoToken = 0;
+		EnemyInstance.SetSpectacleSpeedMultiplier(1f);
 		_explosionResidues.Clear();
 		_nextExplosionBassHitMs = 0;
 		_draftSynergyHintModifierId = "";
@@ -2527,6 +2563,7 @@ public partial class GameController : Node
 		ITowerView? sourceTower = info.Tower;
 		if (sourceTower == null)
 			return;
+		bool mobileLite = IsMobileSpectacleLite();
 
 		Color accent = ResolveSpectacleColor(info.Signature.PrimaryModId);
 		if (sourceTower is TowerInstance triggerTower && GodotObject.IsInstanceValid(triggerTower))
@@ -2558,7 +2595,8 @@ public partial class GameController : Node
 			sourceTower: sourceTower,
 			rider: surgeRider,
 			spawnResidue: surgeRider != SpectacleConsequenceKind.None);
-		SoundManager.Instance?.Play("mine_chain_pop", pitchScale: 1.08f);
+		if (!mobileLite)
+			SoundManager.Instance?.Play("mine_chain_pop", pitchScale: 1.08f);
 		PlayExplosionBassHit(info.Signature.SurgePower, globalSurge: false);
 		ApplySpectacleGameplayPayload(info, isMajor: true);
 		TriggerStatusDetonationChain(
@@ -2568,7 +2606,7 @@ public partial class GameController : Node
 			comboSkin,
 			globalSurge: false,
 			info.Signature.SurgePower);
-		TriggerSpectacleSlowMo(realDuration: 0.5f, speedFactor: 0.25f);
+		TriggerSpectacleSlowMo(realDuration: 0.5f, speedFactor: 0.50f);
 
 		SpawnCombatCallout(
 			info.Signature.EffectName.ToUpperInvariant(),
@@ -2607,6 +2645,7 @@ public partial class GameController : Node
 			ApplyGlobalSurgeGameplayPayload(info);
 			return;
 		}
+		bool mobileLite = IsMobileSpectacleLite();
 
 		Vector2 center = ScreenToWorld(GetViewport().GetVisibleRect().Size * 0.5f);
 		var globalColor = new Color(1.00f, 0.90f, 0.56f);
@@ -2614,7 +2653,8 @@ public partial class GameController : Node
 		SpawnGlobalSurgeRipples(center, globalColor, Mathf.Max(2, info.UniqueContributors));
 		FlashSpectacleScreen(globalColor, peakAlpha: 0.28f, rampSec: 0.09f, fadeSec: 0.62f);
 		SoundManager.Instance?.Play("wave20_swell");
-		PlayExplosionBassHit(surgePower: 2.15f, globalSurge: true);
+		if (!mobileLite)
+			PlayExplosionBassHit(surgePower: 2.15f, globalSurge: true);
 
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
@@ -2654,7 +2694,7 @@ public partial class GameController : Node
 			sourceTower: null,
 			rider: SpectacleConsequenceKind.Vulnerability,
 			spawnResidue: true);
-		TriggerSpectacleSlowMo(realDuration: 5.6f, speedFactor: 0.25f);
+		TriggerSpectacleSlowMo(realDuration: 5.6f, speedFactor: 0.50f);
 		ShowGlobalSurgeBanner(info.EffectName, globalColor);
 		ExplosionHitStopProfile hitStop = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
 			majorExplosion: true,
@@ -3997,6 +4037,9 @@ public partial class GameController : Node
 		tower.Cooldown = Mathf.Max(0f, tower.Cooldown * (1f - clamped));
 	}
 
+	private bool IsMobileSpectacleLite()
+		=> _isMobilePlatform;
+
 	private static Color ResolveSpectacleColor(string modId)
 	{
 		if (string.IsNullOrEmpty(modId))
@@ -4174,6 +4217,8 @@ public partial class GameController : Node
 	private void SpawnComboSkinGlyphFx(Vector2 worldPos, ComboExplosionSkin skin, Color accent, float power, bool major)
 	{
 		if (_botRunner != null || skin == ComboExplosionSkin.Default || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+		if (IsMobileSpectacleLite() && !major)
 			return;
 
 		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
@@ -4370,6 +4415,7 @@ public partial class GameController : Node
 		{
 			var enemyRef = statusTargets[i];
 			int index = i;
+			bool renderDetonationFx = !IsMobileSpectacleLite() || index < 2;
 			Vector2? previousAnchor = index > 0 ? statusTargets[index - 1].GlobalPosition : (Vector2?)null;
 			float delay = reducedMotion ? index * (stagger * 0.7f) : index * stagger;
 
@@ -4392,7 +4438,7 @@ public partial class GameController : Node
 					stageId: $"detonation_{index}",
 					comboSkin: skin.ToString());
 
-				if (_botRunner == null)
+				if (_botRunner == null && renderDetonationFx)
 				{
 					SpawnSpectacleBurstFx(
 						enemyRef.GlobalPosition,
@@ -4448,11 +4494,14 @@ public partial class GameController : Node
 
 	private void SpawnSpectacleBurstFx(Vector2 worldPos, Color accent, bool major, float power = 1f, bool stageTwoKick = false)
 	{
+		bool mobileLite = IsMobileSpectacleLite();
+		bool emitSecondStage = SpectacleExplosionCore.ShouldEmitSecondStage(major, power)
+			&& (!mobileLite || major);
 		_runState?.TrackSpectacleExplosionBurst();
 		AppendBotTraceEvent(
 			eventType: "spectacle_burst",
 			stageId: "stage_one");
-		if (SpectacleExplosionCore.ShouldEmitSecondStage(major, power))
+		if (emitSecondStage)
 		{
 			AppendBotTraceEvent(
 				eventType: "spectacle_burst",
@@ -4477,7 +4526,7 @@ public partial class GameController : Node
 		float stageOneIntensity = intensity * (major ? 0.62f : 0.74f);
 		stageOne.Initialize(accent, chainPop: false, intensity: stageOneIntensity);
 
-		if (!SpectacleExplosionCore.ShouldEmitSecondStage(major, power))
+		if (!emitSecondStage)
 			return;
 
 		// Stage 2: delayed wide detonation ring.
@@ -4498,7 +4547,7 @@ public partial class GameController : Node
 			float stageTwoIntensity = intensity * (major ? 1.15f : 1.03f);
 			stageTwo.Initialize(stageTwoAccent, chainPop: true, intensity: stageTwoIntensity);
 
-			if (stageTwoKick && !reducedMotion)
+			if (stageTwoKick && !reducedMotion && !mobileLite)
 			{
 				ShakeWorldMicro();
 				SoundManager.Instance?.Play("mine_chain_pop", pitchScale: major ? 0.92f : 0.98f);
@@ -4533,6 +4582,7 @@ public partial class GameController : Node
 			return;
 
 		bool canVisualize = _botRunner == null && GodotObject.IsInstanceValid(_worldNode);
+		int mobileVisualCap = IsMobileSpectacleLite() ? 2 : int.MaxValue;
 		var links = _runState.EnemiesAlive
 			.Where(e =>
 				GodotObject.IsInstanceValid(e)
@@ -4547,7 +4597,7 @@ public partial class GameController : Node
 		{
 			var enemy = links[i];
 			float intensity = (majorStyle ? 1.34f : 1.06f) + i * 0.08f;
-			if (canVisualize)
+			if (canVisualize && i < mobileVisualCap)
 			{
 				var arc = new ChainArc();
 				_worldNode.AddChild(arc);
@@ -4593,6 +4643,8 @@ public partial class GameController : Node
 
 		float contributorT = Mathf.Clamp((contributors - 1f) / 5f, 0f, 1f);
 		int rippleCount = reducedMotion ? 1 : 3;
+		if (IsMobileSpectacleLite())
+			rippleCount = Mathf.Min(rippleCount, 2);
 		float baseDuration = Mathf.Lerp(0.62f, 0.86f, contributorT);
 
 		for (int i = 0; i < rippleCount; i++)
@@ -4651,6 +4703,7 @@ public partial class GameController : Node
 		{
 			var enemyRef = targets[i];
 			int index = i;
+			bool renderImpactFx = !IsMobileSpectacleLite() || index < 6;
 			float distance = origin.DistanceTo(enemyRef.GlobalPosition);
 			float intensity = baseIntensity + index * 0.02f;
 			GlobalSurgeWaveTiming timing = SpectacleExplosionCore.ResolveGlobalSurgeWaveTiming(distance, contributors, reducedMotion);
@@ -4680,12 +4733,15 @@ public partial class GameController : Node
 					return;
 				}
 
-				SpawnSpectacleArc(origin, enemyRef.GlobalPosition, accent, intensity, mineChainStyle: true);
-				SpawnSpectacleImpactSparks(enemyRef.GlobalPosition, accent, heavy: true);
-				if (!reducedMotion)
+				if (renderImpactFx)
 				{
-					float popPower = 0.90f + 0.05f * Mathf.Clamp(contributors, 1, 7);
-					SpawnSpectacleBurstFx(enemyRef.GlobalPosition, accent, major: false, power: popPower);
+					SpawnSpectacleArc(origin, enemyRef.GlobalPosition, accent, intensity, mineChainStyle: true);
+					SpawnSpectacleImpactSparks(enemyRef.GlobalPosition, accent, heavy: true);
+					if (!reducedMotion)
+					{
+						float popPower = 0.90f + 0.05f * Mathf.Clamp(contributors, 1, 7);
+						SpawnSpectacleBurstFx(enemyRef.GlobalPosition, accent, major: false, power: popPower);
+					}
 				}
 
 				bool primaryConsequence = index < consequenceCount;
@@ -4726,8 +4782,10 @@ public partial class GameController : Node
 	{
 		if (_botRunner != null || _runState == null || tower == null)
 			return;
+		bool mobileLite = IsMobileSpectacleLite();
 
-		SpawnSpectacleImpactSparks(tower.GlobalPosition, accent, heavy: major);
+		if (!mobileLite)
+			SpawnSpectacleImpactSparks(tower.GlobalPosition, accent, heavy: major);
 		float volleyRange = Mathf.Max(major ? 320f : 250f, tower.Range * (major ? 1.30f : 1.05f));
 		int volleyCount = major ? 4 : 2;
 		var targets = GetSpectacleTargets(tower.GlobalPosition, volleyRange, volleyCount, preferFront: true);
@@ -4738,9 +4796,11 @@ public partial class GameController : Node
 		float volleyDamageScale = (major ? 0.14f : 0.08f) * Mathf.Clamp(power, 0.6f, 2.2f);
 		for (int i = 0; i < targets.Count; i++)
 		{
+			bool renderVolleyFx = !mobileLite || i == 0;
 			float intensity = intensityBase + i * 0.12f;
-			SpawnSpectacleArc(tower.GlobalPosition, targets[i].GlobalPosition, accent, intensity, mineChainStyle: major);
-			if (major)
+			if (renderVolleyFx)
+				SpawnSpectacleArc(tower.GlobalPosition, targets[i].GlobalPosition, accent, intensity, mineChainStyle: major);
+			if (major && renderVolleyFx)
 				SpawnSpectacleImpactSparks(targets[i].GlobalPosition, accent, heavy: true);
 
 			float falloff = Mathf.Max(0.60f, 1f - i * 0.14f);
@@ -4775,7 +4835,8 @@ public partial class GameController : Node
 			if (_botRunner != null || CurrentPhase != GamePhase.Wave || !GodotObject.IsInstanceValid(this))
 				return;
 
-			SpawnSpectacleBurstFx(origin, accent, major, power * (major ? 0.72f : 0.62f));
+			if (!IsMobileSpectacleLite())
+				SpawnSpectacleBurstFx(origin, accent, major, power * (major ? 0.72f : 0.62f));
 			SpawnSpectacleLinks(
 				origin,
 				accent,
@@ -4883,6 +4944,8 @@ public partial class GameController : Node
 
 		ulong now = Time.GetTicksMsec();
 		ulong minGapMs = globalSurge ? 130u : 90u;
+		if (IsMobileSpectacleLite())
+			minGapMs = globalSurge ? 320u : 200u;
 		if (now < _nextExplosionBassHitMs)
 			return;
 		_nextExplosionBassHitMs = now + minGapMs;
@@ -5725,10 +5788,7 @@ public partial class GameController : Node
 		float duration = Mathf.Max(0.10f, realDuration);
 		float factor = Mathf.Clamp(speedFactor, 0.05f, 1.0f);
 		_spectacleSlowMoActive = true;
-		_spectacleSlowMoRestoreScale = _hitStopActive ? _preHitStopTimeScale : Engine.TimeScale;
-		_spectacleSlowMoScale = Mathf.Max(0.05f, (float)_spectacleSlowMoRestoreScale * factor);
-
-		Engine.TimeScale = Mathf.Min((float)Engine.TimeScale, _spectacleSlowMoScale);
+		EnemyInstance.SetSpectacleSpeedMultiplier(factor);
 
 		ulong token = ++_spectacleSlowMoToken;
 		GetTree().CreateTimer(duration, true, false, true).Timeout += () =>
@@ -5737,9 +5797,7 @@ public partial class GameController : Node
 				return;
 
 			_spectacleSlowMoActive = false;
-			_spectacleSlowMoScale = 1.0f;
-			if (!_hitStopActive)
-				Engine.TimeScale = _spectacleSlowMoRestoreScale;
+			EnemyInstance.SetSpectacleSpeedMultiplier(1f);
 		};
 	}
 
@@ -5768,8 +5826,6 @@ public partial class GameController : Node
 		GetTree().CreateTimer(scaledWait).Timeout += () =>
 		{
 			float restoreScale = (float)_preHitStopTimeScale;
-			if (_spectacleSlowMoActive)
-				restoreScale = Mathf.Min(restoreScale, _spectacleSlowMoScale);
 			Engine.TimeScale = restoreScale;
 			_hitStopActive = false;
 		};

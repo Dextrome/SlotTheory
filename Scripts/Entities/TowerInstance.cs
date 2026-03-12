@@ -45,6 +45,7 @@ public partial class TowerInstance : Node2D, ITowerView
     public float SpectaclePulse { get; set; } = 0f;
     public string SpectacleAccent { get; set; } = string.Empty;
     private Tween? _spectacleFlashTween;
+    private Tween? _recoilTween;
     private float _idleTime = 0f;
     private float _lockLineRemaining = 0f;
     private Vector2 _lockLineTargetGlobal = Vector2.Zero;
@@ -82,8 +83,12 @@ public partial class TowerInstance : Node2D, ITowerView
         if (LastTargetPosition.HasValue)
         {
             var dir = LastTargetPosition.Value - GlobalPosition;
+            if (dir.LengthSquared() > 0.0001f)
+            {
             float targetAngle = dir.Angle() + Mathf.Pi * 0.5f; // barrels point local -Y
-            Rotation = Mathf.LerpAngle(Rotation, targetAngle, 15f * dt);
+                float turnLerp = Mathf.Clamp(15f * dt, 0f, 1f);
+                Rotation = Mathf.LerpAngle(Rotation, targetAngle, turnLerp);
+            }
         }
         if (AttackInterval > 0f) QueueRedraw();
     }
@@ -127,13 +132,20 @@ public partial class TowerInstance : Node2D, ITowerView
     {
         if (!LastTargetPosition.HasValue) return;
 
-        var dir = (LastTargetPosition.Value - GlobalPosition).Normalized();
-        var kickOffset = -dir * distance;
-        var tween = CreateTween();
-        tween.TweenProperty(this, "position", kickOffset, 0.032f)
+        var dir = LastTargetPosition.Value - GlobalPosition;
+        if (dir.LengthSquared() <= 0.0001f)
+            return;
+
+        if (_recoilTween != null && GodotObject.IsInstanceValid(_recoilTween))
+            _recoilTween.Kill();
+
+        var kickOffset = -dir.Normalized() * distance;
+        _recoilTween = CreateTween();
+        _recoilTween.TweenProperty(this, "position", kickOffset, 0.032f)
              .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
-        tween.TweenProperty(this, "position", Vector2.Zero, 0.075f)
+        _recoilTween.TweenProperty(this, "position", Vector2.Zero, 0.075f)
              .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+        _recoilTween.TweenCallback(Callable.From(() => _recoilTween = null));
     }
 
     public void OnShotFired(EnemyInstance target)

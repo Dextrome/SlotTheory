@@ -80,6 +80,7 @@ public partial class MapSelectPanel : Node
 		scrollContainer.CustomMinimumSize = _isMobile
 			? new Vector2(420, 200)
 			: new Vector2(760, 320);
+		scrollContainer.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
 		scrollContainer.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
 		scrollContainer.SizeFlagsHorizontal  = Control.SizeFlags.ExpandFill;
 		scrollContainer.SizeFlagsVertical    = Control.SizeFlags.ExpandFill;
@@ -89,6 +90,8 @@ public partial class MapSelectPanel : Node
 		_mapListContainer = new VBoxContainer();
 		_mapListContainer.AddThemeConstantOverride("separation", 12);
 		_mapListContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		if (_isMobile)
+			_mapListContainer.MouseFilter = Control.MouseFilterEnum.Pass;
 		scrollContainer.AddChild(_mapListContainer);
 		PopulateMapList();
 
@@ -213,6 +216,8 @@ public partial class MapSelectPanel : Node
 		var container = new PanelContainer();
 		container.ThemeTypeVariation = "NoVisualHBox";
 		container.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		if (_isMobile)
+			container.MouseFilter = Control.MouseFilterEnum.Pass;
 
 		var hbox = new HBoxContainer();
 		hbox.AddThemeConstantOverride("separation",    10);
@@ -220,6 +225,8 @@ public partial class MapSelectPanel : Node
 		hbox.AddThemeConstantOverride("margin_top",    10);
 		hbox.AddThemeConstantOverride("margin_right",  10);
 		hbox.AddThemeConstantOverride("margin_bottom", 10);
+		if (_isMobile)
+			hbox.MouseFilter = Control.MouseFilterEnum.Ignore;
 		container.AddChild(hbox);
 
 		var btn = new Button
@@ -227,6 +234,8 @@ public partial class MapSelectPanel : Node
 			Text = "SELECT",
 			CustomMinimumSize = new Vector2(80, 52),
 		};
+		if (_isMobile)
+			btn.MouseFilter = Control.MouseFilterEnum.Pass;
 		btn.AddThemeFontSizeOverride("font_size", 15);
 		btn.Pressed      += () => SelectMap(mapId);
 		btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
@@ -235,6 +244,8 @@ public partial class MapSelectPanel : Node
 		var textVbox = new VBoxContainer();
 		textVbox.AddThemeConstantOverride("separation", 2);
 		textVbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		if (_isMobile)
+			textVbox.MouseFilter = Control.MouseFilterEnum.Ignore;
 		hbox.AddChild(textVbox);
 
 		var nameLabel = new Label
@@ -243,6 +254,8 @@ public partial class MapSelectPanel : Node
 			HorizontalAlignment = HorizontalAlignment.Left,
 			ClipText = false,
 		};
+		if (_isMobile)
+			nameLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
 		UITheme.ApplyFont(nameLabel, semiBold: true, size: 20);
 		textVbox.AddChild(nameLabel);
 
@@ -254,6 +267,8 @@ public partial class MapSelectPanel : Node
 				? TextServer.AutowrapMode.Word
 				: TextServer.AutowrapMode.Off,
 		};
+		if (_isMobile)
+			descLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
 		descLabel.AddThemeFontSizeOverride("font_size", 13);
 		descLabel.Modulate = new Color(0.7f, 0.7f, 0.7f);
 		textVbox.AddChild(descLabel);

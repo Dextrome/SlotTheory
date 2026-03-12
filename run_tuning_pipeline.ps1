@@ -18,6 +18,7 @@
 #
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1
+#     (auto-generates seed_current.json from current runtime settings)
 #   powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -Runs 60 -Iterations 6 -CandidatesPerIteration 4
 #   powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -StrategySet optimization
 #   powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -SkipBuild -SkipTrace
@@ -31,13 +32,16 @@ param(
     [int]$SweepRunsPerVariant = 12,
     [int]$Seed = 1337,
     [double]$MutationStrength = 1.0,
-    [double]$TargetExplosionShare = 0.10,
+    [double]$TargetExplosionShare = 0.05,
     [double]$TargetExplosionShareTolerance = 0.12,
     [double]$TargetWinRateEasy = 0.95,
     [double]$TargetWinRateNormal = 0.75,
     [double]$TargetWinRateHard = 0.45,
     [double]$TargetWinRateTolerance = 0.06,
     [double]$TargetMaxTowerSurgeRatio = 2.0,
+    [double]$TargetMaxSurgesPerRun = 50.0,
+    [double]$TargetMaxSurgesPerRunTolerance = 2.0,
+    [double]$SurgesPerRunPenaltyWeight = 6.0,
     [int]$MinTowerPlacementsForParity = 6,
     [double]$MaxChainDepth = 4.0,
     [int]$MaxSimultaneousExplosions = 8,
@@ -46,7 +50,7 @@ param(
     [double]$MinRunDurationSeconds = 900.0,
     [string]$StrategySet = "optimization",
     [string]$GodotPath = "",
-    [string]$TuningFile = "Data/combat_lab/sample_tuning.json",
+    [string]$TuningFile = "",
     [string]$ScenarioFile = "Data/combat_lab/core_scenarios.json",
     [string]$OutputRoot = "release/tuning_pipeline",
     [switch]$SkipBuild,
@@ -399,6 +403,9 @@ function Get-MetricsScore {
         [double]$TargetHardWinRate,
         [double]$WinRateTolerance,
         [double]$TargetMaxTowerSurgeRatio,
+        [double]$TargetMaxSurgesPerRun,
+        [double]$TargetMaxSurgesPerRunTolerance,
+        [double]$SurgesPerRunPenaltyWeight,
         [int]$MinTowerPlacementsForParity,
         [double]$ChainDepthCap,
         [int]$ExplosionCap,
@@ -489,8 +496,19 @@ function Get-MetricsScore {
     # Secondary quality signals.
     $score += $winRate * 15.0
     $score += $avgWave * 1.0
-    $score += [Math]::Min($surgesPerRun, 120.0) * 0.03
     $score += $killsPerSurge * 6.0
+
+    $surgeTarget = [Math]::Max(0.0, $TargetMaxSurgesPerRun)
+    $surgeTolerance = [Math]::Max(0.0, $TargetMaxSurgesPerRunTolerance)
+    $surgePenaltyWeight = [Math]::Max(0.0, $SurgesPerRunPenaltyWeight)
+    $surgePenaltyStart = $surgeTarget + $surgeTolerance
+    if ($surgesPerRun -gt $surgePenaltyStart) {
+        $score -= ($surgesPerRun - $surgePenaltyStart) * $surgePenaltyWeight
+    } elseif ($surgeTarget -gt 0.0001 -and $surgesPerRun -le $surgeTarget) {
+        # Reward staying close to the surge budget without incentivizing surge spam.
+        $surgeFit = [Math]::Max(0.0, 1.0 - (($surgeTarget - $surgesPerRun) / $surgeTarget))
+        $score += $surgeFit * 6.0
+    }
 
     $shareError = [Math]::Abs($explosionShare - $TargetShare)
     if ($TargetShareTolerance -gt 0.0001) {
@@ -1245,13 +1263,16 @@ if ([string]::IsNullOrWhiteSpace($GodotPath)) {
 }
 
 $godotExe = Resolve-PathFromProject -ProjectRoot $projectRoot -PathValue $GodotPath
-$tuningFileResolved = Resolve-PathFromProject -ProjectRoot $projectRoot -PathValue $TuningFile
+$tuningFileResolved = ""
 $scenarioFileResolved = Resolve-PathFromProject -ProjectRoot $projectRoot -PathValue $ScenarioFile
 $outputRootResolved = Resolve-PathFromProject -ProjectRoot $projectRoot -PathValue $OutputRoot
 
 Assert-FileExists -PathValue $godotExe -Label "Godot executable"
-Assert-FileExists -PathValue $tuningFileResolved -Label "Starting tuning profile"
 Assert-FileExists -PathValue $scenarioFileResolved -Label "Scenario suite file"
+if (-not [string]::IsNullOrWhiteSpace($TuningFile)) {
+    $tuningFileResolved = Resolve-PathFromProject -ProjectRoot $projectRoot -PathValue $TuningFile
+    Assert-FileExists -PathValue $tuningFileResolved -Label "Starting tuning profile"
+}
 
 if ($Runs -lt 1) { throw "Runs must be >= 1." }
 if ($Iterations -lt 1) { throw "Iterations must be >= 1." }
@@ -1317,6 +1338,20 @@ $commonPrefix = @(
     "--scene", "res://Scenes/Main.tscn",
     "--"
 )
+if ([string]::IsNullOrWhiteSpace($tuningFileResolved)) {
+    $generatedSeedPath = Join-Path $runDir "seed_current.json"
+    Invoke-GodotCommand -GodotExe $godotExe -Label "[seed] Generate current tuning seed" -Args @(
+        "--headless",
+        "--path", $projectRoot,
+        "--scene", "res://Scenes/Main.tscn",
+        "--",
+        "--dump_seed_tuning_json", $generatedSeedPath
+    )
+    Assert-FileExists -PathValue $generatedSeedPath -Label "Generated seed tuning profile"
+    $tuningFileResolved = $generatedSeedPath
+}
+
+Write-Host "Seed profile: $tuningFileResolved"
 
 $baselineMetricsOut = Join-Path $runDir "bot_metrics_baseline.json"
 $scenarioReportOut = Join-Path $runDir "combat_lab_report.json"
@@ -1339,6 +1374,9 @@ $baselineScore = Get-MetricsScore `
     -TargetHardWinRate $TargetWinRateHard `
     -WinRateTolerance $TargetWinRateTolerance `
     -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
+    -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
+    -TargetMaxSurgesPerRunTolerance $TargetMaxSurgesPerRunTolerance `
+    -SurgesPerRunPenaltyWeight $SurgesPerRunPenaltyWeight `
     -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
     -ChainDepthCap $MaxChainDepth `
     -ExplosionCap $MaxSimultaneousExplosions `
@@ -1364,6 +1402,9 @@ $seedScore = Get-MetricsScore `
     -TargetHardWinRate $TargetWinRateHard `
     -WinRateTolerance $TargetWinRateTolerance `
     -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
+    -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
+    -TargetMaxSurgesPerRunTolerance $TargetMaxSurgesPerRunTolerance `
+    -SurgesPerRunPenaltyWeight $SurgesPerRunPenaltyWeight `
     -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
     -ChainDepthCap $MaxChainDepth `
     -ExplosionCap $MaxSimultaneousExplosions `
@@ -1466,6 +1507,9 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             -TargetHardWinRate $TargetWinRateHard `
             -WinRateTolerance $TargetWinRateTolerance `
             -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
+            -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
+            -TargetMaxSurgesPerRunTolerance $TargetMaxSurgesPerRunTolerance `
+            -SurgesPerRunPenaltyWeight $SurgesPerRunPenaltyWeight `
             -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
             -ChainDepthCap $MaxChainDepth `
             -ExplosionCap $MaxSimultaneousExplosions `
@@ -1501,7 +1545,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
 
         $iterCandidates += $candidateResult
         $history += $candidateResult
-        Write-Host ("Candidate {0}: score={1:0.0000}, win(E/N/H)={2:P1}/{3:P1}/{4:P1}, wave={5:0.00}, explosion_share={6:P2}, surge_parity_ratio={7:0.00}" -f $candidateId, $candidateScore.Score, $candidateScore.EasyWinRate, $candidateScore.NormalWinRate, $candidateScore.HardWinRate, $candidateScore.AvgWave, $candidateScore.ExplosionShare, $candidateScore.TowerSurgeParityRatio)
+        Write-Host ("Candidate {0}: score={1:0.0000}, win(E/N/H)={2:P1}/{3:P1}/{4:P1}, wave={5:0.00}, surges/run={6:0.00}, explosion_share={7:P2}, surge_parity_ratio={8:0.00}" -f $candidateId, $candidateScore.Score, $candidateScore.EasyWinRate, $candidateScore.NormalWinRate, $candidateScore.HardWinRate, $candidateScore.AvgWave, $candidateScore.SurgesPerRun, $candidateScore.ExplosionShare, $candidateScore.TowerSurgeParityRatio)
     }
 
     $iterBest = $iterCandidates | Sort-Object -Property score -Descending | Select-Object -First 1
@@ -1591,6 +1635,9 @@ $tunedScore = Get-MetricsScore `
     -TargetHardWinRate $TargetWinRateHard `
     -WinRateTolerance $TargetWinRateTolerance `
     -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
+    -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
+    -TargetMaxSurgesPerRunTolerance $TargetMaxSurgesPerRunTolerance `
+    -SurgesPerRunPenaltyWeight $SurgesPerRunPenaltyWeight `
     -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
     -ChainDepthCap $MaxChainDepth `
     -ExplosionCap $MaxSimultaneousExplosions `
@@ -1615,6 +1662,9 @@ $reportPayload = [ordered]@{
         target_win_rate_hard = $TargetWinRateHard
         target_win_rate_tolerance = $TargetWinRateTolerance
         target_max_tower_surge_ratio = $TargetMaxTowerSurgeRatio
+        target_max_surges_per_run = $TargetMaxSurgesPerRun
+        target_max_surges_per_run_tolerance = $TargetMaxSurgesPerRunTolerance
+        surges_per_run_penalty_weight = $SurgesPerRunPenaltyWeight
         min_tower_placements_for_parity = $MinTowerPlacementsForParity
         max_chain_depth = $MaxChainDepth
         max_simultaneous_explosions = $MaxSimultaneousExplosions
@@ -1630,6 +1680,7 @@ $reportPayload = [ordered]@{
         easy_win_rate = $baselineScore.EasyWinRate
         normal_win_rate = $baselineScore.NormalWinRate
         hard_win_rate = $baselineScore.HardWinRate
+        surges_per_run = $baselineScore.SurgesPerRun
         explosion_share = $baselineScore.ExplosionShare
         tower_surge_parity_ratio = $baselineScore.TowerSurgeParityRatio
         tower_surge_parity_eligible_towers = $baselineScore.TowerSurgeParityEligibleTowers
@@ -1645,6 +1696,7 @@ $reportPayload = [ordered]@{
         final_easy_win_rate = $tunedScore.EasyWinRate
         final_normal_win_rate = $tunedScore.NormalWinRate
         final_hard_win_rate = $tunedScore.HardWinRate
+        final_surges_per_run = $tunedScore.SurgesPerRun
         final_explosion_share = $tunedScore.ExplosionShare
         final_tower_surge_parity_ratio = $tunedScore.TowerSurgeParityRatio
         final_tower_surge_parity_eligible_towers = $tunedScore.TowerSurgeParityEligibleTowers

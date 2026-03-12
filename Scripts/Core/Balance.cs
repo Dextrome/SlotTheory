@@ -121,14 +121,14 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
         public const float EasySpawnIntervalMultiplier = 1.0f;
 
         // Normal mode - tuned toward ~75% bot win target with surge/global surge pacing
-        public const float NormalEnemyHpMultiplier = 1.24f;      // +24% HP
-        public const float NormalEnemyCountMultiplier = 1.1f;
-        public const float NormalSpawnIntervalMultiplier = 0.95f;
+        public const float NormalEnemyHpMultiplier = 1.2672f;      // +26.72% HP
+        public const float NormalEnemyCountMultiplier = 1.0595f;
+        public const float NormalSpawnIntervalMultiplier = 0.9206f;
         
         // Hard mode - tuned toward ~50% bot win target with surge/global surge pacing
-        public const float HardEnemyHpMultiplier = 1.40f;      // +40% HP
-        public const float HardEnemyCountMultiplier = 1.15f;   // +15% more enemies
-        public const float HardSpawnIntervalMultiplier = 0.90f;  // ~10% faster spawns
+        public const float HardEnemyHpMultiplier = 1.3748f;      // +37.48% HP
+        public const float HardEnemyCountMultiplier = 1.1792f;   // +17.92% more enemies
+        public const float HardSpawnIntervalMultiplier = 0.8832f;  // ~11.68% faster spawns
     }
 
     public static float GetEnemyHpMultiplier(DifficultyMode difficulty) => difficulty switch
