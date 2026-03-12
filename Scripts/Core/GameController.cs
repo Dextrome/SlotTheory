@@ -114,6 +114,7 @@ public partial class GameController : Node
 	private bool _isRestoringSnapshot = false;
 	private const float MobileMinZoom = 1.0f;
 	private const float MobileMaxZoom = 2.6f;
+	private const float MobileZoomSnapEpsilon = 0.015f;
 	private const float MobileTapMoveThreshold = 18f;
 	private const float MobilePanStartThreshold = 6f;
 	private readonly EnemyRenderPerfProfiler _enemyRenderPerfProfiler = new();
@@ -1183,6 +1184,8 @@ public partial class GameController : Node
 		{
 			_mobileCamera.Position += worldBefore - worldAfter;
 			ClampMobileCameraToBounds();
+			if (_mobileZoomLevel <= MobileMinZoom + MobileZoomSnapEpsilon)
+				CenterMobileCamera();
 		}
 	}
 
@@ -1242,6 +1245,8 @@ public partial class GameController : Node
 		_mobileCamera.Zoom = new Vector2(cameraZoom, cameraZoom);
 		ApplyMobileZoomReadability();
 		ClampMobileCameraToBounds();
+		if (_mobileZoomLevel <= MobileMinZoom + MobileZoomSnapEpsilon)
+			CenterMobileCamera();
 	}
 
 	private void ApplyMobileZoomReadability()
@@ -1363,6 +1368,14 @@ public partial class GameController : Node
 		if (!GodotObject.IsInstanceValid(_mobileCamera))
 			return;
 		_mobileCamera.Position = ClampMobileCameraPosition(_mobileCamera.Position);
+	}
+
+	private void CenterMobileCamera()
+	{
+		if (!GodotObject.IsInstanceValid(_mobileCamera))
+			return;
+		Vector2 boundsCenter = _mobileCameraBounds.Position + (_mobileCameraBounds.Size * 0.5f);
+		_mobileCamera.Position = ClampMobileCameraPosition(boundsCenter);
 	}
 
 	private void ResetMobileGestureState()
@@ -2137,8 +2150,8 @@ public partial class GameController : Node
 		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 1f, 0.11f);
 		tw.TweenProperty(_globalSpectacleBanner, "scale", Vector2.One, 0.15f)
 			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
-		tw.Chain().TweenInterval(3.25f);
-		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 0f, 1.45f);
+		tw.Chain().TweenInterval(3.25f * 3f);
+		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 0f, 1.45f * 3f);
 		tw.TweenCallback(Callable.From(() => _globalSpectacleBanner.Visible = false));
 	}
 
@@ -2234,7 +2247,7 @@ public partial class GameController : Node
 		ApplyGlobalSurgeGameplayPayload(info);
 		SpawnGlobalSurgeAffectFx(center, globalColor, Mathf.Max(2, info.UniqueContributors));
 		QueueSpectacleEcho(center, globalColor, major: true, power: 1.65f, maxDistance: 420f);
-		TriggerSpectacleSlowMo(realDuration: 2.2f, speedFactor: 0.25f);
+		TriggerSpectacleSlowMo(realDuration: 4.4f, speedFactor: 0.25f);
 		ShowGlobalSurgeBanner(info.EffectName, globalColor);
 
 		TriggerHitStop(realDuration: 0.050f, slowScale: 0.26f);
@@ -3332,9 +3345,7 @@ public partial class GameController : Node
 		if (!IsEnemyUsable(enemy) || damage <= 0.05f)
 			return 0f;
 
-		float hpBefore = enemy.Hp;
-		enemy.Hp = Mathf.Max(0f, enemy.Hp - damage);
-		float dealt = hpBefore - enemy.Hp;
+		float dealt = SpectacleDamageCore.ApplyRawDamage(enemy, damage);
 		if (dealt <= 0.01f)
 			return 0f;
 
