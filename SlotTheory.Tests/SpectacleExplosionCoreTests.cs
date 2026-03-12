@@ -95,7 +95,7 @@ public class SpectacleExplosionCoreTests
     }
 
     [Theory]
-    [InlineData(false, false, 16)]
+    [InlineData(false, false, 8)]
     [InlineData(true, false, 24)]
     [InlineData(false, true, 8)]
     [InlineData(true, true, 10)]

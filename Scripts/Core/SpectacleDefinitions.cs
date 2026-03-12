@@ -62,6 +62,11 @@ public static class SpectacleDefinitions
     // Fill is intentionally slower so spectacle pacing is easier to read:
     // ~30% longer than baseline (rate = baseline / 1.3).
     public const float MeterGainScale = 0.75f / 1.30f;
+    // Damage-aware meter gain normalization so surge pacing is less dominated by hit frequency alone.
+    public const float MeterDamageReference = 20f;
+    public const float MeterDamageWeight = 0.72f;
+    public const float MeterDamageMinMultiplier = 0.65f;
+    public const float MeterDamageMaxMultiplier = 1.75f;
 
     private static readonly HashSet<string> Supported = new(StringComparer.Ordinal)
     {
@@ -174,6 +179,16 @@ public static class SpectacleDefinitions
 
     public static float ResolveMeterGainScale()
         => MeterGainScale * MathF.Max(0f, SpectacleTuning.Current.MeterGainMultiplier);
+
+    public static float ResolveDamageMeterMultiplier(float eventDamage)
+    {
+        if (eventDamage <= 0f)
+            return 1f;
+
+        float normalized = Clamp(eventDamage / MathF.Max(0.001f, MeterDamageReference), 0.10f, 4.0f);
+        float blended = (1f - MeterDamageWeight) + MeterDamageWeight * normalized;
+        return Clamp(blended, MeterDamageMinMultiplier, MeterDamageMaxMultiplier);
+    }
 
     public static SpectacleTokenConfig GetTokenConfig(string modifierId)
         => TokenConfig.GetValueOrDefault(NormalizeModId(modifierId), new SpectacleTokenConfig(0f, 0f));

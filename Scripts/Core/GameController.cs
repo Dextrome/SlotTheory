@@ -29,6 +29,7 @@ public partial class GameController : Node
 	private DraftPanel _draftPanel = null!;
 	private HudPanel _hudPanel = null!;
 	private EndScreen _endScreen = null!;
+	private UnlockRevealScreen _unlockRevealScreen = null!;
 	private Node2D[]      _slotNodes           = new Node2D[Balance.SlotCount];
 	private Line2D[]      _slotHighlights      = new Line2D[Balance.SlotCount];
 	private Line2D[]      _slotPreviewGlows    = new Line2D[Balance.SlotCount];
@@ -97,6 +98,7 @@ public partial class GameController : Node
 	private readonly System.Collections.Generic.Dictionary<string, ulong> _combatCalloutNextMs = new();
 	private readonly System.Collections.Generic.Dictionary<SlotTheory.Entities.ITowerView, (ulong firstMs, int count)> _feedbackLoopBurst = new();
 	private readonly System.Collections.Generic.Dictionary<string, int> _modifierProcCounts = new();
+	private readonly Queue<UnlockRevealRequest> _pendingUnlockReveals = new();
 	private bool _undoPlacementActive = false;
 	private bool _cancelBtnShown = false;
 	private ulong _undoPlacementToken = 0;
@@ -152,6 +154,8 @@ public partial class GameController : Node
 		public ITowerView? SourceTower;
 		public bool PulseGate;
 	}
+
+	private readonly record struct UnlockRevealRequest(bool IsTower, string Id);
 
 	public override void _Ready()
 	{
@@ -292,6 +296,8 @@ public partial class GameController : Node
 		_draftPanel = GetNode<DraftPanel>("../DraftPanel");
 		_hudPanel   = GetNode<HudPanel>("../HudPanel");
 		_endScreen  = GetNode<EndScreen>("../EndScreen");
+		_unlockRevealScreen = GetNode<UnlockRevealScreen>("../UnlockRevealScreen");
+		_unlockRevealScreen.RevealClosed += OnUnlockRevealClosed;
 
 		_worldNode = GetNode<Node2D>("../World");
 		_mapVisuals = new Node2D { Name = "_mapVisuals" };
@@ -437,7 +443,10 @@ public partial class GameController : Node
 			CurrentPhase = GamePhase.Loss;
 			MobileRunSession.Clear();
 			MobileOptimization.HapticStrong();
-			AchievementManager.Instance?.CheckRunEnd(_runState, SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy, won: false);
+			var newlyUnlocked = AchievementManager.Instance?.CheckRunEndAndCollectUnlocks(
+				_runState,
+				SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy,
+				won: false) ?? System.Array.Empty<string>();
 			int livesLost = Balance.StartingLives - _runState.Lives;
 			SoundManager.Instance?.Play("game_over");
 				string runName = BuildRunName(registerInHistory: true, wonOverride: false, waveReachedOverride: _runState.WaveIndex + 1);
@@ -451,6 +460,7 @@ public partial class GameController : Node
 			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), _runState, runName, mvpLine, modLine, runColors.start, runColors.end);
 			_endScreen.SetLeaderboardStatus(leaderboardLine);
 			QueueGlobalSubmit(scorePayload, leaderboardLine);
+			EnqueueUnlockReveals(newlyUnlocked);
 			return;
 		}
 
@@ -465,7 +475,10 @@ public partial class GameController : Node
 				CurrentPhase = GamePhase.Win;
 				MobileRunSession.Clear();
 				MobileOptimization.HapticStrong();
-				AchievementManager.Instance?.CheckRunEnd(_runState, SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy, won: true);
+				var newlyUnlocked = AchievementManager.Instance?.CheckRunEndAndCollectUnlocks(
+					_runState,
+					SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy,
+					won: true) ?? System.Array.Empty<string>();
 				SoundManager.Instance?.Play("victory");
 					string runName = BuildRunName(registerInHistory: true, wonOverride: true, waveReachedOverride: Balance.TotalWaves);
 				var runColors = BuildRunNameColors();
@@ -478,6 +491,7 @@ public partial class GameController : Node
 				_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end);
 				_endScreen.SetLeaderboardStatus(leaderboardLine);
 				QueueGlobalSubmit(scorePayload, leaderboardLine);
+				EnqueueUnlockReveals(newlyUnlocked);
 			}
 			else
 			{
@@ -545,6 +559,51 @@ public partial class GameController : Node
 	{
 		_runAbandoned = true;
 		MobileRunSession.Clear();
+	}
+
+	private void EnqueueUnlockReveals(IReadOnlyList<string> achievementIds)
+	{
+		if (achievementIds.Count == 0)
+			return;
+
+		foreach (string achievementId in achievementIds)
+		{
+			switch (achievementId)
+			{
+				case Unlocks.ArcEmitterAchievementId:
+					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: true, Unlocks.ArcEmitterTowerId));
+					break;
+				case Unlocks.SplitShotAchievementId:
+					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: false, Unlocks.SplitShotModifierId));
+					break;
+				case Unlocks.RiftPrismAchievementId:
+					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: true, Unlocks.RiftPrismTowerId));
+					break;
+			}
+		}
+
+		TryShowNextUnlockReveal();
+	}
+
+	private void OnUnlockRevealClosed()
+	{
+		TryShowNextUnlockReveal();
+	}
+
+	private void TryShowNextUnlockReveal()
+	{
+		if (!GodotObject.IsInstanceValid(_unlockRevealScreen)
+			|| _unlockRevealScreen.IsShowing
+			|| _pendingUnlockReveals.Count == 0)
+		{
+			return;
+		}
+
+		UnlockRevealRequest request = _pendingUnlockReveals.Dequeue();
+		if (request.IsTower)
+			_unlockRevealScreen.ShowTowerUnlock(request.Id);
+		else
+			_unlockRevealScreen.ShowModifierUnlock(request.Id);
 	}
 
 	private void LoadPendingMobileSnapshot()
@@ -715,6 +774,9 @@ public partial class GameController : Node
 		_runState.Reset();
 		_combatSim.ResetForWave();
 		_endScreen.Visible = false;
+		_pendingUnlockReveals.Clear();
+		if (GodotObject.IsInstanceValid(_unlockRevealScreen))
+			_unlockRevealScreen.Visible = false;
 		Engine.TimeScale = 1.0;   // always reset speed on new run
 		SoundManager.Instance?.SetMusicTension(0f);
 		_hitStopActive = false;
@@ -5620,11 +5682,15 @@ public partial class GameController : Node
 		_spectacleSystem.RegisterShotFired(tower);
 	}
 
-	public void RegisterSpectacleProc(SlotTheory.Entities.ITowerView tower, string modifierId, float eventScalar = 1f)
+	public void RegisterSpectacleProc(
+		SlotTheory.Entities.ITowerView tower,
+		string modifierId,
+		float eventScalar = 1f,
+		float eventDamage = -1f)
 	{
 		if (CurrentPhase != GamePhase.Wave || tower == null || string.IsNullOrEmpty(modifierId) || eventScalar <= 0f)
 			return;
-		_spectacleSystem.RegisterProc(tower, modifierId, eventScalar);
+		_spectacleSystem.RegisterProc(tower, modifierId, eventScalar, eventDamage);
 	}
 
 	private void TriggerSpectacleSlowMo(float realDuration, float speedFactor)

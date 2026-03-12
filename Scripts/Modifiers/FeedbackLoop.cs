@@ -26,7 +26,7 @@ public class FeedbackLoop : Modifier
             float refunded = preCooldown - ctx.Attacker.Cooldown;
             float refundFrac = refunded / preCooldown;
             float scalar = SpectacleDefinitions.FeedbackLoopEventScalar(refundFrac);
-            GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId, scalar);
+            GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId, scalar, ctx.DamageDealt);
         }
         GameController.Instance?.NotifyFeedbackLoopProc(ctx.Attacker);
     }

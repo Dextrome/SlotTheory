@@ -195,10 +195,11 @@ public sealed class SpectacleSystem
         float expectedShotsPerSecond = 1f / Max(0.001f, tower.AttackInterval);
         float streakNorm = Clamp(state.ShotTimes.Count / Max(0.001f, expectedShotsPerSecond), 0f, 2f);
         float eventScalar = SpectacleDefinitions.HairTriggerEventScalar(streakNorm);
-        RegisterProcInternal(tower, state, SpectacleDefinitions.HairTrigger, eventScalar);
+        float estimatedHitDamage = Max(1f, tower.GetEffectiveDamageForPreview());
+        RegisterProcInternal(tower, state, SpectacleDefinitions.HairTrigger, eventScalar, estimatedHitDamage);
     }
 
-    public void RegisterProc(ITowerView tower, string modifierId, float eventScalar)
+    public void RegisterProc(ITowerView tower, string modifierId, float eventScalar, float eventDamage = -1f)
     {
         if (tower == null) return;
         string modId = SpectacleDefinitions.NormalizeModId(modifierId);
@@ -207,10 +208,10 @@ public sealed class SpectacleSystem
 
         var state = EnsureTowerState(tower);
         EnsureTokenBuckets(state);
-        RegisterProcInternal(tower, state, modId, eventScalar);
+        RegisterProcInternal(tower, state, modId, eventScalar, eventDamage);
     }
 
-    private void RegisterProcInternal(ITowerView tower, TowerState state, string modId, float eventScalar)
+    private void RegisterProcInternal(ITowerView tower, TowerState state, string modId, float eventScalar, float eventDamage)
     {
         if (eventScalar <= 0f)
             return;
@@ -237,7 +238,8 @@ public sealed class SpectacleSystem
             * SpectacleDefinitions.GetCopyMultiplier(copies)
             * gate
             * SpectacleDefinitions.GetDiversityMultiplier(uniqueCount)
-            * SpectacleDefinitions.ResolveMeterGainScale();
+            * SpectacleDefinitions.ResolveMeterGainScale()
+            * SpectacleDefinitions.ResolveDamageMeterMultiplier(eventDamage);
 
         if (gain <= 0.0001f)
             return;

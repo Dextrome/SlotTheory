@@ -16,6 +16,7 @@ public class DamageContext
     public RunState? State { get; }
 
     public bool IsChain { get; }
+    public float DamageDealt { get; set; }
 
     public DamageContext(ITowerView attacker, IEnemyView target, int waveIndex,
                          IEnumerable<IEnemyView> enemies, RunState? state = null,
@@ -59,6 +60,7 @@ public static class DamageModel
         float hpBefore = ctx.Target.Hp;
         ctx.Target.Hp -= damage;
         float damageDealtRaw = hpBefore - System.MathF.Max(0f, ctx.Target.Hp);
+        ctx.DamageDealt = damageDealtRaw;
         bool isKill = ctx.Target.Hp <= 0f;
         if (ctx.State != null)
         {
@@ -104,7 +106,7 @@ public static class DamageModel
         if (CountModifier(ctx.Attacker, SpectacleDefinitions.ExploitWeakness) > 0 && ctx.Target.IsMarked)
         {
             float scalar = SpectacleDefinitions.ExploitWeaknessEventScalar(markedHit: true, markedKill: isKill);
-            gc.RegisterSpectacleProc(ctx.Attacker, SpectacleDefinitions.ExploitWeakness, scalar);
+            gc.RegisterSpectacleProc(ctx.Attacker, SpectacleDefinitions.ExploitWeakness, scalar, damageDealt);
         }
 
         if (CountModifier(ctx.Attacker, SpectacleDefinitions.FocusLens) > 0)
@@ -112,7 +114,7 @@ public static class DamageModel
             float baseShotDamage = System.MathF.Max(1f, ctx.Attacker.BaseDamage);
             float damageNorm = System.MathF.Max(0f, damageDealt) / baseShotDamage;
             float scalar = SpectacleDefinitions.FocusLensEventScalar(damageNorm);
-            gc.RegisterSpectacleProc(ctx.Attacker, SpectacleDefinitions.FocusLens, scalar);
+            gc.RegisterSpectacleProc(ctx.Attacker, SpectacleDefinitions.FocusLens, scalar, damageDealt);
         }
 
         int overreachCopies = CountModifier(ctx.Attacker, SpectacleDefinitions.Overreach);
@@ -122,7 +124,7 @@ public static class DamageModel
             float baseRange = ctx.Attacker.Range / System.MathF.Max(0.001f, overreachFactor);
             float rangeNorm = (ctx.Attacker.Range / System.MathF.Max(1f, baseRange)) - 1f;
             float scalar = SpectacleDefinitions.OverreachEventScalar(rangeNorm);
-            gc.RegisterSpectacleProc(ctx.Attacker, SpectacleDefinitions.Overreach, scalar);
+            gc.RegisterSpectacleProc(ctx.Attacker, SpectacleDefinitions.Overreach, scalar, damageDealt);
         }
     }
 

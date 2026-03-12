@@ -14,8 +14,8 @@ public static class Balance
     // Run structure
     public const int TotalWaves = 20;
     public const int SlotCount = 6;
-    public const int Wave1ExtraPicks  = 1;          // extra draft picks before wave 1 starts
-    public const int Wave15ExtraPicks = 1;          // extra draft picks before wave 15 starts
+    public const int Wave1ExtraPicks  = 0;          // temporarily disabled: always 1 pick before wave 1
+    public const int Wave15ExtraPicks = 0;          // temporarily disabled: always 1 pick before wave 15
 
     // Visual effects (platform-adaptive)
     public static int MaxParticles => MobileOptimization.IsMobile() ? MobileOptimization.MaxParticles : 100;

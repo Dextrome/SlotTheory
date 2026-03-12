@@ -16,6 +16,8 @@ public partial class Settings : Node
     private Button? _enemyEmissiveBtn;
     private Button? _enemyDamageBtn;
     private Button? _enemyBloomBtn;
+    private Button? _resetProfileBtn;
+    private Label? _resetProfileStatus;
 
     public override void _Ready()
     {
@@ -158,6 +160,31 @@ public partial class Settings : Node
         _enemyBloomBtn.Pressed += OnToggleEnemyBloom;
         vbox.AddChild(_enemyBloomBtn);
 
+        if (sm?.DevMode == true)
+        {
+            AddSpacer(vbox, 8);
+            AddSectionHeader(vbox, "DEVELOPER");
+
+            _resetProfileBtn = new Button
+            {
+                Text = "Reset Profile Unlocks",
+                CustomMinimumSize = new Vector2(260, 44),
+            };
+            _resetProfileBtn.AddThemeFontSizeOverride("font_size", 20);
+            UITheme.ApplyMutedStyle(_resetProfileBtn);
+            _resetProfileBtn.Pressed += OnResetProfileUnlocks;
+            vbox.AddChild(_resetProfileBtn);
+
+            _resetProfileStatus = new Label
+            {
+                Text = "",
+                AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            };
+            _resetProfileStatus.AddThemeFontSizeOverride("font_size", 14);
+            _resetProfileStatus.Modulate = new Color(0.85f, 0.72f, 0.72f);
+            vbox.AddChild(_resetProfileStatus);
+        }
+
         AddSpacer(vbox, 24);
 
         // Back
@@ -264,6 +291,13 @@ public partial class Settings : Node
         SettingsManager.Instance?.SetEnemyBloomHighlights(next);
         if (_enemyBloomBtn != null)
             _enemyBloomBtn.Text = EnemyBloomLabel(next);
+    }
+
+    private void OnResetProfileUnlocks()
+    {
+        AchievementManager.Instance?.ResetUnlockFlags();
+        if (_resetProfileStatus != null)
+            _resetProfileStatus.Text = "Progression unlock flags cleared for this profile.";
     }
 
     private static string EnemyLayeredLabel(bool on) =>
