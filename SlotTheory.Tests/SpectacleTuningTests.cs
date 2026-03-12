@@ -39,6 +39,53 @@ public class SpectacleTuningTests
     }
 
     [Fact]
+    public void DisableOverkillBloom_PreventsBloomTrigger()
+    {
+        SpectacleTuning.Reset();
+        SpectacleTuning.Apply(new SpectacleTuningProfile
+        {
+            EnableOverkillBloom = false,
+        }, "test");
+
+        OverkillBloomProfile profile = SpectacleExplosionCore.BuildOverkillBloomProfile(220f);
+        Assert.False(profile.ShouldTrigger);
+        SpectacleTuning.Reset();
+    }
+
+    [Fact]
+    public void DisableStatusDetonation_ResolvesZeroMaxTargets()
+    {
+        SpectacleTuning.Reset();
+        SpectacleTuning.Apply(new SpectacleTuningProfile
+        {
+            EnableStatusDetonation = false,
+        }, "test");
+
+        int maxTargets = SpectacleExplosionCore.ResolveStatusDetonationMaxTargets(globalSurge: false, reducedMotion: false);
+        Assert.Equal(0, maxTargets);
+        SpectacleTuning.Reset();
+    }
+
+    [Fact]
+    public void DisableResidue_StopsResidueProfilesFromSpawning()
+    {
+        SpectacleTuning.Reset();
+        SpectacleTuning.Apply(new SpectacleTuningProfile
+        {
+            EnableResidue = false,
+        }, "test");
+
+        ExplosionResidueProfile profile = SpectacleExplosionCore.ResolveResidueProfile(
+            ComboExplosionSkin.ChillShatter,
+            globalSurge: false,
+            surgePower: 1.2f,
+            chainIndex: 0);
+        Assert.False(profile.ShouldSpawn);
+        Assert.Equal(ExplosionResidueKind.None, profile.Kind);
+        SpectacleTuning.Reset();
+    }
+
+    [Fact]
     public void Reset_RestoresBaselineBehavior()
     {
         SpectacleTuning.Apply(new SpectacleTuningProfile
@@ -51,6 +98,42 @@ public class SpectacleTuningTests
 
         Assert.True(boosted > baseline);
         Assert.Equal("baseline", SpectacleTuning.ActiveLabel);
+    }
+
+    [Fact]
+    public void SurgeThresholdMultiplier_AffectsResolvedThreshold()
+    {
+        SpectacleTuning.Reset();
+        float baseline = SpectacleDefinitions.ResolveSurgeThreshold();
+
+        SpectacleTuning.Apply(new SpectacleTuningProfile
+        {
+            SurgeThresholdMultiplier = 1.25f,
+        }, "test");
+        float tuned = SpectacleDefinitions.ResolveSurgeThreshold();
+
+        Assert.True(tuned > baseline);
+        SpectacleTuning.Reset();
+    }
+
+    [Fact]
+    public void TokenMultipliers_AffectResolvedTokenConfig()
+    {
+        SpectacleTuning.Reset();
+        SpectacleTokenConfig baseline = SpectacleDefinitions.GetTokenConfig(SpectacleDefinitions.Overkill);
+
+        SpectacleTuning.Apply(new SpectacleTuningProfile
+        {
+            TokenCapMultiplier = 1.20f,
+            TokenRegenMultiplier = 1.30f,
+            TokenCapMultipliers = { [SpectacleDefinitions.Overkill] = 1.10f },
+            TokenRegenMultipliers = { [SpectacleDefinitions.Overkill] = 1.10f },
+        }, "test");
+        SpectacleTokenConfig tuned = SpectacleDefinitions.GetTokenConfig(SpectacleDefinitions.Overkill);
+
+        Assert.True(tuned.Cap > baseline.Cap);
+        Assert.True(tuned.RegenPerSecond > baseline.RegenPerSecond);
+        SpectacleTuning.Reset();
     }
 
     [Fact]

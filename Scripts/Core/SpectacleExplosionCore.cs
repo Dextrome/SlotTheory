@@ -96,6 +96,17 @@ public static class SpectacleExplosionCore
         float surgePower,
         int chainIndex)
     {
+        if (!SpectacleTuning.Current.EnableResidue)
+        {
+            return new ExplosionResidueProfile(
+                ShouldSpawn: false,
+                Kind: ExplosionResidueKind.None,
+                DurationSeconds: 0f,
+                Radius: 0f,
+                TickIntervalSeconds: 0f,
+                Potency: 0f);
+        }
+
         ExplosionResidueKind kind = skin switch
         {
             ComboExplosionSkin.ChillShatter => ExplosionResidueKind.FrostSlow,
@@ -212,6 +223,9 @@ public static class SpectacleExplosionCore
 
     public static int ResolveStatusDetonationMaxTargets(bool globalSurge, bool reducedMotion)
     {
+        if (!SpectacleTuning.Current.EnableStatusDetonation)
+            return 0;
+
         int baseCap = globalSurge
             ? (reducedMotion ? 10 : 24)
             : 8;
@@ -249,7 +263,20 @@ public static class SpectacleExplosionCore
 
     public static OverkillBloomProfile BuildOverkillBloomProfile(float overflowDamage)
     {
-        if (overflowDamage < OverkillBloomOverflowThreshold)
+        if (!SpectacleTuning.Current.EnableOverkillBloom)
+        {
+            return new OverkillBloomProfile(
+                ShouldTrigger: false,
+                OverflowVisualT: 0f,
+                VisualRadius: 0f,
+                BloomDamage: 0f,
+                MaxTargets: 0,
+                BloomPower: 0f,
+                StageTwoKick: false);
+        }
+
+        float overflowThreshold = OverkillBloomOverflowThreshold * MathF.Max(0.1f, SpectacleTuning.Current.OverkillBloomThresholdMultiplier);
+        if (overflowDamage < overflowThreshold)
         {
             return new OverkillBloomProfile(
                 ShouldTrigger: false,
@@ -268,7 +295,9 @@ public static class SpectacleExplosionCore
         float damageScale = MathF.Max(0f, SpectacleTuning.Current.OverkillBloomDamageScaleMultiplier);
         float bloomDamageCap = OverkillBloomDamageCap * MathF.Max(0.1f, damageScale);
         float bloomDamage = Clamp(overflowDamage * OverkillBloomDamageScale * damageScale, 4f, bloomDamageCap);
-        int maxTargets = Clamp(2 + (int)MathF.Floor(overflowVisualT * 5f), 2, 7);
+        int baseMaxTargets = Clamp(2 + (int)MathF.Floor(overflowVisualT * 5f), 2, 7);
+        float maxTargetMult = MathF.Max(0.1f, SpectacleTuning.Current.OverkillBloomMaxTargetsMultiplier);
+        int maxTargets = Clamp((int)MathF.Round(baseMaxTargets * maxTargetMult), 1, 14);
         float bloomPower = Clamp(0.92f + overflowVisualT * 0.90f, 0.92f, 1.95f);
 
         return new OverkillBloomProfile(

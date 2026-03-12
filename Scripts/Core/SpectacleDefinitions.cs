@@ -49,24 +49,25 @@ public static class SpectacleDefinitions
     public const string FeedbackLoop = "feedback_loop";
     public const string ChainReaction = "chain_reaction";
 
-    public const float SurgeThreshold = 145f;
+    public const float SurgeThreshold = 150f;
     public const float SurgeCooldownSeconds = 6.0f;
-    public const float SurgeMeterAfterTrigger = 18f;
+    public const float SurgeMeterAfterTrigger = 10f;
     public const float GlobalMeterPerSurge = 10f;
-    public const float GlobalThreshold = 100f;
-    public const float GlobalMeterAfterTrigger = 20f;
+    public const float GlobalThreshold = 200f;
+    public const float GlobalMeterAfterTrigger = 0f;
     public const float GlobalContributionWindowSeconds = 6f;
     public const float InactivityGraceSeconds = 2f;
     public const float InactivityDecayPerSecond = 6f;
     public const float ContributionWindowSeconds = 20f;
+    public const float RoleLockMeterThreshold = 20f;
     // Fill is intentionally slower so spectacle pacing is easier to read:
     // ~30% longer than baseline (rate = baseline / 1.3).
     public const float MeterGainScale = 0.75f / 1.30f;
     // Damage-aware meter gain normalization so surge pacing is less dominated by hit frequency alone.
     public const float MeterDamageReference = 20f;
-    public const float MeterDamageWeight = 0.72f;
-    public const float MeterDamageMinMultiplier = 0.65f;
-    public const float MeterDamageMaxMultiplier = 1.75f;
+    public const float MeterDamageWeight = 0.90f;
+    public const float MeterDamageMinMultiplier = 0.45f;
+    public const float MeterDamageMaxMultiplier = 2.40f;
 
     private static readonly HashSet<string> Supported = new(StringComparer.Ordinal)
     {
@@ -177,6 +178,39 @@ public static class SpectacleDefinitions
         return baseGain * MathF.Max(0f, perModMultiplier);
     }
 
+    public static float ResolveSurgeThreshold()
+        => MathF.Max(0.05f, SurgeThreshold * MathF.Max(0.05f, SpectacleTuning.Current.SurgeThresholdMultiplier));
+
+    public static float ResolveSurgeCooldownSeconds()
+        => MathF.Max(0f, SurgeCooldownSeconds * MathF.Max(0f, SpectacleTuning.Current.SurgeCooldownMultiplier));
+
+    public static float ResolveSurgeMeterAfterTrigger()
+        => MathF.Max(0f, SurgeMeterAfterTrigger * MathF.Max(0f, SpectacleTuning.Current.SurgeMeterAfterTriggerMultiplier));
+
+    public static float ResolveGlobalMeterPerSurge()
+        => MathF.Max(0f, GlobalMeterPerSurge * MathF.Max(0f, SpectacleTuning.Current.GlobalMeterPerSurgeMultiplier));
+
+    public static float ResolveGlobalThreshold()
+        => MathF.Max(0.05f, GlobalThreshold * MathF.Max(0.05f, SpectacleTuning.Current.GlobalThresholdMultiplier));
+
+    public static float ResolveGlobalMeterAfterTrigger()
+        => MathF.Max(0f, GlobalMeterAfterTrigger * MathF.Max(0f, SpectacleTuning.Current.GlobalMeterAfterTriggerMultiplier));
+
+    public static float ResolveGlobalContributionWindowSeconds()
+        => MathF.Max(0.05f, GlobalContributionWindowSeconds * MathF.Max(0.05f, SpectacleTuning.Current.GlobalContributionWindowMultiplier));
+
+    public static float ResolveInactivityGraceSeconds()
+        => MathF.Max(0f, InactivityGraceSeconds * MathF.Max(0f, SpectacleTuning.Current.InactivityGraceMultiplier));
+
+    public static float ResolveInactivityDecayPerSecond()
+        => MathF.Max(0f, InactivityDecayPerSecond * MathF.Max(0f, SpectacleTuning.Current.InactivityDecayMultiplier));
+
+    public static float ResolveContributionWindowSeconds()
+        => MathF.Max(0.05f, ContributionWindowSeconds * MathF.Max(0.05f, SpectacleTuning.Current.ContributionWindowMultiplier));
+
+    public static float ResolveRoleLockMeterThreshold()
+        => MathF.Max(0f, RoleLockMeterThreshold * MathF.Max(0f, SpectacleTuning.Current.RoleLockMeterThresholdMultiplier));
+
     public static float ResolveMeterGainScale()
         => MeterGainScale * MathF.Max(0f, SpectacleTuning.Current.MeterGainMultiplier);
 
@@ -185,13 +219,31 @@ public static class SpectacleDefinitions
         if (eventDamage <= 0f)
             return 1f;
 
-        float normalized = Clamp(eventDamage / MathF.Max(0.001f, MeterDamageReference), 0.10f, 4.0f);
-        float blended = (1f - MeterDamageWeight) + MeterDamageWeight * normalized;
-        return Clamp(blended, MeterDamageMinMultiplier, MeterDamageMaxMultiplier);
+        float refMul = MathF.Max(0.05f, SpectacleTuning.Current.MeterDamageReferenceMultiplier);
+        float weightMul = MathF.Max(0f, SpectacleTuning.Current.MeterDamageWeightMultiplier);
+        float minMulScale = MathF.Max(0f, SpectacleTuning.Current.MeterDamageMinClampMultiplier);
+        float maxMulScale = MathF.Max(0f, SpectacleTuning.Current.MeterDamageMaxClampMultiplier);
+
+        float reference = MathF.Max(0.001f, MeterDamageReference * refMul);
+        float weight = Clamp(MeterDamageWeight * weightMul, 0f, 1f);
+        float minClamp = MathF.Max(0f, MeterDamageMinMultiplier * minMulScale);
+        float maxClamp = MathF.Max(minClamp, MeterDamageMaxMultiplier * maxMulScale);
+
+        float normalized = Clamp(eventDamage / reference, 0.10f, 4.0f);
+        float blended = (1f - weight) + weight * normalized;
+        return Clamp(blended, minClamp, maxClamp);
     }
 
     public static SpectacleTokenConfig GetTokenConfig(string modifierId)
-        => TokenConfig.GetValueOrDefault(NormalizeModId(modifierId), new SpectacleTokenConfig(0f, 0f));
+    {
+        string normalized = NormalizeModId(modifierId);
+        SpectacleTokenConfig baseline = TokenConfig.GetValueOrDefault(normalized, new SpectacleTokenConfig(0f, 0f));
+        float capMultiplier = SpectacleTuning.Current.ResolveTokenCapMultiplier(normalized);
+        float regenMultiplier = SpectacleTuning.Current.ResolveTokenRegenMultiplier(normalized);
+        return new SpectacleTokenConfig(
+            Cap: MathF.Max(0f, baseline.Cap * capMultiplier),
+            RegenPerSecond: MathF.Max(0f, baseline.RegenPerSecond * regenMultiplier));
+    }
 
     public static string GetDisplayName(string modifierId)
         => DisplayNames.GetValueOrDefault(NormalizeModId(modifierId), modifierId);
@@ -202,14 +254,14 @@ public static class SpectacleDefinitions
         1 => 1.00f,
         2 => 1.92f,
         _ => 2.70f,
-    };
+    } * MathF.Max(0f, SpectacleTuning.Current.CopyMultiplierScale);
 
     public static float GetDiversityMultiplier(int uniqueCount) => uniqueCount switch
     {
         <= 1 => 1.00f,
         2 => 1.08f,
         _ => 1.16f,
-    };
+    } * MathF.Max(0f, SpectacleTuning.Current.DiversityMultiplierScale);
 
     public static float GetModeBase(SpectacleMode mode) => mode switch
     {
@@ -237,34 +289,37 @@ public static class SpectacleDefinitions
             new SpectacleTriadAugmentDef($"T_AUG_{NormalizeModId(modifierId).ToUpperInvariant()}", GetDisplayName(modifierId), 0.15f, 1.5f, SpectacleAugmentKind.RangePulse));
 
     public static float MomentumEventScalar(float stackNorm)
-        => 0.75f + 0.50f * Clamp01(stackNorm);
+        => (0.75f + 0.50f * Clamp01(stackNorm)) * ResolveEventScalarMultiplier(Momentum);
 
     public static float OverkillEventScalar(float spillRatio)
-        => Clamp(0.65f + 0.55f * spillRatio, 0.65f, 1.80f);
+        => Clamp(0.65f + 0.55f * spillRatio, 0.65f, 1.80f) * ResolveEventScalarMultiplier(Overkill);
 
     public static float ExploitWeaknessEventScalar(bool markedHit, bool markedKill)
-        => 0.70f + 0.65f * (markedHit ? 1f : 0f) + 0.45f * (markedKill ? 1f : 0f);
+        => (0.70f + 0.65f * (markedHit ? 1f : 0f) + 0.45f * (markedKill ? 1f : 0f)) * ResolveEventScalarMultiplier(ExploitWeakness);
 
     public static float FocusLensEventScalar(float damageNorm)
-        => Clamp(0.85f + 0.45f * Clamp(damageNorm, 0f, 2f), 0.85f, 1.75f);
+        => Clamp(0.85f + 0.45f * Clamp(damageNorm, 0f, 2f), 0.85f, 1.75f) * ResolveEventScalarMultiplier(FocusLens);
 
     public static float ChillEventScalar(int affectedEnemies)
-        => Clamp(0.80f + 0.20f * affectedEnemies, 0.80f, 1.80f);
+        => Clamp(0.80f + 0.20f * affectedEnemies, 0.80f, 1.80f) * ResolveEventScalarMultiplier(ChillShot);
 
     public static float OverreachEventScalar(float rangeNorm)
-        => 0.85f + 0.40f * Clamp(rangeNorm, 0f, 1.5f);
+        => (0.85f + 0.40f * Clamp(rangeNorm, 0f, 1.5f)) * ResolveEventScalarMultiplier(Overreach);
 
     public static float HairTriggerEventScalar(float streakNorm)
-        => 0.70f + 0.30f * Clamp(streakNorm, 0f, 2f);
+        => (0.70f + 0.30f * Clamp(streakNorm, 0f, 2f)) * ResolveEventScalarMultiplier(HairTrigger);
 
     public static float SplitShotEventScalar(int extraHits)
-        => Clamp(0.70f + 0.15f * extraHits, 0.70f, 1.75f);
+        => Clamp(0.70f + 0.15f * extraHits, 0.70f, 1.75f) * ResolveEventScalarMultiplier(SplitShot);
 
     public static float FeedbackLoopEventScalar(float refundFrac)
-        => Clamp(0.90f + 1.20f * refundFrac, 0.90f, 2.00f);
+        => Clamp(0.90f + 1.20f * refundFrac, 0.90f, 2.00f) * ResolveEventScalarMultiplier(FeedbackLoop);
 
     public static float ChainReactionEventScalar(int bounces)
-        => Clamp(0.75f + 0.18f * bounces, 0.75f, 1.85f);
+        => Clamp(0.75f + 0.18f * bounces, 0.75f, 1.85f) * ResolveEventScalarMultiplier(ChainReaction);
+
+    private static float ResolveEventScalarMultiplier(string modifierId)
+        => MathF.Max(0f, SpectacleTuning.Current.ResolveEventScalarMultiplier(modifierId));
 
     private static float Clamp01(float v) => Clamp(v, 0f, 1f);
     private static float Clamp(float v, float min, float max) => MathF.Min(max, MathF.Max(min, v));

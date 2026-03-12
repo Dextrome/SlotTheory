@@ -371,7 +371,7 @@ public partial class GameController : Node
 		{
 			hudPanel!.RefreshGlobalSurgeMeter(
 				_spectacleSystem.GlobalMeter,
-				SpectacleDefinitions.GlobalThreshold,
+				SpectacleDefinitions.ResolveGlobalThreshold(),
 				showGlobalSurgeMeter);
 			hudPanel.RefreshSpeedLabelFromActual((float)Engine.TimeScale);
 		}
@@ -2499,7 +2499,7 @@ public partial class GameController : Node
 	{
 		if (CurrentPhase != GamePhase.Wave)
 			return;
-		_runState?.TrackSpectacleSurge(info.Signature.EffectId);
+		_runState?.TrackSpectacleSurge(info.Signature.EffectId, info.Tower?.TowerId);
 		ComboExplosionSkin comboSkin = ResolveComboExplosionSkin(info.Signature);
 		string traceId = NextSurgeTraceId(global: false);
 		_botLastTraceTriggerId = traceId;
@@ -2518,43 +2518,46 @@ public partial class GameController : Node
 			ApplySpectacleGameplayPayload(info, isMajor: true);
 			return;
 		}
+		ITowerView? sourceTower = info.Tower;
+		if (sourceTower == null)
+			return;
 
 		Color accent = ResolveSpectacleColor(info.Signature.PrimaryModId);
-		if (info.Tower is TowerInstance triggerTower && GodotObject.IsInstanceValid(triggerTower))
+		if (sourceTower is TowerInstance triggerTower && GodotObject.IsInstanceValid(triggerTower))
 			triggerTower.FlashSpectacle(accent, major: true);
-		float linkDistance = Mathf.Max(340f, info.Tower.Range * 1.30f);
+		float linkDistance = Mathf.Max(340f, sourceTower.Range * 1.30f);
 		SpectacleConsequenceKind surgeRider = ResolveConsequenceKindFromSkin(comboSkin);
 		float surgeConsequenceStrength = Mathf.Clamp(info.Signature.SurgePower, 0.6f, 2.2f) * 0.58f;
-		SpawnSpectacleBurstFx(info.Tower.GlobalPosition, accent, major: true, power: info.Signature.SurgePower);
+		SpawnSpectacleBurstFx(sourceTower.GlobalPosition, accent, major: true, power: info.Signature.SurgePower);
 		SpawnSpectacleLinks(
-			info.Tower.GlobalPosition,
+			sourceTower.GlobalPosition,
 			accent,
 			maxLinks: 6,
 			maxDistance: linkDistance,
 			majorStyle: true,
-			sourceTower: info.Tower,
+			sourceTower: sourceTower,
 			consequenceDamageScale: 0.12f + 0.03f * surgeConsequenceStrength,
 			rider: surgeRider,
 			riderStrength: surgeConsequenceStrength,
 			spawnResidue: surgeRider != SpectacleConsequenceKind.None);
-		SpawnSpectacleTowerVolleyFx(info.Tower, accent, major: true, power: info.Signature.SurgePower);
-		SpawnComboExplosionSkinFx(info.Tower, info.Signature, accent, comboSkin);
+		SpawnSpectacleTowerVolleyFx(sourceTower, accent, major: true, power: info.Signature.SurgePower);
+		SpawnComboExplosionSkinFx(sourceTower, info.Signature, accent, comboSkin);
 		FlashSpectacleScreen(accent, peakAlpha: 0.17f, rampSec: 0.06f, fadeSec: 0.34f);
 		QueueSpectacleEcho(
-			info.Tower.GlobalPosition,
+			sourceTower.GlobalPosition,
 			accent,
 			major: true,
 			power: info.Signature.SurgePower,
 			maxDistance: linkDistance,
-			sourceTower: info.Tower,
+			sourceTower: sourceTower,
 			rider: surgeRider,
 			spawnResidue: surgeRider != SpectacleConsequenceKind.None);
 		SoundManager.Instance?.Play("mine_chain_pop", pitchScale: 1.08f);
 		PlayExplosionBassHit(info.Signature.SurgePower, globalSurge: false);
 		ApplySpectacleGameplayPayload(info, isMajor: true);
 		TriggerStatusDetonationChain(
-			info.Tower,
-			info.Tower.GlobalPosition,
+			sourceTower,
+			sourceTower.GlobalPosition,
 			accent,
 			comboSkin,
 			globalSurge: false,
@@ -2563,7 +2566,7 @@ public partial class GameController : Node
 
 		SpawnCombatCallout(
 			info.Signature.EffectName.ToUpperInvariant(),
-			info.Tower.GlobalPosition,
+			sourceTower.GlobalPosition,
 			accent,
 			durationScale: 2f);
 		ExplosionHitStopProfile hitStop = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
@@ -3771,17 +3774,23 @@ public partial class GameController : Node
 		bool allowMarkedPop = true,
 		SpectacleDamageSource source = SpectacleDamageSource.SurgeCore)
 	{
-		if (!IsEnemyUsable(enemy) || damage <= 0.05f)
+		float tunedDamage = damage;
+		if (source == SpectacleDamageSource.ExplosionFollowUp || source == SpectacleDamageSource.Residue)
+			tunedDamage *= Mathf.Max(0f, SpectacleTuning.Current.ExplosionFollowUpDamageMultiplier);
+		if (source == SpectacleDamageSource.Residue)
+			tunedDamage *= Mathf.Max(0f, SpectacleTuning.Current.ResidueDamageMultiplier);
+
+		if (!IsEnemyUsable(enemy) || tunedDamage <= 0.05f)
 			return 0f;
 
 		bool wasMarked = enemy.IsMarked;
 		float hpBefore = enemy.Hp;
-		float dealt = SpectacleDamageCore.ApplyRawDamage(enemy, damage);
+		float dealt = SpectacleDamageCore.ApplyRawDamage(enemy, tunedDamage);
 		if (dealt <= 0.01f)
 			return 0f;
 
 		bool isKill = enemy.Hp <= 0f;
-		float overflow = isKill ? Mathf.Max(0f, damage - hpBefore) : 0f;
+		float overflow = isKill ? Mathf.Max(0f, tunedDamage - hpBefore) : 0f;
 		OverkillBloomProfile bloomProfile = SpectacleExplosionCore.BuildOverkillBloomProfile(overflow);
 		string eventType = source switch
 		{
@@ -4409,7 +4418,8 @@ public partial class GameController : Node
 					float damage = damageSource.BaseDamage
 						* (globalSurge ? 0.22f : 0.16f)
 						* Mathf.Clamp(surgePower, 0.6f, 2.2f)
-						* Mathf.Max(0.52f, 1f - index * 0.04f);
+						* Mathf.Max(0.52f, 1f - index * 0.04f)
+						* Mathf.Max(0f, SpectacleTuning.Current.StatusDetonationDamageMultiplier);
 					ApplySpectacleDamage(
 						damageSource,
 						enemyRef,
@@ -4887,11 +4897,15 @@ public partial class GameController : Node
 		Color accent,
 		ITowerView? sourceTower)
 	{
-		if (_runState == null || !profile.ShouldSpawn || profile.Kind == ExplosionResidueKind.None)
+		if (_runState == null
+			|| !SpectacleTuning.Current.EnableResidue
+			|| !profile.ShouldSpawn
+			|| profile.Kind == ExplosionResidueKind.None)
 			return;
 
 		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
-		int maxResidues = reducedMotion ? 7 : 12;
+		int baseMaxResidues = reducedMotion ? 7 : 12;
+		int maxResidues = Mathf.Max(1, Mathf.RoundToInt(baseMaxResidues * Mathf.Max(0.1f, SpectacleTuning.Current.ResidueMaxActiveMultiplier)));
 		while (_explosionResidues.Count >= maxResidues)
 			_explosionResidues.RemoveAt(0);
 
@@ -4901,7 +4915,9 @@ public partial class GameController : Node
 			Origin = origin,
 			Radius = profile.Radius,
 			Remaining = profile.DurationSeconds,
-			TickInterval = Mathf.Max(0.06f, profile.TickIntervalSeconds),
+			TickInterval = Mathf.Max(
+				0.06f,
+				profile.TickIntervalSeconds * Mathf.Max(0.2f, SpectacleTuning.Current.ResidueTickIntervalMultiplier)),
 			TickRemaining = 0f,
 			Potency = profile.Potency,
 			Accent = accent,

@@ -24,6 +24,7 @@ android/
 .gradle/
 local.properties
 
+
 # Supabase credentials (copy SupabaseConfig.cs.example → SupabaseConfig.cs and fill in values)
 Scripts/Core/Leaderboards/SupabaseConfig.cs
 supabase.cfg
@@ -43,6 +44,8 @@ Thumbs.db
 *.bmp
 *.uid
 *.ps1
+# Exception: allow run_tuning_pipeline.ps1
+!run_tuning_pipeline.ps1
 *-cwd
 Data/maps_backup1.json
 NextPolish
@@ -63,7 +66,6 @@ Slot_Theory_TDD_v1.md
 Slot_Theory_Getting_Started.md
 detailed_balance_analysis_march6.md
 Scripts/Tools/IconBgNode.cs
-.gitignore
 Scripts/Tools/IconExport.cs
 Scripts/Tools/generate_icons.py
 Scripts/Tools/icon_32_test.py

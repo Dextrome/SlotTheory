@@ -72,6 +72,7 @@ public class RunState
     public int SpectacleGlobalTriggers { get; private set; } = 0;
     public Dictionary<string, int> SpectacleSurgeByEffect { get; } = new();
     public Dictionary<string, int> SpectacleGlobalByEffect { get; } = new();
+    public Dictionary<string, int> SpectacleSurgeByTower { get; } = new();
 
     // Map selection
     public string? SelectedMapId { get; set; } = null;  // null = random
@@ -152,10 +153,12 @@ public class RunState
         TotalLeakHpByType[enemyType] = current + remainingHp;
     }
 
-    public void TrackSpectacleSurge(string effectId)
+    public void TrackSpectacleSurge(string effectId, string? towerId = null)
     {
         SpectacleSurgeTriggers++;
         IncrementSpectacleCounter(SpectacleSurgeByEffect, effectId);
+        if (!string.IsNullOrWhiteSpace(towerId))
+            IncrementSpectacleCounter(SpectacleSurgeByTower, towerId!);
     }
 
     public void TrackSpectacleGlobal(string effectId)
@@ -291,6 +294,7 @@ public class RunState
         SpectacleGlobalTriggers = 0;
         SpectacleSurgeByEffect.Clear();
         SpectacleGlobalByEffect.Clear();
+        SpectacleSurgeByTower.Clear();
     }
 
     /// <summary>Gets total damage dealt by a specific tower across all completed waves.</summary>

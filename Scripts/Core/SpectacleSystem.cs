@@ -152,8 +152,8 @@ public sealed class SpectacleSystem
             }
             RegenerateTokens(state, delta);
             state.InactivityTime += delta;
-            if (state.InactivityTime >= SpectacleDefinitions.InactivityGraceSeconds && state.Meter > 0f)
-                state.Meter = Max(0f, state.Meter - SpectacleDefinitions.InactivityDecayPerSecond * delta);
+            if (state.InactivityTime >= SpectacleDefinitions.ResolveInactivityGraceSeconds() && state.Meter > 0f)
+                state.Meter = Max(0f, state.Meter - SpectacleDefinitions.ResolveInactivityDecayPerSecond() * delta);
 
             PruneContributionWindow(state);
         }
@@ -168,7 +168,7 @@ public sealed class SpectacleSystem
 
         var signature = ResolveSignature(state, tower, useLockedRoles: true);
         return new SpectacleVisualState(
-            MeterNormalized: Clamp(state.Meter / SpectacleDefinitions.SurgeThreshold, 0f, 1f),
+            MeterNormalized: Clamp(state.Meter / SpectacleDefinitions.ResolveSurgeThreshold(), 0f, 1f),
             Pulse: state.Pulse,
             PrimaryModId: signature.PrimaryModId);
     }
@@ -245,10 +245,10 @@ public sealed class SpectacleSystem
             return;
 
         state.InactivityTime = 0f;
-        state.Meter = Clamp(state.Meter + gain, 0f, SpectacleDefinitions.SurgeThreshold);
+        state.Meter = Clamp(state.Meter + gain, 0f, SpectacleDefinitions.ResolveSurgeThreshold());
         AddContribution(state, modId, gain);
 
-        if (!state.RolesLocked && state.Meter >= 20f)
+        if (!state.RolesLocked && state.Meter >= SpectacleDefinitions.ResolveRoleLockMeterThreshold())
             LockRoles(state, tower);
 
         TryTriggerEvents(tower, state);
@@ -256,11 +256,13 @@ public sealed class SpectacleSystem
 
     private void TryTriggerEvents(ITowerView tower, TowerState state)
     {
-        if (state.Meter >= SpectacleDefinitions.SurgeThreshold && state.SurgeCooldown <= 0f)
+        float surgeThreshold = SpectacleDefinitions.ResolveSurgeThreshold();
+        float globalThreshold = SpectacleDefinitions.ResolveGlobalThreshold();
+        if (state.Meter >= surgeThreshold && state.SurgeCooldown <= 0f)
         {
             var signature = ResolveSignature(state, tower, useLockedRoles: true);
-            state.Meter = SpectacleDefinitions.SurgeMeterAfterTrigger;
-            state.SurgeCooldown = SpectacleDefinitions.SurgeCooldownSeconds;
+            state.Meter = SpectacleDefinitions.ResolveSurgeMeterAfterTrigger();
+            state.SurgeCooldown = SpectacleDefinitions.ResolveSurgeCooldownSeconds();
             state.Pulse = Max(state.Pulse, 1.0f);
             state.PulseHold = Max(state.PulseHold, 0.42f);
             state.RolesLocked = false;
@@ -268,17 +270,17 @@ public sealed class SpectacleSystem
             state.LockedSecondary = string.Empty;
             state.LockedTertiary = string.Empty;
 
-            _globalMeter = Clamp(_globalMeter + SpectacleDefinitions.GlobalMeterPerSurge, 0f, SpectacleDefinitions.GlobalThreshold);
+            _globalMeter = Clamp(_globalMeter + SpectacleDefinitions.ResolveGlobalMeterPerSurge(), 0f, globalThreshold);
             _surgeContributions.Enqueue(new SurgeContribution(_time, tower));
             PruneGlobalContributions();
 
             OnSurgeTriggered?.Invoke(new SpectacleTriggerInfo(tower, IsSurge: true, signature, state.Meter));
 
-            if (_globalMeter >= SpectacleDefinitions.GlobalThreshold)
+            if (_globalMeter >= globalThreshold)
             {
                 // If the meter is full, fire on this surge instead of waiting on contributor gating.
                 int uniqueContributors = Math.Max(1, CountUniqueGlobalContributors());
-                _globalMeter = SpectacleDefinitions.GlobalMeterAfterTrigger;
+                _globalMeter = SpectacleDefinitions.ResolveGlobalMeterAfterTrigger();
                 OnGlobalTriggered?.Invoke(new GlobalSurgeTriggerInfo(
                     MeterAfter: _globalMeter,
                     UniqueContributors: uniqueContributors,
@@ -535,7 +537,7 @@ public sealed class SpectacleSystem
 
     private void PruneContributionWindow(TowerState state)
     {
-        float cutoff = _time - SpectacleDefinitions.ContributionWindowSeconds;
+        float cutoff = _time - SpectacleDefinitions.ResolveContributionWindowSeconds();
         while (state.ContributionSamples.Count > 0 && state.ContributionSamples.Peek().Time < cutoff)
         {
             var sample = state.ContributionSamples.Dequeue();
@@ -552,7 +554,7 @@ public sealed class SpectacleSystem
 
     private void PruneGlobalContributions()
     {
-        float cutoff = _time - SpectacleDefinitions.GlobalContributionWindowSeconds;
+        float cutoff = _time - SpectacleDefinitions.ResolveGlobalContributionWindowSeconds();
         while (_surgeContributions.Count > 0 && _surgeContributions.Peek().Time < cutoff)
             _surgeContributions.Dequeue();
     }

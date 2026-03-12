@@ -66,6 +66,7 @@ public class BotRunner
         int SpectacleGlobalTriggers,
         Dictionary<string, int> SpectacleSurgeByEffect,
         Dictionary<string, int> SpectacleGlobalByEffect,
+        Dictionary<string, int> SpectacleSurgeByTower,
         float RunDurationSeconds,
         int BaseAttackDamage,
         int SurgeCoreDamage,
@@ -91,7 +92,7 @@ public class BotRunner
     private readonly string?          _metricsOutputPath;
     private readonly string?          _traceOutputPath;
     private readonly string           _tuningLabel;
-    private readonly string           _strategySetLabel;
+    private readonly string           _strategySetLabel = StrategySetAll;
 	private DifficultyMode[] _difficulties = { DifficultyMode.Easy, DifficultyMode.Normal, DifficultyMode.Hard };
     private readonly List<RunResult>  _results = new();
     private readonly List<RunTrace>   _runTraces = new();
@@ -263,6 +264,7 @@ public BotRunner(
             state.SpectacleGlobalTriggers,
             new Dictionary<string, int>(state.SpectacleSurgeByEffect),
             new Dictionary<string, int>(state.SpectacleGlobalByEffect),
+            new Dictionary<string, int>(state.SpectacleSurgeByTower),
             state.TotalPlayTime,
             state.BaseAttackDamage,
             state.SurgeCoreDamage,
@@ -555,7 +557,6 @@ public BotRunner(
         float runCount = _results.Count;
         float avgDuration = (float)_results.Average(r => r.RunDurationSeconds);
         float avgSurges = (float)_results.Average(r => r.SpectacleSurgeTriggers);
-        float avgMajorSurges = avgSurges; // Minor tier was removed; all surge triggers are major.
         float avgKillsPerSurge = (float)_results.Average(r =>
             r.SpectacleSurgeTriggers > 0 ? (float)r.SpectacleKills / r.SpectacleSurgeTriggers : 0f);
 
@@ -583,7 +584,7 @@ public BotRunner(
         GD.Print($"  Tuning profile: {_tuningLabel}");
         GD.Print($"  Strategy set: {_strategySetLabel} ({_strategies.Length} strategies)");
         GD.Print($"  Avg run duration: {avgDuration:0.00}s");
-        GD.Print($"  Surges/run: {avgSurges:0.00} | Major surges/run: {avgMajorSurges:0.00}");
+        GD.Print($"  Surges/run: {avgSurges:0.00}");
         GD.Print($"  Kills per surge: {avgKillsPerSurge:0.00}");
         GD.Print($"  Explosion damage/run: {avgExplosionDamagePerRun:0.0}");
         GD.Print($"  Explosion damage/trigger: {avgExplosionDamagePerTrigger:0.0}");
@@ -614,6 +615,39 @@ public BotRunner(
             var explosionSharePerRun = _results
                 .Select(r => ResolveExplosionSharePerRun(r))
                 .ToList();
+            float avgSurgeIntervalSeconds = ResolveAverageSurgeIntervalSeconds(_results);
+            var placementsByTower = new Dictionary<string, int>(StringComparer.Ordinal);
+            var surgesByTower = new Dictionary<string, int>(StringComparer.Ordinal);
+            foreach (RunResult run in _results)
+            {
+                foreach (string towerId in run.Towers)
+                {
+                    placementsByTower.TryGetValue(towerId, out int current);
+                    placementsByTower[towerId] = current + 1;
+                }
+                foreach (var kv in run.SpectacleSurgeByTower)
+                {
+                    surgesByTower.TryGetValue(kv.Key, out int current);
+                    surgesByTower[kv.Key] = current + kv.Value;
+                }
+            }
+            var towerSurgeRows = placementsByTower.Keys
+                .Union(surgesByTower.Keys, StringComparer.Ordinal)
+                .OrderBy(id => id, StringComparer.Ordinal)
+                .Select(id =>
+                {
+                    placementsByTower.TryGetValue(id, out int placements);
+                    surgesByTower.TryGetValue(id, out int surges);
+                    float surgesPerPlacedTower = placements > 0 ? (float)surges / placements : 0f;
+                    return new
+                    {
+                        tower_id = id,
+                        placements,
+                        surges,
+                        surges_per_placed_tower = surgesPerPlacedTower,
+                    };
+                })
+                .ToList();
             const float explosionShareBinSize = 0.001f; // 0.10% bins
 
             var payload = new
@@ -627,7 +661,7 @@ public BotRunner(
                     avg_wave_reached = _results.Count > 0 ? (float)_results.Average(r => r.WaveReached) : 0f,
                     avg_run_duration_seconds = _results.Count > 0 ? (float)_results.Average(r => r.RunDurationSeconds) : 0f,
                     avg_surges_per_run = _results.Count > 0 ? (float)_results.Average(r => r.SpectacleSurgeTriggers) : 0f,
-                    avg_major_surges_per_run = _results.Count > 0 ? (float)_results.Average(r => r.SpectacleSurgeTriggers) : 0f,
+                    avg_surge_interval_seconds = avgSurgeIntervalSeconds,
                     avg_kills_per_surge = _results.Count > 0
                         ? (float)_results.Average(r => r.SpectacleSurgeTriggers > 0 ? (float)r.SpectacleKills / r.SpectacleSurgeTriggers : 0f)
                         : 0f,
@@ -649,6 +683,7 @@ public BotRunner(
                         simultaneous_active_hazards = _results.Max(r => r.PeakSimultaneousActiveHazards),
                         simultaneous_hitstops_requested = _results.Max(r => r.PeakSimultaneousHitStopsRequested),
                     },
+                    surges_by_tower = towerSurgeRows,
                     distributions = new
                     {
                         surges_per_run = BuildDiscreteDistribution(surgesPerRun),
@@ -671,8 +706,9 @@ public BotRunner(
                     wave_reached = r.WaveReached,
                     run_duration_seconds = r.RunDurationSeconds,
                     surges = r.SpectacleSurgeTriggers,
-                    globals = r.SpectacleGlobalTriggers,
-                    major_surges = r.SpectacleSurgeTriggers,
+                    global_surges = r.SpectacleGlobalTriggers,
+                    surge_interval_seconds = ResolveSurgeIntervalSeconds(r),
+                    surges_by_tower = r.SpectacleSurgeByTower,
                     status_detonations = r.StatusDetonationCount,
                     residue_uptime_seconds = r.ResidueUptimeSeconds,
                     max_chain_depth = r.SpectacleMaxChainDepth,
@@ -708,6 +744,24 @@ public BotRunner(
         if (total <= 0.0001f)
             return 0f;
         return (run.ExplosionFollowUpDamage + run.ResidueDamage) / total;
+    }
+
+    private static float ResolveSurgeIntervalSeconds(RunResult run)
+    {
+        if (run.SpectacleSurgeTriggers <= 0)
+            return run.RunDurationSeconds;
+        return run.RunDurationSeconds / run.SpectacleSurgeTriggers;
+    }
+
+    private static float ResolveAverageSurgeIntervalSeconds(IEnumerable<RunResult> runs)
+    {
+        var intervals = runs
+            .Where(r => r.SpectacleSurgeTriggers > 0)
+            .Select(ResolveSurgeIntervalSeconds)
+            .ToList();
+        if (intervals.Count == 0)
+            return 0f;
+        return (float)intervals.Average();
     }
 
     private static List<object> BuildDiscreteDistribution(IEnumerable<int> values)

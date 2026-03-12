@@ -186,7 +186,8 @@ public partial class ProjectileVisual : Node2D
         if (bounceHits > 0)
         {
             float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(bounceHits);
-            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar);
+            float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, chainEventDamage);
         }
     }
 
@@ -218,7 +219,7 @@ public partial class ProjectileVisual : Node2D
         if (spawned > 0)
         {
             float splitScalar = SpectacleDefinitions.SplitShotEventScalar(spawned);
-            GameController.Instance?.RegisterSpectacleProc(_tower, SpectacleDefinitions.SplitShot, splitScalar);
+            GameController.Instance?.RegisterSpectacleProc(_tower, SpectacleDefinitions.SplitShot, splitScalar, splitDamage);
         }
     }
 
