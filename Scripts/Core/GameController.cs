@@ -83,6 +83,7 @@ public partial class GameController : Node
 	private float _spectacleSlowMoScale = 1.0f;
 	private double _spectacleSlowMoRestoreScale = 1.0;
 	private ulong _spectacleSlowMoToken = 0;
+	private Tween? _explosionZoomTween;
 	private string _draftSynergyHintModifierId = "";
 	private float _draftSynergyPulseT = 0f;
 	private float _lowLivesHeartbeatTimer = 0f;
@@ -2224,8 +2225,9 @@ public partial class GameController : Node
 
 		Vector2 center = ScreenToWorld(GetViewport().GetVisibleRect().Size * 0.5f);
 		var globalColor = new Color(1.00f, 0.90f, 0.56f);
-		SpawnSpectacleBurstFx(center, globalColor, major: true, power: 2.15f);
-		FlashSpectacleScreen(globalColor, peakAlpha: 0.28f, rampSec: 0.09f, fadeSec: 0.42f);
+		SpawnSpectacleBurstFx(center, globalColor, major: true, power: 2.15f, stageTwoKick: true);
+		SpawnGlobalSurgeRipples(center, globalColor, Mathf.Max(2, info.UniqueContributors));
+		FlashSpectacleScreen(globalColor, peakAlpha: 0.28f, rampSec: 0.09f, fadeSec: 0.62f);
 		SoundManager.Instance?.Play("wave20_swell");
 
 		for (int i = 0; i < _runState.Slots.Length; i++)
@@ -2244,10 +2246,10 @@ public partial class GameController : Node
 				majorStyle: true);
 			SpawnSpectacleTowerVolleyFx(tower, accent, major: true, power: 1.10f);
 		}
-		ApplyGlobalSurgeGameplayPayload(info);
 		SpawnGlobalSurgeAffectFx(center, globalColor, Mathf.Max(2, info.UniqueContributors));
+		ApplyGlobalSurgeGameplayPayload(info);
 		QueueSpectacleEcho(center, globalColor, major: true, power: 1.65f, maxDistance: 420f);
-		TriggerSpectacleSlowMo(realDuration: 4.4f, speedFactor: 0.25f);
+		TriggerSpectacleSlowMo(realDuration: 5.6f, speedFactor: 0.25f);
 		ShowGlobalSurgeBanner(info.EffectName, globalColor);
 
 		TriggerHitStop(realDuration: 0.050f, slowScale: 0.26f);
@@ -3340,16 +3342,20 @@ public partial class GameController : Node
 		float damage,
 		Color color,
 		bool heavyHit,
-		bool triggerHitStopOnKill = false)
+		bool triggerHitStopOnKill = false,
+		bool allowOverkillBloom = true)
 	{
 		if (!IsEnemyUsable(enemy) || damage <= 0.05f)
 			return 0f;
 
+		float hpBefore = enemy.Hp;
 		float dealt = SpectacleDamageCore.ApplyRawDamage(enemy, damage);
 		if (dealt <= 0.01f)
 			return 0f;
 
 		bool isKill = enemy.Hp <= 0f;
+		float overflow = isKill ? Mathf.Max(0f, damage - hpBefore) : 0f;
+		OverkillBloomProfile bloomProfile = SpectacleExplosionCore.BuildOverkillBloomProfile(overflow);
 		TrackSpectacleDamage(tower, dealt, isKill);
 		SpawnSpectacleDamageNumber(enemy.GlobalPosition, Mathf.Max(1f, dealt), isKill, color, tower.TowerId);
 		SpawnSpectacleImpactSparks(enemy.GlobalPosition, color, heavy: heavyHit);
@@ -3357,7 +3363,107 @@ public partial class GameController : Node
 			enemy.FlashHit();
 		if (isKill && triggerHitStopOnKill)
 			TriggerHitStop(realDuration: heavyHit ? 0.042f : 0.030f, slowScale: heavyHit ? 0.20f : 0.30f);
+		if (isKill && allowOverkillBloom && bloomProfile.ShouldTrigger)
+			SpawnOverkillBloom(tower, enemy.GlobalPosition, bloomProfile, color, heavyHit);
 		return dealt;
+	}
+
+	private void SpawnOverkillBloom(
+		ITowerView tower,
+		Vector2 origin,
+		OverkillBloomProfile profile,
+		Color accent,
+		bool heavySourceHit)
+	{
+		if (_runState == null || tower == null || !profile.ShouldTrigger)
+			return;
+
+		if (_botRunner == null)
+		{
+			PrimeExplosionCompression(
+				origin,
+				profile.VisualRadius * 0.82f,
+				accent,
+				maxTargets: Mathf.Clamp(3 + Mathf.FloorToInt(profile.OverflowVisualT * 4f), 3, 7));
+			SpawnSpectacleBurstFx(
+				origin,
+				accent,
+				major: true,
+				power: profile.BloomPower,
+				stageTwoKick: profile.StageTwoKick);
+			FlashSpectacleScreen(accent, peakAlpha: 0.09f + profile.OverflowVisualT * 0.06f, rampSec: 0.03f, fadeSec: 0.16f);
+			if (profile.BloomDamage >= 30f && TryCombatCallout("overkill_bloom", 5.2f))
+				SpawnCombatCallout("OVERKILL BLOOM", origin, accent, durationScale: 1.35f);
+		}
+
+		var targets = _runState.EnemiesAlive
+			.Where(IsEnemyUsable)
+			.Where(e => origin.DistanceTo(e.GlobalPosition) <= profile.VisualRadius)
+			.OrderBy(e => origin.DistanceTo(e.GlobalPosition))
+			.ThenByDescending(e => e.ProgressRatio)
+			.Take(profile.MaxTargets)
+			.ToList();
+
+		for (int i = 0; i < targets.Count; i++)
+		{
+			var target = targets[i];
+			float distance = Mathf.Max(1f, origin.DistanceTo(target.GlobalPosition));
+			float distT = Mathf.Clamp(distance / profile.VisualRadius, 0f, 1f);
+			float falloff = Mathf.Lerp(1f, 0.35f, distT);
+			float damage = profile.BloomDamage * falloff;
+			if (damage <= 0.05f)
+				continue;
+
+			if (_botRunner == null)
+			{
+				SpawnSpectacleArc(
+					origin,
+					target.GlobalPosition,
+					accent,
+					intensity: 0.88f + 0.08f * i,
+					mineChainStyle: heavySourceHit);
+			}
+
+			ApplySpectacleDamage(
+				tower,
+				target,
+				damage,
+				accent,
+				heavyHit: false,
+				triggerHitStopOnKill: false,
+				allowOverkillBloom: false);
+		}
+	}
+
+	private void PrimeExplosionCompression(Vector2 origin, float radius, Color accent, int maxTargets)
+	{
+		if (_botRunner != null || _runState == null || radius <= 0f || maxTargets <= 0)
+			return;
+
+		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
+		var compressed = _runState.EnemiesAlive
+			.Where(IsEnemyUsable)
+			.Where(e => origin.DistanceTo(e.GlobalPosition) <= radius)
+			.OrderBy(e => origin.DistanceTo(e.GlobalPosition))
+			.Take(maxTargets)
+			.ToList();
+
+		for (int i = 0; i < compressed.Count; i++)
+		{
+			var enemy = compressed[i];
+			if (!GodotObject.IsInstanceValid(enemy))
+				continue;
+			enemy.FlashHit();
+			if (reducedMotion)
+				continue;
+
+			SpawnSpectacleArc(
+				enemy.GlobalPosition,
+				origin,
+				accent,
+				intensity: 0.74f + 0.05f * i,
+				mineChainStyle: false);
+		}
 	}
 
 	private void TrackSpectacleDamage(ITowerView tower, float damage, bool isKill)
@@ -3436,24 +3542,56 @@ public partial class GameController : Node
 		return ModifierVisuals.GetAccent(modId);
 	}
 
-	private void SpawnSpectacleBurstFx(Vector2 worldPos, Color accent, bool major, float power = 1f)
+	private void SpawnSpectacleBurstFx(Vector2 worldPos, Color accent, bool major, float power = 1f, bool stageTwoKick = false)
 	{
 		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
 			return;
 
-		var burst = new RiftMineBurst();
-		_worldNode.AddChild(burst);
-		burst.GlobalPosition = worldPos;
+		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
 		float intensity = Mathf.Clamp((major ? 1.26f : 1.02f) * Mathf.Max(0.60f, power), 0.85f, 2.60f);
-		burst.Initialize(accent, chainPop: major, intensity: intensity);
 
-		if (major || power >= 0.95f)
+		// Stage 1: tiny and sharp impact pop.
+		var stageOne = new RiftMineBurst();
+		_worldNode.AddChild(stageOne);
+		stageOne.GlobalPosition = worldPos;
+		float stageOneIntensity = intensity * (major ? 0.62f : 0.74f);
+		stageOne.Initialize(accent, chainPop: false, intensity: stageOneIntensity);
+
+		if (!SpectacleExplosionCore.ShouldEmitSecondStage(major, power))
+			return;
+
+		// Stage 2: delayed wide detonation ring.
+		void EmitStageTwo()
 		{
-			var afterGlow = new RiftMineBurst();
-			_worldNode.AddChild(afterGlow);
-			afterGlow.GlobalPosition = worldPos;
-			afterGlow.Modulate = new Color(1f, 1f, 1f, major ? 0.62f : 0.44f);
-			afterGlow.Initialize(new Color(1.00f, 0.98f, 0.94f), chainPop: major, intensity: intensity * (major ? 0.88f : 0.74f));
+			if (_botRunner != null || !GodotObject.IsInstanceValid(this) || !GodotObject.IsInstanceValid(_worldNode))
+				return;
+
+			var stageTwo = new RiftMineBurst();
+			_worldNode.AddChild(stageTwo);
+			stageTwo.GlobalPosition = worldPos;
+			stageTwo.Modulate = new Color(1f, 1f, 1f, major ? 0.76f : 0.64f);
+			Color stageTwoAccent = new Color(
+				Mathf.Clamp(accent.R * 0.78f + 0.22f, 0f, 1f),
+				Mathf.Clamp(accent.G * 0.78f + 0.22f, 0f, 1f),
+				Mathf.Clamp(accent.B * 0.78f + 0.22f, 0f, 1f),
+				1f);
+			float stageTwoIntensity = intensity * (major ? 1.15f : 1.03f);
+			stageTwo.Initialize(stageTwoAccent, chainPop: true, intensity: stageTwoIntensity);
+
+			if (stageTwoKick && !reducedMotion)
+			{
+				ShakeWorldMicro();
+				SoundManager.Instance?.Play("mine_chain_pop", pitchScale: major ? 0.92f : 0.98f);
+			}
+		}
+
+		if (reducedMotion)
+		{
+			EmitStageTwo();
+		}
+		else
+		{
+			GetTree().CreateTimer(SpectacleExplosionCore.TwoStageBlastDelaySeconds).Timeout += EmitStageTwo;
 		}
 	}
 
@@ -3491,51 +3629,121 @@ public partial class GameController : Node
 		}
 	}
 
+	private void SpawnGlobalSurgeRipples(Vector2 origin, Color accent, int contributors)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+
+		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
+		Vector2 viewportSize = GetViewport().GetVisibleRect().Size;
+		Vector2 topLeft = ScreenToWorld(Vector2.Zero);
+		Vector2 bottomRight = ScreenToWorld(viewportSize);
+		float diagonal = topLeft.DistanceTo(bottomRight);
+		float endRadius = Mathf.Max(340f, diagonal * 0.62f);
+
+		float contributorT = Mathf.Clamp((contributors - 1f) / 5f, 0f, 1f);
+		int rippleCount = reducedMotion ? 1 : 3;
+		float baseDuration = Mathf.Lerp(0.62f, 0.86f, contributorT);
+
+		for (int i = 0; i < rippleCount; i++)
+		{
+			int rippleIndex = i;
+			float delay = reducedMotion ? 0f : rippleIndex * 0.14f;
+
+			void Emit()
+			{
+				if (_botRunner != null || !GodotObject.IsInstanceValid(this) || !GodotObject.IsInstanceValid(_worldNode))
+					return;
+
+				var ripple = new GlobalSurgeRipple();
+				_worldNode.AddChild(ripple);
+				ripple.GlobalPosition = origin;
+				ripple.Initialize(
+					accent,
+					endRadius * (0.90f + rippleIndex * 0.09f),
+					durationSec: baseDuration + rippleIndex * 0.08f,
+					ringWidth: 4.8f + rippleIndex * 1.0f);
+			}
+
+			if (delay <= 0f)
+				Emit();
+			else
+				GetTree().CreateTimer(delay).Timeout += Emit;
+		}
+	}
+
 	private void SpawnGlobalSurgeAffectFx(Vector2 origin, Color accent, int contributors)
 	{
 		if (_botRunner != null || _runState == null || !GodotObject.IsInstanceValid(_worldNode))
 			return;
 
-		int maxLinks = Mathf.Clamp(10 + contributors * 4, 12, 36);
+		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
+		int maxLinks = reducedMotion
+			? Mathf.Clamp(8 + contributors * 2, 8, 20)
+			: Mathf.Clamp(10 + contributors * 4, 12, 36);
 		var targets = _runState.EnemiesAlive
 			.Where(IsEnemyUsable)
-			.OrderByDescending(e => e.ProgressRatio)
-			.ThenBy(e => origin.DistanceTo(e.GlobalPosition))
+			.OrderBy(e => origin.DistanceTo(e.GlobalPosition))
+			.ThenByDescending(e => e.ProgressRatio)
 			.Take(maxLinks)
 			.ToList();
 		if (targets.Count == 0)
 			return;
 
-		float baseIntensity = 1.14f + 0.07f * Mathf.Clamp(contributors, 1, 6);
-		const float stepDelay = 0.018f;
+		float baseIntensity = 1.12f + 0.08f * Mathf.Clamp(contributors, 1, 6);
 		for (int i = 0; i < targets.Count; i++)
 		{
 			var enemyRef = targets[i];
+			float distance = origin.DistanceTo(enemyRef.GlobalPosition);
 			float intensity = baseIntensity + i * 0.02f;
-			float delay = i * stepDelay;
+			GlobalSurgeWaveTiming timing = SpectacleExplosionCore.ResolveGlobalSurgeWaveTiming(distance, contributors, reducedMotion);
+			float impactDelay = timing.ImpactDelay;
+			float preFlashDelay = timing.PreFlashDelay;
 
-			void Emit()
+			void PreFlash()
 			{
 				if (CurrentPhase != GamePhase.Wave
 					|| _botRunner != null
 					|| !GodotObject.IsInstanceValid(this)
-					|| !GodotObject.IsInstanceValid(enemyRef)
-					|| enemyRef.Hp <= 0f)
+					|| !GodotObject.IsInstanceValid(enemyRef))
+				{
+					return;
+				}
+
+				enemyRef.FlashHit();
+			}
+
+			void EmitImpact()
+			{
+				if (CurrentPhase != GamePhase.Wave
+					|| _botRunner != null
+					|| !GodotObject.IsInstanceValid(this)
+					|| !GodotObject.IsInstanceValid(enemyRef))
 				{
 					return;
 				}
 
 				SpawnSpectacleArc(origin, enemyRef.GlobalPosition, accent, intensity, mineChainStyle: true);
 				SpawnSpectacleImpactSparks(enemyRef.GlobalPosition, accent, heavy: true);
+				if (!reducedMotion)
+				{
+					float popPower = 0.90f + 0.05f * Mathf.Clamp(contributors, 1, 7);
+					SpawnSpectacleBurstFx(enemyRef.GlobalPosition, accent, major: false, power: popPower);
+				}
 			}
 
-			if (delay <= 0f)
+			if (preFlashDelay <= 0f)
+				PreFlash();
+			else
+				GetTree().CreateTimer(preFlashDelay).Timeout += PreFlash;
+
+			if (impactDelay <= 0f)
 			{
-				Emit();
+				EmitImpact();
 			}
 			else
 			{
-				GetTree().CreateTimer(delay).Timeout += Emit;
+				GetTree().CreateTimer(impactDelay).Timeout += EmitImpact;
 			}
 		}
 	}
@@ -3702,9 +3910,27 @@ public partial class GameController : Node
 
 	public void NotifyOverkillSpill(Vector2 worldPos, float spillDamage)
 	{
+		if (spillDamage <= 0f)
+			return;
+
+		Color spillColor = new Color(1.00f, 0.56f, 0.25f);
+		float spillT = Mathf.Clamp(spillDamage / 140f, 0f, 1f);
+		float visualRadius = Mathf.Lerp(84f, 190f, spillT);
+
+		if (_botRunner == null)
+		{
+			PrimeExplosionCompression(worldPos, visualRadius * 0.75f, spillColor, maxTargets: 4 + Mathf.FloorToInt(spillT * 2f));
+			SpawnSpectacleBurstFx(
+				worldPos,
+				spillColor,
+				major: spillDamage >= 42f,
+				power: 0.86f + spillT * 0.72f,
+				stageTwoKick: spillDamage >= 34f);
+		}
+
 		if (spillDamage < 34f) return;
 		if (!TryCombatCallout("overkill_spill", 6.5f)) return;
-		SpawnCombatCallout("OVERKILL SPILL", worldPos, new Color(1.00f, 0.56f, 0.25f));
+		SpawnCombatCallout("OVERKILL SPILL", worldPos, spillColor);
 	}
 
 	public void NotifyFeedbackLoopProc(SlotTheory.Entities.ITowerView tower)
@@ -4040,6 +4266,17 @@ public partial class GameController : Node
 		tween.TweenProperty(_worldNode, "position", new Vector2( 3f, -2f), 0.04f);
 		tween.TweenProperty(_worldNode, "position", new Vector2(-2f,  3f), 0.04f);
 		tween.TweenProperty(_worldNode, "position", Vector2.Zero,          0.04f);
+	}
+
+	private void ShakeWorldMicro()
+	{
+		if (!Balance.EnableScreenShake || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+
+		var tween = CreateTween();
+		tween.TweenProperty(_worldNode, "position", new Vector2(1.6f, 0.9f), 0.018f);
+		tween.TweenProperty(_worldNode, "position", new Vector2(-1.3f, -0.8f), 0.018f);
+		tween.TweenProperty(_worldNode, "position", Vector2.Zero, 0.028f);
 	}
 
 	private void HandlePerfProfilerHotkey(bool devMode)
