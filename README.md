@@ -6,17 +6,95 @@ Platforms: Windows Desktop, Android (phone and tablet)
 
 ---
 
-## Since v1.0.8
+## Surge System
 
-- Spectacle system added to combat with tower-level and global meters, plus surge/global surge trigger payloads.
-- Minor spectacle triggers were removed; only surge and global surge tiers are active.
-- Bot simulation now runs full spectacle gameplay payloads (not only visuals-disabled stubs), so balance tests reflect spectacle effects.
-- Bot analytics now track spectacle trigger counts and effect distributions in summary output.
-- Tower tooltip now lists all possible spectacle outcomes from current equipped supported modifiers (not just one upcoming effect).
-- Added spectacle-focused draft bots for coverage:
-  - `SpectacleSingleStack` (single-profile stacking)
-  - `SpectacleComboPairing` (two-mod pair stability)
-  - `SpectacleTriadDiversity` (three-mod diversity/triad coverage)
+The combat centerpiece is now the **Spectacle system**, built around two event tiers:
+
+1. **Surge** (per-tower burst trigger)
+2. **Global Surge** (teamwide catastrophe trigger)
+
+Only these two tiers are active. Minor spectacle triggers were intentionally removed to keep pacing clean.
+
+### Surge Meter (Per Tower)
+
+Each tower has its own spectacle meter.
+
+- Surge threshold: **145**
+- After surge trigger, meter resets to: **18**
+- Surge cooldown: **6.0s**
+- Meter gain comes from supported modifier procs and is affected by:
+  - the proc's event scalar
+  - copy count scaling (`1x -> 1.00`, `2x -> 1.92`, `3x+ -> 2.70`)
+  - loadout diversity scaling (`1 mod -> 1.00`, `2 mods -> 1.08`, `3+ mods -> 1.16`)
+  - per-mod anti-spam token gates (regen over time)
+
+To stop stale loops, each tower also has inactivity decay:
+
+- grace before decay: **2.0s**
+- decay rate after grace: **6.0 meter/sec**
+
+### How Surge Effects Are Chosen
+
+When a surge fires, the tower resolves a signature from equipped supported modifiers:
+
+- **Single**: 1 unique supported mod
+- **Combo**: 2 unique supported mods
+- **Triad**: 3+ unique supported mods
+
+The system ranks primary/secondary/tertiary roles by copy weight plus recent contribution window, then dispatches:
+
+- single effect for Single
+- combo core effect for Combo
+- combo core + augment effect for Triad
+
+So loadout identity directly controls what the surge does and how it looks.
+
+### What Happens On Surge Trigger
+
+A triggered surge runs both gameplay and presentation payloads:
+
+- tower-centered burst + link/volley visuals
+- combo skin routing (Chill/Chain/Split/Focus families)
+- status detonation chains from primed enemies (marked/slow/amped)
+- short cinematic timing (slow-mo + tiny major-only hitstop)
+- major-impact audio layers
+- optional large-surge screen afterimage pass
+
+Phase 3 adds short-lived aftermath zones from explosion families:
+
+- frost slow residue (~0.8s)
+- vulnerability residue (~1.2s)
+- burn residue (~0.9s)
+
+These are intentionally short and spawn with spacing rules to prevent visual clutter.
+
+### Global Meter and Global Surge
+
+Every surge contributes to a shared global meter:
+
+- per-surge gain: **+10**
+- global threshold: **100**
+- after global trigger, meter resets to: **20**
+
+Global surge contributor context tracks unique towers that surged recently (6s window), and the trigger uses that contributor count to scale parts of the payload.
+
+### What Happens On Global Surge Trigger
+
+Global surge is a mapwide event with synchronized spectacle + gameplay:
+
+- center-out cataclysm burst/ripple pass
+- global status/detonation propagation
+- broad tower payload application + cooldown reclaim
+- synchronized tower accent bursts
+- stronger screen treatment and impact audio
+
+This is the system's "board-state reset / momentum spike" moment and is designed to create a clearly distinct battlefield pattern from normal surges.
+
+### Tooling and Readability Support
+
+- Tower tooltips enumerate possible surge outcomes from current supported mods.
+- Bot simulation executes full spectacle gameplay payloads, so automation reflects real surge/global behavior.
+- Bot analytics track surge/global trigger distributions for balancing and regression checks.
 
 ---
 
