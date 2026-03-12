@@ -237,7 +237,7 @@ public sealed class SpectacleSystem
             * SpectacleDefinitions.GetCopyMultiplier(copies)
             * gate
             * SpectacleDefinitions.GetDiversityMultiplier(uniqueCount)
-            * SpectacleDefinitions.MeterGainScale;
+            * SpectacleDefinitions.ResolveMeterGainScale();
 
         if (gain <= 0.0001f)
             return;

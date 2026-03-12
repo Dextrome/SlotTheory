@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using Godot;
 using SlotTheory.Core;
 using SlotTheory.Data;
@@ -14,6 +16,13 @@ namespace SlotTheory.Tools;
 /// </summary>
 public class BotRunner
 {
+    private record RunTrace(
+        int RunIndex,
+        BotStrategy Strategy,
+        string Map,
+        DifficultyMode Difficulty,
+        List<CombatLabTraceEvent> Events);
+
     private record RunResult(
         BotStrategy Strategy,
         string      Map,
@@ -33,7 +42,21 @@ public class BotRunner
         int SpectacleSurgeTriggers,
         int SpectacleGlobalTriggers,
         Dictionary<string, int> SpectacleSurgeByEffect,
-        Dictionary<string, int> SpectacleGlobalByEffect
+        Dictionary<string, int> SpectacleGlobalByEffect,
+        float RunDurationSeconds,
+        int BaseAttackDamage,
+        int SurgeCoreDamage,
+        int ExplosionFollowUpDamage,
+        int ResidueDamage,
+        int SpectacleKills,
+        int SpectacleExplosionBurstCount,
+        int OverkillBloomCount,
+        int StatusDetonationCount,
+        int SpectacleMaxChainDepth,
+        float ResidueUptimeSeconds,
+        int PeakSimultaneousExplosions,
+        int PeakSimultaneousActiveHazards,
+        int PeakSimultaneousHitStopsRequested
     );
 
     private readonly int              _totalRuns;
@@ -42,8 +65,12 @@ public class BotRunner
 	private readonly DifficultyMode? _targetDifficulty;
     private readonly string?          _forcedTowerId;
     private readonly string?          _forcedModifierId;
+    private readonly string?          _metricsOutputPath;
+    private readonly string?          _traceOutputPath;
+    private readonly string           _tuningLabel;
 	private DifficultyMode[] _difficulties = { DifficultyMode.Easy, DifficultyMode.Normal, DifficultyMode.Hard };
     private readonly List<RunResult>  _results = new();
+    private readonly List<RunTrace>   _runTraces = new();
     private BotStrategy       _curStrategy;
     private DifficultyMode    _curDifficulty = DifficultyMode.Easy;
     private string            _curMap = "random_map";
@@ -63,15 +90,21 @@ public BotRunner(
     string? targetMap = null,
     BotStrategy? targetStrategy = null,
     string? forcedTowerId = null,
-    string? forcedModifierId = null)
+    string? forcedModifierId = null,
+    string? metricsOutputPath = null,
+    string? traceOutputPath = null,
+    string? tuningLabel = null)
 	{
 		_totalRuns  = totalRuns;
 		_strategies = targetStrategy.HasValue
             ? new[] { targetStrategy.Value }
             : (BotStrategy[])Enum.GetValues(typeof(BotStrategy));
-		_targetDifficulty = targetDifficulty;
+        _targetDifficulty = targetDifficulty;
         _forcedTowerId = string.IsNullOrWhiteSpace(forcedTowerId) ? null : forcedTowerId;
         _forcedModifierId = string.IsNullOrWhiteSpace(forcedModifierId) ? null : forcedModifierId;
+        _metricsOutputPath = string.IsNullOrWhiteSpace(metricsOutputPath) ? null : metricsOutputPath;
+        _traceOutputPath = string.IsNullOrWhiteSpace(traceOutputPath) ? null : traceOutputPath;
+        _tuningLabel = string.IsNullOrWhiteSpace(tuningLabel) ? "baseline" : tuningLabel.Trim();
 		_maps = targetMap != null
 			? new[] { targetMap }
 			: new[] { "arena_classic", "gauntlet", "sprawl" };
@@ -134,6 +167,20 @@ public BotRunner(
         }
     }
 
+    public void RecordRunTrace(IReadOnlyList<CombatLabTraceEvent> events)
+    {
+        if (events == null || events.Count == 0)
+            return;
+
+        var copied = events.Select(CloneTraceEvent).ToList();
+        _runTraces.Add(new RunTrace(
+            RunIndex: _results.Count + 1,
+            Strategy: _curStrategy,
+            Map: _curMap,
+            Difficulty: _curDifficulty,
+            Events: copied));
+    }
+
     /// <summary>Call on win or loss. Automatically prepares the next run if needed.</summary>
     public void RecordResult(bool won, int waveReached, RunState state)
     {
@@ -165,7 +212,21 @@ public BotRunner(
             state.SpectacleSurgeTriggers,
             state.SpectacleGlobalTriggers,
             new Dictionary<string, int>(state.SpectacleSurgeByEffect),
-            new Dictionary<string, int>(state.SpectacleGlobalByEffect)));
+            new Dictionary<string, int>(state.SpectacleGlobalByEffect),
+            state.TotalPlayTime,
+            state.BaseAttackDamage,
+            state.SurgeCoreDamage,
+            state.ExplosionFollowUpDamage,
+            state.ResidueDamage,
+            state.SpectacleKills,
+            state.SpectacleExplosionBurstCount,
+            state.OverkillBloomCount,
+            state.StatusDetonationCount,
+            state.SpectacleMaxChainDepth,
+            state.ResidueUptimeSeconds,
+            state.PeakSimultaneousExplosions,
+            state.PeakSimultaneousActiveHazards,
+            state.PeakSimultaneousHitStopsRequested));
 
         if (HasMoreRuns) StartNextRun();
     }
@@ -423,6 +484,8 @@ public BotRunner(
             GD.Print($"  {kv.Key,-20} {kv.Value,8} {chosen,8} {pickPct,6:0}%");
         }
 
+        PrintAutomationMetrics();
+
         // ── Wave Difficulty Analysis for Balancing ─────────────────────────────────
         GD.Print("\n╔═══════════════════════════════════════════════════════════════════╗");
         GD.Print("║                    WAVE DIFFICULTY ANALYSIS                       ║");
@@ -430,6 +493,208 @@ public BotRunner(
         GD.Print("╚═══════════════════════════════════════════════════════════════════╝");
 
         AnalyzeWaveDifficulty();
+        WriteMetricsSummaryJson();
+        WriteTraceJson();
+    }
+
+    private void PrintAutomationMetrics()
+    {
+        if (_results.Count == 0)
+            return;
+
+        float runCount = _results.Count;
+        float avgDuration = (float)_results.Average(r => r.RunDurationSeconds);
+        float avgSurges = (float)_results.Average(r => r.SpectacleSurgeTriggers);
+        float avgMajorSurges = avgSurges; // Minor tier was removed; all surge triggers are major.
+        float avgKillsPerSurge = (float)_results.Average(r =>
+            r.SpectacleSurgeTriggers > 0 ? (float)r.SpectacleKills / r.SpectacleSurgeTriggers : 0f);
+
+        int totalExplosionDamage = _results.Sum(r => r.ExplosionFollowUpDamage + r.ResidueDamage);
+        int totalExplosionTriggers = _results.Sum(r => r.SpectacleExplosionBurstCount);
+        float avgExplosionDamagePerRun = totalExplosionDamage / runCount;
+        float avgExplosionDamagePerTrigger = totalExplosionTriggers > 0
+            ? (float)totalExplosionDamage / totalExplosionTriggers
+            : 0f;
+
+        float avgStatusDetonations = (float)_results.Average(r => r.StatusDetonationCount);
+        float avgResidueUptime = (float)_results.Average(r => r.ResidueUptimeSeconds);
+        float avgChainDepth = (float)_results.Average(r => r.SpectacleMaxChainDepth);
+
+        float avgBaseDps = (float)_results.Average(r => SafeDps(r.BaseAttackDamage, r.RunDurationSeconds));
+        float avgSurgeDps = (float)_results.Average(r => SafeDps(r.SurgeCoreDamage, r.RunDurationSeconds));
+        float avgExplosionDps = (float)_results.Average(r => SafeDps(r.ExplosionFollowUpDamage, r.RunDurationSeconds));
+        float avgResidueDps = (float)_results.Average(r => SafeDps(r.ResidueDamage, r.RunDurationSeconds));
+
+        int peakExplosions = _results.Max(r => r.PeakSimultaneousExplosions);
+        int peakHazards = _results.Max(r => r.PeakSimultaneousActiveHazards);
+        int peakHitStops = _results.Max(r => r.PeakSimultaneousHitStopsRequested);
+
+        GD.Print("\nAUTOMATION METRICS (all runs):");
+        GD.Print($"  Tuning profile: {_tuningLabel}");
+        GD.Print($"  Avg run duration: {avgDuration:0.00}s");
+        GD.Print($"  Surges/run: {avgSurges:0.00} | Major surges/run: {avgMajorSurges:0.00}");
+        GD.Print($"  Kills per surge: {avgKillsPerSurge:0.00}");
+        GD.Print($"  Explosion damage/run: {avgExplosionDamagePerRun:0.0}");
+        GD.Print($"  Explosion damage/trigger: {avgExplosionDamagePerTrigger:0.0}");
+        GD.Print($"  Status detonations/run: {avgStatusDetonations:0.00}");
+        GD.Print($"  Residue uptime/run: {avgResidueUptime:0.00}s");
+        GD.Print($"  Max chain depth/run: {avgChainDepth:0.00}");
+        GD.Print($"  DPS split: base={avgBaseDps:0.00}, surge={avgSurgeDps:0.00}, explosion={avgExplosionDps:0.00}, residue={avgResidueDps:0.00}");
+        GD.Print($"  Frame-stress peaks: explosions={peakExplosions}, hazards={peakHazards}, hitstops={peakHitStops}");
+    }
+
+    private void WriteMetricsSummaryJson()
+    {
+        if (_results.Count == 0 || string.IsNullOrWhiteSpace(_metricsOutputPath))
+            return;
+
+        try
+        {
+            string outputPath = _metricsOutputPath!;
+            string? outDir = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrWhiteSpace(outDir))
+                Directory.CreateDirectory(outDir);
+
+            int totalExplosionDamage = _results.Sum(r => r.ExplosionFollowUpDamage + r.ResidueDamage);
+            int totalExplosionTriggers = _results.Sum(r => r.SpectacleExplosionBurstCount);
+
+            var payload = new
+            {
+                generated_utc = DateTime.UtcNow,
+                tuning_profile = _tuningLabel,
+                run_count = _results.Count,
+                summary = new
+                {
+                    win_rate = _results.Count > 0 ? (float)_results.Count(r => r.Won) / _results.Count : 0f,
+                    avg_wave_reached = _results.Count > 0 ? (float)_results.Average(r => r.WaveReached) : 0f,
+                    avg_run_duration_seconds = _results.Count > 0 ? (float)_results.Average(r => r.RunDurationSeconds) : 0f,
+                    avg_surges_per_run = _results.Count > 0 ? (float)_results.Average(r => r.SpectacleSurgeTriggers) : 0f,
+                    avg_major_surges_per_run = _results.Count > 0 ? (float)_results.Average(r => r.SpectacleSurgeTriggers) : 0f,
+                    avg_kills_per_surge = _results.Count > 0
+                        ? (float)_results.Average(r => r.SpectacleSurgeTriggers > 0 ? (float)r.SpectacleKills / r.SpectacleSurgeTriggers : 0f)
+                        : 0f,
+                    avg_explosion_damage_per_run = _results.Count > 0 ? (float)totalExplosionDamage / _results.Count : 0f,
+                    avg_explosion_damage_per_trigger = totalExplosionTriggers > 0 ? (float)totalExplosionDamage / totalExplosionTriggers : 0f,
+                    avg_status_detonation_count = _results.Count > 0 ? (float)_results.Average(r => r.StatusDetonationCount) : 0f,
+                    avg_residue_uptime_seconds = _results.Count > 0 ? (float)_results.Average(r => r.ResidueUptimeSeconds) : 0f,
+                    avg_max_chain_depth = _results.Count > 0 ? (float)_results.Average(r => r.SpectacleMaxChainDepth) : 0f,
+                    dps_split = new
+                    {
+                        base_attacks = _results.Count > 0 ? (float)_results.Average(r => SafeDps(r.BaseAttackDamage, r.RunDurationSeconds)) : 0f,
+                        surge_core = _results.Count > 0 ? (float)_results.Average(r => SafeDps(r.SurgeCoreDamage, r.RunDurationSeconds)) : 0f,
+                        explosion_follow_ups = _results.Count > 0 ? (float)_results.Average(r => SafeDps(r.ExplosionFollowUpDamage, r.RunDurationSeconds)) : 0f,
+                        residue = _results.Count > 0 ? (float)_results.Average(r => SafeDps(r.ResidueDamage, r.RunDurationSeconds)) : 0f,
+                    },
+                    frame_stress_peaks = new
+                    {
+                        simultaneous_explosions = _results.Max(r => r.PeakSimultaneousExplosions),
+                        simultaneous_active_hazards = _results.Max(r => r.PeakSimultaneousActiveHazards),
+                        simultaneous_hitstops_requested = _results.Max(r => r.PeakSimultaneousHitStopsRequested),
+                    },
+                },
+                runs = _results.Select(r => new
+                {
+                    strategy = r.Strategy.ToString(),
+                    map = r.Map,
+                    difficulty = r.Difficulty.ToString(),
+                    won = r.Won,
+                    wave_reached = r.WaveReached,
+                    run_duration_seconds = r.RunDurationSeconds,
+                    surges = r.SpectacleSurgeTriggers,
+                    globals = r.SpectacleGlobalTriggers,
+                    major_surges = r.SpectacleSurgeTriggers,
+                    status_detonations = r.StatusDetonationCount,
+                    residue_uptime_seconds = r.ResidueUptimeSeconds,
+                    max_chain_depth = r.SpectacleMaxChainDepth,
+                    damage_split = new
+                    {
+                        base_attacks = r.BaseAttackDamage,
+                        surge_core = r.SurgeCoreDamage,
+                        explosion_follow_ups = r.ExplosionFollowUpDamage,
+                        residue = r.ResidueDamage,
+                    },
+                    frame_stress = new
+                    {
+                        simultaneous_explosions = r.PeakSimultaneousExplosions,
+                        simultaneous_active_hazards = r.PeakSimultaneousActiveHazards,
+                        simultaneous_hitstops_requested = r.PeakSimultaneousHitStopsRequested,
+                    },
+                }).ToList(),
+            };
+
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            File.WriteAllText(outputPath, JsonSerializer.Serialize(payload, options));
+            GD.Print($"[BOT] Metrics JSON written: {outputPath}");
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"[BOT] Failed to write metrics JSON: {ex.Message}");
+        }
+    }
+
+    private static float SafeDps(int damage, float durationSeconds)
+    {
+        if (durationSeconds <= 0.0001f)
+            return 0f;
+        return damage / durationSeconds;
+    }
+
+    private void WriteTraceJson()
+    {
+        if (_runTraces.Count == 0 || string.IsNullOrWhiteSpace(_traceOutputPath))
+            return;
+
+        try
+        {
+            string outputPath = _traceOutputPath!;
+            string? outDir = Path.GetDirectoryName(outputPath);
+            if (!string.IsNullOrWhiteSpace(outDir))
+                Directory.CreateDirectory(outDir);
+
+            var payload = new
+            {
+                generated_utc = DateTime.UtcNow,
+                tuning_profile = _tuningLabel,
+                run_count = _runTraces.Count,
+                runs = _runTraces.Select(r => new
+                {
+                    run_index = r.RunIndex,
+                    strategy = r.Strategy.ToString(),
+                    map = r.Map,
+                    difficulty = r.Difficulty.ToString(),
+                    event_count = r.Events.Count,
+                    events = r.Events,
+                }).ToList(),
+            };
+
+            var options = new JsonSerializerOptions { WriteIndented = true };
+            File.WriteAllText(outputPath, JsonSerializer.Serialize(payload, options));
+            GD.Print($"[BOT] Trace JSON written: {outputPath}");
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"[BOT] Failed to write trace JSON: {ex.Message}");
+        }
+    }
+
+    private static CombatLabTraceEvent CloneTraceEvent(CombatLabTraceEvent source)
+    {
+        return new CombatLabTraceEvent
+        {
+            Timestamp = source.Timestamp,
+            EventType = source.EventType,
+            EnemyId = source.EnemyId,
+            X = source.X,
+            Y = source.Y,
+            HpBefore = source.HpBefore,
+            HpAfter = source.HpAfter,
+            StatusTags = source.StatusTags,
+            SurgeTriggerId = source.SurgeTriggerId,
+            ExplosionStageId = source.ExplosionStageId,
+            HitStopRequested = source.HitStopRequested,
+            ResidueSpawned = source.ResidueSpawned,
+            ComboSkin = source.ComboSkin,
+        };
     }
 
     /// <summary>

@@ -38,6 +38,21 @@ public class RunState
     public int   TotalDamageDealt { get; set; } = 0;
     public float TotalPlayTime    { get; set; } = 0f;  // Total seconds spent in waves
 
+    // Automation / balancing metrics
+    public int BaseAttackDamage { get; private set; } = 0;
+    public int SurgeCoreDamage { get; private set; } = 0;
+    public int ExplosionFollowUpDamage { get; private set; } = 0;
+    public int ResidueDamage { get; private set; } = 0;
+    public int SpectacleKills { get; private set; } = 0;
+    public int SpectacleExplosionBurstCount { get; private set; } = 0;
+    public int OverkillBloomCount { get; private set; } = 0;
+    public int StatusDetonationCount { get; private set; } = 0;
+    public int SpectacleMaxChainDepth { get; private set; } = 0;
+    public float ResidueUptimeSeconds { get; private set; } = 0f;
+    public int PeakSimultaneousExplosions { get; private set; } = 0;
+    public int PeakSimultaneousActiveHazards { get; private set; } = 0;
+    public int PeakSimultaneousHitStopsRequested { get; private set; } = 0;
+
     // Per-wave tracking for micro reports and loss analysis
     public WaveReport CurrentWave { get; private set; } = new();
     public List<WaveReport> CompletedWaves { get; } = new();
@@ -78,11 +93,12 @@ public class RunState
         // Initialize tower stats for all placed towers
         for (int i = 0; i < Slots.Length; i++)
         {
-            if (Slots[i].Tower != null)
+            ITowerView? tower = Slots[i].Tower;
+            if (tower != null)
             {
                 CurrentWave.TowerStats.Add(new TowerWaveStats
                 {
-                    TowerId = Slots[i].Tower.TowerId,
+                    TowerId = tower.TowerId,
                     SlotIndex = i
                 });
             }
@@ -148,6 +164,95 @@ public class RunState
         IncrementSpectacleCounter(SpectacleGlobalByEffect, effectId);
     }
 
+    public void TrackBaseAttackDamage(int slotIndex, int damageDealt, bool isKill)
+    {
+        if (damageDealt <= 0)
+            return;
+
+        BaseAttackDamage += damageDealt;
+        TotalDamageDealt += damageDealt;
+        if (slotIndex >= 0)
+            TrackTowerDamage(slotIndex, damageDealt);
+
+        if (!isKill)
+            return;
+
+        TotalKills += 1;
+        if (slotIndex >= 0)
+            TrackTowerKill(slotIndex);
+    }
+
+    public void TrackSpectacleDamage(int slotIndex, int damageDealt, bool isKill, SpectacleDamageSource source)
+    {
+        if (damageDealt <= 0)
+            return;
+
+        switch (source)
+        {
+            case SpectacleDamageSource.Residue:
+                ResidueDamage += damageDealt;
+                break;
+            case SpectacleDamageSource.ExplosionFollowUp:
+                ExplosionFollowUpDamage += damageDealt;
+                break;
+            default:
+                SurgeCoreDamage += damageDealt;
+                break;
+        }
+
+        TotalDamageDealt += damageDealt;
+        if (slotIndex >= 0)
+            TrackTowerDamage(slotIndex, damageDealt);
+
+        if (!isKill)
+            return;
+
+        SpectacleKills += 1;
+        TotalKills += 1;
+        if (slotIndex >= 0)
+            TrackTowerKill(slotIndex);
+    }
+
+    public void TrackSpectacleExplosionBurst()
+    {
+        SpectacleExplosionBurstCount += 1;
+    }
+
+    public void TrackOverkillBloom()
+    {
+        OverkillBloomCount += 1;
+    }
+
+    public void TrackStatusDetonation(int detonations)
+    {
+        if (detonations <= 0)
+            return;
+        StatusDetonationCount += detonations;
+    }
+
+    public void TrackSpectacleChainDepth(int depth)
+    {
+        if (depth > SpectacleMaxChainDepth)
+            SpectacleMaxChainDepth = depth;
+    }
+
+    public void TrackResidueUptime(float deltaSeconds, int activeHazards)
+    {
+        if (deltaSeconds <= 0f || activeHazards <= 0)
+            return;
+        ResidueUptimeSeconds += deltaSeconds * activeHazards;
+    }
+
+    public void TrackFrameStressProxies(int simultaneousExplosions, int simultaneousActiveHazards, int simultaneousHitStopsRequested)
+    {
+        if (simultaneousExplosions > PeakSimultaneousExplosions)
+            PeakSimultaneousExplosions = simultaneousExplosions;
+        if (simultaneousActiveHazards > PeakSimultaneousActiveHazards)
+            PeakSimultaneousActiveHazards = simultaneousActiveHazards;
+        if (simultaneousHitStopsRequested > PeakSimultaneousHitStopsRequested)
+            PeakSimultaneousHitStopsRequested = simultaneousHitStopsRequested;
+    }
+
     public void Reset()
     {
         WaveIndex = 0;
@@ -158,6 +263,19 @@ public class RunState
         TotalKills = 0;
         TotalDamageDealt = 0;
         TotalPlayTime = 0f;
+        BaseAttackDamage = 0;
+        SurgeCoreDamage = 0;
+        ExplosionFollowUpDamage = 0;
+        ResidueDamage = 0;
+        SpectacleKills = 0;
+        SpectacleExplosionBurstCount = 0;
+        OverkillBloomCount = 0;
+        StatusDetonationCount = 0;
+        SpectacleMaxChainDepth = 0;
+        ResidueUptimeSeconds = 0f;
+        PeakSimultaneousExplosions = 0;
+        PeakSimultaneousActiveHazards = 0;
+        PeakSimultaneousHitStopsRequested = 0;
         for (int i = 0; i < Slots.Length; i++)
             Slots[i] = new SlotInstance(i);
             

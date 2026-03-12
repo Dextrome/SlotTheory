@@ -873,6 +873,8 @@ public class CombatSim
             bounces++;
         }
 
+        _state.TrackSpectacleChainDepth(bounces);
+
         if (bounces > 0)
         {
             float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(bounces);
@@ -962,6 +964,8 @@ public class CombatSim
             damage *= tower.ChainDamageDecay;
             bounces++;
         }
+
+        _state.TrackSpectacleChainDepth(bounces);
 
         if (bounces > 0)
         {

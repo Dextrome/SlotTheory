@@ -63,24 +63,8 @@ public static class DamageModel
         if (ctx.State != null)
         {
             int damageDealt = (int)(hpBefore - System.MathF.Max(0f, ctx.Target.Hp));
-            ctx.State.TotalDamageDealt += damageDealt;
-
-            // Track damage for the specific tower for micro reports
             var attackerSlotIndex = FindTowerSlotIndex(ctx.State, ctx.Attacker);
-            if (attackerSlotIndex >= 0)
-            {
-                ctx.State.TrackTowerDamage(attackerSlotIndex, damageDealt);
-            }
-
-            if (ctx.Target.Hp <= 0)
-            {
-                ctx.State.TotalKills++;
-                // Track kill for the specific tower
-                if (attackerSlotIndex >= 0)
-                {
-                    ctx.State.TrackTowerKill(attackerSlotIndex);
-                }
-            }
+            ctx.State.TrackBaseAttackDamage(attackerSlotIndex, damageDealt, isKill);
         }
 
         RegisterSpectacleDamageProcs(ctx, damageDealtRaw, isKill);

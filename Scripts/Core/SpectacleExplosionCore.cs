@@ -82,7 +82,13 @@ public static class SpectacleExplosionCore
     public const float LargeSurgeAfterimagePowerThreshold = 1.55f;
 
     public static bool ShouldEmitSecondStage(bool major, float power)
-        => major || power >= 0.95f;
+    {
+        if (major)
+            return true;
+
+        float threshold = SpectacleTuning.Current.SecondStagePowerThreshold;
+        return power >= threshold;
+    }
 
     public static ExplosionResidueProfile ResolveResidueProfile(
         ComboExplosionSkin skin,
@@ -139,6 +145,7 @@ public static class SpectacleExplosionCore
             ExplosionResidueKind.VulnerabilityZone => ResidueVulnerabilityDurationSeconds,
             _ => 0f,
         };
+        duration *= MathF.Max(0.1f, SpectacleTuning.Current.ResidueDurationMultiplier);
         float radius = kind switch
         {
             ExplosionResidueKind.FrostSlow => ResidueFrostRadius,
@@ -151,6 +158,8 @@ public static class SpectacleExplosionCore
             (0.72f + 0.20f * Clamp(surgePower, 0.6f, 2.2f)) * (globalSurge ? 1.10f : 1f),
             0.65f,
             1.35f);
+        potency *= MathF.Max(0.1f, SpectacleTuning.Current.ResiduePotencyMultiplier);
+        potency = Clamp(potency, 0.20f, 2.40f);
 
         return new ExplosionResidueProfile(
             ShouldSpawn: true,
@@ -203,9 +212,22 @@ public static class SpectacleExplosionCore
 
     public static int ResolveStatusDetonationMaxTargets(bool globalSurge, bool reducedMotion)
     {
+        int baseCap;
         if (reducedMotion)
-            return globalSurge ? 10 : 8;
-        return globalSurge ? 24 : 16;
+            baseCap = globalSurge ? 10 : 8;
+        else
+            baseCap = globalSurge ? 24 : 16;
+
+        float multiplier = MathF.Max(0.1f, SpectacleTuning.Current.DetonationMaxTargetsMultiplier);
+        int adjusted = (int)MathF.Round(baseCap * multiplier);
+        return Clamp(adjusted, 1, 48);
+    }
+
+    public static float ResolveStatusDetonationStaggerSeconds(bool reducedMotion)
+    {
+        float baseStagger = SurgeStatusDetonationStaggerSeconds * (reducedMotion ? 0.55f : 1f);
+        float multiplier = MathF.Max(0.1f, SpectacleTuning.Current.DetonationStaggerMultiplier);
+        return baseStagger * multiplier;
     }
 
     public static ComboExplosionSkin ResolveComboExplosionSkin(string modA, string modB)
@@ -242,8 +264,11 @@ public static class SpectacleExplosionCore
 
         float overflowVisual = Clamp(overflowDamage, 0f, OverkillBloomVisualOverflowCap);
         float overflowVisualT = Clamp(overflowVisual / OverkillBloomVisualOverflowCap, 0f, 1f);
-        float radius = Lerp(OverkillBloomRadiusMin, OverkillBloomRadiusMax, overflowVisualT);
-        float bloomDamage = Clamp(overflowDamage * OverkillBloomDamageScale, 4f, OverkillBloomDamageCap);
+        float radius = Lerp(OverkillBloomRadiusMin, OverkillBloomRadiusMax, overflowVisualT)
+            * MathF.Max(0.1f, SpectacleTuning.Current.OverkillBloomRadiusMultiplier);
+        float damageScale = MathF.Max(0f, SpectacleTuning.Current.OverkillBloomDamageScaleMultiplier);
+        float bloomDamageCap = OverkillBloomDamageCap * MathF.Max(0.1f, damageScale);
+        float bloomDamage = Clamp(overflowDamage * OverkillBloomDamageScale * damageScale, 4f, bloomDamageCap);
         int maxTargets = Clamp(2 + (int)MathF.Floor(overflowVisualT * 5f), 2, 7);
         float bloomPower = Clamp(0.92f + overflowVisualT * 0.90f, 0.92f, 1.95f);
 
