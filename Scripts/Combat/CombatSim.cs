@@ -765,7 +765,7 @@ public class CombatSim
             if (plantedMiniMines > 0)
             {
                 float splitScalar = SpectacleDefinitions.SplitShotEventScalar(plantedMiniMines);
-                GameController.Instance?.RegisterSpectacleProc(owner, SpectacleDefinitions.SplitShot, splitScalar);
+                GameController.Instance?.RegisterSpectacleProc(owner, SpectacleDefinitions.SplitShot, splitScalar, damage);
             }
         }
 
@@ -799,7 +799,8 @@ public class CombatSim
                 GameController.Instance?.RegisterSpectacleProc(
                     owner,
                     SpectacleDefinitions.ChainReaction,
-                    SpectacleDefinitions.ChainReactionEventScalar(1));
+                    SpectacleDefinitions.ChainReactionEventScalar(1),
+                    damage);
             }
         }
 
@@ -878,7 +879,7 @@ public class CombatSim
         if (bounces > 0)
         {
             float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(bounces);
-            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar);
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, initialDamage);
         }
     }
 
@@ -970,7 +971,8 @@ public class CombatSim
         if (bounces > 0)
         {
             float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(bounces);
-            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar);
+            float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, chainEventDamage);
         }
     }
 
@@ -998,7 +1000,7 @@ public class CombatSim
         if (spawned > 0)
         {
             float splitScalar = SpectacleDefinitions.SplitShotEventScalar(spawned);
-            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.SplitShot, splitScalar);
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.SplitShot, splitScalar, splitDamage);
         }
     }
 

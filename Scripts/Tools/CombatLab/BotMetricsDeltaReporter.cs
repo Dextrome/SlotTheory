@@ -13,7 +13,7 @@ public static class BotMetricsDeltaReporter
         float WinRate,
         float AvgWaveReached,
         float AvgRunDurationSeconds,
-        float AvgMajorSurgesPerRun,
+        float AvgSurgesPerRun,
         float AvgStatusDetonations,
         float AvgResidueUptimeSeconds,
         float BaseDps,
@@ -90,7 +90,7 @@ public static class BotMetricsDeltaReporter
         sb.AppendLine($"baseline build: avg wave {F(baseline.AvgWaveReached, "0.0")}");
         sb.AppendLine($"after change: avg wave {F(tuned.AvgWaveReached, "0.0")}");
         sb.AppendLine($"explosion damage share: {F(baseline.ExplosionSharePct, "0.0")}% -> {F(tuned.ExplosionSharePct, "0.0")}%");
-        sb.AppendLine($"major surges per run: {F(baseline.AvgMajorSurgesPerRun, "0.00")} -> {F(tuned.AvgMajorSurgesPerRun, "0.00")}");
+        sb.AppendLine($"surges per run: {F(baseline.AvgSurgesPerRun, "0.00")} -> {F(tuned.AvgSurgesPerRun, "0.00")}");
         sb.AppendLine($"win rate: {F(baseline.WinRate * 100f, "0.0")}% -> {F(tuned.WinRate * 100f, "0.0")}%");
         sb.AppendLine($"status detonations/run: {F(baseline.AvgStatusDetonations, "0.00")} -> {F(tuned.AvgStatusDetonations, "0.00")}");
         sb.AppendLine($"residue uptime/run: {F(baseline.AvgResidueUptimeSeconds, "0.00")}s -> {F(tuned.AvgResidueUptimeSeconds, "0.00")}s");
@@ -123,7 +123,9 @@ public static class BotMetricsDeltaReporter
             float winRate = GetFloat(summary, "win_rate");
             float avgWave = GetFloat(summary, "avg_wave_reached");
             float avgDuration = GetFloat(summary, "avg_run_duration_seconds");
-            float avgMajorSurges = GetFloat(summary, "avg_major_surges_per_run");
+            float avgSurges = GetFloat(summary, "avg_surges_per_run");
+            if (avgSurges <= 0f)
+                avgSurges = GetFloat(summary, "avg_major_surges_per_run"); // Legacy metrics payloads.
             float avgStatusDet = GetFloat(summary, "avg_status_detonation_count");
             float avgResidue = GetFloat(summary, "avg_residue_uptime_seconds");
 
@@ -144,7 +146,7 @@ public static class BotMetricsDeltaReporter
                 winRate,
                 avgWave,
                 avgDuration,
-                avgMajorSurges,
+                avgSurges,
                 avgStatusDet,
                 avgResidue,
                 baseDps,
