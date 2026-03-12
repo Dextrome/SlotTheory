@@ -162,7 +162,18 @@ public static class SpectacleDefinitions
     public static bool IsSupported(string modifierId) => Supported.Contains(NormalizeModId(modifierId));
 
     public static float GetBaseGain(string modifierId)
-        => BaseGain.GetValueOrDefault(NormalizeModId(modifierId), 0f);
+    {
+        string normalized = NormalizeModId(modifierId);
+        float baseGain = BaseGain.GetValueOrDefault(normalized, 0f);
+        if (baseGain <= 0f)
+            return 0f;
+
+        float perModMultiplier = SpectacleTuning.Current.ResolveGainMultiplier(normalized);
+        return baseGain * MathF.Max(0f, perModMultiplier);
+    }
+
+    public static float ResolveMeterGainScale()
+        => MeterGainScale * MathF.Max(0f, SpectacleTuning.Current.MeterGainMultiplier);
 
     public static SpectacleTokenConfig GetTokenConfig(string modifierId)
         => TokenConfig.GetValueOrDefault(NormalizeModId(modifierId), new SpectacleTokenConfig(0f, 0f));

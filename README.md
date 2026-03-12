@@ -321,6 +321,61 @@ Current strategy set:
 
 Bot summary now includes spectacle trigger analytics by tier and effect mix. Surge/global surge metrics are the primary balance signals.
 
+### Bot Metrics JSON Export
+
+Write machine-readable balancing metrics:
+
+```text
+--scene res://Scenes/Main.tscn -- --bot --runs 120 --bot_metrics_out release/bot_metrics.json
+```
+
+Optional live replay/event trace capture (same event schema as Combat Lab scenario traces):
+
+```text
+--scene res://Scenes/Main.tscn -- --bot --runs 120 --bot_trace_out release/bot_trace.json
+```
+
+Optional tuning profile for this run:
+
+```text
+--scene res://Scenes/Main.tscn -- --bot --runs 120 --tuning_file Data/combat_lab/sample_tuning.json --bot_metrics_out release/bot_metrics_tuned.json
+```
+
+The JSON summary includes:
+- win rate / average wave reached / run duration
+- surges + major surges per run
+- kills per surge
+- explosion damage per run + per trigger
+- status detonation counts
+- residue uptime
+- DPS split (`base_attacks`, `surge_core`, `explosion_follow_ups`, `residue`)
+- frame-stress peaks (`simultaneous_explosions`, `simultaneous_active_hazards`, `simultaneous_hitstops_requested`)
+
+## Combat Lab Automation
+
+Run scripted scenario validations (gameplay effect + trace invariants):
+
+```text
+--scene res://Scenes/Main.tscn -- --lab_scenario Data/combat_lab/core_scenarios.json --lab_out release/combat_lab_report.json
+```
+
+Run a tuning sweep against those scenarios:
+
+```text
+--scene res://Scenes/Main.tscn -- --lab_sweep Data/combat_lab/sample_sweep.json --lab_out release/combat_lab_sweep.json
+```
+
+Compare baseline vs tuned bot metrics:
+
+```text
+--scene res://Scenes/Main.tscn -- --metrics_delta release/bot_metrics.json release/bot_metrics_tuned.json --delta_out release/bot_metrics_delta.txt
+```
+
+Sample files:
+- `Data/combat_lab/core_scenarios.json`
+- `Data/combat_lab/sample_sweep.json`
+- `Data/combat_lab/sample_tuning.json`
+
 ---
 
 Engine: Godot 4.6 + .NET 8

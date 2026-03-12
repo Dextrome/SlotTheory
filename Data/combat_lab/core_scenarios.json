@@ -1,0 +1,126 @@
+{
+  "name": "spectacle_core_scenarios",
+  "scenarios": [
+    {
+      "name": "overkill_bloom_validation",
+      "scenario_type": "overkill_bloom",
+      "seed": 101,
+      "tower_setup": [
+        {
+          "tower": "heavy_cannon",
+          "position": [0, 0],
+          "mods": ["overkill", "focus_lens"],
+          "base_damage": 180.0,
+          "attack_interval": 2.0,
+          "range": 240.0
+        }
+      ],
+      "enemies": [
+        { "id": 1, "type": "armored", "position": [120, 0], "hp": 120.0, "status": [] },
+        { "id": 2, "type": "basic", "position": [172, 8], "hp": 52.0, "status": [] },
+        { "id": 3, "type": "basic", "position": [196, -12], "hp": 52.0, "status": [] },
+        { "id": 4, "type": "basic", "position": [420, 0], "hp": 52.0, "status": [] }
+      ],
+      "trigger_damage": 260.0,
+      "simulate_seconds": 1.0,
+      "expect": {
+        "major_surges": 1,
+        "explosion_hits_min": 2,
+        "explosion_hits_max": 3,
+        "stage_two_delay_min_seconds": 0.10,
+        "stage_two_delay_max_seconds": 0.14
+      }
+    },
+    {
+      "name": "status_detonation_dense_wave",
+      "scenario_type": "status_detonation",
+      "seed": 123,
+      "tower_setup": [
+        {
+          "tower": "arc_emitter",
+          "position": [0, 0],
+          "mods": ["chain_reaction", "slow", "feedback_loop"],
+          "base_damage": 44.0,
+          "attack_interval": 1.1,
+          "range": 280.0
+        }
+      ],
+      "enemies": [
+        { "id": 1, "type": "basic", "path_t": 0.20, "status": ["slow"], "hp": 65.0 },
+        { "id": 2, "type": "basic", "path_t": 0.24, "status": ["mark"], "hp": 65.0 },
+        { "id": 3, "type": "armored", "path_t": 0.29, "status": ["slow", "mark"], "hp": 130.0 },
+        { "id": 4, "type": "basic", "path_t": 0.32, "status": [], "hp": 65.0 },
+        { "id": 5, "type": "basic", "path_t": 0.36, "status": ["amp"], "hp": 65.0 }
+      ],
+      "surge_power": 1.30,
+      "global_surge": false,
+      "reduced_motion": false,
+      "simulate_seconds": 4.0,
+      "expect": {
+        "major_surges": 1,
+        "status_detonations_min": 3,
+        "status_detonations_max": 4,
+        "explosion_hits_min": 3,
+        "explosion_hits_max": 4,
+        "residue_count": 2,
+        "max_simultaneous_detonations": 1
+      }
+    },
+    {
+      "name": "global_surge_timing_order",
+      "scenario_type": "global_surge",
+      "seed": 303,
+      "tower_setup": [
+        {
+          "tower": "marker_tower",
+          "position": [0, 0],
+          "mods": ["exploit_weakness", "split_shot"],
+          "base_damage": 20.0,
+          "attack_interval": 1.0,
+          "range": 330.0
+        }
+      ],
+      "enemies": [
+        { "id": 1, "type": "basic", "position": [120, 0], "hp": 65.0, "status": [] },
+        { "id": 2, "type": "basic", "position": [220, 0], "hp": 65.0, "status": [] },
+        { "id": 3, "type": "basic", "position": [330, 0], "hp": 65.0, "status": [] },
+        { "id": 4, "type": "basic", "position": [460, 0], "hp": 65.0, "status": [] }
+      ],
+      "contributors": 4,
+      "reduced_motion": false,
+      "simulate_seconds": 1.5,
+      "expect": {
+        "major_surges": 1,
+        "ripple_monotonic": true
+      }
+    },
+    {
+      "name": "global_surge_reduced_motion",
+      "scenario_type": "global_surge",
+      "seed": 404,
+      "tower_setup": [
+        {
+          "tower": "marker_tower",
+          "position": [0, 0],
+          "mods": ["exploit_weakness", "split_shot"],
+          "base_damage": 20.0,
+          "attack_interval": 1.0,
+          "range": 330.0
+        }
+      ],
+      "enemies": [
+        { "id": 1, "type": "basic", "position": [140, 0], "hp": 65.0, "status": [] },
+        { "id": 2, "type": "basic", "position": [260, 0], "hp": 65.0, "status": [] },
+        { "id": 3, "type": "basic", "position": [380, 0], "hp": 65.0, "status": [] }
+      ],
+      "contributors": 3,
+      "reduced_motion": true,
+      "simulate_seconds": 1.0,
+      "expect": {
+        "major_surges": 1,
+        "ripple_monotonic": true,
+        "reduced_motion_collapses_delays": true
+      }
+    }
+  ]
+}

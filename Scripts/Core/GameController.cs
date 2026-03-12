@@ -66,6 +66,12 @@ public partial class GameController : Node
 	private int   _botWaveInRangeSum;
 	private int   _botWaveInRangeSamples;
 	private int   _botWaveSteps;
+	private int   _botStepExplosionBursts;
+	private int   _botStepHitStopRequests;
+	private readonly List<CombatLabTraceEvent> _botRunTraceEvents = new();
+	private int _botSurgeTraceCounter = 0;
+	private int _botGlobalTraceCounter = 0;
+	private string _botLastTraceTriggerId = string.Empty;
 	private int _extraPicksRemaining;
 	private List<DraftOption>? _currentDraftOptions;
 	private WaveReport? _lastWaveReport;
@@ -151,8 +157,42 @@ public partial class GameController : Node
 	{
 		Instance = this;
 		DataLoader.LoadAll();
-		// Bot playtest mode: godot --headless --path ... -- --bot --runs N --difficulty easy|normal|hard
+		SpectacleTuning.Reset();
+
 		var userArgs = OS.GetCmdlineUserArgs();
+		if (BotMetricsDeltaReporter.TryRunFromArgs(userArgs))
+		{
+			GetTree().Quit();
+			return;
+		}
+		if (userArgs.Contains("--lab_scenario") || userArgs.Contains("--lab_sweep"))
+		{
+			bool success = CombatLabCli.Run(userArgs);
+			if (!success)
+				GD.PrintErr("[LAB] Failed to run combat lab automation.");
+			GetTree().Quit();
+			return;
+		}
+
+		string? tuningFile = null;
+		int tf = System.Array.IndexOf(userArgs, "--tuning_file");
+		if (tf >= 0 && tf + 1 < userArgs.Length)
+			tuningFile = userArgs[tf + 1];
+		if (!string.IsNullOrWhiteSpace(tuningFile))
+		{
+			if (SpectacleTuningLoader.TryLoadFromFile(tuningFile!, out var profile, out string error))
+			{
+				string tuningLabel = System.IO.Path.GetFileNameWithoutExtension(tuningFile!);
+				SpectacleTuning.Apply(profile, tuningLabel);
+				GD.Print($"[TUNING] Loaded profile '{SpectacleTuning.ActiveLabel}' from {tuningFile}");
+			}
+			else
+			{
+				GD.PrintErr($"[TUNING] Failed to load {tuningFile}: {error}");
+			}
+		}
+
+		// Bot playtest mode: godot --headless --path ... -- --bot --runs N --difficulty easy|normal|hard
 		if (userArgs.Contains("--bot"))
 		{
 			int runs = 50;
@@ -193,12 +233,33 @@ public partial class GameController : Node
 			if (fmi >= 0 && fmi + 1 < userArgs.Length)
 				forcedMod = userArgs[fmi + 1];
 
-			_botRunner = new BotRunner(runs, targetDifficulty, targetMap, targetStrategy, forcedTower, forcedMod);
+			string? metricsOutputPath = null;
+			int oi = System.Array.IndexOf(userArgs, "--bot_metrics_out");
+			if (oi >= 0 && oi + 1 < userArgs.Length)
+				metricsOutputPath = userArgs[oi + 1];
+
+			string? traceOutputPath = null;
+			int toi = System.Array.IndexOf(userArgs, "--bot_trace_out");
+			if (toi >= 0 && toi + 1 < userArgs.Length)
+				traceOutputPath = userArgs[toi + 1];
+
+			_botRunner = new BotRunner(
+				runs,
+				targetDifficulty,
+				targetMap,
+				targetStrategy,
+				forcedTower,
+				forcedMod,
+				metricsOutputPath,
+				traceOutputPath,
+				SpectacleTuning.ActiveLabel);
 			Engine.MaxFps = 0;
-			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}{(targetMap != null ? $" on {targetMap}" : "")}{(targetStrategy.HasValue ? $" strategy={targetStrategy.Value}" : "")}{(forcedTower != null ? $" tower={forcedTower}" : "")}{(forcedMod != null ? $" mod={forcedMod}" : "")}");
+			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}{(targetMap != null ? $" on {targetMap}" : "")}{(targetStrategy.HasValue ? $" strategy={targetStrategy.Value}" : "")}{(forcedTower != null ? $" tower={forcedTower}" : "")}{(forcedMod != null ? $" mod={forcedMod}" : "")}{(string.IsNullOrWhiteSpace(metricsOutputPath) ? "" : $" metrics={metricsOutputPath}")}{(string.IsNullOrWhiteSpace(traceOutputPath) ? "" : $" trace={traceOutputPath}")}");
 		}
 
 		_runState = new RunState();
+		if (_botRunner != null)
+			ResetBotTraceBuffer();
 		
 		// Apply pending map selection from MapSelectPanel if available
 		_runState.SelectedMapId = SlotTheory.UI.MapSelectPanel.PendingMapSelection;
@@ -255,24 +316,34 @@ public partial class GameController : Node
 			}
 		}
 
+		var draftPanel = _draftPanel;
+		var hudPanel = _hudPanel;
+		bool draftPanelReady = draftPanel != null && GodotObject.IsInstanceValid(draftPanel);
+		bool hudPanelReady = hudPanel != null && GodotObject.IsInstanceValid(hudPanel);
+		if (_runState == null || _combatSim == null || _waveSystem == null)
+		{
+			_cancelBtnShown = false;
+			return;
+		}
+
 		if (_botRunner == null) UpdateTooltip();
 
-		if (!_undoPlacementActive && CurrentPhase == GamePhase.Draft && (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower))
+		if (!_undoPlacementActive && CurrentPhase == GamePhase.Draft && draftPanelReady && (draftPanel!.IsAwaitingSlot || draftPanel.IsAwaitingTower))
 			UpdateSlotHighlights();
 		else if (_highlightedSlot != -1)
 			ClearSlotHighlights();
 
-		if (!_undoPlacementActive && CurrentPhase == GamePhase.Draft && _draftPanel.IsAwaitingTower)
+		if (!_undoPlacementActive && CurrentPhase == GamePhase.Draft && draftPanelReady && draftPanel!.IsAwaitingTower)
 			UpdateModifierPreviewGhost((float)delta);
 		else
 			ClearModifierPreviewGhost();
 
-		if (!_undoPlacementActive && CurrentPhase == GamePhase.Draft && _draftPanel.IsAwaitingSlot)
+		if (!_undoPlacementActive && CurrentPhase == GamePhase.Draft && draftPanelReady && draftPanel!.IsAwaitingSlot)
 			UpdateTowerPlacementPreviewGhost((float)delta);
 		else
 			ClearTowerPlacementPreviewGhost();
 
-		if (CurrentPhase == GamePhase.Draft && !_draftPanel.IsAwaitingSlot && !_draftPanel.IsAwaitingTower)
+		if (CurrentPhase == GamePhase.Draft && draftPanelReady && !draftPanel!.IsAwaitingSlot && !draftPanel.IsAwaitingTower)
 			UpdateDraftSynergyHighlights((float)delta);
 		else
 			ClearDraftSynergyHighlights();
@@ -284,11 +355,14 @@ public partial class GameController : Node
 		}
 
 		bool showGlobalSurgeMeter = CurrentPhase == GamePhase.Draft || CurrentPhase == GamePhase.Wave;
-		_hudPanel.RefreshGlobalSurgeMeter(
-			_spectacleSystem.GlobalMeter,
-			SpectacleDefinitions.GlobalThreshold,
-			showGlobalSurgeMeter);
-		_hudPanel.RefreshSpeedLabelFromActual((float)Engine.TimeScale);
+		if (hudPanelReady)
+		{
+			hudPanel!.RefreshGlobalSurgeMeter(
+				_spectacleSystem.GlobalMeter,
+				SpectacleDefinitions.GlobalThreshold,
+				showGlobalSurgeMeter);
+			hudPanel.RefreshSpeedLabelFromActual((float)Engine.TimeScale);
+		}
 
 		if (_botRunner == null) UpdatePlacementLabel();
 		if (_botRunner == null) UpdateProcVisuals((float)delta);
@@ -297,23 +371,30 @@ public partial class GameController : Node
 		{
 			_enemyRenderPerfProfiler.RecordFrame((float)delta, _runState.EnemiesAlive.Count);
 			bool devMode = SettingsManager.Instance?.DevMode ?? false;
-			_hudPanel.RefreshDevRenderStats(devMode, _runState.EnemiesAlive.Count, _enemyRenderPerfProfiler.BuildOverlaySummary());
+			if (hudPanelReady)
+				hudPanel!.RefreshDevRenderStats(devMode, _runState.EnemiesAlive.Count, _enemyRenderPerfProfiler.BuildOverlaySummary());
 			HandlePerfProfilerHotkey(devMode);
 		}
 
 		// Show/hide cancel button when player is in tower/modifier placement step
 		if (_botRunner == null)
 		{
-			bool inPlacement = CurrentPhase == GamePhase.Draft && (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower);
-			if (inPlacement && !_cancelBtnShown)
+			bool inPlacement = draftPanelReady
+				&& CurrentPhase == GamePhase.Draft
+				&& (draftPanel!.IsAwaitingSlot || draftPanel.IsAwaitingTower);
+			if (draftPanelReady && inPlacement && !_cancelBtnShown)
 			{
 				_cancelBtnShown = true;
-				_draftPanel.ShowPlacementUI(CancelPlacement);
+				draftPanel!.ShowPlacementUI(CancelPlacement);
 			}
-			else if (!inPlacement && _cancelBtnShown)
+			else if (draftPanelReady && !inPlacement && _cancelBtnShown)
 			{
 				_cancelBtnShown = false;
-				_draftPanel.HidePlacementUI();
+				draftPanel!.HidePlacementUI();
+			}
+			else if (!draftPanelReady)
+			{
+				_cancelBtnShown = false;
 			}
 		}
 
@@ -328,12 +409,16 @@ public partial class GameController : Node
 
 		int livesBefore = _runState.Lives;
 		var result = _combatSim.Step((float)delta, _runState, _waveSystem);
-		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
-		_hudPanel.RefreshTime(_runState.TotalPlayTime);
-		_hudPanel.RefreshEnemies(_runState.EnemiesAlive.Count, _waveSystem.GetTotalCount());
+		if (hudPanelReady)
+		{
+			hudPanel!.Refresh(_runState.WaveIndex + 1, _runState.Lives);
+			hudPanel.RefreshTime(_runState.TotalPlayTime);
+			hudPanel.RefreshEnemies(_runState.EnemiesAlive.Count, _waveSystem.GetTotalCount());
+		}
 		if (_runState.Lives < livesBefore)
 		{
-			_hudPanel.FlashLives();
+			if (hudPanelReady)
+				hudPanel!.FlashLives();
 			ShakeWorld();
 			MobileOptimization.HapticStrong();
 			if (_runState.Lives <= 2)
@@ -642,6 +727,8 @@ public partial class GameController : Node
 		_feedbackLoopBurst.Clear();
 		_modifierProcCounts.Clear();
 		_spectacleSystem.Reset();
+		if (_botRunner != null)
+			ResetBotTraceBuffer();
 		ClearUndoPlacementState();
 		_hudPanel.Refresh(1, Balance.StartingLives);
 		_hudPanel.SetBuildName("", visible: false);
@@ -690,6 +777,80 @@ public partial class GameController : Node
 		// CompletedRuns is 0 for run 1, 1 for run 2, etc.
 		// Shift by +1 to avoid seed 0.
 		return (_botRunner?.CompletedRuns ?? 0) + 1;
+	}
+
+	private void ResetBotTraceBuffer()
+	{
+		_botRunTraceEvents.Clear();
+		_botSurgeTraceCounter = 0;
+		_botGlobalTraceCounter = 0;
+		_botLastTraceTriggerId = string.Empty;
+	}
+
+	private string NextSurgeTraceId(bool global)
+	{
+		if (global)
+			return $"global_{++_botGlobalTraceCounter}";
+		return $"surge_{++_botSurgeTraceCounter}";
+	}
+
+	private void AppendBotTraceEvent(
+		string eventType,
+		EnemyInstance? enemy = null,
+		Vector2? worldPos = null,
+		float hpBefore = 0f,
+		float hpAfter = 0f,
+		string surgeTriggerId = "",
+		string stageId = "",
+		bool hitStopRequested = false,
+		bool residueSpawned = false,
+		string comboSkin = "",
+		float? timestampOverride = null)
+	{
+		if (_botRunner == null)
+			return;
+
+		float timestamp = timestampOverride ?? (_runState?.TotalPlayTime ?? 0f);
+		int enemyId = -1;
+		float x = worldPos?.X ?? 0f;
+		float y = worldPos?.Y ?? 0f;
+		string statusTags = string.Empty;
+		if (enemy != null && GodotObject.IsInstanceValid(enemy))
+		{
+			enemyId = unchecked((int)(enemy.GetInstanceId() & 0x7FFFFFFF));
+			x = enemy.GlobalPosition.X;
+			y = enemy.GlobalPosition.Y;
+			statusTags = BuildEnemyStatusTags(enemy);
+		}
+
+		string resolvedTriggerId = string.IsNullOrWhiteSpace(surgeTriggerId)
+			? _botLastTraceTriggerId
+			: surgeTriggerId;
+		_botRunTraceEvents.Add(new CombatLabTraceEvent
+		{
+			Timestamp = timestamp,
+			EventType = eventType,
+			EnemyId = enemyId,
+			X = x,
+			Y = y,
+			HpBefore = hpBefore,
+			HpAfter = hpAfter,
+			StatusTags = statusTags,
+			SurgeTriggerId = resolvedTriggerId,
+			ExplosionStageId = stageId,
+			HitStopRequested = hitStopRequested,
+			ResidueSpawned = residueSpawned,
+			ComboSkin = comboSkin,
+		});
+	}
+
+	private static string BuildEnemyStatusTags(EnemyInstance enemy)
+	{
+		var tags = new List<string>(capacity: 3);
+		if (enemy.IsMarked) tags.Add("mark");
+		if (enemy.IsSlowed) tags.Add("slow");
+		if (enemy.DamageAmpRemaining > 0f) tags.Add("amp");
+		return string.Join(",", tags);
 	}
 
 	/// <summary>Called by DraftPanel after the player picks an option.</summary>
@@ -1684,30 +1845,67 @@ public partial class GameController : Node
 		ApplyMobileZoomReadability();
 	}
 
+	private bool IsTooltipReady()
+	{
+		return _tooltipPanel != null
+			&& _tooltipLabel != null
+			&& GodotObject.IsInstanceValid(_tooltipPanel)
+			&& GodotObject.IsInstanceValid(_tooltipLabel);
+	}
+
+	private void HideTooltip()
+	{
+		if (_tooltipPanel != null && GodotObject.IsInstanceValid(_tooltipPanel))
+			_tooltipPanel.Visible = false;
+		_selectedTooltipTower = null;
+	}
+
 	private void UpdateTooltip()
 	{
-		// Show during wave, and during modifier assignment so player can see what's on each tower
-		bool tooltipAllowed = CurrentPhase == GamePhase.Wave
-		                   || (CurrentPhase == GamePhase.Draft && _draftPanel.IsAwaitingTower);
-		if (!tooltipAllowed)
+		// Tooltip UI is irrelevant in headless automation runs.
+		if (OS.HasFeature("headless") || DisplayServer.GetName() == "headless")
+			return;
+
+		if (!IsTooltipReady())
 		{
-			_tooltipPanel.Visible = false;
 			_selectedTooltipTower = null;
 			return;
 		}
+
+		bool draftAwaitingTower = CurrentPhase == GamePhase.Draft
+			&& _draftPanel != null
+			&& GodotObject.IsInstanceValid(_draftPanel)
+			&& _draftPanel.IsAwaitingTower;
+
+		// Show during wave, and during modifier assignment so player can see what's on each tower
+		bool tooltipAllowed = CurrentPhase == GamePhase.Wave
+		                   || draftAwaitingTower;
+		if (!tooltipAllowed || _runState?.Slots == null)
+		{
+			HideTooltip();
+			return;
+		}
+
+		var viewport = GetViewport();
+		if (viewport == null || !GodotObject.IsInstanceValid(viewport))
+		{
+			HideTooltip();
+			return;
+		}
+
 		Vector2 mousePos;
 		if (MobileOptimization.IsMobile())
 		{
 			if (_selectedTooltipTower == null || !GodotObject.IsInstanceValid(_selectedTooltipTower))
 			{
-				_tooltipPanel.Visible = false;
+				HideTooltip();
 				return;
 			}
 			mousePos = _selectedTooltipTower.GlobalPosition;
 		}
 		else
 		{
-			mousePos = GetViewport().GetMousePosition();
+			mousePos = viewport.GetMousePosition();
 		}
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
@@ -1777,14 +1975,14 @@ public partial class GameController : Node
 				{
 					pos = mousePos + new Vector2(20, 10);
 				}
-				var vpSize = GetViewport().GetVisibleRect().Size;
+				var vpSize = viewport.GetVisibleRect().Size;
 				pos.X = Mathf.Clamp(pos.X, 4f, vpSize.X - _tooltipPanel.Size.X - 4f);
 				pos.Y = Mathf.Clamp(pos.Y, 4f, vpSize.Y - _tooltipPanel.Size.Y - 4f);
 				_tooltipPanel.Position = pos;
 				_tooltipPanel.Visible = true;
 				return;
 		}
-		_tooltipPanel.Visible = false;
+		HideTooltip();
 	}
 
 	private string BuildSpectacleTooltipSection(ITowerView tower)
@@ -1842,6 +2040,9 @@ public partial class GameController : Node
 	{
 		for (int i = 0; i < BOT_STEPS && CurrentPhase == GamePhase.Wave; i++)
 		{
+			_botStepExplosionBursts = 0;
+			_botStepHitStopRequests = 0;
+
 			// Manually advance enemies (PathFollow2D._Process is disabled in bot mode)
 			foreach (var enemy in _runState.EnemiesAlive)
 			{
@@ -1874,11 +2075,13 @@ public partial class GameController : Node
 					{ inRange++; break; }
 			_botWaveInRangeSum     += inRange;
 			_botWaveInRangeSamples += 1;
+			_runState.TrackFrameStressProxies(_botStepExplosionBursts, _explosionResidues.Count, _botStepHitStopRequests);
 
 			if (result == WaveResult.Loss)
 			{
 				CurrentPhase = GamePhase.Loss;
 				_runState.CompleteWave();
+				_botRunner!.RecordRunTrace(_botRunTraceEvents);
 				_botRunner!.RecordResult(false, _runState.WaveIndex + 1, _runState);
 				if (_botRunner.HasMoreRuns) { RestartRun(); return; }
 				_botRunner.PrintSummary();
@@ -1897,6 +2100,7 @@ public partial class GameController : Node
 				if (_runState.WaveIndex >= Balance.TotalWaves)
 				{
 					CurrentPhase = GamePhase.Win;
+					_botRunner.RecordRunTrace(_botRunTraceEvents);
 					_botRunner.RecordResult(true, _runState.WaveIndex, _runState);
 					if (_botRunner.HasMoreRuns) { RestartRun(); return; }
 					_botRunner.PrintSummary();
@@ -2228,6 +2432,19 @@ public partial class GameController : Node
 		if (CurrentPhase != GamePhase.Wave)
 			return;
 		_runState?.TrackSpectacleSurge(info.Signature.EffectId);
+		ComboExplosionSkin comboSkin = ResolveComboExplosionSkin(info.Signature);
+		string traceId = NextSurgeTraceId(global: false);
+		_botLastTraceTriggerId = traceId;
+		AppendBotTraceEvent(
+			eventType: "surge_triggered",
+			surgeTriggerId: traceId,
+			stageId: "trigger",
+			comboSkin: comboSkin.ToString());
+		AppendBotTraceEvent(
+			eventType: "combo_skin_selected",
+			surgeTriggerId: traceId,
+			stageId: "skin",
+			comboSkin: comboSkin.ToString());
 		if (_botRunner != null)
 		{
 			ApplySpectacleGameplayPayload(info, isMajor: true);
@@ -2238,7 +2455,6 @@ public partial class GameController : Node
 		if (info.Tower is TowerInstance triggerTower && GodotObject.IsInstanceValid(triggerTower))
 			triggerTower.FlashSpectacle(accent, major: true);
 		float linkDistance = Mathf.Max(340f, info.Tower.Range * 1.30f);
-		ComboExplosionSkin comboSkin = ResolveComboExplosionSkin(info.Signature);
 		SpectacleConsequenceKind surgeRider = ResolveConsequenceKindFromSkin(comboSkin);
 		float surgeConsequenceStrength = Mathf.Clamp(info.Signature.SurgePower, 0.6f, 2.2f) * 0.58f;
 		SpawnSpectacleBurstFx(info.Tower.GlobalPosition, accent, major: true, power: info.Signature.SurgePower);
@@ -2302,6 +2518,13 @@ public partial class GameController : Node
 		if (_runState == null)
 			return;
 		_runState.TrackSpectacleGlobal(info.EffectId);
+		string traceId = NextSurgeTraceId(global: true);
+		_botLastTraceTriggerId = traceId;
+		AppendBotTraceEvent(
+			eventType: "global_surge_triggered",
+			surgeTriggerId: traceId,
+			stageId: "trigger",
+			comboSkin: "global");
 		if (_botRunner != null)
 		{
 			ApplyGlobalSurgeGameplayPayload(info);
@@ -3418,6 +3641,7 @@ public partial class GameController : Node
 		var hit = new HashSet<EnemyInstance> { start };
 		var current = start;
 		float damage = startDamage;
+		int resolvedDepth = 0;
 
 		for (int bounce = 0; bounce < maxBounces; bounce++)
 		{
@@ -3440,10 +3664,13 @@ public partial class GameController : Node
 			ApplySpectacleDamage(tower, next, damage, color, heavyHit: heavy);
 			hit.Add(next);
 			current = next;
+			resolvedDepth = bounce + 1;
 			damage *= Mathf.Clamp(decay, 0.45f, 0.95f);
 			if (damage <= 0.5f)
 				break;
 		}
+
+		_runState?.TrackSpectacleChainDepth(resolvedDepth);
 	}
 
 	private static bool IsEnemyUsable(EnemyInstance? enemy)
@@ -3473,7 +3700,8 @@ public partial class GameController : Node
 		bool heavyHit,
 		bool triggerHitStopOnKill = false,
 		bool allowOverkillBloom = true,
-		bool allowMarkedPop = true)
+		bool allowMarkedPop = true,
+		SpectacleDamageSource source = SpectacleDamageSource.SurgeCore)
 	{
 		if (!IsEnemyUsable(enemy) || damage <= 0.05f)
 			return 0f;
@@ -3487,7 +3715,20 @@ public partial class GameController : Node
 		bool isKill = enemy.Hp <= 0f;
 		float overflow = isKill ? Mathf.Max(0f, damage - hpBefore) : 0f;
 		OverkillBloomProfile bloomProfile = SpectacleExplosionCore.BuildOverkillBloomProfile(overflow);
-		TrackSpectacleDamage(tower, dealt, isKill);
+		string eventType = source switch
+		{
+			SpectacleDamageSource.Residue => "spectacle_damage_residue",
+			SpectacleDamageSource.ExplosionFollowUp => "spectacle_damage_followup",
+			_ => "spectacle_damage_core",
+		};
+		AppendBotTraceEvent(
+			eventType: eventType,
+			enemy: enemy,
+			hpBefore: hpBefore,
+			hpAfter: enemy.Hp,
+			stageId: source.ToString().ToLowerInvariant(),
+			residueSpawned: source == SpectacleDamageSource.Residue);
+		TrackSpectacleDamage(tower, dealt, isKill, source);
 		SpawnSpectacleDamageNumber(enemy.GlobalPosition, Mathf.Max(1f, dealt), isKill, color, tower.TowerId);
 		SpawnSpectacleImpactSparks(enemy.GlobalPosition, color, heavy: heavyHit);
 		if (_botRunner == null && !isKill && GodotObject.IsInstanceValid(enemy))
@@ -3517,6 +3758,11 @@ public partial class GameController : Node
 	{
 		if (_runState == null || tower == null || !profile.ShouldTrigger)
 			return;
+		_runState.TrackOverkillBloom();
+		AppendBotTraceEvent(
+			eventType: "overkill_bloom_triggered",
+			stageId: "stage_one",
+			comboSkin: "default");
 
 		if (_botRunner == null)
 		{
@@ -3571,7 +3817,8 @@ public partial class GameController : Node
 				accent,
 				heavyHit: false,
 				triggerHitStopOnKill: false,
-				allowOverkillBloom: false);
+				allowOverkillBloom: false,
+				source: SpectacleDamageSource.ExplosionFollowUp);
 		}
 	}
 
@@ -3606,25 +3853,17 @@ public partial class GameController : Node
 		}
 	}
 
-	private void TrackSpectacleDamage(ITowerView tower, float damage, bool isKill)
+	private void TrackSpectacleDamage(ITowerView tower, float damage, bool isKill, SpectacleDamageSource source)
 	{
 		if (_runState == null)
 			return;
 
 		int dealtInt = Mathf.Max(0, (int)damage);
-		if (dealtInt > 0)
-		{
-			_runState.TotalDamageDealt += dealtInt;
-			int slotIndex = FindTowerSlotIndex(tower);
-			if (slotIndex >= 0)
-				_runState.TrackTowerDamage(slotIndex, dealtInt);
-			if (isKill)
-			{
-				_runState.TotalKills += 1;
-				if (slotIndex >= 0)
-					_runState.TrackTowerKill(slotIndex);
-			}
-		}
+		if (dealtInt <= 0)
+			return;
+
+		int slotIndex = FindTowerSlotIndex(tower);
+		_runState.TrackSpectacleDamage(slotIndex, dealtInt, isKill, source);
 	}
 
 	private int FindTowerSlotIndex(ITowerView tower)
@@ -3771,7 +4010,8 @@ public partial class GameController : Node
 				heavyHit,
 				triggerHitStopOnKill: false,
 				allowOverkillBloom: false,
-				allowMarkedPop: false);
+				allowMarkedPop: false,
+				source: SpectacleDamageSource.ExplosionFollowUp);
 		}
 
 		switch (rider)
@@ -3803,7 +4043,8 @@ public partial class GameController : Node
 						heavyHit: false,
 						triggerHitStopOnKill: false,
 						allowOverkillBloom: false,
-						allowMarkedPop: false);
+						allowMarkedPop: false,
+						source: SpectacleDamageSource.ExplosionFollowUp);
 				}
 				break;
 			}
@@ -4027,9 +4268,10 @@ public partial class GameController : Node
 			.ToList();
 		if (statusTargets.Count == 0)
 			return;
+		_runState.TrackStatusDetonation(statusTargets.Count);
 
 		Color detonationColor = ResolveComboSkinAccent(accent, skin);
-		float stagger = SpectacleExplosionCore.SurgeStatusDetonationStaggerSeconds * (reducedMotion ? 0.55f : 1f);
+		float stagger = SpectacleExplosionCore.ResolveStatusDetonationStaggerSeconds(reducedMotion);
 		if (!globalSurge && _botRunner == null && TryCombatCallout("status_detonation", 5.2f))
 		{
 			SpawnCombatCallout(
@@ -4069,6 +4311,11 @@ public partial class GameController : Node
 				{
 					SpawnSpectacleArc(previousAnchor.Value, enemyRef.GlobalPosition, detonationColor, intensity: 1.00f + index * 0.03f, mineChainStyle: true);
 				}
+				AppendBotTraceEvent(
+					eventType: "status_detonation_hit",
+					enemy: enemyRef,
+					stageId: $"detonation_{index}",
+					comboSkin: skin.ToString());
 
 				if (_botRunner == null)
 				{
@@ -4111,7 +4358,8 @@ public partial class GameController : Node
 						heavyHit: false,
 						triggerHitStopOnKill: false,
 						allowOverkillBloom: false,
-						allowMarkedPop: false);
+						allowMarkedPop: false,
+						source: SpectacleDamageSource.ExplosionFollowUp);
 				}
 			}
 
@@ -4124,7 +4372,23 @@ public partial class GameController : Node
 
 	private void SpawnSpectacleBurstFx(Vector2 worldPos, Color accent, bool major, float power = 1f, bool stageTwoKick = false)
 	{
-		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
+		_runState?.TrackSpectacleExplosionBurst();
+		AppendBotTraceEvent(
+			eventType: "spectacle_burst",
+			stageId: "stage_one");
+		if (SpectacleExplosionCore.ShouldEmitSecondStage(major, power))
+		{
+			AppendBotTraceEvent(
+				eventType: "spectacle_burst",
+				stageId: "stage_two",
+				timestampOverride: (_runState?.TotalPlayTime ?? 0f) + SpectacleExplosionCore.TwoStageBlastDelaySeconds);
+		}
+		if (_botRunner != null)
+		{
+			_botStepExplosionBursts += 1;
+			return;
+		}
+		if (!GodotObject.IsInstanceValid(_worldNode))
 			return;
 
 		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
@@ -4584,6 +4848,12 @@ public partial class GameController : Node
 			SourceTower = sourceTower,
 			PulseGate = false,
 		});
+		AppendBotTraceEvent(
+			eventType: "residue_spawned",
+			worldPos: origin,
+			stageId: profile.Kind.ToString().ToLowerInvariant(),
+			residueSpawned: true,
+			comboSkin: profile.Kind.ToString());
 
 		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
 			return;
@@ -4598,6 +4868,8 @@ public partial class GameController : Node
 	{
 		if (_runState == null || CurrentPhase != GamePhase.Wave || delta <= 0f || _explosionResidues.Count == 0)
 			return;
+
+		_runState.TrackResidueUptime(delta, _explosionResidues.Count);
 
 		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
 		for (int i = _explosionResidues.Count - 1; i >= 0; i--)
@@ -4678,7 +4950,8 @@ public partial class GameController : Node
 						heavyHit: false,
 						triggerHitStopOnKill: false,
 						allowOverkillBloom: false,
-						allowMarkedPop: false);
+						allowMarkedPop: false,
+						source: SpectacleDamageSource.Residue);
 				}
 				break;
 			}
@@ -4867,7 +5140,8 @@ public partial class GameController : Node
 				heavyHit: false,
 				triggerHitStopOnKill: false,
 				allowOverkillBloom: false,
-				allowMarkedPop: false);
+				allowMarkedPop: false,
+				source: SpectacleDamageSource.ExplosionFollowUp);
 		}
 
 		if (nearby.Count >= 2 && TryCombatCallout("marked_pop", 4.8f))
@@ -5385,7 +5659,16 @@ public partial class GameController : Node
 
 	public void TriggerHitStop(float realDuration = 0.042f, float slowScale = 0.20f)
 	{
-		if (_botRunner != null || CurrentPhase != GamePhase.Wave) return;
+		if (_botRunner != null)
+		{
+			_botStepHitStopRequests += 1;
+			AppendBotTraceEvent(
+				eventType: "hitstop_requested",
+				hitStopRequested: true,
+				stageId: "hitstop");
+			return;
+		}
+		if (CurrentPhase != GamePhase.Wave) return;
 		if (_spectacleSlowMoActive) return;
 		if (_hitStopActive || _hitStopCooldown > 0f) return;
 
@@ -5460,6 +5743,9 @@ public partial class GameController : Node
 
 	private void UpdateSpectacleVisuals()
 	{
+		if (_runState?.Slots == null || _spectacleSystem == null)
+			return;
+
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
 			var tower = _runState.Slots[i].TowerNode;
