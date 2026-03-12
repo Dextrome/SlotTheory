@@ -2198,10 +2198,19 @@ public partial class GameController : Node
 			maxDistance: linkDistance,
 			majorStyle: true);
 		SpawnSpectacleTowerVolleyFx(info.Tower, accent, major: true, power: info.Signature.SurgePower);
+		ComboExplosionSkin comboSkin = ResolveComboExplosionSkin(info.Signature);
+		SpawnComboExplosionSkinFx(info.Tower, info.Signature, accent, comboSkin);
 		FlashSpectacleScreen(accent, peakAlpha: 0.17f, rampSec: 0.06f, fadeSec: 0.34f);
 		QueueSpectacleEcho(info.Tower.GlobalPosition, accent, major: true, power: info.Signature.SurgePower, maxDistance: linkDistance);
 		SoundManager.Instance?.Play("mine_chain_pop", pitchScale: 1.08f);
 		ApplySpectacleGameplayPayload(info, isMajor: true);
+		TriggerStatusDetonationChain(
+			info.Tower,
+			info.Tower.GlobalPosition,
+			accent,
+			comboSkin,
+			globalSurge: false,
+			info.Signature.SurgePower);
 		TriggerSpectacleSlowMo(realDuration: 0.5f, speedFactor: 0.25f);
 
 		SpawnCombatCallout(
@@ -2248,6 +2257,13 @@ public partial class GameController : Node
 		}
 		SpawnGlobalSurgeAffectFx(center, globalColor, Mathf.Max(2, info.UniqueContributors));
 		ApplyGlobalSurgeGameplayPayload(info);
+		TriggerStatusDetonationChain(
+			sourceTower: null,
+			origin: center,
+			accent: globalColor,
+			skin: ComboExplosionSkin.ChainArc,
+			globalSurge: true,
+			surgePower: 1.45f);
 		QueueSpectacleEcho(center, globalColor, major: true, power: 1.65f, maxDistance: 420f);
 		TriggerSpectacleSlowMo(realDuration: 5.6f, speedFactor: 0.25f);
 		ShowGlobalSurgeBanner(info.EffectName, globalColor);
@@ -3343,11 +3359,13 @@ public partial class GameController : Node
 		Color color,
 		bool heavyHit,
 		bool triggerHitStopOnKill = false,
-		bool allowOverkillBloom = true)
+		bool allowOverkillBloom = true,
+		bool allowMarkedPop = true)
 	{
 		if (!IsEnemyUsable(enemy) || damage <= 0.05f)
 			return 0f;
 
+		bool wasMarked = enemy.IsMarked;
 		float hpBefore = enemy.Hp;
 		float dealt = SpectacleDamageCore.ApplyRawDamage(enemy, damage);
 		if (dealt <= 0.01f)
@@ -3363,6 +3381,8 @@ public partial class GameController : Node
 			enemy.FlashHit();
 		if (isKill && triggerHitStopOnKill)
 			TriggerHitStop(realDuration: heavyHit ? 0.042f : 0.030f, slowScale: heavyHit ? 0.20f : 0.30f);
+		if (isKill && allowMarkedPop && wasMarked && _runState != null)
+			NotifyMarkedEnemyPop(tower, enemy, _runState.EnemiesAlive);
 		if (isKill && allowOverkillBloom && bloomProfile.ShouldTrigger)
 			SpawnOverkillBloom(tower, enemy.GlobalPosition, bloomProfile, color, heavyHit);
 		return dealt;
@@ -3540,6 +3560,255 @@ public partial class GameController : Node
 		if (string.IsNullOrEmpty(modId))
 			return new Color(0.80f, 0.92f, 1.00f);
 		return ModifierVisuals.GetAccent(modId);
+	}
+
+	private static ComboExplosionSkin ResolveComboExplosionSkin(SpectacleSignature signature)
+	{
+		if (signature.Mode == SpectacleMode.Single)
+			return ComboExplosionSkin.Default;
+		return SpectacleExplosionCore.ResolveComboExplosionSkin(signature.PrimaryModId, signature.SecondaryModId);
+	}
+
+	private static Color ResolveComboSkinAccent(Color accent, ComboExplosionSkin skin)
+	{
+		return skin switch
+		{
+			ComboExplosionSkin.ChillShatter => new Color(
+				Mathf.Clamp(accent.R * 0.42f + 0.42f, 0f, 1f),
+				Mathf.Clamp(accent.G * 0.62f + 0.32f, 0f, 1f),
+				Mathf.Clamp(accent.B * 0.88f + 0.16f, 0f, 1f),
+				1f),
+			ComboExplosionSkin.ChainArc => new Color(
+				Mathf.Clamp(accent.R * 0.78f + 0.20f, 0f, 1f),
+				Mathf.Clamp(accent.G * 0.86f + 0.18f, 0f, 1f),
+				Mathf.Clamp(accent.B * 0.54f + 0.32f, 0f, 1f),
+				1f),
+			ComboExplosionSkin.SplitShrapnel => new Color(
+				Mathf.Clamp(accent.R * 0.82f + 0.18f, 0f, 1f),
+				Mathf.Clamp(accent.G * 0.54f + 0.24f, 0f, 1f),
+				Mathf.Clamp(accent.B * 0.46f + 0.18f, 0f, 1f),
+				1f),
+			ComboExplosionSkin.FocusImplosion => new Color(
+				Mathf.Clamp(accent.R * 0.86f + 0.18f, 0f, 1f),
+				Mathf.Clamp(accent.G * 0.86f + 0.18f, 0f, 1f),
+				Mathf.Clamp(accent.B * 0.96f + 0.16f, 0f, 1f),
+				1f),
+			_ => accent,
+		};
+	}
+
+	private void SpawnComboSkinGlyphFx(Vector2 worldPos, ComboExplosionSkin skin, Color accent, float power, bool major)
+	{
+		if (_botRunner != null || skin == ComboExplosionSkin.Default || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+
+		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
+		var glyph = new SpectacleSkinGlyph();
+		_worldNode.AddChild(glyph);
+		glyph.GlobalPosition = worldPos;
+
+		float powerT = Mathf.Clamp(power / 2.2f, 0f, 1f);
+		float scale = Mathf.Clamp(
+			(major ? 1.12f : 0.92f) * Mathf.Lerp(0.90f, 1.50f, powerT),
+			0.58f,
+			1.95f);
+		float duration = reducedMotion ? 0.22f : (major ? 0.58f : 0.40f);
+		glyph.Initialize(skin, accent, durationSec: duration, scale: scale);
+	}
+
+	private void SpawnComboExplosionSkinFx(ITowerView tower, SpectacleSignature signature, Color accent, ComboExplosionSkin skin)
+	{
+		if (_botRunner != null || _runState == null || tower == null || skin == ComboExplosionSkin.Default || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+
+		Color skinAccent = ResolveComboSkinAccent(accent, skin);
+		Vector2 origin = tower.GlobalPosition;
+		float power = Mathf.Clamp(signature.SurgePower, 0.6f, 2.2f);
+		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
+		SpawnComboSkinGlyphFx(origin, skin, skinAccent, power, major: true);
+
+		switch (skin)
+		{
+			case ComboExplosionSkin.ChillShatter:
+			{
+				var ring = new GlobalSurgeRipple();
+				_worldNode.AddChild(ring);
+				ring.GlobalPosition = origin;
+				ring.Initialize(
+					skinAccent,
+					endRadius: 210f + 26f * power,
+					durationSec: reducedMotion ? 0.22f : 0.34f,
+					ringWidth: 3.6f);
+				var shards = GetSpectacleTargets(origin, 240f, reducedMotion ? 2 : 4, preferFront: false);
+				for (int i = 0; i < shards.Count; i++)
+				{
+					SpawnSpectacleArc(origin, shards[i].GlobalPosition, skinAccent, intensity: 0.90f + i * 0.08f, mineChainStyle: false);
+					if (!reducedMotion)
+						SpawnComboSkinGlyphFx(shards[i].GlobalPosition, skin, skinAccent, power * 0.62f, major: false);
+				}
+				break;
+			}
+			case ComboExplosionSkin.ChainArc:
+			{
+				SpawnSpectacleLinks(origin, skinAccent, maxLinks: reducedMotion ? 3 : 6, maxDistance: 340f, majorStyle: true);
+				var chainTargets = GetSpectacleTargets(origin, 340f, reducedMotion ? 2 : 3, preferFront: true);
+				for (int i = 0; i < chainTargets.Count; i++)
+					SpawnComboSkinGlyphFx(chainTargets[i].GlobalPosition, skin, skinAccent, power * (0.72f + i * 0.05f), major: false);
+				break;
+			}
+			case ComboExplosionSkin.SplitShrapnel:
+			{
+				var fan = GetSpectacleTargets(origin, 260f, reducedMotion ? 3 : 6, preferFront: false);
+				for (int i = 0; i < fan.Count; i++)
+				{
+					SpawnSpectacleArc(origin, fan[i].GlobalPosition, skinAccent, intensity: 0.86f + i * 0.07f, mineChainStyle: false);
+					SpawnComboSkinGlyphFx(fan[i].GlobalPosition, skin, skinAccent, power * 0.64f, major: false);
+					if (!reducedMotion)
+						SpawnSpectacleImpactSparks(fan[i].GlobalPosition, skinAccent, heavy: false);
+				}
+				break;
+			}
+			case ComboExplosionSkin.FocusImplosion:
+			{
+				PrimeExplosionCompression(origin, 118f + 22f * power, skinAccent, maxTargets: reducedMotion ? 2 : 4);
+				void BeamPop()
+				{
+					if (CurrentPhase != GamePhase.Wave
+						|| _botRunner != null
+						|| !GodotObject.IsInstanceValid(this))
+					{
+						return;
+					}
+
+					SpawnSpectacleBurstFx(origin, skinAccent, major: false, power: 0.82f + 0.12f * power);
+					var beamTarget = GetSpectacleTargets(origin, 280f, 1, preferFront: true).FirstOrDefault();
+					if (beamTarget != null)
+					{
+						SpawnComboSkinGlyphFx(beamTarget.GlobalPosition, skin, skinAccent, power * 0.84f, major: false);
+						SpawnSpectacleArc(origin, beamTarget.GlobalPosition, skinAccent, intensity: 1.22f, mineChainStyle: true);
+						SpawnSpectacleImpactSparks(beamTarget.GlobalPosition, skinAccent, heavy: true);
+					}
+				}
+
+				if (reducedMotion)
+					BeamPop();
+				else
+					GetTree().CreateTimer(0.10f).Timeout += BeamPop;
+				break;
+			}
+		}
+	}
+
+	private static bool IsEnemyStatusPrimed(EnemyInstance enemy)
+		=> enemy.IsMarked || enemy.IsSlowed || enemy.DamageAmpRemaining > 0f;
+
+	private void TriggerStatusDetonationChain(
+		ITowerView? sourceTower,
+		Vector2 origin,
+		Color accent,
+		ComboExplosionSkin skin,
+		bool globalSurge,
+		float surgePower)
+	{
+		if (_runState == null || CurrentPhase != GamePhase.Wave)
+			return;
+
+		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
+		int maxTargets = SpectacleExplosionCore.ResolveStatusDetonationMaxTargets(globalSurge, reducedMotion);
+		if (maxTargets <= 0)
+			return;
+
+		var statusTargets = _runState.EnemiesAlive
+			.Where(IsEnemyUsable)
+			.Where(IsEnemyStatusPrimed)
+			.OrderBy(e => origin.DistanceTo(e.GlobalPosition))
+			.ThenByDescending(e => e.ProgressRatio)
+			.Take(maxTargets)
+			.ToList();
+		if (statusTargets.Count == 0)
+			return;
+
+		Color detonationColor = ResolveComboSkinAccent(accent, skin);
+		float stagger = SpectacleExplosionCore.SurgeStatusDetonationStaggerSeconds * (reducedMotion ? 0.55f : 1f);
+		if (!globalSurge && _botRunner == null && TryCombatCallout("status_detonation", 5.2f))
+		{
+			SpawnCombatCallout(
+				"STATUS DETONATION",
+				origin,
+				detonationColor,
+				durationScale: 1.25f);
+		}
+
+		ITowerView? damageSource = sourceTower;
+		if (damageSource is GodotObject towerObj && !GodotObject.IsInstanceValid(towerObj))
+			damageSource = null;
+		if (damageSource == null)
+		{
+			damageSource = _runState.Slots
+				.Select(s => s.Tower)
+				.FirstOrDefault(t => t != null && (t is not GodotObject go || GodotObject.IsInstanceValid(go)));
+		}
+
+		for (int i = 0; i < statusTargets.Count; i++)
+		{
+			var enemyRef = statusTargets[i];
+			int index = i;
+			Vector2? previousAnchor = index > 0 ? statusTargets[index - 1].GlobalPosition : (Vector2?)null;
+			float delay = reducedMotion ? index * (stagger * 0.7f) : index * stagger;
+
+			void EmitImpact()
+			{
+				if (CurrentPhase != GamePhase.Wave
+					|| !GodotObject.IsInstanceValid(this)
+					|| !IsEnemyUsable(enemyRef))
+				{
+					return;
+				}
+
+				if (_botRunner == null && previousAnchor.HasValue && !reducedMotion)
+				{
+					SpawnSpectacleArc(previousAnchor.Value, enemyRef.GlobalPosition, detonationColor, intensity: 1.00f + index * 0.03f, mineChainStyle: true);
+				}
+
+				if (_botRunner == null)
+				{
+					SpawnSpectacleBurstFx(
+						enemyRef.GlobalPosition,
+						detonationColor,
+						major: false,
+						power: Mathf.Clamp(0.78f + 0.04f * index, 0.78f, 1.28f));
+					SpawnComboSkinGlyphFx(
+						enemyRef.GlobalPosition,
+						skin,
+						detonationColor,
+						power: Mathf.Clamp(0.72f + 0.03f * index, 0.72f, 1.20f),
+						major: false);
+					SpawnSpectacleImpactSparks(enemyRef.GlobalPosition, detonationColor, heavy: false);
+				}
+
+				if (damageSource != null)
+				{
+					float damage = damageSource.BaseDamage
+						* (globalSurge ? 0.22f : 0.16f)
+						* Mathf.Clamp(surgePower, 0.6f, 2.2f)
+						* Mathf.Max(0.52f, 1f - index * 0.04f);
+					ApplySpectacleDamage(
+						damageSource,
+						enemyRef,
+						damage,
+						detonationColor,
+						heavyHit: false,
+						triggerHitStopOnKill: false,
+						allowOverkillBloom: false,
+						allowMarkedPop: false);
+				}
+			}
+
+			if (delay <= 0f)
+				EmitImpact();
+			else
+				GetTree().CreateTimer(delay).Timeout += EmitImpact;
+		}
 	}
 
 	private void SpawnSpectacleBurstFx(Vector2 worldPos, Color accent, bool major, float power = 1f, bool stageTwoKick = false)
@@ -3931,6 +4200,72 @@ public partial class GameController : Node
 		if (spillDamage < 34f) return;
 		if (!TryCombatCallout("overkill_spill", 6.5f)) return;
 		SpawnCombatCallout("OVERKILL SPILL", worldPos, spillColor);
+	}
+
+	public void NotifyMarkedEnemyPop(ITowerView sourceTower, IEnemyView deadEnemy, IEnumerable<IEnemyView> enemiesAlive)
+	{
+		if (CurrentPhase != GamePhase.Wave || sourceTower == null || deadEnemy == null || enemiesAlive == null)
+			return;
+
+		Vector2 origin = deadEnemy.GlobalPosition;
+		float radius = SpectacleExplosionCore.MarkedPopRadius;
+		var nearby = enemiesAlive
+			.Where(e => e != null && !ReferenceEquals(e, deadEnemy) && e.Hp > 0f)
+			.Where(e => origin.DistanceTo(e.GlobalPosition) <= radius)
+			.OrderBy(e => origin.DistanceTo(e.GlobalPosition))
+			.Take(6)
+			.ToList();
+
+		foreach (var target in nearby)
+		{
+			Statuses.ApplyDamageAmp(
+				target,
+				SpectacleExplosionCore.MarkedPopDamageAmpDuration,
+				SpectacleExplosionCore.MarkedPopDamageAmpMultiplier);
+		}
+
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+
+		Color markColor = new Color(0.94f, 0.42f, 1.00f, 1f);
+		PrimeExplosionCompression(
+			origin,
+			radius * 0.72f,
+			markColor,
+			maxTargets: Mathf.Clamp(3 + nearby.Count / 2, 3, 6));
+		SpawnSpectacleBurstFx(
+			origin,
+			markColor,
+			major: false,
+			power: 0.92f + Mathf.Clamp(nearby.Count * 0.06f, 0f, 0.42f),
+			stageTwoKick: nearby.Count >= 3);
+
+		float baseDamage = sourceTower.BaseDamage * 0.24f;
+		for (int i = 0; i < nearby.Count; i++)
+		{
+			if (nearby[i] is not EnemyInstance enemy || !IsEnemyUsable(enemy))
+				continue;
+
+			SpawnSpectacleArc(
+				origin,
+				enemy.GlobalPosition,
+				markColor,
+				intensity: 0.92f + i * 0.06f,
+				mineChainStyle: true);
+			SpawnSpectacleImpactSparks(enemy.GlobalPosition, markColor, heavy: false);
+			ApplySpectacleDamage(
+				sourceTower,
+				enemy,
+				baseDamage * Mathf.Max(0.56f, 1f - i * 0.12f),
+				markColor,
+				heavyHit: false,
+				triggerHitStopOnKill: false,
+				allowOverkillBloom: false,
+				allowMarkedPop: false);
+		}
+
+		if (nearby.Count >= 2 && TryCombatCallout("marked_pop", 4.8f))
+			SpawnCombatCallout("MARKED POP", origin, markColor, durationScale: 1.20f);
 	}
 
 	public void NotifyFeedbackLoopProc(SlotTheory.Entities.ITowerView tower)

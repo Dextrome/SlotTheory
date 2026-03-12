@@ -93,4 +93,48 @@ public class SpectacleExplosionCoreTests
         Assert.Equal(SpectacleExplosionCore.GlobalSurgeWaveSpeedMin, low.WaveSpeed, 3);
         Assert.Equal(SpectacleExplosionCore.GlobalSurgeWaveSpeedMax, high.WaveSpeed, 3);
     }
+
+    [Theory]
+    [InlineData(false, false, 16)]
+    [InlineData(true, false, 24)]
+    [InlineData(false, true, 8)]
+    [InlineData(true, true, 10)]
+    public void ResolveStatusDetonationMaxTargets_UsesExpectedCaps(bool globalSurge, bool reducedMotion, int expected)
+    {
+        int result = SpectacleExplosionCore.ResolveStatusDetonationMaxTargets(globalSurge, reducedMotion);
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [InlineData(SpectacleDefinitions.ChillShot, SpectacleDefinitions.Overkill, ComboExplosionSkin.ChillShatter)]
+    [InlineData(SpectacleDefinitions.ChainReaction, SpectacleDefinitions.FocusLens, ComboExplosionSkin.ChainArc)]
+    [InlineData(SpectacleDefinitions.SplitShot, SpectacleDefinitions.Overreach, ComboExplosionSkin.SplitShrapnel)]
+    [InlineData(SpectacleDefinitions.FocusLens, SpectacleDefinitions.Momentum, ComboExplosionSkin.FocusImplosion)]
+    [InlineData(SpectacleDefinitions.Momentum, SpectacleDefinitions.Overkill, ComboExplosionSkin.Default)]
+    public void ResolveComboExplosionSkin_MapsByComboFamily(string modA, string modB, ComboExplosionSkin expected)
+    {
+        ComboExplosionSkin skin = SpectacleExplosionCore.ResolveComboExplosionSkin(modA, modB);
+        Assert.Equal(expected, skin);
+    }
+
+    [Fact]
+    public void ResolveComboExplosionSkin_NormalizesLegacyChillId()
+    {
+        ComboExplosionSkin skin = SpectacleExplosionCore.ResolveComboExplosionSkin("chill_shot", SpectacleDefinitions.SplitShot);
+        Assert.Equal(ComboExplosionSkin.ChillShatter, skin);
+    }
+
+    [Fact]
+    public void ResolveComboExplosionSkin_UsesPriorityOrder_ChillOverChainOverSplitOverFocus()
+    {
+        Assert.Equal(
+            ComboExplosionSkin.ChillShatter,
+            SpectacleExplosionCore.ResolveComboExplosionSkin(SpectacleDefinitions.ChillShot, SpectacleDefinitions.ChainReaction));
+        Assert.Equal(
+            ComboExplosionSkin.ChainArc,
+            SpectacleExplosionCore.ResolveComboExplosionSkin(SpectacleDefinitions.ChainReaction, SpectacleDefinitions.SplitShot));
+        Assert.Equal(
+            ComboExplosionSkin.SplitShrapnel,
+            SpectacleExplosionCore.ResolveComboExplosionSkin(SpectacleDefinitions.SplitShot, SpectacleDefinitions.FocusLens));
+    }
 }

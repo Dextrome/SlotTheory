@@ -15,4 +15,6 @@ public interface IEnemyView
     float MarkedRemaining { get; set; }
     float SlowSpeedFactor { get; set; }
     float SlowRemaining { get; set; }
+    float DamageAmpRemaining { get; set; }
+    float DamageAmpMultiplier { get; set; }
 }
