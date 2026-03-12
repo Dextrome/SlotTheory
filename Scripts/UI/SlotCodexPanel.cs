@@ -398,6 +398,10 @@ public partial class SlotCodexPanel : Node
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
         };
 
+        // On mobile, codex cards are read-only; let drag gestures pass through to ScrollContainer.
+        if (MobileOptimization.IsMobile())
+            panel.MouseFilter = Control.MouseFilterEnum.Ignore;
+
         var baseBorder = unlocked
             ? new Color(
                 Mathf.Lerp(0.22f, accent.R, 0.35f),
