@@ -91,6 +91,18 @@ public sealed class SpectacleTuningProfile
     public float EventScalarMultiplier { get; set; } = 1f;
     [JsonPropertyName("second_stage_power_threshold")]
     public float SecondStagePowerThreshold { get; set; } = 0.95f;
+    [JsonPropertyName("normal_enemy_hp_multiplier")]
+    public float NormalEnemyHpMultiplier { get; set; } = Balance.DifficultyMultipliers.NormalEnemyHpMultiplier;
+    [JsonPropertyName("normal_enemy_count_multiplier")]
+    public float NormalEnemyCountMultiplier { get; set; } = Balance.DifficultyMultipliers.NormalEnemyCountMultiplier;
+    [JsonPropertyName("normal_spawn_interval_multiplier")]
+    public float NormalSpawnIntervalMultiplier { get; set; } = Balance.DifficultyMultipliers.NormalSpawnIntervalMultiplier;
+    [JsonPropertyName("hard_enemy_hp_multiplier")]
+    public float HardEnemyHpMultiplier { get; set; } = Balance.DifficultyMultipliers.HardEnemyHpMultiplier;
+    [JsonPropertyName("hard_enemy_count_multiplier")]
+    public float HardEnemyCountMultiplier { get; set; } = Balance.DifficultyMultipliers.HardEnemyCountMultiplier;
+    [JsonPropertyName("hard_spawn_interval_multiplier")]
+    public float HardSpawnIntervalMultiplier { get; set; } = Balance.DifficultyMultipliers.HardSpawnIntervalMultiplier;
     [JsonPropertyName("gain_multipliers")]
     public Dictionary<string, float> GainMultipliers { get; set; } = new(StringComparer.Ordinal);
     [JsonPropertyName("event_scalar_multipliers")]
@@ -180,6 +192,12 @@ public sealed class SpectacleTuningProfile
             DiversityMultiplierScale = MathF.Max(0f, DiversityMultiplierScale),
             EventScalarMultiplier = MathF.Max(0f, EventScalarMultiplier),
             SecondStagePowerThreshold = Math.Clamp(SecondStagePowerThreshold, 0.05f, 3f),
+            NormalEnemyHpMultiplier = Math.Clamp(NormalEnemyHpMultiplier, 0.1f, 5f),
+            NormalEnemyCountMultiplier = Math.Clamp(NormalEnemyCountMultiplier, 0.1f, 5f),
+            NormalSpawnIntervalMultiplier = Math.Clamp(NormalSpawnIntervalMultiplier, 0.2f, 3f),
+            HardEnemyHpMultiplier = Math.Clamp(HardEnemyHpMultiplier, 0.1f, 5f),
+            HardEnemyCountMultiplier = Math.Clamp(HardEnemyCountMultiplier, 0.1f, 5f),
+            HardSpawnIntervalMultiplier = Math.Clamp(HardSpawnIntervalMultiplier, 0.2f, 3f),
             GainMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
             EventScalarMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
             TokenCapMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),

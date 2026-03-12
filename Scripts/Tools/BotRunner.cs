@@ -93,6 +93,7 @@ public class BotRunner
     private readonly string?          _traceOutputPath;
     private readonly string           _tuningLabel;
     private readonly string           _strategySetLabel = StrategySetAll;
+    private readonly int              _runIndexOffset;
 	private DifficultyMode[] _difficulties = { DifficultyMode.Easy, DifficultyMode.Normal, DifficultyMode.Hard };
     private readonly List<RunResult>  _results = new();
     private readonly List<RunTrace>   _runTraces = new();
@@ -119,7 +120,8 @@ public BotRunner(
     string? metricsOutputPath = null,
     string? traceOutputPath = null,
     string? tuningLabel = null,
-    string? strategySet = null)
+    string? strategySet = null,
+    int runIndexOffset = 0)
 	{
 		_totalRuns  = totalRuns;
 		_strategies = targetStrategy.HasValue
@@ -133,6 +135,7 @@ public BotRunner(
         _metricsOutputPath = string.IsNullOrWhiteSpace(metricsOutputPath) ? null : metricsOutputPath;
         _traceOutputPath = string.IsNullOrWhiteSpace(traceOutputPath) ? null : traceOutputPath;
         _tuningLabel = string.IsNullOrWhiteSpace(tuningLabel) ? "baseline" : tuningLabel.Trim();
+        _runIndexOffset = Math.Max(0, runIndexOffset);
 		_maps = targetMap != null
 			? new[] { targetMap }
 			: new[] { "arena_classic", "gauntlet", "sprawl" };
@@ -167,7 +170,7 @@ public BotRunner(
 
     private void StartNextRun()
     {
-        int idx      = _results.Count;
+        int idx      = _results.Count + _runIndexOffset;
         // Cycle through (map, difficulty, strategy) combinations
         int totalCombos = _strategies.Length * _difficulties.Length;
         int mapIdx   = (idx / totalCombos) % _maps.Length;
@@ -192,7 +195,9 @@ public BotRunner(
         string forcedLabel = (_forcedTowerId != null || _forcedModifierId != null)
             ? $" [forced tower={_forcedTowerId ?? "any"}, mod={_forcedModifierId ?? "any"}]"
             : "";
-        GD.Print($"[BOT] Run {idx + 1}/{_totalRuns} - {_curStrategy} on {_curMap} ({_curDifficulty}){forcedLabel}");
+        int localRunNumber = _results.Count + 1;
+        int globalRunNumber = idx + 1;
+        GD.Print($"[BOT] Run {localRunNumber}/{_totalRuns} (global #{globalRunNumber}) - {_curStrategy} on {_curMap} ({_curDifficulty}){forcedLabel}");
     }
 
     /// <summary>Call after each wave completes, before WaveIndex increments.</summary>

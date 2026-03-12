@@ -137,12 +137,34 @@ public class SpectacleTuningTests
     }
 
     [Fact]
+    public void DifficultyMultipliers_AffectBalanceForNormalAndHard()
+    {
+        SpectacleTuning.Reset();
+        float baselineNormalHp = Balance.GetEnemyHpMultiplier(DifficultyMode.Normal);
+        float baselineHardCount = Balance.GetEnemyCountMultiplier(DifficultyMode.Hard);
+        float baselineHardSpawn = Balance.GetSpawnIntervalMultiplier(DifficultyMode.Hard);
+
+        SpectacleTuning.Apply(new SpectacleTuningProfile
+        {
+            NormalEnemyHpMultiplier = 1.35f,
+            HardEnemyCountMultiplier = 1.22f,
+            HardSpawnIntervalMultiplier = 0.84f,
+        }, "test");
+
+        Assert.True(Balance.GetEnemyHpMultiplier(DifficultyMode.Normal) > baselineNormalHp);
+        Assert.True(Balance.GetEnemyCountMultiplier(DifficultyMode.Hard) > baselineHardCount);
+        Assert.True(Balance.GetSpawnIntervalMultiplier(DifficultyMode.Hard) < baselineHardSpawn);
+        SpectacleTuning.Reset();
+    }
+
+    [Fact]
     public void Loader_ParsesSnakeCaseTuningJson()
     {
         const string json = """
         {
           "overkill_bloom_damage_scale_multiplier": 1.2,
           "detonation_max_targets_multiplier": 0.8,
+          "normal_enemy_hp_multiplier": 1.28,
           "gain_multipliers": {
             "overkill": 1.3
           }
@@ -153,6 +175,7 @@ public class SpectacleTuningTests
         Assert.True(ok, error);
         Assert.Equal(1.2f, profile.OverkillBloomDamageScaleMultiplier, 3);
         Assert.Equal(0.8f, profile.DetonationMaxTargetsMultiplier, 3);
+        Assert.Equal(1.28f, profile.NormalEnemyHpMultiplier, 3);
         Assert.Equal(1.3f, profile.ResolveGainMultiplier("overkill"), 3);
     }
 }

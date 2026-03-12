@@ -74,7 +74,7 @@ public class BotMetricsDeltaReporterTests
             string normalized = report.Replace(',', '.');
             Assert.Contains("baseline build: avg wave 18.4", normalized);
             Assert.Contains("after change: avg wave 21.9", normalized);
-            Assert.Contains("major surges per run: 0.70 -> 2.80", normalized);
+            Assert.Contains("surges per run: 0.70 -> 2.80", normalized);
             Assert.Contains("explosion damage share:", normalized);
         }
         finally

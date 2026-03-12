@@ -134,24 +134,27 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
     public static float GetEnemyHpMultiplier(DifficultyMode difficulty) => difficulty switch
     {
         DifficultyMode.Easy => DifficultyMultipliers.EasyEnemyHpMultiplier,
-        DifficultyMode.Normal => DifficultyMultipliers.NormalEnemyHpMultiplier,
-        DifficultyMode.Hard => DifficultyMultipliers.HardEnemyHpMultiplier,
+        DifficultyMode.Normal => ClampDifficultyMultiplier(SpectacleTuning.Current.NormalEnemyHpMultiplier, 0.1f, 5f),
+        DifficultyMode.Hard => ClampDifficultyMultiplier(SpectacleTuning.Current.HardEnemyHpMultiplier, 0.1f, 5f),
         _ => 1.0f
     };
 
     public static float GetEnemyCountMultiplier(DifficultyMode difficulty) => difficulty switch
     {
         DifficultyMode.Easy => DifficultyMultipliers.EasyEnemyCountMultiplier,
-        DifficultyMode.Normal => DifficultyMultipliers.NormalEnemyCountMultiplier,
-        DifficultyMode.Hard => DifficultyMultipliers.HardEnemyCountMultiplier,
+        DifficultyMode.Normal => ClampDifficultyMultiplier(SpectacleTuning.Current.NormalEnemyCountMultiplier, 0.1f, 5f),
+        DifficultyMode.Hard => ClampDifficultyMultiplier(SpectacleTuning.Current.HardEnemyCountMultiplier, 0.1f, 5f),
         _ => 1.0f
     };
 
     public static float GetSpawnIntervalMultiplier(DifficultyMode difficulty) => difficulty switch
     {
         DifficultyMode.Easy => DifficultyMultipliers.EasySpawnIntervalMultiplier,
-        DifficultyMode.Normal => DifficultyMultipliers.NormalSpawnIntervalMultiplier,
-        DifficultyMode.Hard => DifficultyMultipliers.HardSpawnIntervalMultiplier,
+        DifficultyMode.Normal => ClampDifficultyMultiplier(SpectacleTuning.Current.NormalSpawnIntervalMultiplier, 0.2f, 3f),
+        DifficultyMode.Hard => ClampDifficultyMultiplier(SpectacleTuning.Current.HardSpawnIntervalMultiplier, 0.2f, 3f),
         _ => 1.0f
     };
+
+    private static float ClampDifficultyMultiplier(float value, float min, float max)
+        => value < min ? min : (value > max ? max : value);
 }

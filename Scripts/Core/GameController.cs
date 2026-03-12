@@ -252,6 +252,11 @@ public partial class GameController : Node
 			if (toi >= 0 && toi + 1 < userArgs.Length)
 				traceOutputPath = userArgs[toi + 1];
 
+			int runIndexOffset = 0;
+			int rio = System.Array.IndexOf(userArgs, "--run_index_offset");
+			if (rio >= 0 && rio + 1 < userArgs.Length)
+				int.TryParse(userArgs[rio + 1], out runIndexOffset);
+
 			_botRunner = new BotRunner(
 				runs,
 				targetDifficulty,
@@ -262,9 +267,10 @@ public partial class GameController : Node
 				metricsOutputPath,
 				traceOutputPath,
 				SpectacleTuning.ActiveLabel,
-				strategySet);
+				strategySet,
+				runIndexOffset);
 			Engine.MaxFps = 0;
-			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}{(targetMap != null ? $" on {targetMap}" : "")}{(targetStrategy.HasValue ? $" strategy={targetStrategy.Value}" : "")}{(strategySet != null ? $" strategy_set={strategySet}" : "")}{(forcedTower != null ? $" tower={forcedTower}" : "")}{(forcedMod != null ? $" mod={forcedMod}" : "")}{(string.IsNullOrWhiteSpace(metricsOutputPath) ? "" : $" metrics={metricsOutputPath}")}{(string.IsNullOrWhiteSpace(traceOutputPath) ? "" : $" trace={traceOutputPath}")}");
+			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}{(targetMap != null ? $" on {targetMap}" : "")}{(targetStrategy.HasValue ? $" strategy={targetStrategy.Value}" : "")}{(strategySet != null ? $" strategy_set={strategySet}" : "")}{(forcedTower != null ? $" tower={forcedTower}" : "")}{(forcedMod != null ? $" mod={forcedMod}" : "")}{(runIndexOffset > 0 ? $" run_offset={runIndexOffset}" : "")}{(string.IsNullOrWhiteSpace(metricsOutputPath) ? "" : $" metrics={metricsOutputPath}")}{(string.IsNullOrWhiteSpace(traceOutputPath) ? "" : $" trace={traceOutputPath}")}");
 		}
 
 		_runState = new RunState();
