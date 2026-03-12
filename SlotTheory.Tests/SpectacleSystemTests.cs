@@ -117,6 +117,20 @@ public class SpectacleSystemTests
         return (cores[0], cores[1]);
     }
 
+    private static float ScalarToGuaranteeSingleProcSurge(string modId)
+    {
+        float threshold = SpectacleDefinitions.ResolveSurgeThreshold();
+        float baseGain = SpectacleDefinitions.GetBaseGain(modId);
+        float copy = SpectacleDefinitions.GetCopyMultiplier(1);
+        float diversity = SpectacleDefinitions.GetDiversityMultiplier(1);
+        float meterScale = SpectacleDefinitions.ResolveMeterGainScale();
+        float damageScale = SpectacleDefinitions.ResolveDamageMeterMultiplier(eventDamage: -1f);
+
+        float perScalarGain = baseGain * copy * diversity * meterScale * damageScale;
+        Assert.True(perScalarGain > 0f);
+        return (threshold / perScalarGain) + 1f;
+    }
+
     private static IEnumerable<string[]> GenerateLoadoutsUpToThreeMods()
     {
         var current = new List<string>(capacity: 3);
@@ -491,26 +505,32 @@ public class SpectacleSystemTests
         var system = new SpectacleSystem();
         var tower = TowerWithMods("split_shot");
         int surgeCount = 0;
+        float scalarForSingleProcSurge = ScalarToGuaranteeSingleProcSurge("split_shot");
 
         system.OnSurgeTriggered += _ => surgeCount++;
 
         // Below surge threshold on first proc.
-        system.RegisterProc(tower, "split_shot", 30f);
+        system.RegisterProc(tower, "split_shot", scalarForSingleProcSurge * 0.25f);
         Assert.Equal(0, surgeCount);
 
         // Carried meter + second proc crosses surge threshold.
-        system.RegisterProc(tower, "split_shot", 90f);
+        system.RegisterProc(tower, "split_shot", scalarForSingleProcSurge * 0.80f);
         Assert.Equal(1, surgeCount);
     }
 
     [Fact]
-    public void GlobalTrigger_FiresAfterTenSurgesFromTwoTowers()
+    public void GlobalTrigger_FiresAfterRequiredSurgesFromTwoTowers()
     {
         var system = new SpectacleSystem();
         var towerA = TowerWithMods("split_shot");
         var towerB = TowerWithMods("split_shot");
         int globalCount = 0;
         GlobalSurgeTriggerInfo lastGlobal = default;
+        float scalarForSingleProcSurge = ScalarToGuaranteeSingleProcSurge("split_shot");
+        int requiredSurges = (int)Math.Ceiling(
+            SpectacleDefinitions.ResolveGlobalThreshold() /
+            Math.Max(0.0001f, SpectacleDefinitions.ResolveGlobalMeterPerSurge()));
+        int surgesIssued = 0;
 
         system.OnGlobalTriggered += info =>
         {
@@ -518,12 +538,16 @@ public class SpectacleSystemTests
             lastGlobal = info;
         };
 
-        // 10 surges total (5 per tower) fills global meter; final cycle includes both contributors.
-        for (int cycle = 0; cycle < 5; cycle++)
+        while (surgesIssued < requiredSurges)
         {
-            system.RegisterProc(towerA, "split_shot", 125f);
-            system.RegisterProc(towerB, "split_shot", 125f);
-            if (cycle < 4)
+            system.RegisterProc(towerA, "split_shot", scalarForSingleProcSurge);
+            surgesIssued++;
+            if (surgesIssued < requiredSurges)
+            {
+                system.RegisterProc(towerB, "split_shot", scalarForSingleProcSurge);
+                surgesIssued++;
+            }
+            if (surgesIssued < requiredSurges)
                 system.Update(SpectacleDefinitions.SurgeCooldownSeconds + 0.05f);
         }
 
@@ -540,6 +564,10 @@ public class SpectacleSystemTests
         int surgeCount = 0;
         int globalCount = 0;
         GlobalSurgeTriggerInfo lastGlobal = default;
+        float scalarForSingleProcSurge = ScalarToGuaranteeSingleProcSurge("split_shot");
+        int requiredSurges = (int)Math.Ceiling(
+            SpectacleDefinitions.ResolveGlobalThreshold() /
+            Math.Max(0.0001f, SpectacleDefinitions.ResolveGlobalMeterPerSurge()));
 
         system.OnSurgeTriggered += _ => surgeCount++;
         system.OnGlobalTriggered += info =>
@@ -548,14 +576,14 @@ public class SpectacleSystemTests
             lastGlobal = info;
         };
 
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < requiredSurges; i++)
         {
-            system.RegisterProc(tower, "split_shot", 125f);
-            if (i < 9)
+            system.RegisterProc(tower, "split_shot", scalarForSingleProcSurge);
+            if (i < requiredSurges - 1)
                 system.Update(SpectacleDefinitions.SurgeCooldownSeconds + 0.25f);
         }
 
-        Assert.Equal(10, surgeCount);
+        Assert.Equal(requiredSurges, surgeCount);
         Assert.Equal(1, globalCount);
         Assert.Equal(1, lastGlobal.UniqueContributors);
         Assert.Equal(SpectacleDefinitions.GlobalMeterAfterTrigger, lastGlobal.MeterAfter, 3);

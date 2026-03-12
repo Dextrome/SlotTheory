@@ -27,6 +27,7 @@ param(
     [int]$Runs = 120,
     [Alias("TuningIterations")][int]$Iterations = 4,
     [int]$CandidatesPerIteration = 3,
+    [int]$CandidateParallelism = 1,
     [int]$SweepRunsPerVariant = 12,
     [int]$Seed = 1337,
     [double]$MutationStrength = 1.0,
@@ -150,6 +151,12 @@ function New-NeutralTuningProfile {
         diversity_multiplier_scale = 1.0
         event_scalar_multiplier = 1.0
         second_stage_power_threshold = 0.95
+        normal_enemy_hp_multiplier = 1.24
+        normal_enemy_count_multiplier = 1.1
+        normal_spawn_interval_multiplier = 0.95
+        hard_enemy_hp_multiplier = 1.40
+        hard_enemy_count_multiplier = 1.15
+        hard_spawn_interval_multiplier = 0.90
         gain_multipliers = [PSCustomObject]@{
             overkill = 1.0
             chain_reaction = 1.0
@@ -244,6 +251,12 @@ function Normalize-TuningProfile {
     if ($props -contains "diversity_multiplier_scale") { $p.diversity_multiplier_scale = [double]$InputProfile.diversity_multiplier_scale }
     if ($props -contains "event_scalar_multiplier") { $p.event_scalar_multiplier = [double]$InputProfile.event_scalar_multiplier }
     if ($props -contains "second_stage_power_threshold") { $p.second_stage_power_threshold = [double]$InputProfile.second_stage_power_threshold }
+    if ($props -contains "normal_enemy_hp_multiplier") { $p.normal_enemy_hp_multiplier = [double]$InputProfile.normal_enemy_hp_multiplier }
+    if ($props -contains "normal_enemy_count_multiplier") { $p.normal_enemy_count_multiplier = [double]$InputProfile.normal_enemy_count_multiplier }
+    if ($props -contains "normal_spawn_interval_multiplier") { $p.normal_spawn_interval_multiplier = [double]$InputProfile.normal_spawn_interval_multiplier }
+    if ($props -contains "hard_enemy_hp_multiplier") { $p.hard_enemy_hp_multiplier = [double]$InputProfile.hard_enemy_hp_multiplier }
+    if ($props -contains "hard_enemy_count_multiplier") { $p.hard_enemy_count_multiplier = [double]$InputProfile.hard_enemy_count_multiplier }
+    if ($props -contains "hard_spawn_interval_multiplier") { $p.hard_spawn_interval_multiplier = [double]$InputProfile.hard_spawn_interval_multiplier }
 
     if ($props -contains "gain_multipliers" -and $InputProfile.gain_multipliers -ne $null) {
         $gm = $InputProfile.gain_multipliers.PSObject.Properties.Name
@@ -305,6 +318,12 @@ function Normalize-TuningProfile {
     $p.diversity_multiplier_scale = [Math]::Round((Clamp-Double -Value $p.diversity_multiplier_scale -Min 0.0 -Max 4.0), 4)
     $p.event_scalar_multiplier = [Math]::Round((Clamp-Double -Value $p.event_scalar_multiplier -Min 0.0 -Max 4.0), 4)
     $p.second_stage_power_threshold = [Math]::Round((Clamp-Double -Value $p.second_stage_power_threshold -Min 0.05 -Max 3.0), 4)
+    $p.normal_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_enemy_hp_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.normal_enemy_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_enemy_count_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.normal_spawn_interval_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_spawn_interval_multiplier -Min 0.2 -Max 3.0), 4)
+    $p.hard_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_enemy_hp_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.hard_enemy_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_enemy_count_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.hard_spawn_interval_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_spawn_interval_multiplier -Min 0.2 -Max 3.0), 4)
     $p.gain_multipliers.overkill = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.overkill -Min 0.0 -Max 4.0), 4)
     $p.gain_multipliers.chain_reaction = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.chain_reaction -Min 0.0 -Max 4.0), 4)
     $p.gain_multipliers.split_shot = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.split_shot -Min 0.0 -Max 4.0), 4)
@@ -611,6 +630,12 @@ function New-MutatedTuningProfile {
     $changed += Apply-Mutation -Obj $candidate -Name "diversity_multiplier_scale" -Step (0.22 * $scale) -Min 0.0 -Max 4.0
     $changed += Apply-Mutation -Obj $candidate -Name "event_scalar_multiplier" -Step (0.28 * $scale) -Min 0.0 -Max 4.0
     $changed += Apply-Mutation -Obj $candidate -Name "second_stage_power_threshold" -Step (0.15 * $scale) -Min 0.05 -Max 3.0
+    $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 0.1 -Max 5.0 -Chance 0.80
+    $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.80
+    $changed += Apply-Mutation -Obj $candidate -Name "normal_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 3.0 -Chance 0.80
+    $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 0.1 -Max 5.0 -Chance 0.80
+    $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.80
+    $changed += Apply-Mutation -Obj $candidate -Name "hard_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 3.0 -Chance 0.80
 
     $changed += Apply-Mutation -Obj $candidate.gain_multipliers -Name "overkill" -Step (0.30 * $scale) -Min 0.0 -Max 4.0 -Chance 0.65
     $changed += Apply-Mutation -Obj $candidate.gain_multipliers -Name "chain_reaction" -Step (0.30 * $scale) -Min 0.0 -Max 4.0 -Chance 0.65
@@ -673,15 +698,14 @@ function Write-SweepComparisonConfig {
     Set-Content -Path $OutputPath -Value $json -Encoding UTF8
 }
 
-function Invoke-BotMetricsRun {
+function New-BotMetricsArgs {
     param(
-        [Parameter(Mandatory = $true)][string]$GodotExe,
         [Parameter(Mandatory = $true)][string[]]$CommonPrefix,
         [Parameter(Mandatory = $true)][int]$RunsPerEval,
         [string]$StrategySet,
         [string]$TuningPath,
         [Parameter(Mandatory = $true)][string]$MetricsOut,
-        [Parameter(Mandatory = $true)][string]$Label
+        [int]$RunIndexOffset = 0
     )
 
     $args = @()
@@ -689,6 +713,10 @@ function Invoke-BotMetricsRun {
     $args += "--bot"
     $args += "--runs"
     $args += "$RunsPerEval"
+    if ($RunIndexOffset -gt 0) {
+        $args += "--run_index_offset"
+        $args += "$RunIndexOffset"
+    }
     if (-not [string]::IsNullOrWhiteSpace($StrategySet)) {
         $args += "--strategy_set"
         $args += $StrategySet
@@ -699,8 +727,510 @@ function Invoke-BotMetricsRun {
     }
     $args += "--bot_metrics_out"
     $args += $MetricsOut
+    return $args
+}
+
+function Invoke-BotMetricsRun {
+    param(
+        [Parameter(Mandatory = $true)][string]$GodotExe,
+        [Parameter(Mandatory = $true)][string[]]$CommonPrefix,
+        [Parameter(Mandatory = $true)][int]$RunsPerEval,
+        [string]$StrategySet,
+        [string]$TuningPath,
+        [Parameter(Mandatory = $true)][string]$MetricsOut,
+        [Parameter(Mandatory = $true)][string]$Label,
+        [int]$RunIndexOffset = 0
+    )
+
+    $args = New-BotMetricsArgs -CommonPrefix $CommonPrefix -RunsPerEval $RunsPerEval -StrategySet $StrategySet -TuningPath $TuningPath -MetricsOut $MetricsOut -RunIndexOffset $RunIndexOffset
 
     Invoke-GodotCommand -GodotExe $GodotExe -Args $args -Label $Label
+}
+
+function Invoke-BotMetricsRunBatch {
+    param(
+        [Parameter(Mandatory = $true)][string]$GodotExe,
+        [Parameter(Mandatory = $true)][string[]]$CommonPrefix,
+        [Parameter(Mandatory = $true)][int]$RunsPerEval,
+        [string]$StrategySet,
+        [Parameter(Mandatory = $true)][object[]]$CandidateSpecs,
+        [Parameter(Mandatory = $true)][int]$Parallelism
+    )
+
+    if ($Parallelism -le 1 -or $CandidateSpecs.Count -le 1) {
+        foreach ($spec in $CandidateSpecs) {
+            $specRuns = if ($null -ne $spec.PSObject.Properties["runs_per_eval"]) { [int]$spec.runs_per_eval } else { $RunsPerEval }
+            if ($specRuns -lt 1) { $specRuns = $RunsPerEval }
+            $specRunOffset = if ($null -ne $spec.PSObject.Properties["run_index_offset"]) { [int]$spec.run_index_offset } else { 0 }
+            if ($specRunOffset -lt 0) { $specRunOffset = 0 }
+            Invoke-BotMetricsRun `
+                -GodotExe $GodotExe `
+                -CommonPrefix $CommonPrefix `
+                -RunsPerEval $specRuns `
+                -StrategySet $StrategySet `
+                -TuningPath ([string]$spec.tuning_path) `
+                -MetricsOut ([string]$spec.metrics_path) `
+                -Label ([string]$spec.label) `
+                -RunIndexOffset $specRunOffset
+        }
+        return
+    }
+
+    $batchSize = [Math]::Max(1, $Parallelism)
+    for ($offset = 0; $offset -lt $CandidateSpecs.Count; $offset += $batchSize) {
+        $batch = @($CandidateSpecs | Select-Object -Skip $offset -First $batchSize)
+        $jobs = @()
+
+        foreach ($spec in $batch) {
+            $label = [string]$spec.label
+            $specRuns = if ($null -ne $spec.PSObject.Properties["runs_per_eval"]) { [int]$spec.runs_per_eval } else { $RunsPerEval }
+            if ($specRuns -lt 1) { $specRuns = $RunsPerEval }
+            $specRunOffset = if ($null -ne $spec.PSObject.Properties["run_index_offset"]) { [int]$spec.run_index_offset } else { 0 }
+            if ($specRunOffset -lt 0) { $specRunOffset = 0 }
+            Write-Host ""
+            Write-Host "=== $label (parallel launch) ==="
+            $args = New-BotMetricsArgs `
+                -CommonPrefix $CommonPrefix `
+                -RunsPerEval $specRuns `
+                -StrategySet $StrategySet `
+                -TuningPath ([string]$spec.tuning_path) `
+                -MetricsOut ([string]$spec.metrics_path) `
+                -RunIndexOffset $specRunOffset
+            $argsJson = $args | ConvertTo-Json -Compress
+
+            $job = Start-Job -Name ([string]$spec.candidate_id) -ScriptBlock {
+                param(
+                    [string]$Exe,
+                    [string]$CandidateId,
+                    [string]$ArgsJson
+                )
+
+                $cmdArgs = @($ArgsJson | ConvertFrom-Json)
+                & $Exe @cmdArgs | Out-Null
+                $exitCode = $LASTEXITCODE
+
+                [PSCustomObject]@{
+                    candidate_id = $CandidateId
+                    exit_code = $exitCode
+                }
+            } -ArgumentList $GodotExe, ([string]$spec.candidate_id), $argsJson
+
+            $jobs += [PSCustomObject]@{
+                spec = $spec
+                job = $job
+            }
+        }
+
+        Wait-Job -Job ($jobs | ForEach-Object { $_.job }) | Out-Null
+
+        foreach ($entry in $jobs) {
+            $result = Receive-Job -Job $entry.job -ErrorAction SilentlyContinue
+            $candidateId = [string]$entry.spec.candidate_id
+            $state = [string]$entry.job.State
+            $exitCode = if ($null -eq $result) { -1 } else { [int]$result.exit_code }
+            Remove-Job -Job $entry.job -Force | Out-Null
+
+            if ($state -ne "Completed" -or $exitCode -ne 0) {
+                throw "Candidate $candidateId failed in parallel bot run. Job state=$state exit_code=$exitCode"
+            }
+        }
+    }
+}
+
+function Get-RunShardPlan {
+    param(
+        [Parameter(Mandatory = $true)][int]$TotalRuns,
+        [Parameter(Mandatory = $true)][int]$ShardCount
+    )
+
+    $resolvedRuns = [Math]::Max(1, $TotalRuns)
+    $resolvedShards = [Math]::Max(1, [Math]::Min($ShardCount, $resolvedRuns))
+    $baseRuns = [Math]::Floor($resolvedRuns / $resolvedShards)
+    $remainder = $resolvedRuns % $resolvedShards
+    $offset = 0
+    $plan = @()
+
+    for ($i = 0; $i -lt $resolvedShards; $i++) {
+        $runsForShard = [int]$baseRuns
+        if ($i -lt $remainder) { $runsForShard++ }
+        $plan += [PSCustomObject]@{
+            shard_index = $i + 1
+            runs = $runsForShard
+            offset = $offset
+        }
+        $offset += $runsForShard
+    }
+
+    return $plan
+}
+
+function Get-SafeRunDps {
+    param(
+        [double]$Damage,
+        [double]$DurationSeconds
+    )
+
+    if ($DurationSeconds -le 0.0001) { return 0.0 }
+    return $Damage / $DurationSeconds
+}
+
+function Build-DiscreteDistribution {
+    param([object[]]$Values)
+
+    if ($null -eq $Values) { return @() }
+    return @(
+        $Values |
+            Group-Object |
+            Sort-Object { [int]$_.Name } |
+            ForEach-Object {
+                [PSCustomObject]@{
+                    value = [int]$_.Name
+                    count = [int]$_.Count
+                }
+            }
+    )
+}
+
+function Build-SparseBinnedDistribution {
+    param(
+        [object[]]$Values,
+        [double]$BinSize
+    )
+
+    if ($null -eq $Values -or $BinSize -le 0.0) { return @() }
+
+    $buckets = @{}
+    foreach ($raw in $Values) {
+        $value = [double]$raw
+        if ($value -lt 0.0) { $value = 0.0 }
+        $binIndex = [int][Math]::Floor($value / $BinSize)
+        if ($buckets.ContainsKey($binIndex)) {
+            $buckets[$binIndex] = [int]$buckets[$binIndex] + 1
+        } else {
+            $buckets[$binIndex] = 1
+        }
+    }
+
+    return @(
+        $buckets.Keys |
+            Sort-Object |
+            ForEach-Object {
+                $binIndex = [int]$_
+                [PSCustomObject]@{
+                    bin_start = [Math]::Round($binIndex * $BinSize, 6)
+                    bin_end = [Math]::Round(($binIndex + 1) * $BinSize, 6)
+                    bin_start_percent = [Math]::Round($binIndex * $BinSize * 100.0, 6)
+                    bin_end_percent = [Math]::Round(($binIndex + 1) * $BinSize * 100.0, 6)
+                    count = [int]$buckets[$binIndex]
+                }
+            }
+    )
+}
+
+function Merge-BotMetricsShards {
+    param(
+        [Parameter(Mandatory = $true)][string[]]$ShardMetricsPaths,
+        [Parameter(Mandatory = $true)][string]$OutputPath
+    )
+
+    if ($null -eq $ShardMetricsPaths -or $ShardMetricsPaths.Count -lt 1) {
+        throw "Merge-BotMetricsShards requires at least one shard metrics file."
+    }
+
+    if ($ShardMetricsPaths.Count -eq 1) {
+        Copy-Item -Path $ShardMetricsPaths[0] -Destination $OutputPath -Force
+        return
+    }
+
+    $payloads = @()
+    foreach ($path in $ShardMetricsPaths) {
+        $payloads += Read-MetricsPayload -MetricsPath $path
+    }
+
+    $allRuns = @()
+    foreach ($payload in $payloads) {
+        if ($null -ne $payload -and $null -ne $payload.runs) {
+            $allRuns += @($payload.runs)
+        }
+    }
+
+    $runCount = [int]$allRuns.Count
+    if ($runCount -le 0) {
+        throw "Merged shard metrics contained zero runs."
+    }
+
+    $tuningProfile = [string]$payloads[0].tuning_profile
+    if ([string]::IsNullOrWhiteSpace($tuningProfile)) {
+        $tuningProfile = "baseline"
+    }
+
+    function Get-WeightedSummaryAverage {
+        param([string]$PropertyName)
+        $numerator = 0.0
+        $denominator = 0.0
+        foreach ($payload in $payloads) {
+            $payloadRunCount = [int](Get-NumberValue -Obj $payload -Property "run_count")
+            if ($payloadRunCount -le 0 -and $null -ne $payload.runs) {
+                $payloadRunCount = @($payload.runs).Count
+            }
+            if ($payloadRunCount -le 0) { continue }
+
+            $value = Get-NumberValue -Obj $payload.summary -Property $PropertyName
+            $numerator += $value * $payloadRunCount
+            $denominator += $payloadRunCount
+        }
+        if ($denominator -le 0.0) { return 0.0 }
+        return $numerator / $denominator
+    }
+
+    $wonCount = 0
+    $waveSum = 0.0
+    $durationSum = 0.0
+    $surgesSum = 0.0
+    $statusDetSum = 0.0
+    $residueUptimeSum = 0.0
+    $chainDepthSum = 0.0
+    $baseDpsSum = 0.0
+    $surgeDpsSum = 0.0
+    $explosionDpsSum = 0.0
+    $residueDpsSum = 0.0
+    $totalExplosionDamage = 0.0
+    $peakExplosions = 0
+    $peakHazards = 0
+    $peakHitStops = 0
+    $surgeIntervals = @()
+    $surgesPerRunValues = @()
+    $chainDepthValues = @()
+    $waveReachedValues = @()
+    $explosionShareValues = @()
+
+    foreach ($run in $allRuns) {
+        if ($run.won -eq $true) { $wonCount++ }
+
+        $waveReached = [int](Get-NumberValue -Obj $run -Property "wave_reached")
+        $runDuration = Get-NumberValue -Obj $run -Property "run_duration_seconds"
+        $surges = [int](Get-NumberValue -Obj $run -Property "surges")
+        $surgeInterval = Get-NumberValue -Obj $run -Property "surge_interval_seconds"
+        $statusDet = Get-NumberValue -Obj $run -Property "status_detonations"
+        $residueUptime = Get-NumberValue -Obj $run -Property "residue_uptime_seconds"
+        $chainDepth = [int](Get-NumberValue -Obj $run -Property "max_chain_depth")
+
+        $damageSplit = $run.damage_split
+        $baseDamage = Get-NumberValue -Obj $damageSplit -Property "base_attacks"
+        $surgeDamage = Get-NumberValue -Obj $damageSplit -Property "surge_core"
+        $explosionDamage = Get-NumberValue -Obj $damageSplit -Property "explosion_follow_ups"
+        $residueDamage = Get-NumberValue -Obj $damageSplit -Property "residue"
+        $runExplosionDamage = $explosionDamage + $residueDamage
+        $runTotalDamage = $baseDamage + $surgeDamage + $explosionDamage + $residueDamage
+
+        $frameStress = $run.frame_stress
+        $runPeakExplosions = [int](Get-NumberValue -Obj $frameStress -Property "simultaneous_explosions")
+        $runPeakHazards = [int](Get-NumberValue -Obj $frameStress -Property "simultaneous_active_hazards")
+        $runPeakHitStops = [int](Get-NumberValue -Obj $frameStress -Property "simultaneous_hitstops_requested")
+
+        $waveSum += $waveReached
+        $durationSum += $runDuration
+        $surgesSum += $surges
+        $statusDetSum += $statusDet
+        $residueUptimeSum += $residueUptime
+        $chainDepthSum += $chainDepth
+        $baseDpsSum += (Get-SafeRunDps -Damage $baseDamage -DurationSeconds $runDuration)
+        $surgeDpsSum += (Get-SafeRunDps -Damage $surgeDamage -DurationSeconds $runDuration)
+        $explosionDpsSum += (Get-SafeRunDps -Damage $explosionDamage -DurationSeconds $runDuration)
+        $residueDpsSum += (Get-SafeRunDps -Damage $residueDamage -DurationSeconds $runDuration)
+        $totalExplosionDamage += $runExplosionDamage
+
+        if ($surges -gt 0 -and $surgeInterval -gt 0.0) {
+            $surgeIntervals += $surgeInterval
+        }
+
+        $surgesPerRunValues += $surges
+        $chainDepthValues += $chainDepth
+        $waveReachedValues += $waveReached
+        if ($runTotalDamage -gt 0.0001) {
+            $explosionShareValues += ($runExplosionDamage / $runTotalDamage)
+        } else {
+            $explosionShareValues += 0.0
+        }
+
+        if ($runPeakExplosions -gt $peakExplosions) { $peakExplosions = $runPeakExplosions }
+        if ($runPeakHazards -gt $peakHazards) { $peakHazards = $runPeakHazards }
+        if ($runPeakHitStops -gt $peakHitStops) { $peakHitStops = $runPeakHitStops }
+    }
+
+    $towerAggregate = @{}
+    foreach ($payload in $payloads) {
+        $rows = @()
+        if ($null -ne $payload.summary -and $null -ne $payload.summary.surges_by_tower) {
+            $rows = @($payload.summary.surges_by_tower)
+        }
+
+        foreach ($row in $rows) {
+            $towerId = [string]$row.tower_id
+            if ([string]::IsNullOrWhiteSpace($towerId)) { continue }
+            $placements = [int](Get-NumberValue -Obj $row -Property "placements")
+            $surges = [int](Get-NumberValue -Obj $row -Property "surges")
+            if (-not $towerAggregate.ContainsKey($towerId)) {
+                $towerAggregate[$towerId] = [PSCustomObject]@{
+                    placements = 0
+                    surges = 0
+                }
+            }
+            $towerAggregate[$towerId].placements = [int]$towerAggregate[$towerId].placements + $placements
+            $towerAggregate[$towerId].surges = [int]$towerAggregate[$towerId].surges + $surges
+        }
+    }
+
+    $surgesByTowerRows = @()
+    foreach ($towerId in ($towerAggregate.Keys | Sort-Object)) {
+        $placements = [int]$towerAggregate[$towerId].placements
+        $surges = [int]$towerAggregate[$towerId].surges
+        $surgesPerPlacedTower = if ($placements -gt 0) { [double]$surges / [double]$placements } else { 0.0 }
+        $surgesByTowerRows += [PSCustomObject]@{
+            tower_id = $towerId
+            placements = $placements
+            surges = $surges
+            surges_per_placed_tower = [Math]::Round($surgesPerPlacedTower, 6)
+        }
+    }
+
+    $estimatedExplosionTriggers = 0.0
+    foreach ($payload in $payloads) {
+        $payloadRunCount = [int](Get-NumberValue -Obj $payload -Property "run_count")
+        if ($payloadRunCount -le 0 -and $null -ne $payload.runs) {
+            $payloadRunCount = @($payload.runs).Count
+        }
+        if ($payloadRunCount -le 0) { continue }
+
+        $avgExplosionDamagePerRunShard = Get-NumberValue -Obj $payload.summary -Property "avg_explosion_damage_per_run"
+        $avgExplosionDamagePerTriggerShard = Get-NumberValue -Obj $payload.summary -Property "avg_explosion_damage_per_trigger"
+        if ($avgExplosionDamagePerRunShard -le 0.0 -or $avgExplosionDamagePerTriggerShard -le 0.000001) { continue }
+
+        $estimatedExplosionTriggers += ($avgExplosionDamagePerRunShard * $payloadRunCount) / $avgExplosionDamagePerTriggerShard
+    }
+
+    $avgSurgeIntervalSeconds = if ($surgeIntervals.Count -gt 0) {
+        ($surgeIntervals | Measure-Object -Average).Average
+    } else {
+        0.0
+    }
+
+    $avgExplosionDamagePerTrigger = if ($estimatedExplosionTriggers -gt 0.000001) {
+        $totalExplosionDamage / $estimatedExplosionTriggers
+    } else {
+        0.0
+    }
+
+    $explosionShareBinSize = 0.001
+    $payload = [ordered]@{
+        generated_utc = (Get-Date).ToUniversalTime().ToString("o")
+        tuning_profile = $tuningProfile
+        run_count = $runCount
+        summary = [ordered]@{
+            win_rate = [Math]::Round(([double]$wonCount / [double]$runCount), 6)
+            avg_wave_reached = [Math]::Round(($waveSum / [double]$runCount), 6)
+            avg_run_duration_seconds = [Math]::Round(($durationSum / [double]$runCount), 6)
+            avg_surges_per_run = [Math]::Round(($surgesSum / [double]$runCount), 6)
+            avg_surge_interval_seconds = [Math]::Round($avgSurgeIntervalSeconds, 6)
+            avg_kills_per_surge = [Math]::Round((Get-WeightedSummaryAverage -PropertyName "avg_kills_per_surge"), 6)
+            avg_explosion_damage_per_run = [Math]::Round(($totalExplosionDamage / [double]$runCount), 6)
+            avg_explosion_damage_per_trigger = [Math]::Round($avgExplosionDamagePerTrigger, 6)
+            avg_status_detonation_count = [Math]::Round(($statusDetSum / [double]$runCount), 6)
+            avg_residue_uptime_seconds = [Math]::Round(($residueUptimeSum / [double]$runCount), 6)
+            avg_max_chain_depth = [Math]::Round(($chainDepthSum / [double]$runCount), 6)
+            dps_split = [ordered]@{
+                base_attacks = [Math]::Round(($baseDpsSum / [double]$runCount), 6)
+                surge_core = [Math]::Round(($surgeDpsSum / [double]$runCount), 6)
+                explosion_follow_ups = [Math]::Round(($explosionDpsSum / [double]$runCount), 6)
+                residue = [Math]::Round(($residueDpsSum / [double]$runCount), 6)
+            }
+            frame_stress_peaks = [ordered]@{
+                simultaneous_explosions = $peakExplosions
+                simultaneous_active_hazards = $peakHazards
+                simultaneous_hitstops_requested = $peakHitStops
+            }
+            surges_by_tower = $surgesByTowerRows
+            distributions = [ordered]@{
+                surges_per_run = (Build-DiscreteDistribution -Values $surgesPerRunValues)
+                chain_depth_per_run = (Build-DiscreteDistribution -Values $chainDepthValues)
+                wave_reached_per_run = (Build-DiscreteDistribution -Values $waveReachedValues)
+                explosion_damage_share_per_run = [ordered]@{
+                    bin_size_fraction = $explosionShareBinSize
+                    bin_size_percent = $explosionShareBinSize * 100.0
+                    bins = (Build-SparseBinnedDistribution -Values $explosionShareValues -BinSize $explosionShareBinSize)
+                }
+            }
+        }
+        runs = $allRuns
+    }
+
+    $dir = Split-Path -Parent $OutputPath
+    if (-not [string]::IsNullOrWhiteSpace($dir)) {
+        Ensure-Directory -PathValue $dir
+    }
+
+    $json = $payload | ConvertTo-Json -Depth 14
+    Set-Content -Path $OutputPath -Value $json -Encoding UTF8
+}
+
+function Invoke-BotMetricsRunSharded {
+    param(
+        [Parameter(Mandatory = $true)][string]$GodotExe,
+        [Parameter(Mandatory = $true)][string[]]$CommonPrefix,
+        [Parameter(Mandatory = $true)][int]$RunsPerEval,
+        [string]$StrategySet,
+        [string]$TuningPath,
+        [Parameter(Mandatory = $true)][string]$MetricsOut,
+        [Parameter(Mandatory = $true)][string]$Label,
+        [Parameter(Mandatory = $true)][int]$Parallelism
+    )
+
+    $effectiveParallelism = [Math]::Max(1, [Math]::Min($Parallelism, $RunsPerEval))
+    if ($effectiveParallelism -le 1) {
+        Invoke-BotMetricsRun `
+            -GodotExe $GodotExe `
+            -CommonPrefix $CommonPrefix `
+            -RunsPerEval $RunsPerEval `
+            -StrategySet $StrategySet `
+            -TuningPath $TuningPath `
+            -MetricsOut $MetricsOut `
+            -Label $Label
+        return
+    }
+
+    $outDir = Split-Path -Parent $MetricsOut
+    if (-not [string]::IsNullOrWhiteSpace($outDir)) {
+        Ensure-Directory -PathValue $outDir
+    }
+    $baseName = [System.IO.Path]::GetFileNameWithoutExtension($MetricsOut)
+    $ext = [System.IO.Path]::GetExtension($MetricsOut)
+    if ([string]::IsNullOrWhiteSpace($ext)) { $ext = ".json" }
+
+    $shardPlan = Get-RunShardPlan -TotalRuns $RunsPerEval -ShardCount $effectiveParallelism
+    $shardSpecs = @()
+    foreach ($shard in $shardPlan) {
+        $shardId = "shard{0:d2}" -f ([int]$shard.shard_index)
+        $shardMetricsOut = Join-Path $outDir "$baseName.$shardId$ext"
+        $shardSpecs += [PSCustomObject]@{
+            candidate_id = $shardId
+            tuning_path = $TuningPath
+            metrics_path = $shardMetricsOut
+            label = "$Label [$shardId runs=$($shard.runs) offset=$($shard.offset)]"
+            runs_per_eval = [int]$shard.runs
+            run_index_offset = [int]$shard.offset
+        }
+    }
+
+    Invoke-BotMetricsRunBatch `
+        -GodotExe $GodotExe `
+        -CommonPrefix $CommonPrefix `
+        -RunsPerEval $RunsPerEval `
+        -StrategySet $StrategySet `
+        -CandidateSpecs $shardSpecs `
+        -Parallelism $effectiveParallelism
+
+    $shardPaths = @($shardSpecs | ForEach-Object { [string]$_.metrics_path })
+    Merge-BotMetricsShards -ShardMetricsPaths $shardPaths -OutputPath $MetricsOut
 }
 
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -726,6 +1256,7 @@ Assert-FileExists -PathValue $scenarioFileResolved -Label "Scenario suite file"
 if ($Runs -lt 1) { throw "Runs must be >= 1." }
 if ($Iterations -lt 1) { throw "Iterations must be >= 1." }
 if ($CandidatesPerIteration -lt 1) { throw "CandidatesPerIteration must be >= 1." }
+if ($CandidateParallelism -lt 1) { throw "CandidateParallelism must be >= 1." }
 if ($SweepRunsPerVariant -lt 1) { throw "SweepRunsPerVariant must be >= 1." }
 if ($MutationStrength -le 0) { throw "MutationStrength must be > 0." }
 if ($TargetExplosionShareTolerance -le 0) { throw "TargetExplosionShareTolerance must be > 0." }
@@ -735,6 +1266,9 @@ if ($MinTowerPlacementsForParity -lt 1) { throw "MinTowerPlacementsForParity mus
 if ($TargetWinRateEasy -lt 0 -or $TargetWinRateEasy -gt 1) { throw "TargetWinRateEasy must be between 0 and 1." }
 if ($TargetWinRateNormal -lt 0 -or $TargetWinRateNormal -gt 1) { throw "TargetWinRateNormal must be between 0 and 1." }
 if ($TargetWinRateHard -lt 0 -or $TargetWinRateHard -gt 1) { throw "TargetWinRateHard must be between 0 and 1." }
+if ($CandidateParallelism -gt 1 -and $null -eq (Get-Command Start-Job -ErrorAction SilentlyContinue)) {
+    throw "CandidateParallelism > 1 requires Start-Job support in this PowerShell host."
+}
 $rawStrategySet = if ($null -eq $StrategySet) { "" } else { [string]$StrategySet }
 $strategySetNormalized = $rawStrategySet.Trim().ToLowerInvariant()
 if ([string]::IsNullOrWhiteSpace($strategySetNormalized)) {
@@ -743,6 +1277,9 @@ if ([string]::IsNullOrWhiteSpace($strategySetNormalized)) {
 if ($strategySetNormalized -notin @("all", "optimization", "edge")) {
     throw "StrategySet must be one of: all, optimization, edge."
 }
+
+$effectiveCandidateParallelism = [Math]::Max(1, [Math]::Min($CandidateParallelism, $CandidatesPerIteration))
+$effectiveRunParallelism = [Math]::Max(1, [Math]::Min($CandidateParallelism, $Runs))
 
 $script:Rng = [System.Random]::new($Seed)
 
@@ -757,6 +1294,7 @@ Write-Host "Godot exe:    $godotExe"
 Write-Host "Runs:         $Runs"
 Write-Host "Iterations:   $Iterations"
 Write-Host "Candidates:   $CandidatesPerIteration per iteration"
+Write-Host "Parallelism:  candidates=$effectiveCandidateParallelism, eval_shards=$effectiveRunParallelism"
 Write-Host "Strategy set: $strategySetNormalized"
 Write-Host "Seed:         $Seed"
 Write-Host "Output dir:   $runDir"
@@ -789,7 +1327,7 @@ $deltaOut = Join-Path $runDir "bot_metrics_delta.txt"
 $bestTuningOut = Join-Path $runDir "best_tuning.json"
 $autoTuneReportOut = Join-Path $runDir "autotune_report.json"
 
-Invoke-BotMetricsRun -GodotExe $godotExe -CommonPrefix $commonPrefix -RunsPerEval $Runs -StrategySet $strategySetNormalized -MetricsOut $baselineMetricsOut -Label "[1/8] Baseline bot metrics"
+Invoke-BotMetricsRunSharded -GodotExe $godotExe -CommonPrefix $commonPrefix -RunsPerEval $Runs -StrategySet $strategySetNormalized -MetricsOut $baselineMetricsOut -Label "[1/8] Baseline bot metrics" -Parallelism $effectiveRunParallelism
 $baselinePayload = Read-MetricsPayload -MetricsPath $baselineMetricsOut
 $baselineScore = Get-MetricsScore `
     -Summary $baselinePayload.summary `
@@ -814,7 +1352,7 @@ $startProfile = Normalize-TuningProfile -InputProfile $startProfileRaw
 $seedTuningPath = Join-Path $autoTuneDir "seed_tuning.json"
 $seedMetricsPath = Join-Path $autoTuneDir "seed_metrics.json"
 Write-TuningProfile -Profile $startProfile -OutputPath $seedTuningPath
-Invoke-BotMetricsRun -GodotExe $godotExe -CommonPrefix $commonPrefix -RunsPerEval $Runs -StrategySet $strategySetNormalized -TuningPath $seedTuningPath -MetricsOut $seedMetricsPath -Label "[2/8] Evaluate starting tuning profile"
+Invoke-BotMetricsRunSharded -GodotExe $godotExe -CommonPrefix $commonPrefix -RunsPerEval $Runs -StrategySet $strategySetNormalized -TuningPath $seedTuningPath -MetricsOut $seedMetricsPath -Label "[2/8] Evaluate starting tuning profile" -Parallelism $effectiveRunParallelism
 $seedPayload = Read-MetricsPayload -MetricsPath $seedMetricsPath
 $seedScore = Get-MetricsScore `
     -Summary $seedPayload.summary `
@@ -881,6 +1419,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
     Write-Host "=== [3/8] Auto-tune iteration $iteration/$Iterations (anneal=$([Math]::Round($anneal,3))) ==="
 
     $iterCandidates = @()
+    $candidateSpecs = @()
 
     for ($candidateIndex = 1; $candidateIndex -le $CandidatesPerIteration; $candidateIndex++) {
         $candidateId = "iter{0:d2}_cand{1:d2}" -f $iteration, $candidateIndex
@@ -894,16 +1433,28 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         $candidateTuningPath = Join-Path $iterDir "$candidateId.tuning.json"
         $candidateMetricsPath = Join-Path $iterDir "$candidateId.metrics.json"
         Write-TuningProfile -Profile $candidateProfile -OutputPath $candidateTuningPath
+        $candidateSpecs += [PSCustomObject]@{
+            candidate_id = $candidateId
+            candidate_type = $candidateType
+            tuning_path = $candidateTuningPath
+            metrics_path = $candidateMetricsPath
+            label = "[3/8][$iteration/$Iterations] Evaluate $candidateId ($candidateType)"
+        }
+    }
 
-        Invoke-BotMetricsRun `
-            -GodotExe $godotExe `
-            -CommonPrefix $commonPrefix `
-            -RunsPerEval $Runs `
-            -StrategySet $strategySetNormalized `
-            -TuningPath $candidateTuningPath `
-            -MetricsOut $candidateMetricsPath `
-            -Label "[3/8][$iteration/$Iterations] Evaluate $candidateId ($candidateType)"
+    Invoke-BotMetricsRunBatch `
+        -GodotExe $godotExe `
+        -CommonPrefix $commonPrefix `
+        -RunsPerEval $Runs `
+        -StrategySet $strategySetNormalized `
+        -CandidateSpecs $candidateSpecs `
+        -Parallelism $effectiveCandidateParallelism
 
+    foreach ($spec in $candidateSpecs) {
+        $candidateId = [string]$spec.candidate_id
+        $candidateType = [string]$spec.candidate_type
+        $candidateTuningPath = [string]$spec.tuning_path
+        $candidateMetricsPath = [string]$spec.metrics_path
         $candidatePayload = Read-MetricsPayload -MetricsPath $candidateMetricsPath
         $candidateScore = Get-MetricsScore `
             -Summary $candidatePayload.summary `
@@ -1014,7 +1565,7 @@ Invoke-GodotCommand -GodotExe $godotExe -Label "[7/8] Final sweep comparison (ba
     $commonPrefix + @("--lab_sweep", $finalSweepConfig, "--lab_out", $sweepReportOut)
 )
 
-Invoke-BotMetricsRun -GodotExe $godotExe -CommonPrefix $commonPrefix -RunsPerEval $Runs -StrategySet $strategySetNormalized -TuningPath $bestTuningOut -MetricsOut $tunedMetricsOut -Label "[8/8] Final tuned bot metrics (global best)"
+Invoke-BotMetricsRunSharded -GodotExe $godotExe -CommonPrefix $commonPrefix -RunsPerEval $Runs -StrategySet $strategySetNormalized -TuningPath $bestTuningOut -MetricsOut $tunedMetricsOut -Label "[8/8] Final tuned bot metrics (global best)" -Parallelism $effectiveRunParallelism
 
 if (-not $SkipTrace) {
     Invoke-GodotCommand -GodotExe $godotExe -Label "[8/8] Live bot trace capture (global best)" -Args (
@@ -1052,6 +1603,8 @@ $reportPayload = [ordered]@{
     runs = $Runs
     iterations = $Iterations
     candidates_per_iteration = $CandidatesPerIteration
+    candidate_parallelism = $effectiveCandidateParallelism
+    eval_shard_parallelism = $effectiveRunParallelism
     strategy_set = $strategySetNormalized
     seed = $Seed
     scoring = [ordered]@{
