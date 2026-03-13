@@ -133,7 +133,6 @@ public partial class GameController : Node
 	private bool _perfReportHotkeyLatch;
 	private readonly SpectacleSystem _spectacleSystem = new();
 	private readonly List<ExplosionResidueState> _explosionResidues = new();
-	private ulong _nextExplosionBassHitMs;
 
 	private enum SpectacleConsequenceKind
 	{
@@ -829,7 +828,6 @@ public partial class GameController : Node
 		_spectacleSlowMoToken = 0;
 		EnemyInstance.SetSpectacleSpeedMultiplier(1f);
 		_explosionResidues.Clear();
-		_nextExplosionBassHitMs = 0;
 		_draftSynergyHintModifierId = "";
 		_draftSynergyPulseT = 0f;
 		_lowLivesHeartbeatTimer = 0f;
@@ -2597,7 +2595,6 @@ public partial class GameController : Node
 			spawnResidue: surgeRider != SpectacleConsequenceKind.None);
 		if (!mobileLite)
 			SoundManager.Instance?.Play("mine_chain_pop", pitchScale: 1.08f);
-		PlayExplosionBassHit(info.Signature.SurgePower, globalSurge: false);
 		ApplySpectacleGameplayPayload(info, isMajor: true);
 		TriggerStatusDetonationChain(
 			sourceTower,
@@ -2653,8 +2650,6 @@ public partial class GameController : Node
 		SpawnGlobalSurgeRipples(center, globalColor, Mathf.Max(2, info.UniqueContributors));
 		FlashSpectacleScreen(globalColor, peakAlpha: 0.28f, rampSec: 0.09f, fadeSec: 0.62f);
 		SoundManager.Instance?.Play("wave20_swell");
-		if (!mobileLite)
-			PlayExplosionBassHit(surgePower: 2.15f, globalSurge: true);
 
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
@@ -4551,8 +4546,6 @@ public partial class GameController : Node
 			{
 				ShakeWorldMicro();
 				SoundManager.Instance?.Play("mine_chain_pop", pitchScale: major ? 0.92f : 0.98f);
-				if (major)
-					PlayExplosionBassHit(power, globalSurge: false);
 			}
 		}
 
@@ -4935,29 +4928,6 @@ public partial class GameController : Node
 			_spectacleAfterimage.Visible = false;
 			_spectacleAfterimage.Scale = Vector2.One;
 		}));
-	}
-
-	private void PlayExplosionBassHit(float surgePower, bool globalSurge)
-	{
-		if (_botRunner != null)
-			return;
-
-		ulong now = Time.GetTicksMsec();
-		ulong minGapMs = globalSurge ? 130u : 90u;
-		if (IsMobileSpectacleLite())
-			minGapMs = globalSurge ? 320u : 200u;
-		if (now < _nextExplosionBassHitMs)
-			return;
-		_nextExplosionBassHitMs = now + minGapMs;
-
-		float pitch = Mathf.Clamp(
-			(globalSurge ? 0.84f : 0.90f) + Mathf.Clamp(surgePower, 0.6f, 2.2f) * 0.05f,
-			0.82f,
-			1.08f);
-		SoundManager.Instance?.Play("spectacle_bass_hit", pitchScale: pitch);
-		SoundManager.Instance?.DuckMusic(
-			amountDb: globalSurge ? 2.4f : 1.7f,
-			holdSeconds: globalSurge ? 0.18f : 0.12f);
 	}
 
 	private void TrySpawnExplosionResidue(

@@ -15,10 +15,12 @@ public partial class LeaderboardManager : Node
 
     private const string RetryQueuePath = "user://leaderboard_retry_queue.json";
     private const double RetryFlushIntervalSeconds = 20.0;
+    private const double InitRetryIntervalSeconds = 15.0;
 
     private ILeaderboardService _service = new NullLeaderboardService();
     private readonly List<PendingSubmission> _retryQueue = new();
     private System.Threading.Tasks.Task? _initTask;   // all callers await the same task
+    private double _nextInitRetryAtUnixSeconds;
     private bool _isFlushingRetryQueue;
     private double _retryFlushCountdown = RetryFlushIntervalSeconds;
 
@@ -112,8 +114,34 @@ public partial class LeaderboardManager : Node
 
     private System.Threading.Tasks.Task EnsureInitializedAsync()
     {
-        _initTask ??= _service.InitializeAsync();
+        double now = Time.GetUnixTimeFromSystem();
+        bool hasInFlightInitTask = _initTask != null && !_initTask.IsCompleted;
+        bool hasCompletedInitTask = _initTask != null && _initTask.IsCompleted;
+        if (!LeaderboardRetryQueuePolicy.ShouldAttemptInitialization(
+                _service.IsAvailable,
+                hasInFlightInitTask,
+                hasCompletedInitTask,
+                now,
+                _nextInitRetryAtUnixSeconds))
+        {
+            return _initTask ?? System.Threading.Tasks.Task.CompletedTask;
+        }
+
+        _nextInitRetryAtUnixSeconds = now + InitRetryIntervalSeconds;
+        _initTask = InitializeServiceSafeAsync();
         return _initTask;
+    }
+
+    private async System.Threading.Tasks.Task InitializeServiceSafeAsync()
+    {
+        try
+        {
+            await _service.InitializeAsync();
+        }
+        catch (System.Exception ex)
+        {
+            GD.PrintErr($"[Leaderboards] Service init failed: {ex.Message}");
+        }
     }
 
     private async System.Threading.Tasks.Task FlushRetryQueueAsync()
@@ -127,8 +155,12 @@ public partial class LeaderboardManager : Node
         _isFlushingRetryQueue = true;
         try
         {
-            while (_retryQueue.Count > 0)
+            // Process each currently queued entry at most once per flush cycle so
+            // a single permanently failing run cannot block everything behind it.
+            int pendingToScan = LeaderboardRetryQueuePolicy.BeginFlushBudget(_retryQueue.Count);
+            while (LeaderboardRetryQueuePolicy.HasFlushWork(_retryQueue.Count, pendingToScan))
             {
+                pendingToScan--;
                 var next = _retryQueue[0];
                 var bucket = new LeaderboardBucket(next.Payload.MapId, next.Payload.Difficulty);
                 if (!bucket.IsGlobalEligible)
@@ -139,15 +171,11 @@ public partial class LeaderboardManager : Node
                 }
 
                 var result = await _service.SubmitScoreAsync(bucket, next.Payload, next.Score);
-                if (result.State == GlobalSubmitState.Submitted)
-                {
-                    _retryQueue.RemoveAt(0);
-                    SaveRetryQueue();
-                    continue;
-                }
-
-                // Stop and retry later on any non-success result.
-                break;
+                LeaderboardRetryQueuePolicy.ApplySubmissionResult(
+                    _retryQueue,
+                    result,
+                    (entry, message) => entry.Reason = message);
+                SaveRetryQueue();
             }
         }
         finally

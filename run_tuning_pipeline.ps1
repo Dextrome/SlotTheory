@@ -7,8 +7,8 @@
 #    - Generate candidate tuning profiles
 #    - Run bot metrics per candidate
 #    - Score candidates and keep the best
-#    - Validate iteration best with scenario suite
-#    - Compare baseline vs iteration-best via generated sweep
+#    - Validate iteration best with scenario suite (only when global best improves)
+#    - Compare baseline vs iteration-best via generated sweep (only when global best improves)
 # 4) Final validation/reporting with global best:
 #    - Scenario suite
 #    - Sweep comparison
@@ -22,6 +22,11 @@
 #   powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -Runs 60 -Iterations 6 -CandidatesPerIteration 4
 #   powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -StrategySet optimization
 #   powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -SkipBuild -SkipTrace
+#
+# TODO(perf-step-3): Add multi-fidelity candidate evaluation (coarse runs for all candidates, full runs for shortlisted candidates).
+# TODO(perf-step-4): Add a dedicated eval shard parallelism parameter (separate from CandidateParallelism).
+# TODO(perf-step-5): Add deterministic metrics cache keyed by tuning hash + runs + strategy_set + run_index_offset.
+# TODO(perf-step-6): Add explicit "search mode" defaults/presets plus a final confirmation pass mode.
 
 [CmdletBinding()]
 param(
@@ -38,10 +43,14 @@ param(
     [double]$TargetWinRateNormal = 0.75,
     [double]$TargetWinRateHard = 0.45,
     [double]$TargetWinRateTolerance = 0.06,
+    [double]$DifficultyRegressionTolerance = 0.01,
+    [double]$NormalRegressionPenaltyWeight = 260.0,
+    [double]$HardRegressionPenaltyWeight = 320.0,
     [double]$TargetMaxTowerSurgeRatio = 2.0,
     [double]$TargetMaxSurgesPerRun = 50.0,
     [double]$TargetMaxSurgesPerRunTolerance = 2.0,
     [double]$SurgesPerRunPenaltyWeight = 6.0,
+    [double]$MinSweepScoreRatioVsBaseline = 1.0,
     [int]$MinTowerPlacementsForParity = 6,
     [double]$MaxChainDepth = 4.0,
     [int]$MaxSimultaneousExplosions = 8,
@@ -300,14 +309,15 @@ function Normalize-TuningProfile {
     $p.residue_tick_interval_multiplier = [Math]::Round((Clamp-Double -Value $p.residue_tick_interval_multiplier -Min 0.2 -Max 4.0), 4)
     $p.residue_max_active_multiplier = [Math]::Round((Clamp-Double -Value $p.residue_max_active_multiplier -Min 0.1 -Max 4.0), 4)
     $p.explosion_followup_damage_multiplier = [Math]::Round((Clamp-Double -Value $p.explosion_followup_damage_multiplier -Min 0.0 -Max 6.0), 4)
-    $p.meter_gain_multiplier = [Math]::Round((Clamp-Double -Value $p.meter_gain_multiplier -Min 0.0 -Max 4.0), 4)
-    $p.surge_threshold_multiplier = [Math]::Round((Clamp-Double -Value $p.surge_threshold_multiplier -Min 0.05 -Max 4.0), 4)
-    $p.surge_cooldown_multiplier = [Math]::Round((Clamp-Double -Value $p.surge_cooldown_multiplier -Min 0.0 -Max 4.0), 4)
-    $p.surge_meter_after_trigger_multiplier = [Math]::Round((Clamp-Double -Value $p.surge_meter_after_trigger_multiplier -Min 0.0 -Max 4.0), 4)
-    $p.global_meter_per_surge_multiplier = [Math]::Round((Clamp-Double -Value $p.global_meter_per_surge_multiplier -Min 0.0 -Max 4.0), 4)
-    $p.global_threshold_multiplier = [Math]::Round((Clamp-Double -Value $p.global_threshold_multiplier -Min 0.05 -Max 4.0), 4)
-    $p.global_meter_after_trigger_multiplier = [Math]::Round((Clamp-Double -Value $p.global_meter_after_trigger_multiplier -Min 0.0 -Max 4.0), 4)
-    $p.global_contribution_window_multiplier = [Math]::Round((Clamp-Double -Value $p.global_contribution_window_multiplier -Min 0.05 -Max 4.0), 4)
+    # Guardrail: keep key meter/global knobs in tighter bands.
+    $p.meter_gain_multiplier = [Math]::Round((Clamp-Double -Value $p.meter_gain_multiplier -Min 0.75 -Max 1.60), 4)
+    $p.surge_threshold_multiplier = [Math]::Round((Clamp-Double -Value $p.surge_threshold_multiplier -Min 0.75 -Max 1.35), 4)
+    $p.surge_cooldown_multiplier = [Math]::Round((Clamp-Double -Value $p.surge_cooldown_multiplier -Min 0.75 -Max 1.80), 4)
+    $p.surge_meter_after_trigger_multiplier = [Math]::Round((Clamp-Double -Value $p.surge_meter_after_trigger_multiplier -Min 0.75 -Max 1.35), 4)
+    $p.global_meter_per_surge_multiplier = [Math]::Round((Clamp-Double -Value $p.global_meter_per_surge_multiplier -Min 0.75 -Max 1.80), 4)
+    $p.global_threshold_multiplier = [Math]::Round((Clamp-Double -Value $p.global_threshold_multiplier -Min 0.75 -Max 1.35), 4)
+    $p.global_meter_after_trigger_multiplier = [Math]::Round((Clamp-Double -Value $p.global_meter_after_trigger_multiplier -Min 0.75 -Max 1.35), 4)
+    $p.global_contribution_window_multiplier = [Math]::Round((Clamp-Double -Value $p.global_contribution_window_multiplier -Min 0.75 -Max 1.35), 4)
     $p.inactivity_grace_multiplier = [Math]::Round((Clamp-Double -Value $p.inactivity_grace_multiplier -Min 0.0 -Max 4.0), 4)
     $p.inactivity_decay_multiplier = [Math]::Round((Clamp-Double -Value $p.inactivity_decay_multiplier -Min 0.0 -Max 4.0), 4)
     $p.contribution_window_multiplier = [Math]::Round((Clamp-Double -Value $p.contribution_window_multiplier -Min 0.05 -Max 4.0), 4)
@@ -322,12 +332,13 @@ function Normalize-TuningProfile {
     $p.diversity_multiplier_scale = [Math]::Round((Clamp-Double -Value $p.diversity_multiplier_scale -Min 0.0 -Max 4.0), 4)
     $p.event_scalar_multiplier = [Math]::Round((Clamp-Double -Value $p.event_scalar_multiplier -Min 0.0 -Max 4.0), 4)
     $p.second_stage_power_threshold = [Math]::Round((Clamp-Double -Value $p.second_stage_power_threshold -Min 0.05 -Max 3.0), 4)
-    $p.normal_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_enemy_hp_multiplier -Min 0.1 -Max 5.0), 4)
-    $p.normal_enemy_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_enemy_count_multiplier -Min 0.1 -Max 5.0), 4)
-    $p.normal_spawn_interval_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_spawn_interval_multiplier -Min 0.2 -Max 3.0), 4)
-    $p.hard_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_enemy_hp_multiplier -Min 0.1 -Max 5.0), 4)
-    $p.hard_enemy_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_enemy_count_multiplier -Min 0.1 -Max 5.0), 4)
-    $p.hard_spawn_interval_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_spawn_interval_multiplier -Min 0.2 -Max 3.0), 4)
+    # Requested lower bounds for enemy toughness/count scaling.
+    $p.normal_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_enemy_hp_multiplier -Min 1.0 -Max 5.0), 4)
+    $p.normal_enemy_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_enemy_count_multiplier -Min 1.0 -Max 5.0), 4)
+    $p.normal_spawn_interval_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_spawn_interval_multiplier -Min 0.2 -Max 0.99), 4)
+    $p.hard_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_enemy_hp_multiplier -Min 1.05 -Max 5.0), 4)
+    $p.hard_enemy_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_enemy_count_multiplier -Min 1.05 -Max 5.0), 4)
+    $p.hard_spawn_interval_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_spawn_interval_multiplier -Min 0.2 -Max 0.98), 4)
     $p.gain_multipliers.overkill = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.overkill -Min 0.0 -Max 4.0), 4)
     $p.gain_multipliers.chain_reaction = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.chain_reaction -Min 0.0 -Max 4.0), 4)
     $p.gain_multipliers.split_shot = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.split_shot -Min 0.0 -Max 4.0), 4)
@@ -340,6 +351,10 @@ function Normalize-TuningProfile {
     foreach ($name in $p.token_regen_multipliers.PSObject.Properties.Name) {
         $p.token_regen_multipliers.$name = [Math]::Round((Clamp-Double -Value $p.token_regen_multipliers.$name -Min 0.0 -Max 4.0), 4)
     }
+
+    # Guardrail: keep core spectacle systems enabled.
+    $p.enable_status_detonation = $true
+    $p.enable_residue = $true
 
     return $p
 }
@@ -392,6 +407,25 @@ function Get-DifficultyWinRate {
     return [double]$wins / [double]$runsForDifficulty.Count
 }
 
+function Get-SweepVariantScore {
+    param(
+        [Parameter(Mandatory = $true)][string]$SweepReportPath,
+        [Parameter(Mandatory = $true)][string]$VariantId
+    )
+
+    Assert-FileExists -PathValue $SweepReportPath -Label "Sweep report JSON"
+    $payload = Get-Content -Raw $SweepReportPath | ConvertFrom-Json
+    $variants = @($payload.variants)
+    if ($variants.Count -lt 1) {
+        throw "Sweep report has no variants: $SweepReportPath"
+    }
+    $match = $variants | Where-Object { [string]$_.id -eq $VariantId } | Select-Object -First 1
+    if ($null -eq $match) {
+        throw "Sweep report missing variant '$VariantId': $SweepReportPath"
+    }
+    return [double](Get-NumberValue -Obj $match -Property "score")
+}
+
 function Get-MetricsScore {
     param(
         [Parameter(Mandatory = $true)][object]$Summary,
@@ -406,6 +440,10 @@ function Get-MetricsScore {
         [double]$TargetMaxSurgesPerRun,
         [double]$TargetMaxSurgesPerRunTolerance,
         [double]$SurgesPerRunPenaltyWeight,
+        [double]$MinNormalWinRate = -1.0,
+        [double]$MinHardWinRate = -1.0,
+        [double]$NormalRegressionPenaltyWeight = 0.0,
+        [double]$HardRegressionPenaltyWeight = 0.0,
         [int]$MinTowerPlacementsForParity,
         [double]$ChainDepthCap,
         [int]$ExplosionCap,
@@ -491,6 +529,12 @@ function Get-MetricsScore {
     }
     if ($hardWinRate -lt $TargetHardWinRate) {
         $score -= ($TargetHardWinRate - $hardWinRate) * 100.0
+    }
+    if ($MinNormalWinRate -ge 0.0 -and $normalWinRate -lt $MinNormalWinRate) {
+        $score -= ($MinNormalWinRate - $normalWinRate) * [Math]::Max(0.0, $NormalRegressionPenaltyWeight)
+    }
+    if ($MinHardWinRate -ge 0.0 -and $hardWinRate -lt $MinHardWinRate) {
+        $score -= ($MinHardWinRate - $hardWinRate) * [Math]::Max(0.0, $HardRegressionPenaltyWeight)
     }
 
     # Secondary quality signals.
@@ -610,8 +654,9 @@ function New-MutatedTuningProfile {
     $toggleChance = [Math]::Min(0.30, [Math]::Max(0.03, 0.16 * $scale))
 
     $changed += Apply-ToggleMutation -Obj $candidate -Name "enable_overkill_bloom" -Chance $toggleChance
-    $changed += Apply-ToggleMutation -Obj $candidate -Name "enable_status_detonation" -Chance $toggleChance
-    $changed += Apply-ToggleMutation -Obj $candidate -Name "enable_residue" -Chance $toggleChance
+    # Guardrail: keep these core systems enabled during auto-tune.
+    $candidate.enable_status_detonation = $true
+    $candidate.enable_residue = $true
 
     $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_damage_scale_multiplier" -Step (0.30 * $scale) -Min 0.0 -Max 4.0
     $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_radius_multiplier" -Step (0.24 * $scale) -Min 0.1 -Max 4.0
@@ -626,14 +671,15 @@ function New-MutatedTuningProfile {
     $changed += Apply-Mutation -Obj $candidate -Name "residue_tick_interval_multiplier" -Step (0.26 * $scale) -Min 0.2 -Max 4.0
     $changed += Apply-Mutation -Obj $candidate -Name "residue_max_active_multiplier" -Step (0.24 * $scale) -Min 0.1 -Max 4.0
     $changed += Apply-Mutation -Obj $candidate -Name "explosion_followup_damage_multiplier" -Step (0.36 * $scale) -Min 0.0 -Max 6.0
-    $changed += Apply-Mutation -Obj $candidate -Name "meter_gain_multiplier" -Step (0.30 * $scale) -Min 0.0 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "surge_threshold_multiplier" -Step (0.24 * $scale) -Min 0.05 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "surge_cooldown_multiplier" -Step (0.24 * $scale) -Min 0.0 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "surge_meter_after_trigger_multiplier" -Step (0.22 * $scale) -Min 0.0 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "global_meter_per_surge_multiplier" -Step (0.24 * $scale) -Min 0.0 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "global_threshold_multiplier" -Step (0.24 * $scale) -Min 0.05 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "global_meter_after_trigger_multiplier" -Step (0.22 * $scale) -Min 0.0 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "global_contribution_window_multiplier" -Step (0.24 * $scale) -Min 0.05 -Max 4.0
+    # Guardrail: keep key meter/global knobs in tighter bands.
+    $changed += Apply-Mutation -Obj $candidate -Name "meter_gain_multiplier" -Step (0.14 * $scale) -Min 0.75 -Max 1.60
+    $changed += Apply-Mutation -Obj $candidate -Name "surge_threshold_multiplier" -Step (0.12 * $scale) -Min 0.75 -Max 1.35
+    $changed += Apply-Mutation -Obj $candidate -Name "surge_cooldown_multiplier" -Step (0.14 * $scale) -Min 0.75 -Max 1.80
+    $changed += Apply-Mutation -Obj $candidate -Name "surge_meter_after_trigger_multiplier" -Step (0.12 * $scale) -Min 0.75 -Max 1.35
+    $changed += Apply-Mutation -Obj $candidate -Name "global_meter_per_surge_multiplier" -Step (0.14 * $scale) -Min 0.75 -Max 1.80
+    $changed += Apply-Mutation -Obj $candidate -Name "global_threshold_multiplier" -Step (0.12 * $scale) -Min 0.75 -Max 1.35
+    $changed += Apply-Mutation -Obj $candidate -Name "global_meter_after_trigger_multiplier" -Step (0.12 * $scale) -Min 0.75 -Max 1.35
+    $changed += Apply-Mutation -Obj $candidate -Name "global_contribution_window_multiplier" -Step (0.12 * $scale) -Min 0.75 -Max 1.35
     $changed += Apply-Mutation -Obj $candidate -Name "inactivity_grace_multiplier" -Step (0.22 * $scale) -Min 0.0 -Max 4.0
     $changed += Apply-Mutation -Obj $candidate -Name "inactivity_decay_multiplier" -Step (0.26 * $scale) -Min 0.0 -Max 4.0
     $changed += Apply-Mutation -Obj $candidate -Name "contribution_window_multiplier" -Step (0.22 * $scale) -Min 0.05 -Max 4.0
@@ -648,12 +694,12 @@ function New-MutatedTuningProfile {
     $changed += Apply-Mutation -Obj $candidate -Name "diversity_multiplier_scale" -Step (0.22 * $scale) -Min 0.0 -Max 4.0
     $changed += Apply-Mutation -Obj $candidate -Name "event_scalar_multiplier" -Step (0.28 * $scale) -Min 0.0 -Max 4.0
     $changed += Apply-Mutation -Obj $candidate -Name "second_stage_power_threshold" -Step (0.15 * $scale) -Min 0.05 -Max 3.0
-    $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 0.1 -Max 5.0 -Chance 0.80
-    $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.80
-    $changed += Apply-Mutation -Obj $candidate -Name "normal_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 3.0 -Chance 0.80
-    $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 0.1 -Max 5.0 -Chance 0.80
-    $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.80
-    $changed += Apply-Mutation -Obj $candidate -Name "hard_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 3.0 -Chance 0.80
+    $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
+    $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
+    $changed += Apply-Mutation -Obj $candidate -Name "normal_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.99 -Chance 0.80
+    $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
+    $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
+    $changed += Apply-Mutation -Obj $candidate -Name "hard_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.98 -Chance 0.80
 
     $changed += Apply-Mutation -Obj $candidate.gain_multipliers -Name "overkill" -Step (0.30 * $scale) -Min 0.0 -Max 4.0 -Chance 0.65
     $changed += Apply-Mutation -Obj $candidate.gain_multipliers -Name "chain_reaction" -Step (0.30 * $scale) -Min 0.0 -Max 4.0 -Chance 0.65
@@ -676,7 +722,7 @@ function New-MutatedTuningProfile {
 
     if ($changed -eq 0) {
         $forceDelta = (($script:Rng.NextDouble() * 2.0) - 1.0) * (0.20 * $scale)
-        $candidate.meter_gain_multiplier = [Math]::Round((Clamp-Double -Value ([double]$candidate.meter_gain_multiplier + $forceDelta) -Min 0.0 -Max 4.0), 4)
+        $candidate.meter_gain_multiplier = [Math]::Round((Clamp-Double -Value ([double]$candidate.meter_gain_multiplier + $forceDelta) -Min 0.75 -Max 1.60), 4)
     }
 
     return (Normalize-TuningProfile -InputProfile $candidate)
@@ -1282,6 +1328,10 @@ if ($SweepRunsPerVariant -lt 1) { throw "SweepRunsPerVariant must be >= 1." }
 if ($MutationStrength -le 0) { throw "MutationStrength must be > 0." }
 if ($TargetExplosionShareTolerance -le 0) { throw "TargetExplosionShareTolerance must be > 0." }
 if ($TargetWinRateTolerance -le 0) { throw "TargetWinRateTolerance must be > 0." }
+if ($DifficultyRegressionTolerance -lt 0) { throw "DifficultyRegressionTolerance must be >= 0." }
+if ($NormalRegressionPenaltyWeight -lt 0) { throw "NormalRegressionPenaltyWeight must be >= 0." }
+if ($HardRegressionPenaltyWeight -lt 0) { throw "HardRegressionPenaltyWeight must be >= 0." }
+if ($MinSweepScoreRatioVsBaseline -lt 0) { throw "MinSweepScoreRatioVsBaseline must be >= 0." }
 if ($TargetMaxTowerSurgeRatio -lt 1.0) { throw "TargetMaxTowerSurgeRatio must be >= 1.0." }
 if ($MinTowerPlacementsForParity -lt 1) { throw "MinTowerPlacementsForParity must be >= 1." }
 if ($TargetWinRateEasy -lt 0 -or $TargetWinRateEasy -gt 1) { throw "TargetWinRateEasy must be between 0 and 1." }
@@ -1299,6 +1349,8 @@ if ($strategySetNormalized -notin @("all", "optimization", "edge")) {
     throw "StrategySet must be one of: all, optimization, edge."
 }
 
+# TODO(perf-step-4): Introduce a dedicated -EvalShardParallelism parameter and decouple
+# run-shard concurrency from candidate-level concurrency.
 $effectiveCandidateParallelism = [Math]::Max(1, [Math]::Min($CandidateParallelism, $CandidatesPerIteration))
 $effectiveRunParallelism = [Math]::Max(1, [Math]::Min($CandidateParallelism, $Runs))
 
@@ -1332,6 +1384,9 @@ if (-not $SkipBuild) {
     Write-Host "=== Build skipped (-SkipBuild) ==="
 }
 
+# TODO(perf-step-6): Add an explicit mode preset switch (for example, search vs confirm)
+# that adjusts Runs/SweepRunsPerVariant/SkipTrace defaults for fast iteration.
+
 $commonPrefix = @(
     "--headless",
     "--path", $projectRoot,
@@ -1363,6 +1418,8 @@ $bestTuningOut = Join-Path $runDir "best_tuning.json"
 $autoTuneReportOut = Join-Path $runDir "autotune_report.json"
 
 Invoke-BotMetricsRunSharded -GodotExe $godotExe -CommonPrefix $commonPrefix -RunsPerEval $Runs -StrategySet $strategySetNormalized -MetricsOut $baselineMetricsOut -Label "[1/8] Baseline bot metrics" -Parallelism $effectiveRunParallelism
+# TODO(perf-step-5): Add metrics cache lookup before each expensive bot eval call and reuse cached payloads when keys match.
+# Key should include tuning hash + runs + strategy_set + run_index_offset + scoring-relevant version info.
 $baselinePayload = Read-MetricsPayload -MetricsPath $baselineMetricsOut
 $baselineScore = Get-MetricsScore `
     -Summary $baselinePayload.summary `
@@ -1383,6 +1440,10 @@ $baselineScore = Get-MetricsScore `
     -HazardCap $MaxSimultaneousHazards `
     -HitStopCap $MaxSimultaneousHitStops `
     -DurationFloor $MinRunDurationSeconds
+
+$guardMinNormalWinRate = [Math]::Max(0.0, [double]$baselineScore.NormalWinRate - [double]$DifficultyRegressionTolerance)
+$guardMinHardWinRate = [Math]::Max(0.0, [double]$baselineScore.HardWinRate - [double]$DifficultyRegressionTolerance)
+Write-Host ("Regression guards: normal>={0:P2}, hard>={1:P2} (tolerance={2:P2})" -f $guardMinNormalWinRate, $guardMinHardWinRate, $DifficultyRegressionTolerance)
 
 $startProfileRaw = Get-Content -Raw $tuningFileResolved | ConvertFrom-Json
 $startProfile = Normalize-TuningProfile -InputProfile $startProfileRaw
@@ -1405,6 +1466,10 @@ $seedScore = Get-MetricsScore `
     -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
     -TargetMaxSurgesPerRunTolerance $TargetMaxSurgesPerRunTolerance `
     -SurgesPerRunPenaltyWeight $SurgesPerRunPenaltyWeight `
+    -MinNormalWinRate $guardMinNormalWinRate `
+    -MinHardWinRate $guardMinHardWinRate `
+    -NormalRegressionPenaltyWeight $NormalRegressionPenaltyWeight `
+    -HardRegressionPenaltyWeight $HardRegressionPenaltyWeight `
     -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
     -ChainDepthCap $MaxChainDepth `
     -ExplosionCap $MaxSimultaneousExplosions `
@@ -1460,7 +1525,8 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
     Write-Host "=== [3/8] Auto-tune iteration $iteration/$Iterations (anneal=$([Math]::Round($anneal,3))) ==="
 
     $iterCandidates = @()
-    $candidateSpecs = @()
+    $candidateSpecsToEvaluate = @()
+    $allCandidateSpecs = @()
 
     for ($candidateIndex = 1; $candidateIndex -le $CandidatesPerIteration; $candidateIndex++) {
         $candidateId = "iter{0:d2}_cand{1:d2}" -f $iteration, $candidateIndex
@@ -1472,26 +1538,44 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         }
 
         $candidateTuningPath = Join-Path $iterDir "$candidateId.tuning.json"
-        $candidateMetricsPath = Join-Path $iterDir "$candidateId.metrics.json"
+        $reuseGlobalBestMetrics = $candidateIndex -eq 1
+        $candidateMetricsPath = if ($reuseGlobalBestMetrics) {
+            $globalBestMetricsPath
+        } else {
+            Join-Path $iterDir "$candidateId.metrics.json"
+        }
         Write-TuningProfile -Profile $candidateProfile -OutputPath $candidateTuningPath
-        $candidateSpecs += [PSCustomObject]@{
+        $candidateSpec = [PSCustomObject]@{
             candidate_id = $candidateId
             candidate_type = $candidateType
             tuning_path = $candidateTuningPath
             metrics_path = $candidateMetricsPath
             label = "[3/8][$iteration/$Iterations] Evaluate $candidateId ($candidateType)"
+            reuse_cached_metrics = $reuseGlobalBestMetrics
+        }
+        $allCandidateSpecs += $candidateSpec
+        if (-not $reuseGlobalBestMetrics) {
+            $candidateSpecsToEvaluate += $candidateSpec
+        } else {
+            Write-Host "Candidate ${candidateId}: reusing global-best metrics from $candidateMetricsPath"
         }
     }
 
-    Invoke-BotMetricsRunBatch `
-        -GodotExe $godotExe `
-        -CommonPrefix $commonPrefix `
-        -RunsPerEval $Runs `
-        -StrategySet $strategySetNormalized `
-        -CandidateSpecs $candidateSpecs `
-        -Parallelism $effectiveCandidateParallelism
+    # TODO(perf-step-3): Implement multi-fidelity search:
+    # Stage A evaluate all mutated candidates with coarse runs, then Stage B reevaluate top-K with full runs.
+    if ($candidateSpecsToEvaluate.Count -gt 0) {
+        Invoke-BotMetricsRunBatch `
+            -GodotExe $godotExe `
+            -CommonPrefix $commonPrefix `
+            -RunsPerEval $Runs `
+            -StrategySet $strategySetNormalized `
+            -CandidateSpecs $candidateSpecsToEvaluate `
+            -Parallelism $effectiveCandidateParallelism
+    } else {
+        Write-Host "No candidate evaluations required for iteration $iteration."
+    }
 
-    foreach ($spec in $candidateSpecs) {
+    foreach ($spec in $allCandidateSpecs) {
         $candidateId = [string]$spec.candidate_id
         $candidateType = [string]$spec.candidate_type
         $candidateTuningPath = [string]$spec.tuning_path
@@ -1510,6 +1594,10 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
             -TargetMaxSurgesPerRunTolerance $TargetMaxSurgesPerRunTolerance `
             -SurgesPerRunPenaltyWeight $SurgesPerRunPenaltyWeight `
+            -MinNormalWinRate $guardMinNormalWinRate `
+            -MinHardWinRate $guardMinHardWinRate `
+            -NormalRegressionPenaltyWeight $NormalRegressionPenaltyWeight `
+            -HardRegressionPenaltyWeight $HardRegressionPenaltyWeight `
             -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
             -ChainDepthCap $MaxChainDepth `
             -ExplosionCap $MaxSimultaneousExplosions `
@@ -1555,40 +1643,68 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
 
     Write-Host "Iteration $iteration best: $($iterBest.candidate) score=$($iterBest.score)"
 
+    $iterationImprovedGlobalBest = $false
+    $previousGlobalBestScore = $globalBestScore
+    $previousGlobalBestProfile = Clone-TuningProfile -Profile $globalBestProfile
+    $previousGlobalBestTuningPath = $globalBestTuningPath
+    $previousGlobalBestMetricsPath = $globalBestMetricsPath
+    $previousGlobalBestSource = $globalBestSource
     if ([double]$iterBest.score -gt $globalBestScore) {
         $globalBestScore = [double]$iterBest.score
         $globalBestProfile = Normalize-TuningProfile -InputProfile (Get-Content -Raw $iterBest.tuning_file | ConvertFrom-Json)
         $globalBestTuningPath = $iterBest.tuning_file
         $globalBestMetricsPath = $iterBest.metrics_file
         $globalBestSource = $iterBest.candidate
+        $iterationImprovedGlobalBest = $true
         Write-Host "New global best found at iteration ${iteration}: $globalBestSource (score=$globalBestScore)"
     } else {
         Write-Host "Global best unchanged: $globalBestSource (score=$globalBestScore)"
     }
 
-    $iterScenarioOut = Join-Path $iterDir "combat_lab_report.iter.json"
-    Invoke-GodotCommand -GodotExe $godotExe -Label "[4/8][$iteration/$Iterations] Scenario validation for global best" -Args (
-        $commonPrefix + @("--tuning_file", $globalBestTuningPath, "--lab_scenario", $scenarioFileResolved, "--lab_out", $iterScenarioOut)
-    )
+    if ($iterationImprovedGlobalBest) {
+        $iterScenarioOut = Join-Path $iterDir "combat_lab_report.iter.json"
+        Invoke-GodotCommand -GodotExe $godotExe -Label "[4/8][$iteration/$Iterations] Scenario validation for global best" -Args (
+            $commonPrefix + @("--tuning_file", $globalBestTuningPath, "--lab_scenario", $scenarioFileResolved, "--lab_out", $iterScenarioOut)
+        )
 
-    $iterSweepConfig = Join-Path $iterDir "generated_sweep.iter.json"
-    Write-SweepComparisonConfig `
-        -OutputPath $iterSweepConfig `
-        -ScenarioFilePath $scenarioFileResolved `
-        -RunsPerVariant $SweepRunsPerVariant `
-        -BestProfile $globalBestProfile `
-        -BestId ("iter_{0:d2}_global_best" -f $iteration) `
-        -SweepName ("autotune_iter_{0:d2}" -f $iteration)
+        $iterSweepConfig = Join-Path $iterDir "generated_sweep.iter.json"
+        Write-SweepComparisonConfig `
+            -OutputPath $iterSweepConfig `
+            -ScenarioFilePath $scenarioFileResolved `
+            -RunsPerVariant $SweepRunsPerVariant `
+            -BestProfile $globalBestProfile `
+            -BestId ("iter_{0:d2}_global_best" -f $iteration) `
+            -SweepName ("autotune_iter_{0:d2}" -f $iteration)
 
-    $iterSweepOut = Join-Path $iterDir "combat_lab_sweep.iter.json"
-    Invoke-GodotCommand -GodotExe $godotExe -Label "[5/8][$iteration/$Iterations] Sweep comparison baseline vs global best" -Args (
-        $commonPrefix + @("--lab_sweep", $iterSweepConfig, "--lab_out", $iterSweepOut)
-    )
+        $iterSweepOut = Join-Path $iterDir "combat_lab_sweep.iter.json"
+        Invoke-GodotCommand -GodotExe $godotExe -Label "[5/8][$iteration/$Iterations] Sweep comparison baseline vs global best" -Args (
+            $commonPrefix + @("--lab_sweep", $iterSweepConfig, "--lab_out", $iterSweepOut)
+        )
 
-    $iterDeltaOut = Join-Path $iterDir "bot_metrics_delta.iter.txt"
-    Invoke-GodotCommand -GodotExe $godotExe -Label "[6/8][$iteration/$Iterations] Delta baseline vs iteration best candidate" -Args (
-        $commonPrefix + @("--metrics_delta", $baselineMetricsOut, $iterBest.metrics_file, "--delta_out", $iterDeltaOut)
-    )
+        $iterSweepBaselineScore = Get-SweepVariantScore -SweepReportPath $iterSweepOut -VariantId "baseline"
+        $iterSweepBestScore = Get-SweepVariantScore -SweepReportPath $iterSweepOut -VariantId ("iter_{0:d2}_global_best" -f $iteration)
+        $requiredSweepScore = $iterSweepBaselineScore * [Math]::Max(0.0, $MinSweepScoreRatioVsBaseline)
+        if ($iterSweepBestScore + 0.000001 -lt $requiredSweepScore) {
+            Write-Host ("Rejecting candidate {0}: sweep score {1:0.###} below required threshold {2:0.###} (baseline={3:0.###}, ratio={4:0.###})." -f $globalBestSource, $iterSweepBestScore, $requiredSweepScore, $iterSweepBaselineScore, $MinSweepScoreRatioVsBaseline)
+            $globalBestScore = $previousGlobalBestScore
+            $globalBestProfile = Clone-TuningProfile -Profile $previousGlobalBestProfile
+            $globalBestTuningPath = $previousGlobalBestTuningPath
+            $globalBestMetricsPath = $previousGlobalBestMetricsPath
+            $globalBestSource = $previousGlobalBestSource
+            $iterationImprovedGlobalBest = $false
+        }
+
+        if ($iterationImprovedGlobalBest) {
+            $iterDeltaOut = Join-Path $iterDir "bot_metrics_delta.iter.txt"
+            Invoke-GodotCommand -GodotExe $godotExe -Label "[6/8][$iteration/$Iterations] Delta baseline vs iteration best candidate" -Args (
+                $commonPrefix + @("--metrics_delta", $baselineMetricsOut, $iterBest.metrics_file, "--delta_out", $iterDeltaOut)
+            )
+        } else {
+            Write-Host "Skipping [6/8] delta for iteration $iteration (candidate rejected by sweep guardrail)."
+        }
+    } else {
+        Write-Host "Skipping [4/8]-[6/8] for iteration $iteration (global best unchanged)."
+    }
 }
 
 Copy-Item -Path $globalBestTuningPath -Destination $bestTuningOut -Force
@@ -1638,6 +1754,10 @@ $tunedScore = Get-MetricsScore `
     -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
     -TargetMaxSurgesPerRunTolerance $TargetMaxSurgesPerRunTolerance `
     -SurgesPerRunPenaltyWeight $SurgesPerRunPenaltyWeight `
+    -MinNormalWinRate $guardMinNormalWinRate `
+    -MinHardWinRate $guardMinHardWinRate `
+    -NormalRegressionPenaltyWeight $NormalRegressionPenaltyWeight `
+    -HardRegressionPenaltyWeight $HardRegressionPenaltyWeight `
     -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
     -ChainDepthCap $MaxChainDepth `
     -ExplosionCap $MaxSimultaneousExplosions `
@@ -1661,6 +1781,10 @@ $reportPayload = [ordered]@{
         target_win_rate_normal = $TargetWinRateNormal
         target_win_rate_hard = $TargetWinRateHard
         target_win_rate_tolerance = $TargetWinRateTolerance
+        difficulty_regression_tolerance = $DifficultyRegressionTolerance
+        normal_regression_penalty_weight = $NormalRegressionPenaltyWeight
+        hard_regression_penalty_weight = $HardRegressionPenaltyWeight
+        min_sweep_score_ratio_vs_baseline = $MinSweepScoreRatioVsBaseline
         target_max_tower_surge_ratio = $TargetMaxTowerSurgeRatio
         target_max_surges_per_run = $TargetMaxSurgesPerRun
         target_max_surges_per_run_tolerance = $TargetMaxSurgesPerRunTolerance

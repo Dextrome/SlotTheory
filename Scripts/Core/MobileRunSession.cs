@@ -42,6 +42,7 @@ public static class MobileRunSession
 	private const string SavePath = "user://mobile_run_session.json";
 	private const int CurrentVersion = 1;
 	private const long MaxSnapshotAgeSeconds = 12 * 60 * 60; // 12h
+	private const long MaxFutureSkewSeconds = 5 * 60; // reject snapshots too far in the future
 	private static readonly JsonSerializerOptions JsonOpts = new()
 	{
 		WriteIndented = false
@@ -110,6 +111,11 @@ public static class MobileRunSession
 			}
 
 			long age = DateTimeOffset.UtcNow.ToUnixTimeSeconds() - loaded.SavedAtUnixSeconds;
+			if (age < -MaxFutureSkewSeconds)
+			{
+				Clear();
+				return false;
+			}
 			if (age > MaxSnapshotAgeSeconds)
 			{
 				Clear();

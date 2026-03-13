@@ -10,6 +10,7 @@ namespace SlotTheory.Core.Leaderboards;
 public sealed class SteamLeaderboardService : ILeaderboardService
 {
     private static readonly SteamLeaderboard_t InvalidLeaderboard = new(0);
+    private const double InitRetryIntervalSeconds = 15.0;
 
     private readonly Dictionary<string, SteamLeaderboard_t> _cache = new();
     private CallResult<LeaderboardFindResult_t>? _findResult;
@@ -23,19 +24,26 @@ public sealed class SteamLeaderboardService : ILeaderboardService
 
     private bool _initAttempted;
     private bool _initialized;
+    private double _nextInitRetryAtUnixSeconds;
 
     public string ProviderName => "Steam";
     public bool IsAvailable => _initialized;
 
     public Task InitializeAsync()
     {
-        if (_initAttempted) return Task.CompletedTask;
-        _initAttempted = true;
+        if (_initialized) return Task.CompletedTask;
 
         if (OS.GetName() != "Windows")
         {
             return Task.CompletedTask;
         }
+
+        double now = Time.GetUnixTimeFromSystem();
+        if (_initAttempted && now < _nextInitRetryAtUnixSeconds)
+            return Task.CompletedTask;
+
+        _initAttempted = true;
+        _nextInitRetryAtUnixSeconds = now + InitRetryIntervalSeconds;
 
         try
         {
@@ -76,6 +84,8 @@ public sealed class SteamLeaderboardService : ILeaderboardService
     {
         if (!_initialized)
             return GlobalSubmitResult.Skipped(ProviderName, "Steam service unavailable.");
+        if (_pendingUpload != null)
+            return GlobalSubmitResult.Failed(ProviderName, "Steam upload busy; retrying shortly.");
 
         string boardName = LeaderboardKey.ToSteamLeaderboardName(bucket.MapId, bucket.Difficulty);
         var board = await FindLeaderboardAsync(boardName);

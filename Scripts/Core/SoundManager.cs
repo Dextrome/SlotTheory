@@ -61,13 +61,11 @@ public partial class SoundManager : Node
         "leak",
         "mine_pop",
         "mine_chain_pop",
-        "spectacle_bass_hit",
         "wave20_swell",
     };
     private static readonly Dictionary<string, int> MobileSfxCooldownMs = new()
     {
         ["mine_chain_pop"] = 85,
-        ["spectacle_bass_hit"] = 120,
         ["wave20_swell"] = 600,
     };
 
@@ -112,10 +110,6 @@ public partial class SoundManager : Node
             Tone(180f, 0.14f, vol: 0.24f, shape: 'q', env: 'f'),
             Tone(3200f, 0.06f, vol: 0.10f, shape: 'n', env: 'f'),
             Tone(4100f, 0.024f, vol: 0.10f, shape: 'q', env: 'f')));
-        Reg("spectacle_bass_hit", Layer(
-            Sweep(72f, 48f, 0.22f, vol: 0.58f),
-            Tone(56f, 0.20f, vol: 0.30f, shape: 's', env: 'f'),
-            Tone(820f, 0.06f, vol: 0.08f, shape: 'n', env: 'f')));
 
         // ── Wave events ──────────────────────────────────────────────────
         Reg("wave_start", Seq(new[] { 300f, 500f },               gapMs: 20, noteLen: 0.09f, vol: 0.52f));
