@@ -133,6 +133,7 @@ public partial class GameController : Node
 	private bool _perfReportHotkeyLatch;
 	private readonly SpectacleSystem _spectacleSystem = new();
 	private readonly List<ExplosionResidueState> _explosionResidues = new();
+	private const float GlobalSurgeLingerMultiplier = 2f;
 
 	private enum SpectacleConsequenceKind
 	{
@@ -154,6 +155,7 @@ public partial class GameController : Node
 		public Color Accent;
 		public ITowerView? SourceTower;
 		public bool PulseGate;
+		public ExplosionResidueZoneFx? FxNode;
 	}
 
 	private readonly record struct UnlockRevealRequest(bool IsTower, string Id);
@@ -454,7 +456,7 @@ public partial class GameController : Node
 		if (CurrentPhase != GamePhase.Wave)
 		{
 			_lowLivesHeartbeatTimer = 0f;
-			_explosionResidues.Clear();
+			ClearExplosionResidues();
 			return;
 		}
 
@@ -827,7 +829,7 @@ public partial class GameController : Node
 		_spectacleSlowMoActive = false;
 		_spectacleSlowMoToken = 0;
 		EnemyInstance.SetSpectacleSpeedMultiplier(1f);
-		_explosionResidues.Clear();
+		ClearExplosionResidues();
 		_draftSynergyHintModifierId = "";
 		_draftSynergyPulseT = 0f;
 		_lowLivesHeartbeatTimer = 0f;
@@ -2489,10 +2491,11 @@ public partial class GameController : Node
 		tw.TweenCallback(Callable.From(() => _clutchToast.Visible = false));
 	}
 
-	private void ShowGlobalSurgeBanner(string effectName, Color accent)
+	private void ShowGlobalSurgeBanner(string effectName, Color accent, float lingerMultiplier = 1f)
 	{
 		if (!GodotObject.IsInstanceValid(_globalSpectacleBanner) || _botRunner != null)
 			return;
+		float linger = Mathf.Clamp(lingerMultiplier, 1f, 3f);
 
 		_globalSpectacleBanner.Text = "GLOBAL SURGE";
 		_globalSpectacleBanner.Visible = true;
@@ -2511,8 +2514,8 @@ public partial class GameController : Node
 		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 1f, 0.11f);
 		tw.TweenProperty(_globalSpectacleBanner, "scale", Vector2.One, 0.15f)
 			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
-		tw.Chain().TweenInterval(3.25f * 3f);
-		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 0f, 1.45f * 3f);
+		tw.Chain().TweenInterval(3.25f * 3f * linger);
+		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 0f, 1.45f * 3f * linger);
 		tw.TweenCallback(Callable.From(() => _globalSpectacleBanner.Visible = false));
 	}
 
@@ -2603,7 +2606,6 @@ public partial class GameController : Node
 			comboSkin,
 			globalSurge: false,
 			info.Signature.SurgePower);
-		TriggerSpectacleSlowMo(realDuration: 0.5f, speedFactor: 0.50f);
 
 		SpawnCombatCallout(
 			info.Signature.EffectName.ToUpperInvariant(),
@@ -2616,6 +2618,7 @@ public partial class GameController : Node
 			info.Signature.SurgePower);
 		if (hitStop.ShouldApply)
 			TriggerHitStop(realDuration: hitStop.DurationSeconds, slowScale: hitStop.SlowScale);
+		TriggerSpectacleSlowMo(realDuration: 0.5f, speedFactor: 0.50f);
 		float afterimageStrength = SpectacleExplosionCore.ResolveLargeSurgeAfterimageStrength(
 			majorExplosion: true,
 			globalSurge: false,
@@ -2642,13 +2645,13 @@ public partial class GameController : Node
 			ApplyGlobalSurgeGameplayPayload(info);
 			return;
 		}
-		bool mobileLite = IsMobileSpectacleLite();
-
 		Vector2 center = ScreenToWorld(GetViewport().GetVisibleRect().Size * 0.5f);
 		var globalColor = new Color(1.00f, 0.90f, 0.56f);
+		ITowerView? globalDamageSource = ResolveSpectacleSourceTower(null);
+		float globalDamageBase = ResolveGlobalSpectacleBaseDamage();
 		SpawnSpectacleBurstFx(center, globalColor, major: true, power: 2.15f, stageTwoKick: true);
-		SpawnGlobalSurgeRipples(center, globalColor, Mathf.Max(2, info.UniqueContributors));
-		FlashSpectacleScreen(globalColor, peakAlpha: 0.28f, rampSec: 0.09f, fadeSec: 0.62f);
+		SpawnGlobalSurgeRipples(center, globalColor, Mathf.Max(2, info.UniqueContributors), lingerMultiplier: GlobalSurgeLingerMultiplier);
+		FlashSpectacleScreen(globalColor, peakAlpha: 0.28f, rampSec: 0.09f, fadeSec: 0.62f * GlobalSurgeLingerMultiplier);
 		SoundManager.Instance?.Play("wave20_swell");
 
 		for (int i = 0; i < _runState.Slots.Length; i++)
@@ -2671,32 +2674,39 @@ public partial class GameController : Node
 				riderStrength: 0.92f);
 			SpawnSpectacleTowerVolleyFx(tower, accent, major: true, power: 1.10f);
 		}
-		SpawnGlobalSurgeAffectFx(center, globalColor, Mathf.Max(2, info.UniqueContributors));
+		SpawnGlobalSurgeAffectFx(
+			center,
+			globalColor,
+			Mathf.Max(2, info.UniqueContributors),
+			sourceTower: globalDamageSource,
+			damageBaseOverride: globalDamageBase);
 		ApplyGlobalSurgeGameplayPayload(info);
 		TriggerStatusDetonationChain(
-			sourceTower: null,
+			sourceTower: globalDamageSource,
 			origin: center,
 			accent: globalColor,
 			skin: ComboExplosionSkin.ChainArc,
 			globalSurge: true,
-			surgePower: 1.45f);
+			surgePower: 1.45f,
+			damageBaseOverride: globalDamageBase);
 		QueueSpectacleEcho(
 			center,
 			globalColor,
 			major: true,
 			power: 1.65f,
 			maxDistance: 420f,
-			sourceTower: null,
+			sourceTower: globalDamageSource,
 			rider: SpectacleConsequenceKind.Vulnerability,
-			spawnResidue: true);
-		TriggerSpectacleSlowMo(realDuration: 5.6f, speedFactor: 0.50f);
-		ShowGlobalSurgeBanner(info.EffectName, globalColor);
+			spawnResidue: true,
+			damageBaseOverride: globalDamageBase);
+		ShowGlobalSurgeBanner(info.EffectName, globalColor, lingerMultiplier: GlobalSurgeLingerMultiplier);
 		ExplosionHitStopProfile hitStop = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
 			majorExplosion: true,
 			globalSurge: true,
 			surgePower: 2.15f);
 		if (hitStop.ShouldApply)
 			TriggerHitStop(realDuration: hitStop.DurationSeconds, slowScale: hitStop.SlowScale);
+		TriggerSpectacleSlowMo(realDuration: 5.6f, speedFactor: 0.50f);
 		float afterimageStrength = SpectacleExplosionCore.ResolveLargeSurgeAfterimageStrength(
 			majorExplosion: true,
 			globalSurge: true,
@@ -4103,6 +4113,30 @@ public partial class GameController : Node
 			.FirstOrDefault(t => t != null && (t is not GodotObject go || GodotObject.IsInstanceValid(go)));
 	}
 
+	private float ResolveGlobalSpectacleBaseDamage()
+	{
+		if (_runState == null)
+			return 0f;
+
+		float total = 0f;
+		int count = 0;
+		for (int i = 0; i < _runState.Slots.Length; i++)
+		{
+			var tower = _runState.Slots[i].Tower;
+			if (tower == null)
+				continue;
+			if (tower is GodotObject go && !GodotObject.IsInstanceValid(go))
+				continue;
+
+			total += Mathf.Max(0f, tower.BaseDamage);
+			count++;
+		}
+
+		if (count <= 0)
+			return 0f;
+		return total / count;
+	}
+
 	private void ApplyTargetedSpectacleConsequence(
 		ITowerView? sourceTower,
 		EnemyInstance target,
@@ -4111,18 +4145,22 @@ public partial class GameController : Node
 		bool heavyHit,
 		SpectacleConsequenceKind rider = SpectacleConsequenceKind.None,
 		float riderStrength = 1f,
-		bool spawnResidue = false)
+		bool spawnResidue = false,
+		float damageBaseOverride = -1f)
 	{
 		if (_runState == null || !IsEnemyUsable(target))
 			return;
 
 		ITowerView? resolvedSource = ResolveSpectacleSourceTower(sourceTower);
+		float resolvedBaseDamage = resolvedSource?.BaseDamage ?? 0f;
+		if (float.IsFinite(damageBaseOverride) && damageBaseOverride >= 0f)
+			resolvedBaseDamage = damageBaseOverride;
 		float strength = Mathf.Clamp(riderStrength, 0.40f, 1.80f);
 
-		if (resolvedSource != null && damageScale > 0f)
+		if (resolvedSource != null && damageScale > 0f && resolvedBaseDamage > 0f)
 		{
 			float scaledDamage = Mathf.Clamp(damageScale, 0.01f, 0.30f);
-			float damage = resolvedSource.BaseDamage * scaledDamage;
+			float damage = resolvedBaseDamage * scaledDamage;
 			ApplySpectacleDamage(
 				resolvedSource,
 				target,
@@ -4153,9 +4191,9 @@ public partial class GameController : Node
 			}
 			case SpectacleConsequenceKind.BurnPatch:
 			{
-				if (resolvedSource != null)
+				if (resolvedSource != null && resolvedBaseDamage > 0f)
 				{
-					float burnTick = resolvedSource.BaseDamage * Mathf.Clamp(0.03f + 0.03f * strength, 0.03f, 0.09f);
+					float burnTick = resolvedBaseDamage * Mathf.Clamp(0.03f + 0.03f * strength, 0.03f, 0.09f);
 					ApplySpectacleDamage(
 						resolvedSource,
 						target,
@@ -4372,7 +4410,8 @@ public partial class GameController : Node
 		Color accent,
 		ComboExplosionSkin skin,
 		bool globalSurge,
-		float surgePower)
+		float surgePower,
+		float damageBaseOverride = -1f)
 	{
 		if (_runState == null || CurrentPhase != GamePhase.Wave)
 			return;
@@ -4405,6 +4444,9 @@ public partial class GameController : Node
 				.Select(s => s.Tower)
 				.FirstOrDefault(t => t != null && (t is not GodotObject go || GodotObject.IsInstanceValid(go)));
 		}
+		float sourceBaseDamage = damageSource?.BaseDamage ?? 0f;
+		if (float.IsFinite(damageBaseOverride) && damageBaseOverride >= 0f)
+			sourceBaseDamage = damageBaseOverride;
 
 		for (int i = 0; i < statusTargets.Count; i++)
 		{
@@ -4460,9 +4502,9 @@ public partial class GameController : Node
 					detonationColor,
 					damageSource);
 
-				if (damageSource != null)
+				if (damageSource != null && sourceBaseDamage > 0f)
 				{
-					float damage = damageSource.BaseDamage
+					float damage = sourceBaseDamage
 						* (globalSurge ? 0.22f : 0.16f)
 						* Mathf.Clamp(surgePower, 0.6f, 2.2f)
 						* Mathf.Max(0.52f, 1f - index * 0.04f)
@@ -4569,7 +4611,8 @@ public partial class GameController : Node
 		float consequenceDamageScale = 0f,
 		SpectacleConsequenceKind rider = SpectacleConsequenceKind.None,
 		float riderStrength = 1f,
-		bool spawnResidue = false)
+		bool spawnResidue = false,
+		float damageBaseOverride = -1f)
 	{
 		if (_runState == null || maxLinks <= 0)
 			return;
@@ -4617,16 +4660,18 @@ public partial class GameController : Node
 					heavyHit: majorStyle,
 					rider,
 					riderStrength: riderStrength * (0.96f - i * 0.08f),
-					spawnResidue: spawnResidue && (i % 2 == 0));
+					spawnResidue: spawnResidue && (i % 2 == 0),
+					damageBaseOverride: damageBaseOverride);
 			}
 		}
 	}
 
-	private void SpawnGlobalSurgeRipples(Vector2 origin, Color accent, int contributors)
+	private void SpawnGlobalSurgeRipples(Vector2 origin, Color accent, int contributors, float lingerMultiplier = 1f)
 	{
 		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
 			return;
 
+		float linger = Mathf.Clamp(lingerMultiplier, 1f, 3f);
 		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
 		Vector2 viewportSize = GetViewport().GetVisibleRect().Size;
 		Vector2 topLeft = ScreenToWorld(Vector2.Zero);
@@ -4638,7 +4683,7 @@ public partial class GameController : Node
 		int rippleCount = reducedMotion ? 1 : 3;
 		if (IsMobileSpectacleLite())
 			rippleCount = Mathf.Min(rippleCount, 2);
-		float baseDuration = Mathf.Lerp(0.62f, 0.86f, contributorT);
+		float baseDuration = Mathf.Lerp(0.62f, 0.86f, contributorT) * linger;
 
 		for (int i = 0; i < rippleCount; i++)
 		{
@@ -4667,7 +4712,12 @@ public partial class GameController : Node
 		}
 	}
 
-	private void SpawnGlobalSurgeAffectFx(Vector2 origin, Color accent, int contributors)
+	private void SpawnGlobalSurgeAffectFx(
+		Vector2 origin,
+		Color accent,
+		int contributors,
+		ITowerView? sourceTower = null,
+		float damageBaseOverride = -1f)
 	{
 		if (_botRunner != null || _runState == null || !GodotObject.IsInstanceValid(_worldNode))
 			return;
@@ -4686,7 +4736,10 @@ public partial class GameController : Node
 			return;
 
 		float baseIntensity = 1.12f + 0.08f * Mathf.Clamp(contributors, 1, 6);
-		ITowerView? sourceTower = ResolveSpectacleSourceTower(null);
+		ITowerView? resolvedSourceTower = ResolveSpectacleSourceTower(sourceTower);
+		float sourceBaseDamage = resolvedSourceTower?.BaseDamage ?? 0f;
+		if (float.IsFinite(damageBaseOverride) && damageBaseOverride >= 0f)
+			sourceBaseDamage = damageBaseOverride;
 		float impactDamageScale = Mathf.Lerp(0.08f, 0.14f, Mathf.Clamp((contributors - 1f) / 6f, 0f, 1f));
 		float impactRiderStrength = 0.90f + 0.08f * Mathf.Clamp(contributors, 1, 6);
 		int consequenceCount = reducedMotion
@@ -4745,14 +4798,15 @@ public partial class GameController : Node
 					? Mathf.Max(0.60f, 0.95f - index * 0.015f)
 					: 0.38f;
 				ApplyTargetedSpectacleConsequence(
-					sourceTower,
+					resolvedSourceTower,
 					enemyRef,
 					accent,
 					damageScale: impactDamageScale * damageFalloff,
 					heavyHit: false,
 					rider: SpectacleConsequenceKind.Vulnerability,
 					riderStrength: impactRiderStrength * riderFalloff,
-					spawnResidue: primaryConsequence && !reducedMotion && (index % 4 == 0));
+					spawnResidue: primaryConsequence && !reducedMotion && (index % 4 == 0),
+					damageBaseOverride: sourceBaseDamage);
 			}
 
 			if (preFlashDelay <= 0f)
@@ -4817,7 +4871,8 @@ public partial class GameController : Node
 		float maxDistance,
 		ITowerView? sourceTower = null,
 		SpectacleConsequenceKind rider = SpectacleConsequenceKind.None,
-		bool spawnResidue = false)
+		bool spawnResidue = false,
+		float damageBaseOverride = -1f)
 	{
 		if (_botRunner != null || CurrentPhase != GamePhase.Wave || !GodotObject.IsInstanceValid(_worldNode))
 			return;
@@ -4840,7 +4895,8 @@ public partial class GameController : Node
 				consequenceDamageScale: (major ? 0.08f : 0.05f) * Mathf.Clamp(power, 0.6f, 2.0f),
 				rider: rider,
 				riderStrength: Mathf.Clamp(power, 0.6f, 2.2f) * 0.46f,
-				spawnResidue: spawnResidue && major);
+				spawnResidue: spawnResidue && major,
+				damageBaseOverride: damageBaseOverride);
 			var echoTargets = GetSpectacleTargets(
 				origin,
 				Mathf.Max(160f, maxDistance * 0.62f),
@@ -4857,7 +4913,8 @@ public partial class GameController : Node
 					heavyHit: false,
 					rider: rider,
 					riderStrength: Mathf.Clamp(power, 0.6f, 2.2f) * 0.42f * falloff,
-					spawnResidue: spawnResidue && i == 0 && !major);
+					spawnResidue: spawnResidue && i == 0 && !major,
+					damageBaseOverride: damageBaseOverride);
 			}
 			FlashSpectacleScreen(
 				accent,
@@ -4946,9 +5003,13 @@ public partial class GameController : Node
 		int baseMaxResidues = reducedMotion ? 7 : 12;
 		int maxResidues = Mathf.Max(1, Mathf.RoundToInt(baseMaxResidues * Mathf.Max(0.1f, SpectacleTuning.Current.ResidueMaxActiveMultiplier)));
 		while (_explosionResidues.Count >= maxResidues)
+		{
+			ExplosionResidueState evicted = _explosionResidues[0];
 			_explosionResidues.RemoveAt(0);
+			FreeResidueFx(evicted);
+		}
 
-		_explosionResidues.Add(new ExplosionResidueState
+		var residueState = new ExplosionResidueState
 		{
 			Kind = profile.Kind,
 			Origin = origin,
@@ -4962,7 +5023,8 @@ public partial class GameController : Node
 			Accent = accent,
 			SourceTower = sourceTower,
 			PulseGate = false,
-		});
+		};
+		_explosionResidues.Add(residueState);
 		AppendBotTraceEvent(
 			eventType: "residue_spawned",
 			worldPos: origin,
@@ -4977,6 +5039,7 @@ public partial class GameController : Node
 		_worldNode.AddChild(fx);
 		fx.GlobalPosition = origin;
 		fx.Initialize(profile.Kind, accent, profile.Radius, profile.DurationSeconds, profile.Potency);
+		residueState.FxNode = fx;
 	}
 
 	private void UpdateExplosionResidues(float delta)
@@ -4993,17 +5056,37 @@ public partial class GameController : Node
 			residue.Remaining -= delta;
 			if (residue.Remaining <= 0f)
 			{
+				FreeResidueFx(residue);
 				_explosionResidues.RemoveAt(i);
 				continue;
 			}
 
-			residue.TickRemaining -= delta;
-			if (residue.TickRemaining > 0f)
+			ResidueTickAdvance tickAdvance = SpectacleExplosionCore.ResolveResidueTickAdvance(
+				residue.TickRemaining,
+				residue.TickInterval,
+				delta,
+				maxTicksPerFrame: 12);
+			residue.TickRemaining = tickAdvance.TickRemainingAfter;
+			if (tickAdvance.TickCount <= 0)
 				continue;
 
-			residue.TickRemaining += residue.TickInterval;
-			ApplyExplosionResidueTick(residue, reducedMotion);
+			for (int tick = 0; tick < tickAdvance.TickCount; tick++)
+				ApplyExplosionResidueTick(residue, reducedMotion);
 		}
+	}
+
+	private static void FreeResidueFx(ExplosionResidueState residue)
+	{
+		if (residue.FxNode != null && GodotObject.IsInstanceValid(residue.FxNode))
+			residue.FxNode.QueueFree();
+		residue.FxNode = null;
+	}
+
+	private void ClearExplosionResidues()
+	{
+		for (int i = 0; i < _explosionResidues.Count; i++)
+			FreeResidueFx(_explosionResidues[i]);
+		_explosionResidues.Clear();
 	}
 
 	private void ApplyExplosionResidueTick(ExplosionResidueState residue, bool reducedMotion)
@@ -5743,8 +5826,14 @@ public partial class GameController : Node
 		float eventScalar = 1f,
 		float eventDamage = -1f)
 	{
-		if (CurrentPhase != GamePhase.Wave || tower == null || string.IsNullOrEmpty(modifierId) || eventScalar <= 0f)
+		if (CurrentPhase != GamePhase.Wave
+			|| tower == null
+			|| string.IsNullOrEmpty(modifierId)
+			|| !float.IsFinite(eventScalar)
+			|| eventScalar <= 0f)
 			return;
+		if (!float.IsFinite(eventDamage))
+			eventDamage = -1f;
 		_spectacleSystem.RegisterProc(tower, modifierId, eventScalar, eventDamage);
 	}
 
@@ -5783,7 +5872,6 @@ public partial class GameController : Node
 			return;
 		}
 		if (CurrentPhase != GamePhase.Wave) return;
-		if (_spectacleSlowMoActive) return;
 		if (_hitStopActive || _hitStopCooldown > 0f) return;
 
 		_hitStopActive = true;

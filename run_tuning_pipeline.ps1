@@ -42,6 +42,10 @@ param(
     [double]$TargetWinRateEasy = 0.95,
     [double]$TargetWinRateNormal = 0.75,
     [double]$TargetWinRateHard = 0.45,
+    [bool]$UseBaselineRelativeWinTargets = $true,
+    [double]$RelativeWinTargetEasyUplift = 0.05,
+    [double]$RelativeWinTargetNormalUplift = 0.08,
+    [double]$RelativeWinTargetHardUplift = 0.06,
     [double]$TargetWinRateTolerance = 0.06,
     [double]$DifficultyRegressionTolerance = 0.01,
     [double]$NormalRegressionPenaltyWeight = 260.0,
@@ -57,6 +61,7 @@ param(
     [int]$MaxSimultaneousHazards = 12,
     [int]$MaxSimultaneousHitStops = 4,
     [double]$MinRunDurationSeconds = 900.0,
+    [int]$TopCandidateReevalCount = 3,
     [string]$StrategySet = "optimization",
     [string]$GodotPath = "",
     [string]$TuningFile = "",
@@ -1328,11 +1333,15 @@ if ($SweepRunsPerVariant -lt 1) { throw "SweepRunsPerVariant must be >= 1." }
 if ($MutationStrength -le 0) { throw "MutationStrength must be > 0." }
 if ($TargetExplosionShareTolerance -le 0) { throw "TargetExplosionShareTolerance must be > 0." }
 if ($TargetWinRateTolerance -le 0) { throw "TargetWinRateTolerance must be > 0." }
+if ($RelativeWinTargetEasyUplift -lt 0) { throw "RelativeWinTargetEasyUplift must be >= 0." }
+if ($RelativeWinTargetNormalUplift -lt 0) { throw "RelativeWinTargetNormalUplift must be >= 0." }
+if ($RelativeWinTargetHardUplift -lt 0) { throw "RelativeWinTargetHardUplift must be >= 0." }
 if ($DifficultyRegressionTolerance -lt 0) { throw "DifficultyRegressionTolerance must be >= 0." }
 if ($NormalRegressionPenaltyWeight -lt 0) { throw "NormalRegressionPenaltyWeight must be >= 0." }
 if ($HardRegressionPenaltyWeight -lt 0) { throw "HardRegressionPenaltyWeight must be >= 0." }
 if ($MinSweepScoreRatioVsBaseline -lt 0) { throw "MinSweepScoreRatioVsBaseline must be >= 0." }
 if ($TargetMaxTowerSurgeRatio -lt 1.0) { throw "TargetMaxTowerSurgeRatio must be >= 1.0." }
+if ($TopCandidateReevalCount -lt 0) { throw "TopCandidateReevalCount must be >= 0." }
 if ($MinTowerPlacementsForParity -lt 1) { throw "MinTowerPlacementsForParity must be >= 1." }
 if ($TargetWinRateEasy -lt 0 -or $TargetWinRateEasy -gt 1) { throw "TargetWinRateEasy must be between 0 and 1." }
 if ($TargetWinRateNormal -lt 0 -or $TargetWinRateNormal -gt 1) { throw "TargetWinRateNormal must be between 0 and 1." }
@@ -1368,6 +1377,7 @@ Write-Host "Runs:         $Runs"
 Write-Host "Iterations:   $Iterations"
 Write-Host "Candidates:   $CandidatesPerIteration per iteration"
 Write-Host "Parallelism:  candidates=$effectiveCandidateParallelism, eval_shards=$effectiveRunParallelism"
+Write-Host "Top re-eval:  $TopCandidateReevalCount candidate(s) per iteration"
 Write-Host "Strategy set: $strategySetNormalized"
 Write-Host "Seed:         $Seed"
 Write-Host "Output dir:   $runDir"
@@ -1421,14 +1431,33 @@ Invoke-BotMetricsRunSharded -GodotExe $godotExe -CommonPrefix $commonPrefix -Run
 # TODO(perf-step-5): Add metrics cache lookup before each expensive bot eval call and reuse cached payloads when keys match.
 # Key should include tuning hash + runs + strategy_set + run_index_offset + scoring-relevant version info.
 $baselinePayload = Read-MetricsPayload -MetricsPath $baselineMetricsOut
+$baselineEasyWinRate = Get-DifficultyWinRate -Runs $baselinePayload.runs -Difficulty "Easy"
+$baselineNormalWinRate = Get-DifficultyWinRate -Runs $baselinePayload.runs -Difficulty "Normal"
+$baselineHardWinRate = Get-DifficultyWinRate -Runs $baselinePayload.runs -Difficulty "Hard"
+
+$effectiveTargetWinRateEasy = [double]$TargetWinRateEasy
+$effectiveTargetWinRateNormal = [double]$TargetWinRateNormal
+$effectiveTargetWinRateHard = [double]$TargetWinRateHard
+if ($UseBaselineRelativeWinTargets) {
+    $effectiveTargetWinRateEasy = Clamp-Double -Value ([Math]::Min([double]$TargetWinRateEasy, [double]$baselineEasyWinRate + [double]$RelativeWinTargetEasyUplift)) -Min 0.0 -Max 1.0
+    $effectiveTargetWinRateNormal = Clamp-Double -Value ([Math]::Min([double]$TargetWinRateNormal, [double]$baselineNormalWinRate + [double]$RelativeWinTargetNormalUplift)) -Min 0.0 -Max 1.0
+    $effectiveTargetWinRateHard = Clamp-Double -Value ([Math]::Min([double]$TargetWinRateHard, [double]$baselineHardWinRate + [double]$RelativeWinTargetHardUplift)) -Min 0.0 -Max 1.0
+}
+Write-Host ("Win-rate targets (effective): easy={0:P2}, normal={1:P2}, hard={2:P2}" -f $effectiveTargetWinRateEasy, $effectiveTargetWinRateNormal, $effectiveTargetWinRateHard)
+if ($UseBaselineRelativeWinTargets) {
+    Write-Host ("Baseline-relative uplift mode: on (easy+{0:P2}, normal+{1:P2}, hard+{2:P2}, capped by absolute targets)" -f $RelativeWinTargetEasyUplift, $RelativeWinTargetNormalUplift, $RelativeWinTargetHardUplift)
+} else {
+    Write-Host "Baseline-relative uplift mode: off (using absolute target win rates)."
+}
+
 $baselineScore = Get-MetricsScore `
     -Summary $baselinePayload.summary `
     -Runs $baselinePayload.runs `
     -TargetShare $TargetExplosionShare `
     -TargetShareTolerance $TargetExplosionShareTolerance `
-    -TargetEasyWinRate $TargetWinRateEasy `
-    -TargetNormalWinRate $TargetWinRateNormal `
-    -TargetHardWinRate $TargetWinRateHard `
+    -TargetEasyWinRate $effectiveTargetWinRateEasy `
+    -TargetNormalWinRate $effectiveTargetWinRateNormal `
+    -TargetHardWinRate $effectiveTargetWinRateHard `
     -WinRateTolerance $TargetWinRateTolerance `
     -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
     -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
@@ -1458,9 +1487,9 @@ $seedScore = Get-MetricsScore `
     -Runs $seedPayload.runs `
     -TargetShare $TargetExplosionShare `
     -TargetShareTolerance $TargetExplosionShareTolerance `
-    -TargetEasyWinRate $TargetWinRateEasy `
-    -TargetNormalWinRate $TargetWinRateNormal `
-    -TargetHardWinRate $TargetWinRateHard `
+    -TargetEasyWinRate $effectiveTargetWinRateEasy `
+    -TargetNormalWinRate $effectiveTargetWinRateNormal `
+    -TargetHardWinRate $effectiveTargetWinRateHard `
     -WinRateTolerance $TargetWinRateTolerance `
     -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
     -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
@@ -1586,9 +1615,9 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             -Runs $candidatePayload.runs `
             -TargetShare $TargetExplosionShare `
             -TargetShareTolerance $TargetExplosionShareTolerance `
-            -TargetEasyWinRate $TargetWinRateEasy `
-            -TargetNormalWinRate $TargetWinRateNormal `
-            -TargetHardWinRate $TargetWinRateHard `
+            -TargetEasyWinRate $effectiveTargetWinRateEasy `
+            -TargetNormalWinRate $effectiveTargetWinRateNormal `
+            -TargetHardWinRate $effectiveTargetWinRateHard `
             -WinRateTolerance $TargetWinRateTolerance `
             -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
             -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
@@ -1611,6 +1640,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             candidate_type = $candidateType
             anneal = [Math]::Round($anneal, 4)
             score = $candidateScore.Score
+            effective_score = $candidateScore.Score
             win_rate = $candidateScore.WinRate
             easy_win_rate = $candidateScore.EasyWinRate
             normal_win_rate = $candidateScore.NormalWinRate
@@ -1629,6 +1659,10 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             }
             tuning_file = $candidateTuningPath
             metrics_file = $candidateMetricsPath
+            promoted_metrics_file = $candidateMetricsPath
+            reevaluated = $false
+            reeval_score = $null
+            reeval_metrics_file = $null
         }
 
         $iterCandidates += $candidateResult
@@ -1636,12 +1670,74 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         Write-Host ("Candidate {0}: score={1:0.0000}, win(E/N/H)={2:P1}/{3:P1}/{4:P1}, wave={5:0.00}, surges/run={6:0.00}, explosion_share={7:P2}, surge_parity_ratio={8:0.00}" -f $candidateId, $candidateScore.Score, $candidateScore.EasyWinRate, $candidateScore.NormalWinRate, $candidateScore.HardWinRate, $candidateScore.AvgWave, $candidateScore.SurgesPerRun, $candidateScore.ExplosionShare, $candidateScore.TowerSurgeParityRatio)
     }
 
-    $iterBest = $iterCandidates | Sort-Object -Property score -Descending | Select-Object -First 1
+    $reevalCount = [Math]::Min([Math]::Max(0, $TopCandidateReevalCount), $iterCandidates.Count)
+    if ($reevalCount -gt 0) {
+        $topCandidatesForReeval = @($iterCandidates | Sort-Object -Property score -Descending | Select-Object -First $reevalCount)
+        $reevalSpecMap = @{}
+        $reevalSpecs = @()
+        foreach ($candidate in $topCandidatesForReeval) {
+            $candidateId = [string]$candidate.candidate
+            $reevalMetricsPath = Join-Path $iterDir "$candidateId.reeval.metrics.json"
+            $reevalSpecMap[$candidateId] = $reevalMetricsPath
+            $reevalSpecs += [PSCustomObject]@{
+                candidate_id = "${candidateId}_reeval"
+                tuning_path = [string]$candidate.tuning_file
+                metrics_path = $reevalMetricsPath
+                label = "[3/8][$iteration/$Iterations] Re-evaluate $candidateId (confirm)"
+            }
+        }
+
+        Invoke-BotMetricsRunBatch `
+            -GodotExe $godotExe `
+            -CommonPrefix $commonPrefix `
+            -RunsPerEval $Runs `
+            -StrategySet $strategySetNormalized `
+            -CandidateSpecs $reevalSpecs `
+            -Parallelism $effectiveCandidateParallelism
+
+        foreach ($candidate in $topCandidatesForReeval) {
+            $candidateId = [string]$candidate.candidate
+            $reevalMetricsPath = [string]$reevalSpecMap[$candidateId]
+            $reevalPayload = Read-MetricsPayload -MetricsPath $reevalMetricsPath
+            $reevalScore = Get-MetricsScore `
+                -Summary $reevalPayload.summary `
+                -Runs $reevalPayload.runs `
+                -TargetShare $TargetExplosionShare `
+                -TargetShareTolerance $TargetExplosionShareTolerance `
+                -TargetEasyWinRate $effectiveTargetWinRateEasy `
+                -TargetNormalWinRate $effectiveTargetWinRateNormal `
+                -TargetHardWinRate $effectiveTargetWinRateHard `
+                -WinRateTolerance $TargetWinRateTolerance `
+                -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
+                -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
+                -TargetMaxSurgesPerRunTolerance $TargetMaxSurgesPerRunTolerance `
+                -SurgesPerRunPenaltyWeight $SurgesPerRunPenaltyWeight `
+                -MinNormalWinRate $guardMinNormalWinRate `
+                -MinHardWinRate $guardMinHardWinRate `
+                -NormalRegressionPenaltyWeight $NormalRegressionPenaltyWeight `
+                -HardRegressionPenaltyWeight $HardRegressionPenaltyWeight `
+                -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
+                -ChainDepthCap $MaxChainDepth `
+                -ExplosionCap $MaxSimultaneousExplosions `
+                -HazardCap $MaxSimultaneousHazards `
+                -HitStopCap $MaxSimultaneousHitStops `
+                -DurationFloor $MinRunDurationSeconds
+
+            $candidate.reevaluated = $true
+            $candidate.reeval_score = $reevalScore.Score
+            $candidate.reeval_metrics_file = $reevalMetricsPath
+            $candidate.promoted_metrics_file = $reevalMetricsPath
+            $candidate.effective_score = [Math]::Round((([double]$candidate.score) + ([double]$reevalScore.Score)) / 2.0, 4)
+            Write-Host ("Candidate {0}: reeval_score={1:0.0000}, effective_score={2:0.0000}" -f $candidateId, $reevalScore.Score, $candidate.effective_score)
+        }
+    }
+
+    $iterBest = $iterCandidates | Sort-Object -Property @{ Expression = "effective_score"; Descending = $true }, @{ Expression = "score"; Descending = $true } | Select-Object -First 1
     if ($null -eq $iterBest) {
         throw "Iteration $iteration produced no candidates."
     }
 
-    Write-Host "Iteration $iteration best: $($iterBest.candidate) score=$($iterBest.score)"
+    Write-Host "Iteration $iteration best: $($iterBest.candidate) effective_score=$($iterBest.effective_score) raw_score=$($iterBest.score)"
 
     $iterationImprovedGlobalBest = $false
     $previousGlobalBestScore = $globalBestScore
@@ -1649,11 +1745,11 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
     $previousGlobalBestTuningPath = $globalBestTuningPath
     $previousGlobalBestMetricsPath = $globalBestMetricsPath
     $previousGlobalBestSource = $globalBestSource
-    if ([double]$iterBest.score -gt $globalBestScore) {
-        $globalBestScore = [double]$iterBest.score
+    if ([double]$iterBest.effective_score -gt $globalBestScore) {
+        $globalBestScore = [double]$iterBest.effective_score
         $globalBestProfile = Normalize-TuningProfile -InputProfile (Get-Content -Raw $iterBest.tuning_file | ConvertFrom-Json)
         $globalBestTuningPath = $iterBest.tuning_file
-        $globalBestMetricsPath = $iterBest.metrics_file
+        $globalBestMetricsPath = [string]$iterBest.promoted_metrics_file
         $globalBestSource = $iterBest.candidate
         $iterationImprovedGlobalBest = $true
         Write-Host "New global best found at iteration ${iteration}: $globalBestSource (score=$globalBestScore)"
@@ -1697,7 +1793,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         if ($iterationImprovedGlobalBest) {
             $iterDeltaOut = Join-Path $iterDir "bot_metrics_delta.iter.txt"
             Invoke-GodotCommand -GodotExe $godotExe -Label "[6/8][$iteration/$Iterations] Delta baseline vs iteration best candidate" -Args (
-                $commonPrefix + @("--metrics_delta", $baselineMetricsOut, $iterBest.metrics_file, "--delta_out", $iterDeltaOut)
+                $commonPrefix + @("--metrics_delta", $baselineMetricsOut, $iterBest.promoted_metrics_file, "--delta_out", $iterDeltaOut)
             )
         } else {
             Write-Host "Skipping [6/8] delta for iteration $iteration (candidate rejected by sweep guardrail)."
@@ -1746,9 +1842,9 @@ $tunedScore = Get-MetricsScore `
     -Runs $tunedPayload.runs `
     -TargetShare $TargetExplosionShare `
     -TargetShareTolerance $TargetExplosionShareTolerance `
-    -TargetEasyWinRate $TargetWinRateEasy `
-    -TargetNormalWinRate $TargetWinRateNormal `
-    -TargetHardWinRate $TargetWinRateHard `
+    -TargetEasyWinRate $effectiveTargetWinRateEasy `
+    -TargetNormalWinRate $effectiveTargetWinRateNormal `
+    -TargetHardWinRate $effectiveTargetWinRateHard `
     -WinRateTolerance $TargetWinRateTolerance `
     -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
     -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
@@ -1777,9 +1873,16 @@ $reportPayload = [ordered]@{
     scoring = [ordered]@{
         target_explosion_share = $TargetExplosionShare
         target_explosion_share_tolerance = $TargetExplosionShareTolerance
+        use_baseline_relative_win_targets = $UseBaselineRelativeWinTargets
         target_win_rate_easy = $TargetWinRateEasy
         target_win_rate_normal = $TargetWinRateNormal
         target_win_rate_hard = $TargetWinRateHard
+        effective_target_win_rate_easy = $effectiveTargetWinRateEasy
+        effective_target_win_rate_normal = $effectiveTargetWinRateNormal
+        effective_target_win_rate_hard = $effectiveTargetWinRateHard
+        relative_win_target_easy_uplift = $RelativeWinTargetEasyUplift
+        relative_win_target_normal_uplift = $RelativeWinTargetNormalUplift
+        relative_win_target_hard_uplift = $RelativeWinTargetHardUplift
         target_win_rate_tolerance = $TargetWinRateTolerance
         difficulty_regression_tolerance = $DifficultyRegressionTolerance
         normal_regression_penalty_weight = $NormalRegressionPenaltyWeight
@@ -1795,6 +1898,7 @@ $reportPayload = [ordered]@{
         max_simultaneous_hazards = $MaxSimultaneousHazards
         max_simultaneous_hitstops = $MaxSimultaneousHitStops
         min_run_duration_seconds = $MinRunDurationSeconds
+        top_candidate_reeval_count = $TopCandidateReevalCount
     }
     baseline = [ordered]@{
         metrics_file = $baselineMetricsOut

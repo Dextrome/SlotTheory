@@ -130,6 +130,16 @@ public sealed class SpectacleSystem
     public void RemoveTower(ITowerView tower)
     {
         _towerStates.Remove(tower);
+        if (_surgeContributions.Count == 0)
+            return;
+
+        int count = _surgeContributions.Count;
+        for (int i = 0; i < count; i++)
+        {
+            var contribution = _surgeContributions.Dequeue();
+            if (!ReferenceEquals(contribution.Tower, tower))
+                _surgeContributions.Enqueue(contribution);
+        }
     }
 
     public void Update(float delta)
@@ -201,7 +211,9 @@ public sealed class SpectacleSystem
 
     public void RegisterProc(ITowerView tower, string modifierId, float eventScalar, float eventDamage = -1f)
     {
-        if (tower == null) return;
+        if (tower == null || !float.IsFinite(eventScalar) || eventScalar <= 0f) return;
+        if (!float.IsFinite(eventDamage))
+            eventDamage = -1f;
         string modId = SpectacleDefinitions.NormalizeModId(modifierId);
         if (!SpectacleDefinitions.IsSupported(modId))
             return;
@@ -213,8 +225,10 @@ public sealed class SpectacleSystem
 
     private void RegisterProcInternal(ITowerView tower, TowerState state, string modId, float eventScalar, float eventDamage)
     {
-        if (eventScalar <= 0f)
+        if (!float.IsFinite(eventScalar) || eventScalar <= 0f)
             return;
+        if (!float.IsFinite(eventDamage))
+            eventDamage = -1f;
 
         int copies = CountCopies(tower, modId);
         if (copies <= 0)
@@ -241,7 +255,7 @@ public sealed class SpectacleSystem
             * SpectacleDefinitions.ResolveMeterGainScale()
             * SpectacleDefinitions.ResolveDamageMeterMultiplier(eventDamage);
 
-        if (gain <= 0.0001f)
+        if (!float.IsFinite(gain) || gain <= 0.0001f)
             return;
 
         state.InactivityTime = 0f;

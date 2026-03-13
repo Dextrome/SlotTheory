@@ -1,3 +1,4 @@
+using System;
 using SlotTheory.Core;
 using Xunit;
 
@@ -37,6 +38,28 @@ public class SpectacleExplosionCoreTests
         Assert.Equal(SpectacleExplosionCore.OverkillBloomDamageCap, lower.BloomDamage, 3);
         Assert.Equal(SpectacleExplosionCore.OverkillBloomDamageCap, higher.BloomDamage, 3);
         Assert.True(higher.VisualRadius > lower.VisualRadius);
+    }
+
+    [Fact]
+    public void OverkillBloomProfile_ZeroDamageMultiplier_AllowsVisualOnlyBloom()
+    {
+        SpectacleTuning.Reset();
+        try
+        {
+            SpectacleTuning.Apply(new SpectacleTuningProfile
+            {
+                OverkillBloomDamageScaleMultiplier = 0f,
+            }, "test");
+
+            OverkillBloomProfile profile = SpectacleExplosionCore.BuildOverkillBloomProfile(220f);
+            Assert.True(profile.ShouldTrigger);
+            Assert.Equal(0f, profile.BloomDamage, 3);
+            Assert.True(profile.VisualRadius > 0f);
+        }
+        finally
+        {
+            SpectacleTuning.Reset();
+        }
     }
 
     [Theory]
@@ -184,6 +207,79 @@ public class SpectacleExplosionCoreTests
         Assert.False(nonGlobalSkip.ShouldSpawn);
         Assert.True(nonGlobalSpawn.ShouldSpawn);
         Assert.True(globalSpawn.ShouldSpawn);
+    }
+
+    [Fact]
+    public void ResolveResidueTickAdvance_LargeDelta_CapsThenCatchesUp()
+    {
+        float remainingCapped = 0f;
+        float remainingUncapped = 0f;
+        int ticksCapped = 0;
+        int ticksUncapped = 0;
+        float[] deltas = { 3.0f, 0.20f, 0.20f, 0.20f, 0.20f };
+
+        for (int i = 0; i < deltas.Length; i++)
+        {
+            ResidueTickAdvance capped = SpectacleExplosionCore.ResolveResidueTickAdvance(
+                remainingCapped,
+                tickIntervalSeconds: 0.20f,
+                deltaSeconds: deltas[i],
+                maxTicksPerFrame: 12);
+            ResidueTickAdvance uncapped = SpectacleExplosionCore.ResolveResidueTickAdvance(
+                remainingUncapped,
+                tickIntervalSeconds: 0.20f,
+                deltaSeconds: deltas[i],
+                maxTicksPerFrame: 1000);
+
+            if (i == 0)
+                Assert.Equal(12, capped.TickCount);
+
+            remainingCapped = capped.TickRemainingAfter;
+            remainingUncapped = uncapped.TickRemainingAfter;
+            ticksCapped += capped.TickCount;
+            ticksUncapped += uncapped.TickCount;
+        }
+
+        Assert.Equal(ticksUncapped, ticksCapped);
+        Assert.Equal(remainingUncapped, remainingCapped, 3);
+    }
+
+    [Fact]
+    public void ResolveResidueTickAdvance_Stress_NoCapPathMatchesUncappedModel()
+    {
+        float remainingCapped = 0f;
+        float remainingUncapped = 0f;
+        int ticksCapped = 0;
+        int ticksUncapped = 0;
+        var rng = new Random(12345);
+
+        for (int i = 0; i < 600; i++)
+        {
+            // Keep deltas below cap pressure so capped and uncapped paths should match exactly.
+            float delta = 0.01f + (float)rng.NextDouble() * 0.45f;
+            ResidueTickAdvance capped = SpectacleExplosionCore.ResolveResidueTickAdvance(
+                remainingCapped,
+                tickIntervalSeconds: 0.20f,
+                deltaSeconds: delta,
+                maxTicksPerFrame: 12);
+            ResidueTickAdvance uncapped = SpectacleExplosionCore.ResolveResidueTickAdvance(
+                remainingUncapped,
+                tickIntervalSeconds: 0.20f,
+                deltaSeconds: delta,
+                maxTicksPerFrame: 1000);
+
+            remainingCapped = capped.TickRemainingAfter;
+            remainingUncapped = uncapped.TickRemainingAfter;
+            ticksCapped += capped.TickCount;
+            ticksUncapped += uncapped.TickCount;
+
+            Assert.Equal(uncapped.TickCount, capped.TickCount);
+            Assert.True(float.IsFinite(remainingCapped));
+            Assert.InRange(capped.TickCount, 0, 12);
+        }
+
+        Assert.Equal(ticksUncapped, ticksCapped);
+        Assert.Equal(remainingUncapped, remainingCapped, 4);
     }
 
     [Fact]

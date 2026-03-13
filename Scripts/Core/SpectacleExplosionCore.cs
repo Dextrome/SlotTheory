@@ -37,6 +37,10 @@ public readonly record struct ExplosionHitStopProfile(
     float DurationSeconds,
     float SlowScale);
 
+public readonly record struct ResidueTickAdvance(
+    int TickCount,
+    float TickRemainingAfter);
+
 public enum ComboExplosionSkin
 {
     Default,
@@ -207,6 +211,26 @@ public static class SpectacleExplosionCore
             SlowScale: Clamp(slowScale, 0.20f, 0.55f));
     }
 
+    public static ResidueTickAdvance ResolveResidueTickAdvance(
+        float tickRemaining,
+        float tickIntervalSeconds,
+        float deltaSeconds,
+        int maxTicksPerFrame = 12)
+    {
+        float interval = MathF.Max(0.001f, tickIntervalSeconds);
+        int tickCap = Math.Max(1, maxTicksPerFrame);
+        float remaining = tickRemaining - MathF.Max(0f, deltaSeconds);
+        int dueTicks = 0;
+
+        while (remaining <= 0f && dueTicks < tickCap)
+        {
+            dueTicks++;
+            remaining += interval;
+        }
+
+        return new ResidueTickAdvance(dueTicks, remaining);
+    }
+
     public static float ResolveLargeSurgeAfterimageStrength(bool majorExplosion, bool globalSurge, float surgePower)
     {
         if (!majorExplosion)
@@ -294,7 +318,9 @@ public static class SpectacleExplosionCore
             * MathF.Max(0.1f, SpectacleTuning.Current.OverkillBloomRadiusMultiplier);
         float damageScale = MathF.Max(0f, SpectacleTuning.Current.OverkillBloomDamageScaleMultiplier);
         float bloomDamageCap = OverkillBloomDamageCap * MathF.Max(0.1f, damageScale);
-        float bloomDamage = Clamp(overflowDamage * OverkillBloomDamageScale * damageScale, 4f, bloomDamageCap);
+        float bloomDamage = damageScale <= 0f
+            ? 0f
+            : Clamp(overflowDamage * OverkillBloomDamageScale * damageScale, 4f, bloomDamageCap);
         int baseMaxTargets = Clamp(2 + (int)MathF.Floor(overflowVisualT * 5f), 2, 7);
         float maxTargetMult = MathF.Max(0.1f, SpectacleTuning.Current.OverkillBloomMaxTargetsMultiplier);
         int maxTargets = Clamp((int)MathF.Round(baseMaxTargets * maxTargetMult), 1, 14);
