@@ -54,6 +54,7 @@ public partial class GameController : Node
 	private float _mobileTooltipUiScale = 1f;
 	private TowerInstance? _selectedTooltipTower;
 	private CanvasLayer _announceLayer = null!;
+	private CanvasLayer _globalSurgeLayer = null!;
 	private Label _waveAnnounce = null!;
 	private Label _halfwayBeat = null!;
 	private Label _threatWarn = null!;
@@ -64,6 +65,8 @@ public partial class GameController : Node
 	private ColorRect _threatPulse = null!;
 	private ColorRect _spectacleAfterimage = null!;
 	private ColorRect _spectaclePulse = null!;
+	private Tween? _globalSurgeBannerTween;
+	private ulong _globalSurgeBannerToken = 0;
 	private Node2D _worldNode = null!;
 	private BotRunner? _botRunner;
 	private int   _botWaveInRangeSum;
@@ -87,10 +90,12 @@ public partial class GameController : Node
 	private TowerInstance? _previewTowerGhost;
 	private bool _runAbandoned = false;  // set on intentional exit to suppress _ExitTree re-save
 	private bool _hitStopActive = false;
-	private double _preHitStopTimeScale = 1.0;
 	private float _hitStopCooldown = 0f;
+	private float _hitStopFactor = 1f;
+	private ulong _hitStopToken = 0;
 	private bool _spectacleSlowMoActive = false;
 	private ulong _spectacleSlowMoToken = 0;
+	private float _spectacleSlowMoFactor = 1f;
 	private Tween? _explosionZoomTween;
 	private string _draftSynergyHintModifierId = "";
 	private float _draftSynergyPulseT = 0f;
@@ -135,6 +140,8 @@ public partial class GameController : Node
 	private readonly List<ExplosionResidueState> _explosionResidues = new();
 	private const float GlobalSurgeLingerMultiplier = 2f;
 	private const float GlobalSurgeDurationScale = 4f;
+	private const float GlobalSurgeBannerHoldSeconds = 2.25f;
+	private const float GlobalSurgeBannerFadeSeconds = 0.6f;
 
 	private enum SpectacleConsequenceKind
 	{
@@ -371,7 +378,6 @@ public partial class GameController : Node
 				ClampMobileCameraToBounds();
 			}
 		}
-
 		var draftPanel = _draftPanel;
 		var hudPanel = _hudPanel;
 		bool draftPanelReady = draftPanel != null && GodotObject.IsInstanceValid(draftPanel);
@@ -591,7 +597,9 @@ public partial class GameController : Node
 
 	public override void _ExitTree()
 	{
-		EnemyInstance.SetSpectacleSpeedMultiplier(1f);
+		_spectacleSlowMoFactor = 1f;
+		_hitStopFactor = 1f;
+		RefreshSpectacleSpeedMultiplier();
 		if (!_runAbandoned)
 			SaveMobileRunSnapshot("exit_tree");
 	}
@@ -826,10 +834,12 @@ public partial class GameController : Node
 		SoundManager.Instance?.SetMusicTension(0f);
 		_hitStopActive = false;
 		_hitStopCooldown = 0f;
-		_preHitStopTimeScale = 1.0;
+		_hitStopFactor = 1f;
+		_hitStopToken = 0;
 		_spectacleSlowMoActive = false;
 		_spectacleSlowMoToken = 0;
-		EnemyInstance.SetSpectacleSpeedMultiplier(1f);
+		_spectacleSlowMoFactor = 1f;
+		RefreshSpectacleSpeedMultiplier();
 		ClearExplosionResidues();
 		_draftSynergyHintModifierId = "";
 		_draftSynergyPulseT = 0f;
@@ -2322,25 +2332,6 @@ public partial class GameController : Node
 		UITheme.ApplyFont(_clutchToast, semiBold: true, size: 30);
 		anchor.AddChild(_clutchToast);
 
-		_globalSpectacleBanner = new Label
-		{
-			Text = "",
-			HorizontalAlignment = HorizontalAlignment.Center,
-			VerticalAlignment = VerticalAlignment.Center,
-			AnchorLeft = 0f,
-			AnchorRight = 1f,
-			AnchorTop = 0f,
-			AnchorBottom = 1f,
-			Visible = false,
-			Modulate = new Color(1f, 1f, 1f, 0f),
-			MouseFilter = Control.MouseFilterEnum.Ignore,
-		};
-		UITheme.ApplyFont(_globalSpectacleBanner, bold: true, size: 118);
-		_globalSpectacleBanner.AddThemeColorOverride("font_color", new Color(1.00f, 0.95f, 0.76f));
-		_globalSpectacleBanner.AddThemeConstantOverride("outline_size", 10);
-		_globalSpectacleBanner.AddThemeColorOverride("font_outline_color", new Color(0.04f, 0.10f, 0.16f, 0.98f));
-		anchor.AddChild(_globalSpectacleBanner);
-
 		_waveClearFlash = new ColorRect();
 		_waveClearFlash.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		_waveClearFlash.Color   = new Color(0.10f, 1f, 0.45f, 0f);
@@ -2368,6 +2359,32 @@ public partial class GameController : Node
 		_spectaclePulse.Visible = false;
 		_spectaclePulse.MouseFilter = Control.MouseFilterEnum.Ignore;
 		anchor.AddChild(_spectaclePulse);
+
+		_globalSurgeLayer = new CanvasLayer { Layer = 64 };
+		AddChild(_globalSurgeLayer);
+		var globalAnchor = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
+		globalAnchor.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		_globalSurgeLayer.AddChild(globalAnchor);
+
+		_globalSpectacleBanner = new Label
+		{
+			Text = "",
+			HorizontalAlignment = HorizontalAlignment.Center,
+			VerticalAlignment = VerticalAlignment.Center,
+			AnchorLeft = 0f,
+			AnchorRight = 1f,
+			AnchorTop = 0f,
+			AnchorBottom = 1f,
+			Visible = false,
+			Modulate = new Color(1f, 1f, 1f, 0f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		_globalSpectacleBanner.ZIndex = 10;
+		UITheme.ApplyFont(_globalSpectacleBanner, bold: true, size: 118);
+		_globalSpectacleBanner.AddThemeColorOverride("font_color", new Color(1.00f, 0.95f, 0.76f));
+		_globalSpectacleBanner.AddThemeConstantOverride("outline_size", 10);
+		_globalSpectacleBanner.AddThemeColorOverride("font_outline_color", new Color(0.04f, 0.10f, 0.16f, 0.98f));
+		globalAnchor.AddChild(_globalSpectacleBanner);
 	}
 
 	private void ShowWaveAnnouncement(int wave)
@@ -2496,12 +2513,16 @@ public partial class GameController : Node
 	{
 		if (!GodotObject.IsInstanceValid(_globalSpectacleBanner) || _botRunner != null)
 			return;
-		float linger = Mathf.Clamp(lingerMultiplier, 1f, 12f);
+		float holdSeconds = GlobalSurgeBannerHoldSeconds;
+		float fadeSeconds = GlobalSurgeBannerFadeSeconds;
+		ulong token = ++_globalSurgeBannerToken;
+		if (_globalSurgeBannerTween != null && GodotObject.IsInstanceValid(_globalSurgeBannerTween))
+			_globalSurgeBannerTween.Kill();
 
 		_globalSpectacleBanner.Text = "GLOBAL SURGE";
 		_globalSpectacleBanner.Visible = true;
 		_globalSpectacleBanner.Scale = new Vector2(1.38f, 1.38f);
-		_globalSpectacleBanner.Modulate = new Color(accent.R, accent.G, accent.B, 0f);
+		_globalSpectacleBanner.Modulate = new Color(accent.R, accent.G, accent.B, 1f);
 		_globalSpectacleBanner.AddThemeColorOverride(
 			"font_color",
 			new Color(
@@ -2510,14 +2531,32 @@ public partial class GameController : Node
 				Mathf.Clamp(accent.B * 0.82f + 0.18f, 0f, 1f),
 				1f));
 
-		var tw = _globalSpectacleBanner.CreateTween();
-		tw.SetParallel(true);
-		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 1f, 0.11f);
-		tw.TweenProperty(_globalSpectacleBanner, "scale", Vector2.One, 0.15f)
+		_globalSurgeBannerTween = _globalSpectacleBanner.CreateTween();
+		var tw = _globalSurgeBannerTween;
+		tw.SetIgnoreTimeScale(true);
+		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 1f, 0.08f);
+		tw.Parallel().TweenProperty(_globalSpectacleBanner, "scale", Vector2.One, 0.15f)
 			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
-		tw.Chain().TweenInterval(3.25f * 3f * linger);
-		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 0f, 1.45f * 3f * linger);
-		tw.TweenCallback(Callable.From(() => _globalSpectacleBanner.Visible = false));
+
+		GetTree().CreateTimer(holdSeconds, true, false, true).Timeout += () =>
+		{
+			if (token != _globalSurgeBannerToken || !GodotObject.IsInstanceValid(_globalSpectacleBanner))
+				return;
+			if (_globalSurgeBannerTween != null && GodotObject.IsInstanceValid(_globalSurgeBannerTween))
+				_globalSurgeBannerTween.Kill();
+
+			_globalSurgeBannerTween = _globalSpectacleBanner.CreateTween();
+			var fadeTween = _globalSurgeBannerTween;
+			fadeTween.SetIgnoreTimeScale(true);
+			fadeTween.TweenProperty(_globalSpectacleBanner, "modulate:a", 0f, fadeSeconds);
+			fadeTween.TweenCallback(Callable.From(() =>
+			{
+				if (token != _globalSurgeBannerToken)
+					return;
+				_globalSpectacleBanner.Visible = false;
+				_globalSurgeBannerTween = null;
+			}));
+		};
 	}
 
 	private bool TryCombatCallout(string id, float cooldownSec)
@@ -5849,7 +5888,8 @@ public partial class GameController : Node
 		float duration = Mathf.Max(0.10f, realDuration);
 		float factor = Mathf.Clamp(speedFactor, 0.05f, 1.0f);
 		_spectacleSlowMoActive = true;
-		EnemyInstance.SetSpectacleSpeedMultiplier(factor);
+		_spectacleSlowMoFactor = factor;
+		RefreshSpectacleSpeedMultiplier();
 
 		ulong token = ++_spectacleSlowMoToken;
 		GetTree().CreateTimer(duration, true, false, true).Timeout += () =>
@@ -5858,8 +5898,15 @@ public partial class GameController : Node
 				return;
 
 			_spectacleSlowMoActive = false;
-			EnemyInstance.SetSpectacleSpeedMultiplier(1f);
+			_spectacleSlowMoFactor = 1f;
+			RefreshSpectacleSpeedMultiplier();
 		};
+	}
+
+	private void RefreshSpectacleSpeedMultiplier()
+	{
+		float mergedFactor = Mathf.Min(_spectacleSlowMoFactor, _hitStopFactor);
+		EnemyInstance.SetSpectacleSpeedMultiplier(Mathf.Clamp(mergedFactor, 0.05f, 1f));
 	}
 
 	public void TriggerHitStop(float realDuration = 0.042f, float slowScale = 0.20f)
@@ -5878,16 +5925,18 @@ public partial class GameController : Node
 
 		_hitStopActive = true;
 		_hitStopCooldown = 0.08f;
-		_preHitStopTimeScale = Engine.TimeScale;
-		float targetScale = Mathf.Min((float)_preHitStopTimeScale, slowScale);
-		Engine.TimeScale = targetScale;
+		_hitStopFactor = Mathf.Clamp(slowScale, 0.05f, 1f);
+		RefreshSpectacleSpeedMultiplier();
 
-		float scaledWait = Mathf.Max(0.005f, realDuration * targetScale);
-		GetTree().CreateTimer(scaledWait).Timeout += () =>
+		float duration = Mathf.Max(0.005f, realDuration);
+		ulong token = ++_hitStopToken;
+		GetTree().CreateTimer(duration, true, false, true).Timeout += () =>
 		{
-			float restoreScale = (float)_preHitStopTimeScale;
-			Engine.TimeScale = restoreScale;
+			if (token != _hitStopToken)
+				return;
+			_hitStopFactor = 1f;
 			_hitStopActive = false;
+			RefreshSpectacleSpeedMultiplier();
 		};
 	}
 
