@@ -164,10 +164,10 @@ Modifier assignment uses `Preview -> Confirm`:
 | Tower | Damage | Attack Interval | Range | Notes |
 |---|---:|---:|---:|---|
 | Rapid Shooter | 10 | 0.45 s | 285 px | Fast pressure |
-| Heavy Cannon | 52 | 2.0 s | 238 px | Big burst hits |
+| Heavy Cannon | 56 | 2.0 s | 238 px | Big burst hits |
 | Marker Tower | 7 | 1.0 s | 333 px | Applies Marked |
 | Arc Emitter | 18 | 1.2 s | 257 px | Base chain: 2 extra bounces, 400 px chain range |
-| Rift Sapper | 20 | 0.98 s | 230 px | Charged mine trap tower with setup/burst playstyle |
+| Rift Sapper | 22 | 0.98 s | 230 px | Charged mine trap tower with setup/burst playstyle |
 
 Unlock flow:
 - Arc Emitter: beat the first campaign map on Normal or Hard
@@ -206,7 +206,7 @@ Unlock flow:
 
 - Momentum: +16% per consecutive hit stack, max 5 stacks (x1.80)
 - Overkill: 60% excess kill damage spills forward
-- Exploit Weakness: +60% vs Marked
+- Exploit Weakness: +45% vs Marked
 - Focus Lens: +125% damage, x2 attack interval
 - Chill Shot: -25% move speed for 5 s (stacking on same tower)
 - Overreach: +40% range, -20% damage
@@ -396,3 +396,4 @@ Sample files:
 ---
 
 Engine: Godot 4.6 + .NET 8
+

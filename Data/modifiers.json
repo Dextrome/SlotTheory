@@ -12,7 +12,7 @@
   "exploit_weakness": {
     "Id": "exploit_weakness",
     "Name": "Exploit Weakness",
-    "Description": "+60% dmg vs Marked."
+    "Description": "+45% dmg vs Marked."
   },
   "focus_lens": {
     "Id": "focus_lens",
@@ -27,7 +27,7 @@
   "overreach": {
     "Id": "overreach",
     "Name": "Overreach",
-    "Description": "+55% range, -10% dmg."
+    "Description": "+45% range, -10% dmg."
   },
   "hair_trigger": {
     "Id": "hair_trigger",

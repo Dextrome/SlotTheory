@@ -69,11 +69,11 @@ public static class Balance
     public const float HairTriggerRangeFactor = 0.82f; // -18% range
 
     // Overreach modifier
-    public const float OverreachRangeFactor = 1.55f;  // +55% range
+    public const float OverreachRangeFactor = 1.45f;  // +45% range
     public const float OverreachDamageFactor = 0.90f; // -10% damage
 
     // Exploit Weakness modifier
-    public const float ExploitWeaknessDamageBonus = 1.60f; // ×1.60 damage to Marked enemies (+60%)
+    public const float ExploitWeaknessDamageBonus = 1.45f; // ×1.45 damage to Marked enemies (+45%)
 
     // Overkill modifier
     public const float OverkillSpillEfficiency = 0.60f; // 60% excess damage spill

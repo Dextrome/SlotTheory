@@ -996,6 +996,56 @@ function Build-SparseBinnedDistribution {
     )
 }
 
+function Get-InterpolatedPercentile {
+    param(
+        [double[]]$SortedValues,
+        [double]$Quantile
+    )
+
+    if ($null -eq $SortedValues -or $SortedValues.Count -eq 0) { return 0.0 }
+    if ($SortedValues.Count -eq 1) { return [double]$SortedValues[0] }
+
+    $q = [Math]::Max(0.0, [Math]::Min(1.0, $Quantile))
+    $index = $q * ([double]$SortedValues.Count - 1.0)
+    $lo = [int][Math]::Floor($index)
+    $hi = [int][Math]::Ceiling($index)
+    if ($lo -eq $hi) { return [double]$SortedValues[$lo] }
+
+    $t = $index - $lo
+    return ([double]$SortedValues[$lo] * (1.0 - $t)) + ([double]$SortedValues[$hi] * $t)
+}
+
+function Get-PercentileStats {
+    param([object[]]$Values)
+
+    if ($null -eq $Values -or $Values.Count -eq 0) {
+        return [PSCustomObject]@{
+            sample_count = 0
+            avg = 0.0
+            p25 = 0.0
+            p50 = 0.0
+            p75 = 0.0
+            p90 = 0.0
+            p99 = 0.0
+        }
+    }
+
+    $sorted = @($Values | ForEach-Object { [double]$_ } | Sort-Object)
+    $sum = 0.0
+    foreach ($v in $sorted) { $sum += $v }
+    $avg = $sum / [double]$sorted.Count
+
+    return [PSCustomObject]@{
+        sample_count = [int]$sorted.Count
+        avg = [Math]::Round($avg, 6)
+        p25 = [Math]::Round((Get-InterpolatedPercentile -SortedValues $sorted -Quantile 0.25), 6)
+        p50 = [Math]::Round((Get-InterpolatedPercentile -SortedValues $sorted -Quantile 0.50), 6)
+        p75 = [Math]::Round((Get-InterpolatedPercentile -SortedValues $sorted -Quantile 0.75), 6)
+        p90 = [Math]::Round((Get-InterpolatedPercentile -SortedValues $sorted -Quantile 0.90), 6)
+        p99 = [Math]::Round((Get-InterpolatedPercentile -SortedValues $sorted -Quantile 0.99), 6)
+    }
+}
+
 function Merge-BotMetricsShards {
     param(
         [Parameter(Mandatory = $true)][string[]]$ShardMetricsPaths,
@@ -1072,6 +1122,9 @@ function Merge-BotMetricsShards {
     $chainDepthValues = @()
     $waveReachedValues = @()
     $explosionShareValues = @()
+    $topTowerDamageShareValues = @()
+    $killDepthValues = @()
+    $chainReactionSizeValues = @()
 
     foreach ($run in $allRuns) {
         if ($run.won -eq $true) { $wonCount++ }
@@ -1120,6 +1173,19 @@ function Merge-BotMetricsShards {
             $explosionShareValues += ($runExplosionDamage / $runTotalDamage)
         } else {
             $explosionShareValues += 0.0
+        }
+        $topTowerDamageShareValues += (Get-NumberValue -Obj $run -Property "top_tower_damage_share")
+
+        if ($null -ne $run.kill_depth_samples) {
+            foreach ($sample in @($run.kill_depth_samples)) {
+                $killDepthValues += [double]$sample
+            }
+        }
+
+        if ($null -ne $run.chain_reaction_sizes) {
+            foreach ($chainSize in @($run.chain_reaction_sizes)) {
+                $chainReactionSizeValues += [int]$chainSize
+            }
         }
 
         if ($runPeakExplosions -gt $peakExplosions) { $peakExplosions = $runPeakExplosions }
@@ -1190,6 +1256,17 @@ function Merge-BotMetricsShards {
         0.0
     }
 
+    $damageConcentrationStats = Get-PercentileStats -Values $topTowerDamageShareValues
+    $killDepthStats = Get-PercentileStats -Values $killDepthValues
+    $chainReactionSizeStats = Get-PercentileStats -Values $chainReactionSizeValues
+    $damageConcentrationWarningThreshold = 0.60
+    $damageConcentrationProblemThreshold = 0.75
+    $healthyDamageConcentrationRuns = @($topTowerDamageShareValues | Where-Object { [double]$_ -lt $damageConcentrationWarningThreshold }).Count
+    $warningDamageConcentrationRuns = @($topTowerDamageShareValues | Where-Object {
+        [double]$_ -ge $damageConcentrationWarningThreshold -and [double]$_ -lt $damageConcentrationProblemThreshold
+    }).Count
+    $problemDamageConcentrationRuns = @($topTowerDamageShareValues | Where-Object { [double]$_ -ge $damageConcentrationProblemThreshold }).Count
+
     $explosionShareBinSize = 0.001
     $payload = [ordered]@{
         generated_utc = (Get-Date).ToUniversalTime().ToString("o")
@@ -1207,6 +1284,36 @@ function Merge-BotMetricsShards {
             avg_status_detonation_count = [Math]::Round(($statusDetSum / [double]$runCount), 6)
             avg_residue_uptime_seconds = [Math]::Round(($residueUptimeSum / [double]$runCount), 6)
             avg_max_chain_depth = [Math]::Round(($chainDepthSum / [double]$runCount), 6)
+            damage_concentration = [ordered]@{
+                thresholds = [ordered]@{
+                    warning_min = $damageConcentrationWarningThreshold
+                    problem_min = $damageConcentrationProblemThreshold
+                }
+                avg_top_tower_share = [double]$damageConcentrationStats.avg
+                p25_top_tower_share = [double]$damageConcentrationStats.p25
+                p50_top_tower_share = [double]$damageConcentrationStats.p50
+                p75_top_tower_share = [double]$damageConcentrationStats.p75
+                p90_top_tower_share = [double]$damageConcentrationStats.p90
+                p99_top_tower_share = [double]$damageConcentrationStats.p99
+                healthy_runs = [int]$healthyDamageConcentrationRuns
+                warning_runs = [int]$warningDamageConcentrationRuns
+                problem_runs = [int]$problemDamageConcentrationRuns
+            }
+            kill_depth_distribution = [ordered]@{
+                sample_count = [int]$killDepthStats.sample_count
+                avg = [double]$killDepthStats.avg
+                p25 = [double]$killDepthStats.p25
+                p50 = [double]$killDepthStats.p50
+                p75 = [double]$killDepthStats.p75
+                p90 = [double]$killDepthStats.p90
+                p99 = [double]$killDepthStats.p99
+            }
+            chain_reaction_size_distribution = [ordered]@{
+                sample_count = [int]$chainReactionSizeStats.sample_count
+                median = [double]$chainReactionSizeStats.p50
+                p90 = [double]$chainReactionSizeStats.p90
+                p99 = [double]$chainReactionSizeStats.p99
+            }
             dps_split = [ordered]@{
                 base_attacks = [Math]::Round(($baseDpsSum / [double]$runCount), 6)
                 surge_core = [Math]::Round(($surgeDpsSum / [double]$runCount), 6)
@@ -1228,6 +1335,16 @@ function Merge-BotMetricsShards {
                     bin_size_percent = $explosionShareBinSize * 100.0
                     bins = (Build-SparseBinnedDistribution -Values $explosionShareValues -BinSize $explosionShareBinSize)
                 }
+                top_tower_damage_share_per_run = [ordered]@{
+                    bin_size_fraction = $explosionShareBinSize
+                    bin_size_percent = $explosionShareBinSize * 100.0
+                    bins = (Build-SparseBinnedDistribution -Values $topTowerDamageShareValues -BinSize $explosionShareBinSize)
+                }
+                kill_depth = [ordered]@{
+                    bin_size_fraction = 0.01
+                    bins = (Build-SparseBinnedDistribution -Values $killDepthValues -BinSize 0.01)
+                }
+                chain_reaction_size = (Build-DiscreteDistribution -Values $chainReactionSizeValues)
             }
         }
         runs = $allRuns

@@ -134,6 +134,7 @@ public partial class GameController : Node
 	private readonly SpectacleSystem _spectacleSystem = new();
 	private readonly List<ExplosionResidueState> _explosionResidues = new();
 	private const float GlobalSurgeLingerMultiplier = 2f;
+	private const float GlobalSurgeDurationScale = 4f;
 
 	private enum SpectacleConsequenceKind
 	{
@@ -2495,7 +2496,7 @@ public partial class GameController : Node
 	{
 		if (!GodotObject.IsInstanceValid(_globalSpectacleBanner) || _botRunner != null)
 			return;
-		float linger = Mathf.Clamp(lingerMultiplier, 1f, 3f);
+		float linger = Mathf.Clamp(lingerMultiplier, 1f, 12f);
 
 		_globalSpectacleBanner.Text = "GLOBAL SURGE";
 		_globalSpectacleBanner.Visible = true;
@@ -2611,7 +2612,7 @@ public partial class GameController : Node
 			info.Signature.EffectName.ToUpperInvariant(),
 			sourceTower.GlobalPosition,
 			accent,
-			durationScale: 2f);
+			durationScale: 4f);
 		ExplosionHitStopProfile hitStop = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
 			majorExplosion: true,
 			globalSurge: false,
@@ -2650,8 +2651,9 @@ public partial class GameController : Node
 		ITowerView? globalDamageSource = ResolveSpectacleSourceTower(null);
 		float globalDamageBase = ResolveGlobalSpectacleBaseDamage();
 		SpawnSpectacleBurstFx(center, globalColor, major: true, power: 2.15f, stageTwoKick: true);
-		SpawnGlobalSurgeRipples(center, globalColor, Mathf.Max(2, info.UniqueContributors), lingerMultiplier: GlobalSurgeLingerMultiplier);
-		FlashSpectacleScreen(globalColor, peakAlpha: 0.28f, rampSec: 0.09f, fadeSec: 0.62f * GlobalSurgeLingerMultiplier);
+		float globalDurationScale = GlobalSurgeLingerMultiplier * GlobalSurgeDurationScale;
+		SpawnGlobalSurgeRipples(center, globalColor, Mathf.Max(2, info.UniqueContributors), lingerMultiplier: globalDurationScale);
+		FlashSpectacleScreen(globalColor, peakAlpha: 0.28f, rampSec: 0.09f, fadeSec: 0.62f * globalDurationScale);
 		SoundManager.Instance?.Play("wave20_swell");
 
 		for (int i = 0; i < _runState.Slots.Length; i++)
@@ -2699,7 +2701,7 @@ public partial class GameController : Node
 			rider: SpectacleConsequenceKind.Vulnerability,
 			spawnResidue: true,
 			damageBaseOverride: globalDamageBase);
-		ShowGlobalSurgeBanner(info.EffectName, globalColor, lingerMultiplier: GlobalSurgeLingerMultiplier);
+		ShowGlobalSurgeBanner(info.EffectName, globalColor, lingerMultiplier: globalDurationScale);
 		ExplosionHitStopProfile hitStop = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
 			majorExplosion: true,
 			globalSurge: true,
@@ -3856,7 +3858,7 @@ public partial class GameController : Node
 			hpAfter: enemy.Hp,
 			stageId: source.ToString().ToLowerInvariant(),
 			residueSpawned: source == SpectacleDamageSource.Residue);
-		TrackSpectacleDamage(tower, dealt, isKill, source);
+		TrackSpectacleDamage(tower, dealt, isKill, source, enemy.ProgressRatio);
 		SpawnSpectacleDamageNumber(enemy.GlobalPosition, Mathf.Max(1f, dealt), isKill, color, tower.TowerId);
 		SpawnSpectacleImpactSparks(enemy.GlobalPosition, color, heavy: heavyHit);
 		if (_botRunner == null && !isKill && GodotObject.IsInstanceValid(enemy))
@@ -3981,7 +3983,7 @@ public partial class GameController : Node
 		}
 	}
 
-	private void TrackSpectacleDamage(ITowerView tower, float damage, bool isKill, SpectacleDamageSource source)
+	private void TrackSpectacleDamage(ITowerView tower, float damage, bool isKill, SpectacleDamageSource source, float killDepth = -1f)
 	{
 		if (_runState == null)
 			return;
@@ -3991,7 +3993,7 @@ public partial class GameController : Node
 			return;
 
 		int slotIndex = FindTowerSlotIndex(tower);
-		_runState.TrackSpectacleDamage(slotIndex, dealtInt, isKill, source);
+		_runState.TrackSpectacleDamage(slotIndex, dealtInt, isKill, source, killDepth);
 	}
 
 	private int FindTowerSlotIndex(ITowerView tower)
@@ -4671,7 +4673,7 @@ public partial class GameController : Node
 		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
 			return;
 
-		float linger = Mathf.Clamp(lingerMultiplier, 1f, 3f);
+		float linger = Mathf.Clamp(lingerMultiplier, 1f, 12f);
 		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
 		Vector2 viewportSize = GetViewport().GetVisibleRect().Size;
 		Vector2 topLeft = ScreenToWorld(Vector2.Zero);

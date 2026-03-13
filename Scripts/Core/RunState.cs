@@ -52,6 +52,8 @@ public class RunState
     public int PeakSimultaneousExplosions { get; private set; } = 0;
     public int PeakSimultaneousActiveHazards { get; private set; } = 0;
     public int PeakSimultaneousHitStopsRequested { get; private set; } = 0;
+    public List<float> KillDepthSamples { get; } = new();
+    public List<int> SpectacleChainSizeSamples { get; } = new();
 
     // Per-wave tracking for micro reports and loss analysis
     public WaveReport CurrentWave { get; private set; } = new();
@@ -167,7 +169,7 @@ public class RunState
         IncrementSpectacleCounter(SpectacleGlobalByEffect, effectId);
     }
 
-    public void TrackBaseAttackDamage(int slotIndex, int damageDealt, bool isKill)
+    public void TrackBaseAttackDamage(int slotIndex, int damageDealt, bool isKill, float killDepth = -1f)
     {
         if (damageDealt <= 0)
             return;
@@ -183,9 +185,11 @@ public class RunState
         TotalKills += 1;
         if (slotIndex >= 0)
             TrackTowerKill(slotIndex);
+        if (killDepth >= 0f)
+            TrackKillDepth(killDepth);
     }
 
-    public void TrackSpectacleDamage(int slotIndex, int damageDealt, bool isKill, SpectacleDamageSource source)
+    public void TrackSpectacleDamage(int slotIndex, int damageDealt, bool isKill, SpectacleDamageSource source, float killDepth = -1f)
     {
         if (damageDealt <= 0)
             return;
@@ -214,6 +218,8 @@ public class RunState
         TotalKills += 1;
         if (slotIndex >= 0)
             TrackTowerKill(slotIndex);
+        if (killDepth >= 0f)
+            TrackKillDepth(killDepth);
     }
 
     public void TrackSpectacleExplosionBurst()
@@ -235,8 +241,15 @@ public class RunState
 
     public void TrackSpectacleChainDepth(int depth)
     {
+        if (depth > 0)
+            SpectacleChainSizeSamples.Add(depth);
         if (depth > SpectacleMaxChainDepth)
             SpectacleMaxChainDepth = depth;
+    }
+
+    public void TrackKillDepth(float progressRatio)
+    {
+        KillDepthSamples.Add(System.Math.Clamp(progressRatio, 0f, 1f));
     }
 
     public void TrackResidueUptime(float deltaSeconds, int activeHazards)
@@ -279,6 +292,8 @@ public class RunState
         PeakSimultaneousExplosions = 0;
         PeakSimultaneousActiveHazards = 0;
         PeakSimultaneousHitStopsRequested = 0;
+        KillDepthSamples.Clear();
+        SpectacleChainSizeSamples.Clear();
         for (int i = 0; i < Slots.Length; i++)
             Slots[i] = new SlotInstance(i);
             

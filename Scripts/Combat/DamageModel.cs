@@ -66,7 +66,7 @@ public static class DamageModel
         {
             int damageDealt = (int)(hpBefore - System.MathF.Max(0f, ctx.Target.Hp));
             var attackerSlotIndex = FindTowerSlotIndex(ctx.State, ctx.Attacker);
-            ctx.State.TrackBaseAttackDamage(attackerSlotIndex, damageDealt, isKill);
+            ctx.State.TrackBaseAttackDamage(attackerSlotIndex, damageDealt, isKill, ctx.Target.ProgressRatio);
         }
 
         RegisterSpectacleDamageProcs(ctx, damageDealtRaw, isKill);
