@@ -51,21 +51,21 @@ public partial class SoundManager : Node
     private static readonly HashSet<string> MobileDisabledExplosionSfx = new(StringComparer.Ordinal)
     {
         // Burst-heavy combat SFX can stack and distort on low-end mobile CPUs.
-        "shoot_rapid",
-        "shoot_heavy",
-        "shoot_marker",
-        "hit",
-        "die_basic",
-        "die_armored",
-        "die_swift",
-        "leak",
-        "mine_pop",
-        "mine_chain_pop",
         "wave20_swell",
     };
     private static readonly Dictionary<string, int> MobileSfxCooldownMs = new()
     {
+        // Keep tower/combat sounds audible on mobile while preventing runaway spam.
+        ["shoot_rapid"] = 45,
+        ["shoot_heavy"] = 90,
+        ["shoot_marker"] = 60,
+        ["hit"] = 35,
+        ["mine_pop"] = 55,
         ["mine_chain_pop"] = 85,
+        ["die_basic"] = 55,
+        ["die_armored"] = 65,
+        ["die_swift"] = 45,
+        ["leak"] = 120,
         ["wave20_swell"] = 600,
     };
 

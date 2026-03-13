@@ -57,7 +57,7 @@ public static class SpectacleDefinitions
     public const float GlobalMeterAfterTrigger = 0f;
     public const float GlobalContributionWindowSeconds = 6f;
     public const float InactivityGraceSeconds = 2f;
-    public const float InactivityDecayPerSecond = 6f;
+    public const float InactivityDecayPerSecond = 3f;
     public const float ContributionWindowSeconds = 20f;
     public const float RoleLockMeterThreshold = 20f;
     // Fill is intentionally slower so spectacle pacing is easier to read:

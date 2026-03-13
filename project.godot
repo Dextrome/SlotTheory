@@ -15,7 +15,7 @@ compatibility/default_parent_skeleton_in_mesh_instance_3d=true
 [application]
 
 config/name="Slot Theory"
-config/version="0.1.8"
+config/version="0.2.0"
 config/quit_on_go_back=false
 boot_splash/show_image=false 
 run/main_scene="res://Scenes/MainMenu.tscn"

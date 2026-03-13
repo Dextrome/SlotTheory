@@ -18,7 +18,7 @@ public partial class GlobalSurgeRipple : Node2D
     {
         _color = color;
         _endRadius = Mathf.Max(80f, endRadius);
-        _duration = Mathf.Clamp(durationSec, 0.18f, 1.20f);
+        _duration = Mathf.Clamp(durationSec, 0.18f, 2.00f);
         _baseWidth = Mathf.Clamp(ringWidth, 1.6f, 10f);
     }
 
