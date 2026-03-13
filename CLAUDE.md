@@ -18,6 +18,13 @@ Engine: **Godot 4.x .NET** (C#) · Runtime: **.NET 8+** · Target: **Windows (St
   - `SpectacleComboPairing`
   - `SpectacleTriadDiversity`
 - Minor spectacle triggers were removed; balancing should target surge/global surge spectacle cadence and effects.
+- **Automated tuning pipeline** added: `run_tuning_pipeline.ps1` + `Scripts/Tools/CombatLab/` drive iterative difficulty optimization against bot win-rate targets. `SpectacleTuning.Current` overrides difficulty multipliers at runtime.
+- **Achievement system** added: `AchievementManager.cs`, `AchievementDefinition.cs`, `SteamAchievements.cs`. Achievements persist across sessions and gate unlocks.
+- **Unlockable content**: Arc Emitter, Split Shot modifier, and Rift Prism are now gated behind campaign map clears (`Unlocks.cs`). Bots always have full unlock access for deterministic balance testing.
+- **Three difficulty modes**: Easy (no scaling), Normal (~75% bot win target), Hard (~50% bot win target). Multipliers are tunable via `SpectacleTuning.Current`.
+- **Enemy render pipeline overhaul**: layered render pipeline with perf controls, class-specific death FX, and mobile-adaptive quality settings.
+- **New UI screens**: `UnlockRevealScreen.cs`, `AchievementsPanel.cs`, `AchievementToast.cs`, `SlotCodexPanel.cs`.
+- **Supabase leaderboard service** added alongside Steam leaderboards (`SupabaseLeaderboardService.cs`, `SupabaseConfig.cs`).
 
 ## Setup Requirements
 
@@ -89,6 +96,8 @@ dotnet build SlotTheory.sln
 - Spectacle gameplay payloads are applied in bot mode for surge/global surge triggers (matching live gameplay logic).
 - Minor spectacle trigger tier no longer exists, so surge/global surge metrics are the primary balancing signal.
 - 11 strategies cycle round-robin: `Random`, `TowerFirst`, `GreedyDps`, `MarkerSynergy`, `ChainFocus`, `SplitFocus`, `HeavyStack`, `RiftPrismFocus`, `SpectacleSingleStack`, `SpectacleComboPairing`, `SpectacleTriadDiversity`.
+- Bot strategy sets: pass `--strategy-set optimization` (8 strategies focused on win-rate) or `--strategy-set edge` (3 edge-case strategies) to scope runs. Default (`all`) cycles all 11.
+- Run `run_tuning_pipeline.ps1` for automated iterative tuning (generates seed from current `SpectacleTuning`, runs bot eval + scenario suite, outputs best profile).
 
 ## Testing
 
@@ -259,6 +268,17 @@ res://
       Balance.cs            # All tunables in one place
       SettingsManager.cs    # Difficulty mode + persistent settings
       SoundManager.cs       # Audio; auto-disables in headless mode
+      SpectacleSystem.cs    # Surge/global-surge trigger evaluation
+      SpectacleTuning.cs    # Runtime tuning profile (overrides difficulty multipliers)
+      SpectacleDefinitions.cs
+      SpectacleExplosionCore.cs
+      SpectacleDamageCore.cs
+      SpectacleDamageSource.cs
+      AchievementManager.cs # Persistent achievement tracking; gates unlocks
+      AchievementDefinition.cs
+      SteamAchievements.cs
+      SteamCloudSync.cs
+      Unlocks.cs            # Content unlock gates (Arc Emitter, Split Shot, Rift Prism)
       PathFlow.cs
       Transition.cs
       UITheme.cs
@@ -266,15 +286,22 @@ res://
       MobileInput.cs
       MobileOptimization.cs
       MobileRunSession.cs
+      MapDecorationLayer.cs
+      WorldAtmosphere.cs
+      EnemyRenderPerfProfiler.cs
+      EnemyRenderSettingsSnapshot.cs
+      PinchZoomHandler.cs
       Leaderboards/
         ILeaderboardService.cs
         LeaderboardKey.cs
         LeaderboardModels.cs
-        LeaderboardManager.cs  (Scripts/Core/)
+        LeaderboardManager.cs
         ScoreCalculator.cs
         BuildSnapshotCodec.cs
         SteamLeaderboardService.cs
         NullLeaderboardService.cs
+        SupabaseLeaderboardService.cs
+        SupabaseConfig.cs
       Naming/
         RunNameGenerator.cs
         RunNameProfile.cs
@@ -296,6 +323,18 @@ res://
       CombatCallout.cs
       RiftMineVisual.cs
       RiftMineBurst.cs
+      GlobalSurgeRipple.cs
+      SpectacleSkinGlyph.cs
+      ExplosionResidueZoneFx.cs
+      ImpactSparkBurst.cs
+      EnemyRenderState.cs
+      EnemyRenderStyle.cs
+      EnemyVisualArchetype.cs
+      EnemyVisualProfile.cs
+      EnemyRenderLayerSettings.cs
+      EnemyRenderDebugCounters.cs
+      IEnemyView.cs
+      ITowerView.cs
     Modifiers/
       Modifier.cs           # Base interface
       ModifierRegistry.cs   # JSON ID → concrete modifier object
@@ -307,6 +346,12 @@ res://
       BotPlayer.cs
       ModifierDataValidator.cs # Validates tooltip text matches implementation constants
       IconBgNode.cs, IconExport.cs
+      CombatLab/
+        CombatLabCli.cs       # CLI entry for scenario/sweep runs
+        CombatLabScenarioRunner.cs
+        CombatLabModels.cs
+        SpectacleTuningLoader.cs
+        BotMetricsDeltaReporter.cs # Compares baseline vs tuned bot metrics
     Data/
       DataLoader.cs, Models.cs
     UI/
@@ -326,6 +371,10 @@ res://
       TouchScrollHelper.cs
       DraftBackdropFx.cs
       NeonGridBg.cs
+      UnlockRevealScreen.cs # Shown on first map-clear unlock
+      AchievementsPanel.cs
+      AchievementToast.cs
+      SlotCodexPanel.cs
 
   Data/
     towers.json, modifiers.json, waves.json, maps.json
@@ -344,17 +393,17 @@ If an idea requires a new system → defer to "Project 2."
 
 ## V1 Content
 
-- **5 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +40% dmg taken, 4s), Arc Emitter (chains to 2 enemies, 400 px chain range, 60% decay/bounce), Rift Sapper (charged lane-mine trap tower with wave-start seeding burst)
+- **5 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +40% dmg taken, 4s), Arc Emitter (**unlockable** via campaign map clear; chains to 2 enemies, 400 px chain range, 60% decay/bounce), Rift Sapper (**unlockable** via campaign map clear; charged lane-mine trap tower with wave-start seeding burst)
 - **10 modifiers** (always check `Balance.cs` + `modifiers.json` for current values — these drift after balance passes):
   - Momentum: +16% dmg/hit same target, max ×1.80
   - Overkill: 60% excess dmg spills to next enemy
   - Exploit Weakness: +60% dmg vs Marked enemies
-  - Focus Lens: +125% dmg, ×2 attack interval
-  - Chill Shot: −25% enemy speed on hit, 5s (stacks multiplicatively per tower)
-  - Overreach: +40% range, −20% dmg
-  - Hair Trigger: +35% attack speed, −18% range
-  - Split Shot: fires 2 projectiles at nearby enemies for 35% damage each (search radius 280px)
-  - Feedback Loop: 25% cooldown reduction on kill
+  - Focus Lens: +140% dmg, ×1.85 attack interval
+  - Chill Shot: −30% enemy speed on hit, 6s (stacks multiplicatively per tower)
+  - Overreach: +55% range, −10% dmg
+  - Hair Trigger: +30% attack speed, −18% range
+  - Split Shot: fires 2 projectiles at nearby enemies for 35% damage each (search radius 280px); **unlockable** via campaign map clear
+  - Feedback Loop: 50% of remaining cooldown removed on kill
   - Chain Reaction: adds 1 bounce (60% decay/bounce); stacks add more bounces
 - **3 enemy types**:
   - Basic Walker: 65 HP wave 1, ×1.10/wave, 120px/s
@@ -362,5 +411,5 @@ If an idea requires a new system → defer to "Project 2."
   - Swift Walker: 1.5× HP, 240px/s, appears waves 10–14
 - **10 player lives** — each leaked enemy costs 1 life (`Balance.StartingLives = 10`)
 - **20 waves**, 6 tower slots, max 3 modifiers per tower
-- **Extra draft picks**: +1 free pick before wave 1 and before wave 15 (`Balance.Wave1ExtraPicks`, `Balance.Wave15ExtraPicks`)
-- **Difficulty modes**: Normal (×1.05 HP/count, ×0.95 spawn interval) and Hard (×1.1 HP, ×1.2 count, ×0.9 spawn interval)
+- **Extra draft picks**: `Balance.Wave1ExtraPicks` and `Balance.Wave15ExtraPicks` are both currently 0 (temporarily disabled)
+- **Difficulty modes**: Easy (no scaling), Normal (tuned ~75% bot win), Hard (tuned ~50% bot win). Exact multipliers are in `Balance.DifficultyMultipliers` and overridable at runtime via `SpectacleTuning.Current`
