@@ -216,7 +216,7 @@ public static class SpectacleDefinitions
 
     public static float ResolveDamageMeterMultiplier(float eventDamage)
     {
-        if (eventDamage <= 0f)
+        if (!float.IsFinite(eventDamage) || eventDamage <= 0f)
             return 1f;
 
         float refMul = MathF.Max(0.05f, SpectacleTuning.Current.MeterDamageReferenceMultiplier);

@@ -519,6 +519,48 @@ public class SpectacleSystemTests
     }
 
     [Fact]
+    public void RegisterProc_NonFiniteScalar_IsIgnored()
+    {
+        var system = new SpectacleSystem();
+        var tower = TowerWithMods("split_shot");
+
+        system.RegisterProc(tower, "split_shot", float.NaN, eventDamage: 20f);
+        SpectacleVisualState afterNaN = system.GetVisualState(tower);
+        Assert.Equal(0f, afterNaN.MeterNormalized, 3);
+
+        system.RegisterProc(tower, "split_shot", float.PositiveInfinity, eventDamage: 20f);
+        SpectacleVisualState afterInf = system.GetVisualState(tower);
+        Assert.Equal(0f, afterInf.MeterNormalized, 3);
+    }
+
+    [Fact]
+    public void RegisterProc_NonFiniteDamage_DoesNotPoisonMeter()
+    {
+        var system = new SpectacleSystem();
+        var tower = TowerWithMods("split_shot");
+        float scalarForSingleProcSurge = ScalarToGuaranteeSingleProcSurge("split_shot");
+        int surgeCount = 0;
+
+        system.OnSurgeTriggered += _ => surgeCount++;
+        system.RegisterProc(tower, "split_shot", scalarForSingleProcSurge * 0.30f, eventDamage: float.NaN);
+        SpectacleVisualState visual = system.GetVisualState(tower);
+        Assert.True(float.IsFinite(visual.MeterNormalized));
+        Assert.True(visual.MeterNormalized > 0f);
+
+        system.RegisterProc(tower, "split_shot", scalarForSingleProcSurge * 0.80f, eventDamage: float.PositiveInfinity);
+        Assert.Equal(1, surgeCount);
+        Assert.True(float.IsFinite(system.GlobalMeter));
+    }
+
+    [Fact]
+    public void ResolveDamageMeterMultiplier_NonFiniteDamage_DefaultsToOne()
+    {
+        Assert.Equal(1f, SpectacleDefinitions.ResolveDamageMeterMultiplier(float.NaN), 3);
+        Assert.Equal(1f, SpectacleDefinitions.ResolveDamageMeterMultiplier(float.PositiveInfinity), 3);
+        Assert.Equal(1f, SpectacleDefinitions.ResolveDamageMeterMultiplier(float.NegativeInfinity), 3);
+    }
+
+    [Fact]
     public void GlobalTrigger_FiresAfterRequiredSurgesFromTwoTowers()
     {
         var system = new SpectacleSystem();
@@ -587,5 +629,42 @@ public class SpectacleSystemTests
         Assert.Equal(1, globalCount);
         Assert.Equal(1, lastGlobal.UniqueContributors);
         Assert.Equal(SpectacleDefinitions.GlobalMeterAfterTrigger, lastGlobal.MeterAfter, 3);
+    }
+
+    [Fact]
+    public void GlobalTrigger_RemovedTower_DoesNotCountAsContributor()
+    {
+        SpectacleTuning.Reset();
+        try
+        {
+            SpectacleTuning.Apply(new SpectacleTuningProfile
+            {
+                GlobalThresholdMultiplier = 0.10f,
+            }, "test");
+
+            var system = new SpectacleSystem();
+            var towerA = TowerWithMods("split_shot");
+            var towerB = TowerWithMods("split_shot");
+            int globalCount = 0;
+            GlobalSurgeTriggerInfo lastGlobal = default;
+            float scalarForSingleProcSurge = ScalarToGuaranteeSingleProcSurge("split_shot");
+
+            system.OnGlobalTriggered += info =>
+            {
+                globalCount++;
+                lastGlobal = info;
+            };
+
+            system.RegisterProc(towerA, "split_shot", scalarForSingleProcSurge);
+            system.RemoveTower(towerA);
+            system.RegisterProc(towerB, "split_shot", scalarForSingleProcSurge);
+
+            Assert.Equal(1, globalCount);
+            Assert.Equal(1, lastGlobal.UniqueContributors);
+        }
+        finally
+        {
+            SpectacleTuning.Reset();
+        }
     }
 }
