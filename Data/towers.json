@@ -8,7 +8,7 @@
   },
   "heavy_cannon": {
     "Name": "Heavy Cannon",
-    "BaseDamage": 52.0,
+    "BaseDamage": 56.0,
     "AttackInterval": 2.0,
     "Range": 238.0,
     "AppliesMark": false
@@ -32,7 +32,7 @@
   },
   "rift_prism": {
     "Name": "Rift Sapper",
-    "BaseDamage": 20.0,
+    "BaseDamage": 22.0,
     "AttackInterval": 0.98,
     "Range": 230.0,
     "AppliesMark": false

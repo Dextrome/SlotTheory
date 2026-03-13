@@ -169,13 +169,13 @@ public partial class HowToPlay : Node
         AddHeader(vbox, "TOWERS");
         AddTowerRow(vbox, "Rapid Shooter", "10 dmg, 0.45 s, 285 px range",
             "High rate of fire, low damage per hit. Shines with Momentum and Hair Trigger.");
-        AddTowerRow(vbox, "Heavy Cannon", "52 dmg, 2.0 s, 238 px range",
+        AddTowerRow(vbox, "Heavy Cannon", "56 dmg, 2.0 s, 238 px range",
             "Slow but hits hard. Great with Overkill and Focus Lens.");
         AddTowerRow(vbox, "Marker Tower", "7 dmg, 1.0 s, 333 px range",
             "Applies Mark on every hit. Synergises with Exploit Weakness.");
         AddTowerRow(vbox, "Arc Emitter (unlock)", "18 dmg, 1.2 s, 257 px range",
             "Unlock by beating the first campaign map. Chains to 2 nearby enemies per shot (60% damage decay per bounce).");
-        AddTowerRow(vbox, "Rift Sapper (unlock)", "20 dmg, 0.98 s, 230 px range",
+        AddTowerRow(vbox, "Rift Sapper (unlock)", "22 dmg, 0.98 s, 230 px range",
             "Unlock by beating the third campaign map. Plants up to 7 mines with 3 charges each; final charge causes the big pop. Wave start gets rapid seeding for 2.4s. Split Shot seeds mini-mines (35% scale) on final pops only.");
         AddSpacer(vbox, 12);
 
@@ -193,16 +193,16 @@ public partial class HowToPlay : Node
         AddHeader(vbox, "MARK");
         AddLine(vbox, "Marker Tower hits apply Mark for 4 seconds.");
         AddLine(vbox, "Marked enemies take +40% damage from all towers.");
-        AddLine(vbox, "Pair with Exploit Weakness for a x2.24 burst combo (+40% mark x +60% exploit).");
+        AddLine(vbox, "Pair with Exploit Weakness for a x2.03 burst combo (+40% mark x +45% exploit).");
         AddSpacer(vbox, 12);
 
         AddHeader(vbox, "MODIFIERS  (max 3 per tower)");
         AddModRow(vbox, "Momentum", "+16% damage per consecutive hit on same target, up to x1.8. Resets on target switch.");
         AddModRow(vbox, "Overkill", "Excess damage from a kill spills to the next enemy in the lane.");
-        AddModRow(vbox, "Exploit Weakness", "+60% damage to Marked enemies. Pairs with Marker Tower.");
+        AddModRow(vbox, "Exploit Weakness", "+45% damage to Marked enemies. Pairs with Marker Tower.");
         AddModRow(vbox, "Focus Lens", "+140% damage, +85% attack interval. Big hits, slow fire - ideal for Overkill combos.");
         AddModRow(vbox, "Chill Shot", "On hit: -30% move speed for 6 s. Keeps enemies in range longer.");
-        AddModRow(vbox, "Overreach", "+55% range, -10% damage. Wider coverage with a light damage tradeoff.");
+        AddModRow(vbox, "Overreach", "+45% range, -10% damage. Wider coverage with a light damage tradeoff.");
         AddModRow(vbox, "Hair Trigger", "+30% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
         AddModRow(vbox, "Split Shot (unlock)", "Unlock by beating the second campaign map. On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
         AddModRow(vbox, "Feedback Loop", "Killing an enemy reduces this tower's current cooldown by 50%. Lets rapid killers fire again sooner.");
@@ -218,7 +218,7 @@ public partial class HowToPlay : Node
 
         AddHeader(vbox, "TIPS");
         AddLine(vbox, "Rapid Shooter + Momentum - devastating DPS on enemies that take many hits to kill.");
-        AddLine(vbox, "Marker Tower + Exploit Weakness - marks the target then bursts it for x2.24 total damage.");
+        AddLine(vbox, "Marker Tower + Exploit Weakness - marks the target then bursts it for x2.03 total damage.");
         AddLine(vbox, "Heavy Cannon + Overkill - chain-kills tightly packed groups; spill damage carries forward.");
         AddLine(vbox, "Arc Emitter + Chain Reaction - each copy adds a bounce; with 3 copies, Arc Emitter can hit 6 targets per shot.");
         AddLine(vbox, "Heavy Cannon + Split Shot - even at 35%, cannon hits still add meaningful side pressure to nearby enemies.");

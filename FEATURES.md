@@ -126,10 +126,10 @@ Platforms: Windows Desktop, Android (phone and tablet)
 | Tower | Base Damage | Attack Interval | Range | Special |
 |---|---:|---:|---:|---|
 | Rapid Shooter | 10 | 0.45 s | 285 px | Fast single-target fire |
-| Heavy Cannon | 52 | 2.0 s | 238 px | Heavy burst hits |
+| Heavy Cannon | 56 | 2.0 s | 238 px | Heavy burst hits |
 | Marker Tower | 7 | 1.0 s | 333 px | Applies Marked on hit |
 | Arc Emitter (`chain_tower`) | 18 | 1.2 s | 257 px | Base chain: +2 bounces, 400 px chain range, 60% damage carry per hop |
-| Rift Sapper (`rift_prism`) | 20 | 0.98 s | 230 px | Charged mine trap tower with wave-start rapid seeding |
+| Rift Sapper (`rift_prism`) | 22 | 0.98 s | 230 px | Charged mine trap tower with wave-start rapid seeding |
 
 - Towers are placed into 6 fixed world slots.
 - Each tower can hold up to 3 modifiers.
@@ -168,10 +168,10 @@ Platforms: Windows Desktop, Android (phone and tablet)
 |---|---|
 | Momentum | +16% damage per consecutive hit on same target, up to 5 stacks (max x1.80), resets on target switch |
 | Overkill | 60% of excess kill damage spills to next enemy in lane |
-| Exploit Weakness | +60% damage vs Marked enemies |
+| Exploit Weakness | +45% damage vs Marked enemies |
 | Focus Lens | +125% damage, x2 attack interval |
 | Chill Shot (`slow`) | On hit: enemy speed factor 0.75 for 5 s; copies on the same tower stack multiplicatively |
-| Overreach | +40% range, -20% damage |
+| Overreach | +45% range, -10% damage |
 | Hair Trigger | +35% attack speed, -18% range |
 | Split Shot | Fires 2 split projectiles at 35% damage each, each extra copy adds +1 split projectile |
 | Feedback Loop | On kill, removes 50% of current cooldown |
@@ -747,3 +747,4 @@ Behavior:
   - `Data/waves.json`
   - `Scripts/Core/Balance.cs`
   - and this document together.
+

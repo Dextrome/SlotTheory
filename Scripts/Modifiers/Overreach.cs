@@ -3,7 +3,7 @@ using SlotTheory.Entities;
 
 namespace SlotTheory.Modifiers;
 
-/// <summary>+55% range, -10% damage. Wider coverage with a light damage tradeoff.</summary>
+/// <summary>+45% range, -10% damage. Wider coverage with a light damage tradeoff.</summary>
 public class Overreach : Modifier
 {
     public Overreach(ModifierDef def) { ModifierId = def.Id; }

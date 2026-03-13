@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using SlotTheory.Core;
@@ -11,7 +11,8 @@ public enum BotStrategy
 {
     Random, TowerFirst, GreedyDps, MarkerSynergy,
     ChainFocus, SplitFocus, HeavyStack, RiftPrismFocus,
-    SpectacleSingleStack, SpectacleComboPairing, SpectacleTriadDiversity
+    SpectacleSingleStack, SpectacleComboPairing, SpectacleTriadDiversity,
+    PlayerStyleKenny
 }
 
 /// <summary>
@@ -63,11 +64,12 @@ public class BotPlayer
         BotStrategy.SpectacleSingleStack => PickSpectacleSingleStack(options, state),
         BotStrategy.SpectacleComboPairing => PickSpectacleComboPairing(options, state),
         BotStrategy.SpectacleTriadDiversity => PickSpectacleTriadDiversity(options, state),
+        BotStrategy.PlayerStyleKenny => PickPlayerStyleKenny(options, state),
         _                         => PickRandom(options, state),
     };
     }
 
-    // ── Helpers ────────────────────────────────────────────────────────────
+    // â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private List<int> EmptySlots(RunState s) =>
         Enumerable.Range(0, s.Slots.Length).Where(i => s.Slots[i].Tower == null).ToList();
@@ -84,6 +86,29 @@ public class BotPlayer
 
     private static bool IsFastTower(string? towerId) =>
         towerId is "rapid_shooter" or "chain_tower" or "rift_prism";
+
+    private static bool IsOpenerTower(string? towerId) =>
+        towerId is "rapid_shooter" or "chain_tower" or "heavy_cannon";
+
+    private static DraftOption? FindTowerOption(List<DraftOption> opts, params string[] towerIds)
+    {
+        foreach (string towerId in towerIds)
+        {
+            var tower = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == towerId);
+            if (tower != null) return tower;
+        }
+        return null;
+    }
+
+    private static DraftOption? FindModOption(List<DraftOption> opts, params string[] modIds)
+    {
+        foreach (string modId in modIds)
+        {
+            var mod = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == modId);
+            if (mod != null) return mod;
+        }
+        return null;
+    }
 
     private static readonly string[] SpectacleModPriority =
     {
@@ -108,6 +133,8 @@ public class BotPlayer
         "marker_tower",
     };
 
+    private static readonly int[] CenterSlotPreference = { 2, 3, 1, 4, 0, 5 };
+
     private static string NormalizeSpectacleMod(string modId) =>
         SpectacleDefinitions.NormalizeModId(modId);
 
@@ -130,6 +157,18 @@ public class BotPlayer
         return slot.Tower.Modifiers
             .Select(m => NormalizeSpectacleMod(m.ModifierId))
             .Count(id => SpectacleDefinitions.IsSupported(id) && !allowed.Contains(id));
+    }
+
+    private int PickMostCenteredEmptySlot(RunState s)
+    {
+        var empty = EmptySlots(s);
+        if (empty.Count == 0) return -1;
+        foreach (int slot in CenterSlotPreference)
+        {
+            if (slot >= 0 && slot < s.Slots.Length && s.Slots[slot].Tower == null)
+                return slot;
+        }
+        return empty[0];
     }
 
     private DraftPick? AnyTower(List<DraftOption> opts, RunState s)
@@ -205,7 +244,147 @@ public class BotPlayer
         return null;
     }
 
-    // ── Strategies ─────────────────────────────────────────────────────────
+    // â”€â”€ Strategies â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    // Human-inspired profile modeled from a practical ladder playstyle.
+    // Arc Emitter is represented by chain_tower in data ids.
+    private DraftPick? PickPlayerStyleKenny(List<DraftOption> opts, RunState s)
+    {
+        var empty = EmptySlots(s);
+        var eligible = ModSlots(s);
+
+        bool hasMarker = s.Slots.Any(sl => sl.Tower?.TowerId == "marker_tower");
+        bool hasRift = s.Slots.Any(sl => sl.Tower?.TowerId == "rift_prism");
+        int towerCount = s.Slots.Count(sl => sl.Tower != null);
+
+        if (eligible.Count > 0)
+        {
+            // After opener, force one strong damage modifier early.
+            var earlyDamage = FindModOption(opts, "hair_trigger", "momentum", "split_shot", "focus_lens", "chain_reaction", "exploit_weakness");
+            if (earlyDamage != null)
+            {
+                int earlySlot = eligible
+                    .Where(i => IsOpenerTower(s.Slots[i].Tower?.TowerId) && s.Slots[i].Tower!.Modifiers.Count == 0)
+                    .OrderBy(i => s.Slots[i].Tower!.TowerId == "rapid_shooter" ? 0 :
+                                  s.Slots[i].Tower!.TowerId == "chain_tower" ? 1 : 2)
+                    .FirstOrDefault(-1);
+                if (earlySlot >= 0) return new DraftPick(earlyDamage, earlySlot);
+            }
+
+            // Marker upgrades: chain reaction then overreach.
+            if (hasMarker)
+            {
+                var markerSlots = eligible.Where(i => s.Slots[i].Tower?.TowerId == "marker_tower").ToList();
+                if (markerSlots.Count > 0)
+                {
+                    var markerCR = FindModOption(opts, "chain_reaction");
+                    if (markerCR != null)
+                    {
+                        int slot = markerSlots
+                            .Where(i => s.Slots[i].Tower!.Modifiers.Count(m => m.ModifierId == "chain_reaction") < 2)
+                            .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count(m => m.ModifierId == "chain_reaction"))
+                            .FirstOrDefault(-1);
+                        if (slot >= 0) return new DraftPick(markerCR, slot);
+                    }
+
+                    var markerOR = FindModOption(opts, "overreach");
+                    if (markerOR != null)
+                    {
+                        int slot = markerSlots
+                            .Where(i => !s.Slots[i].Tower!.Modifiers.Any(m => m.ModifierId == "overreach"))
+                            .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                            .FirstOrDefault(-1);
+                        if (slot >= 0) return new DraftPick(markerOR, slot);
+                    }
+                }
+            }
+
+            // Heavy cannon stack: split -> exploit -> hair -> focus.
+            foreach (string modId in new[] { "split_shot", "exploit_weakness", "hair_trigger", "focus_lens" })
+            {
+                var mod = FindModOption(opts, modId);
+                if (mod == null) continue;
+                int slot = eligible
+                    .Where(i => s.Slots[i].Tower?.TowerId == "heavy_cannon" &&
+                                !s.Slots[i].Tower!.Modifiers.Any(m => m.ModifierId == modId))
+                    .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .FirstOrDefault(-1);
+                if (slot >= 0) return new DraftPick(mod, slot);
+            }
+
+            // Rapid shooter stack: chain -> momentum -> exploit.
+            foreach (string modId in new[] { "chain_reaction", "momentum", "exploit_weakness" })
+            {
+                var mod = FindModOption(opts, modId);
+                if (mod == null) continue;
+                int slot = eligible
+                    .Where(i => s.Slots[i].Tower?.TowerId == "rapid_shooter" &&
+                                !s.Slots[i].Tower!.Modifiers.Any(m => m.ModifierId == modId))
+                    .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .FirstOrDefault(-1);
+                if (slot >= 0) return new DraftPick(mod, slot);
+            }
+
+            // Arc emitter role: up to 3x chill shot ("slow") on chain_tower.
+            var slow = FindModOption(opts, "slow");
+            if (slow != null)
+            {
+                int slot = eligible
+                    .Where(i => s.Slots[i].Tower?.TowerId == "chain_tower" &&
+                                s.Slots[i].Tower!.Modifiers.Count(m => m.ModifierId == "slow") < 3)
+                    .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count(m => m.ModifierId == "slow"))
+                    .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .FirstOrDefault(-1);
+                if (slot >= 0) return new DraftPick(slow, slot);
+            }
+
+            // Rift sapper setup: split + chain + overkill/exploit.
+            foreach (string modId in new[] { "split_shot", "chain_reaction", "overkill", "exploit_weakness" })
+            {
+                var mod = FindModOption(opts, modId);
+                if (mod == null) continue;
+                int slot = eligible
+                    .Where(i => s.Slots[i].Tower?.TowerId == "rift_prism" &&
+                                !s.Slots[i].Tower!.Modifiers.Any(m => m.ModifierId == modId))
+                    .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .FirstOrDefault(-1);
+                if (slot >= 0) return new DraftPick(mod, slot);
+            }
+        }
+
+        if (empty.Count > 0)
+        {
+            // Open with an early damage tower.
+            if (towerCount == 0)
+            {
+                var opener = FindTowerOption(opts, "rapid_shooter", "chain_tower", "heavy_cannon");
+                if (opener != null) return new DraftPick(opener, empty[0]);
+            }
+
+            // Grab marker as soon as possible after opener; place near center.
+            if (!hasMarker && towerCount >= 1)
+            {
+                var marker = FindTowerOption(opts, "marker_tower");
+                if (marker != null)
+                {
+                    int centerSlot = PickMostCenteredEmptySlot(s);
+                    if (centerSlot >= 0) return new DraftPick(marker, centerSlot);
+                }
+            }
+
+            // Add rift sapper once core is established.
+            if (!hasRift && towerCount >= 2)
+            {
+                var rift = FindTowerOption(opts, "rift_prism");
+                if (rift != null) return new DraftPick(rift, empty[0]);
+            }
+
+            var preferredTower = FindTowerOption(opts, "rapid_shooter", "heavy_cannon", "chain_tower", "rift_prism");
+            if (preferredTower != null) return new DraftPick(preferredTower, empty[0]);
+        }
+
+        return PickGreedyDps(opts, s);
+    }
 
     private DraftPick? PickRandom(List<DraftOption> opts, RunState s)
     {
@@ -299,7 +478,7 @@ public class BotPlayer
     }
 
     // Build around Marker Tower + Exploit Weakness synergy.
-    // Keystone: marker marks enemies → EW gives +60% dmg to marked → momentum stacks on repeat hits.
+    // Keystone: marker marks enemies â†’ EW gives +45% dmg to marked â†’ momentum stacks on repeat hits.
     // Human pattern: marker + 3-4 rapid_shooters all stacked with EW + momentum.
     private DraftPick? PickMarkerSynergy(List<DraftOption> opts, RunState s)
     {
@@ -326,7 +505,7 @@ public class BotPlayer
 
         if (eligible.Count > 0)
         {
-            // 3. EW on every DPS tower that doesn't have it yet — ONLY if marker is placed
+            // 3. EW on every DPS tower that doesn't have it yet â€” ONLY if marker is placed
             if (hasMarker)
             {
                 var ew = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "exploit_weakness");
@@ -349,7 +528,7 @@ public class BotPlayer
                 if (markerSlot >= 0) return new DraftPick(ht, markerSlot);
             }
 
-            // 5. Momentum on DPS towers (stacks to ×1.80 when hitting the same marked enemy)
+            // 5. Momentum on DPS towers (stacks to Ã—1.80 when hitting the same marked enemy)
             var mom = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "momentum");
             if (mom != null)
             {
@@ -391,7 +570,7 @@ public class BotPlayer
             if (dps != null) return new DraftPick(dps, empty[0]);
         }
 
-        // 9. Scored fallback for any remaining modifier — prefer DPS-boosting mods on DPS towers
+        // 9. Scored fallback for any remaining modifier â€” prefer DPS-boosting mods on DPS towers
         if (eligible.Count > 0)
         {
             bool needsEw = hasMarker && eligible.Any(i =>
@@ -431,7 +610,7 @@ public class BotPlayer
     }
 
     // Chain strategy: build up to 2 chain_reactions (on chain_tower), then exactly 1 damage mod,
-    // then pivot fully to direct DPS. Chain bounces decay ×0.60/hop — diminishing vs armored late game.
+    // then pivot fully to direct DPS. Chain bounces decay Ã—0.60/hop â€” diminishing vs armored late game.
     private DraftPick? PickChainFocus(List<DraftOption> opts, RunState s)
     {
         var empty    = EmptySlots(s);
@@ -445,7 +624,7 @@ public class BotPlayer
 
         if (eligible.Count > 0)
         {
-            // 1. Up to 2 chain_reactions total — always on chain_tower if possible
+            // 1. Up to 2 chain_reactions total â€” always on chain_tower if possible
             if (chainReactionTotal < 2)
             {
                 var cr = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "chain_reaction");
@@ -460,10 +639,10 @@ public class BotPlayer
                 }
             }
 
-            // 2. Exactly 1 damage modifier — pick the best available, with tower affinity
+            // 2. Exactly 1 damage modifier â€” pick the best available, with tower affinity
             if (!hasDmgMod)
             {
-                // hair_trigger → fast towers; momentum → fast towers; split_shot → heavy_cannon
+                // hair_trigger â†’ fast towers; momentum â†’ fast towers; split_shot â†’ heavy_cannon
                 var ht = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "hair_trigger");
                 if (ht != null)
                 {
@@ -491,7 +670,7 @@ public class BotPlayer
                 }
             }
 
-            // 3. Scored fallback for remaining picks — treat like GreedyDps from here
+            // 3. Scored fallback for remaining picks â€” treat like GreedyDps from here
             DraftOption? bestMod = null;
             float bestScore = -1f;
             foreach (var opt in Mods(opts))
@@ -521,7 +700,7 @@ public class BotPlayer
             }
         }
 
-        // Tower placement: chain_tower → rapid_shooter → heavy_cannon
+        // Tower placement: chain_tower â†’ rapid_shooter â†’ heavy_cannon
         if (empty.Count > 0)
         {
             var chain = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "chain_tower");
@@ -545,7 +724,7 @@ public class BotPlayer
 
         if (eligible.Count > 0)
         {
-            // 1. Stack split_shot — prefer heavy_cannon (big base = impactful splits)
+            // 1. Stack split_shot â€” prefer heavy_cannon (big base = impactful splits)
             var ss = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "split_shot");
             if (ss != null)
             {
@@ -1120,7 +1299,7 @@ public class BotPlayer
                 if (slot >= 0) return new DraftPick(fl, slot);
             }
 
-            // 2. Momentum on heavy_cannon: builds ×1.80 on armored/tanky clumps
+            // 2. Momentum on heavy_cannon: builds Ã—1.80 on armored/tanky clumps
             var mom = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "momentum");
             if (mom != null)
             {
@@ -1181,3 +1360,5 @@ public class BotPlayer
         return PickTowerFirst(opts, s);
     }
 }
+
+

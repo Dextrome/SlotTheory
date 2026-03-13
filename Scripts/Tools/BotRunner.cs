@@ -78,10 +78,24 @@ public class BotRunner
         int StatusDetonationCount,
         int SpectacleMaxChainDepth,
         float ResidueUptimeSeconds,
+        float[] KillDepthSamples,
+        int[] SpectacleChainSizeSamples,
         int PeakSimultaneousExplosions,
         int PeakSimultaneousActiveHazards,
         int PeakSimultaneousHitStopsRequested
     );
+
+    private readonly record struct PercentileStats(
+        int SampleCount,
+        float Average,
+        float P25,
+        float P50,
+        float P75,
+        float P90,
+        float P99);
+
+    private const float DamageConcentrationWarningThreshold = 0.60f;
+    private const float DamageConcentrationProblemThreshold = 0.75f;
 
     private readonly int              _totalRuns;
     private readonly BotStrategy[]    _strategies;
@@ -281,6 +295,8 @@ public BotRunner(
             state.StatusDetonationCount,
             state.SpectacleMaxChainDepth,
             state.ResidueUptimeSeconds,
+            [.. state.KillDepthSamples],
+            [.. state.SpectacleChainSizeSamples],
             state.PeakSimultaneousExplosions,
             state.PeakSimultaneousActiveHazards,
             state.PeakSimultaneousHitStopsRequested));
@@ -575,6 +591,12 @@ public BotRunner(
         float avgStatusDetonations = (float)_results.Average(r => r.StatusDetonationCount);
         float avgResidueUptime = (float)_results.Average(r => r.ResidueUptimeSeconds);
         float avgChainDepth = (float)_results.Average(r => r.SpectacleMaxChainDepth);
+        var topDamageShares = _results.Select(ResolveTopTowerDamageShare).ToList();
+        PercentileStats damageConcentration = BuildPercentileStats(topDamageShares);
+        var killDepthSamples = _results.SelectMany(r => r.KillDepthSamples).ToList();
+        PercentileStats killDepth = BuildPercentileStats(killDepthSamples);
+        var chainSizeSamples = _results.SelectMany(r => r.SpectacleChainSizeSamples).Select(v => (float)v).ToList();
+        PercentileStats chainSize = BuildPercentileStats(chainSizeSamples);
 
         float avgBaseDps = (float)_results.Average(r => SafeDps(r.BaseAttackDamage, r.RunDurationSeconds));
         float avgSurgeDps = (float)_results.Average(r => SafeDps(r.SurgeCoreDamage, r.RunDurationSeconds));
@@ -596,6 +618,9 @@ public BotRunner(
         GD.Print($"  Status detonations/run: {avgStatusDetonations:0.00}");
         GD.Print($"  Residue uptime/run: {avgResidueUptime:0.00}s");
         GD.Print($"  Max chain depth/run: {avgChainDepth:0.00}");
+        GD.Print($"  Top tower damage share: p50={damageConcentration.P50 * 100f:0.0}% p90={damageConcentration.P90 * 100f:0.0}%");
+        GD.Print($"  Kill depth: avg={killDepth.Average:0.000}, p25={killDepth.P25:0.000}, p50={killDepth.P50:0.000}, p75={killDepth.P75:0.000}");
+        GD.Print($"  Chain size: median={chainSize.P50:0.0}, p90={chainSize.P90:0.0}, p99={chainSize.P99:0.0}");
         GD.Print($"  DPS split: base={avgBaseDps:0.00}, surge={avgSurgeDps:0.00}, explosion={avgExplosionDps:0.00}, residue={avgResidueDps:0.00}");
         GD.Print($"  Frame-stress peaks: explosions={peakExplosions}, hazards={peakHazards}, hitstops={peakHitStops}");
     }
@@ -620,6 +645,22 @@ public BotRunner(
             var explosionSharePerRun = _results
                 .Select(r => ResolveExplosionSharePerRun(r))
                 .ToList();
+            var topTowerDamageSharePerRun = _results
+                .Select(ResolveTopTowerDamageShare)
+                .ToList();
+            PercentileStats damageConcentration = BuildPercentileStats(topTowerDamageSharePerRun);
+            var allKillDepthSamples = _results
+                .SelectMany(r => r.KillDepthSamples)
+                .ToList();
+            PercentileStats killDepthDistribution = BuildPercentileStats(allKillDepthSamples);
+            var allChainReactionSizes = _results
+                .SelectMany(r => r.SpectacleChainSizeSamples)
+                .Select(v => (float)v)
+                .ToList();
+            PercentileStats chainReactionSizeDistribution = BuildPercentileStats(allChainReactionSizes);
+            int healthyDamageConcentrationRuns = topTowerDamageSharePerRun.Count(v => v < DamageConcentrationWarningThreshold);
+            int warningDamageConcentrationRuns = topTowerDamageSharePerRun.Count(v => v >= DamageConcentrationWarningThreshold && v < DamageConcentrationProblemThreshold);
+            int problemDamageConcentrationRuns = topTowerDamageSharePerRun.Count(v => v >= DamageConcentrationProblemThreshold);
             float avgSurgeIntervalSeconds = ResolveAverageSurgeIntervalSeconds(_results);
             var placementsByTower = new Dictionary<string, int>(StringComparer.Ordinal);
             var surgesByTower = new Dictionary<string, int>(StringComparer.Ordinal);
@@ -675,6 +716,40 @@ public BotRunner(
                     avg_status_detonation_count = _results.Count > 0 ? (float)_results.Average(r => r.StatusDetonationCount) : 0f,
                     avg_residue_uptime_seconds = _results.Count > 0 ? (float)_results.Average(r => r.ResidueUptimeSeconds) : 0f,
                     avg_max_chain_depth = _results.Count > 0 ? (float)_results.Average(r => r.SpectacleMaxChainDepth) : 0f,
+                    damage_concentration = new
+                    {
+                        thresholds = new
+                        {
+                            warning_min = DamageConcentrationWarningThreshold,
+                            problem_min = DamageConcentrationProblemThreshold,
+                        },
+                        avg_top_tower_share = damageConcentration.Average,
+                        p25_top_tower_share = damageConcentration.P25,
+                        p50_top_tower_share = damageConcentration.P50,
+                        p75_top_tower_share = damageConcentration.P75,
+                        p90_top_tower_share = damageConcentration.P90,
+                        p99_top_tower_share = damageConcentration.P99,
+                        healthy_runs = healthyDamageConcentrationRuns,
+                        warning_runs = warningDamageConcentrationRuns,
+                        problem_runs = problemDamageConcentrationRuns,
+                    },
+                    kill_depth_distribution = new
+                    {
+                        sample_count = killDepthDistribution.SampleCount,
+                        avg = killDepthDistribution.Average,
+                        p25 = killDepthDistribution.P25,
+                        p50 = killDepthDistribution.P50,
+                        p75 = killDepthDistribution.P75,
+                        p90 = killDepthDistribution.P90,
+                        p99 = killDepthDistribution.P99,
+                    },
+                    chain_reaction_size_distribution = new
+                    {
+                        sample_count = chainReactionSizeDistribution.SampleCount,
+                        median = chainReactionSizeDistribution.P50,
+                        p90 = chainReactionSizeDistribution.P90,
+                        p99 = chainReactionSizeDistribution.P99,
+                    },
                     dps_split = new
                     {
                         base_attacks = _results.Count > 0 ? (float)_results.Average(r => SafeDps(r.BaseAttackDamage, r.RunDurationSeconds)) : 0f,
@@ -700,6 +775,18 @@ public BotRunner(
                             bin_size_percent = explosionShareBinSize * 100f,
                             bins = BuildSparseBinnedDistribution(explosionSharePerRun, explosionShareBinSize),
                         },
+                        top_tower_damage_share_per_run = new
+                        {
+                            bin_size_fraction = explosionShareBinSize,
+                            bin_size_percent = explosionShareBinSize * 100f,
+                            bins = BuildSparseBinnedDistribution(topTowerDamageSharePerRun, explosionShareBinSize),
+                        },
+                        kill_depth = new
+                        {
+                            bin_size_fraction = 0.01f,
+                            bins = BuildSparseBinnedDistribution(allKillDepthSamples, 0.01f),
+                        },
+                        chain_reaction_size = BuildDiscreteDistribution(allChainReactionSizes.Select(v => (int)MathF.Round(v))),
                     },
                 },
                 runs = _results.Select(r => new
@@ -717,6 +804,9 @@ public BotRunner(
                     status_detonations = r.StatusDetonationCount,
                     residue_uptime_seconds = r.ResidueUptimeSeconds,
                     max_chain_depth = r.SpectacleMaxChainDepth,
+                    top_tower_damage_share = ResolveTopTowerDamageShare(r),
+                    kill_depth_samples = r.KillDepthSamples,
+                    chain_reaction_sizes = r.SpectacleChainSizeSamples,
                     damage_split = new
                     {
                         base_attacks = r.BaseAttackDamage,
@@ -749,6 +839,15 @@ public BotRunner(
         if (total <= 0.0001f)
             return 0f;
         return (run.ExplosionFollowUpDamage + run.ResidueDamage) / total;
+    }
+
+    private static float ResolveTopTowerDamageShare(RunResult run)
+    {
+        float total = run.SlotDamage.Where(v => v > 0).Sum();
+        if (total <= 0.0001f)
+            return 0f;
+        float top = run.SlotDamage.Where(v => v > 0).DefaultIfEmpty(0).Max();
+        return top / total;
     }
 
     private static float ResolveSurgeIntervalSeconds(RunResult run)
@@ -809,6 +908,41 @@ public BotRunner(
                 count = kv.Value,
             })
             .ToList();
+    }
+
+    private static PercentileStats BuildPercentileStats(IReadOnlyList<float> values)
+    {
+        if (values.Count == 0)
+            return new PercentileStats(0, 0f, 0f, 0f, 0f, 0f, 0f);
+
+        var sorted = values.OrderBy(v => v).ToArray();
+        float avg = sorted.Average();
+
+        return new PercentileStats(
+            SampleCount: sorted.Length,
+            Average: avg,
+            P25: ResolveQuantile(sorted, 0.25f),
+            P50: ResolveQuantile(sorted, 0.50f),
+            P75: ResolveQuantile(sorted, 0.75f),
+            P90: ResolveQuantile(sorted, 0.90f),
+            P99: ResolveQuantile(sorted, 0.99f));
+    }
+
+    private static float ResolveQuantile(float[] sorted, float quantile)
+    {
+        if (sorted.Length == 0)
+            return 0f;
+        if (sorted.Length == 1)
+            return sorted[0];
+
+        float q = Math.Clamp(quantile, 0f, 1f);
+        float index = q * (sorted.Length - 1);
+        int lo = (int)MathF.Floor(index);
+        int hi = (int)MathF.Ceiling(index);
+        if (lo == hi)
+            return sorted[lo];
+        float t = index - lo;
+        return Mathf.Lerp(sorted[lo], sorted[hi], t);
     }
 
     private static float SafeDps(int damage, float durationSeconds)

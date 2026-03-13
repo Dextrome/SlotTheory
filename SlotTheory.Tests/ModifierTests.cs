@@ -25,11 +25,11 @@ public class ModifierTests
     // ── Overreach ─────────────────────────────────────────────────────────
 
     [Fact]
-    public void Overreach_OnEquip_IncreasesRange155Percent()
+    public void Overreach_OnEquip_IncreasesRange145Percent()
     {
         var tower = new FakeTower { Range = 200f };
         new Overreach(Def("overreach")).OnEquip(tower);
-        Assert.Equal(310f, tower.Range, precision: 2);
+        Assert.Equal(200f * Balance.OverreachRangeFactor, tower.Range, precision: 2);
     }
 
     [Fact]

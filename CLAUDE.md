@@ -1,12 +1,12 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
-**Slot Theory** is a constraint-driven drafting tower defense game by 7ants Studios. Core loop: Draft 1 of 5 options → wave runs automatically → repeat for 20 waves or lose. No mid-wave interaction, no economy, no meta progression.
+**Slot Theory** is a constraint-driven drafting tower defense game by 7ants Studios. Core loop: Draft 1 of 5 options â†’ wave runs automatically â†’ repeat for 20 waves or lose. No mid-wave interaction, no economy, no meta progression.
 
-Engine: **Godot 4.x .NET** (C#) · Runtime: **.NET 8+** · Target: **Windows (Steam)**
+Engine: **Godot 4.x .NET** (C#) Â· Runtime: **.NET 8+** Â· Target: **Windows (Steam)**
 
 ## Since v1.0.8 (Documentation Baseline)
 
@@ -28,16 +28,16 @@ Engine: **Godot 4.x .NET** (C#) · Runtime: **.NET 8+** · Target: **Windows (St
 
 ## Setup Requirements
 
-- Install **Godot .NET build** (4.4+, not the standard build — required for C# support)
+- Install **Godot .NET build** (4.4+, not the standard build â€” required for C# support)
   - Executable: `E:\Godot\Godot_v4.6.1-stable_mono_win64_console.exe`
-- Install **.NET SDK 8** on your machine (`.NET 10` also works — Godot targets `net8.0` in the `.csproj`)
+- Install **.NET SDK 8** on your machine (`.NET 10` also works â€” Godot targets `net8.0` in the `.csproj`)
 - Use any IDE: Rider, Visual Studio, or VS Code
 - Git ignore: `.godot/`, `.mono/`, `bin/`, `obj/`, exported builds
 
 ## Running From CLI
 
 ```bash
-# Always build first — Godot does NOT auto-rebuild C# on CLI runs
+# Always build first â€” Godot does NOT auto-rebuild C# on CLI runs
 dotnet build SlotTheory.sln
 
 # Run in background, capture output, kill after N seconds
@@ -51,8 +51,8 @@ sleep 5; kill %1
 
 ## Build & Export
 
-- `<Nullable>enable</Nullable>` is set in `SlotTheory.csproj` — required to suppress nullable warnings in C# 8+ code
-- Build via Godot's built-in build system (no separate CLI build tool); first time: Project → Tools → C# → Create C# Solution
+- `<Nullable>enable</Nullable>` is set in `SlotTheory.csproj` â€” required to suppress nullable warnings in C# 8+ code
+- Build via Godot's built-in build system (no separate CLI build tool); first time: Project â†’ Tools â†’ C# â†’ Create C# Solution
 - .NET runtime packaging is handled by Godot's export preset
 
 ### Exporting from CLI
@@ -68,7 +68,7 @@ dotnet build SlotTheory.sln
   --headless
 ```
 
-**If export fails with "Failed to rename temporary file":** the previous `SlotTheory.exe` (or a leftover `SlotTheory.tmp`) is locked — close the game if it is running, then delete both files and re-run the export command:
+**If export fails with "Failed to rename temporary file":** the previous `SlotTheory.exe` (or a leftover `SlotTheory.tmp`) is locked â€” close the game if it is running, then delete both files and re-run the export command:
 
 ```bash
 rm -f "E:/SlotTheory/export/SlotTheory.tmp" "E:/SlotTheory/export/SlotTheory.exe"
@@ -76,7 +76,7 @@ rm -f "E:/SlotTheory/export/SlotTheory.tmp" "E:/SlotTheory/export/SlotTheory.exe
 
 ## Bot Playtest Mode
 
-Runs N fully-automated games headless for balance data. **Must pass `--scene` — the default startup scene is MainMenu, not Main.**
+Runs N fully-automated games headless for balance data. **Must pass `--scene` â€” the default startup scene is MainMenu, not Main.**
 
 ```bash
 # Always dotnet build first
@@ -89,8 +89,8 @@ dotnet build SlotTheory.sln
   -- --bot --runs 100
 ```
 
-- Output (strategy table, wave difficulty, tower/modifier usage) goes to **stdout** — captured directly by the shell.
-- Bot log file also written to `C:/Users/kenny/AppData/Roaming/Godot/app_userdata/Slot Theory/logs/godot.log` (note the space in "Slot Theory" — different from the old "SlotTheory" directory).
+- Output (strategy table, wave difficulty, tower/modifier usage) goes to **stdout** â€” captured directly by the shell.
+- Bot log file also written to `C:/Users/kenny/AppData/Roaming/Godot/app_userdata/Slot Theory/logs/godot.log` (note the space in "Slot Theory" â€” different from the old "SlotTheory" directory).
 - `SoundManager` auto-detects headless mode (`DisplayServer.GetName() == "headless"`) and skips all audio init, preventing the per-frame `GetFramesAvailable()` hang.
 - Range checks are **fully enforced** in bot mode (`ignoreRange: false` hardcoded in `CombatSim.Step`). Enemy `GlobalPosition` is correctly updated by `PathFollow2D` whenever `Progress` is set in `BotTick`.
 - Spectacle gameplay payloads are applied in bot mode for surge/global surge triggers (matching live gameplay logic).
@@ -123,7 +123,7 @@ Python scripts (`Scripts/Tools/`) can still be used for content generation (JSON
 **Solution:** `ModifierDataValidator.cs` runs on startup and validates modifier descriptions match their code implementations.
 
 **How it works:**
-1. Validator checks that key stat tokens appear in descriptions (e.g., "42%", "−25%", "×1.80")
+1. Validator checks that key stat tokens appear in descriptions (e.g., "42%", "âˆ’25%", "Ã—1.80")
 2. Runs automatically during `DataLoader.LoadAll()`
 3. Prints `[VALIDATOR] OK All modifier descriptions match implementation` or lists mismatches
 4. Zero overhead once validated (no runtime checks after initial load)
@@ -131,12 +131,12 @@ Python scripts (`Scripts/Tools/`) can still be used for content generation (JSON
 **When making balance changes:**
 1. Update the constant in `Balance.cs` (e.g., `SplitShotDamageRatio = 0.42f`)
 2. Update the description in `Data/modifiers.json` to match (e.g., "42% damage each")
-3. Run the game or bot test — validator will catch mismatches on startup
+3. Run the game or bot test â€” validator will catch mismatches on startup
 4. If validator fails, fix the description to match the constant
 
 **To add a new modifier's validation check:**
 1. Add entry to `ModifierDataValidator.cs` `expectations` list with expected tokens
-2. Use exact text from description (e.g., "+40%", "−25%", "×1.80", "5 s")
+2. Use exact text from description (e.g., "+40%", "âˆ’25%", "Ã—1.80", "5 s")
 3. Rerun to verify
 
 ## Hand-Written .tscn Rules
@@ -148,7 +148,7 @@ Godot `.tscn` files have strict patterns when writing by hand:
    [node name="GameController" type="Node" parent="." node_paths=PackedStringArray("LanePath")]
    LanePath = NodePath("../World/LanePath")
    ```
-2. **`[Export] PackedScene?`** works directly — just `PropName = ExtResource("id")` under the node.
+2. **`[Export] PackedScene?`** works directly â€” just `PropName = ExtResource("id")` under the node.
 3. **Property names use PascalCase** in `.tscn` (matching C# property name exactly, not snake_case).
 4. Unique node IDs (`unique_id=...`) are required on the root node; child nodes may omit them.
 5. `[gd_scene format=3 uid="uid://..."]` header must match what Godot expects (Godot auto-generates UIDs on first open).
@@ -156,16 +156,16 @@ Godot `.tscn` files have strict patterns when writing by hand:
 
 ## Architecture
 
-The game uses a **simulation-driven loop** — logic lives in C# systems, not scene node behaviors. All magic numbers go in `Balance.cs`.
+The game uses a **simulation-driven loop** â€” logic lives in C# systems, not scene node behaviors. All magic numbers go in `Balance.cs`.
 
 Key constraints from the Getting Started guide:
-- **Enemy movement**: `EnemyInstance` extends `PathFollow2D` — enemies self-move via `_Process()`. Do not move enemies manually in `CombatSim`.
-- **Targeting list**: Maintained as `RunState.EnemiesAlive` — never scan the scene tree every frame.
+- **Enemy movement**: `EnemyInstance` extends `PathFollow2D` â€” enemies self-move via `_Process()`. Do not move enemies manually in `CombatSim`.
+- **Targeting list**: Maintained as `RunState.EnemiesAlive` â€” never scan the scene tree every frame.
 - **Range checks**: Circular distance using `tower.GlobalPosition.DistanceTo(enemy.GlobalPosition) <= tower.Range`.
 - **No projectiles**: All tower attacks are hitscan (instant damage on attack, no projectile nodes).
 
 ### State Machine (GameController)
-`GameController` drives the run lifecycle: DraftPhase → WavePhase → Win/Lose. `RunState` is the single source of truth for all runtime data.
+`GameController` drives the run lifecycle: DraftPhase â†’ WavePhase â†’ Win/Lose. `RunState` is the single source of truth for all runtime data.
 
 ### RunState owns:
 - `int WaveIndex`
@@ -177,29 +177,29 @@ Key constraints from the Getting Started guide:
 
 ### Combat simulation order (per frame, in `CombatSim`):
 1. Spawn enemies per wave interval until quota reached
-2. Move enemies: enemies self-move via `EnemyInstance._Process()` — `Progress += Speed * delta` (PathFollow2D absolute pixel offset; no LaneLength division)
-3. For each tower: reduce cooldown → acquire target via `Targeting.SelectTarget()` → run damage pipeline → reset cooldown
+2. Move enemies: enemies self-move via `EnemyInstance._Process()` â€” `Progress += Speed * delta` (PathFollow2D absolute pixel offset; no LaneLength division)
+3. For each tower: reduce cooldown â†’ acquire target via `Targeting.SelectTarget()` â†’ run damage pipeline â†’ reset cooldown
 4. Remove dead enemies
 5. Wave end: quota spawned AND no enemies alive
-6. Loss: player `Lives` reaches 0 — each enemy that exits (`ProgressRatio >= 1.0`) costs 1 life (`Balance.StartingLives = 10`)
+6. Loss: player `Lives` reaches 0 â€” each enemy that exits (`ProgressRatio >= 1.0`) costs 1 life (`Balance.StartingLives = 10`)
 
 ### Damage pipeline (`DamageModel`):
-Build a `DamageContext` (attacker, target, base damage, wave index) → apply modifier hooks in deterministic order:
-1. Stat modifiers (`ModifyAttackInterval`, `ModifyDamage`) — apply to all hits (primary, chain, split)
+Build a `DamageContext` (attacker, target, base damage, wave index) â†’ apply modifier hooks in deterministic order:
+1. Stat modifiers (`ModifyAttackInterval`, `ModifyDamage`) â€” apply to all hits (primary, chain, split)
 2. Conditional modifiers (e.g., vs Marked)
-3. On-hit effects (`OnHit`) — apply to all hits UNLESS modifier opts out via `ApplyToChainTargets => false` (used to prevent Overkill cascading; most modifiers like Chill Shot apply to chain/split targets)
-4. On-kill effects (`OnKill`) — always run regardless of bounce type
+3. On-hit effects (`OnHit`) â€” apply to all hits UNLESS modifier opts out via `ApplyToChainTargets => false` (used to prevent Overkill cascading; most modifiers like Chill Shot apply to chain/split targets)
+4. On-kill effects (`OnKill`) â€” always run regardless of bounce type
 
 ### Modifier system:
 - Data-driven via `modifiers.json` (id, name, desc, params); behavior is code-driven via `ModifierRegistry`
-- No `if (modifierId == ...)` in tower code — modifiers implement the base interface
+- No `if (modifierId == ...)` in tower code â€” modifiers implement the base interface
 - Modifier interface: `ModifyAttackInterval`, `ModifyDamage`, `OnHit`, `OnKill`
 - Modifiers keep private internal state where needed (e.g., Momentum tracks last target ID)
 - Stacking: **additive within category** (no multiplicative explosion)
 
 ### Draft system rules (locked):
-- Free slots exist → 5 options: 2 tower cards + 3 modifier cards
-- All slots full → 4 modifier cards (scarcity intentional; `Balance.DraftModifierOptionsFull = 4`)
+- Free slots exist â†’ 5 options: 2 tower cards + 3 modifier cards
+- All slots full â†’ 4 modifier cards (scarcity intentional; `Balance.DraftModifierOptionsFull = 4`)
 - Anti-brick: never offer a modifier if no tower can accept it (swap for applicable one)
 
 ### Targeting modes:
@@ -228,24 +228,24 @@ Build a `DamageContext` (attacker, target, base damage, wave index) → apply mo
   - Chain-triggered mine pops force the target mine into a final pop to preserve cascade behavior.
 
 ### Procedural Map System (`MapGenerator.cs`):
-- **Grid**: 8 cols × 5 rows, cell 160×128 px, grid origin (0, 80)
+- **Grid**: 8 cols Ã— 5 rows, cell 160Ã—128 px, grid origin (0, 80)
 - **Path**: Fixed 3-horizontal-leg snake, randomized turn rows/cols each run
-  - `c1 ∈ [2,3]`, `c2 ∈ [c1+2,5]` — ensures cols 6–7 always have grass cells
-- **Slot placement**: 6 zones (3×2 grid of zones), one slot per zone; prefers non-path cells adjacent to path (guaranteed in range), falls back to any grass cell
+  - `c1 âˆˆ [2,3]`, `c2 âˆˆ [c1+2,5]` â€” ensures cols 6â€“7 always have grass cells
+- **Slot placement**: 6 zones (3Ã—2 grid of zones), one slot per zone; prefers non-path cells adjacent to path (guaranteed in range), falls back to any grass cell
 - **Rendering**: flat `ColorRect` nodes under `_mapVisuals` Node2D (first child of World); grass `#a6d608`, path `#8B5E3C`
 - **Restart**: `Free()` (not `QueueFree()`) all `_mapVisuals` / slot node children to avoid one-frame flicker
-- `System.Environment.TickCount` must be fully qualified — `Godot.Environment` exists in the same namespace
+- `System.Environment.TickCount` must be fully qualified â€” `Godot.Environment` exists in the same namespace
 
 ### Tower visual sub-nodes (created in `GameController.PlaceTower()`):
-- `Polygon2D` — semi-transparent range circle (10% opacity)
-- `ColorRect` — tower body square (color varies by tower type)
-- `ColorRect` track + `ColorRect` fill — cooldown bar below square; fill width updated every frame in `TowerInstance._Process`
+- `Polygon2D` â€” semi-transparent range circle (10% opacity)
+- `ColorRect` â€” tower body square (color varies by tower type)
+- `ColorRect` track + `ColorRect` fill â€” cooldown bar below square; fill width updated every frame in `TowerInstance._Process`
 - `TargetModeIcon` - procedural targeting badge icon (right-arrow / star / down-arrow); updated via `TowerInstance.CycleTargetingMode()`
 - All visual child nodes must have `MouseFilter = Control.MouseFilterEnum.Ignore` or `_Input` click events on the tower won't fire
 
 ### Click / tooltip system:
-- Tower targeting cycle: `_Input` (not `_UnhandledInput`) + `GetViewport().GetMousePosition()` + 50×50 `Rect2` hit test
-- Tooltip: `CanvasLayer(Layer=5)` → `Panel` → `Label`; sized to `label.GetMinimumSize() + (16,12)`; only visible during `GamePhase.Wave`
+- Tower targeting cycle: `_Input` (not `_UnhandledInput`) + `GetViewport().GetMousePosition()` + 50Ã—50 `Rect2` hit test
+- Tooltip: `CanvasLayer(Layer=5)` â†’ `Panel` â†’ `Label`; sized to `label.GetMinimumSize() + (16,12)`; only visible during `GamePhase.Wave`
 
 ## Current Folder Layout
 
@@ -337,7 +337,7 @@ res://
       ITowerView.cs
     Modifiers/
       Modifier.cs           # Base interface
-      ModifierRegistry.cs   # JSON ID → concrete modifier object
+      ModifierRegistry.cs   # JSON ID â†’ concrete modifier object
       ModEvents.cs          # Event system for modifier interactions
       (one .cs per modifier: Momentum, Overkill, ExploitWeakness, FocusLens,
        Slow, Overreach, HairTrigger, SplitShot, FeedbackLoop, ChainReaction)
@@ -357,7 +357,7 @@ res://
     UI/
       DraftPanel.cs         # Full-screen overlay, 2-step pick flow
       HudPanel.cs           # Wave + lives display, speed controls
-      EndScreen.cs          # Win/loss; left-click → MainMenu
+      EndScreen.cs          # Win/loss; left-click â†’ MainMenu
       PauseScreen.cs        # Esc overlay; unpause / main menu
       MainMenu.cs           # Procedural dark main menu
       MapSelectPanel.cs
@@ -382,34 +382,35 @@ res://
 
 ## V1 Scope Locks
 
-These will NOT be in v1 — do not design toward them:
+These will NOT be in v1 â€” do not design toward them:
 - Meta progression, unlocks, rarity tiers, shop/economy
 - Tower moving, selling, or replacement
 - Active enemy abilities
 - Multiple lanes
 - Rerolls or mid-wave decisions
 
-If an idea requires a new system → defer to "Project 2."
+If an idea requires a new system â†’ defer to "Project 2."
 
 ## V1 Content
 
 - **5 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +40% dmg taken, 4s), Arc Emitter (**unlockable** via campaign map clear; chains to 2 enemies, 400 px chain range, 60% decay/bounce), Rift Sapper (**unlockable** via campaign map clear; charged lane-mine trap tower with wave-start seeding burst)
-- **10 modifiers** (always check `Balance.cs` + `modifiers.json` for current values — these drift after balance passes):
-  - Momentum: +16% dmg/hit same target, max ×1.80
+- **10 modifiers** (always check `Balance.cs` + `modifiers.json` for current values â€” these drift after balance passes):
+  - Momentum: +16% dmg/hit same target, max Ã—1.80
   - Overkill: 60% excess dmg spills to next enemy
-  - Exploit Weakness: +60% dmg vs Marked enemies
-  - Focus Lens: +140% dmg, ×1.85 attack interval
-  - Chill Shot: −30% enemy speed on hit, 6s (stacks multiplicatively per tower)
-  - Overreach: +55% range, −10% dmg
-  - Hair Trigger: +30% attack speed, −18% range
+  - Exploit Weakness: +45% dmg vs Marked enemies
+  - Focus Lens: +140% dmg, Ã—1.85 attack interval
+  - Chill Shot: âˆ’30% enemy speed on hit, 6s (stacks multiplicatively per tower)
+  - Overreach: +45% range, âˆ’10% dmg
+  - Hair Trigger: +30% attack speed, âˆ’18% range
   - Split Shot: fires 2 projectiles at nearby enemies for 35% damage each (search radius 280px); **unlockable** via campaign map clear
   - Feedback Loop: 50% of remaining cooldown removed on kill
   - Chain Reaction: adds 1 bounce (60% decay/bounce); stacks add more bounces
 - **3 enemy types**:
-  - Basic Walker: 65 HP wave 1, ×1.10/wave, 120px/s
-  - Armored Walker: 3.5× HP, 60px/s, first appears wave 6 (index 5)
-  - Swift Walker: 1.5× HP, 240px/s, appears waves 10–14
-- **10 player lives** — each leaked enemy costs 1 life (`Balance.StartingLives = 10`)
+  - Basic Walker: 65 HP wave 1, Ã—1.10/wave, 120px/s
+  - Armored Walker: 3.5Ã— HP, 60px/s, first appears wave 6 (index 5)
+  - Swift Walker: 1.5Ã— HP, 240px/s, appears waves 10â€“14
+- **10 player lives** â€” each leaked enemy costs 1 life (`Balance.StartingLives = 10`)
 - **20 waves**, 6 tower slots, max 3 modifiers per tower
 - **Extra draft picks**: `Balance.Wave1ExtraPicks` and `Balance.Wave15ExtraPicks` are both currently 0 (temporarily disabled)
 - **Difficulty modes**: Easy (no scaling), Normal (tuned ~75% bot win), Hard (tuned ~50% bot win). Exact multipliers are in `Balance.DifficultyMultipliers` and overridable at runtime via `SpectacleTuning.Current`
+
