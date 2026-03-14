@@ -2636,8 +2636,9 @@ public partial class GameController : Node
 			sourceTower: sourceTower,
 			rider: surgeRider,
 			spawnResidue: surgeRider != SpectacleConsequenceKind.None);
-		if (!mobileLite)
-			SoundManager.Instance?.Play("mine_chain_pop", pitchScale: 1.08f);
+		bool isLightningSurge = info.Signature.PrimaryModId == SpectacleDefinitions.ChainReaction
+		    || info.Signature.SecondaryModId == SpectacleDefinitions.ChainReaction;
+		SoundManager.Instance?.Play(isLightningSurge ? "surge_lightning" : "surge");
 		ApplySpectacleGameplayPayload(info, isMajor: true);
 		TriggerStatusDetonationChain(
 			sourceTower,
@@ -2696,7 +2697,7 @@ public partial class GameController : Node
 		SpawnSpectacleBurstFx(center, globalColor, major: true, power: 2.15f, stageTwoKick: true);
 		SpawnGlobalSurgeRipples(center, globalColor, Mathf.Max(2, info.UniqueContributors), lingerMultiplier: globalDurationScale);
 		FlashSpectacleScreen(globalColor, peakAlpha: 0.28f, rampSec: 0.09f, fadeSec: 0.62f * globalDurationScale);
-		SoundManager.Instance?.Play("wave20_swell");
+		SoundManager.Instance?.Play("surge_global");
 		ExplosionHitStopProfile hitStop = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
 			majorExplosion: true,
 			globalSurge: true,

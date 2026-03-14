@@ -68,9 +68,12 @@ public partial class Settings : Node
         AddVolumeRow(vbox, "Music",
             sm?.MusicVolume  ?? 80f,
             v => SettingsManager.Instance?.SetMusicVolume(v));
-        AddVolumeRow(vbox, "FX",
+        AddVolumeRow(vbox, "Game FX",
             sm?.FxVolume     ?? 80f,
             v => SettingsManager.Instance?.SetFxVolume(v));
+        AddVolumeRow(vbox, "UI FX",
+            sm?.UiFxVolume   ?? 80f,
+            v => SettingsManager.Instance?.SetUiFxVolume(v));
 
         AddSpacer(vbox, 8);
 

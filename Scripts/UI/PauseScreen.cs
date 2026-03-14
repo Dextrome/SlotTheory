@@ -173,12 +173,14 @@ public partial class PauseScreen : CanvasLayer
         AddSpacer(vbox, 8);
 
         var sm = SettingsManager.Instance;
-        AddVolumeRow(vbox, "Master", sm?.MasterVolume ?? 80f,
+        AddVolumeRow(vbox, "Master",  sm?.MasterVolume ?? 80f,
             v => SettingsManager.Instance?.SetVolume(v));
-        AddVolumeRow(vbox, "Music",  sm?.MusicVolume  ?? 80f,
+        AddVolumeRow(vbox, "Music",   sm?.MusicVolume  ?? 80f,
             v => SettingsManager.Instance?.SetMusicVolume(v));
-        AddVolumeRow(vbox, "FX",     sm?.FxVolume     ?? 80f,
+        AddVolumeRow(vbox, "Game FX", sm?.FxVolume     ?? 80f,
             v => SettingsManager.Instance?.SetFxVolume(v));
+        AddVolumeRow(vbox, "UI FX",   sm?.UiFxVolume   ?? 80f,
+            v => SettingsManager.Instance?.SetUiFxVolume(v));
 
         AddSpacer(vbox, 6);
         AddSectionHeader(vbox, "DISPLAY");
