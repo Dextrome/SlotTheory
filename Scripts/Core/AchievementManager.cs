@@ -174,6 +174,18 @@ public partial class AchievementManager : Node
     public void CheckRunEnd(RunState state, DifficultyMode difficulty, bool won)
         => _ = CheckRunEndAndCollectUnlocks(state, difficulty, won);
 
+    /// <summary>
+    /// Pushes all locally-unlocked achievements to Steam.
+    /// Call once after Steam successfully initializes to sync achievements that were
+    /// unlocked locally before the Steam DLL was available.
+    /// </summary>
+    public void SyncAllToSteam()
+    {
+        foreach (var def in All)
+            if (IsUnlocked(def.Id))
+                SteamAchievements.ForwardUnlock(def.Id);
+    }
+
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     private static bool AllFilledSlotsAreArcEmitter(RunState state)
@@ -198,6 +210,7 @@ public partial class AchievementManager : Node
 
     private void Load()
     {
+        SteamCloudSync.PullIfNewer(ProjectSettings.GlobalizePath(SavePath), "achievements.cfg");
         _cfg = new ConfigFile();
         var err = _cfg.Load(SavePath);
         if (err != Error.Ok && err != Error.FileNotFound)
@@ -209,5 +222,7 @@ public partial class AchievementManager : Node
         var err = _cfg.Save(SavePath);
         if (err != Error.Ok)
             GD.PrintErr($"[Achievements] Failed to save {SavePath}: {err}");
+        else
+            SteamCloudSync.Push(ProjectSettings.GlobalizePath(SavePath), "achievements.cfg");
     }
 }

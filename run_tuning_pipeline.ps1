@@ -848,16 +848,19 @@ function Invoke-BotMetricsRunBatch {
     $batchSize = [Math]::Max(1, $Parallelism)
     for ($offset = 0; $offset -lt $CandidateSpecs.Count; $offset += $batchSize) {
         $batch = @($CandidateSpecs | Select-Object -Skip $offset -First $batchSize)
-        $jobs = @()
+        $launches = @()
+        $maxRunsInBatch = 1
 
         foreach ($spec in $batch) {
             $label = [string]$spec.label
             $specRuns = if ($null -ne $spec.PSObject.Properties["runs_per_eval"]) { [int]$spec.runs_per_eval } else { $RunsPerEval }
             if ($specRuns -lt 1) { $specRuns = $RunsPerEval }
+            if ($specRuns -gt $maxRunsInBatch) { $maxRunsInBatch = $specRuns }
             $specRunOffset = if ($null -ne $spec.PSObject.Properties["run_index_offset"]) { [int]$spec.run_index_offset } else { 0 }
             if ($specRunOffset -lt 0) { $specRunOffset = 0 }
             Write-Host ""
             Write-Host "=== $label (parallel launch) ==="
+
             $args = New-BotMetricsArgs `
                 -CommonPrefix $CommonPrefix `
                 -RunsPerEval $specRuns `
@@ -865,42 +868,54 @@ function Invoke-BotMetricsRunBatch {
                 -TuningPath ([string]$spec.tuning_path) `
                 -MetricsOut ([string]$spec.metrics_path) `
                 -RunIndexOffset $specRunOffset
-            $argsJson = $args | ConvertTo-Json -Compress
 
-            $job = Start-Job -Name ([string]$spec.candidate_id) -ScriptBlock {
-                param(
-                    [string]$Exe,
-                    [string]$CandidateId,
-                    [string]$ArgsJson
-                )
+            $metricsPath = [string]$spec.metrics_path
+            $metricsDir = Split-Path -Parent $metricsPath
+            if (-not [string]::IsNullOrWhiteSpace($metricsDir)) {
+                Ensure-Directory -PathValue $metricsDir
+            }
+            $stderrPath = Join-Path $metricsDir ("{0}.stderr.log" -f ([string]$spec.candidate_id))
+            $stdoutPath = Join-Path $metricsDir ("{0}.stdout.log" -f ([string]$spec.candidate_id))
+            if (Test-Path $stderrPath) { Remove-Item -Path $stderrPath -Force -ErrorAction SilentlyContinue }
+            if (Test-Path $stdoutPath) { Remove-Item -Path $stdoutPath -Force -ErrorAction SilentlyContinue }
 
-                $cmdArgs = @($ArgsJson | ConvertFrom-Json)
-                & $Exe @cmdArgs | Out-Null
-                $exitCode = $LASTEXITCODE
+            $proc = Start-Process `
+                -FilePath $GodotExe `
+                -ArgumentList $args `
+                -NoNewWindow `
+                -PassThru `
+                -RedirectStandardOutput $stdoutPath `
+                -RedirectStandardError $stderrPath
 
-                [PSCustomObject]@{
-                    candidate_id = $CandidateId
-                    exit_code = $exitCode
-                }
-            } -ArgumentList $GodotExe, ([string]$spec.candidate_id), $argsJson
-
-            $jobs += [PSCustomObject]@{
+            $launches += [PSCustomObject]@{
                 spec = $spec
-                job = $job
+                process = $proc
+                stdout_path = $stdoutPath
+                stderr_path = $stderrPath
             }
         }
 
-        Wait-Job -Job ($jobs | ForEach-Object { $_.job }) | Out-Null
+        # Guard against silent hangs in shard execution.
+        $timeoutSeconds = [Math]::Max(900, [int]($maxRunsInBatch * 20))
+        $deadline = (Get-Date).AddSeconds($timeoutSeconds)
+        while ($true) {
+            $running = @($launches | Where-Object { -not $_.process.HasExited })
+            if ($running.Count -eq 0) { break }
+            if ((Get-Date) -ge $deadline) {
+                foreach ($entry in $running) {
+                    try { $entry.process.Kill() } catch {}
+                }
+                $timedOutIds = @($running | ForEach-Object { [string]$_.spec.candidate_id }) -join ", "
+                throw "Parallel bot run timed out after $timeoutSeconds seconds. Candidate(s): $timedOutIds"
+            }
+            Start-Sleep -Seconds 2
+        }
 
-        foreach ($entry in $jobs) {
-            $result = Receive-Job -Job $entry.job -ErrorAction SilentlyContinue
+        foreach ($entry in $launches) {
             $candidateId = [string]$entry.spec.candidate_id
-            $state = [string]$entry.job.State
-            $exitCode = if ($null -eq $result) { -1 } else { [int]$result.exit_code }
-            Remove-Job -Job $entry.job -Force | Out-Null
-
-            if ($state -ne "Completed" -or $exitCode -ne 0) {
-                throw "Candidate $candidateId failed in parallel bot run. Job state=$state exit_code=$exitCode"
+            $exitCode = [int]$entry.process.ExitCode
+            if ($exitCode -ne 0) {
+                throw "Candidate $candidateId failed in parallel bot run. exit_code=$exitCode stderr_log=$($entry.stderr_path)"
             }
         }
     }

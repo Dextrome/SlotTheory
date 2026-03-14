@@ -9,12 +9,18 @@ namespace SlotTheory.Core;
 public static class SteamAchievements
 {
     /// <summary>
+    /// Set to true by SteamLeaderboardService after SteamAPI.Init() succeeds.
+    /// Guards against calling Steamworks with a null ISteamUserStats pointer.
+    /// </summary>
+    internal static bool IsSteamInitialized { get; set; }
+
+    /// <summary>
     /// Called by AchievementManager signal whenever an achievement is newly unlocked.
     /// Forwards to Steamworks if available; silently no-ops otherwise.
     /// </summary>
     public static void ForwardUnlock(string id)
     {
-        if (!IsAvailable()) return;
+        if (!IsSteamInitialized) return;
         try
         {
             Steamworks.SteamUserStats.GetAchievement(id, out bool alreadyUnlocked);
@@ -26,12 +32,5 @@ public static class SteamAchievements
         {
             GD.PrintErr($"[Achievements] Steam forward failed for '{id}': {ex.Message}");
         }
-    }
-
-    private static bool IsAvailable()
-    {
-        if (OS.GetName() != "Windows") return false;
-        try { return Steamworks.SteamAPI.IsSteamRunning(); }
-        catch { return false; }
     }
 }

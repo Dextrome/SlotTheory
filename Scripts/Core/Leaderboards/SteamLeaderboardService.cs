@@ -22,6 +22,7 @@ public sealed class SteamLeaderboardService : ILeaderboardService
     private string _pendingFindName = "";
     private string _pendingUploadBoard = "";
 
+    private Callback<UserStatsReceived_t>? _statsReceivedCallback;
     private bool _initAttempted;
     private bool _initialized;
     private double _nextInitRetryAtUnixSeconds;
@@ -54,14 +55,16 @@ public sealed class SteamLeaderboardService : ILeaderboardService
                 return Task.CompletedTask;
             }
 
+            SteamAchievements.IsSteamInitialized = true;
+
             _findResult = CallResult<LeaderboardFindResult_t>.Create(OnFindLeaderboardResult);
             _uploadResult = CallResult<LeaderboardScoreUploaded_t>.Create(OnUploadScoreResult);
             _downloadResult = CallResult<LeaderboardScoresDownloaded_t>.Create(OnScoresDownloadedResult);
 
-            // Required before GetAchievement / SetAchievement calls will return correct data.
-            // The response fires asynchronously via UserStatsReceived_t; stats are ready
-            // well before any run ends so no need to await the callback.
-            SteamUserStats.RequestCurrentStats();
+            // In SDK 1.62+, stats are requested automatically by SteamAPI.Init().
+            // Hook UserStatsReceived_t to sync locally-unlocked achievements to Steam
+            // once stats are ready (covers achievements unlocked before Steam DLL was present).
+            _statsReceivedCallback = Callback<UserStatsReceived_t>.Create(OnUserStatsReceived);
 
             GD.Print("[Leaderboards] Steam service initialized.");
         }
@@ -252,6 +255,17 @@ public sealed class SteamLeaderboardService : ILeaderboardService
         }
 
         pending.TrySetResult(entries);
+    }
+
+    private void OnUserStatsReceived(UserStatsReceived_t result)
+    {
+        // Only handle our own app's stats.
+        if (result.m_nGameID != SteamUtils.GetAppID().m_AppId) return;
+        // Sync locally-unlocked achievements to Steam now that stats are ready.
+        AchievementManager.Instance?.SyncAllToSteam();
+        // Only need this once.
+        _statsReceivedCallback?.Dispose();
+        _statsReceivedCallback = null;
     }
 
     private static bool IsValid(SteamLeaderboard_t handle) => handle.m_SteamLeaderboard != 0;

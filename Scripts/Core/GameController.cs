@@ -2689,58 +2689,14 @@ public partial class GameController : Node
 		var globalColor = new Color(1.00f, 0.90f, 0.56f);
 		ITowerView? globalDamageSource = ResolveSpectacleSourceTower(null);
 		float globalDamageBase = ResolveGlobalSpectacleBaseDamage();
-		SpawnSpectacleBurstFx(center, globalColor, major: true, power: 2.15f, stageTwoKick: true);
 		float globalDurationScale = GlobalSurgeLingerMultiplier * GlobalSurgeDurationScale;
+
+		// ── Group 1: immediate — gameplay payload + center visuals + hitstop/slowmo ──
+		ApplyGlobalSurgeGameplayPayload(info);
+		SpawnSpectacleBurstFx(center, globalColor, major: true, power: 2.15f, stageTwoKick: true);
 		SpawnGlobalSurgeRipples(center, globalColor, Mathf.Max(2, info.UniqueContributors), lingerMultiplier: globalDurationScale);
 		FlashSpectacleScreen(globalColor, peakAlpha: 0.28f, rampSec: 0.09f, fadeSec: 0.62f * globalDurationScale);
 		SoundManager.Instance?.Play("wave20_swell");
-
-		for (int i = 0; i < _runState.Slots.Length; i++)
-		{
-			var tower = _runState.Slots[i].TowerNode;
-			if (tower == null || !GodotObject.IsInstanceValid(tower))
-				continue;
-			Color accent = ResolveSpectacleColor(_spectacleSystem.PreviewSignature(tower).PrimaryModId);
-			tower.FlashSpectacle(accent, major: true);
-			SpawnSpectacleBurstFx(tower.GlobalPosition, accent, major: true, power: 1.12f);
-			SpawnSpectacleLinks(
-				tower.GlobalPosition,
-				accent,
-				maxLinks: 2,
-				maxDistance: Mathf.Max(280f, tower.Range * 1.15f),
-				majorStyle: true,
-				sourceTower: tower,
-				consequenceDamageScale: 0.08f,
-				rider: SpectacleConsequenceKind.Vulnerability,
-				riderStrength: 0.92f);
-			SpawnSpectacleTowerVolleyFx(tower, accent, major: true, power: 1.10f);
-		}
-		SpawnGlobalSurgeAffectFx(
-			center,
-			globalColor,
-			Mathf.Max(2, info.UniqueContributors),
-			sourceTower: globalDamageSource,
-			damageBaseOverride: globalDamageBase);
-		ApplyGlobalSurgeGameplayPayload(info);
-		TriggerStatusDetonationChain(
-			sourceTower: globalDamageSource,
-			origin: center,
-			accent: globalColor,
-			skin: ComboExplosionSkin.ChainArc,
-			globalSurge: true,
-			surgePower: 1.45f,
-			damageBaseOverride: globalDamageBase);
-		QueueSpectacleEcho(
-			center,
-			globalColor,
-			major: true,
-			power: 1.65f,
-			maxDistance: 420f,
-			sourceTower: globalDamageSource,
-			rider: SpectacleConsequenceKind.Vulnerability,
-			spawnResidue: true,
-			damageBaseOverride: globalDamageBase);
-		ShowGlobalSurgeBanner(info.EffectName, globalColor, lingerMultiplier: globalDurationScale);
 		ExplosionHitStopProfile hitStop = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
 			majorExplosion: true,
 			globalSurge: true,
@@ -2753,6 +2709,71 @@ public partial class GameController : Node
 			globalSurge: true,
 			surgePower: 2.15f);
 		FlashSpectacleAfterimage(globalColor, afterimageStrength);
+
+		// ── Group 2: per-tower effects staggered 0.07 s apart (real-time) ────────
+		const float TowerStepSeconds = 0.07f;
+		var activeTowers = new System.Collections.Generic.List<(TowerInstance tower, Color accent)>();
+		for (int i = 0; i < _runState.Slots.Length; i++)
+		{
+			var tower = _runState.Slots[i].TowerNode;
+			if (tower == null || !GodotObject.IsInstanceValid(tower))
+				continue;
+			Color accent = ResolveSpectacleColor(_spectacleSystem.PreviewSignature(tower).PrimaryModId);
+			activeTowers.Add((tower, accent));
+		}
+		for (int i = 0; i < activeTowers.Count; i++)
+		{
+			float delay = i * TowerStepSeconds;
+			var (t, accent) = activeTowers[i];
+			GetTree().CreateTimer(delay, true, false, true).Timeout += () =>
+			{
+				if (!GodotObject.IsInstanceValid(t)) return;
+				t.FlashSpectacle(accent, major: true);
+				SpawnSpectacleBurstFx(t.GlobalPosition, accent, major: true, power: 1.12f);
+				SpawnSpectacleLinks(
+					t.GlobalPosition,
+					accent,
+					maxLinks: 2,
+					maxDistance: Mathf.Max(280f, t.Range * 1.15f),
+					majorStyle: true,
+					sourceTower: t,
+					consequenceDamageScale: 0.08f,
+					rider: SpectacleConsequenceKind.Vulnerability,
+					riderStrength: 0.92f);
+				SpawnSpectacleTowerVolleyFx(t, accent, major: true, power: 1.10f);
+			};
+		}
+
+		// ── Group 3: finale after all towers have fired ───────────────────────────
+		float finaleDelay = activeTowers.Count * TowerStepSeconds + 0.06f;
+		GetTree().CreateTimer(finaleDelay, true, false, true).Timeout += () =>
+		{
+			SpawnGlobalSurgeAffectFx(
+				center,
+				globalColor,
+				Mathf.Max(2, info.UniqueContributors),
+				sourceTower: globalDamageSource,
+				damageBaseOverride: globalDamageBase);
+			TriggerStatusDetonationChain(
+				sourceTower: globalDamageSource,
+				origin: center,
+				accent: globalColor,
+				skin: ComboExplosionSkin.ChainArc,
+				globalSurge: true,
+				surgePower: 1.45f,
+				damageBaseOverride: globalDamageBase);
+			QueueSpectacleEcho(
+				center,
+				globalColor,
+				major: true,
+				power: 1.65f,
+				maxDistance: 420f,
+				sourceTower: globalDamageSource,
+				rider: SpectacleConsequenceKind.Vulnerability,
+				spawnResidue: true,
+				damageBaseOverride: globalDamageBase);
+			ShowGlobalSurgeBanner(info.EffectName, globalColor, lingerMultiplier: globalDurationScale);
+		};
 	}
 
 	private void ApplyGlobalSurgeGameplayPayload(GlobalSurgeTriggerInfo info)
@@ -5581,7 +5602,9 @@ public partial class GameController : Node
 	{
 		var sm = SettingsManager.Instance;
 		var bucket = new SlotTheory.Core.Leaderboards.LeaderboardBucket(payload.MapId, payload.Difficulty);
-		if (bucket.IsGlobalEligible && (sm == null || string.IsNullOrEmpty(sm.PlayerName)))
+		// Steam supplies the player name itself; only non-Steam providers need an explicit display name.
+		bool providerNeedsName = LeaderboardManager.Instance?.ProviderName != "Steam";
+		if (bucket.IsGlobalEligible && providerNeedsName && (sm == null || string.IsNullOrEmpty(sm.PlayerName)))
 		{
 			_endScreen.ShowNamePrompt(payload, localLine);
 			return;
@@ -5601,6 +5624,7 @@ public partial class GameController : Node
 		}
 
 		var result = await manager.SubmitAsync(payload);
+		GD.Print($"[Leaderboards] Submit result: {result.State} — {result.Message}");
 		string line = BuildGlobalLeaderboardLine(localLine, result);
 		bool isError = result.State == GlobalSubmitState.Failed;
 		CallDeferred(nameof(ApplyLeaderboardStatus), line, isError);

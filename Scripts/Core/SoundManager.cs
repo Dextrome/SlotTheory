@@ -88,7 +88,7 @@ public partial class SoundManager : Node
             _pool[i] = player;
         }
 
-        EnsureMobileFxLimiter();
+        EnsureFxLimiter();
 
         // ── Tower attacks ────────────────────────────────────────────────
         Reg("shoot_rapid",  Tone(680f, 0.05f, vol: 0.33f, shape: 'q', env: 'f'));
@@ -274,7 +274,6 @@ public partial class SoundManager : Node
         player.PitchScale = Mathf.Clamp(pitchScale * _speedFxPitch, 0.75f, 1.40f);
         player.Play();
         var playback = (AudioStreamGeneratorPlayback)player.GetStreamPlayback();
-        playback.ClearBuffer();
         playback.PushBuffer(samples);
         _poolTimers[idx] = dur + 0.05f;
         _poolStopAtMs[idx] = nowMs + (ulong)Mathf.CeilToInt((dur + 0.05f) * 1000f);
@@ -512,11 +511,8 @@ public partial class SoundManager : Node
         return activeVoices;
     }
 
-    private void EnsureMobileFxLimiter()
+    private void EnsureFxLimiter()
     {
-        if (!_isMobileAudio)
-            return;
-
         int fxBus = AudioServer.GetBusIndex("FX");
         if (fxBus < 0)
             return;
@@ -528,6 +524,9 @@ public partial class SoundManager : Node
                 return;
         }
 
-        AudioServer.AddBusEffect(fxBus, new AudioEffectHardLimiter(), 0);
+        var limiter = new AudioEffectHardLimiter();
+        if (_isMobileAudio)
+            limiter.PreGainDb = MobileFxBaseHeadroomDb;
+        AudioServer.AddBusEffect(fxBus, limiter, 0);
     }
 }

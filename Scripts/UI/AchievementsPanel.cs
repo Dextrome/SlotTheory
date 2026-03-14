@@ -148,12 +148,29 @@ public partial class AchievementsPanel : Node
         hbox.MouseFilter = Control.MouseFilterEnum.Ignore;
         inner.AddChild(hbox);
 
-        // Icon badge
-        var badge = new Label { Text = isUnlocked ? "★" : "☆" };
-        badge.AddThemeFontSizeOverride("font_size", 28);
-        badge.Modulate = isUnlocked ? new Color("#a6d608") : new Color(0.3f, 0.3f, 0.3f);
-        badge.VerticalAlignment   = VerticalAlignment.Center;
-        hbox.AddChild(badge);
+        // Icon badge — procedural icon for unlocked, dim star for locked
+        var iconPath = $"res://Assets/Achievements/{def.Id}.png";
+        if (isUnlocked && ResourceLoader.Exists(iconPath))
+        {
+            var tex = ResourceLoader.Load<Texture2D>(iconPath);
+            var iconRect = new TextureRect
+            {
+                Texture             = tex,
+                ExpandMode          = TextureRect.ExpandModeEnum.IgnoreSize,
+                StretchMode         = TextureRect.StretchModeEnum.KeepAspectCentered,
+                CustomMinimumSize   = new Vector2(48, 48),
+                SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
+            };
+            hbox.AddChild(iconRect);
+        }
+        else
+        {
+            var badge = new Label { Text = isUnlocked ? "★" : "☆" };
+            badge.AddThemeFontSizeOverride("font_size", 28);
+            badge.Modulate          = isUnlocked ? new Color("#a6d608") : new Color(0.3f, 0.3f, 0.3f);
+            badge.VerticalAlignment = VerticalAlignment.Center;
+            hbox.AddChild(badge);
+        }
 
         // Text
         var textCol = new VBoxContainer();
