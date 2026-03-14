@@ -49,9 +49,6 @@ public partial class LeaderboardManager : Node
 
     public async System.Threading.Tasks.Task<GlobalSubmitResult> SubmitAsync(RunScorePayload payload)
     {
-        if (IsDevModeEnabled())
-            return GlobalSubmitResult.Skipped(_service.ProviderName, "Dev mode enabled; global leaderboard submission disabled.");
-
         var bucket = new LeaderboardBucket(payload.MapId, payload.Difficulty);
         if (!bucket.IsGlobalEligible)
             return GlobalSubmitResult.Skipped(_service.ProviderName, "Map excluded from global leaderboards.");
@@ -147,7 +144,6 @@ public partial class LeaderboardManager : Node
     private async System.Threading.Tasks.Task FlushRetryQueueAsync()
     {
         if (_isFlushingRetryQueue || _retryQueue.Count == 0) return;
-        if (IsDevModeEnabled()) return;
 
         await EnsureInitializedAsync();
         if (!_service.IsAvailable) return;
@@ -278,12 +274,13 @@ public partial class LeaderboardManager : Node
 
     private static ILeaderboardService CreateService()
     {
-        // Set application/config/leaderboard_provider = "steam" in the Steam export preset.
-        // Defaults to "supabase" so itch/standalone builds work without any extra config.
-        string provider = ProjectSettings.GetSetting("application/config/leaderboard_provider", "supabase").AsString();
-        if (provider == "steam" && OS.GetName() != "Android" && OS.GetName() != "iOS")
-            return TryCreateSteamService();
-        return new SupabaseLeaderboardService();
+        if (OS.GetName() == "Android" || OS.GetName() == "iOS")
+            return new SupabaseLeaderboardService();
+
+        // Use Steam leaderboards whenever the Steam client is running.
+        // Works for both Steam builds and dev testing (steam_appid.txt present + Steam running).
+        // Falls back to Supabase on standalone/itch builds where Steam isn't present.
+        return TryCreateSteamService();
     }
 
     // NoInlining ensures the JIT only compiles this method if it's actually called.
@@ -301,8 +298,4 @@ public partial class LeaderboardManager : Node
         }
     }
 
-    private static bool IsDevModeEnabled()
-    {
-        return SettingsManager.Instance?.DevMode ?? false;
-    }
 }

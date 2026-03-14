@@ -368,7 +368,7 @@ public partial class PauseScreen : CanvasLayer
 
         var msg = new Label
         {
-            Text = "Are you really just gonna\nquit like a little bitch?",
+            Text = "Are you sure you want to quit?",
             HorizontalAlignment = HorizontalAlignment.Center,
         };
         SlotTheory.Core.UITheme.ApplyFont(msg, semiBold: true, size: 32);

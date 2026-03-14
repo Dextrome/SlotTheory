@@ -5,34 +5,42 @@ namespace SlotTheory.Core;
 /// <summary>
 /// Autoload singleton. Loads, persists, and applies audio/display settings.
 /// Creates Music and FX audio buses (children of Master) on first run.
+///
+/// Two save files:
+///   user://settings.cfg  — account/preference settings; cloud-synced via SteamCloudSync
+///   user://display.cfg   — device-specific display/render settings; NOT cloud-synced
 /// </summary>
 public partial class SettingsManager : Node
 {
     public static SettingsManager? Instance { get; private set; }
 
-    private const string SavePath    = "user://settings.cfg";
+    private const string SavePath        = "user://settings.cfg";
+    private const string DisplaySavePath = "user://display.cfg";
     private const string SecAudio    = "audio";
     private const string SecDisp     = "display";
     private const string SecIdentity = "identity";
     private const string SecProfileFlags = "profile_flags";
     private const string LegacyDevModeKey = "dev_mode";
 
+    // ── Account / preference settings (cloud-synced) ─────────────────────
     public float MasterVolume  { get; private set; } = 80f;  // 0–100
     public float MusicVolume   { get; private set; } = 80f;
     public float FxVolume      { get; private set; } = 80f;
-    public bool  Fullscreen    { get; private set; } = false;
     public bool  ColorblindMode { get; private set; } = false;
     public bool  ReducedMotion  { get; private set; } = false;
-    public bool  PostFxEnabled  { get; private set; } = true;
-    public bool  LayeredEnemyRendering { get; private set; } = true;
-    public bool  EnemyEmissiveLines { get; private set; } = true;
-    public bool  EnemyDamageMaterial { get; private set; } = true;
-    public bool  EnemyBloomHighlights { get; private set; } = !MobileOptimization.IsMobile();
     // Hidden per-profile capability flag (not exposed in user-facing settings UI).
     public bool  DevMode        { get; private set; } = false;
     public DifficultyMode Difficulty { get; private set; } = DifficultyMode.Easy;
     public string PlayerName    { get; private set; } = "";
     public string PlayerId      { get; private set; } = "";
+
+    // ── Device-specific display settings (NOT cloud-synced) ──────────────
+    public bool  Fullscreen    { get; private set; } = false;
+    public bool  PostFxEnabled  { get; private set; } = true;
+    public bool  LayeredEnemyRendering { get; private set; } = true;
+    public bool  EnemyEmissiveLines { get; private set; } = true;
+    public bool  EnemyDamageMaterial { get; private set; } = true;
+    public bool  EnemyBloomHighlights { get; private set; } = !MobileOptimization.IsMobile();
 
     public override void _Ready()
     {
@@ -47,100 +55,102 @@ public partial class SettingsManager : Node
         if (string.IsNullOrEmpty(PlayerId))
         {
             PlayerId = System.Guid.NewGuid().ToString();
-            Save();
+            SaveAccount();
         }
     }
 
-    // ── Public API ───────────────────────────────────────────────────────
+    // ── Public API — account setters ─────────────────────────────────────
 
     public void SetVolume(float value)
     {
         MasterVolume = Mathf.Clamp(value, 0f, 100f);
         ApplyMaster(MasterVolume);
-        Save();
+        SaveAccount();
     }
 
     public void SetMusicVolume(float value)
     {
         MusicVolume = Mathf.Clamp(value, 0f, 100f);
         ApplyMusic(MusicVolume);
-        Save();
+        SaveAccount();
     }
 
     public void SetFxVolume(float value)
     {
         FxVolume = Mathf.Clamp(value, 0f, 100f);
         ApplyFx(FxVolume);
-        Save();
+        SaveAccount();
     }
-
-    public void SetFullscreen(bool full)
-    {
-        Fullscreen = full;
-        ApplyFullscreen(Fullscreen);
-        Save();
-    }
-
-    public void ToggleFullscreen() => SetFullscreen(!Fullscreen);
 
     public void SetColorblindMode(bool enabled)
     {
         ColorblindMode = enabled;
-        Save();
+        SaveAccount();
     }
 
     public void SetReducedMotion(bool enabled)
     {
         ReducedMotion = enabled;
-        Save();
-    }
-
-    public void SetPostFxEnabled(bool enabled)
-    {
-        PostFxEnabled = enabled;
-        Save();
-    }
-
-    public void SetLayeredEnemyRendering(bool enabled)
-    {
-        LayeredEnemyRendering = enabled;
-        Save();
-    }
-
-    public void SetEnemyEmissiveLines(bool enabled)
-    {
-        EnemyEmissiveLines = enabled;
-        Save();
-    }
-
-    public void SetEnemyDamageMaterial(bool enabled)
-    {
-        EnemyDamageMaterial = enabled;
-        Save();
-    }
-
-    public void SetEnemyBloomHighlights(bool enabled)
-    {
-        EnemyBloomHighlights = enabled;
-        Save();
+        SaveAccount();
     }
 
     public void SetDevMode(bool enabled)
     {
         DevMode = enabled;
-        Save();
+        SaveAccount();
     }
 
     public void SetPlayerName(string name)
     {
         PlayerName = name.Trim();
-        Save();
+        SaveAccount();
     }
 
     public void SetDifficulty(DifficultyMode difficulty)
     {
         Difficulty = difficulty;
-        Save();
+        SaveAccount();
+    }
+
+    // ── Public API — display setters ─────────────────────────────────────
+
+    public void SetFullscreen(bool full)
+    {
+        Fullscreen = full;
+        ApplyFullscreen(Fullscreen);
+        SaveDisplay();
+    }
+
+    public void ToggleFullscreen() => SetFullscreen(!Fullscreen);
+
+    public void SetPostFxEnabled(bool enabled)
+    {
+        PostFxEnabled = enabled;
+        SaveDisplay();
+    }
+
+    public void SetLayeredEnemyRendering(bool enabled)
+    {
+        LayeredEnemyRendering = enabled;
+        SaveDisplay();
+    }
+
+    public void SetEnemyEmissiveLines(bool enabled)
+    {
+        EnemyEmissiveLines = enabled;
+        SaveDisplay();
+    }
+
+    public void SetEnemyDamageMaterial(bool enabled)
+    {
+        EnemyDamageMaterial = enabled;
+        SaveDisplay();
+    }
+
+    public void SetEnemyBloomHighlights(bool enabled)
+    {
+        EnemyBloomHighlights = enabled;
+        SaveDisplay();
     }
 
     // ── Apply ────────────────────────────────────────────────────────────
@@ -193,62 +203,84 @@ public partial class SettingsManager : Node
 
     private void Load()
     {
+        // --- Account settings (cloud-synced) ---
         SteamCloudSync.PullIfNewer(ProjectSettings.GlobalizePath(SavePath), "settings.cfg");
         var cfg = new ConfigFile();
-        if (cfg.Load(SavePath) != Error.Ok) return;
-
-        MasterVolume  = (float)cfg.GetValue(SecAudio, "master_volume", 80f);
-        MusicVolume   = (float)cfg.GetValue(SecAudio, "music_volume",  80f);
-        FxVolume      = (float)cfg.GetValue(SecAudio, "fx_volume",     80f);
-        Fullscreen    = (bool) cfg.GetValue(SecDisp,  "fullscreen",    false);
-        ColorblindMode = (bool)cfg.GetValue(SecDisp,  "colorblind",    false);
-        ReducedMotion  = (bool)cfg.GetValue(SecDisp,  "reduced_motion", false);
-        var enemyRenderSettings = EnemyRenderSettingsSnapshot.ReadFrom(cfg, defaultBloomEnabled: !MobileOptimization.IsMobile());
-        PostFxEnabled         = enemyRenderSettings.PostFxEnabled;
-        LayeredEnemyRendering = enemyRenderSettings.LayeredEnabled;
-        EnemyEmissiveLines    = enemyRenderSettings.EmissiveEnabled;
-        EnemyDamageMaterial   = enemyRenderSettings.DamageMaterialEnabled;
-        EnemyBloomHighlights  = enemyRenderSettings.BloomEnabled;
-        int rawDifficulty = (int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Easy);
-        Difficulty = rawDifficulty switch
+        if (cfg.Load(SavePath) == Error.Ok)
         {
-            (int)DifficultyMode.Easy => DifficultyMode.Easy,
-            (int)DifficultyMode.Normal => DifficultyMode.Normal,
-            (int)DifficultyMode.Hard => DifficultyMode.Hard,
-            _ => DifficultyMode.Easy,
-        };
-        PlayerName  = (string)cfg.GetValue(SecIdentity, "player_name", "");
-        PlayerId    = (string)cfg.GetValue(SecIdentity, "player_id",   "");
-        bool migratedFromLegacy;
-        DevMode = ReadHiddenDevModeForProfile(cfg, PlayerId, out migratedFromLegacy);
-        if (migratedFromLegacy)
-            Save();
+            MasterVolume   = (float)cfg.GetValue(SecAudio, "master_volume", 80f);
+            MusicVolume    = (float)cfg.GetValue(SecAudio, "music_volume",  80f);
+            FxVolume       = (float)cfg.GetValue(SecAudio, "fx_volume",     80f);
+            ColorblindMode = (bool) cfg.GetValue(SecDisp,  "colorblind",    false);
+            ReducedMotion  = (bool) cfg.GetValue(SecDisp,  "reduced_motion", false);
+            int rawDifficulty = (int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Easy);
+            Difficulty = rawDifficulty switch
+            {
+                (int)DifficultyMode.Easy   => DifficultyMode.Easy,
+                (int)DifficultyMode.Normal => DifficultyMode.Normal,
+                (int)DifficultyMode.Hard   => DifficultyMode.Hard,
+                _ => DifficultyMode.Easy,
+            };
+            PlayerName = (string)cfg.GetValue(SecIdentity, "player_name", "");
+            PlayerId   = (string)cfg.GetValue(SecIdentity, "player_id",   "");
+            DevMode = ReadHiddenDevModeForProfile(cfg, PlayerId, out bool migratedFromLegacy);
+            if (migratedFromLegacy)
+                SaveAccount();
+        }
+
+        // --- Display settings (device-specific, not cloud-synced) ---
+        // Migration: if display.cfg doesn't exist yet, fall back to reading display
+        // keys from settings.cfg (one-time migration from the old combined file).
+        var displayCfg = new ConfigFile();
+        bool displayLoaded = displayCfg.Load(DisplaySavePath) == Error.Ok;
+        if (!displayLoaded)
+        {
+            // Reuse already-attempted settings.cfg load as migration source.
+            displayCfg = cfg;
+        }
+
+        Fullscreen = (bool)displayCfg.GetValue(SecDisp, "fullscreen", false);
+        var renderSettings = EnemyRenderSettingsSnapshot.ReadFrom(displayCfg, defaultBloomEnabled: !MobileOptimization.IsMobile());
+        PostFxEnabled         = renderSettings.PostFxEnabled;
+        LayeredEnemyRendering = renderSettings.LayeredEnabled;
+        EnemyEmissiveLines    = renderSettings.EmissiveEnabled;
+        EnemyDamageMaterial   = renderSettings.DamageMaterialEnabled;
+        EnemyBloomHighlights  = renderSettings.BloomEnabled;
+
+        if (!displayLoaded)
+            SaveDisplay(); // persist display.cfg immediately after migration
     }
 
-    private void Save()
+    private void SaveAccount()
     {
         var cfg = new ConfigFile();
         cfg.SetValue(SecAudio, "master_volume",  MasterVolume);
         cfg.SetValue(SecAudio, "music_volume",   MusicVolume);
         cfg.SetValue(SecAudio, "fx_volume",      FxVolume);
-        cfg.SetValue(SecDisp,  "fullscreen",     Fullscreen);
         cfg.SetValue(SecDisp,  "colorblind",     ColorblindMode);
         cfg.SetValue(SecDisp,  "reduced_motion", ReducedMotion);
-        var enemyRenderSettings = new EnemyRenderSettingsSnapshot(
+        if (cfg.HasSectionKey(SecDisp, LegacyDevModeKey))
+            cfg.EraseSectionKey(SecDisp, LegacyDevModeKey);
+        cfg.SetValue(SecProfileFlags, BuildHiddenDevModeProfileKey(PlayerId), DevMode);
+        cfg.SetValue("gameplay",   "difficulty",  (int)Difficulty);
+        cfg.SetValue(SecIdentity, "player_name", PlayerName);
+        cfg.SetValue(SecIdentity, "player_id",   PlayerId);
+        if (cfg.Save(SavePath) == Error.Ok)
+            SteamCloudSync.Push(ProjectSettings.GlobalizePath(SavePath), "settings.cfg");
+    }
+
+    private void SaveDisplay()
+    {
+        var cfg = new ConfigFile();
+        cfg.SetValue(SecDisp, "fullscreen", Fullscreen);
+        var renderSettings = new EnemyRenderSettingsSnapshot(
             postFxEnabled: PostFxEnabled,
             layeredEnabled: LayeredEnemyRendering,
             emissiveEnabled: EnemyEmissiveLines,
             damageMaterialEnabled: EnemyDamageMaterial,
             bloomEnabled: EnemyBloomHighlights);
-        enemyRenderSettings.WriteTo(cfg);
-        if (cfg.HasSectionKey(SecDisp, LegacyDevModeKey))
-            cfg.EraseSectionKey(SecDisp, LegacyDevModeKey);
-        cfg.SetValue(SecProfileFlags, BuildHiddenDevModeProfileKey(PlayerId), DevMode);
-        cfg.SetValue("gameplay",   "difficulty",   (int)Difficulty);
-        cfg.SetValue(SecIdentity, "player_name",  PlayerName);
-        cfg.SetValue(SecIdentity, "player_id",    PlayerId);
-        if (cfg.Save(SavePath) == Error.Ok)
-            SteamCloudSync.Push(ProjectSettings.GlobalizePath(SavePath), "settings.cfg");
+        renderSettings.WriteTo(cfg);
+        cfg.Save(DisplaySavePath);
     }
 
     private static bool ReadHiddenDevModeForProfile(ConfigFile cfg, string playerId, out bool migratedFromLegacy)
