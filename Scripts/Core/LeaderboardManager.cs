@@ -277,9 +277,11 @@ public partial class LeaderboardManager : Node
         if (OS.GetName() == "Android" || OS.GetName() == "iOS")
             return new SupabaseLeaderboardService();
 
-        // Use Steam leaderboards whenever the Steam client is running.
-        // Works for both Steam builds and dev testing (steam_appid.txt present + Steam running).
-        // Falls back to Supabase on standalone/itch builds where Steam isn't present.
+        // The Steam export preset sets custom_features="steam"; standalone/itch builds don't.
+        // In the editor / dev builds, also try Steam (steam_appid.txt + running Steam client).
+        if (!OS.HasFeature("steam") && !OS.HasFeature("editor"))
+            return new SupabaseLeaderboardService();
+
         return TryCreateSteamService();
     }
 
