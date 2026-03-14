@@ -16,7 +16,7 @@ public partial class SoundManager : Node
 
     private const int   Rate     = 22050;
     private const int   PoolSize = 20;
-    private const float MaxDur   = 2.0f;   // buffer length — longer than any sound
+    private const float MaxDur   = 5.5f;   // buffer length — must exceed longest sound (surge_global = 5s)
 
     private readonly Dictionary<string, Vector2[]> _samples  = new();
     private readonly Dictionary<string, float>     _durations = new();
@@ -37,6 +37,13 @@ public partial class SoundManager : Node
     private float _musicDuckDb = 0f;
     private float _musicDuckHold = 0f;
     private const float MusicBaseDb = -3f;
+
+    private static readonly HashSet<string> UiSoundIds = new(StringComparer.Ordinal)
+    {
+        "draft_pick", "ui_card_pick", "ui_preview_ghost", "ui_lock_in", "ui_lock_in_hard",
+        "ui_thunk", "ui_speed_shift", "card_shing", "ui_select", "tower_place", "ui_hover",
+        "low_heartbeat", "wave_halfway_lift", "wave20_swell",
+    };
 
     private bool _headless;
     private bool _isMobileAudio;
@@ -89,6 +96,7 @@ public partial class SoundManager : Node
         }
 
         EnsureFxLimiter();
+        EnsureBusLimiter("UI");
 
         // ── Tower attacks ────────────────────────────────────────────────
         Reg("shoot_rapid",  Tone(680f, 0.05f, vol: 0.33f, shape: 'q', env: 'f'));
@@ -117,6 +125,19 @@ public partial class SoundManager : Node
         Reg("wave_clear", Seq(new[] { 420f, 560f, 780f },         gapMs: 20, noteLen: 0.10f, vol: 0.58f));
         Reg("game_over",  Seq(new[] { 320f, 250f, 170f },       gapMs: 40, noteLen: 0.22f, vol: 0.65f));
         Reg("victory",    Seq(new[] { 400f, 520f, 680f, 900f }, gapMs: 25, noteLen: 0.12f, vol: 0.62f));
+
+        // ── Surge sounds ─────────────────────────────────────────────────
+        Reg("surge", Layer(                                         // Rise and Fall: fast bright rise into heavy low drop
+            Sweep(200f, 1800f, 0.14f, vol: 0.60f),
+            Sweep(400f, 48f, 0.42f, vol: 0.80f),
+            Tone(1000f, 0.06f, vol: 0.50f, shape: 'n', env: 'f'),
+            Sweep(1500f, 300f, 0.16f, vol: 0.40f)));
+
+        // ── Lightning surge sound (chain_reaction surges) ────────────────
+        Reg("surge_lightning", Thunder(dur: 0.9f, vol: 0.88f));
+
+        // ── Global surge: explosion + expanding shockwave ─────────────────
+        Reg("surge_global", GlobalSurge(dur: 5.0f, vol: 0.92f, boomDecay: 0.30f, waveSweepDur: 0.90f, sparkVol: 0.20f));
 
         // ── UI ───────────────────────────────────────────────────────────
         Reg("draft_pick",      Tone(740f, 0.07f, vol: 0.40f, shape: 's', env: 'f'));
@@ -270,6 +291,7 @@ public partial class SoundManager : Node
         var player = _pool[idx];
 
         player.Stop();
+        player.Bus = UiSoundIds.Contains(id) ? "UI" : "FX";
         player.VolumeDb = ResolveFxPlaybackDb(id);
         player.PitchScale = Mathf.Clamp(pitchScale * _speedFxPitch, 0.75f, 1.40f);
         player.Play();
@@ -438,6 +460,188 @@ public partial class SoundManager : Node
         return (mixed, max / (float)Rate);
     }
 
+    /// <summary>
+    /// Synthesizes an electrical crackling sound — rapid irregular noise bursts in the
+    /// 600–4000 Hz range, like a lightning arc or Jacob's ladder.
+    /// </summary>
+    private static (Vector2[] s, float d) Thunder(
+        float dur = 0.9f,
+        float vol = 0.88f,
+        float crackVol = 0.70f,    // unused — kept for call-site compat
+        float[]? rollFreqs = null,  // unused — kept for call-site compat
+        float[]? bodyFreqs = null)  // unused — kept for call-site compat
+    {
+        int n   = (int)(Rate * dur);
+        var rng = new Random(17);
+        var arr = new Vector2[n];
+
+        // ── "KA-PTSHOWRRRR" — one continuous event, three parallel decays ──
+        // No repeating bursts (that's what causes the rattlesnake character).
+
+        // Broadband noise for impact + sizzle tail
+        var white = new float[n];
+        for (int i = 0; i < n; i++)
+            white[i] = (float)(rng.NextDouble() * 2.0 - 1.0);
+
+        // Bandpass 400–2000 Hz for crackle body
+        const float aHi = 0.566f;   // LP ~2000 Hz
+        const float aLo = 0.892f;   // LP ~400 Hz
+        float lpHi = 0f, lpLo = 0f;
+        var midNoise = new float[n];
+        var rng2 = new Random(99);
+        for (int i = 0; i < n; i++)
+        {
+            float w2 = (float)(rng2.NextDouble() * 2.0 - 1.0);
+            lpHi = aHi * lpHi + (1f - aHi) * w2;
+            lpLo = aLo * lpLo + (1f - aLo) * w2;
+            midNoise[i] = lpHi - lpLo;
+        }
+
+        // HP above ~300 Hz for short tail
+        const float aLp = 0.918f;   // LP ~300 Hz
+        float lpW = 0f;
+        var hpNoise = new float[n];
+        for (int i = 0; i < n; i++)
+        {
+            lpW = aLp * lpW + (1f - aLp) * white[i];
+            hpNoise[i] = white[i] - lpW;
+        }
+
+        // Spark sweep: 2500→400 Hz over 12ms — electrical "zap" onset, no physical slap
+        double sparkPhase = 0.0;
+        var spark = new float[n];
+        int sparkN = (int)(Rate * 0.012f);
+        for (int i = 0; i < sparkN; i++)
+        {
+            float tc = i / (float)Rate;
+            float freq = 2500f + (400f - 2500f) * (tc / 0.012f);
+            sparkPhase += freq / Rate;
+            spark[i] = MathF.Sin((float)(sparkPhase * MathF.Tau)) * MathF.Exp(-tc / 0.005f);
+        }
+
+        // Periodic burst envelope — hard-clipped mid noise per burst
+        // 28ms interval = ~36 Hz, slow enough to feel like distinct cracks not rattlesnake
+        int burstN = (int)(Rate * 0.028f);
+        var rng3 = new Random(77);
+        float burstAmp = 0f;
+        for (int i = 0; i < n; i++)
+        {
+            if (i % burstN == 0)
+                burstAmp = (float)(rng3.NextDouble() * 0.6 + 0.4);  // 0.4–1.0 random amplitude
+        }
+        // Pre-compute burst envelope per sample
+        var burstEnvArr = new float[n];
+        burstAmp = 0f;
+        var rng4 = new Random(77);
+        for (int i = 0; i < n; i++)
+        {
+            if (i % burstN == 0)
+                burstAmp = (float)(rng4.NextDouble() * 0.6 + 0.4);
+            int phase = i % burstN;
+            burstEnvArr[i] = burstAmp * MathF.Exp(-phase / (Rate * 0.014f));  // 14ms per-burst decay
+        }
+
+        for (int i = 0; i < n; i++)
+        {
+            float t = i / (float)Rate;
+            float overallDecay = MathF.Exp(-3.5f * t / dur);
+
+            // Spark onset
+            float zapLayer = vol * 1.1f * spark[i];
+
+            // Continuous hard-clipped crackle body (40ms decay)
+            float crackleRaw = Mathf.Clamp(midNoise[i] * 5f, -1f, 1f);
+            float crackle = vol * 0.70f * MathF.Exp(-t / 0.040f) * crackleRaw;
+
+            // Periodic burst layer: hard-clipped mid noise pops over the tail
+            float burstCrackle = vol * 0.55f * overallDecay * burstEnvArr[i]
+                                * Mathf.Clamp(midNoise[i] * 5f, -1f, 1f);
+
+            // Short HP tail
+            float ssh = vol * 0.18f * MathF.Exp(-t / 0.055f) * hpNoise[i];
+
+            float s = Mathf.Clamp(zapLayer + crackle + burstCrackle + ssh, -1f, 1f);
+            arr[i] = new Vector2(s, s);
+        }
+        return (arr, dur);
+    }
+
+    /// <summary>
+    /// Explosion with expanding shockwave ring.
+    /// Layer 1: Low-mid boom (80–300 Hz), sharp attack, 200ms decay.
+    /// Layer 2: Time-varying bandpass that sweeps 150→1500 Hz over 600ms — the "expanding wave."
+    /// Layer 3: High sparkle tail above 800 Hz that fades after the wave passes.
+    /// </summary>
+    private static (Vector2[] s, float d) GlobalSurge(
+        float dur = 1.8f, float vol = 0.90f,
+        float boomDecay = 0.200f, float waveSweepDur = 0.60f, float sparkVol = 0.35f)
+    {
+        int n   = (int)(Rate * dur);
+        var rng  = new Random(55);
+        var rng2 = new Random(83);
+        var arr  = new Vector2[n];
+
+        // ── Boom layer: bandpass 80–300 Hz ───────────────────────────────
+        const float aBoomHi = 0.919f;   // LP ~280 Hz
+        const float aBoomLo = 0.978f;   // LP ~75 Hz
+        float bHi = 0f, bLo = 0f;
+        var boom = new float[n];
+        for (int i = 0; i < n; i++)
+        {
+            float w = (float)(rng.NextDouble() * 2.0 - 1.0);
+            bHi = aBoomHi * bHi + (1f - aBoomHi) * w;
+            bLo = aBoomLo * bLo + (1f - aBoomLo) * w;
+            boom[i] = bHi - bLo;
+        }
+
+        // ── Expanding wave: time-varying LP, cutoff 150 Hz → 1500 Hz ─────
+        // Cutoff rises as the shockwave ring expands outward.
+        float sweepDur = waveSweepDur;
+        float lpWave = 0f;
+        var wave = new float[n];
+        for (int i = 0; i < n; i++)
+        {
+            float t  = i / (float)Rate;
+            float fc = 150f + 1350f * MathF.Min(1f, t / sweepDur);
+            float a  = MathF.Exp(-MathF.Tau * fc / Rate);
+            float w  = (float)(rng2.NextDouble() * 2.0 - 1.0);
+            lpWave = a * lpWave + (1f - a) * w;
+            wave[i] = lpWave;
+        }
+
+        // ── Sparkle tail: HP above ~800 Hz ───────────────────────────────
+        const float aSpark = 0.772f;   // LP ~800 Hz  →  HP = white − LP
+        float lpSp = 0f;
+        var spark = new float[n];
+        var rng3  = new Random(29);
+        for (int i = 0; i < n; i++)
+        {
+            float w = (float)(rng3.NextDouble() * 2.0 - 1.0);
+            lpSp = aSpark * lpSp + (1f - aSpark) * w;
+            spark[i] = w - lpSp;
+        }
+
+        for (int i = 0; i < n; i++)
+        {
+            float t = i / (float)Rate;
+
+            // Boom: instant onset, tunable decay
+            float boomLayer = vol * 1.0f * MathF.Exp(-t / boomDecay) * boom[i];
+
+            // Wave: delayed onset swell (peaks ~80ms), then fades over full dur
+            float waveSwell = (1f - MathF.Exp(-t / 0.035f)) * MathF.Exp(-2.5f * t / dur);
+            float waveLayer = vol * 0.80f * waveSwell * wave[i];
+
+            // Sparkle tail: kicks in as wave passes, fades by 600ms
+            float sparkEnv = MathF.Exp(-t / 0.180f) * (1f - MathF.Exp(-t / 0.060f));
+            float sparkLayer = vol * sparkVol * sparkEnv * spark[i];
+
+            float s = Mathf.Clamp(boomLayer + waveLayer + sparkLayer, -1f, 1f);
+            arr[i] = new Vector2(s, s);
+        }
+        return (arr, dur);
+    }
+
     private bool ShouldSkipMobileSfx(string id, ulong nowMs)
     {
         if (!_isMobileAudio)
@@ -511,22 +715,23 @@ public partial class SoundManager : Node
         return activeVoices;
     }
 
-    private void EnsureFxLimiter()
-    {
-        int fxBus = AudioServer.GetBusIndex("FX");
-        if (fxBus < 0)
-            return;
+    private void EnsureFxLimiter() => EnsureBusLimiter("FX");
 
-        int effectCount = AudioServer.GetBusEffectCount(fxBus);
+    private void EnsureBusLimiter(string busName)
+    {
+        int busIdx = AudioServer.GetBusIndex(busName);
+        if (busIdx < 0) return;
+
+        int effectCount = AudioServer.GetBusEffectCount(busIdx);
         for (int i = 0; i < effectCount; i++)
         {
-            if (AudioServer.GetBusEffect(fxBus, i) is AudioEffectHardLimiter)
+            if (AudioServer.GetBusEffect(busIdx, i) is AudioEffectHardLimiter)
                 return;
         }
 
         var limiter = new AudioEffectHardLimiter();
         if (_isMobileAudio)
             limiter.PreGainDb = MobileFxBaseHeadroomDb;
-        AudioServer.AddBusEffect(fxBus, limiter, 0);
+        AudioServer.AddBusEffect(busIdx, limiter, 0);
     }
 }

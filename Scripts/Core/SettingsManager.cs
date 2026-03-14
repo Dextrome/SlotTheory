@@ -26,6 +26,7 @@ public partial class SettingsManager : Node
     public float MasterVolume  { get; private set; } = 80f;  // 0–100
     public float MusicVolume   { get; private set; } = 80f;
     public float FxVolume      { get; private set; } = 80f;
+    public float UiFxVolume    { get; private set; } = 80f;
     public bool  ColorblindMode { get; private set; } = false;
     public bool  ReducedMotion  { get; private set; } = false;
     // Hidden per-profile capability flag (not exposed in user-facing settings UI).
@@ -50,6 +51,7 @@ public partial class SettingsManager : Node
         ApplyMaster(MasterVolume);
         ApplyMusic(MusicVolume);
         ApplyFx(FxVolume);
+        ApplyUiFx(UiFxVolume);
         ApplyFullscreen(Fullscreen);
 
         if (string.IsNullOrEmpty(PlayerId))
@@ -79,6 +81,13 @@ public partial class SettingsManager : Node
     {
         FxVolume = Mathf.Clamp(value, 0f, 100f);
         ApplyFx(FxVolume);
+        SaveAccount();
+    }
+
+    public void SetUiFxVolume(float value)
+    {
+        UiFxVolume = Mathf.Clamp(value, 0f, 100f);
+        ApplyUiFx(UiFxVolume);
         SaveAccount();
     }
 
@@ -159,6 +168,7 @@ public partial class SettingsManager : Node
     {
         EnsureBus("Music");
         EnsureBus("FX");
+        EnsureBus("UI");
     }
 
     private static void EnsureBus(string name)
@@ -192,6 +202,14 @@ public partial class SettingsManager : Node
         AudioServer.SetBusVolumeDb(idx, db);
     }
 
+    private static void ApplyUiFx(float value)
+    {
+        int idx = AudioServer.GetBusIndex("UI");
+        if (idx == -1) return;
+        float db = value < 1f ? -80f : Mathf.LinearToDb(value / 100f);
+        AudioServer.SetBusVolumeDb(idx, db);
+    }
+
     private static void ApplyFullscreen(bool full)
     {
         DisplayServer.WindowSetMode(full
@@ -208,9 +226,10 @@ public partial class SettingsManager : Node
         var cfg = new ConfigFile();
         if (cfg.Load(SavePath) == Error.Ok)
         {
-            MasterVolume   = (float)cfg.GetValue(SecAudio, "master_volume", 80f);
-            MusicVolume    = (float)cfg.GetValue(SecAudio, "music_volume",  80f);
-            FxVolume       = (float)cfg.GetValue(SecAudio, "fx_volume",     80f);
+            MasterVolume   = (float)cfg.GetValue(SecAudio, "master_volume",    80f);
+            MusicVolume    = (float)cfg.GetValue(SecAudio, "music_volume",    80f);
+            FxVolume       = (float)cfg.GetValue(SecAudio, "fx_volume",       80f);
+            UiFxVolume     = (float)cfg.GetValue(SecAudio, "ui_fx_volume",    80f);
             ColorblindMode = (bool) cfg.GetValue(SecDisp,  "colorblind",    false);
             ReducedMotion  = (bool) cfg.GetValue(SecDisp,  "reduced_motion", false);
             int rawDifficulty = (int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Easy);
@@ -257,6 +276,7 @@ public partial class SettingsManager : Node
         cfg.SetValue(SecAudio, "master_volume",  MasterVolume);
         cfg.SetValue(SecAudio, "music_volume",   MusicVolume);
         cfg.SetValue(SecAudio, "fx_volume",      FxVolume);
+        cfg.SetValue(SecAudio, "ui_fx_volume",   UiFxVolume);
         cfg.SetValue(SecDisp,  "colorblind",     ColorblindMode);
         cfg.SetValue(SecDisp,  "reduced_motion", ReducedMotion);
         if (cfg.HasSectionKey(SecDisp, LegacyDevModeKey))
