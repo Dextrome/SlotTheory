@@ -30,7 +30,7 @@ public readonly record struct SpectacleTriggerInfo(
     SpectacleSignature Signature,
     float MeterAfter);
 
-public readonly record struct GlobalSurgeTriggerInfo(float MeterAfter, int UniqueContributors, string EffectId, string EffectName);
+public readonly record struct GlobalSurgeTriggerInfo(float MeterAfter, int UniqueContributors, string EffectId, string EffectName, string[] DominantModIds);
 
 public sealed class SpectacleSystem
 {
@@ -294,12 +294,14 @@ public sealed class SpectacleSystem
             {
                 // If the meter is full, fire on this surge instead of waiting on contributor gating.
                 int uniqueContributors = Math.Max(1, CountUniqueGlobalContributors());
+                string[] dominantMods = ResolveDominantGlobalMods();
                 _globalMeter = SpectacleDefinitions.ResolveGlobalMeterAfterTrigger();
                 OnGlobalTriggered?.Invoke(new GlobalSurgeTriggerInfo(
                     MeterAfter: _globalMeter,
                     UniqueContributors: uniqueContributors,
                     EffectId: "G_SPECTACLE_CATHARSIS",
-                    EffectName: "Catastrophe"));
+                    EffectName: "Catastrophe",
+                    DominantModIds: dominantMods));
             }
 
             return;
@@ -582,6 +584,36 @@ public sealed class SpectacleSystem
         foreach (var c in _surgeContributions)
             set.Add(c.Tower);
         return set.Count;
+    }
+
+    /// <summary>
+    /// Returns up to 3 mod IDs ordered by how frequently they were the primary mod
+    /// in towers that surged recently (within the global contribution window).
+    /// Used to drive dynamic global surge visuals and labels.
+    /// </summary>
+    private string[] ResolveDominantGlobalMods()
+    {
+        if (_surgeContributions.Count == 0)
+            return System.Array.Empty<string>();
+
+        float cutoff = _time - SpectacleDefinitions.ResolveGlobalContributionWindowSeconds();
+        var modCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var contrib in _surgeContributions)
+        {
+            if (contrib.Time < cutoff) continue;
+            if (!_towerStates.TryGetValue(contrib.Tower, out var state)) continue;
+            var sig = ResolveSignature(state, contrib.Tower, useLockedRoles: true);
+            if (!string.IsNullOrEmpty(sig.PrimaryModId))
+                modCounts[sig.PrimaryModId] = modCounts.GetValueOrDefault(sig.PrimaryModId, 0) + 1;
+        }
+        if (modCounts.Count == 0)
+            return System.Array.Empty<string>();
+        return modCounts
+            .OrderByDescending(kv => kv.Value)
+            .ThenBy(kv => CanonicalRank(kv.Key))
+            .Take(3)
+            .Select(kv => kv.Key)
+            .ToArray();
     }
 
     private static float Clamp(float value, float min, float max) => MathF.Min(max, MathF.Max(min, value));

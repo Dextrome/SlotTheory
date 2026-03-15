@@ -2521,7 +2521,7 @@ public partial class GameController : Node
 		if (_globalSurgeBannerTween != null && GodotObject.IsInstanceValid(_globalSurgeBannerTween))
 			_globalSurgeBannerTween.Kill();
 
-		_globalSpectacleBanner.Text = "GLOBAL SURGE";
+		_globalSpectacleBanner.Text = string.IsNullOrWhiteSpace(effectName) ? "GLOBAL SURGE" : effectName.ToUpperInvariant();
 		_globalSpectacleBanner.Visible = true;
 		_globalSpectacleBanner.PivotOffset = _globalSpectacleBanner.Size / 2f;
 		_globalSpectacleBanner.Modulate = new Color(accent.R, accent.G, accent.B, 0f);
@@ -2587,6 +2587,153 @@ public partial class GameController : Node
 		callout.Initialize(text, color, duration: 0.96f * Mathf.Max(0.1f, durationScale));
 	}
 
+	// ── Surge differentiation helpers ──────────────────────────────────────────
+	// Label/feel logic delegated to SurgeDifferentiation (pure, unit-testable).
+
+	/// <summary>
+	/// Spawn mode-based signature rings from a position — 1 ring for Single, 2 for Combo, 3 for Triad.
+	/// Uses each mod slot's accent color. drama=1.0 for full scale, 0.25 for mini (tower surge rider).
+	/// </summary>
+	private void SpawnSurgeSignatureRings(Vector2 origin, SpectacleSignature sig, float drama)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode)) return;
+		string[] mods = sig.Mode switch
+		{
+			SpectacleMode.Single => new[] { sig.PrimaryModId },
+			SpectacleMode.Combo  => new[] { sig.PrimaryModId, sig.SecondaryModId },
+			_                    => new[] { sig.PrimaryModId, sig.SecondaryModId, sig.TertiaryModId },
+		};
+		float baseRadius = 75f + drama * 130f;
+		float baseDuration = 0.22f + drama * 0.40f;
+		float ringWidth = 2.8f + drama * 3.2f;
+		bool useRealTime = drama < 0.5f; // mini rings are real-time so they survive speed-up
+		for (int i = 0; i < mods.Length; i++)
+		{
+			if (string.IsNullOrEmpty(mods[i])) continue;
+			Color c = SlotTheory.UI.ModifierVisuals.GetAccent(mods[i]);
+			float delay = i * (0.05f + drama * 0.04f);
+			float radius = baseRadius * (1f + i * 0.11f);
+			float dur = baseDuration + i * 0.04f;
+			float rw = ringWidth;
+			if (delay <= 0f)
+				EmitSignatureRing(origin, c, radius, dur, rw);
+			else
+			{
+				var cc = c; var cr = radius; var cd = dur; var cw = rw;
+				GetTree().CreateTimer(delay, true, false, useRealTime).Timeout += () =>
+					EmitSignatureRing(origin, cc, cr, cd, cw);
+			}
+		}
+	}
+
+	private void EmitSignatureRing(Vector2 origin, Color color, float endRadius, float duration, float ringWidth)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(this) || !GodotObject.IsInstanceValid(_worldNode)) return;
+		var ripple = new GlobalSurgeRipple();
+		_worldNode.AddChild(ripple);
+		ripple.GlobalPosition = origin;
+		ripple.Initialize(color, endRadius, duration, ringWidth);
+	}
+
+	/// <summary>
+	/// Tower-type archetype FX — pattern=tower visual identity.
+	/// drama: 1.0 = full (global surge), 0.28 = mini rider on tower surge.
+	/// </summary>
+	private void SpawnTowerArchetypeFx(TowerInstance tower, Color accent, float drama)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(tower) || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+		switch (tower.TowerId)
+		{
+			case "chain_tower":   SpawnArchetypeChainArcs(tower, accent, drama); break;
+			case "heavy_cannon":  SpawnArchetypeCannonRing(tower.GlobalPosition, accent, drama); break;
+			case "rapid_shooter": SpawnArchetypeSparks(tower.GlobalPosition, accent, drama); break;
+			case "marker_tower":  SpawnArchetypeMarkedFlash(accent, drama); break;
+			case "rift_prism":    SpawnArchetypeRiftRing(tower.GlobalPosition, accent, drama); break;
+		}
+	}
+
+	private void SpawnArchetypeChainArcs(TowerInstance tower, Color accent, float drama)
+	{
+		if (_runState == null) return;
+		int count = drama >= 0.6f ? 2 : 1;
+		var targets = _runState.EnemiesAlive
+			.Where(IsEnemyUsable)
+			.OrderBy(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
+			.Take(count)
+			.ToList();
+		foreach (var enemy in targets)
+		{
+			var arc = new ChainArc();
+			_worldNode.AddChild(arc);
+			arc.Initialize(tower.GlobalPosition, enemy.GlobalPosition, accent, intensity: 0.9f + drama * 1.1f);
+		}
+	}
+
+	private void SpawnArchetypeCannonRing(Vector2 origin, Color accent, float drama)
+	{
+		var ripple = new GlobalSurgeRipple();
+		_worldNode.AddChild(ripple);
+		ripple.GlobalPosition = origin;
+		ripple.Initialize(accent, 120f + drama * 220f, durationSec: 0.50f + drama * 0.50f, ringWidth: 5f + drama * 8f);
+	}
+
+	private void SpawnArchetypeSparks(Vector2 origin, Color accent, float drama)
+	{
+		int count = drama >= 0.6f ? 3 : 2;
+		var rng = new RandomNumberGenerator();
+		rng.Randomize();
+		for (int i = 0; i < count; i++)
+		{
+			float angle = rng.RandfRange(0f, Mathf.Tau);
+			float dist = rng.RandfRange(12f, 55f * drama);
+			var spark = new ImpactSparkBurst();
+			_worldNode.AddChild(spark);
+			spark.GlobalPosition = origin + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * dist;
+			spark.Initialize(accent, heavy: drama >= 0.6f);
+		}
+	}
+
+	private void SpawnArchetypeMarkedFlash(Color accent, float drama)
+	{
+		if (_runState == null) return;
+		FlashSpectacleScreen(accent, peakAlpha: 0.06f + drama * 0.14f, rampSec: 0.04f, fadeSec: 0.16f + drama * 0.18f);
+		int maxFlashes = drama >= 0.6f ? 4 : 2;
+		int count = 0;
+		foreach (var enemy in _runState.EnemiesAlive)
+		{
+			if (!IsEnemyUsable(enemy) || enemy.MarkedRemaining <= 0f) continue;
+			if (count++ >= maxFlashes) break;
+			var spark = new ImpactSparkBurst();
+			_worldNode.AddChild(spark);
+			spark.GlobalPosition = enemy.GlobalPosition;
+			spark.Initialize(accent, heavy: drama >= 0.6f);
+		}
+	}
+
+	private void SpawnArchetypeRiftRing(Vector2 origin, Color accent, float drama)
+	{
+		// Rift Sapper identity: tight double-ring pulse
+		for (int i = 0; i < 2; i++)
+		{
+			int idx = i;
+			float delay = i * 0.10f;
+			float radius = 55f + drama * 95f + idx * 28f;
+			float dur = 0.28f + drama * 0.32f + idx * 0.05f;
+			float rw = 2.8f + drama * 2.2f;
+			if (delay <= 0f)
+				EmitSignatureRing(origin, accent, radius, dur, rw);
+			else
+			{
+				var cc = accent; var cr = radius; var cd = dur; var cw = rw;
+				GetTree().CreateTimer(delay, true, false, true).Timeout += () =>
+					EmitSignatureRing(origin, cc, cr, cd, cw);
+			}
+		}
+	}
+
+	// ── end surge differentiation helpers ──────────────────────────────────────
+
 	private void OnSpectacleSurgeTriggered(SpectacleTriggerInfo info)
 	{
 		if (CurrentPhase != GamePhase.Wave)
@@ -2616,6 +2763,7 @@ public partial class GameController : Node
 		bool mobileLite = IsMobileSpectacleLite();
 
 		Color accent = ResolveSpectacleColor(info.Signature.PrimaryModId);
+		GD.Print($"[Surge] tower={sourceTower.TowerId}  mode={info.Signature.Mode}  effect={info.Signature.EffectName}  augment={info.Signature.AugmentName}  power={info.Signature.SurgePower:F2}");
 		if (sourceTower is TowerInstance triggerTower && GodotObject.IsInstanceValid(triggerTower))
 			triggerTower.FlashSpectacle(accent, major: true);
 		float linkDistance = Mathf.Max(340f, sourceTower.Range * 1.30f);
@@ -2657,11 +2805,35 @@ public partial class GameController : Node
 			globalSurge: false,
 			info.Signature.SurgePower);
 
+		// Phase 1 (user amendment): mini mode-based signature rings — ripples=mode at tower level
+		if (!mobileLite)
+			SpawnSurgeSignatureRings(sourceTower.GlobalPosition, info.Signature, drama: 0.28f);
+
+		// Phase 2: tower-type archetype identity FX (pattern=tower, mini at ~30% drama)
+		if (sourceTower is TowerInstance towerForArchetype && !mobileLite)
+			SpawnTowerArchetypeFx(towerForArchetype, accent, drama: 0.28f);
+
+		// Phase 3: effect name callout (build archetype label)
 		SpawnCombatCallout(
 			info.Signature.EffectName.ToUpperInvariant(),
 			sourceTower.GlobalPosition,
 			accent,
 			durationScale: 4f);
+
+		// Phase 5: Triad Factorio moment — augment name callout + second flash pulse
+		if (info.Signature.Mode == SpectacleMode.Triad && !string.IsNullOrEmpty(info.Signature.AugmentName))
+		{
+			var capturedOrigin = sourceTower.GlobalPosition;
+			var capturedAccent = accent;
+			string augName = info.Signature.AugmentName;
+			GetTree().CreateTimer(0.28f, true, false, true).Timeout += () =>
+			{
+				if (!GodotObject.IsInstanceValid(this)) return;
+				SpawnCombatCallout($"+ {augName.ToUpperInvariant()}", capturedOrigin + new Vector2(0f, -26f), capturedAccent, durationScale: 3f);
+				FlashSpectacleScreen(capturedAccent, peakAlpha: 0.10f, rampSec: 0.04f, fadeSec: 0.20f);
+			};
+		}
+
 		ExplosionHitStopProfile hitStop = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
 			majorExplosion: true,
 			globalSurge: false,
@@ -2701,11 +2873,33 @@ public partial class GameController : Node
 		float globalDamageBase = ResolveGlobalSpectacleBaseDamage();
 		float globalDurationScale = GlobalSurgeLingerMultiplier * GlobalSurgeDurationScale;
 
+		// ── Resolve identity from dominant contributing mods ───────────────────────
+		string[] dominantMods = info.DominantModIds ?? System.Array.Empty<string>();
+		string surgeLabel = SurgeDifferentiation.ResolveLabel(dominantMods);
+		SurgeDifferentiation.GlobalSurgeFeel feel = SurgeDifferentiation.ResolveFeel(dominantMods);
+		float flashAlpha = SurgeDifferentiation.ResolveFlashAlpha(feel);
+
+		GD.Print($"[GlobalSurge] label={surgeLabel}  feel={feel}  dominantMods=[{string.Join(", ", dominantMods)}]  contributors={info.UniqueContributors}");
+
+		// Multi-color ripples — one distinct mod color per contributing role (Phase 1)
+		Color[] rippleColors = dominantMods.Length > 0
+			? dominantMods.Select(SlotTheory.UI.ModifierVisuals.GetAccent).ToArray()
+			: new[] { globalColor };
+
 		// ── Group 1: immediate — gameplay payload + center visuals + hitstop/slowmo ──
 		ApplyGlobalSurgeGameplayPayload(info);
 		SpawnSpectacleBurstFx(center, globalColor, major: true, power: 2.15f, stageTwoKick: true);
-		SpawnGlobalSurgeRipples(center, globalColor, Mathf.Max(2, info.UniqueContributors), lingerMultiplier: globalDurationScale);
-		FlashSpectacleScreen(globalColor, peakAlpha: 0.28f, rampSec: 0.09f, fadeSec: 0.62f * globalDurationScale);
+		SpawnGlobalSurgeRipples(center, rippleColors, Mathf.Max(2, info.UniqueContributors), lingerMultiplier: globalDurationScale);
+		FlashSpectacleScreen(globalColor, peakAlpha: flashAlpha, rampSec: 0.09f, fadeSec: 0.62f * globalDurationScale);
+		// Detonation: second snap-flash after brief delay (Phase 4)
+		if (feel == SurgeDifferentiation.GlobalSurgeFeel.Detonation)
+		{
+			GetTree().CreateTimer(0.42f, true, false, true).Timeout += () =>
+			{
+				if (GodotObject.IsInstanceValid(this))
+					FlashSpectacleScreen(globalColor, peakAlpha: 0.14f, rampSec: 0.04f, fadeSec: 0.24f);
+			};
+		}
 		SoundManager.Instance?.Play("surge_global");
 		ExplosionHitStopProfile hitStop = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
 			majorExplosion: true,
@@ -2751,6 +2945,11 @@ public partial class GameController : Node
 					rider: SpectacleConsequenceKind.Vulnerability,
 					riderStrength: 0.92f);
 				SpawnSpectacleTowerVolleyFx(t, accent, major: true, power: 1.10f);
+				// Phase 1+2: signature rings (mode) + tower archetype pattern
+				var tSig = _spectacleSystem.PreviewSignature(t);
+				SpawnSurgeSignatureRings(t.GlobalPosition, tSig, drama: 0.7f);
+				if (!IsMobileSpectacleLite())
+					SpawnTowerArchetypeFx(t, accent, drama: 0.75f);
 			};
 		}
 
@@ -2782,7 +2981,16 @@ public partial class GameController : Node
 				rider: SpectacleConsequenceKind.Vulnerability,
 				spawnResidue: true,
 				damageBaseOverride: globalDamageBase);
-			ShowGlobalSurgeBanner(info.EffectName, globalColor, lingerMultiplier: globalDurationScale);
+			ShowGlobalSurgeBanner(surgeLabel, globalColor, lingerMultiplier: globalDurationScale);
+		// Phase 5: Triad Factorio moment — second flash pulse when 3 distinct mod identities converge
+		if (dominantMods.Length >= 3)
+		{
+			GetTree().CreateTimer(0.55f, true, false, true).Timeout += () =>
+			{
+				if (GodotObject.IsInstanceValid(this))
+					FlashSpectacleScreen(globalColor, peakAlpha: 0.16f, rampSec: 0.05f, fadeSec: 0.30f);
+			};
+		}
 		};
 	}
 
@@ -4738,10 +4946,12 @@ public partial class GameController : Node
 		}
 	}
 
-	private void SpawnGlobalSurgeRipples(Vector2 origin, Color accent, int contributors, float lingerMultiplier = 1f)
+	private void SpawnGlobalSurgeRipples(Vector2 origin, Color[] colors, int contributors, float lingerMultiplier = 1f)
 	{
 		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
 			return;
+		if (colors == null || colors.Length == 0)
+			colors = new[] { new Color(1.00f, 0.90f, 0.56f) };
 
 		float linger = Mathf.Clamp(lingerMultiplier, 1f, 12f);
 		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
@@ -4752,14 +4962,16 @@ public partial class GameController : Node
 		float endRadius = Mathf.Max(340f, diagonal * 0.62f);
 
 		float contributorT = Mathf.Clamp((contributors - 1f) / 5f, 0f, 1f);
-		int rippleCount = reducedMotion ? 1 : 3;
+		// Clamp ripple count to number of distinct colors (max 3) — one ripple per mod slot
+		int maxRipples = reducedMotion ? 1 : Mathf.Min(3, colors.Length > 1 ? colors.Length : 3);
 		if (IsMobileSpectacleLite())
-			rippleCount = Mathf.Min(rippleCount, 2);
+			maxRipples = Mathf.Min(maxRipples, 2);
 		float baseDuration = Mathf.Lerp(0.62f, 0.86f, contributorT) * linger;
 
-		for (int i = 0; i < rippleCount; i++)
+		for (int i = 0; i < maxRipples; i++)
 		{
 			int rippleIndex = i;
+			Color rippleColor = colors[rippleIndex % colors.Length];
 			float delay = reducedMotion ? 0f : rippleIndex * 0.14f;
 
 			void Emit()
@@ -4771,7 +4983,7 @@ public partial class GameController : Node
 				_worldNode.AddChild(ripple);
 				ripple.GlobalPosition = origin;
 				ripple.Initialize(
-					accent,
+					rippleColor,
 					endRadius * (0.90f + rippleIndex * 0.09f),
 					durationSec: baseDuration + rippleIndex * 0.08f,
 					ringWidth: 4.8f + rippleIndex * 1.0f);

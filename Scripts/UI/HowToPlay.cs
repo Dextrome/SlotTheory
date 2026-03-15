@@ -173,15 +173,15 @@ public partial class HowToPlay : Node
         AddSpacer(vbox, 12);
 
         AddHeader(vbox, "TOWERS");
-        AddTowerRow(vbox, "Rapid Shooter", "10 dmg, 0.45 s, 285 px range",
+        AddTowerRow(vbox, "rapid_shooter", "Rapid Shooter", "10 dmg, 0.45 s, 285 px range",
             "High rate of fire, low damage per hit. Shines with Momentum and Hair Trigger.");
-        AddTowerRow(vbox, "Heavy Cannon", "56 dmg, 2.0 s, 238 px range",
+        AddTowerRow(vbox, "heavy_cannon", "Heavy Cannon", "56 dmg, 2.0 s, 238 px range",
             "Slow but hits hard. Great with Overkill and Focus Lens.");
-        AddTowerRow(vbox, "Marker Tower", "7 dmg, 1.0 s, 333 px range",
+        AddTowerRow(vbox, "marker_tower", "Marker Tower", "7 dmg, 1.0 s, 333 px range",
             "Applies Mark on every hit. Synergises with Exploit Weakness.");
-        AddTowerRow(vbox, "Arc Emitter (unlock)", "18 dmg, 1.2 s, 257 px range",
+        AddTowerRow(vbox, "chain_tower", "Arc Emitter (unlock)", "18 dmg, 1.2 s, 257 px range",
             "Unlock by beating the first campaign map. Chains to 2 nearby enemies per shot (60% damage decay per bounce).");
-        AddTowerRow(vbox, "Rift Sapper (unlock)", "22 dmg, 0.98 s, 230 px range",
+        AddTowerRow(vbox, "rift_prism", "Rift Sapper (unlock)", "22 dmg, 0.98 s, 230 px range",
             "Unlock by beating the third campaign map. Plants up to 7 mines with 3 charges each; final charge causes the big pop. Wave start gets rapid seeding for 2.4s. Split Shot seeds mini-mines (35% scale) on final pops only.");
         AddSpacer(vbox, 12);
 
@@ -203,16 +203,16 @@ public partial class HowToPlay : Node
         AddSpacer(vbox, 12);
 
         AddHeader(vbox, "MODIFIERS  (max 3 per tower)");
-        AddModRow(vbox, "Momentum", "+16% damage per consecutive hit on same target, up to x1.8. Resets on target switch.");
-        AddModRow(vbox, "Overkill", "Excess damage from a kill spills to the next enemy in the lane.");
-        AddModRow(vbox, "Exploit Weakness", "+45% damage to Marked enemies. Pairs with Marker Tower.");
-        AddModRow(vbox, "Focus Lens", "+140% damage, +85% attack interval. Big hits, slow fire - ideal for Overkill combos.");
-        AddModRow(vbox, "Chill Shot", "On hit: -30% move speed for 6 s. Keeps enemies in range longer.");
-        AddModRow(vbox, "Overreach", "+45% range, -10% damage. Wider coverage with a light damage tradeoff.");
-        AddModRow(vbox, "Hair Trigger", "+30% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
-        AddModRow(vbox, "Split Shot (unlock)", "Unlock by beating the second campaign map. On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
-        AddModRow(vbox, "Feedback Loop", "Killing an enemy reduces this tower's current cooldown by 50%. Lets rapid killers fire again sooner.");
-        AddModRow(vbox, "Chain Reaction", "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
+        AddModRowWithIcon(vbox, "momentum",         "Momentum",            "+16% damage per consecutive hit on same target, up to x1.8. Resets on target switch.");
+        AddModRowWithIcon(vbox, "overkill",         "Overkill",            "Excess damage from a kill spills to the next enemy in the lane.");
+        AddModRowWithIcon(vbox, "exploit_weakness", "Exploit Weakness",    "+45% damage to Marked enemies. Pairs with Marker Tower.");
+        AddModRowWithIcon(vbox, "focus_lens",       "Focus Lens",          "+140% damage, +85% attack interval. Big hits, slow fire - ideal for Overkill combos.");
+        AddModRowWithIcon(vbox, "slow",             "Chill Shot",          "On hit: -30% move speed for 6 s. Keeps enemies in range longer.");
+        AddModRowWithIcon(vbox, "overreach",        "Overreach",           "+45% range, -10% damage. Wider coverage with a light damage tradeoff.");
+        AddModRowWithIcon(vbox, "hair_trigger",     "Hair Trigger",        "+30% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
+        AddModRowWithIcon(vbox, "split_shot",       "Split Shot (unlock)", "Unlock by beating the second campaign map. On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
+        AddModRowWithIcon(vbox, "feedback_loop",    "Feedback Loop",       "Killing an enemy reduces this tower's current cooldown by 50%. Lets rapid killers fire again sooner.");
+        AddModRowWithIcon(vbox, "chain_reaction",   "Chain Reaction",      "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
         AddSpacer(vbox, 12);
 
         AddHeader(vbox, "ENEMIES");
@@ -240,7 +240,9 @@ public partial class HowToPlay : Node
         AddLine(vbox, "Each tower builds spectacle charge from supported modifier events.");
         AddLine(vbox, $"Tower surge: triggers at {SpectacleDefinitions.SurgeThreshold:0} meter, then meter resets to {SpectacleDefinitions.SurgeMeterAfterTrigger:0}.");
         AddLine(vbox, $"Global meter gain: +{SpectacleDefinitions.GlobalMeterPerSurge:0} per tower surge; global surge triggers at {SpectacleDefinitions.GlobalThreshold:0}, then resets to {SpectacleDefinitions.GlobalMeterAfterTrigger:0}.");
-        AddLine(vbox, "Surge mode by unique supported mods on tower: 1=Single, 2=Combo, 3=Triad (combo core + augment). ");
+        AddLine(vbox, "Surge mode by unique supported mods on tower: 1=Single, 2=Combo, 3=Triad (combo core + augment).");
+        AddSpacer(vbox, 8);
+        AddLine(vbox, "Visual grammar: ripples = mode (1 ring for Single, 2 for Combo, 3 for Triad). Pattern = tower type (cannon ring, chain arcs, sparks, etc.). Banner label = your build archetype (REDLINE WAVE, CHAIN STORM, etc.).");
         AddSpacer(vbox, 12);
 
         AddHeader(vbox, "SINGLE SURGE TYPES (10)");
@@ -248,7 +250,7 @@ public partial class HowToPlay : Node
         {
             var single = SpectacleDefinitions.GetSingle(modId);
             string modName = SpectacleDefinitions.GetDisplayName(modId);
-            AddModRow(vbox, single.Name.ToUpperInvariant(), $"{modName}: {DescribeSingleEffect(modId)}");
+            AddModRowWithIcon(vbox, modId, single.Name.ToUpperInvariant(), $"{modName}: {DescribeSingleEffect(modId)}");
         }
         AddSpacer(vbox, 12);
 
@@ -262,7 +264,7 @@ public partial class HowToPlay : Node
                 var combo = SpectacleDefinitions.GetCombo(a, b);
                 string aName = SpectacleDefinitions.GetDisplayName(a);
                 string bName = SpectacleDefinitions.GetDisplayName(b);
-                AddModRow(vbox, combo.Name.ToUpperInvariant(),
+                AddComboModRow(vbox, a, b, combo.Name.ToUpperInvariant(),
                     $"{aName} + {bName}: Hybrid payload combining both modifier surge families.");
             }
         }
@@ -274,16 +276,36 @@ public partial class HowToPlay : Node
             var aug = SpectacleDefinitions.GetTriadAugment(modId);
             string modName = SpectacleDefinitions.GetDisplayName(modId);
             string duration = aug.DurationSec > 0f ? $"{aug.DurationSec:0.0}s" : "instant";
-            AddModRow(vbox, aug.Name.ToUpperInvariant(), $"{modName}: {DescribeAugmentKind(aug.Kind)}. Coef {aug.Coefficient * 100f:0}% ({duration}).");
+            AddModRowWithIcon(vbox, modId, aug.Name.ToUpperInvariant(), $"{modName}: {DescribeAugmentKind(aug.Kind)}. Coef {aug.Coefficient * 100f:0}% ({duration}).");
         }
         AddLine(vbox, "Triad surge output always uses one combo core C_* plus one augment package T_AUG_*.");
         AddSpacer(vbox, 12);
 
         AddHeader(vbox, "GLOBAL SURGE");
-        AddLine(vbox, "Global surge type is fixed: Catastrophe.");
-        AddLine(vbox, "When it triggers, every placed tower gets cooldown refunded and immediately fires a major surge payload.");
-        AddLine(vbox, "All alive enemies get marked and slowed for a short window.");
-        AddLine(vbox, "Visuals: center-screen GLOBAL SURGE banner, screen pulse, and center-to-enemy surge arcs to show affected enemies.");
+        AddLine(vbox, "When it triggers, every placed tower gets a cooldown refund and fires its own major surge payload.");
+        AddLine(vbox, "All alive enemies are marked and slowed for a short window.");
+        AddLine(vbox, "The banner names your build archetype based on which mods drove the most surges. Ripple colors reflect the top contributing mods (up to 3 colors for diverse builds). Each tower fires its own identity FX in sequence.");
+        AddLine(vbox, "Detonation builds (Overkill, Focus Lens, Feedback Loop, Hair Trigger) produce a sharper flash + second snap pulse. Pressure builds (Momentum, Chill Shot, Overreach) produce a softer sustained flash. Triad builds (3 mod roles) add an extra pulse at the end.");
+        AddSpacer(vbox, 10);
+
+        AddHeader(vbox, "GLOBAL SURGE ARCHETYPES (10)");
+        foreach (var entry in SurgeDifferentiation.GlobalSurgeTable)
+        {
+            string modName = SpectacleDefinitions.GetDisplayName(entry.ModId);
+            string feelTag = entry.Feel switch
+            {
+                SurgeDifferentiation.GlobalSurgeFeel.Detonation => "Detonation",
+                SurgeDifferentiation.GlobalSurgeFeel.Pressure   => "Pressure",
+                _                                               => "Neutral",
+            };
+            Color feelColor = entry.Feel switch
+            {
+                SurgeDifferentiation.GlobalSurgeFeel.Detonation => new Color(1.00f, 0.58f, 0.15f),
+                SurgeDifferentiation.GlobalSurgeFeel.Pressure   => new Color(0.35f, 0.68f, 1.00f),
+                _                                               => new Color(0.55f, 0.55f, 0.65f),
+            };
+            AddArchetypeRow(vbox, entry.ModId, entry.Label, $"Driven by {modName}  ·  {feelTag}", feelColor);
+        }
     }
 
     private static string DescribeSingleEffect(string modId) => SpectacleDefinitions.NormalizeModId(modId) switch
@@ -470,25 +492,42 @@ public partial class HowToPlay : Node
         hbox.AddChild(lblRight);
     }
 
-    private static void AddTowerRow(VBoxContainer vbox, string name, string stats, string desc)
+    private static void AddTowerRow(VBoxContainer vbox, string towerId, string name, string stats, string desc)
     {
-        var nameLbl = new Label { Text = "  " + name };
+        var hbox = new HBoxContainer();
+        hbox.AddThemeConstantOverride("separation", 8);
+        vbox.AddChild(hbox);
+
+        float iconSize = MobileOptimization.IsMobile() ? 30f : 36f;
+        var icon = new TowerIcon
+        {
+            TowerId = towerId,
+            CustomMinimumSize = new Vector2(iconSize, iconSize),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        hbox.AddChild(icon);
+
+        var textBox = new VBoxContainer();
+        textBox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        hbox.AddChild(textBox);
+
+        var nameLbl = new Label { Text = name };
         var nameSize = MobileOptimization.IsMobile() ? 15 : 17;
         nameLbl.AddThemeFontSizeOverride("font_size", nameSize);
         nameLbl.Modulate = new Color(0.95f, 0.95f, 0.95f);
-        vbox.AddChild(nameLbl);
+        textBox.AddChild(nameLbl);
 
-        var statsLbl = new Label { Text = "    " + stats };
+        var statsLbl = new Label { Text = stats };
         var detailSize = MobileOptimization.IsMobile() ? 13 : 15;
         statsLbl.AddThemeFontSizeOverride("font_size", detailSize);
         statsLbl.Modulate = new Color(0.55f, 0.75f, 1.00f);
-        vbox.AddChild(statsLbl);
+        textBox.AddChild(statsLbl);
 
-        var descLbl = new Label { Text = "    " + desc };
+        var descLbl = new Label { Text = desc };
         descLbl.AddThemeFontSizeOverride("font_size", detailSize);
         descLbl.Modulate = new Color(0.60f, 0.60f, 0.60f);
         descLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        vbox.AddChild(descLbl);
+        textBox.AddChild(descLbl);
 
         AddSpacer(vbox, 6);
     }
@@ -504,6 +543,120 @@ public partial class HowToPlay : Node
         var modNameWidth = MobileOptimization.IsMobile() ? 260 : 390;
         nameLbl.AddThemeFontSizeOverride("font_size", modSize);
         nameLbl.Modulate = new Color(0.90f, 0.75f, 1.00f);
+        nameLbl.CustomMinimumSize = new Vector2(modNameWidth, 0);
+        nameLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        hbox.AddChild(nameLbl);
+
+        var descLbl = new Label { Text = desc };
+        descLbl.AddThemeFontSizeOverride("font_size", modSize);
+        descLbl.Modulate = new Color(0.65f, 0.65f, 0.65f);
+        descLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        descLbl.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        hbox.AddChild(descLbl);
+    }
+
+    private static void AddModRowWithIcon(VBoxContainer vbox, string modId, string name, string desc)
+    {
+        var hbox = new HBoxContainer();
+        hbox.AddThemeConstantOverride("separation", 6);
+        vbox.AddChild(hbox);
+
+        float iconSize = MobileOptimization.IsMobile() ? 18f : 20f;
+        var accent = ModifierVisuals.GetAccent(modId);
+        var icon = new ModifierIcon
+        {
+            ModifierId = modId,
+            IconColor = accent,
+            CustomMinimumSize = new Vector2(iconSize, iconSize),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        hbox.AddChild(icon);
+
+        var modSize = MobileOptimization.IsMobile() ? 14 : 16;
+        var modNameWidth = MobileOptimization.IsMobile() ? 240 : 360;
+        var nameLbl = new Label { Text = name };
+        nameLbl.AddThemeFontSizeOverride("font_size", modSize);
+        nameLbl.Modulate = accent;
+        nameLbl.CustomMinimumSize = new Vector2(modNameWidth, 0);
+        nameLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        hbox.AddChild(nameLbl);
+
+        var descLbl = new Label { Text = desc };
+        descLbl.AddThemeFontSizeOverride("font_size", modSize);
+        descLbl.Modulate = new Color(0.65f, 0.65f, 0.65f);
+        descLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        descLbl.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        hbox.AddChild(descLbl);
+    }
+
+    private static void AddComboModRow(VBoxContainer vbox, string modIdA, string modIdB, string name, string desc)
+    {
+        var hbox = new HBoxContainer();
+        hbox.AddThemeConstantOverride("separation", 3);
+        vbox.AddChild(hbox);
+
+        float iconSize = MobileOptimization.IsMobile() ? 14f : 16f;
+        foreach (string mid in new[] { modIdA, modIdB })
+        {
+            var accent = ModifierVisuals.GetAccent(mid);
+            var icon = new ModifierIcon
+            {
+                ModifierId = mid,
+                IconColor = accent,
+                CustomMinimumSize = new Vector2(iconSize, iconSize),
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+            hbox.AddChild(icon);
+        }
+
+        var modSize = MobileOptimization.IsMobile() ? 14 : 16;
+        var modNameWidth = MobileOptimization.IsMobile() ? 220 : 330;
+        var nameLbl = new Label { Text = name };
+        nameLbl.AddThemeFontSizeOverride("font_size", modSize);
+        nameLbl.Modulate = new Color(0.90f, 0.75f, 1.00f);
+        nameLbl.CustomMinimumSize = new Vector2(modNameWidth, 0);
+        nameLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        hbox.AddChild(nameLbl);
+
+        var descLbl = new Label { Text = desc };
+        descLbl.AddThemeFontSizeOverride("font_size", modSize);
+        descLbl.Modulate = new Color(0.65f, 0.65f, 0.65f);
+        descLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
+        descLbl.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        hbox.AddChild(descLbl);
+    }
+
+    private static void AddArchetypeRow(VBoxContainer vbox, string modId, string name, string desc, Color feelColor)
+    {
+        var hbox = new HBoxContainer();
+        hbox.AddThemeConstantOverride("separation", 5);
+        vbox.AddChild(hbox);
+
+        // Feel color bar
+        var bar = new ColorRect
+        {
+            Color = feelColor,
+            CustomMinimumSize = new Vector2(3f, MobileOptimization.IsMobile() ? 18f : 20f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        hbox.AddChild(bar);
+
+        float iconSize = MobileOptimization.IsMobile() ? 18f : 20f;
+        var accent = ModifierVisuals.GetAccent(modId);
+        var icon = new ModifierIcon
+        {
+            ModifierId = modId,
+            IconColor = accent,
+            CustomMinimumSize = new Vector2(iconSize, iconSize),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        hbox.AddChild(icon);
+
+        var modSize = MobileOptimization.IsMobile() ? 14 : 16;
+        var modNameWidth = MobileOptimization.IsMobile() ? 220 : 340;
+        var nameLbl = new Label { Text = name };
+        nameLbl.AddThemeFontSizeOverride("font_size", modSize);
+        nameLbl.Modulate = new Color(0.96f, 0.92f, 1.00f);
         nameLbl.CustomMinimumSize = new Vector2(modNameWidth, 0);
         nameLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         hbox.AddChild(nameLbl);
