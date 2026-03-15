@@ -138,10 +138,10 @@ public partial class GameController : Node
 	private bool _perfReportHotkeyLatch;
 	private readonly SpectacleSystem _spectacleSystem = new();
 	private readonly List<ExplosionResidueState> _explosionResidues = new();
-	private const float GlobalSurgeLingerMultiplier = 2f;
+	private const float GlobalSurgeLingerMultiplier = 4f;
 	private const float GlobalSurgeDurationScale = 4f;
-	private const float GlobalSurgeBannerHoldSeconds = 2.25f;
-	private const float GlobalSurgeBannerFadeSeconds = 0.6f;
+	private const float GlobalSurgeBannerHoldSeconds = 1f;
+	private const float GlobalSurgeBannerFadeSeconds = 1.8f;
 
 	private enum SpectacleConsequenceKind
 	{
@@ -2523,8 +2523,8 @@ public partial class GameController : Node
 
 		_globalSpectacleBanner.Text = "GLOBAL SURGE";
 		_globalSpectacleBanner.Visible = true;
-		_globalSpectacleBanner.Scale = new Vector2(1.38f, 1.38f);
-		_globalSpectacleBanner.Modulate = new Color(accent.R, accent.G, accent.B, 1f);
+		_globalSpectacleBanner.PivotOffset = _globalSpectacleBanner.Size / 2f;
+		_globalSpectacleBanner.Modulate = new Color(accent.R, accent.G, accent.B, 0f);
 		_globalSpectacleBanner.AddThemeColorOverride(
 			"font_color",
 			new Color(
@@ -2533,11 +2533,14 @@ public partial class GameController : Node
 				Mathf.Clamp(accent.B * 0.82f + 0.18f, 0f, 1f),
 				1f));
 
+		// Pop in: scale 0.5 → 1.45 fast, alpha 0 → 1 fast
+		// Use .From() to force the starting value regardless of current property state.
 		_globalSurgeBannerTween = _globalSpectacleBanner.CreateTween();
 		var tw = _globalSurgeBannerTween;
 		tw.SetIgnoreTimeScale(true);
-		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 1f, 0.08f);
-		tw.Parallel().TweenProperty(_globalSpectacleBanner, "scale", Vector2.One, 0.15f)
+		tw.TweenProperty(_globalSpectacleBanner, "modulate:a", 1f, 0.08f).From(0f);
+		tw.Parallel().TweenProperty(_globalSpectacleBanner, "scale", new Vector2(1.45f, 1.45f), 0.22f)
+			.From(new Vector2(0.5f, 0.5f))
 			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
 
 		GetTree().CreateTimer(holdSeconds, true, false, true).Timeout += () =>
@@ -2547,10 +2550,14 @@ public partial class GameController : Node
 			if (_globalSurgeBannerTween != null && GodotObject.IsInstanceValid(_globalSurgeBannerTween))
 				_globalSurgeBannerTween.Kill();
 
+			// Fade out: alpha 1 → 0 slow, scale 1.45 → 0.85 slow (drifts smaller as it fades)
 			_globalSurgeBannerTween = _globalSpectacleBanner.CreateTween();
 			var fadeTween = _globalSurgeBannerTween;
 			fadeTween.SetIgnoreTimeScale(true);
-			fadeTween.TweenProperty(_globalSpectacleBanner, "modulate:a", 0f, fadeSeconds);
+			fadeTween.TweenProperty(_globalSpectacleBanner, "modulate:a", 0f, fadeSeconds)
+				.SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.In);
+			fadeTween.Parallel().TweenProperty(_globalSpectacleBanner, "scale", new Vector2(0.85f, 0.85f), fadeSeconds)
+				.SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.In);
 			fadeTween.TweenCallback(Callable.From(() =>
 			{
 				if (token != _globalSurgeBannerToken)
@@ -2706,7 +2713,7 @@ public partial class GameController : Node
 			surgePower: 2.15f);
 		if (hitStop.ShouldApply)
 			TriggerHitStop(realDuration: hitStop.DurationSeconds, slowScale: hitStop.SlowScale);
-		TriggerSpectacleSlowMo(realDuration: 5.6f, speedFactor: 0.50f);
+		TriggerSpectacleSlowMo(realDuration: 14.0f, speedFactor: 0.50f);
 		float afterimageStrength = SpectacleExplosionCore.ResolveLargeSurgeAfterimageStrength(
 			majorExplosion: true,
 			globalSurge: true,

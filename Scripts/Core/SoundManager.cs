@@ -16,7 +16,7 @@ public partial class SoundManager : Node
 
     private const int   Rate     = 22050;
     private const int   PoolSize = 20;
-    private const float MaxDur   = 5.5f;   // buffer length — must exceed longest sound (surge_global = 5s)
+    private const float MaxDur   = 11.0f;  // buffer length — must exceed longest sound (surge_global = 10s)
 
     private readonly Dictionary<string, Vector2[]> _samples  = new();
     private readonly Dictionary<string, float>     _durations = new();
@@ -137,7 +137,7 @@ public partial class SoundManager : Node
         Reg("surge_lightning", Thunder(dur: 0.9f, vol: 0.88f));
 
         // ── Global surge: explosion + expanding shockwave ─────────────────
-        Reg("surge_global", GlobalSurge(dur: 5.0f, vol: 0.92f, boomDecay: 0.30f, waveSweepDur: 0.90f, sparkVol: 0.20f));
+        Reg("surge_global", GlobalSurge(dur: 10.0f, vol: 0.92f, boomDecay: 0.30f, waveSweepDur: 1.80f, sparkVol: 0.20f));
 
         // ── UI ───────────────────────────────────────────────────────────
         Reg("draft_pick",      Tone(740f, 0.07f, vol: 0.40f, shape: 's', env: 'f'));
