@@ -119,6 +119,12 @@ public sealed class SpectacleSystem
 
     public float GlobalMeter => _globalMeter;
 
+    /// <summary>
+    /// Returns the current dominant mod IDs based on recent surge contributions,
+    /// without mutating any state. Safe to call every frame for preview purposes.
+    /// </summary>
+    public string[] PeekDominantMods() => ResolveDominantGlobalMods();
+
     public void Reset()
     {
         _towerStates.Clear();

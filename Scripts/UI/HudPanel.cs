@@ -20,8 +20,11 @@ public partial class HudPanel : CanvasLayer
     private Label _speedToast = null!;
     private ColorRect _speedToastStreak = null!;
     private Panel _globalSpectaclePanel = null!;
-    private ProgressBar _globalSpectacleBar = null!;
-    private Label _globalSpectacleLabel = null!;
+    private ColorRect[] _surgePips = System.Array.Empty<ColorRect>();
+    private Label _surgeNameLabel = null!;  // shows "GLOBAL SURGE" normally, archetype name when building
+    private const int SurgePipCount = 20;
+    private static readonly Color PipFilled = new(1.00f, 0.90f, 0.44f, 0.95f);
+    private static readonly Color PipEmpty  = new(0.07f, 0.16f, 0.25f, 0.95f);
     private Button _speedBtn = null!;
     private Button _pausePlayBtn = null!;
     private bool _lastPausedState;
@@ -394,11 +397,11 @@ public partial class HudPanel : CanvasLayer
         _enemyLabel.Text = alive > 0 ? $"Enemies: {alive} / {total}" : "";
     }
 
-    public void RefreshGlobalSurgeMeter(float meter, float threshold, bool visible)
+    public void RefreshGlobalSurgeMeter(float meter, float threshold, bool visible,
+        string archetypePreview = "", float previewAlpha = 0f)
     {
         if (!GodotObject.IsInstanceValid(_globalSpectaclePanel)
-            || !GodotObject.IsInstanceValid(_globalSpectacleBar)
-            || !GodotObject.IsInstanceValid(_globalSpectacleLabel))
+            || !GodotObject.IsInstanceValid(_surgeNameLabel))
             return;
 
         bool canShow = visible && threshold > 0.001f;
@@ -406,11 +409,27 @@ public partial class HudPanel : CanvasLayer
         if (!canShow)
             return;
 
-        float clampedThreshold = Mathf.Max(1f, threshold);
-        float clampedMeter = Mathf.Clamp(meter, 0f, clampedThreshold);
-        _globalSpectacleBar.MaxValue = clampedThreshold;
-        _globalSpectacleBar.Value = clampedMeter;
-        _globalSpectacleLabel.Text = $"GLOBAL SURGE {Mathf.RoundToInt(clampedMeter)}/{Mathf.RoundToInt(clampedThreshold)}";
+        float fill = Mathf.Clamp(meter / Mathf.Max(1f, threshold), 0f, 1f);
+        float pipsToFill = fill * SurgePipCount;
+
+        for (int i = 0; i < _surgePips.Length; i++)
+        {
+            if (!GodotObject.IsInstanceValid(_surgePips[i])) continue;
+            float pipFill = Mathf.Clamp(pipsToFill - i, 0f, 1f);
+            _surgePips[i].Color = PipEmpty.Lerp(PipFilled, pipFill);
+        }
+
+        bool hasPreview = !string.IsNullOrEmpty(archetypePreview) && previewAlpha > 0.01f;
+        if (hasPreview)
+        {
+            _surgeNameLabel.Text = archetypePreview;
+            _surgeNameLabel.Modulate = new Color(1.00f, 0.92f, 0.60f, 0.60f + previewAlpha * 0.40f);
+        }
+        else
+        {
+            _surgeNameLabel.Text = "GLOBAL SURGE";
+            _surgeNameLabel.Modulate = new Color(1.00f, 0.95f, 0.76f, 1f);
+        }
     }
 
     public void RefreshDevRenderStats(bool enabled, int enemiesAlive, string perfSummary)
@@ -524,15 +543,16 @@ public partial class HudPanel : CanvasLayer
 
     private void BuildGlobalSurgeMeter()
     {
+        // Single-row panel: label left, pips fill the rest.
         _globalSpectaclePanel = new Panel
         {
             AnchorLeft = 0.5f,
             AnchorRight = 0.5f,
             AnchorTop = 1f,
             AnchorBottom = 1f,
-            OffsetLeft = -240f,
-            OffsetRight = 240f,
-            OffsetTop = -54f,
+            OffsetLeft = -211f,
+            OffsetRight = 211f,
+            OffsetTop = -36f,
             OffsetBottom = -14f,
             Visible = false,
             MouseFilter = Control.MouseFilterEnum.Ignore,
@@ -543,68 +563,68 @@ public partial class HudPanel : CanvasLayer
             UITheme.MakePanel(
                 bg: new Color(0.04f, 0.09f, 0.15f, 0.88f),
                 border: new Color(0.62f, 0.92f, 1.00f, 0.82f),
-                corners: 10,
+                corners: 8,
                 borderWidth: 2,
-                padH: 10,
-                padV: 7));
+                padH: 8,
+                padV: 4));
         AddChild(_globalSpectaclePanel);
 
-        _globalSpectacleLabel = new Label
+        // Horizontal layout: [label] [pips] — with explicit margins so content clears the border.
+        var row = new HBoxContainer
         {
-            Text = "GLOBAL SURGE 0/100",
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
             AnchorLeft = 0f,
             AnchorRight = 1f,
             AnchorTop = 0f,
-            AnchorBottom = 0f,
-            OffsetLeft = 0f,
-            OffsetRight = 0f,
-            OffsetTop = 0f,
-            OffsetBottom = 18f,
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-            Modulate = new Color(1.00f, 0.95f, 0.76f, 1f),
-        };
-        UITheme.ApplyFont(_globalSpectacleLabel, semiBold: true, size: 16);
-        _globalSpectacleLabel.AddThemeConstantOverride("outline_size", 2);
-        _globalSpectacleLabel.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.78f));
-        _globalSpectaclePanel.AddChild(_globalSpectacleLabel);
-
-        _globalSpectacleBar = new ProgressBar
-        {
-            MinValue = 0f,
-            MaxValue = 100f,
-            Value = 0f,
-            Step = 0.01f,
-            ShowPercentage = false,
-            AnchorLeft = 0f,
-            AnchorRight = 1f,
-            AnchorTop = 1f,
             AnchorBottom = 1f,
             OffsetLeft = 10f,
             OffsetRight = -10f,
-            OffsetTop = -14f,
-            OffsetBottom = -4f,
+            Alignment = BoxContainer.AlignmentMode.Center,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
-        _globalSpectacleBar.AddThemeStyleboxOverride(
-            "background",
-            UITheme.MakePanel(
-                bg: new Color(0.07f, 0.16f, 0.25f, 0.95f),
-                border: new Color(0.32f, 0.70f, 0.90f, 0.85f),
-                corners: 6,
-                borderWidth: 1,
-                padH: 0,
-                padV: 0));
-        _globalSpectacleBar.AddThemeStyleboxOverride(
-            "fill",
-            UITheme.MakePanel(
-                bg: new Color(1.00f, 0.90f, 0.44f, 0.95f),
-                border: new Color(1.00f, 0.98f, 0.80f, 0.95f),
-                corners: 6,
-                borderWidth: 1,
-                padH: 0,
-                padV: 0));
-        _globalSpectaclePanel.AddChild(_globalSpectacleBar);
+        row.AddThemeConstantOverride("separation", 4);
+        _globalSpectaclePanel.AddChild(row);
+
+        // Label — fixed width, vertically centred.
+        _surgeNameLabel = new Label
+        {
+            Text = "GLOBAL SURGE",
+            HorizontalAlignment = HorizontalAlignment.Left,
+            VerticalAlignment = VerticalAlignment.Center,
+            AutowrapMode = TextServer.AutowrapMode.Off,
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin,
+            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Modulate = new Color(1.00f, 0.95f, 0.76f, 1f),
+        };
+        UITheme.ApplyFont(_surgeNameLabel, semiBold: true, size: 13);
+        _surgeNameLabel.AddThemeConstantOverride("outline_size", 2);
+        _surgeNameLabel.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.78f));
+        row.AddChild(_surgeNameLabel);
+
+        // Pip row fills remaining width, pips centred vertically at fixed height.
+        var pipsRow = new HBoxContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+            Alignment = BoxContainer.AlignmentMode.Center,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        pipsRow.AddThemeConstantOverride("separation", 1);
+        row.AddChild(pipsRow);
+
+        _surgePips = new ColorRect[SurgePipCount];
+        for (int i = 0; i < SurgePipCount; i++)
+        {
+            var pip = new ColorRect
+            {
+                Color = PipEmpty,
+                CustomMinimumSize = new Vector2(0f, 6f),
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            };
+            _surgePips[i] = pip;
+            pipsRow.AddChild(pip);
+        }
     }
 }

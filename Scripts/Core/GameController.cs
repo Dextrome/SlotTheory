@@ -61,6 +61,7 @@ public partial class GameController : Node
 	private Button _undoPlacementButton = null!;
 	private Label _clutchToast = null!;
 	private Label _globalSpectacleBanner = null!;
+	private Label _globalSurgeSubtitleLabel = null!;
 	private ColorRect _waveClearFlash = null!;
 	private ColorRect _threatPulse = null!;
 	private ColorRect _spectacleAfterimage = null!;
@@ -421,10 +422,23 @@ public partial class GameController : Node
 		bool showGlobalSurgeMeter = CurrentPhase == GamePhase.Draft || CurrentPhase == GamePhase.Wave;
 		if (hudPanelReady)
 		{
+			float globalThreshold = SpectacleDefinitions.ResolveGlobalThreshold();
+			float globalFill = globalThreshold > 0f ? _spectacleSystem.GlobalMeter / globalThreshold : 0f;
+			string archetypePreview = "";
+			float previewAlpha = 0f;
+			// Ghost archetype label materialises from 70% fill, fully opaque at 100%.
+			if (globalFill >= 0.70f && _botRunner == null)
+			{
+				string[] peekMods = _spectacleSystem.PeekDominantMods();
+				archetypePreview = SurgeDifferentiation.ResolveLabel(peekMods);
+				previewAlpha = Mathf.Clamp((globalFill - 0.70f) / 0.30f, 0f, 1f) * 0.80f;
+			}
 			hudPanel!.RefreshGlobalSurgeMeter(
 				_spectacleSystem.GlobalMeter,
-				SpectacleDefinitions.ResolveGlobalThreshold(),
-				showGlobalSurgeMeter);
+				globalThreshold,
+				showGlobalSurgeMeter,
+				archetypePreview,
+				previewAlpha);
 			hudPanel.RefreshSpeedLabelFromActual((float)Engine.TimeScale);
 		}
 
@@ -2387,6 +2401,29 @@ public partial class GameController : Node
 		_globalSpectacleBanner.AddThemeConstantOverride("outline_size", 10);
 		_globalSpectacleBanner.AddThemeColorOverride("font_outline_color", new Color(0.04f, 0.10f, 0.16f, 0.98f));
 		globalAnchor.AddChild(_globalSpectacleBanner);
+
+		// Subtitle line — smaller text below the main banner, shows the gameplay effect.
+		_globalSurgeSubtitleLabel = new Label
+		{
+			Text = "",
+			HorizontalAlignment = HorizontalAlignment.Center,
+			VerticalAlignment = VerticalAlignment.Top,
+			AnchorLeft = 0f,
+			AnchorRight = 1f,
+			AnchorTop = 0.5f,
+			AnchorBottom = 0.5f,
+			OffsetTop = 52f,
+			OffsetBottom = 92f,
+			Visible = false,
+			Modulate = new Color(1f, 1f, 1f, 0f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		_globalSurgeSubtitleLabel.ZIndex = 10;
+		UITheme.ApplyFont(_globalSurgeSubtitleLabel, semiBold: true, size: 30);
+		_globalSurgeSubtitleLabel.AddThemeColorOverride("font_color", new Color(0.88f, 0.98f, 1.00f));
+		_globalSurgeSubtitleLabel.AddThemeConstantOverride("outline_size", 6);
+		_globalSurgeSubtitleLabel.AddThemeColorOverride("font_outline_color", new Color(0.04f, 0.10f, 0.16f, 0.92f));
+		globalAnchor.AddChild(_globalSurgeSubtitleLabel);
 	}
 
 	private void ShowWaveAnnouncement(int wave)
@@ -2511,7 +2548,7 @@ public partial class GameController : Node
 		tw.TweenCallback(Callable.From(() => _clutchToast.Visible = false));
 	}
 
-	private void ShowGlobalSurgeBanner(string effectName, Color accent, float lingerMultiplier = 1f)
+	private void ShowGlobalSurgeBanner(string effectName, Color accent, string subtitle, float lingerMultiplier = 1f)
 	{
 		if (!GodotObject.IsInstanceValid(_globalSpectacleBanner) || _botRunner != null)
 			return;
@@ -2533,6 +2570,15 @@ public partial class GameController : Node
 				Mathf.Clamp(accent.B * 0.82f + 0.18f, 0f, 1f),
 				1f));
 
+		bool hasSubtitle = !string.IsNullOrWhiteSpace(subtitle)
+			&& GodotObject.IsInstanceValid(_globalSurgeSubtitleLabel);
+		if (hasSubtitle)
+		{
+			_globalSurgeSubtitleLabel!.Text = subtitle.ToUpperInvariant();
+			_globalSurgeSubtitleLabel.Visible = true;
+			_globalSurgeSubtitleLabel.Modulate = new Color(1f, 1f, 1f, 0f);
+		}
+
 		// Pop in: scale 0.5 → 1.45 fast, alpha 0 → 1 fast
 		// Use .From() to force the starting value regardless of current property state.
 		_globalSurgeBannerTween = _globalSpectacleBanner.CreateTween();
@@ -2542,6 +2588,12 @@ public partial class GameController : Node
 		tw.Parallel().TweenProperty(_globalSpectacleBanner, "scale", new Vector2(1.45f, 1.45f), 0.22f)
 			.From(new Vector2(0.5f, 0.5f))
 			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+		// Subtitle fades in slightly after the main label, with a gentle slide up.
+		if (hasSubtitle)
+		{
+			tw.Parallel().TweenProperty(_globalSurgeSubtitleLabel, "modulate:a", 0.88f, 0.14f)
+				.SetDelay(0.10f).From(0f);
+		}
 
 		GetTree().CreateTimer(holdSeconds, true, false, true).Timeout += () =>
 		{
@@ -2558,11 +2610,16 @@ public partial class GameController : Node
 				.SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.In);
 			fadeTween.Parallel().TweenProperty(_globalSpectacleBanner, "scale", new Vector2(0.85f, 0.85f), fadeSeconds)
 				.SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.In);
+			if (hasSubtitle && GodotObject.IsInstanceValid(_globalSurgeSubtitleLabel))
+				fadeTween.Parallel().TweenProperty(_globalSurgeSubtitleLabel, "modulate:a", 0f, fadeSeconds * 0.7f)
+					.SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.In);
 			fadeTween.TweenCallback(Callable.From(() =>
 			{
 				if (token != _globalSurgeBannerToken)
 					return;
 				_globalSpectacleBanner.Visible = false;
+				if (GodotObject.IsInstanceValid(_globalSurgeSubtitleLabel))
+					_globalSurgeSubtitleLabel.Visible = false;
 				_globalSurgeBannerTween = null;
 			}));
 		};
@@ -2814,8 +2871,13 @@ public partial class GameController : Node
 			SpawnTowerArchetypeFx(towerForArchetype, accent, drama: 0.28f);
 
 		// Phase 3: effect name callout (build archetype label)
+		// For Triad surges use only the combo portion — the augment gets its own callout below.
+		string surgeCalloutText = info.Signature.Mode == SpectacleMode.Triad
+			&& !string.IsNullOrEmpty(info.Signature.ComboEffectName)
+			? info.Signature.ComboEffectName
+			: info.Signature.EffectName;
 		SpawnCombatCallout(
-			info.Signature.EffectName.ToUpperInvariant(),
+			surgeCalloutText.ToUpperInvariant(),
 			sourceTower.GlobalPosition,
 			accent,
 			durationScale: 4f);
@@ -2824,13 +2886,13 @@ public partial class GameController : Node
 		if (info.Signature.Mode == SpectacleMode.Triad && !string.IsNullOrEmpty(info.Signature.AugmentName))
 		{
 			var capturedOrigin = sourceTower.GlobalPosition;
-			var capturedAccent = accent;
+			Color augAccent = ResolveSpectacleColor(info.Signature.AugmentEffectId);
 			string augName = info.Signature.AugmentName;
 			GetTree().CreateTimer(0.28f, true, false, true).Timeout += () =>
 			{
 				if (!GodotObject.IsInstanceValid(this)) return;
-				SpawnCombatCallout($"+ {augName.ToUpperInvariant()}", capturedOrigin + new Vector2(0f, -26f), capturedAccent, durationScale: 3f);
-				FlashSpectacleScreen(capturedAccent, peakAlpha: 0.10f, rampSec: 0.04f, fadeSec: 0.20f);
+				SpawnCombatCallout($"+ {augName.ToUpperInvariant()}", capturedOrigin + new Vector2(0f, +14f), augAccent, durationScale: 3f);
+				FlashSpectacleScreen(augAccent, peakAlpha: 0.10f, rampSec: 0.04f, fadeSec: 0.20f);
 			};
 		}
 
@@ -2878,6 +2940,11 @@ public partial class GameController : Node
 		string surgeLabel = SurgeDifferentiation.ResolveLabel(dominantMods);
 		SurgeDifferentiation.GlobalSurgeFeel feel = SurgeDifferentiation.ResolveFeel(dominantMods);
 		float flashAlpha = SurgeDifferentiation.ResolveFlashAlpha(feel);
+
+		// ── Banner subtitle: mechanical summary of the payload ─────────────────────
+		int subContribs = Mathf.Max(2, info.UniqueContributors);
+		int refundPct = Mathf.RoundToInt(Mathf.Clamp(0.24f + 0.04f * subContribs, 0.24f, 0.46f) * 100f);
+		string surgeSubtitle = $"Towers −{refundPct}% reload · Enemies marked & slowed";
 
 		GD.Print($"[GlobalSurge] label={surgeLabel}  feel={feel}  dominantMods=[{string.Join(", ", dominantMods)}]  contributors={info.UniqueContributors}");
 
@@ -2981,7 +3048,7 @@ public partial class GameController : Node
 				rider: SpectacleConsequenceKind.Vulnerability,
 				spawnResidue: true,
 				damageBaseOverride: globalDamageBase);
-			ShowGlobalSurgeBanner(surgeLabel, globalColor, lingerMultiplier: globalDurationScale);
+			ShowGlobalSurgeBanner(surgeLabel, globalColor, surgeSubtitle, lingerMultiplier: globalDurationScale);
 		// Phase 5: Triad Factorio moment — second flash pulse when 3 distinct mod identities converge
 		if (dominantMods.Length >= 3)
 		{
