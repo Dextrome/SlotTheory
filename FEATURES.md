@@ -40,6 +40,13 @@ Platforms: Windows Desktop, Android (phone and tablet)
   - `SpectacleTriadDiversity`
 - Added surge differentiation: 10 named global surge archetypes, feel-keyed visual treatment (Detonation/Pressure/Neutral), multi-color ripples, and per-tower identity FX.
 - HowToPlay screens polished with procedural icons throughout (TowerIcon, ModifierIcon with accent tinting, dual icons for combo surges, feel-bar + icon for global surge archetypes).
+- **Automated tuning pipeline:** `run_tuning_pipeline.ps1` + `Scripts/Tools/CombatLab/` drive iterative difficulty optimization against bot win-rate targets. `SpectacleTuning.Current` overrides difficulty multipliers at runtime without recompiling.
+- **Achievement system:** 10 achievements tracked via `AchievementManager` (autoload, persistent to `user://achievements.cfg`). Unlock toasts, dedicated achievements screen, and Steam forwarding via `SteamAchievements`. Gates content unlocks.
+- **Unlockable content:** Arc Emitter, Split Shot, and Rift Prism are gated behind campaign map clears (`Unlocks.cs`). Bots always have full unlock access for deterministic balance testing.
+- **Three difficulty modes:** Easy (no scaling), Normal (~75% bot win target), Hard (~50% bot win target). Multipliers live in `Balance.DifficultyMultipliers` and are overridable at runtime via `SpectacleTuning.Current`.
+- **Enemy render pipeline overhaul:** Layered render pipeline with per-class death FX, perf controls, and mobile-adaptive quality settings (`EnemyRenderPerfProfiler`, `EnemyRenderSettingsSnapshot`, `EnemyRenderLayerSettings`).
+- **New UI screens:** `UnlockRevealScreen` (shown on first map-clear unlock), `AchievementsPanel`, `AchievementToast`, `SlotCodexPanel`.
+- **Supabase leaderboard service:** `SupabaseLeaderboardService` + `SupabaseConfig` provide a web-backend leaderboard path alongside Steam, used for standalone/itch builds.
 
 ---
 
