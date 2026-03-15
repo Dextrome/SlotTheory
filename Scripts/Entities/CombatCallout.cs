@@ -28,11 +28,14 @@ public partial class CombatCallout : Node2D
     private string _text = "";
     private Color _color = Colors.White;
 
-    public void Initialize(string text, Color color, float duration = DefaultDuration)
+    private int _sizeOverride = 0;
+
+    public void Initialize(string text, Color color, float duration = DefaultDuration, int sizeOverride = 0)
     {
         _text = text;
         _color = color;
         _duration = Mathf.Max(0.1f, duration);
+        _sizeOverride = sizeOverride;
     }
 
     public static void SetMobileReadabilityScale(float scale)
@@ -56,7 +59,9 @@ public partial class CombatCallout : Node2D
     {
         float t = _life / _duration;
         float alpha = 1f - t * t * t;
-        int size = Mathf.Clamp(Mathf.RoundToInt(16f * _mobileReadabilityScale), 12, 44);
+        int size = _sizeOverride > 0
+            ? Mathf.Clamp(Mathf.RoundToInt(_sizeOverride * _mobileReadabilityScale), 12, 72)
+            : Mathf.Clamp(Mathf.RoundToInt(16f * _mobileReadabilityScale), 12, 44);
         var col = new Color(_color.R, _color.G, _color.B, alpha);
 
         // High-contrast layered outline: dark outer ring + light inner ring.

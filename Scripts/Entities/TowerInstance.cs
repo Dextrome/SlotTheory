@@ -128,6 +128,22 @@ public partial class TowerInstance : Node2D, ITowerView
             .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
     }
 
+    public void StartAfterGlow(Color accent, float duration = 2.4f)
+    {
+        if (_spectacleFlashTween != null && GodotObject.IsInstanceValid(_spectacleFlashTween))
+            _spectacleFlashTween.Kill();
+        // Blend white toward accent so values stay in [0,1] — visible as a colored tint
+        Color glow = new Color(
+            0.45f + accent.R * 0.55f,
+            0.45f + accent.G * 0.55f,
+            0.45f + accent.B * 0.55f,
+            1f);
+        _spectacleFlashTween = CreateTween();
+        _spectacleFlashTween.TweenProperty(this, "modulate", glow, 0.08f);
+        _spectacleFlashTween.TweenProperty(this, "modulate", Colors.White, Mathf.Max(0.5f, duration))
+            .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);
+    }
+
     public void KickRecoil(float distance = 3.5f)
     {
         if (!LastTargetPosition.HasValue) return;

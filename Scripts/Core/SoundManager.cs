@@ -99,7 +99,7 @@ public partial class SoundManager : Node
         EnsureBusLimiter("UI");
 
         // ── Tower attacks ────────────────────────────────────────────────
-        Reg("shoot_rapid",  Tone(680f, 0.05f, vol: 0.33f, shape: 'q', env: 'f'));
+        Reg("shoot_rapid",  Tone(680f, 0.05f, vol: 0.26f, shape: 'q', env: 'f'));
         Reg("shoot_heavy",  Tone( 72f, 0.24f, vol: 0.72f, shape: 's', env: 'f'));
         Reg("shoot_marker", Tone(360f, 0.07f, vol: 0.32f, shape: 's', env: 'f'));
 

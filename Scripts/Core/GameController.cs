@@ -66,6 +66,10 @@ public partial class GameController : Node
 	private ColorRect _threatPulse = null!;
 	private ColorRect _spectacleAfterimage = null!;
 	private ColorRect _spectaclePulse = null!;
+	private ColorRect _lingerTint = null!;
+	private ColorRect _vignetteRect = null!;
+	private int   _surgeChainCount = 0;
+	private float _surgeChainResetTimer = 0f;
 	private Tween? _globalSurgeBannerTween;
 	private ulong _globalSurgeBannerToken = 0;
 	private Node2D _worldNode = null!;
@@ -419,6 +423,14 @@ public partial class GameController : Node
 			UpdateExplosionResidues((float)delta);
 		}
 
+		// Surge chain reset timer
+		if (_surgeChainCount > 0)
+		{
+			_surgeChainResetTimer -= (float)delta;
+			if (_surgeChainResetTimer <= 0f)
+				_surgeChainCount = 0;
+		}
+
 		bool showGlobalSurgeMeter = CurrentPhase == GamePhase.Draft || CurrentPhase == GamePhase.Wave;
 		if (hudPanelReady)
 		{
@@ -426,12 +438,36 @@ public partial class GameController : Node
 			float globalFill = globalThreshold > 0f ? _spectacleSystem.GlobalMeter / globalThreshold : 0f;
 			string archetypePreview = "";
 			float previewAlpha = 0f;
+			string[] peekMods = System.Array.Empty<string>();
 			// Ghost archetype label materialises from 70% fill, fully opaque at 100%.
 			if (globalFill >= 0.70f && _botRunner == null)
 			{
-				string[] peekMods = _spectacleSystem.PeekDominantMods();
+				peekMods = _spectacleSystem.PeekDominantMods();
 				archetypePreview = SurgeDifferentiation.ResolveLabel(peekMods);
 				previewAlpha = Mathf.Clamp((globalFill - 0.70f) / 0.30f, 0f, 1f) * 0.80f;
+			}
+			// Screen-edge vignette intensifies as meter approaches full
+			if (_botRunner == null && GodotObject.IsInstanceValid(_vignetteRect))
+			{
+				float vigIntensity = Mathf.Clamp((globalFill - 0.70f) / 0.30f, 0f, 1f);
+				if (vigIntensity > 0f)
+				{
+					Color vigColor = peekMods.Length > 0
+						? ResolveSpectacleColor(peekMods[0])
+						: new Color(1f, 0.90f, 0.56f);
+					_vignetteRect.Visible = true;
+					var vmat = (ShaderMaterial)_vignetteRect.Material;
+					vmat.SetShaderParameter("intensity", vigIntensity * 0.85f);
+					// Boost saturation so low-alpha tints read as their true hue rather than washed-out yellow
+				float vigR = Mathf.Clamp(vigColor.R * 1.4f - vigColor.G * 0.2f, 0f, 1f);
+				float vigG = Mathf.Clamp(vigColor.G * 0.7f, 0f, 1f);
+				float vigB = Mathf.Clamp(vigColor.B * 1.1f, 0f, 1f);
+				vmat.SetShaderParameter("tint", new Vector3(vigR, vigG, vigB));
+				}
+				else
+				{
+					_vignetteRect.Visible = false;
+				}
 			}
 			hudPanel!.RefreshGlobalSurgeMeter(
 				_spectacleSystem.GlobalMeter,
@@ -2376,6 +2412,34 @@ public partial class GameController : Node
 		_spectaclePulse.MouseFilter = Control.MouseFilterEnum.Ignore;
 		anchor.AddChild(_spectaclePulse);
 
+		// Sustained archetype tint — lingers after global surge, separate from fast flash
+		_lingerTint = new ColorRect();
+		_lingerTint.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		_lingerTint.Color = new Color(1f, 0.90f, 0.56f, 0f);
+		_lingerTint.Visible = false;
+		_lingerTint.MouseFilter = Control.MouseFilterEnum.Ignore;
+		anchor.AddChild(_lingerTint);
+
+		// Screen-edge vignette — intensifies during final 30% of global meter buildup
+		_vignetteRect = new ColorRect();
+		_vignetteRect.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		_vignetteRect.Visible = false;
+		_vignetteRect.MouseFilter = Control.MouseFilterEnum.Ignore;
+		var vignetteMat = new ShaderMaterial();
+		var vignetteShader = new Shader();
+		vignetteShader.Code = @"
+shader_type canvas_item;
+uniform float intensity : hint_range(0.0, 1.0) = 0.0;
+uniform vec3 tint : source_color = vec3(1.0, 0.2, 0.1);
+void fragment() {
+    float dist = max(abs(UV.x - 0.5), abs(UV.y - 0.5)) * 2.0;
+    float edge = smoothstep(0.65, 1.0, dist);
+    COLOR = vec4(tint, edge * intensity * 0.09);
+}";
+		vignetteMat.Shader = vignetteShader;
+		_vignetteRect.Material = vignetteMat;
+		anchor.AddChild(_vignetteRect);
+
 		_globalSurgeLayer = new CanvasLayer { Layer = 64 };
 		AddChild(_globalSurgeLayer);
 		var globalAnchor = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
@@ -2814,6 +2878,12 @@ public partial class GameController : Node
 			ApplySpectacleGameplayPayload(info, isMajor: true);
 			return;
 		}
+		// Surge chain counter — accumulates while global meter is building
+		_surgeChainCount++;
+		_surgeChainResetTimer = SpectacleDefinitions.ResolveGlobalContributionWindowSeconds();
+		if (_surgeChainCount >= 2)
+			SpawnSurgeChainCallout(_surgeChainCount, ResolveSpectacleColor(info.Signature.PrimaryModId));
+
 		ITowerView? sourceTower = info.Tower;
 		if (sourceTower == null)
 			return;
@@ -2941,6 +3011,12 @@ public partial class GameController : Node
 		SurgeDifferentiation.GlobalSurgeFeel feel = SurgeDifferentiation.ResolveFeel(dominantMods);
 		float flashAlpha = SurgeDifferentiation.ResolveFlashAlpha(feel);
 
+		// ── Clear buildup effects — vignette and chain counter ────────────────────
+		_surgeChainCount = 0;
+		_surgeChainResetTimer = 0f;
+		if (GodotObject.IsInstanceValid(_vignetteRect))
+			_vignetteRect.Visible = false;
+
 		// ── Banner subtitle: mechanical summary of the payload ─────────────────────
 		int subContribs = Mathf.Max(2, info.UniqueContributors);
 		int refundPct = Mathf.RoundToInt(Mathf.Clamp(0.24f + 0.04f * subContribs, 0.24f, 0.46f) * 100f);
@@ -2958,6 +3034,14 @@ public partial class GameController : Node
 		SpawnSpectacleBurstFx(center, globalColor, major: true, power: 2.15f, stageTwoKick: true);
 		SpawnGlobalSurgeRipples(center, rippleColors, Mathf.Max(2, info.UniqueContributors), lingerMultiplier: globalDurationScale);
 		FlashSpectacleScreen(globalColor, peakAlpha: flashAlpha, rampSec: 0.09f, fadeSec: 0.62f * globalDurationScale);
+		// Sustained archetype tint — low-alpha linger keyed to feel
+		Color lingerColor = feel switch
+		{
+			SurgeDifferentiation.GlobalSurgeFeel.Pressure    => new Color(0.85f, 0.08f, 0.08f),
+			SurgeDifferentiation.GlobalSurgeFeel.Detonation  => new Color(1.00f, 0.50f, 0.08f),
+			_                                                 => new Color(0.60f, 0.20f, 1.00f),
+		};
+		FlashSpectacleScreenLinger(lingerColor, alpha: 0.13f, holdSec: 1.0f, fadeSec: 1.4f);
 		// Detonation: second snap-flash after brief delay (Phase 4)
 		if (feel == SurgeDifferentiation.GlobalSurgeFeel.Detonation)
 		{
@@ -3017,6 +3101,8 @@ public partial class GameController : Node
 				SpawnSurgeSignatureRings(t.GlobalPosition, tSig, drama: 0.7f);
 				if (!IsMobileSpectacleLite())
 					SpawnTowerArchetypeFx(t, accent, drama: 0.75f);
+				// Persistent afterglow — tower stays lit for 2.4s after the surge sequence
+				t.StartAfterGlow(accent, duration: 2.4f);
 			};
 		}
 
@@ -5291,6 +5377,40 @@ public partial class GameController : Node
 			if (GodotObject.IsInstanceValid(_spectaclePulse))
 				_spectaclePulse.Visible = false;
 		}));
+	}
+
+	private void FlashSpectacleScreenLinger(Color color, float alpha, float holdSec, float fadeSec)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_lingerTint))
+			return;
+		_lingerTint.Visible = true;
+		_lingerTint.Color = new Color(color.R, color.G, color.B, 0f);
+		var tw = _lingerTint.CreateTween();
+		tw.TweenProperty(_lingerTint, "color:a", Mathf.Clamp(alpha, 0f, 0.22f), 0.12f);
+		tw.TweenInterval(Mathf.Max(0f, holdSec));
+		tw.TweenProperty(_lingerTint, "color:a", 0f, Mathf.Max(0.1f, fadeSec))
+			.SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+		tw.TweenCallback(Callable.From(() =>
+		{
+			if (GodotObject.IsInstanceValid(_lingerTint))
+				_lingerTint.Visible = false;
+		}));
+	}
+
+	private void SpawnSurgeChainCallout(int chainCount, Color accent)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+		Vector2 screenCenter = GetViewport().GetVisibleRect().Size * 0.5f;
+		Vector2 worldPos = ScreenToWorld(screenCenter) + new Vector2(0f, 60f);
+		var callout = new CombatCallout();
+		_worldNode.AddChild(callout);
+		callout.GlobalPosition = worldPos;
+		callout.Initialize(
+			$"SURGE ×{chainCount}",
+			new Color(1.00f, 0.90f, 0.30f),
+			duration: 1.8f,
+			sizeOverride: 36);
 	}
 
 	private void FlashSpectacleAfterimage(Color accent, float strength)
