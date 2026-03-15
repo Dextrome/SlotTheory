@@ -89,6 +89,7 @@ public partial class GameController : Node
 	private int _previewGhostSlot = -1;
 	private float _previewGhostPhase = 0f;
 	private ModifierIcon? _previewModifierIcon;
+	private Line2D? _previewRangeOverlay;
 	private int _previewTowerGhostSlot = -1;
 	private float _previewTowerGhostPhase = 0f;
 	private string _previewTowerGhostId = "";
@@ -6525,6 +6526,34 @@ void fragment() {
 				ZIndex = 19,
 			};
 			_slotNodes[slot].AddChild(_previewTowerGhost);
+
+			// Range preview — fill + border, higher alphas since ghost Modulate will reduce them
+			var ghostPts = new Vector2[64];
+			for (int p = 0; p < 64; p++)
+			{
+				float a = p * Mathf.Tau / 64;
+				ghostPts[p] = new Vector2(Mathf.Cos(a) * _previewTowerGhost.Range, Mathf.Sin(a) * _previewTowerGhost.Range);
+			}
+			var ghostRangeFill = new Polygon2D
+			{
+				Color = new Color(_previewTowerGhost.BodyColor.R, _previewTowerGhost.BodyColor.G, _previewTowerGhost.BodyColor.B, 0.18f),
+				ZIndex = -1,
+				ShowBehindParent = true,
+				Polygon = ghostPts,
+			};
+			_previewTowerGhost.AddChild(ghostRangeFill);
+			var ghostBorderPts = new Vector2[65];
+			for (int p = 0; p < 64; p++) ghostBorderPts[p] = ghostPts[p];
+			ghostBorderPts[64] = ghostPts[0];
+			var ghostRangeBorder = new Line2D
+			{
+				Points = ghostBorderPts,
+				Width = 1.4f,
+				DefaultColor = new Color(_previewTowerGhost.BodyColor.R, _previewTowerGhost.BodyColor.G, _previewTowerGhost.BodyColor.B, 0.70f),
+				ZIndex = -1,
+				ShowBehindParent = true,
+			};
+			_previewTowerGhost.AddChild(ghostRangeBorder);
 		}
 		else
 		{
@@ -6630,6 +6659,58 @@ void fragment() {
 		_previewModifierIcon.IconColor = accent;
 		_previewModifierIcon.Modulate = new Color(1f, 1f, 1f, 0.35f + pulse * 0.35f);
 		_previewModifierIcon.Visible = true;
+
+		// Range preview overlay for Overreach (+45%) and Hair Trigger (-18%)
+		string modId = _draftPanel.PendingModifierId;
+		float rangeFactor = modId switch
+		{
+			"overreach"    => Balance.OverreachRangeFactor,
+			"hair_trigger" => Balance.HairTriggerRangeFactor,
+			_              => -1f,
+		};
+		var towerNode = _runState.Slots[slot].TowerNode;
+		if (rangeFactor > 0f && towerNode != null && GodotObject.IsInstanceValid(towerNode))
+		{
+			float previewRange = tower.Range * rangeFactor;
+			bool needsRebuild = !GodotObject.IsInstanceValid(_previewRangeOverlay)
+				|| _previewRangeOverlay!.GetParent() != towerNode;
+			if (needsRebuild)
+			{
+				if (GodotObject.IsInstanceValid(_previewRangeOverlay))
+					_previewRangeOverlay!.QueueFree();
+				var pts = new Vector2[65];
+				for (int p = 0; p < 64; p++)
+				{
+					float a = p * Mathf.Tau / 64;
+					pts[p] = new Vector2(Mathf.Cos(a) * previewRange, Mathf.Sin(a) * previewRange);
+				}
+				pts[64] = pts[0];
+				_previewRangeOverlay = new Line2D
+				{
+					Points = pts,
+					Width = 1.8f,
+					DefaultColor = new Color(accent.R, accent.G, accent.B, 0.80f),
+					ZIndex = 2,
+				};
+				towerNode.AddChild(_previewRangeOverlay);
+			}
+			else
+			{
+				// Update radius in case the slot changed
+				for (int p = 0; p < 64; p++)
+				{
+					float a = p * Mathf.Tau / 64;
+					_previewRangeOverlay!.SetPointPosition(p, new Vector2(Mathf.Cos(a) * previewRange, Mathf.Sin(a) * previewRange));
+				}
+				_previewRangeOverlay!.SetPointPosition(64, _previewRangeOverlay.GetPointPosition(0));
+			}
+			_previewRangeOverlay!.Modulate = new Color(1f, 1f, 1f, 0.45f + pulse * 0.40f);
+			_previewRangeOverlay.Visible = true;
+		}
+		else if (GodotObject.IsInstanceValid(_previewRangeOverlay))
+		{
+			_previewRangeOverlay!.Visible = false;
+		}
 	}
 
 	private void ClearModifierPreviewGhost()
@@ -6645,6 +6726,12 @@ void fragment() {
 
 		if (GodotObject.IsInstanceValid(_previewModifierIcon))
 			_previewModifierIcon.Visible = false;
+
+		if (GodotObject.IsInstanceValid(_previewRangeOverlay))
+		{
+			_previewRangeOverlay!.QueueFree();
+			_previewRangeOverlay = null;
+		}
 
 		_previewGhostSlot = -1;
 		_previewGhostPhase = 0f;

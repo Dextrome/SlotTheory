@@ -193,7 +193,7 @@ public partial class Settings : Node
         // Back
         var back = new Button
         {
-            Text = "<- Back",
+            Text = "Back",
             CustomMinimumSize = new Vector2(160, 44),
         };
         back.AddThemeFontSizeOverride("font_size", 20);

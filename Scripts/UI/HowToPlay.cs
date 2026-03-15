@@ -120,7 +120,7 @@ public partial class HowToPlay : Node
         // Back button
         var backBtn = new Button
         {
-            Text = "<- Back",
+            Text = "Back",
             CustomMinimumSize = new Vector2(160, 48),
         };
         var backBtnSize = MobileOptimization.IsMobile() ? 18 : 22;

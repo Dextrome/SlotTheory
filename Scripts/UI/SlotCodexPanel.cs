@@ -161,7 +161,7 @@ public partial class SlotCodexPanel : Node
 
         var backBtn = new Button
         {
-            Text = "<- Back",
+            Text = "Back",
             CustomMinimumSize = new Vector2(180f, MobileOptimization.IsMobile() ? 44f : 48f),
         };
         backBtn.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 18 : 20);

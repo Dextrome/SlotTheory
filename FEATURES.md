@@ -22,6 +22,15 @@ This document reflects the current implementation in code/data.
 - **All-runs leaderboard:** Global leaderboard now stores every run as a separate row (wins and losses). Previously only kept the personal best per player.
 - **Spectacle system integration:** Surge/global surge spectacle gameplay payloads are active in both live and bot simulations; tooltip and bot analytics now expose spectacle behavior.
 - **Surge differentiation:** Global surge banner shows a dynamic build archetype label (10 named archetypes driven by dominant contributing mod — REDLINE WAVE, OVERKILL STORM, CHAIN STORM, etc.). Visual feel (Detonation/Pressure/Neutral) controls flash alpha, second snap pulse, and ripple intensity. Multi-color ripples (up to 3 colors) reflect top contributing mods. Each tower fires its own identity FX in staggered sequence on global surge. `SurgeDifferentiation.cs` is the single source of truth (no Godot deps, fully unit-tested with 35 xUnit tests). HowToPlay Surges tab lists all 10 archetypes with feel indicators and modifier icons throughout.
+- **Surge readability and wow-factor pass:**
+  - Global meter HUD redesigned: 20 discrete pips (1 per surge needed) replace the continuous progress bar; label transitions from "GLOBAL SURGE" to the predicted archetype name at ≥70% fill, fading in as the meter approaches full.
+  - Banner subtitle: after global surge, a second line below the archetype label shows the mechanical payload summary (e.g. "TOWERS −36% RELOAD · ENEMIES MARKED & SLOWED"), scaled by unique contributor count (32%–46% refund range).
+  - Screen-edge vignette: square-masked shader overlay ramps in during the final 30% of global meter fill, tinted to the dominant mod's color; clears instantly on trigger.
+  - Sustained archetype tint: after global surge fires, a low-alpha full-screen color wash lingers for ~2.4 s keyed to feel — deep red (Pressure), orange (Detonation), purple (Neutral).
+  - SURGE ×N chain counter: a gold callout at screen center accumulates when surges chain within the contribution window (≥2 surges); resets on global surge or window expiry.
+  - Per-tower afterglow: each tower involved in the global surge sequence holds a 2.4 s accent-colored modulate fade after its FX burst.
+  - Triad callout polish: combo name and augment name now spawn as separate sequential callouts; augment appears below the combo name in the augment modifier's own color.
+  - Unit-tested: `SurgePreviewFeatureTests` (26 tests) covers `PeekDominantMods` state-safety, preview alpha ramp formula, and banner subtitle refund-percent formula.
 
 Platforms: Windows Desktop, Android (phone and tablet)
 
@@ -259,6 +268,13 @@ If a clumped armored wave is incoming (with enough armored units), gameplay uses
 
 ---
 
+## Draft Placement Previews
+
+- **Tower range circle:** When hovering a tower card over an empty slot, the ghost tower displays a pulsing range fill and border ring so players can evaluate coverage before confirming.
+- **Modifier range overlays:** Hovering Overreach over a tower shows a larger pulsing ring at the post-modifier range (`×1.45`); hovering Hair Trigger shows a smaller ring at the post-modifier range (`×0.82`). Both rings use the modifier's accent color.
+
+---
+
 ## Draft System
 
 - If free slots exist:
@@ -452,6 +468,7 @@ Target lock readability:
 Audio polish:
 - Kill combo pitch ramps up in short windows (clamped at 1.15x).
 - Heavy Cannon shots duck music slightly for clarity.
+- Rapid Shooter projectile volume reduced by 20%.
 
 ---
 
