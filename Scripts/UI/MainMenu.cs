@@ -69,20 +69,20 @@ public partial class MainMenu : Node
 		sub.Modulate = UITheme.Lime;
 		vbox.AddChild(sub);
 
-		AddSpacer(vbox, 28);
+		AddSpacer(vbox, 10);
 
 		// Menu card
 		var card = new PanelContainer();
 		card.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
 			bg: new Color(0.04f, 0.04f, 0.12f),
 			border: new Color(0.18f, 0.22f, 0.18f),
-			corners: 12, borderWidth: 1, padH: 24, padV: 24));
+			corners: 12, borderWidth: 1, padH: 24, padV: 16));
 		card.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
 		card.CustomMinimumSize   = new Vector2(320, 0);
 		vbox.AddChild(card);
 
 		var cardVbox = new VBoxContainer();
-		cardVbox.AddThemeConstantOverride("separation", 8);
+		cardVbox.AddThemeConstantOverride("separation", 5);
 		card.AddChild(cardVbox);
 
 		// Play — primary
@@ -100,6 +100,19 @@ public partial class MainMenu : Node
 		AddNavButton(cardVbox, "Slot Codex",    OnSlotCodex);
 		AddNavButton(cardVbox, "How to Play",   OnHowToPlay);
 		AddNavButton(cardVbox, "Settings",      OnSettings);
+
+		if (SteamAchievements.IsSteamInitialized && Balance.FullGameSteamAppId != 0u)
+		{
+			var wishBtn = MakeMenuButton("\u2665  Wishlist on Steam", 260, 40, 17);
+			UITheme.ApplyMutedStyle(wishBtn);
+			wishBtn.AddThemeColorOverride("font_color", new Color(0.85f, 0.65f, 1.0f));
+			wishBtn.Pressed += () =>
+			{
+				SoundManager.Instance?.Play("ui_select");
+				SteamAchievements.OpenFullGameStorePage();
+			};
+			cardVbox.AddChild(wishBtn);
+		}
 
 		AddSpacer(cardVbox, 4);
 		AddSeparator(cardVbox);

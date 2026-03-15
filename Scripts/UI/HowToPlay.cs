@@ -36,6 +36,12 @@ public partial class HowToPlay : Node
     /// </summary>
     public System.Action? OnBack { get; set; }
 
+    /// <summary>
+    /// When true, opens directly on the Surges tab instead of the default Basics tab.
+    /// Set before adding to the scene tree.
+    /// </summary>
+    public bool StartOnSurgesTab { get; set; } = false;
+
     public override void _Ready()
     {
         ProcessMode = ProcessModeEnum.Always; // stay responsive when opened from paused PauseScreen
@@ -108,7 +114,7 @@ public partial class HowToPlay : Node
         vbox.AddChild(_surgesSection);
         BuildSurgesSection(_surgesSection);
 
-        SetActiveTab(HowToTab.Basics);
+        SetActiveTab(StartOnSurgesTab ? HowToTab.Surges : HowToTab.Basics);
         AddSpacer(vbox, 22);
 
         // Back button

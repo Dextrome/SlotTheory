@@ -319,6 +319,8 @@ public partial class GameController : Node
 		}
 
 		_runState = new RunState();
+		if (_botRunner == null)
+			SettingsManager.Instance?.IncrementRunsStarted();
 		if (_botRunner != null)
 			ResetBotTraceBuffer();
 		

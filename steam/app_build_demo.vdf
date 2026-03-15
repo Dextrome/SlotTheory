@@ -1,0 +1,21 @@
+"AppBuild"
+{
+    "AppID"       "4525990"
+    "Desc"        "Slot Theory Demo"
+    "BuildOutput" "../steam/output/"
+    "ContentRoot" "../export/steam_demo/"
+    "Depots"
+    {
+        "4525991"
+        {
+            "FileMapping"
+            {
+                "LocalPath" "*"
+                "DepotPath" "."
+                "recursive" "1"
+            }
+            "FileExclusion" "*.pdb"
+            "FileExclusion" "steam_appid.txt"
+        }
+    }
+}

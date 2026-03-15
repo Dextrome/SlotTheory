@@ -11,6 +11,11 @@ public enum DifficultyMode
 /// <summary>All tunables in one place. Change values here, nowhere else.</summary>
 public static class Balance
 {
+    // Steam — demo wishlist CTA
+    // Set to the full game's Steam App ID (different from the demo's App ID).
+    // When non-zero and Steam is running, a "Wishlist" button appears on EndScreen and MainMenu.
+    public const uint FullGameSteamAppId = 4523160;
+
     // Run structure
     public const int TotalWaves = 20;
     public const int SlotCount = 6;

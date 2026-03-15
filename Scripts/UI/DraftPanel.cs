@@ -48,6 +48,12 @@ public partial class DraftPanel : CanvasLayer
     private bool _suppressNextCardPress = false;
     private bool _isCardCommitInFlight = false;
     private readonly RandomNumberGenerator _rng = new();
+    private PanelContainer _firstRunBanner = null!;
+    private Label _bannerHeader = null!;
+    private Label _bannerBody   = null!;
+    private Button _bannerNext  = null!;
+    private Button _bannerHowTo = null!;
+    private int _bannerPage = 0;
     private const float CardFaceDownHoldSeconds = 0.12f;
     private const float CardStaggerSeconds = 0.40f;
     private const float CardEntranceSeconds = 0.34f;
@@ -288,6 +294,107 @@ public partial class DraftPanel : CanvasLayer
         };
         _placementHintLbl.LabelSettings = hintLs;
         _placementGroup.AddChild(_placementHintLbl);
+
+        // ── First-run guidance banner ────────────────────────────────────────
+        // Two-page overlay shown only on wave 1 pick 1 of the player's first run.
+        _firstRunBanner = new PanelContainer();
+        _firstRunBanner.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.04f, 0.04f, 0.14f, 0.95f),
+            border: new Color(0.30f, 0.35f, 0.55f),
+            corners: 10, borderWidth: 1, padH: 16, padV: 12));
+        _firstRunBanner.AnchorLeft    = 0.5f;
+        _firstRunBanner.AnchorRight   = 0.5f;
+        _firstRunBanner.AnchorTop     = 0f;
+        _firstRunBanner.AnchorBottom  = 0f;
+        _firstRunBanner.GrowHorizontal = Control.GrowDirection.Both;
+        _firstRunBanner.OffsetLeft    = -280f;
+        _firstRunBanner.OffsetRight   =  280f;
+        _firstRunBanner.OffsetTop     =  10f;
+        _firstRunBanner.Visible = false;
+
+        var bannerVbox = new VBoxContainer();
+        bannerVbox.AddThemeConstantOverride("separation", 8);
+        _firstRunBanner.AddChild(bannerVbox);
+
+        var bannerTopRow = new HBoxContainer();
+        _bannerHeader = new Label { Text = "HOW THIS WORKS  (1/2)" };
+        UITheme.ApplyFont(_bannerHeader, semiBold: true, size: 13);
+        _bannerHeader.AddThemeColorOverride("font_color", UITheme.Lime);
+        bannerTopRow.AddChild(_bannerHeader);
+        bannerVbox.AddChild(bannerTopRow);
+
+        _bannerBody = new Label
+        {
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            CustomMinimumSize = new Vector2(520f, 0f),
+        };
+        UITheme.ApplyFont(_bannerBody, size: 14);
+        _bannerBody.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
+        bannerVbox.AddChild(_bannerBody);
+
+        var bannerBtnRow = new HBoxContainer();
+        bannerBtnRow.AddThemeConstantOverride("separation", 10);
+
+        _bannerHowTo = new Button { Text = "How to Play \u2192" };
+        _bannerHowTo.AddThemeFontSizeOverride("font_size", 13);
+        UITheme.ApplyMutedStyle(_bannerHowTo);
+        _bannerHowTo.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        _bannerHowTo.Pressed += OnBannerHowToPressed;
+        _bannerHowTo.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+        bannerBtnRow.AddChild(_bannerHowTo);
+
+        _bannerNext = new Button { Text = "Next \u2192" };
+        _bannerNext.AddThemeFontSizeOverride("font_size", 13);
+        UITheme.ApplyPrimaryStyle(_bannerNext);
+        _bannerNext.CustomMinimumSize = new Vector2(90f, 0f);
+        _bannerNext.Pressed += OnBannerNextPressed;
+        _bannerNext.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+        bannerBtnRow.AddChild(_bannerNext);
+
+        bannerVbox.AddChild(bannerBtnRow);
+        AddChild(_firstRunBanner);
+    }
+
+    private void SetBannerPage(int page)
+    {
+        _bannerPage = page;
+        if (page == 0)
+        {
+            _bannerHeader.Text = "HOW THIS WORKS  (1/2)";
+            _bannerBody.Text =
+                "Pick one card — towers fill empty slots, modifiers upgrade towers you already have.\n" +
+                "Waves run automatically. You draft once between every wave. Survive 20 waves to win.";
+            _bannerNext.Text = "Next \u2192";
+            _bannerHowTo.Visible = false;
+        }
+        else
+        {
+            _bannerHeader.Text = "SURGES  (2/2)";
+            _bannerBody.Text =
+                "Modifiers generate charge as they activate (hits, kills, procs). When a tower's meter fills, it triggers a Surge: a powerful mid-wave effect.\n" +
+                "Each Surge adds to a global meter. Fill it enough and a Global Surge fires, refunding all cooldowns and hitting every enemy on the lane.";
+            _bannerNext.Text = "Got it";
+            _bannerHowTo.Visible = true;
+        }
+    }
+
+    private void OnBannerNextPressed()
+    {
+        SoundManager.Instance?.Play("ui_select");
+        if (_bannerPage == 0)
+            SetBannerPage(1);
+        else
+            _firstRunBanner.Visible = false;
+    }
+
+    private void OnBannerHowToPressed()
+    {
+        SoundManager.Instance?.Play("ui_select");
+        _firstRunBanner.Visible = false;
+        var howTo = new HowToPlay();
+        howTo.StartOnSurgesTab = true;
+        howTo.OnBack = () => { /* draft is still open underneath */ };
+        GetTree().Root.AddChild(howTo);
     }
 
     public override void _Process(double delta)
@@ -465,6 +572,19 @@ public partial class DraftPanel : CanvasLayer
         _center.Visible = true;
 
         BuildCardRow(options);
+
+        bool showBanner = waveNumber == 1 && pickNumber == 1
+                       && (SettingsManager.Instance?.IsFirstRun ?? false);
+        if (showBanner)
+        {
+            SetBannerPage(0);
+            _firstRunBanner.Visible = true;
+        }
+        else
+        {
+            _firstRunBanner.Visible = false;
+        }
+
         Visible = true;
     }
 

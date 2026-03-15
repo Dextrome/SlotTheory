@@ -18,6 +18,25 @@ public static class SteamAchievements
     /// Called by AchievementManager signal whenever an achievement is newly unlocked.
     /// Forwards to Steamworks if available; silently no-ops otherwise.
     /// </summary>
+    /// <summary>
+    /// Opens the Steam overlay to the full game's store page for wishlisting.
+    /// No-op when Steam is unavailable or Balance.FullGameSteamAppId is not set.
+    /// </summary>
+    public static void OpenFullGameStorePage()
+    {
+        if (!IsSteamInitialized || Balance.FullGameSteamAppId == 0u) return;
+        try
+        {
+            Steamworks.SteamFriends.ActivateGameOverlayToStore(
+                new Steamworks.AppId_t(Balance.FullGameSteamAppId),
+                Steamworks.EOverlayToStoreFlag.k_EOverlayToStoreFlag_None);
+        }
+        catch (System.Exception ex)
+        {
+            GD.PrintErr($"[Steam] OpenFullGameStorePage failed: {ex.Message}");
+        }
+    }
+
     public static void ForwardUnlock(string id)
     {
         if (!IsSteamInitialized) return;

@@ -21,8 +21,8 @@ public partial class EndScreen : CanvasLayer
 	private Label _buildLabel    = null!;
 	private Label _lossAnalysisLabel = null!;
 	private Button _viewLeaderboardButton = null!;
+	private Button _wishlistButton = null!;
 	private Button _mainMenuButton = null!;
-	private Label _hintLabel = null!;
 	private string _leaderboardMapId = LeaderboardKey.RandomMapId;
 	private DifficultyMode _leaderboardDifficulty = DifficultyMode.Easy;
 	private RunScorePayload? _pendingPayload;
@@ -56,7 +56,7 @@ public partial class EndScreen : CanvasLayer
 		scroll.AddChild(center);
 
 		var vbox = new VBoxContainer();
-		vbox.AddThemeConstantOverride("separation", 20);
+		vbox.AddThemeConstantOverride("separation", 14);
 		center.AddChild(vbox);
 
 		_titleLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
@@ -121,21 +121,46 @@ public partial class EndScreen : CanvasLayer
 		_lossAnalysisLabel.Visible = false;
 		vbox.AddChild(_lossAnalysisLabel);
 
+		// Secondary actions row: Leaderboards + Wishlist side by side
+		var secondaryRow = new HBoxContainer();
+		secondaryRow.AddThemeConstantOverride("separation", 8);
+		secondaryRow.CustomMinimumSize = new Vector2(360f, 0f);
+		vbox.AddChild(secondaryRow);
+
 		_viewLeaderboardButton = new Button
 		{
 			Text = "Open Leaderboards",
-			CustomMinimumSize = new Vector2(360f, 42f),
+			CustomMinimumSize = new Vector2(0f, 42f),
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 			Visible = false,
 		};
-		_viewLeaderboardButton.AddThemeFontSizeOverride("font_size", 18);
+		_viewLeaderboardButton.AddThemeFontSizeOverride("font_size", 16);
 		UITheme.ApplyCyanStyle(_viewLeaderboardButton);
 		_viewLeaderboardButton.Pressed += OnViewLeaderboardPressed;
-		vbox.AddChild(_viewLeaderboardButton);
+		secondaryRow.AddChild(_viewLeaderboardButton);
+
+		_wishlistButton = new Button
+		{
+			Text = "\u2665  Wishlist Full Game",
+			CustomMinimumSize = new Vector2(0f, 42f),
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+			Visible = SteamAchievements.IsSteamInitialized && Balance.FullGameSteamAppId != 0u,
+		};
+		_wishlistButton.AddThemeFontSizeOverride("font_size", 15);
+		UITheme.ApplyMutedStyle(_wishlistButton);
+		_wishlistButton.AddThemeColorOverride("font_color", new Color(0.85f, 0.65f, 1.0f));
+		_wishlistButton.Pressed += () =>
+		{
+			SoundManager.Instance?.Play("ui_select");
+			SteamAchievements.OpenFullGameStorePage();
+		};
+		_wishlistButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		secondaryRow.AddChild(_wishlistButton);
 
 		_mainMenuButton = new Button
 		{
 			Text = "Main Menu",
-			CustomMinimumSize = new Vector2(360f, 42f),
+			CustomMinimumSize = new Vector2(360f, 46f),
 			Visible = true,
 		};
 		_mainMenuButton.AddThemeFontSizeOverride("font_size", 20);
@@ -143,18 +168,6 @@ public partial class EndScreen : CanvasLayer
 		_mainMenuButton.Pressed += OnMainMenuPressed;
 		_mainMenuButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		vbox.AddChild(_mainMenuButton);
-
-		var spacer = new Control { CustomMinimumSize = new Vector2(0, 24) };
-		vbox.AddChild(spacer);
-
-		_hintLabel = new Label
-		{
-			Text = "Use buttons below to continue",
-			HorizontalAlignment = HorizontalAlignment.Center,
-		};
-		_hintLabel.AddThemeFontSizeOverride("font_size", 18);
-		_hintLabel.Modulate = new Color(0.65f, 0.65f, 0.65f);
-		vbox.AddChild(_hintLabel);
 		MobileOptimization.ApplyUIScale(center);
 	AddChild(new PinchZoomHandler(center));
 	}

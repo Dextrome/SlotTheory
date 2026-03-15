@@ -34,6 +34,8 @@ public partial class SettingsManager : Node
     public DifficultyMode Difficulty { get; private set; } = DifficultyMode.Easy;
     public string PlayerName    { get; private set; } = "";
     public string PlayerId      { get; private set; } = "";
+    public int    RunsStarted   { get; private set; } = 0;
+    public bool   IsFirstRun    => RunsStarted <= 1;
 
     // ── Device-specific display settings (NOT cloud-synced) ──────────────
     public bool  Fullscreen    { get; private set; } = false;
@@ -118,6 +120,12 @@ public partial class SettingsManager : Node
     public void SetDifficulty(DifficultyMode difficulty)
     {
         Difficulty = difficulty;
+        SaveAccount();
+    }
+
+    public void IncrementRunsStarted()
+    {
+        RunsStarted++;
         SaveAccount();
     }
 
@@ -240,8 +248,9 @@ public partial class SettingsManager : Node
                 (int)DifficultyMode.Hard   => DifficultyMode.Hard,
                 _ => DifficultyMode.Easy,
             };
-            PlayerName = (string)cfg.GetValue(SecIdentity, "player_name", "");
-            PlayerId   = (string)cfg.GetValue(SecIdentity, "player_id",   "");
+            PlayerName   = (string)cfg.GetValue(SecIdentity, "player_name",    "");
+            PlayerId     = (string)cfg.GetValue(SecIdentity, "player_id",      "");
+            RunsStarted  = (int)   cfg.GetValue(SecIdentity, "runs_started",   0);
             DevMode = ReadHiddenDevModeForProfile(cfg, PlayerId, out bool migratedFromLegacy);
             if (migratedFromLegacy)
                 SaveAccount();
@@ -283,8 +292,9 @@ public partial class SettingsManager : Node
             cfg.EraseSectionKey(SecDisp, LegacyDevModeKey);
         cfg.SetValue(SecProfileFlags, BuildHiddenDevModeProfileKey(PlayerId), DevMode);
         cfg.SetValue("gameplay",   "difficulty",  (int)Difficulty);
-        cfg.SetValue(SecIdentity, "player_name", PlayerName);
-        cfg.SetValue(SecIdentity, "player_id",   PlayerId);
+        cfg.SetValue(SecIdentity, "player_name",  PlayerName);
+        cfg.SetValue(SecIdentity, "player_id",    PlayerId);
+        cfg.SetValue(SecIdentity, "runs_started", RunsStarted);
         if (cfg.Save(SavePath) == Error.Ok)
             SteamCloudSync.Push(ProjectSettings.GlobalizePath(SavePath), "settings.cfg");
     }
