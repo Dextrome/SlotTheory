@@ -88,7 +88,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
 ## Core Loop
 
 1. Main menu -> Play -> map select -> Main scene loads.
-2. Draft: pick 1 card (with bonus extra picks on wave 1 and wave 15).
+2. Draft: pick 1 card.
 3. Place picked tower/modifier in the world.
 4. Wave runs automatically (no direct combat input).
 5. Repeat until wave 20 clear (win) or lives reach 0 (loss).
@@ -284,9 +284,7 @@ If a clumped armored wave is incoming (with enough armored units), gameplay uses
   - 4 modifier options.
 - Anti-brick rule:
   - Modifier cards are only offered when at least one tower can still accept one.
-- Bonus picks:
-  - Wave 1: +1 pick (2 total).
-  - Wave 15: +1 pick (2 total).
+- Bonus picks: currently disabled (Wave1ExtraPicks = 0, Wave15ExtraPicks = 0).
 
 ### Placement Flow (Preview -> Confirm for modifiers)
 
@@ -366,7 +364,7 @@ Current behavior decision:
 
 ## Draft Panel
 
-- Pick counter text supports multi-pick waves (for example wave 15 pick 2 of 2).
+- Pick counter text supports multi-pick waves (infrastructure exists; extra picks currently disabled).
 - Wave preview footer shows next wave composition.
 - Cards auto-size based on viewport; card heights scale to fit longer text.
 - Reveal ritual:
@@ -382,7 +380,7 @@ Current behavior decision:
 - Run memory line: current build name, lives, speed
 - Mobile tap-hold preview on cards (250 ms)
 - Card spirit transition from draft card to world hint area
-- Bonus pick animated stamp on wave 1 and wave 15 second pick
+- Bonus pick animated stamp (shown when extra picks are active)
 - Rare foil shimmer (1 in 12 drafts)
 - Synergy hints:
   - Small tags (for example `GOOD WITH: MARKED`)
@@ -602,8 +600,8 @@ Behavior:
 | StartingLives | 10 |
 | MaxModifiersPerTower | 3 |
 | DraftOptionsCount | 5 |
-| Wave1ExtraPicks | 1 |
-| Wave15ExtraPicks | 1 |
+| Wave1ExtraPicks | 0 |
+| Wave15ExtraPicks | 0 |
 | BaseEnemyHp | 65 |
 | HpGrowthPerWave | 1.10 |
 | BaseEnemySpeed | 120 |

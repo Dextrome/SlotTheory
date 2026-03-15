@@ -10,7 +10,7 @@ This is a contract. It does not get updated to accommodate new ideas.
 
 **No new UI panels** beyond what is needed to ship.
 
-**No new tower types** beyond the implemented set (4 towers: Rapid Shooter, Heavy Cannon, Marker Tower, Arc Emitter).
+**No new tower types** beyond the implemented set (5 towers: Rapid Shooter, Heavy Cannon, Marker Tower, Arc Emitter, Rift Sapper).
 
 **No new modifiers** beyond the implemented pool (10 modifiers: Momentum, Overkill, Exploit Weakness, Focus Lens, Chill Shot, Overreach, Hair Trigger, Split Shot, Feedback Loop, Chain Reaction).
 
@@ -72,12 +72,14 @@ Extensive balance testing completed:
 - Normal/Hard difficulty modes balanced ✅
 - Win rates stabilized at healthy levels ✅
 
-### 6. Steam pipeline 📋 READY
+### 6. Steam pipeline ✅ COMPLETE
 
 - Export system working (Windows builds) ✅
 - Steam pipeline documentation complete ✅
-- Ready for Steam app creation
-- Ready for depot setup and store page
+- Steamworks account, depots, SteamCMD configured ✅
+- Store page submitted for review (2026-03-15) ✅
+- Achievements, Cloud, Leaderboards wired ✅
+- Valve review in progress
 
 ---
 

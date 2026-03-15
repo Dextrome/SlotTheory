@@ -26,12 +26,11 @@ Every decision happens in the draft, and every draft shapes every wave that foll
 - Six tower slots. Twenty waves. Each wave, you pick one card.
 - Free slots let you choose between towers and modifiers. Fill all six and the draft
   narrows to modifiers only.
-- Some draft picks give you a bonus card before wave 1 and again before wave 15 —
-  the moments where a run turns.
+- Fill all six slots and the draft narrows to modifiers only — every pick compounds the ones before it.
 
 ---
 
-**Four towers. Ten modifiers. Thousands of combinations.**
+**Five towers. Ten modifiers. Thousands of combinations.**
 
 | Tower | Style |
 |---|---|
@@ -39,6 +38,7 @@ Every decision happens in the draft, and every draft shapes every wave that foll
 | Heavy Cannon | Slow and devastating — built for armored enemies |
 | Marker Tower | Applies Marked: all towers deal +40% damage to marked enemies |
 | Arc Emitter | Chains damage to nearby enemies — scales with positioning |
+| Rift Sapper | Plants charged lane mines — detonates in sequence, final charge hits hardest |
 
 Modifiers change how towers behave. Stack Momentum for compounding damage, pair
 Exploit Weakness with a Marker Tower, or combine Hair Trigger and Focus Lens to
@@ -49,7 +49,7 @@ build a high-risk glass cannon. The constraint is three modifiers per tower max.
 **Three enemy types that demand different answers**
 
 - **Basic Walkers** — plentiful and unforgiving in volume
-- **Armored Walkers** — 4× health, half the speed — appear from wave 6
+- **Armored Walkers** — 3.5× health, half the speed — appear from wave 6
 - **Swift Walkers** — 1.5× health, twice the speed — arrive waves 10–14
 
 ---
@@ -61,14 +61,14 @@ chokepoints and forcing you to rethink builds you thought were solved.
 
 ---
 
-**Two difficulties. One leaderboard per map per difficulty.**
+**Three difficulties. One leaderboard per map per difficulty.**
 
-Normal is unforgiving. Hard is harder. Your best run is saved locally and submitted
-to the global leaderboard after each game.
+Easy eases you in. Normal is unforgiving. Hard is harder. Every run is submitted
+to the global leaderboard — not just your best.
 
 ---
 
-**No meta progression. No unlocks. No second chances mid-wave.**
+**No meta progression. No second chances mid-wave.**
 
 What you draft is what you get. If the run goes wrong, you restart and pick better.
 
