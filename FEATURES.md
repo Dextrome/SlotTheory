@@ -21,6 +21,7 @@ This document reflects the current implementation in code/data.
 - **In-game achievements:** 10 achievements tracked locally (persistent across sessions) with unlock toast notifications and a dedicated achievements screen. Steam forwarding wired for when Steam App ID is live.
 - **All-runs leaderboard:** Global leaderboard now stores every run as a separate row (wins and losses). Previously only kept the personal best per player.
 - **Spectacle system integration:** Surge/global surge spectacle gameplay payloads are active in both live and bot simulations; tooltip and bot analytics now expose spectacle behavior.
+- **Surge differentiation:** Global surge banner shows a dynamic build archetype label (10 named archetypes driven by dominant contributing mod — REDLINE WAVE, OVERKILL STORM, CHAIN STORM, etc.). Visual feel (Detonation/Pressure/Neutral) controls flash alpha, second snap pulse, and ripple intensity. Multi-color ripples (up to 3 colors) reflect top contributing mods. Each tower fires its own identity FX in staggered sequence on global surge. `SurgeDifferentiation.cs` is the single source of truth (no Godot deps, fully unit-tested with 35 xUnit tests). HowToPlay Surges tab lists all 10 archetypes with feel indicators and modifier icons throughout.
 
 Platforms: Windows Desktop, Android (phone and tablet)
 
@@ -37,6 +38,8 @@ Platforms: Windows Desktop, Android (phone and tablet)
   - `SpectacleSingleStack`
   - `SpectacleComboPairing`
   - `SpectacleTriadDiversity`
+- Added surge differentiation: 10 named global surge archetypes, feel-keyed visual treatment (Detonation/Pressure/Neutral), multi-color ripples, and per-tower identity FX.
+- HowToPlay screens polished with procedural icons throughout (TowerIcon, ModifierIcon with accent tinting, dual icons for combo surges, feel-bar + icon for global surge archetypes).
 
 ---
 
@@ -740,7 +743,7 @@ Behavior:
 
 ## Notes
 
-- This file is intentionally aligned to code/data as of 2026-03-08.
+- This file is intentionally aligned to code/data as of 2026-03-15.
 - If gameplay values change, update:
   - `Data/towers.json`
   - `Data/modifiers.json`

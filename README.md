@@ -88,6 +88,13 @@ Global surge is a mapwide event with synchronized spectacle + gameplay:
 - synchronized tower accent bursts
 - stronger screen treatment and impact audio
 
+The banner label and visual treatment are driven by which mods contributed most to filling the global meter:
+
+- **10 named archetypes** — e.g. REDLINE WAVE (Momentum), CHAIN STORM (Chain Reaction), PRISM BARRAGE (Focus Lens). Falls back to GLOBAL SURGE if no dominant mod is detected.
+- **Feel types** — Detonation builds (Overkill, Focus Lens, Feedback Loop, Hair Trigger) produce a sharp spike flash + second snap pulse. Pressure builds (Momentum, Chill Shot, Overreach) produce a softer sustained flash. Triad builds add an extra pulse at the end.
+- **Multi-color ripples** — up to 3 ripple colors, one per top contributing mod, reflecting the actual build composition rather than a single accent.
+- **Per-tower identity FX** — each tower type fires its own archetype effect in staggered sequence (cannon ring, chain arcs, sparks, marked flash, rift double-ring).
+
 This is the system's "board-state reset / momentum spike" moment and is designed to create a clearly distinct battlefield pattern from normal surges.
 
 ### Tooling and Readability Support

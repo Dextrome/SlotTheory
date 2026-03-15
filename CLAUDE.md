@@ -18,6 +18,7 @@ Engine: **Godot 4.x .NET** (C#) Â· Runtime: **.NET 8+** Â· Target: **Windows
   - `SpectacleComboPairing`
   - `SpectacleTriadDiversity`
 - Minor spectacle triggers were removed; balancing should target surge/global surge spectacle cadence and effects.
+- **Surge differentiation system** added: `SurgeDifferentiation.cs` (pure-logic, no Godot deps) is the single source of truth for global surge archetypes (10 named labels mapped from dominant contributing mod, e.g. REDLINE WAVE, CHAIN STORM). Global surge banner shows dynamic label; visual feel (Detonation/Pressure/Neutral) drives flash alpha, secondary pulses, and ripple pattern. Multi-color ripples reflect top-3 contributing mods. Per-tower archetype FX fire in sequence. 35 unit tests in `SurgeDifferentiationTests`.
 - **Automated tuning pipeline** added: `run_tuning_pipeline.ps1` + `Scripts/Tools/CombatLab/` drive iterative difficulty optimization against bot win-rate targets. `SpectacleTuning.Current` overrides difficulty multipliers at runtime.
 - **Achievement system** added: `AchievementManager.cs`, `AchievementDefinition.cs`, `SteamAchievements.cs`. Achievements persist across sessions and gate unlocks.
 - **Unlockable content**: Arc Emitter, Split Shot modifier, and Rift Prism are now gated behind campaign map clears (`Unlocks.cs`). Bots always have full unlock access for deterministic balance testing.
@@ -108,7 +109,7 @@ dotnet build SlotTheory.sln
 - Then run tests:
   - `dotnet test SlotTheory.Tests/SlotTheory.Tests.csproj`
 - Useful targeted run:
-  - `dotnet test SlotTheory.Tests/SlotTheory.Tests.csproj --filter "RunStateTests|SpectacleSystemTests"`
+  - `dotnet test SlotTheory.Tests/SlotTheory.Tests.csproj --filter "RunStateTests|SpectacleSystemTests|SurgeDifferentiationTests"`
 
 `DraftSystem` anti-brick coverage remains critical because a mismapped modifier can silently brick drafts.
 
@@ -271,6 +272,7 @@ res://
       SpectacleSystem.cs    # Surge/global-surge trigger evaluation
       SpectacleTuning.cs    # Runtime tuning profile (overrides difficulty multipliers)
       SpectacleDefinitions.cs
+      SurgeDifferentiation.cs   # Pure-logic global surge label/feel table (no Godot deps); single source of truth for archetypes
       SpectacleExplosionCore.cs
       SpectacleDamageCore.cs
       SpectacleDamageSource.cs
