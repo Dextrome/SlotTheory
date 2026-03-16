@@ -316,7 +316,19 @@ public partial class MapSelectPanel : Node
 		};
 		btn.AddThemeFontSizeOverride("font_size", fontSize);
 		btn.Pressed      += callback;
-		btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		btn.MouseEntered += () =>
+		{
+			SoundManager.Instance?.Play("ui_hover");
+			btn.PivotOffset = btn.Size / 2f;
+			btn.CreateTween().TweenProperty(btn, "scale", new Vector2(1.04f, 1.04f), 0.08f)
+			  .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+		};
+		btn.MouseExited += () =>
+		{
+			btn.PivotOffset = btn.Size / 2f;
+			btn.CreateTween().TweenProperty(btn, "scale", Vector2.One, 0.08f)
+			  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+		};
 		parent.AddChild(btn);
 	}
 
@@ -330,7 +342,19 @@ public partial class MapSelectPanel : Node
 		};
 		btn.AddThemeFontSizeOverride("font_size", 18);
 		btn.Pressed      += () => SelectDifficulty(difficulty);
-		btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		btn.MouseEntered += () =>
+		{
+			SoundManager.Instance?.Play("ui_hover");
+			btn.PivotOffset = btn.Size / 2f;
+			btn.CreateTween().TweenProperty(btn, "scale", new Vector2(1.04f, 1.04f), 0.08f)
+			  .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+		};
+		btn.MouseExited += () =>
+		{
+			btn.PivotOffset = btn.Size / 2f;
+			btn.CreateTween().TweenProperty(btn, "scale", Vector2.One, 0.08f)
+			  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+		};
 		return btn;
 	}
 

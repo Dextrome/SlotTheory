@@ -798,8 +798,19 @@ public partial class DraftPanel : CanvasLayer
         GetTree().CreateTimer(0.06f).Timeout += () =>
         {
             // Don't hide if player is already in slot-selection — ShowPlacementUI already owns Visible.
-            if (GodotObject.IsInstanceValid(this) && !IsAwaitingSlot && !IsAwaitingTower)
+            if (!GodotObject.IsInstanceValid(this) || IsAwaitingSlot || IsAwaitingTower) return;
+            var tw = CreateTween();
+            tw.SetParallel(true);
+            tw.TweenProperty(_bg,    "modulate:a", 0f, 0.10f);
+            tw.TweenProperty(_bgFx,  "modulate:a", 0f, 0.10f);
+            tw.TweenProperty(_center,"modulate:a", 0f, 0.10f);
+            tw.Chain().TweenCallback(Callable.From(() =>
+            {
                 Visible = false;
+                _bg.Modulate    = Colors.White;
+                _bgFx.Modulate  = Colors.White;
+                _center.Modulate = Colors.White;
+            }));
         };
     }
 

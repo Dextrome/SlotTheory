@@ -233,12 +233,39 @@ public partial class EndScreen : CanvasLayer
 		_titleLabel.PivotOffset = _titleLabel.Size / 2f;
 		_titleLabel.Scale = new Vector2(0.78f, 0.78f);
 
+		// Capture original alphas, then zero them so labels stay hidden during the root fade
+		var stagger = new (CanvasItem item, float delay, float alpha)[]
+		{
+			(_subtitleLabel,     0.28f, _subtitleLabel.Modulate.A),
+			(_statsLabel,        0.38f, _statsLabel.Modulate.A),
+			(_runNameLabel,      0.46f, _runNameLabel.Modulate.A),
+			(_mvpLabel,          0.54f, _mvpLabel.Modulate.A),
+			(_modLabel,          0.60f, _modLabel.Modulate.A),
+			(_buildLabel,        0.66f, _buildLabel.Modulate.A),
+			(_lossAnalysisLabel, 0.66f, _lossAnalysisLabel.Modulate.A),
+		};
+		foreach (var entry in stagger)
+		{
+			var c = entry.item.Modulate;
+			entry.item.Modulate = new Color(c.R, c.G, c.B, 0f);
+		}
+
 		var tw = CreateTween();
 		tw.SetParallel(true);
 		tw.TweenProperty(_root, "modulate:a", 1f, 0.30f)
 		  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
 		tw.TweenProperty(_titleLabel, "scale", Vector2.One, 0.26f)
 		  .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+
+		foreach (var entry in stagger)
+		{
+			if (!entry.item.Visible) continue;
+			float target = entry.alpha > 0f ? entry.alpha : 1f;
+			var lt = CreateTween();
+			lt.TweenInterval(entry.delay);
+			lt.TweenProperty(entry.item, "modulate:a", target, 0.18f)
+			  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+		}
 	}
 
 	public void SetLeaderboardStatus(string text, bool isError = false)
