@@ -52,7 +52,7 @@ public partial class MapSelectPanel : Node
 		canvas.AddChild(center);
 
 		var vbox = new VBoxContainer();
-		vbox.AddThemeConstantOverride("separation", 14);
+		vbox.AddThemeConstantOverride("separation", 10);
 		center.AddChild(vbox);
 
 		// Title
@@ -67,7 +67,7 @@ public partial class MapSelectPanel : Node
 
 		// Content row: map list | difficulty
 		var contentRow = new HBoxContainer();
-		contentRow.AddThemeConstantOverride("separation", 24);
+		contentRow.AddThemeConstantOverride("separation", 16);
 		vbox.AddChild(contentRow);
 
 		// Left column: map list
@@ -79,7 +79,7 @@ public partial class MapSelectPanel : Node
 		var scrollContainer = new ScrollContainer();
 		scrollContainer.CustomMinimumSize = _isMobile
 			? new Vector2(420, 200)
-			: new Vector2(760, 320);
+			: new Vector2(760, 260);
 		scrollContainer.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
 		scrollContainer.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
 		scrollContainer.SizeFlagsHorizontal  = Control.SizeFlags.ExpandFill;
@@ -110,7 +110,7 @@ public partial class MapSelectPanel : Node
 		contentRow.AddChild(rightColumnWrap);
 
 		var rightColumn = new VBoxContainer();
-		rightColumn.AddThemeConstantOverride("separation", 14);
+		rightColumn.AddThemeConstantOverride("separation", 10);
 		rightColumn.CustomMinimumSize = new Vector2(240, 0);
 		rightColumnWrap.AddChild(rightColumn);
 
@@ -151,7 +151,7 @@ public partial class MapSelectPanel : Node
 		var startBtn = new Button
 		{
 			Text = "Start Run",
-			CustomMinimumSize = new Vector2(0, 54),
+			CustomMinimumSize = new Vector2(0, 48),
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 		};
 		startBtn.AddThemeFontSizeOverride("font_size", 24);
@@ -162,7 +162,7 @@ public partial class MapSelectPanel : Node
 		var backBtn = new Button
 		{
 			Text = "Back",
-			CustomMinimumSize = new Vector2(0, 44),
+			CustomMinimumSize = new Vector2(0, 38),
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 		};
 		backBtn.AddThemeFontSizeOverride("font_size", 20);

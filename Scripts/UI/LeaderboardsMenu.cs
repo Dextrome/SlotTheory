@@ -11,7 +11,9 @@ namespace SlotTheory.UI;
 
 public partial class LeaderboardsMenu : Node
 {
-    private const int DisplayEntryLimit = 10;
+    private const int PageSize        = 10;
+    private const int LocalFetchLimit  = 1000;
+    private const int GlobalFetchLimit = 100;
 
     private static string? _pendingMapId;
     private static DifficultyMode? _pendingDifficulty;
@@ -24,11 +26,7 @@ public partial class LeaderboardsMenu : Node
         _pendingPreferGlobal = preferGlobal;
     }
 
-    private enum BoardMode
-    {
-        Local,
-        Global
-    }
+    private enum BoardMode { Local, Global }
 
     private BoardMode _mode = BoardMode.Local;
     private readonly List<MapDef> _maps = new();
@@ -36,13 +34,22 @@ public partial class LeaderboardsMenu : Node
     private DifficultyMode _selectedDifficulty = DifficultyMode.Normal;
     private int _refreshToken;
 
-    private Button _localButton = null!;
+    // Pagination state
+    private int _currentPage;
+    private readonly List<LeaderboardEntryView> _allEntries = new();
+
+    // UI refs
+    private Button _localButton  = null!;
     private Button _globalButton = null!;
-    private OptionButton _mapOption = null!;
+    private OptionButton _mapOption        = null!;
     private OptionButton _difficultyOption = null!;
-    private ScrollContainer _entriesScroll = null!;
     private VBoxContainer _entryList = null!;
-    private Label _status = null!;
+    private Label _status    = null!;
+    private Label _pageLabel = null!;
+    private Button _firstBtn = null!;
+    private Button _prevBtn  = null!;
+    private Button _nextBtn  = null!;
+    private Button _lastBtn  = null!;
 
     public override void _Ready()
     {
@@ -81,7 +88,7 @@ public partial class LeaderboardsMenu : Node
 
         var frame = new VBoxContainer();
         frame.CustomMinimumSize = new Vector2(940f, 560f);
-        frame.AddThemeConstantOverride("separation", 14);
+        frame.AddThemeConstantOverride("separation", 10);
         center.AddChild(frame);
 
         var title = new Label
@@ -93,16 +100,18 @@ public partial class LeaderboardsMenu : Node
         title.Modulate = new Color("#a6d608");
         frame.AddChild(title);
 
+        // ── Mode row ──────────────────────────────────────────────────────────
         var modeRow = new HBoxContainer();
         modeRow.Alignment = BoxContainer.AlignmentMode.Center;
         modeRow.AddThemeConstantOverride("separation", 10);
         frame.AddChild(modeRow);
 
-        _localButton = MakeButton("Local", 140, 40, 20, OnLocalMode);
+        _localButton  = MakeButton("Local",  140, 40, 20, OnLocalMode);
         _globalButton = MakeButton("Global", 140, 40, 20, OnGlobalMode);
         modeRow.AddChild(_localButton);
         modeRow.AddChild(_globalButton);
 
+        // ── Filter row ────────────────────────────────────────────────────────
         var filterRow = new HBoxContainer();
         filterRow.Alignment = BoxContainer.AlignmentMode.Center;
         filterRow.AddThemeConstantOverride("separation", 10);
@@ -124,6 +133,7 @@ public partial class LeaderboardsMenu : Node
         _difficultyOption.ItemSelected += OnDifficultySelected;
         filterRow.AddChild(_difficultyOption);
 
+        // ── Status ────────────────────────────────────────────────────────────
         _status = new Label
         {
             HorizontalAlignment = HorizontalAlignment.Center,
@@ -133,30 +143,59 @@ public partial class LeaderboardsMenu : Node
         _status.AddThemeFontSizeOverride("font_size", 16);
         frame.AddChild(_status);
 
-        _entriesScroll = new ScrollContainer
+        // ── Entry list ────────────────────────────────────────────────────────
+        var entriesScroll = new ScrollContainer
         {
             CustomMinimumSize = new Vector2(900f, 380f),
         };
-        _entriesScroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
-        _entriesScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
-        TouchScrollHelper.EnableDragScroll(_entriesScroll);
-        frame.AddChild(_entriesScroll);
+        entriesScroll.VerticalScrollMode   = ScrollContainer.ScrollMode.Auto;
+        entriesScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        TouchScrollHelper.EnableDragScroll(entriesScroll);
+        frame.AddChild(entriesScroll);
 
         _entryList = new VBoxContainer();
         _entryList.AddThemeConstantOverride("separation", 10);
         _entryList.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        _entriesScroll.AddChild(_entryList);
+        entriesScroll.AddChild(_entryList);
 
+        // ── Pagination row ────────────────────────────────────────────────────
+        var pageRow = new HBoxContainer();
+        pageRow.Alignment = BoxContainer.AlignmentMode.Center;
+        pageRow.AddThemeConstantOverride("separation", 8);
+        frame.AddChild(pageRow);
+
+        _firstBtn = MakePageButton("|<", () => GoToPage(0));
+        _prevBtn  = MakePageButton("<",  () => GoToPage(_currentPage - 1));
+        _nextBtn  = MakePageButton(">",  () => GoToPage(_currentPage + 1));
+        _lastBtn  = MakePageButton(">|", () => GoToPage(TotalPages - 1));
+
+        _pageLabel = new Label
+        {
+            Text = "",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            CustomMinimumSize = new Vector2(120f, 0f),
+        };
+        _pageLabel.AddThemeFontSizeOverride("font_size", 16);
+        _pageLabel.Modulate = new Color(0.80f, 0.80f, 0.85f);
+
+        pageRow.AddChild(_firstBtn);
+        pageRow.AddChild(_prevBtn);
+        pageRow.AddChild(_pageLabel);
+        pageRow.AddChild(_nextBtn);
+        pageRow.AddChild(_lastBtn);
+
+        // ── Footer ────────────────────────────────────────────────────────────
         var footer = new HBoxContainer();
         footer.Alignment = BoxContainer.AlignmentMode.Center;
         footer.AddThemeConstantOverride("separation", 16);
         frame.AddChild(footer);
 
         var refresh = MakeButton("Refresh", 180, 42, 20, () => _ = RefreshBoardAsync());
-        var back = MakeButton("Back", 180, 42, 20, OnBack);
+        var back    = MakeButton("Back",    180, 42, 20, OnBack);
         footer.AddChild(refresh);
         footer.AddChild(back);
 
+        // ── Init selections ───────────────────────────────────────────────────
         if (_maps.Count > 0)
         {
             int selectedIndex = _maps.FindIndex(m => m.Id == _selectedMapId);
@@ -178,6 +217,46 @@ public partial class LeaderboardsMenu : Node
         _ = RefreshBoardAsync();
         AddChild(new PinchZoomHandler(center));
     }
+
+    // ── Pagination helpers ────────────────────────────────────────────────────
+
+    private int TotalPages => _allEntries.Count == 0 ? 1
+        : (int)System.Math.Ceiling(_allEntries.Count / (double)PageSize);
+
+    private void GoToPage(int page)
+    {
+        _currentPage = System.Math.Clamp(page, 0, TotalPages - 1);
+        RenderCurrentPage();
+    }
+
+    private void RenderCurrentPage()
+    {
+        ClearRows();
+        var slice = _allEntries
+            .Skip(_currentPage * PageSize)
+            .Take(PageSize)
+            .ToList();
+
+        if (slice.Count == 0)
+            AddMessageRow("--");
+        else
+            foreach (var row in slice)
+                _entryList.AddChild(BuildEntryCard(row));
+
+        UpdatePaginationControls();
+    }
+
+    private void UpdatePaginationControls()
+    {
+        bool hasMultiplePages = TotalPages > 1;
+        _pageLabel.Text = hasMultiplePages ? $"Page {_currentPage + 1} / {TotalPages}" : "";
+        _firstBtn.Disabled = !hasMultiplePages || _currentPage == 0;
+        _prevBtn.Disabled  = !hasMultiplePages || _currentPage == 0;
+        _nextBtn.Disabled  = !hasMultiplePages || _currentPage >= TotalPages - 1;
+        _lastBtn.Disabled  = !hasMultiplePages || _currentPage >= TotalPages - 1;
+    }
+
+    // ── Data loading ──────────────────────────────────────────────────────────
 
     private void OnMapSelected(long index)
     {
@@ -220,60 +299,53 @@ public partial class LeaderboardsMenu : Node
     private void UpdateModeButtons()
     {
         bool local = _mode == BoardMode.Local;
-        _localButton.Disabled = local;
+        _localButton.Disabled  = local;
         _globalButton.Disabled = !local;
     }
 
     private async System.Threading.Tasks.Task RefreshBoardAsync()
     {
         int token = ++_refreshToken;
+        _allEntries.Clear();
+        _currentPage = 0;
         ClearRows();
+        UpdatePaginationControls();
 
-        string diff = DifficultyToLabel(_selectedDifficulty);
+        string diff    = DifficultyToLabel(_selectedDifficulty);
         string mapName = _maps.FirstOrDefault(m => m.Id == _selectedMapId)?.Name ?? _selectedMapId;
         _status.Text = $"{(_mode == BoardMode.Local ? "Local" : "Global")} - {mapName} - {diff}";
 
         IReadOnlyList<LeaderboardEntryView> rows;
         if (_mode == BoardMode.Local)
         {
-            rows = HighScoreManager.Instance?.GetLocalEntries(_selectedMapId, _selectedDifficulty, DisplayEntryLimit)
+            rows = HighScoreManager.Instance?.GetLocalEntries(_selectedMapId, _selectedDifficulty, LocalFetchLimit)
                 ?? System.Array.Empty<LeaderboardEntryView>();
             if (token != _refreshToken) return;
-            RenderRows(rows);
-            if (rows.Count == 0)
+            _allEntries.AddRange(rows);
+            if (_allEntries.Count == 0)
                 _status.Text += "  |  No local scores yet";
+            RenderCurrentPage();
             return;
         }
 
         if (!LeaderboardKey.IsGlobalEligibleMap(_selectedMapId))
         {
             AddMessageRow("Global leaderboard not available for Random Map.");
+            UpdatePaginationControls();
             return;
         }
 
         AddMessageRow("Loading global leaderboard...");
-        rows = await (LeaderboardManager.Instance?.GetTopEntriesAsync(_selectedMapId, _selectedDifficulty, DisplayEntryLimit)
+        rows = await (LeaderboardManager.Instance?.GetTopEntriesAsync(_selectedMapId, _selectedDifficulty, GlobalFetchLimit)
             ?? System.Threading.Tasks.Task.FromResult<IReadOnlyList<LeaderboardEntryView>>(System.Array.Empty<LeaderboardEntryView>()));
         if (token != _refreshToken) return;
-        ClearRows();
-        RenderRows(rows);
-        if (rows.Count == 0)
+        _allEntries.AddRange(rows);
+        if (_allEntries.Count == 0)
             _status.Text += "  |  No global entries yet (or service unavailable)";
+        RenderCurrentPage();
     }
 
-    private void RenderRows(IReadOnlyList<LeaderboardEntryView> rows)
-    {
-        if (rows.Count == 0)
-        {
-            AddMessageRow("--");
-            return;
-        }
-
-        foreach (var row in rows)
-        {
-            _entryList.AddChild(BuildEntryCard(row));
-        }
-    }
+    // ── Row rendering ─────────────────────────────────────────────────────────
 
     private PanelContainer BuildEntryCard(LeaderboardEntryView row)
     {
@@ -336,8 +408,6 @@ public partial class LeaderboardsMenu : Node
 
     private (string Name, Color StartColor, Color EndColor) ResolveBuildNameStyle(LeaderboardEntryView row)
     {
-        // Use the stored name when available (computed once at run end — consistent across all views).
-        // Fall back to regeneration for legacy entries that predate this field.
         if (!string.IsNullOrEmpty(row.BuildName))
         {
             var colors = RunNameGenerator.GenerateStyledFromSnapshot(
@@ -361,8 +431,7 @@ public partial class LeaderboardsMenu : Node
 
     private static string BuildGradientBbCode(string text, Color start, Color end)
     {
-        if (string.IsNullOrEmpty(text))
-            return "";
+        if (string.IsNullOrEmpty(text)) return "";
         if (text.Length == 1)
             return $"[color=#{start.ToHtml(false)}]{text}[/color]";
 
@@ -407,7 +476,6 @@ public partial class LeaderboardsMenu : Node
             modsRow.AddThemeConstantOverride("separation", 2);
             slotBox.AddChild(modsRow);
 
-            // Slight right offset so mod clusters sit more centered under tower icons.
             modsRow.AddChild(new Control { CustomMinimumSize = new Vector2(5f, 0f) });
 
             if (slot.ModifierIds.Length == 0)
@@ -426,7 +494,7 @@ public partial class LeaderboardsMenu : Node
                     var modIcon = new ModifierIcon
                     {
                         ModifierId = mod,
-                        IconColor = ModifierVisuals.GetAccent(mod),
+                        IconColor  = ModifierVisuals.GetAccent(mod),
                         CustomMinimumSize = new Vector2(12f, 12f),
                         Size = new Vector2(12f, 12f),
                     };
@@ -456,6 +524,8 @@ public partial class LeaderboardsMenu : Node
             _entryList.GetChild(i).QueueFree();
     }
 
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
     private static string FormatTime(int seconds)
     {
         if (seconds < 0) seconds = 0;
@@ -473,9 +543,9 @@ public partial class LeaderboardsMenu : Node
 
     private static int DifficultyToOptionIndex(DifficultyMode difficulty) => difficulty switch
     {
-        DifficultyMode.Easy => 0,
+        DifficultyMode.Easy   => 0,
         DifficultyMode.Normal => 1,
-        DifficultyMode.Hard => 2,
+        DifficultyMode.Hard   => 2,
         _ => 0,
     };
 
@@ -489,9 +559,9 @@ public partial class LeaderboardsMenu : Node
 
     private static string DifficultyToLabel(DifficultyMode difficulty) => difficulty switch
     {
-        DifficultyMode.Easy => "Easy",
+        DifficultyMode.Easy   => "Easy",
         DifficultyMode.Normal => "Normal",
-        DifficultyMode.Hard => "Hard",
+        DifficultyMode.Hard   => "Hard",
         _ => "Easy",
     };
 
@@ -503,7 +573,20 @@ public partial class LeaderboardsMenu : Node
             CustomMinimumSize = new Vector2(width, height),
         };
         btn.AddThemeFontSizeOverride("font_size", fontSize);
-        btn.Pressed += callback;
+        btn.Pressed      += callback;
+        btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+        return btn;
+    }
+
+    private static Button MakePageButton(string text, System.Action callback)
+    {
+        var btn = new Button
+        {
+            Text = text,
+            CustomMinimumSize = new Vector2(48, 36),
+        };
+        btn.AddThemeFontSizeOverride("font_size", 17);
+        btn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); callback(); };
         btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         return btn;
     }

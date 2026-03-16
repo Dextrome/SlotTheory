@@ -48,7 +48,7 @@ public partial class SettingsManager : Node
     public bool  EnemyEmissiveLines { get; private set; } = true;
     public bool  EnemyDamageMaterial { get; private set; } = true;
     public bool  EnemyBloomHighlights { get; private set; } = !MobileOptimization.IsMobile();
-    public bool  ScreenFilterEnabled  { get; private set; } = true;
+    public bool  ScreenFilterEnabled  { get; private set; } = false;
     public bool  VhsGlitchEnabled     { get; private set; } = false;
     public bool  PhosphorGridEnabled  { get; private set; } = false;
 
@@ -296,9 +296,9 @@ public partial class SettingsManager : Node
         }
 
         Fullscreen = (bool)displayCfg.GetValue(SecDisp, "fullscreen", false);
-        ScreenFilterEnabled = (bool)displayCfg.GetValue(SecDisp, "screen_filter",  true);
+        ScreenFilterEnabled = (bool)displayCfg.GetValue(SecDisp, "screen_filter",  false);
+        PhosphorGridEnabled = (bool)displayCfg.GetValue(SecDisp, "phosphor_grid",  ScreenFilterEnabled);
         VhsGlitchEnabled    = (bool)displayCfg.GetValue(SecDisp, "vhs_glitch",     false);
-        PhosphorGridEnabled = (bool)displayCfg.GetValue(SecDisp, "phosphor_grid",  false);
         var renderSettings = EnemyRenderSettingsSnapshot.ReadFrom(displayCfg, defaultBloomEnabled: !MobileOptimization.IsMobile());
         PostFxEnabled         = renderSettings.PostFxEnabled;
         LayeredEnemyRendering = renderSettings.LayeredEnabled;

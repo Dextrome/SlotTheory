@@ -20,7 +20,6 @@ public partial class PauseScreen : CanvasLayer
     private Button? _pausePostFxBtn;
     private Button? _pauseScreenFilterBtn;
     private Button? _pauseVhsGlitchBtn;
-    private Button? _pausePhosphorGridBtn;
     private Button? _pauseEnemyLayeredBtn;
     private Button? _pauseEnemyEmissiveBtn;
     private Button? _pauseEnemyDamageBtn;
@@ -71,44 +70,44 @@ public partial class PauseScreen : CanvasLayer
         card.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
             bg: new Color(0.04f, 0.04f, 0.12f),
             border: new Color(0.18f, 0.22f, 0.18f),
-            corners: 12, borderWidth: 1, padH: 24, padV: 20));
+            corners: 12, borderWidth: 1, padH: 20, padV: 14));
         parent.AddChild(card);
         _mainPanel = card;
 
         var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 8);
+        vbox.AddThemeConstantOverride("separation", 5);
         card.AddChild(vbox);
 
-        AddLabel(vbox, "PAUSED", 48, UITheme.Lime);
-        AddSpacer(vbox, 6);
+        AddLabel(vbox, "PAUSED", 40, UITheme.Lime);
+        AddSpacer(vbox, 4);
         AddSeparatorLine(vbox);
-        AddSpacer(vbox, 6);
+        AddSpacer(vbox, 4);
 
-        var resumeBtn = MakePauseBtn("Resume", 260, 50, 22);
+        var resumeBtn = MakePauseBtn("Resume", 260, 44, 22);
         UITheme.ApplyPrimaryStyle(resumeBtn);
-        resumeBtn.Pressed += () => { SoundManager.Instance?.Play("ui_select"); OnResume(); };
+        resumeBtn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); OnResume(); };
         resumeBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         vbox.AddChild(resumeBtn);
 
-        AddSpacer(vbox, 4);
+        AddSpacer(vbox, 2);
         AddBtn(vbox, "Restart Run",  OnRestart);
         AddBtn(vbox, "Settings",     OnOpenSettings);
         AddBtn(vbox, "How to Play",  OnHowToPlay);
         AddBtn(vbox, "Achievements", OnAchievements);
         AddBtn(vbox, "Slot Codex",   OnSlotCodex);
-        AddSpacer(vbox, 4);
+        AddSpacer(vbox, 2);
         AddSeparatorLine(vbox);
-        AddSpacer(vbox, 4);
+        AddSpacer(vbox, 2);
 
-        var mmBtn = MakePauseBtn("Main Menu", 260, 44, 20);
+        var mmBtn = MakePauseBtn("Main Menu", 260, 38, 20);
         UITheme.ApplyCyanStyle(mmBtn);
-        mmBtn.Pressed += () => { SoundManager.Instance?.Play("ui_select"); OnMainMenu(); };
+        mmBtn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); OnMainMenu(); };
         mmBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         vbox.AddChild(mmBtn);
 
-        var quitBtn = MakePauseBtn("Quit", 260, 44, 20);
+        var quitBtn = MakePauseBtn("Quit", 260, 38, 20);
         UITheme.ApplyMutedStyle(quitBtn);
-        quitBtn.Pressed += () => { SoundManager.Instance?.Play("ui_select"); OnQuit(); };
+        quitBtn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); OnQuit(); };
         quitBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         vbox.AddChild(quitBtn);
     }
@@ -156,279 +155,181 @@ public partial class PauseScreen : CanvasLayer
         card.AddChild(cardInner);
 
         var scroll = new ScrollContainer();
-        scroll.CustomMinimumSize = new Vector2(360f, maxHeight);
-        scroll.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        scroll.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-        scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
+        scroll.CustomMinimumSize    = new Vector2(380f, maxHeight);
+        scroll.SizeFlagsHorizontal  = Control.SizeFlags.ExpandFill;
+        scroll.SizeFlagsVertical    = Control.SizeFlags.ExpandFill;
+        scroll.VerticalScrollMode   = ScrollContainer.ScrollMode.Auto;
         scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         TouchScrollHelper.EnableDragScroll(scroll);
         cardInner.AddChild(scroll);
 
         var margin = new MarginContainer();
-        margin.AddThemeConstantOverride("margin_left", 22);
-        margin.AddThemeConstantOverride("margin_right", 22);
-        margin.AddThemeConstantOverride("margin_top", 20);
-        margin.AddThemeConstantOverride("margin_bottom", 20);
+        margin.AddThemeConstantOverride("margin_left",   16);
+        margin.AddThemeConstantOverride("margin_right",  16);
+        margin.AddThemeConstantOverride("margin_top",    14);
+        margin.AddThemeConstantOverride("margin_bottom", 14);
         margin.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         margin.MouseFilter = Control.MouseFilterEnum.Pass;
         scroll.AddChild(margin);
 
         var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 16);
+        vbox.AddThemeConstantOverride("separation", 3);
         vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        vbox.CustomMinimumSize = new Vector2(300, 0);
         margin.AddChild(vbox);
 
-        AddLabel(vbox, "SETTINGS", 42, new Color("#a6d608"));
-        AddSpacer(vbox, 8);
+        AddLabel(vbox, "SETTINGS", 36, new Color("#a6d608"));
+        AddSpacer(vbox, 6);
 
         var sm = SettingsManager.Instance;
-        AddVolumeRow(vbox, "Master",  sm?.MasterVolume ?? 80f,
-            v => SettingsManager.Instance?.SetVolume(v));
-        AddVolumeRow(vbox, "Music",   sm?.MusicVolume  ?? 80f,
-            v => SettingsManager.Instance?.SetMusicVolume(v));
-        AddVolumeRow(vbox, "Game FX", sm?.FxVolume     ?? 80f,
-            v => SettingsManager.Instance?.SetFxVolume(v));
-        AddVolumeRow(vbox, "UI FX",   sm?.UiFxVolume   ?? 80f,
-            v => SettingsManager.Instance?.SetUiFxVolume(v));
+        AddPauseVolumeRow(vbox, "Master",  sm?.MasterVolume ?? 80f, v => SettingsManager.Instance?.SetVolume(v));
+        AddPauseVolumeRow(vbox, "Music",   sm?.MusicVolume  ?? 80f, v => SettingsManager.Instance?.SetMusicVolume(v));
+        AddPauseVolumeRow(vbox, "Game FX", sm?.FxVolume     ?? 80f, v => SettingsManager.Instance?.SetFxVolume(v));
+        AddPauseVolumeRow(vbox, "UI FX",   sm?.UiFxVolume   ?? 80f, v => SettingsManager.Instance?.SetUiFxVolume(v));
 
-        AddSpacer(vbox, 6);
-        AddSectionHeader(vbox, "DISPLAY");
+        AddSpacer(vbox, 4);
+        AddPauseSectionHeader(vbox, "DISPLAY");
 
-        // Fullscreen toggle
-        bool isFs = SettingsManager.Instance?.Fullscreen ?? false;
-        _pauseFsBtn = new Button
-        {
-            Text              = FullscreenLabel(isFs),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _pauseFsBtn.AddThemeFontSizeOverride("font_size", 20);
-        _pauseFsBtn.Pressed += () =>
-        {
-            SoundManager.Instance?.Play("ui_select");
-            SettingsManager.Instance?.ToggleFullscreen();
-            if (_pauseFsBtn != null)
-                _pauseFsBtn.Text = FullscreenLabel(SettingsManager.Instance?.Fullscreen ?? false);
-        };
-        vbox.AddChild(_pauseFsBtn);
+        bool isFs = sm?.Fullscreen ?? false;
+        _pauseFsBtn = AddPauseSettingRow(vbox, "Display Mode",
+            isFs ? "Fullscreen" : "Windowed", isOn: isFs, () =>
+            {
+                SettingsManager.Instance?.ToggleFullscreen();
+                bool v = SettingsManager.Instance?.Fullscreen ?? false;
+                UpdatePauseValueBtn(_pauseFsBtn, v ? "Fullscreen" : "Windowed", v);
+            });
 
-        // Colorblind toggle
-        bool isCb = SettingsManager.Instance?.ColorblindMode ?? false;
-        _pauseCbBtn = new Button
-        {
-            Text              = ColorblindLabel(isCb),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _pauseCbBtn.AddThemeFontSizeOverride("font_size", 20);
-        _pauseCbBtn.Pressed += () =>
-        {
-            SoundManager.Instance?.Play("ui_select");
-            bool next = !(SettingsManager.Instance?.ColorblindMode ?? false);
-            SettingsManager.Instance?.SetColorblindMode(next);
-            if (_pauseCbBtn != null)
-                _pauseCbBtn.Text = ColorblindLabel(next);
-        };
-        vbox.AddChild(_pauseCbBtn);
+        bool isCb = sm?.ColorblindMode ?? false;
+        _pauseCbBtn = AddPauseSettingRow(vbox, "Colorblind Mode",
+            OnOffText(isCb), isOn: isCb, () =>
+            {
+                bool next = !(SettingsManager.Instance?.ColorblindMode ?? false);
+                SettingsManager.Instance?.SetColorblindMode(next);
+                UpdatePauseValueBtn(_pauseCbBtn, OnOffText(next), next);
+            });
 
-        // Reduced motion toggle
-        bool isRm = SettingsManager.Instance?.ReducedMotion ?? false;
-        _pauseRmBtn = new Button
-        {
-            Text              = ReducedMotionLabel(isRm),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _pauseRmBtn.AddThemeFontSizeOverride("font_size", 20);
-        _pauseRmBtn.Pressed += () =>
-        {
-            SoundManager.Instance?.Play("ui_select");
-            bool next = !(SettingsManager.Instance?.ReducedMotion ?? false);
-            SettingsManager.Instance?.SetReducedMotion(next);
-            if (_pauseRmBtn != null)
-                _pauseRmBtn.Text = ReducedMotionLabel(next);
-        };
-        vbox.AddChild(_pauseRmBtn);
+        bool isRm = sm?.ReducedMotion ?? false;
+        _pauseRmBtn = AddPauseSettingRow(vbox, "Reduced Motion",
+            OnOffText(isRm), isOn: isRm, () =>
+            {
+                bool next = !(SettingsManager.Instance?.ReducedMotion ?? false);
+                SettingsManager.Instance?.SetReducedMotion(next);
+                UpdatePauseValueBtn(_pauseRmBtn, OnOffText(next), next);
+            });
 
         bool isPostFx = sm?.PostFxEnabled ?? true;
-        _pausePostFxBtn = new Button
-        {
-            Text              = PostFxLabel(isPostFx),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _pausePostFxBtn.AddThemeFontSizeOverride("font_size", 20);
-        _pausePostFxBtn.Pressed += () =>
-        {
-            SoundManager.Instance?.Play("ui_select");
-            bool next = !(SettingsManager.Instance?.PostFxEnabled ?? true);
-            SettingsManager.Instance?.SetPostFxEnabled(next);
-            if (_pausePostFxBtn != null)
-                _pausePostFxBtn.Text = PostFxLabel(next);
-        };
-        vbox.AddChild(_pausePostFxBtn);
+        _pausePostFxBtn = AddPauseSettingRow(vbox, "Post FX",
+            OnOffText(isPostFx), isOn: isPostFx, () =>
+            {
+                bool next = !(SettingsManager.Instance?.PostFxEnabled ?? true);
+                SettingsManager.Instance?.SetPostFxEnabled(next);
+                UpdatePauseValueBtn(_pausePostFxBtn, OnOffText(next), next);
+            });
 
-        bool isSf = sm?.ScreenFilterEnabled ?? true;
-        _pauseScreenFilterBtn = new Button
-        {
-            Text              = ScreenFilterLabel(isSf),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _pauseScreenFilterBtn.AddThemeFontSizeOverride("font_size", 20);
-        _pauseScreenFilterBtn.Pressed += () =>
-        {
-            SoundManager.Instance?.Play("ui_select");
-            bool next = !(SettingsManager.Instance?.ScreenFilterEnabled ?? true);
-            SettingsManager.Instance?.SetScreenFilterEnabled(next);
-            if (_pauseScreenFilterBtn != null)
-                _pauseScreenFilterBtn.Text = ScreenFilterLabel(next);
-        };
-        vbox.AddChild(_pauseScreenFilterBtn);
+        AddSpacer(vbox, 4);
+        AddPauseSectionHeader(vbox, "SCREEN EFFECTS");
 
-        AddSpacer(vbox, 6);
-        AddSectionHeader(vbox, "SCREEN EFFECTS");
+        bool isSf = sm?.ScreenFilterEnabled ?? false;
+        _pauseScreenFilterBtn = AddPauseSettingRow(vbox, "Screen Filter",
+            OnOffText(isSf), isOn: isSf, () =>
+            {
+                bool next = !(SettingsManager.Instance?.ScreenFilterEnabled ?? false);
+                SettingsManager.Instance?.SetScreenFilterEnabled(next);
+                SettingsManager.Instance?.SetPhosphorGridEnabled(next);
+                UpdatePauseValueBtn(_pauseScreenFilterBtn, OnOffText(next), next);
+            });
 
         bool isVhs = sm?.VhsGlitchEnabled ?? false;
-        _pauseVhsGlitchBtn = new Button { Text = VhsGlitchLabel(isVhs), CustomMinimumSize = new Vector2(260, 44) };
-        _pauseVhsGlitchBtn.AddThemeFontSizeOverride("font_size", 20);
-        _pauseVhsGlitchBtn.Pressed += () =>
-        {
-            SoundManager.Instance?.Play("ui_select");
-            bool next = !(SettingsManager.Instance?.VhsGlitchEnabled ?? false);
-            SettingsManager.Instance?.SetVhsGlitchEnabled(next);
-            if (_pauseVhsGlitchBtn != null) _pauseVhsGlitchBtn.Text = VhsGlitchLabel(next);
-        };
-        vbox.AddChild(_pauseVhsGlitchBtn);
+        _pauseVhsGlitchBtn = AddPauseSettingRow(vbox, "VHS Glitch",
+            OnOffText(isVhs), isOn: isVhs, () =>
+            {
+                bool next = !(SettingsManager.Instance?.VhsGlitchEnabled ?? false);
+                SettingsManager.Instance?.SetVhsGlitchEnabled(next);
+                UpdatePauseValueBtn(_pauseVhsGlitchBtn, OnOffText(next), next);
+            });
 
-        bool isPhos = sm?.PhosphorGridEnabled ?? false;
-        _pausePhosphorGridBtn = new Button { Text = PhosphorGridLabel(isPhos), CustomMinimumSize = new Vector2(260, 44) };
-        _pausePhosphorGridBtn.AddThemeFontSizeOverride("font_size", 20);
-        _pausePhosphorGridBtn.Pressed += () =>
-        {
-            SoundManager.Instance?.Play("ui_select");
-            bool next = !(SettingsManager.Instance?.PhosphorGridEnabled ?? false);
-            SettingsManager.Instance?.SetPhosphorGridEnabled(next);
-            if (_pausePhosphorGridBtn != null) _pausePhosphorGridBtn.Text = PhosphorGridLabel(next);
-        };
-        vbox.AddChild(_pausePhosphorGridBtn);
-
-        AddSpacer(vbox, 6);
-        AddSectionHeader(vbox, "ENEMY FX");
+        AddSpacer(vbox, 4);
+        AddPauseSectionHeader(vbox, "ENEMY FX");
 
         bool layered = sm?.LayeredEnemyRendering ?? true;
-        _pauseEnemyLayeredBtn = new Button
-        {
-            Text              = EnemyLayeredLabel(layered),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _pauseEnemyLayeredBtn.AddThemeFontSizeOverride("font_size", 20);
-        _pauseEnemyLayeredBtn.Pressed += () =>
-        {
-            SoundManager.Instance?.Play("ui_select");
-            bool next = !(SettingsManager.Instance?.LayeredEnemyRendering ?? true);
-            SettingsManager.Instance?.SetLayeredEnemyRendering(next);
-            if (_pauseEnemyLayeredBtn != null)
-                _pauseEnemyLayeredBtn.Text = EnemyLayeredLabel(next);
-        };
-        vbox.AddChild(_pauseEnemyLayeredBtn);
+        _pauseEnemyLayeredBtn = AddPauseSettingRow(vbox, "Layered Rendering",
+            OnOffText(layered), isOn: layered, () =>
+            {
+                bool next = !(SettingsManager.Instance?.LayeredEnemyRendering ?? true);
+                SettingsManager.Instance?.SetLayeredEnemyRendering(next);
+                UpdatePauseValueBtn(_pauseEnemyLayeredBtn, OnOffText(next), next);
+            });
 
         bool emissive = sm?.EnemyEmissiveLines ?? true;
-        _pauseEnemyEmissiveBtn = new Button
-        {
-            Text              = EnemyEmissiveLabel(emissive),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _pauseEnemyEmissiveBtn.AddThemeFontSizeOverride("font_size", 20);
-        _pauseEnemyEmissiveBtn.Pressed += () =>
-        {
-            SoundManager.Instance?.Play("ui_select");
-            bool next = !(SettingsManager.Instance?.EnemyEmissiveLines ?? true);
-            SettingsManager.Instance?.SetEnemyEmissiveLines(next);
-            if (_pauseEnemyEmissiveBtn != null)
-                _pauseEnemyEmissiveBtn.Text = EnemyEmissiveLabel(next);
-        };
-        vbox.AddChild(_pauseEnemyEmissiveBtn);
+        _pauseEnemyEmissiveBtn = AddPauseSettingRow(vbox, "Emissive Lines",
+            OnOffText(emissive), isOn: emissive, () =>
+            {
+                bool next = !(SettingsManager.Instance?.EnemyEmissiveLines ?? true);
+                SettingsManager.Instance?.SetEnemyEmissiveLines(next);
+                UpdatePauseValueBtn(_pauseEnemyEmissiveBtn, OnOffText(next), next);
+            });
 
         bool damage = sm?.EnemyDamageMaterial ?? true;
-        _pauseEnemyDamageBtn = new Button
-        {
-            Text              = EnemyDamageLabel(damage),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _pauseEnemyDamageBtn.AddThemeFontSizeOverride("font_size", 20);
-        _pauseEnemyDamageBtn.Pressed += () =>
-        {
-            SoundManager.Instance?.Play("ui_select");
-            bool next = !(SettingsManager.Instance?.EnemyDamageMaterial ?? true);
-            SettingsManager.Instance?.SetEnemyDamageMaterial(next);
-            if (_pauseEnemyDamageBtn != null)
-                _pauseEnemyDamageBtn.Text = EnemyDamageLabel(next);
-        };
-        vbox.AddChild(_pauseEnemyDamageBtn);
+        _pauseEnemyDamageBtn = AddPauseSettingRow(vbox, "Damage Material",
+            OnOffText(damage), isOn: damage, () =>
+            {
+                bool next = !(SettingsManager.Instance?.EnemyDamageMaterial ?? true);
+                SettingsManager.Instance?.SetEnemyDamageMaterial(next);
+                UpdatePauseValueBtn(_pauseEnemyDamageBtn, OnOffText(next), next);
+            });
 
         bool bloom = sm?.EnemyBloomHighlights ?? !MobileOptimization.IsMobile();
-        _pauseEnemyBloomBtn = new Button
-        {
-            Text              = EnemyBloomLabel(bloom),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _pauseEnemyBloomBtn.AddThemeFontSizeOverride("font_size", 20);
-        _pauseEnemyBloomBtn.Pressed += () =>
-        {
-            SoundManager.Instance?.Play("ui_select");
-            bool next = !(SettingsManager.Instance?.EnemyBloomHighlights ?? !MobileOptimization.IsMobile());
-            SettingsManager.Instance?.SetEnemyBloomHighlights(next);
-            if (_pauseEnemyBloomBtn != null)
-                _pauseEnemyBloomBtn.Text = EnemyBloomLabel(next);
-        };
-        vbox.AddChild(_pauseEnemyBloomBtn);
+        _pauseEnemyBloomBtn = AddPauseSettingRow(vbox, "Bloom Highlights",
+            OnOffText(bloom), isOn: bloom, () =>
+            {
+                bool next = !(SettingsManager.Instance?.EnemyBloomHighlights ?? !MobileOptimization.IsMobile());
+                SettingsManager.Instance?.SetEnemyBloomHighlights(next);
+                UpdatePauseValueBtn(_pauseEnemyBloomBtn, OnOffText(next), next);
+            });
 
         if (sm?.DevMode == true)
         {
-            AddSpacer(vbox, 6);
-            AddSectionHeader(vbox, "DEVELOPER");
+            AddSpacer(vbox, 4);
+            AddPauseSectionHeader(vbox, "DEVELOPER");
 
-            _pauseResetProfileBtn = new Button
-            {
-                Text = "Reset Profile Unlocks",
-                CustomMinimumSize = new Vector2(260, 44),
-            };
-            _pauseResetProfileBtn.AddThemeFontSizeOverride("font_size", 20);
+            _pauseResetProfileBtn = AddPauseSettingRow(vbox, "Reset All Achievements",
+                "Reset", isOn: false, () =>
+                {
+                    SoundManager.Instance?.Play("ui_select");
+                    AchievementManager.Instance?.ResetAllAchievements();
+                    if (_pauseResetProfileStatus != null)
+                        _pauseResetProfileStatus.Text = "All achievements cleared.";
+                });
             UITheme.ApplyMutedStyle(_pauseResetProfileBtn);
-            _pauseResetProfileBtn.Pressed += () =>
-            {
-                SoundManager.Instance?.Play("ui_select");
-                AchievementManager.Instance?.ResetAllAchievements();
-                if (_pauseResetProfileStatus != null)
-                    _pauseResetProfileStatus.Text = "All achievements and unlock flags cleared.";
-            };
-            vbox.AddChild(_pauseResetProfileBtn);
 
             _pauseResetProfileStatus = new Label
             {
                 Text = "",
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             };
-            _pauseResetProfileStatus.AddThemeFontSizeOverride("font_size", 14);
+            _pauseResetProfileStatus.AddThemeFontSizeOverride("font_size", 13);
             _pauseResetProfileStatus.Modulate = new Color(0.85f, 0.72f, 0.72f);
             vbox.AddChild(_pauseResetProfileStatus);
         }
 
-        // Back button pinned below scroll — always visible
+        // Back button pinned below scroll
         var sep = new HSeparator();
         sep.Modulate = new Color(0.22f, 0.22f, 0.22f);
         cardInner.AddChild(sep);
 
         var backMargin = new MarginContainer();
-        backMargin.AddThemeConstantOverride("margin_left",   22);
-        backMargin.AddThemeConstantOverride("margin_right",  22);
-        backMargin.AddThemeConstantOverride("margin_top",    10);
-        backMargin.AddThemeConstantOverride("margin_bottom", 10);
+        backMargin.AddThemeConstantOverride("margin_left",   16);
+        backMargin.AddThemeConstantOverride("margin_right",  16);
+        backMargin.AddThemeConstantOverride("margin_top",    8);
+        backMargin.AddThemeConstantOverride("margin_bottom", 8);
         cardInner.AddChild(backMargin);
 
         var backBtn = new Button
         {
             Text = "\u2190 Back",
-            CustomMinimumSize = new Vector2(160, 44),
+            CustomMinimumSize = new Vector2(140, 38),
         };
-        backBtn.AddThemeFontSizeOverride("font_size", 20);
+        backBtn.AddThemeFontSizeOverride("font_size", 18);
         backBtn.Pressed += () => { SoundManager.Instance?.Play("ui_select"); OnCloseSettings(); };
         backMargin.AddChild(backBtn);
     }
@@ -436,7 +337,7 @@ public partial class PauseScreen : CanvasLayer
     private void BuildQuitConfirmPanel(VBoxContainer parent)
     {
         var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 28);
+        vbox.AddThemeConstantOverride("separation", 18);
         parent.AddChild(vbox);
         _quitConfirmPanel = vbox;
 
@@ -445,17 +346,17 @@ public partial class PauseScreen : CanvasLayer
             Text = "Are you sure you want to quit?",
             HorizontalAlignment = HorizontalAlignment.Center,
         };
-        SlotTheory.Core.UITheme.ApplyFont(msg, semiBold: true, size: 32);
+        UITheme.ApplyFont(msg, semiBold: true, size: 26);
         msg.Modulate = Colors.White;
         vbox.AddChild(msg);
 
         var btnRow = new HBoxContainer();
-        btnRow.AddThemeConstantOverride("separation", 20);
+        btnRow.AddThemeConstantOverride("separation", 16);
         btnRow.Alignment = BoxContainer.AlignmentMode.Center;
         vbox.AddChild(btnRow);
 
-        var yesBtn = new Button { Text = "Yes", CustomMinimumSize = new Vector2(140, 56) };
-        yesBtn.AddThemeFontSizeOverride("font_size", 24);
+        var yesBtn = new Button { Text = "Yes", CustomMinimumSize = new Vector2(130, 46) };
+        yesBtn.AddThemeFontSizeOverride("font_size", 22);
         UITheme.ApplyMutedStyle(yesBtn);
         yesBtn.Pressed += () =>
         {
@@ -464,8 +365,8 @@ public partial class PauseScreen : CanvasLayer
         };
         btnRow.AddChild(yesBtn);
 
-        var noBtn = new Button { Text = "No", CustomMinimumSize = new Vector2(140, 56) };
-        noBtn.AddThemeFontSizeOverride("font_size", 24);
+        var noBtn = new Button { Text = "No", CustomMinimumSize = new Vector2(130, 46) };
+        noBtn.AddThemeFontSizeOverride("font_size", 22);
         UITheme.ApplyPrimaryStyle(noBtn);
         noBtn.Pressed += () =>
         {
@@ -664,51 +565,204 @@ public partial class PauseScreen : CanvasLayer
         _mainPanel.Visible     = true;
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────
+    // ── Pause settings helpers (mirror Settings.cs 2-column style) ────────────
 
-    private static void AddVolumeRow(VBoxContainer vbox, string label, float current,
-        System.Action<float> onChange)
+    private static Button AddPauseSettingRow(VBoxContainer vbox, string labelText,
+        string valueText, bool isOn, System.Action callback)
     {
-        var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 10);
+        var row = new PanelContainer();
+        row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        row.AddThemeStyleboxOverride("panel", MakePauseRowStyle());
         vbox.AddChild(row);
 
-        var lbl = new Label { Text = label };
+        var inner = new HBoxContainer();
+        inner.AddThemeConstantOverride("separation", 10);
+        row.AddChild(inner);
+
+        var lbl = new Label
+        {
+            Text = labelText,
+            VerticalAlignment   = VerticalAlignment.Center,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
+        };
         lbl.AddThemeFontSizeOverride("font_size", 17);
-        lbl.Modulate = new Color(0.85f, 0.85f, 0.85f);
-        lbl.CustomMinimumSize = new Vector2(80, 0);
-        row.AddChild(lbl);
+        lbl.Modulate = new Color(0.88f, 0.88f, 0.92f);
+        inner.AddChild(lbl);
+
+        var btn = new Button
+        {
+            Text = valueText,
+            CustomMinimumSize = new Vector2(90, 26),
+            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+        };
+        btn.AddThemeFontSizeOverride("font_size", 14);
+        ApplyPauseValueButtonStyle(btn, isOn);
+        btn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); callback(); };
+        btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+        inner.AddChild(btn);
+
+        return btn;
+    }
+
+    private static void AddPauseVolumeRow(VBoxContainer vbox, string labelText, float current,
+        System.Action<float> onChange)
+    {
+        var row = new PanelContainer();
+        row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        row.AddThemeStyleboxOverride("panel", MakePauseRowStyle());
+        vbox.AddChild(row);
+
+        var inner = new HBoxContainer();
+        inner.AddThemeConstantOverride("separation", 10);
+        row.AddChild(inner);
+
+        var lbl = new Label
+        {
+            Text = labelText,
+            VerticalAlignment = VerticalAlignment.Center,
+            CustomMinimumSize = new Vector2(80, 0),
+        };
+        lbl.AddThemeFontSizeOverride("font_size", 17);
+        lbl.Modulate = new Color(0.88f, 0.88f, 0.92f);
+        inner.AddChild(lbl);
 
         var slider = new HSlider
         {
-            MinValue            = 0,
-            MaxValue            = 100,
-            Value               = current,
-            Step                = 1,
-            CustomMinimumSize   = new Vector2(150, 24),
+            MinValue = 0, MaxValue = 100, Value = current, Step = 1,
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
+            CustomMinimumSize   = new Vector2(120, 20),
         };
-        row.AddChild(slider);
+        inner.AddChild(slider);
 
-        var valLbl = new Label { Text = $"{(int)current}" };
-        valLbl.AddThemeFontSizeOverride("font_size", 17);
-        valLbl.Modulate = new Color(0.60f, 0.60f, 0.60f);
-        valLbl.CustomMinimumSize = new Vector2(36, 0);
-        row.AddChild(valLbl);
+        var valLbl = new Label
+        {
+            Text = $"{(int)current}",
+            VerticalAlignment   = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            CustomMinimumSize   = new Vector2(32, 0),
+        };
+        valLbl.AddThemeFontSizeOverride("font_size", 15);
+        valLbl.Modulate = new Color(0.55f, 0.85f, 0.55f);
+        inner.AddChild(valLbl);
 
         slider.ValueChanged += v =>
         {
             valLbl.Text = $"{(int)v}";
+            valLbl.Modulate = (int)v > 0
+                ? new Color(0.55f, 0.85f, 0.55f)
+                : new Color(0.45f, 0.45f, 0.45f);
             onChange((float)v);
         };
     }
+
+    private static void AddPauseSectionHeader(VBoxContainer vbox, string text)
+    {
+        var row = new HBoxContainer();
+        row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        row.AddThemeConstantOverride("separation", 8);
+        vbox.AddChild(row);
+
+        var bar = new ColorRect
+        {
+            Color = UITheme.Lime,
+            CustomMinimumSize = new Vector2(3f, 0f),
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            MouseFilter       = Control.MouseFilterEnum.Ignore,
+        };
+        row.AddChild(bar);
+
+        var lbl = new Label { Text = text };
+        UITheme.ApplyFont(lbl, semiBold: true, size: 12);
+        lbl.Modulate = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.85f);
+        lbl.VerticalAlignment = VerticalAlignment.Center;
+        row.AddChild(lbl);
+
+        var line = new ColorRect
+        {
+            CustomMinimumSize   = new Vector2(0, 1),
+            Color               = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.12f),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
+            MouseFilter         = Control.MouseFilterEnum.Ignore,
+        };
+        row.AddChild(line);
+    }
+
+    private static StyleBoxFlat MakePauseRowStyle()
+    {
+        var s = new StyleBoxFlat
+        {
+            BgColor = new Color(0.06f, 0.05f, 0.14f, 0.80f),
+            CornerRadiusTopLeft     = 5,
+            CornerRadiusTopRight    = 5,
+            CornerRadiusBottomLeft  = 5,
+            CornerRadiusBottomRight = 5,
+        };
+        s.ContentMarginLeft   = 12;
+        s.ContentMarginRight  = 8;
+        s.ContentMarginTop    = 5;
+        s.ContentMarginBottom = 5;
+        return s;
+    }
+
+    private static void ApplyPauseValueButtonStyle(Button btn, bool isOn)
+    {
+        if (isOn)
+        {
+            btn.AddThemeColorOverride("font_color",         UITheme.Lime);
+            btn.AddThemeColorOverride("font_hover_color",   UITheme.Lime);
+            btn.AddThemeColorOverride("font_pressed_color", UITheme.LimeDim);
+            btn.AddThemeColorOverride("font_focus_color",   UITheme.Lime);
+            btn.AddThemeStyleboxOverride("normal",  MakePauseValBtn(new Color(0.06f, 0.14f, 0.04f), UITheme.LimeDark));
+            btn.AddThemeStyleboxOverride("hover",   MakePauseValBtn(new Color(0.09f, 0.20f, 0.05f), UITheme.Lime, glowAlpha: 0.10f, glowSize: 3, glowColor: UITheme.Lime));
+            btn.AddThemeStyleboxOverride("pressed", MakePauseValBtn(new Color(0.04f, 0.08f, 0.02f), UITheme.LimeDim));
+            btn.AddThemeStyleboxOverride("focus",   MakePauseValBtn(new Color(0.09f, 0.20f, 0.05f), UITheme.Lime, glowAlpha: 0.07f, glowSize: 2, glowColor: UITheme.Lime));
+        }
+        else
+        {
+            var dimText   = new Color(0.50f, 0.50f, 0.54f);
+            var dimBorder = new Color(0.20f, 0.20f, 0.26f);
+            var dimBg     = new Color(0.05f, 0.05f, 0.10f);
+            btn.AddThemeColorOverride("font_color",         dimText);
+            btn.AddThemeColorOverride("font_hover_color",   new Color(0.70f, 0.70f, 0.75f));
+            btn.AddThemeColorOverride("font_pressed_color", dimText);
+            btn.AddThemeColorOverride("font_focus_color",   dimText);
+            btn.AddThemeStyleboxOverride("normal",  MakePauseValBtn(dimBg,                           dimBorder));
+            btn.AddThemeStyleboxOverride("hover",   MakePauseValBtn(new Color(0.08f, 0.08f, 0.14f),  dimBorder));
+            btn.AddThemeStyleboxOverride("pressed", MakePauseValBtn(dimBg,                           dimBorder));
+            btn.AddThemeStyleboxOverride("focus",   MakePauseValBtn(new Color(0.08f, 0.08f, 0.14f),  dimBorder));
+        }
+    }
+
+    private static StyleBoxFlat MakePauseValBtn(Color bg, Color border,
+        float glowAlpha = 0f, int glowSize = 0, Color? glowColor = null)
+    {
+        var s = UITheme.MakeBtn(bg, border, border: 1, corners: 5,
+            glowAlpha: glowAlpha, glowSize: glowSize, glowColor: glowColor);
+        s.ContentMarginTop    = 3;
+        s.ContentMarginBottom = 3;
+        s.ContentMarginLeft   = 8;
+        s.ContentMarginRight  = 8;
+        return s;
+    }
+
+    private static void UpdatePauseValueBtn(Button? btn, string text, bool isOn)
+    {
+        if (btn == null) return;
+        btn.Text = text;
+        ApplyPauseValueButtonStyle(btn, isOn);
+    }
+
+    private static string OnOffText(bool on) => on ? "ON" : "OFF";
 
     private static void AddLabel(Control parent, string text, int fontSize, Color color)
     {
         var lbl = new Label { Text = text, HorizontalAlignment = HorizontalAlignment.Center };
         lbl.AddThemeFontSizeOverride("font_size", fontSize);
         if (fontSize > 28)
-            SlotTheory.Core.UITheme.ApplyFont(lbl, semiBold: true);
+            UITheme.ApplyFont(lbl, semiBold: true);
         lbl.Modulate = color;
         parent.AddChild(lbl);
     }
@@ -716,60 +770,11 @@ public partial class PauseScreen : CanvasLayer
     private static void AddSpacer(Control parent, int px) =>
         parent.AddChild(new Control { CustomMinimumSize = new Vector2(0, px) });
 
-    private static void AddSectionHeader(Control parent, string text)
-    {
-        var sep = new HSeparator();
-        sep.Modulate = new Color(0.30f, 0.30f, 0.30f);
-        parent.AddChild(sep);
-
-        var lbl = new Label { Text = text };
-        lbl.AddThemeFontSizeOverride("font_size", 16);
-        lbl.Modulate = new Color("#a6d608");
-        parent.AddChild(lbl);
-    }
-
-    private static string FullscreenLabel(bool full) =>
-        full ? "Display:  Fullscreen" : "Display:  Windowed";
-
-    private static string ColorblindLabel(bool on) =>
-        on ? "Colorblind:  On" : "Colorblind:  Off";
-
-    private static string ReducedMotionLabel(bool on) =>
-        on ? "Reduced Motion:  On" : "Reduced Motion:  Off";
-
-    private static string PostFxLabel(bool on) =>
-        on ? "Post FX:  On" : "Post FX:  Off";
-
-    private static string ScreenFilterLabel(bool on) =>
-        on ? "Screen Filter (CA/Bloom/Scanlines):  On" : "Screen Filter (CA/Bloom/Scanlines):  Off";
-
-    private static string VhsGlitchLabel(bool on) =>
-        on ? "VHS Glitch:  On" : "VHS Glitch:  Off";
-
-    private static string PhosphorGridLabel(bool on) =>
-        on ? "Phosphor Grid:  On" : "Phosphor Grid:  Off";
-
-    private static string EnemyLayeredLabel(bool on) =>
-        on ? "Layered Enemies:  On" : "Layered Enemies:  Off";
-
-    private static string EnemyEmissiveLabel(bool on) =>
-        on ? "Enemy Emissive:  On" : "Enemy Emissive:  Off";
-
-    private static string EnemyDamageLabel(bool on) =>
-        on ? "Enemy Damage FX:  On" : "Enemy Damage FX:  Off";
-
-    private static string EnemyBloomLabel(bool on) =>
-        on ? "Enemy Bloom:  On" : "Enemy Bloom:  Off";
-
     private static void AddBtn(Control parent, string text, System.Action callback)
     {
-        var btn = new Button { Text = text, CustomMinimumSize = new Vector2(260, 44) };
+        var btn = new Button { Text = text, CustomMinimumSize = new Vector2(260, 36) };
         btn.AddThemeFontSizeOverride("font_size", 20);
-        btn.Pressed += () =>
-        {
-            SoundManager.Instance?.Play("ui_select");
-            callback();
-        };
+        btn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); callback(); };
         btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         parent.AddChild(btn);
     }

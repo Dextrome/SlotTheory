@@ -43,8 +43,8 @@ public partial class AchievementsPanel : Node
         panelMargin.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         panelMargin.AddThemeConstantOverride("margin_left",   sidePad);
         panelMargin.AddThemeConstantOverride("margin_right",  sidePad);
-        panelMargin.AddThemeConstantOverride("margin_top",    20);
-        panelMargin.AddThemeConstantOverride("margin_bottom", 20);
+        panelMargin.AddThemeConstantOverride("margin_top",    14);
+        panelMargin.AddThemeConstantOverride("margin_bottom", 14);
         root.AddChild(panelMargin);
 
         var scrollPanel = new PanelContainer();
@@ -66,17 +66,17 @@ public partial class AchievementsPanel : Node
         scrollPanel.AddChild(scroll);
 
         var margin = new MarginContainer();
-        margin.AddThemeConstantOverride("margin_left",   24);
-        margin.AddThemeConstantOverride("margin_right",  24);
-        margin.AddThemeConstantOverride("margin_top",    24);
-        margin.AddThemeConstantOverride("margin_bottom", 24);
+        margin.AddThemeConstantOverride("margin_left",   18);
+        margin.AddThemeConstantOverride("margin_right",  18);
+        margin.AddThemeConstantOverride("margin_top",    16);
+        margin.AddThemeConstantOverride("margin_bottom", 16);
         margin.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         margin.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
         margin.MouseFilter = Control.MouseFilterEnum.Pass;
         scroll.AddChild(margin);
 
         var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 12);
+        vbox.AddThemeConstantOverride("separation", 8);
         vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         margin.AddChild(vbox);
 
@@ -172,8 +172,8 @@ public partial class AchievementsPanel : Node
         var inner = new MarginContainer();
         inner.AddThemeConstantOverride("margin_left",   14);
         inner.AddThemeConstantOverride("margin_right",  14);
-        inner.AddThemeConstantOverride("margin_top",    10);
-        inner.AddThemeConstantOverride("margin_bottom", 10);
+        inner.AddThemeConstantOverride("margin_top",    7);
+        inner.AddThemeConstantOverride("margin_bottom", 7);
         inner.MouseFilter = Control.MouseFilterEnum.Ignore;
         panel.AddChild(inner);
 

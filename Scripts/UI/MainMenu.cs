@@ -76,17 +76,17 @@ public partial class MainMenu : Node
 		card.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
 			bg: new Color(0.04f, 0.04f, 0.12f),
 			border: new Color(0.18f, 0.22f, 0.18f),
-			corners: 12, borderWidth: 1, padH: 24, padV: 16));
+			corners: 12, borderWidth: 1, padH: 24, padV: 12));
 		card.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
 		card.CustomMinimumSize   = new Vector2(320, 0);
 		vbox.AddChild(card);
 
 		var cardVbox = new VBoxContainer();
-		cardVbox.AddThemeConstantOverride("separation", 5);
+		cardVbox.AddThemeConstantOverride("separation", 7);
 		card.AddChild(cardVbox);
 
 		// Play — primary
-		var playBtn = MakeMenuButton("PLAY", 260, 56, 24);
+		var playBtn = MakeMenuButton("PLAY", 260, 50, 24);
 		UITheme.ApplyPrimaryStyle(playBtn);
 		playBtn.Pressed += OnPlay;
 		cardVbox.AddChild(playBtn);
@@ -119,7 +119,7 @@ public partial class MainMenu : Node
 		AddSpacer(cardVbox, 4);
 
 		// Quit — muted
-		var quitBtn = MakeMenuButton("Quit", 260, 42, 18);
+		var quitBtn = MakeMenuButton("Quit", 260, 36, 18);
 		UITheme.ApplyMutedStyle(quitBtn);
 		quitBtn.Pressed += OnQuit;
 		cardVbox.AddChild(quitBtn);
@@ -193,7 +193,7 @@ public partial class MainMenu : Node
 
 	private void AddNavButton(VBoxContainer parent, string text, System.Action callback)
 	{
-		var btn = MakeMenuButton(text, 260, 44, 20);
+		var btn = MakeMenuButton(text, 260, 38, 20);
 		btn.Pressed += callback;
 		parent.AddChild(btn);
 	}

@@ -18,9 +18,8 @@ public partial class Settings : Node
     private Button? _enemyBloomBtn;
     private Button? _screenFilterBtn;
     private Button? _vhsGlitchBtn;
-    private Button? _phosphorGridBtn;
     private Button? _resetProfileBtn;
-    private Label? _resetProfileStatus;
+    private Label?  _resetProfileStatus;
 
     public override void _Ready()
     {
@@ -42,12 +41,12 @@ public partial class Settings : Node
         root.AddThemeConstantOverride("separation", 0);
         canvas.AddChild(root);
 
-        // ── Pinned title header ───────────────────────────────────────────
+        // ── Title ─────────────────────────────────────────────────────────────
         var titleMargin = new MarginContainer();
         titleMargin.AddThemeConstantOverride("margin_left",   24);
         titleMargin.AddThemeConstantOverride("margin_right",  24);
-        titleMargin.AddThemeConstantOverride("margin_top",    22);
-        titleMargin.AddThemeConstantOverride("margin_bottom", 14);
+        titleMargin.AddThemeConstantOverride("margin_top",    14);
+        titleMargin.AddThemeConstantOverride("margin_bottom", 8);
         root.AddChild(titleMargin);
 
         var title = new Label
@@ -55,13 +54,13 @@ public partial class Settings : Node
             Text = "SETTINGS",
             HorizontalAlignment = HorizontalAlignment.Center,
         };
-        SlotTheory.Core.UITheme.ApplyFont(title, semiBold: true, size: 52);
+        UITheme.ApplyFont(title, semiBold: true, size: 52);
         title.Modulate = new Color("#a6d608");
         titleMargin.AddChild(title);
 
-        // ── Bordered scroll panel — horizontally constrained to content width ──
-        float vpWidth   = GetViewport().GetVisibleRect().Size.X;
-        float sidePad   = Mathf.Max(20f, (vpWidth - 560f) / 2f);
+        // ── Scroll panel ──────────────────────────────────────────────────────
+        float vpWidth = GetViewport().GetVisibleRect().Size.X;
+        float sidePad = Mathf.Max(20f, (vpWidth - 600f) / 2f);
 
         var scrollPanelMargin = new MarginContainer();
         scrollPanelMargin.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
@@ -75,7 +74,7 @@ public partial class Settings : Node
         var scrollPanel = new PanelContainer();
         scrollPanel.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
         scrollPanel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        scrollPanel.AddThemeStyleboxOverride("panel", SlotTheory.Core.UITheme.MakePanel(
+        scrollPanel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
             bg: new Color(0.05f, 0.04f, 0.13f),
             border: new Color(0.30f, 0.18f, 0.55f),
             corners: 10, borderWidth: 2, padH: 8, padV: 8));
@@ -90,182 +89,115 @@ public partial class Settings : Node
         scrollPanel.AddChild(scroll);
 
         var center = new CenterContainer();
-        center.Theme = SlotTheory.Core.UITheme.Build();
+        center.Theme = UITheme.Build();
         center.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         center.CustomMinimumSize = new Vector2(0, GetViewport().GetVisibleRect().Size.Y);
         scroll.AddChild(center);
 
         var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 18);
-        vbox.CustomMinimumSize = new Vector2(420, 0);
+        vbox.AddThemeConstantOverride("separation", 3);
+        vbox.CustomMinimumSize = new Vector2(500, 0);
         center.AddChild(vbox);
 
-        AddSpacer(vbox, 12);
-
-        // Audio
-        AddSectionHeader(vbox, "AUDIO");
+        AddSpacer(vbox, 4);
 
         var sm = SettingsManager.Instance;
-        AddVolumeRow(vbox, "Master",
-            sm?.MasterVolume ?? 80f,
-            v => SettingsManager.Instance?.SetVolume(v));
-        AddVolumeRow(vbox, "Music",
-            sm?.MusicVolume  ?? 80f,
-            v => SettingsManager.Instance?.SetMusicVolume(v));
-        AddVolumeRow(vbox, "Game FX",
-            sm?.FxVolume     ?? 80f,
-            v => SettingsManager.Instance?.SetFxVolume(v));
-        AddVolumeRow(vbox, "UI FX",
-            sm?.UiFxVolume   ?? 80f,
-            v => SettingsManager.Instance?.SetUiFxVolume(v));
 
-        AddSpacer(vbox, 8);
+        // ── AUDIO ─────────────────────────────────────────────────────────────
+        AddSectionHeader(vbox, "AUDIO");
+        AddVolumeRow(vbox, "Master",  sm?.MasterVolume ?? 80f, v => SettingsManager.Instance?.SetVolume(v));
+        AddVolumeRow(vbox, "Music",   sm?.MusicVolume  ?? 80f, v => SettingsManager.Instance?.SetMusicVolume(v));
+        AddVolumeRow(vbox, "Game FX", sm?.FxVolume     ?? 80f, v => SettingsManager.Instance?.SetFxVolume(v));
+        AddVolumeRow(vbox, "UI FX",   sm?.UiFxVolume   ?? 80f, v => SettingsManager.Instance?.SetUiFxVolume(v));
 
-        // Display
+        AddSpacer(vbox, 4);
+
+        // ── DISPLAY ───────────────────────────────────────────────────────────
         AddSectionHeader(vbox, "DISPLAY");
 
         bool isFs = sm?.Fullscreen ?? false;
-        _fullscreenBtn = new Button
-        {
-            Text = FullscreenLabel(isFs),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _fullscreenBtn.AddThemeFontSizeOverride("font_size", 20);
-        _fullscreenBtn.Pressed += OnToggleFullscreen;
-        vbox.AddChild(_fullscreenBtn);
+        _fullscreenBtn = AddSettingRow(vbox, "Display Mode",
+            isFs ? "Fullscreen" : "Windowed", isOn: isFs, OnToggleFullscreen);
 
         bool isCb = sm?.ColorblindMode ?? false;
-        _colorblindBtn = new Button
-        {
-            Text = ColorblindLabel(isCb),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _colorblindBtn.AddThemeFontSizeOverride("font_size", 20);
-        _colorblindBtn.Pressed += OnToggleColorblind;
-        vbox.AddChild(_colorblindBtn);
+        _colorblindBtn = AddSettingRow(vbox, "Colorblind Mode",
+            OnOffText(isCb), isOn: isCb, OnToggleColorblind);
 
         bool isRm = sm?.ReducedMotion ?? false;
-        _reducedMotionBtn = new Button
-        {
-            Text = ReducedMotionLabel(isRm),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _reducedMotionBtn.AddThemeFontSizeOverride("font_size", 20);
-        _reducedMotionBtn.Pressed += OnToggleReducedMotion;
-        vbox.AddChild(_reducedMotionBtn);
+        _reducedMotionBtn = AddSettingRow(vbox, "Reduced Motion",
+            OnOffText(isRm), isOn: isRm, OnToggleReducedMotion);
 
         bool isPostFx = sm?.PostFxEnabled ?? true;
-        _postFxBtn = new Button
-        {
-            Text = PostFxLabel(isPostFx),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _postFxBtn.AddThemeFontSizeOverride("font_size", 20);
-        _postFxBtn.Pressed += OnTogglePostFx;
-        vbox.AddChild(_postFxBtn);
+        _postFxBtn = AddSettingRow(vbox, "Post FX (Bloom / Glow)",
+            OnOffText(isPostFx), isOn: isPostFx, OnTogglePostFx);
 
-        bool isSf = sm?.ScreenFilterEnabled ?? true;
-        _screenFilterBtn = new Button
-        {
-            Text = ScreenFilterLabel(isSf),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _screenFilterBtn.AddThemeFontSizeOverride("font_size", 20);
-        _screenFilterBtn.Pressed += OnToggleScreenFilter;
-        vbox.AddChild(_screenFilterBtn);
+        AddSpacer(vbox, 4);
 
-        AddSpacer(vbox, 8);
+        // ── SCREEN EFFECTS ────────────────────────────────────────────────────
         AddSectionHeader(vbox, "SCREEN EFFECTS");
 
+        bool isSf = sm?.ScreenFilterEnabled ?? true;
+        _screenFilterBtn = AddSettingRow(vbox, "Screen Filter",
+            OnOffText(isSf), isOn: isSf, OnToggleScreenFilter);
+
         bool isVhs = sm?.VhsGlitchEnabled ?? false;
-        _vhsGlitchBtn = new Button { Text = VhsGlitchLabel(isVhs), CustomMinimumSize = new Vector2(260, 44) };
-        _vhsGlitchBtn.AddThemeFontSizeOverride("font_size", 20);
-        _vhsGlitchBtn.Pressed += OnToggleVhsGlitch;
-        vbox.AddChild(_vhsGlitchBtn);
+        _vhsGlitchBtn = AddSettingRow(vbox, "VHS Glitch",
+            OnOffText(isVhs), isOn: isVhs, OnToggleVhsGlitch);
 
-        bool isPhos = sm?.PhosphorGridEnabled ?? false;
-        _phosphorGridBtn = new Button { Text = PhosphorGridLabel(isPhos), CustomMinimumSize = new Vector2(260, 44) };
-        _phosphorGridBtn.AddThemeFontSizeOverride("font_size", 20);
-        _phosphorGridBtn.Pressed += OnTogglePhosphorGrid;
-        vbox.AddChild(_phosphorGridBtn);
+        AddSpacer(vbox, 4);
 
-        AddSpacer(vbox, 8);
+        // ── ENEMY FX ──────────────────────────────────────────────────────────
         AddSectionHeader(vbox, "ENEMY FX");
 
         bool layered = sm?.LayeredEnemyRendering ?? true;
-        _enemyLayeredBtn = new Button
-        {
-            Text = EnemyLayeredLabel(layered),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _enemyLayeredBtn.AddThemeFontSizeOverride("font_size", 20);
-        _enemyLayeredBtn.Pressed += OnToggleEnemyLayered;
-        vbox.AddChild(_enemyLayeredBtn);
+        _enemyLayeredBtn = AddSettingRow(vbox, "Layered Rendering",
+            OnOffText(layered), isOn: layered, OnToggleEnemyLayered);
 
         bool emissive = sm?.EnemyEmissiveLines ?? true;
-        _enemyEmissiveBtn = new Button
-        {
-            Text = EnemyEmissiveLabel(emissive),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _enemyEmissiveBtn.AddThemeFontSizeOverride("font_size", 20);
-        _enemyEmissiveBtn.Pressed += OnToggleEnemyEmissive;
-        vbox.AddChild(_enemyEmissiveBtn);
+        _enemyEmissiveBtn = AddSettingRow(vbox, "Emissive Lines",
+            OnOffText(emissive), isOn: emissive, OnToggleEnemyEmissive);
 
         bool damage = sm?.EnemyDamageMaterial ?? true;
-        _enemyDamageBtn = new Button
-        {
-            Text = EnemyDamageLabel(damage),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _enemyDamageBtn.AddThemeFontSizeOverride("font_size", 20);
-        _enemyDamageBtn.Pressed += OnToggleEnemyDamage;
-        vbox.AddChild(_enemyDamageBtn);
+        _enemyDamageBtn = AddSettingRow(vbox, "Damage Material",
+            OnOffText(damage), isOn: damage, OnToggleEnemyDamage);
 
         bool bloom = sm?.EnemyBloomHighlights ?? !MobileOptimization.IsMobile();
-        _enemyBloomBtn = new Button
-        {
-            Text = EnemyBloomLabel(bloom),
-            CustomMinimumSize = new Vector2(260, 44),
-        };
-        _enemyBloomBtn.AddThemeFontSizeOverride("font_size", 20);
-        _enemyBloomBtn.Pressed += OnToggleEnemyBloom;
-        vbox.AddChild(_enemyBloomBtn);
+        _enemyBloomBtn = AddSettingRow(vbox, "Bloom Highlights",
+            OnOffText(bloom), isOn: bloom, OnToggleEnemyBloom);
 
         if (sm?.DevMode == true)
         {
-            AddSpacer(vbox, 8);
+            AddSpacer(vbox, 4);
             AddSectionHeader(vbox, "DEVELOPER");
 
-            _resetProfileBtn = new Button
-            {
-                Text = "Reset Profile Unlocks",
-                CustomMinimumSize = new Vector2(260, 44),
-            };
-            _resetProfileBtn.AddThemeFontSizeOverride("font_size", 20);
+            _resetProfileBtn = AddSettingRow(vbox, "Reset All Achievements",
+                "Reset", isOn: false, OnResetProfileUnlocks);
             UITheme.ApplyMutedStyle(_resetProfileBtn);
-            _resetProfileBtn.Pressed += OnResetProfileUnlocks;
-            vbox.AddChild(_resetProfileBtn);
 
             _resetProfileStatus = new Label
             {
                 Text = "",
                 AutowrapMode = TextServer.AutowrapMode.WordSmart,
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             };
-            _resetProfileStatus.AddThemeFontSizeOverride("font_size", 14);
+            _resetProfileStatus.AddThemeFontSizeOverride("font_size", 13);
             _resetProfileStatus.Modulate = new Color(0.85f, 0.72f, 0.72f);
-            vbox.AddChild(_resetProfileStatus);
+            var statusMargin = new MarginContainer();
+            statusMargin.AddThemeConstantOverride("margin_left", 16);
+            statusMargin.AddChild(_resetProfileStatus);
+            vbox.AddChild(statusMargin);
         }
 
+        AddSpacer(vbox, 6);
         MobileOptimization.ApplyUIScale(center);
 
-        // Back button pinned outside scroll so it's always visible
+        // ── Back button ───────────────────────────────────────────────────────
         var bottomMargin = new MarginContainer();
         bottomMargin.AddThemeConstantOverride("margin_left",   24);
         bottomMargin.AddThemeConstantOverride("margin_right",  24);
         bottomMargin.AddThemeConstantOverride("margin_top",    12);
         bottomMargin.AddThemeConstantOverride("margin_bottom", 16);
-        bottomMargin.Theme = SlotTheory.Core.UITheme.Build();
+        bottomMargin.Theme = UITheme.Build();
         root.AddChild(bottomMargin);
 
         var backCenter = new CenterContainer();
@@ -277,134 +209,82 @@ public partial class Settings : Node
             CustomMinimumSize = new Vector2(160, 44),
         };
         back.AddThemeFontSizeOverride("font_size", 20);
-        back.Pressed += () => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+        back.Pressed      += () => Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+        back.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         backCenter.AddChild(back);
     }
 
-    public override void _Notification(int what)
-    {
-        if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */)
-        {
-            SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
-            SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
-        }
-    }
-
-    public override void _UnhandledInput(InputEvent @event)
-    {
-        if (@event.IsActionPressed("ui_cancel"))
-        {
-            SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
-            GetViewport().SetInputAsHandled();
-        }
-    }
+    // ── Toggle handlers ───────────────────────────────────────────────────────
 
     private void OnToggleFullscreen()
     {
         SettingsManager.Instance?.ToggleFullscreen();
-        if (_fullscreenBtn != null)
-            _fullscreenBtn.Text = FullscreenLabel(SettingsManager.Instance?.Fullscreen ?? false);
+        bool isFs = SettingsManager.Instance?.Fullscreen ?? false;
+        UpdateValueButton(_fullscreenBtn, isFs ? "Fullscreen" : "Windowed", isOn: isFs);
     }
 
     private void OnToggleColorblind()
     {
         bool next = !(SettingsManager.Instance?.ColorblindMode ?? false);
         SettingsManager.Instance?.SetColorblindMode(next);
-        if (_colorblindBtn != null)
-            _colorblindBtn.Text = ColorblindLabel(next);
+        UpdateValueButton(_colorblindBtn, OnOffText(next), next);
     }
 
     private void OnToggleReducedMotion()
     {
         bool next = !(SettingsManager.Instance?.ReducedMotion ?? false);
         SettingsManager.Instance?.SetReducedMotion(next);
-        if (_reducedMotionBtn != null)
-            _reducedMotionBtn.Text = ReducedMotionLabel(next);
+        UpdateValueButton(_reducedMotionBtn, OnOffText(next), next);
     }
 
     private void OnTogglePostFx()
     {
         bool next = !(SettingsManager.Instance?.PostFxEnabled ?? true);
         SettingsManager.Instance?.SetPostFxEnabled(next);
-        if (_postFxBtn != null)
-            _postFxBtn.Text = PostFxLabel(next);
+        UpdateValueButton(_postFxBtn, OnOffText(next), next);
     }
 
     private void OnToggleScreenFilter()
     {
-        bool next = !(SettingsManager.Instance?.ScreenFilterEnabled ?? true);
+        bool next = !(SettingsManager.Instance?.ScreenFilterEnabled ?? false);
         SettingsManager.Instance?.SetScreenFilterEnabled(next);
-        if (_screenFilterBtn != null)
-            _screenFilterBtn.Text = ScreenFilterLabel(next);
+        SettingsManager.Instance?.SetPhosphorGridEnabled(next);
+        UpdateValueButton(_screenFilterBtn, OnOffText(next), next);
     }
 
     private void OnToggleVhsGlitch()
     {
         bool next = !(SettingsManager.Instance?.VhsGlitchEnabled ?? false);
         SettingsManager.Instance?.SetVhsGlitchEnabled(next);
-        if (_vhsGlitchBtn != null)
-            _vhsGlitchBtn.Text = VhsGlitchLabel(next);
+        UpdateValueButton(_vhsGlitchBtn, OnOffText(next), next);
     }
-
-    private void OnTogglePhosphorGrid()
-    {
-        bool next = !(SettingsManager.Instance?.PhosphorGridEnabled ?? false);
-        SettingsManager.Instance?.SetPhosphorGridEnabled(next);
-        if (_phosphorGridBtn != null)
-            _phosphorGridBtn.Text = PhosphorGridLabel(next);
-    }
-
-    private static string VhsGlitchLabel(bool on) =>
-        on ? "VHS Glitch:  On" : "VHS Glitch:  Off";
-
-    private static string PhosphorGridLabel(bool on) =>
-        on ? "Phosphor Grid:  On" : "Phosphor Grid:  Off";
-
-    private static string FullscreenLabel(bool full) =>
-        full ? "Display:  Fullscreen" : "Display:  Windowed";
-
-    private static string ColorblindLabel(bool on) =>
-        on ? "Colorblind:  On" : "Colorblind:  Off";
-
-    private static string ReducedMotionLabel(bool on) =>
-        on ? "Reduced Motion:  On" : "Reduced Motion:  Off";
-
-    private static string PostFxLabel(bool on) =>
-        on ? "Post FX:  On" : "Post FX:  Off";
-
-    private static string ScreenFilterLabel(bool on) =>
-        on ? "Screen Filter (CA/Bloom/Scanlines):  On" : "Screen Filter (CA/Bloom/Scanlines):  Off";
 
     private void OnToggleEnemyLayered()
     {
         bool next = !(SettingsManager.Instance?.LayeredEnemyRendering ?? true);
         SettingsManager.Instance?.SetLayeredEnemyRendering(next);
-        if (_enemyLayeredBtn != null)
-            _enemyLayeredBtn.Text = EnemyLayeredLabel(next);
+        UpdateValueButton(_enemyLayeredBtn, OnOffText(next), next);
     }
 
     private void OnToggleEnemyEmissive()
     {
         bool next = !(SettingsManager.Instance?.EnemyEmissiveLines ?? true);
         SettingsManager.Instance?.SetEnemyEmissiveLines(next);
-        if (_enemyEmissiveBtn != null)
-            _enemyEmissiveBtn.Text = EnemyEmissiveLabel(next);
+        UpdateValueButton(_enemyEmissiveBtn, OnOffText(next), next);
     }
 
     private void OnToggleEnemyDamage()
     {
         bool next = !(SettingsManager.Instance?.EnemyDamageMaterial ?? true);
         SettingsManager.Instance?.SetEnemyDamageMaterial(next);
-        if (_enemyDamageBtn != null)
-            _enemyDamageBtn.Text = EnemyDamageLabel(next);
+        UpdateValueButton(_enemyDamageBtn, OnOffText(next), next);
     }
 
     private void OnToggleEnemyBloom()
     {
         bool next = !(SettingsManager.Instance?.EnemyBloomHighlights ?? !MobileOptimization.IsMobile());
         SettingsManager.Instance?.SetEnemyBloomHighlights(next);
-        if (_enemyBloomBtn != null)
-            _enemyBloomBtn.Text = EnemyBloomLabel(next);
+        UpdateValueButton(_enemyBloomBtn, OnOffText(next), next);
     }
 
     private void OnResetProfileUnlocks()
@@ -414,30 +294,68 @@ public partial class Settings : Node
             _resetProfileStatus.Text = "All achievements and unlock flags cleared.";
     }
 
-    private static string EnemyLayeredLabel(bool on) =>
-        on ? "Layered Enemies:  On" : "Layered Enemies:  Off";
+    // ── Row builders ──────────────────────────────────────────────────────────
 
-    private static string EnemyEmissiveLabel(bool on) =>
-        on ? "Enemy Emissive:  On" : "Enemy Emissive:  Off";
-
-    private static string EnemyDamageLabel(bool on) =>
-        on ? "Enemy Damage FX:  On" : "Enemy Damage FX:  Off";
-
-    private static string EnemyBloomLabel(bool on) =>
-        on ? "Enemy Bloom:  On" : "Enemy Bloom:  Off";
-
-    private static void AddVolumeRow(VBoxContainer vbox, string label, float current,
-        System.Action<float> onChange)
+    /// <summary>Adds a label + value-button row. Returns the value button for later updates.</summary>
+    private static Button AddSettingRow(VBoxContainer vbox, string labelText, string valueText,
+        bool isOn, System.Action callback)
     {
-        var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 12);
+        var row = new PanelContainer();
+        row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        row.AddThemeStyleboxOverride("panel", MakeRowStyle());
         vbox.AddChild(row);
 
-        var lbl = new Label { Text = label };
+        var inner = new HBoxContainer();
+        inner.AddThemeConstantOverride("separation", 12);
+        row.AddChild(inner);
+
+        var lbl = new Label
+        {
+            Text = labelText,
+            VerticalAlignment = VerticalAlignment.Center,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
+        };
         lbl.AddThemeFontSizeOverride("font_size", 18);
-        lbl.Modulate = new Color(0.85f, 0.85f, 0.85f);
-        lbl.CustomMinimumSize = new Vector2(120, 0);
-        row.AddChild(lbl);
+        lbl.Modulate = new Color(0.88f, 0.88f, 0.92f);
+        inner.AddChild(lbl);
+
+        var btn = new Button
+        {
+            Text = valueText,
+            CustomMinimumSize = new Vector2(100, 28),
+            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+        };
+        btn.AddThemeFontSizeOverride("font_size", 15);
+        ApplyValueButtonStyle(btn, isOn);
+        btn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); callback(); };
+        btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+        inner.AddChild(btn);
+
+        return btn;
+    }
+
+    private static void AddVolumeRow(VBoxContainer vbox, string labelText, float current,
+        System.Action<float> onChange)
+    {
+        var row = new PanelContainer();
+        row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        row.AddThemeStyleboxOverride("panel", MakeRowStyle());
+        vbox.AddChild(row);
+
+        var inner = new HBoxContainer();
+        inner.AddThemeConstantOverride("separation", 12);
+        row.AddChild(inner);
+
+        var lbl = new Label
+        {
+            Text = labelText,
+            VerticalAlignment = VerticalAlignment.Center,
+            CustomMinimumSize = new Vector2(100, 0),
+        };
+        lbl.AddThemeFontSizeOverride("font_size", 18);
+        lbl.Modulate = new Color(0.88f, 0.88f, 0.92f);
+        inner.AddChild(lbl);
 
         var slider = new HSlider
         {
@@ -445,36 +363,156 @@ public partial class Settings : Node
             MaxValue = 100,
             Value    = current,
             Step     = 1,
-            CustomMinimumSize   = new Vector2(160, 24),
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
+            CustomMinimumSize = new Vector2(160, 20),
         };
-        row.AddChild(slider);
+        inner.AddChild(slider);
 
-        var valueLabel = new Label { Text = $"{(int)current}" };
-        valueLabel.AddThemeFontSizeOverride("font_size", 18);
-        valueLabel.Modulate = new Color(0.65f, 0.65f, 0.65f);
-        valueLabel.CustomMinimumSize = new Vector2(38, 0);
-        row.AddChild(valueLabel);
+        var valueLabel = new Label
+        {
+            Text = $"{(int)current}",
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            CustomMinimumSize = new Vector2(36, 0),
+        };
+        valueLabel.AddThemeFontSizeOverride("font_size", 16);
+        valueLabel.Modulate = new Color(0.55f, 0.85f, 0.55f);
+        inner.AddChild(valueLabel);
 
         slider.ValueChanged += v =>
         {
             valueLabel.Text = $"{(int)v}";
+            valueLabel.Modulate = (int)v > 0
+                ? new Color(0.55f, 0.85f, 0.55f)
+                : new Color(0.45f, 0.45f, 0.45f);
             onChange((float)v);
         };
     }
 
     private static void AddSectionHeader(VBoxContainer vbox, string text)
     {
-        var sep = new HSeparator();
-        sep.Modulate = new Color(0.30f, 0.30f, 0.30f);
-        vbox.AddChild(sep);
+        var row = new HBoxContainer();
+        row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        row.AddThemeConstantOverride("separation", 10);
+        vbox.AddChild(row);
+
+        // Accent bar
+        var bar = new ColorRect
+        {
+            Color = UITheme.Lime,
+            CustomMinimumSize = new Vector2(3f, 0f),
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        row.AddChild(bar);
 
         var lbl = new Label { Text = text };
-        lbl.AddThemeFontSizeOverride("font_size", 16);
-        lbl.Modulate = new Color("#a6d608");
-        vbox.AddChild(lbl);
+        UITheme.ApplyFont(lbl, semiBold: true, size: 13);
+        lbl.Modulate = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.85f);
+        lbl.VerticalAlignment = VerticalAlignment.Center;
+        row.AddChild(lbl);
+
+        // Dim line extending to the right
+        var line = new ColorRect
+        {
+            CustomMinimumSize = new Vector2(0, 1),
+            Color = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.12f),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        row.AddChild(line);
     }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
+    private static StyleBoxFlat MakeRowStyle()
+    {
+        var s = new StyleBoxFlat
+        {
+            BgColor = new Color(0.06f, 0.05f, 0.14f, 0.80f),
+            CornerRadiusTopLeft     = 5,
+            CornerRadiusTopRight    = 5,
+            CornerRadiusBottomLeft  = 5,
+            CornerRadiusBottomRight = 5,
+        };
+        s.ContentMarginLeft   = 14;
+        s.ContentMarginRight  = 10;
+        s.ContentMarginTop    = 6;
+        s.ContentMarginBottom = 6;
+        return s;
+    }
+
+    private static void ApplyValueButtonStyle(Button btn, bool isOn)
+    {
+        if (isOn)
+        {
+            btn.AddThemeColorOverride("font_color",          UITheme.Lime);
+            btn.AddThemeColorOverride("font_hover_color",    UITheme.Lime);
+            btn.AddThemeColorOverride("font_pressed_color",  UITheme.LimeDim);
+            btn.AddThemeColorOverride("font_focus_color",    UITheme.Lime);
+            btn.AddThemeStyleboxOverride("normal",  MakeValBtn(new Color(0.06f, 0.14f, 0.04f), UITheme.LimeDark));
+            btn.AddThemeStyleboxOverride("hover",   MakeValBtn(new Color(0.09f, 0.20f, 0.05f), UITheme.Lime,    glowAlpha: 0.12f, glowSize: 4, glowColor: UITheme.Lime));
+            btn.AddThemeStyleboxOverride("pressed", MakeValBtn(new Color(0.04f, 0.08f, 0.02f), UITheme.LimeDim));
+            btn.AddThemeStyleboxOverride("focus",   MakeValBtn(new Color(0.09f, 0.20f, 0.05f), UITheme.Lime,    glowAlpha: 0.08f, glowSize: 3, glowColor: UITheme.Lime));
+        }
+        else
+        {
+            var dimText   = new Color(0.50f, 0.50f, 0.54f);
+            var dimBorder = new Color(0.20f, 0.20f, 0.26f);
+            var dimBg     = new Color(0.05f, 0.05f, 0.10f);
+            btn.AddThemeColorOverride("font_color",         dimText);
+            btn.AddThemeColorOverride("font_hover_color",   new Color(0.70f, 0.70f, 0.75f));
+            btn.AddThemeColorOverride("font_pressed_color", dimText);
+            btn.AddThemeColorOverride("font_focus_color",   dimText);
+            btn.AddThemeStyleboxOverride("normal",  MakeValBtn(dimBg,                           dimBorder));
+            btn.AddThemeStyleboxOverride("hover",   MakeValBtn(new Color(0.08f, 0.08f, 0.14f),  dimBorder));
+            btn.AddThemeStyleboxOverride("pressed", MakeValBtn(dimBg,                           dimBorder));
+            btn.AddThemeStyleboxOverride("focus",   MakeValBtn(new Color(0.08f, 0.08f, 0.14f),  dimBorder));
+        }
+    }
+
+    private static StyleBoxFlat MakeValBtn(Color bg, Color border,
+        float glowAlpha = 0f, int glowSize = 0, Color? glowColor = null)
+    {
+        var s = UITheme.MakeBtn(bg, border, border: 1, corners: 6,
+            glowAlpha: glowAlpha, glowSize: glowSize, glowColor: glowColor);
+        // Override content margins to fit snugly inside the 28px button height
+        s.ContentMarginTop    = 4;
+        s.ContentMarginBottom = 4;
+        s.ContentMarginLeft   = 10;
+        s.ContentMarginRight  = 10;
+        return s;
+    }
+
+    private static void UpdateValueButton(Button? btn, string text, bool isOn)
+    {
+        if (btn == null) return;
+        btn.Text = text;
+        ApplyValueButtonStyle(btn, isOn);
+    }
+
+    private static string OnOffText(bool on) => on ? "ON" : "OFF";
 
     private static void AddSpacer(VBoxContainer vbox, int px) =>
         vbox.AddChild(new Control { CustomMinimumSize = new Vector2(0, px) });
+
+    public override void _Notification(int what)
+    {
+        if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */)
+        {
+            SoundManager.Instance?.Play("ui_select");
+            Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+        }
+    }
+
+    public override void _UnhandledInput(InputEvent @event)
+    {
+        if (@event.IsActionPressed("ui_cancel"))
+        {
+            Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+            GetViewport().SetInputAsHandled();
+        }
+    }
 }

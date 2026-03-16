@@ -37,9 +37,9 @@ public static class UITheme
 
         // Standard buttons — lime accent on hover
         theme.SetStylebox("normal",   "Button", MakeBtn(BgDeep,  BorderDim,  border: 1, corners: 8, glowAlpha: 0f,   glowSize: 0));
-        theme.SetStylebox("hover",    "Button", MakeBtn(BgHover, Lime,       border: 2, corners: 8, glowAlpha: 0.22f, glowSize: 8));
-        theme.SetStylebox("pressed",  "Button", MakeBtn(BgDeep,  LimeDim,    border: 2, corners: 8, glowAlpha: 0.12f, glowSize: 4));
-        theme.SetStylebox("focus",    "Button", MakeBtn(BgHover, Lime,       border: 2, corners: 8, glowAlpha: 0.18f, glowSize: 6));
+        theme.SetStylebox("hover",    "Button", MakeBtn(BgHover, Lime,       border: 2, corners: 8, glowAlpha: 0.16f, glowSize: 5));
+        theme.SetStylebox("pressed",  "Button", MakeBtn(BgDeep,  LimeDim,    border: 2, corners: 8, glowAlpha: 0.10f, glowSize: 3));
+        theme.SetStylebox("focus",    "Button", MakeBtn(BgHover, Lime,       border: 2, corners: 8, glowAlpha: 0.13f, glowSize: 4));
         theme.SetStylebox("disabled", "Button", MakeBtn(new Color(0.04f, 0.04f, 0.10f), new Color(0.10f, 0.10f, 0.14f), border: 1, corners: 8, glowAlpha: 0f, glowSize: 0));
 
         theme.SetColor("font_color",          "Button", Colors.White);
@@ -71,10 +71,10 @@ public static class UITheme
     {
         var bgNormal  = new Color(0.06f, 0.14f, 0.04f);
         var bgHover   = new Color(0.09f, 0.20f, 0.05f);
-        btn.AddThemeStyleboxOverride("normal",  MakeBtn(bgNormal,  LimeDark, border: 1, corners: 10, glowAlpha: 0.12f, glowSize: 6,  glowColor: Lime));
-        btn.AddThemeStyleboxOverride("hover",   MakeBtn(bgHover,   Lime,     border: 2, corners: 10, glowAlpha: 0.45f, glowSize: 14, glowColor: Lime));
-        btn.AddThemeStyleboxOverride("pressed", MakeBtn(BgDeep,    LimeDim,  border: 2, corners: 10, glowAlpha: 0.22f, glowSize: 6,  glowColor: LimeDim));
-        btn.AddThemeStyleboxOverride("focus",   MakeBtn(bgHover,   Lime,     border: 2, corners: 10, glowAlpha: 0.35f, glowSize: 10, glowColor: Lime));
+        btn.AddThemeStyleboxOverride("normal",  MakeBtn(bgNormal,  LimeDark, border: 1, corners: 10, glowAlpha: 0.10f, glowSize: 4,  glowColor: Lime));
+        btn.AddThemeStyleboxOverride("hover",   MakeBtn(bgHover,   Lime,     border: 2, corners: 10, glowAlpha: 0.34f, glowSize: 9,  glowColor: Lime));
+        btn.AddThemeStyleboxOverride("pressed", MakeBtn(BgDeep,    LimeDim,  border: 2, corners: 10, glowAlpha: 0.18f, glowSize: 5,  glowColor: LimeDim));
+        btn.AddThemeStyleboxOverride("focus",   MakeBtn(bgHover,   Lime,     border: 2, corners: 10, glowAlpha: 0.26f, glowSize: 7,  glowColor: Lime));
         btn.AddThemeColorOverride("font_color",       Colors.White);
         btn.AddThemeColorOverride("font_hover_color", Lime);
         btn.AddThemeFontSizeOverride("font_size", 20);

@@ -77,8 +77,8 @@ public partial class HowToPlay : Node
         panelMargin.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         panelMargin.AddThemeConstantOverride("margin_left",   sidePad);
         panelMargin.AddThemeConstantOverride("margin_right",  sidePad);
-        panelMargin.AddThemeConstantOverride("margin_top",    20);
-        panelMargin.AddThemeConstantOverride("margin_bottom", 20);
+        panelMargin.AddThemeConstantOverride("margin_top",    12);
+        panelMargin.AddThemeConstantOverride("margin_bottom", 12);
         root.AddChild(panelMargin);
 
         var scrollPanel = new PanelContainer();
@@ -103,8 +103,8 @@ public partial class HowToPlay : Node
         int innerH = MobileOptimization.IsMobile() ? 10 : 24;
         marginContainer.AddThemeConstantOverride("margin_left",   innerH);
         marginContainer.AddThemeConstantOverride("margin_right",  innerH);
-        marginContainer.AddThemeConstantOverride("margin_top",    20);
-        marginContainer.AddThemeConstantOverride("margin_bottom", 20);
+        marginContainer.AddThemeConstantOverride("margin_top",    12);
+        marginContainer.AddThemeConstantOverride("margin_bottom", 12);
         marginContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         marginContainer.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
         marginContainer.MouseFilter = Control.MouseFilterEnum.Pass;
@@ -118,7 +118,7 @@ public partial class HowToPlay : Node
 
         // Title
         AddTitle(vbox, "HOW TO PLAY");
-        AddSpacer(vbox, 10);
+        AddSpacer(vbox, 6);
 
         var tabRow = new HBoxContainer();
         tabRow.Alignment = BoxContainer.AlignmentMode.Center;
@@ -130,7 +130,7 @@ public partial class HowToPlay : Node
         tabRow.AddChild(_basicsTabBtn);
         tabRow.AddChild(_surgesTabBtn);
 
-        AddSpacer(vbox, 8);
+        AddSpacer(vbox, 4);
 
         _basicsSection = new VBoxContainer();
         _basicsSection.AddThemeConstantOverride("separation", 6);
@@ -143,7 +143,7 @@ public partial class HowToPlay : Node
         BuildSurgesSection(_surgesSection);
 
         SetActiveTab(StartOnSurgesTab ? HowToTab.Surges : HowToTab.Basics);
-        AddSpacer(vbox, 22);
+        AddSpacer(vbox, 10);
 
         // Back button
         var backBtn = new Button
@@ -160,7 +160,7 @@ public partial class HowToPlay : Node
         };
         vbox.AddChild(backBtn);
 
-        AddSpacer(vbox, 40);
+        AddSpacer(vbox, 8);
     }
 
     public override void _Notification(int what)
@@ -190,7 +190,7 @@ public partial class HowToPlay : Node
         AddLine(vbox, "Waves run automatically - you do not manually fire or place towers during waves.");
         AddLine(vbox, "Survive all 20 waves to win.");
         AddLine(vbox, "An enemy reaching the exit costs 1 life. You have 10 lives.");
-        AddSpacer(vbox, 12);
+        AddSpacer(vbox, 8);
 
         AddHeader(vbox, "CONTROLS");
         AddRow(vbox, "Pick a draft card", "Left-click the card");
@@ -198,7 +198,7 @@ public partial class HowToPlay : Node
         AddRow(vbox, "Cycle targeting mode", "Left-click a tower during a wave");
         AddRow(vbox, "Pause / unpause", "Esc / Space / HUD Pause button");
         AddRow(vbox, "Speed", "Click speed button to cycle available game-speed steps");
-        AddSpacer(vbox, 12);
+        AddSpacer(vbox, 8);
 
         AddHeader(vbox, "TOWERS");
         AddTowerRow(vbox, "rapid_shooter", "Rapid Shooter", "10 dmg, 0.45 s, 285 px range",
@@ -211,7 +211,7 @@ public partial class HowToPlay : Node
             "Unlock by beating the first campaign map. Chains to 2 nearby enemies per shot (60% damage decay per bounce).");
         AddTowerRow(vbox, "rift_prism", "Rift Sapper (unlock)", "22 dmg, 0.98 s, 230 px range",
             "Unlock by beating the third campaign map. Plants up to 7 mines with 3 charges each; final charge causes the big pop. Wave start gets rapid seeding for 2.4s. Split Shot seeds mini-mines (35% scale) on final pops only.");
-        AddSpacer(vbox, 12);
+        AddSpacer(vbox, 8);
 
         AddHeader(vbox, "TARGETING MODES  (click a tower mid-wave to cycle)");
         AddLine(vbox, "The same icon badge appears beside each tower during combat.");
@@ -222,13 +222,13 @@ public partial class HowToPlay : Node
         AddTargetModeRow(vbox, TargetingMode.First, "Random", "Place mines at random valid lane points within range.", TargetModeIconSet.RiftSapper);
         AddTargetModeRow(vbox, TargetingMode.Strongest, "Closest", "Place mines at the closest valid lane point within range.", TargetModeIconSet.RiftSapper);
         AddTargetModeRow(vbox, TargetingMode.LowestHp, "Furthest", "Place mines at the furthest valid lane point within range.", TargetModeIconSet.RiftSapper);
-        AddSpacer(vbox, 12);
+        AddSpacer(vbox, 8);
 
         AddHeader(vbox, "MARK");
         AddLine(vbox, "Marker Tower hits apply Mark for 4 seconds.");
         AddLine(vbox, "Marked enemies take +40% damage from all towers.");
         AddLine(vbox, "Pair with Exploit Weakness for a x2.03 burst combo (+40% mark x +45% exploit).");
-        AddSpacer(vbox, 12);
+        AddSpacer(vbox, 8);
 
         AddHeader(vbox, "MODIFIERS  (max 3 per tower)");
         AddModRowWithIcon(vbox, "momentum",         "Momentum",            "+16% damage per consecutive hit on same target, up to x1.8. Resets on target switch.");
@@ -241,14 +241,14 @@ public partial class HowToPlay : Node
         AddModRowWithIcon(vbox, "split_shot",       "Split Shot (unlock)", "Unlock by beating the second campaign map. On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
         AddModRowWithIcon(vbox, "feedback_loop",    "Feedback Loop",       "Killing an enemy reduces this tower's current cooldown by 50%. Lets rapid killers fire again sooner.");
         AddModRowWithIcon(vbox, "chain_reaction",   "Chain Reaction",      "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
-        AddSpacer(vbox, 12);
+        AddSpacer(vbox, 8);
 
         AddHeader(vbox, "ENEMIES");
         AddLine(vbox, $"Basic Walker: {Balance.BaseEnemyHp:0} HP on wave 1, x{Balance.HpGrowthPerWave:0.00} per wave. Speed: {Balance.BaseEnemySpeed:0} px/s. Leaks cost 1 life.");
         AddLine(vbox, $"Armored Walker: {Balance.TankyHpMultiplier:0.#}x HP, half speed ({Balance.TankyEnemySpeed:0} px/s). Leaks cost 2 lives. First appears wave 6.");
         AddLine(vbox, $"Swift Walker: {Balance.SwiftHpMultiplier:0.#}x HP, double speed ({Balance.SwiftEnemySpeed:0} px/s). Leaks cost 1 life. Appears in mid-game surge waves.");
         AddLine(vbox, "Enemy count scales with map and difficulty; late waves can exceed 40 total enemies on harder settings.");
-        AddSpacer(vbox, 12);
+        AddSpacer(vbox, 8);
 
         AddHeader(vbox, "TIPS");
         AddLine(vbox, "Rapid Shooter + Momentum - devastating DPS on enemies that take many hits to kill.");
@@ -271,7 +271,7 @@ public partial class HowToPlay : Node
         AddLine(vbox, "Surge mode by unique supported mods on tower: 1=Single, 2=Combo, 3=Triad (combo core + augment).");
         AddSpacer(vbox, 8);
         AddLine(vbox, "Visual grammar: ripples = mode (1 ring for Single, 2 for Combo, 3 for Triad). Pattern = tower type (cannon ring, chain arcs, sparks, etc.). Banner label = your build archetype (REDLINE WAVE, CHAIN STORM, etc.).");
-        AddSpacer(vbox, 12);
+        AddSpacer(vbox, 8);
 
         AddHeader(vbox, "SINGLE SURGE TYPES (10)");
         foreach (string modId in CanonicalSurgeMods)
@@ -280,7 +280,7 @@ public partial class HowToPlay : Node
             string modName = SpectacleDefinitions.GetDisplayName(modId);
             AddModRowWithIcon(vbox, modId, single.Name.ToUpperInvariant(), $"{modName}: {DescribeSingleEffect(modId)}");
         }
-        AddSpacer(vbox, 12);
+        AddSpacer(vbox, 8);
 
         AddHeader(vbox, "COMBO SURGE TYPES (45)");
         for (int i = 0; i < CanonicalSurgeMods.Length; i++)
@@ -296,7 +296,7 @@ public partial class HowToPlay : Node
                     $"{aName} + {bName}: Hybrid payload.");
             }
         }
-        AddSpacer(vbox, 12);
+        AddSpacer(vbox, 8);
 
         AddHeader(vbox, "TRIAD AUGMENT TYPES (10)");
         foreach (string modId in CanonicalSurgeMods)
@@ -307,7 +307,7 @@ public partial class HowToPlay : Node
             AddModRowWithIcon(vbox, modId, aug.Name.ToUpperInvariant(), $"{modName}: {DescribeAugmentKind(aug.Kind)}. Coef {aug.Coefficient * 100f:0}% ({duration}).");
         }
         AddLine(vbox, "Triad surge output always uses one combo core C_* plus one augment package T_AUG_*.");
-        AddSpacer(vbox, 12);
+        AddSpacer(vbox, 8);
 
         AddHeader(vbox, "GLOBAL SURGE");
         AddLine(vbox, "When it triggers, every placed tower gets a cooldown refund and fires its own major surge payload.");
@@ -413,7 +413,7 @@ public partial class HowToPlay : Node
         var sep = new HSeparator();
         sep.Modulate = new Color(0.35f, 0.35f, 0.35f);
         vbox.AddChild(sep);
-        AddSpacer(vbox, 6);
+        AddSpacer(vbox, 3);
 
         var lbl = new Label { Text = text };
         var headerSize = MobileOptimization.IsMobile() ? 14 : 18;
@@ -421,7 +421,7 @@ public partial class HowToPlay : Node
         lbl.Modulate = new Color("#a6d608");
         vbox.AddChild(lbl);
 
-        AddSpacer(vbox, 4);
+        AddSpacer(vbox, 2);
     }
 
     private static void AddLine(VBoxContainer vbox, string text)
