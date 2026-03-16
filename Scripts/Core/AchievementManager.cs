@@ -227,6 +227,72 @@ public partial class AchievementManager : Node
     }
 
     /// <summary>
+    /// Returns 1–2 lines of near-miss or forward-goal hints for the end screen.
+    /// Near-misses from this run take priority; falls back to the single most
+    /// accessible unearned achievement as a forward goal. Returns null if nothing
+    /// relevant to show.
+    /// </summary>
+    public string? GetGoalHint(RunState state, DifficultyMode difficulty, bool won)
+    {
+        if (OS.GetCmdlineUserArgs().Contains("--bot")) return null;
+
+        var hints = new System.Collections.Generic.List<string>();
+
+        // ── Near-misses: things that almost happened this run ─────────────
+        if (won)
+        {
+            int livesLost = Balance.StartingLives - state.Lives;
+            if (!IsUnlocked("FLAWLESS") && livesLost > 0 && livesLost <= 3)
+                hints.Add($"Almost FLAWLESS — lost {livesLost} {(livesLost == 1 ? "life" : "lives")}");
+
+            if (!IsUnlocked("LAST_STAND") && state.Lives == 2)
+                hints.Add("Almost LAST STAND — won with 2 lives (target: 1)");
+
+            if (!IsUnlocked("SPEED_RUN") && state.TotalPlayTime > SpeedRunMaxSeconds
+                && state.TotalPlayTime <= SpeedRunMaxSeconds + 90f)
+            {
+                int overBy = (int)(state.TotalPlayTime - SpeedRunMaxSeconds);
+                hints.Add($"Almost SPEED RUN — {overBy}s over the 8:00 limit");
+            }
+        }
+
+        // Annihilator near-miss applies on win or loss
+        if (!IsUnlocked("ANNIHILATOR")
+            && state.TotalDamageDealt >= AnnihilatorDamage * 0.70f
+            && state.TotalDamageDealt < AnnihilatorDamage)
+        {
+            hints.Add($"Almost ANNIHILATOR — {state.TotalDamageDealt:N0} / {AnnihilatorDamage:N0} damage");
+        }
+
+        if (hints.Count > 0)
+            return string.Join("\n", hints.Take(2));
+
+        // ── Forward goals: most accessible unearned achievement ───────────
+        if (!won && !IsUnlocked("FIRST_WIN"))
+            return "Next goal: FIRST VICTORY — complete all 20 waves";
+
+        if (won && difficulty != DifficultyMode.Hard && !IsUnlocked("HARD_WIN"))
+            return "Next goal: HARD CARRY — win on Hard difficulty";
+
+        if (won && !IsUnlocked("FLAWLESS"))
+            return "Next goal: FLAWLESS — win without losing a single life";
+
+        if (won && !IsUnlocked("SPEED_RUN"))
+        {
+            int s = (int)state.TotalPlayTime;
+            return $"Next goal: SPEED RUN — win in under 8:00  (this run: {s / 60}:{s % 60:D2})";
+        }
+
+        if (!IsUnlocked("ANNIHILATOR"))
+            return $"Next goal: ANNIHILATOR — deal 100,000 damage in one run";
+
+        if (!IsUnlocked("CHAIN_MASTER") && IsUnlocked(Unlocks.ArcEmitterAchievementId))
+            return "Next goal: CHAIN MASTER — win with Arc Emitters in all 6 slots";
+
+        return null;
+    }
+
+    /// <summary>
     /// Pushes all locally-unlocked achievements to Steam.
     /// Call once after Steam successfully initializes to sync achievements that were
     /// unlocked locally before the Steam DLL was available.

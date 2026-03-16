@@ -563,6 +563,8 @@ public partial class GameController : Node
 			_endScreen.SetLeaderboardContext(scorePayload.MapId, scorePayload.Difficulty);
 			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), _runState, runName, mvpLine, modLine, runColors.start, runColors.end);
 			_endScreen.SetLeaderboardStatus(leaderboardLine);
+			var lossGoalHint = AchievementManager.Instance?.GetGoalHint(_runState, scorePayload.Difficulty, won: false);
+			if (!string.IsNullOrEmpty(lossGoalHint)) _endScreen.SetGoalHint(lossGoalHint);
 			QueueGlobalSubmit(scorePayload, leaderboardLine);
 			EnqueueUnlockReveals(newlyUnlocked);
 			return;
@@ -594,6 +596,8 @@ public partial class GameController : Node
 				_endScreen.SetLeaderboardContext(scorePayload.MapId, scorePayload.Difficulty);
 				_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end);
 				_endScreen.SetLeaderboardStatus(leaderboardLine);
+				var winGoalHint = AchievementManager.Instance?.GetGoalHint(_runState, scorePayload.Difficulty, won: true);
+				if (!string.IsNullOrEmpty(winGoalHint)) _endScreen.SetGoalHint(winGoalHint);
 				QueueGlobalSubmit(scorePayload, leaderboardLine);
 				EnqueueUnlockReveals(newlyUnlocked);
 			}
@@ -6008,6 +6012,13 @@ void fragment() {
 		if (localSubmit.IsNewPersonalBest)
 			return $"Score: {localSubmit.Score:N0}  |  NEW PERSONAL BEST";
 
+		if (localSubmit.PreviousBest != null)
+		{
+			int delta = localSubmit.Score - localSubmit.PreviousBest.Score;
+			string sign = delta >= 0 ? "+" : "\u2212";
+			return $"Score: {localSubmit.Score:N0}  |  {sign}{System.Math.Abs(delta):N0} vs. your best";
+		}
+
 		return $"Score: {localSubmit.Score:N0}  |  Personal Best: {localSubmit.CurrentBest.Score:N0}";
 	}
 
@@ -6038,7 +6049,20 @@ void fragment() {
 
 		var result = await manager.SubmitAsync(payload);
 		GD.Print($"[Leaderboards] Submit result: {result.State} — {result.Message}");
-		string line = BuildGlobalLeaderboardLine(localLine, result);
+
+		string? gapSuffix = null;
+		if (result.State == GlobalSubmitState.Submitted && result.Rank.HasValue && result.Rank.Value > 1)
+		{
+			var entryAbove = await manager.GetEntryAtRankAsync(payload.MapId, payload.Difficulty, result.Rank.Value - 1);
+			if (entryAbove != null)
+			{
+				int gap = entryAbove.Score - ScoreCalculator.ComputeScore(payload);
+				if (gap > 0)
+					gapSuffix = $"\u2014 {gap:N0} from #{result.Rank.Value - 1}";
+			}
+		}
+
+		string line = BuildGlobalLeaderboardLine(localLine, result, gapSuffix);
 		bool isError = result.State == GlobalSubmitState.Failed;
 		CallDeferred(nameof(ApplyLeaderboardStatus), line, isError);
 	}
@@ -6049,12 +6073,12 @@ void fragment() {
 		_endScreen.SetLeaderboardStatus(line, isError);
 	}
 
-	private static string BuildGlobalLeaderboardLine(string localLine, GlobalSubmitResult result)
+	private static string BuildGlobalLeaderboardLine(string localLine, GlobalSubmitResult result, string? gapSuffix = null)
 	{
 		string globalText = result.State switch
 		{
 			GlobalSubmitState.Submitted when result.Rank.HasValue
-				=> $"Global ({result.Provider}): rank #{result.Rank.Value}",
+				=> $"Global ({result.Provider}): rank #{result.Rank.Value}{(gapSuffix != null ? $"  {gapSuffix}" : "")}",
 			GlobalSubmitState.Submitted
 				=> $"Global ({result.Provider}): submitted",
 			GlobalSubmitState.Queued

@@ -21,9 +21,11 @@ public partial class EndScreen : CanvasLayer
 	private Label _modLabel      = null!;
 	private Label _buildLabel    = null!;
 	private Label _lossAnalysisLabel = null!;
+	private Label _goalLabel = null!;
 	private Button _viewLeaderboardButton = null!;
 	private Button _wishlistButton = null!;
 	private Button _mainMenuButton = null!;
+	private Button _playAgainButton = null!;
 	private string _leaderboardMapId = LeaderboardKey.RandomMapId;
 	private DifficultyMode _leaderboardDifficulty = DifficultyMode.Easy;
 	private RunScorePayload? _pendingPayload;
@@ -125,6 +127,17 @@ public partial class EndScreen : CanvasLayer
 		_lossAnalysisLabel.Visible = false;
 		vbox.AddChild(_lossAnalysisLabel);
 
+		// Near-miss / next-goal hint
+		_goalLabel = new Label
+		{
+			HorizontalAlignment = HorizontalAlignment.Center,
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+		};
+		_goalLabel.AddThemeFontSizeOverride("font_size", 15);
+		_goalLabel.Modulate = new Color(1.0f, 0.88f, 0.45f, 0.92f);
+		_goalLabel.Visible = false;
+		vbox.AddChild(_goalLabel);
+
 		// Secondary actions row: Leaderboards + Wishlist side by side
 		var secondaryRow = new HBoxContainer();
 		secondaryRow.AddThemeConstantOverride("separation", 8);
@@ -161,6 +174,18 @@ public partial class EndScreen : CanvasLayer
 		_wishlistButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		secondaryRow.AddChild(_wishlistButton);
 
+		_playAgainButton = new Button
+		{
+			Text = "Play Again",
+			CustomMinimumSize = new Vector2(360f, 46f),
+			Visible = false,
+		};
+		_playAgainButton.AddThemeFontSizeOverride("font_size", 20);
+		UITheme.ApplyPrimaryStyle(_playAgainButton);
+		_playAgainButton.Pressed += OnPlayAgainPressed;
+		_playAgainButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		vbox.AddChild(_playAgainButton);
+
 		_mainMenuButton = new Button
 		{
 			Text = "Main Menu",
@@ -168,7 +193,7 @@ public partial class EndScreen : CanvasLayer
 			Visible = true,
 		};
 		_mainMenuButton.AddThemeFontSizeOverride("font_size", 20);
-		UITheme.ApplyPrimaryStyle(_mainMenuButton);
+		UITheme.ApplyCyanStyle(_mainMenuButton);
 		_mainMenuButton.Pressed += OnMainMenuPressed;
 		_mainMenuButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		vbox.AddChild(_mainMenuButton);
@@ -192,6 +217,7 @@ public partial class EndScreen : CanvasLayer
 		_buildLabel.Text = buildSummary;
 		_buildLabel.Visible = buildSummary.Length > 0;
 		_lossAnalysisLabel.Visible = false;
+		_goalLabel.Visible = false;
 		_leaderboardLabel.Visible = false;
 		PlayEntranceAnimation();
 	}
@@ -200,7 +226,9 @@ public partial class EndScreen : CanvasLayer
 	{
 		_titleLabel.Text = "GAME OVER";
 		_titleLabel.Modulate = new Color(1.0f, 0.35f, 0.35f);
-		_subtitleLabel.Text = $"Reached wave {waveReached} / {Balance.TotalWaves}  -  Lives lost: {livesLost}";
+		int wavesLeft = Balance.TotalWaves - waveReached;
+		string wavesFromVictory = wavesLeft > 0 ? $"  —  {wavesLeft} wave{(wavesLeft == 1 ? "" : "s")} from victory" : "";
+		_subtitleLabel.Text = $"{waveReached} / {Balance.TotalWaves}{wavesFromVictory}  ·  Lives lost: {livesLost}";
 		_statsLabel.Text = $"Enemies killed: {kills}  -  Total damage: {damageDealt:N0}  -  Time: {FormatTime(totalPlayTime)}";
 		_statsLabel.Visible = kills > 0 || damageDealt > 0;
 		SetRunNameGradient(runName, runStartColor, runEndColor);
@@ -212,6 +240,8 @@ public partial class EndScreen : CanvasLayer
 		_buildLabel.Text = buildSummary;
 		_buildLabel.Visible = buildSummary.Length > 0;
 		_leaderboardLabel.Visible = false;
+
+		_goalLabel.Visible = false;
 
 		// Show loss analysis for actionable insights
 		string lossAnalysis = GenerateLossAnalysis(runState);
@@ -247,6 +277,7 @@ public partial class EndScreen : CanvasLayer
 			(_modLabel,          0.60f, _modLabel.Modulate.A),
 			(_buildLabel,        0.66f, _buildLabel.Modulate.A),
 			(_lossAnalysisLabel, 0.66f, _lossAnalysisLabel.Modulate.A),
+			(_goalLabel,         0.74f, _goalLabel.Modulate.A),
 		};
 		foreach (var entry in stagger)
 		{
@@ -291,6 +322,13 @@ public partial class EndScreen : CanvasLayer
 		}
 	}
 
+	public void SetGoalHint(string hint)
+	{
+		if (!GodotObject.IsInstanceValid(_goalLabel)) return;
+		_goalLabel.Text = hint;
+		_goalLabel.Visible = hint.Length > 0;
+	}
+
 	public void SetLeaderboardContext(string mapId, DifficultyMode difficulty)
 	{
 		_leaderboardMapId = string.IsNullOrEmpty(mapId) ? LeaderboardKey.RandomMapId : mapId;
@@ -305,6 +343,11 @@ public partial class EndScreen : CanvasLayer
 		{
 			_mainMenuButton.Visible = true;
 			_mainMenuButton.Disabled = false;
+		}
+		if (GodotObject.IsInstanceValid(_playAgainButton))
+		{
+			_playAgainButton.Visible = true;
+			_playAgainButton.Disabled = false;
 		}
 	}
 
@@ -465,6 +508,16 @@ public partial class EndScreen : CanvasLayer
 			Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 			GetViewport().SetInputAsHandled();
 		}
+	}
+
+	private void OnPlayAgainPressed()
+	{
+		SoundManager.Instance?.Play("ui_select");
+		MapSelectPanel.SetPendingMapSelection(_leaderboardMapId);
+		if (_leaderboardMapId == LeaderboardKey.RandomMapId)
+			MapSelectPanel.SetPendingProceduralSeed((ulong)(System.Environment.TickCount64 & 0x7FFFFFFF));
+		SettingsManager.Instance?.SetDifficulty(_leaderboardDifficulty);
+		Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
 	}
 
 	private void OnMainMenuPressed()

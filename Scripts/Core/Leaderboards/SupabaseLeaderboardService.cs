@@ -135,6 +135,41 @@ public sealed class SupabaseLeaderboardService : ILeaderboardService
         }
     }
 
+    public async Task<LeaderboardEntryView?> GetEntryAtRankAsync(LeaderboardBucket bucket, int rank)
+    {
+        if (rank < 1) return null;
+        string difficulty = bucket.Difficulty.ToString().ToLowerInvariant();
+        string url = $"{SupabaseConfig.ProjectUrl}/rest/v1/scores"
+                   + $"?map_id=eq.{System.Uri.EscapeDataString(bucket.MapId)}"
+                   + $"&difficulty=eq.{System.Uri.EscapeDataString(difficulty)}"
+                   + $"&order=score.desc"
+                   + $"&offset={rank - 1}"
+                   + $"&limit=1"
+                   + $"&select=score";
+
+        try
+        {
+            using var req = MakeRequest(System.Net.Http.HttpMethod.Get, url);
+            using var resp = await Http.SendAsync(req);
+            if (!resp.IsSuccessStatusCode) return null;
+
+            string json = await resp.Content.ReadAsStringAsync();
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.EnumerateArray().MoveNext()) return null;
+
+            var row = doc.RootElement[0];
+            int scoreVal = row.TryGetProperty("score", out var s)
+                ? (int)System.Math.Min(s.GetInt64(), int.MaxValue)
+                : 0;
+            return new LeaderboardEntryView(rank, "", scoreVal, 0, 0, 0, 0, 0, BuildSnapshotCodec.Empty());
+        }
+        catch (System.Exception ex)
+        {
+            GD.PrintErr($"[Supabase] GetEntryAtRank exception: {ex.Message}");
+            return null;
+        }
+    }
+
     public Task<bool> ShowNativeUiAsync(LeaderboardBucket bucket) => Task.FromResult(false);
 
     // ── Helpers ───────────────────────────────────────────────────────────

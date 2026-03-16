@@ -40,6 +40,7 @@ public partial class SettingsManager : Node
     public string PlayerId      { get; private set; } = "";
     public int    RunsStarted   { get; private set; } = 0;
     public bool   IsFirstRun    => RunsStarted <= 1;
+    public bool   DemoCompleteNotified { get; private set; } = false;
 
     // ── Device-specific display settings (NOT cloud-synced) ──────────────
     public bool  Fullscreen    { get; private set; } = false;
@@ -133,6 +134,12 @@ public partial class SettingsManager : Node
     public void IncrementRunsStarted()
     {
         RunsStarted++;
+        SaveAccount();
+    }
+
+    public void SetDemoCompleteNotified()
+    {
+        DemoCompleteNotified = true;
         SaveAccount();
     }
 
@@ -279,6 +286,7 @@ public partial class SettingsManager : Node
             PlayerName   = (string)cfg.GetValue(SecIdentity, "player_name",    "");
             PlayerId     = (string)cfg.GetValue(SecIdentity, "player_id",      "");
             RunsStarted  = (int)   cfg.GetValue(SecIdentity, "runs_started",   0);
+            DemoCompleteNotified = (bool)cfg.GetValue(SecIdentity, "demo_complete_notified", false);
             DevMode = ReadHiddenDevModeForProfile(cfg, PlayerId, out bool migratedFromLegacy);
             if (migratedFromLegacy)
                 SaveAccount();
@@ -326,6 +334,7 @@ public partial class SettingsManager : Node
         cfg.SetValue(SecIdentity, "player_name",  PlayerName);
         cfg.SetValue(SecIdentity, "player_id",    PlayerId);
         cfg.SetValue(SecIdentity, "runs_started", RunsStarted);
+        cfg.SetValue(SecIdentity, "demo_complete_notified", DemoCompleteNotified);
         if (cfg.Save(SavePath) == Error.Ok)
             SteamCloudSync.Push(ProjectSettings.GlobalizePath(SavePath), "settings.cfg");
     }

@@ -73,6 +73,18 @@ public partial class LeaderboardManager : Node
         return result;
     }
 
+    public async System.Threading.Tasks.Task<LeaderboardEntryView?> GetEntryAtRankAsync(string mapId, DifficultyMode difficulty, int rank)
+    {
+        if (rank < 1) return null;
+        var bucket = new LeaderboardBucket(mapId, difficulty);
+        if (!bucket.IsGlobalEligible) return null;
+
+        await EnsureInitializedAsync();
+        if (!_service.IsAvailable) return null;
+
+        return await _service.GetEntryAtRankAsync(bucket, rank);
+    }
+
     public async System.Threading.Tasks.Task<bool> ShowNativeUiAsync(string mapId, DifficultyMode difficulty)
     {
         var bucket = new LeaderboardBucket(mapId, difficulty);

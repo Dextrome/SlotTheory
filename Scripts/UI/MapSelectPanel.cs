@@ -16,6 +16,7 @@ public partial class MapSelectPanel : Node
 	public static string PendingMapSelection => _pendingMapSelection;
 	public static ulong PendingProceduralSeed => _pendingProceduralSeed;
 	public static void SetPendingMapSelection(string mapId) => _pendingMapSelection = mapId;
+	public static void SetPendingProceduralSeed(ulong seed) => _pendingProceduralSeed = seed;
 
 	private string _selectedMapId = "random_map";
 	private DifficultyMode _selectedDifficulty = DifficultyMode.Normal;
@@ -205,18 +206,91 @@ public partial class MapSelectPanel : Node
 				return;
 			}
 
+			// Campaign maps and fixed maps first, random map kept last
+			var campaignMaps = maps.Where(m => m.Id != "random_map");
+			var randomMap    = maps.FirstOrDefault(m => m.Id == "random_map");
 
-			foreach (var mapDef in maps)
-			{
-				string mapName = mapDef.Name;
-				string mapDesc = mapDef.Description;
-				_mapListContainer.AddChild(CreateMapButton(mapDef.Id, mapName, mapDesc));
-			}
+			foreach (var mapDef in campaignMaps)
+				_mapListContainer.AddChild(CreateMapButton(mapDef.Id, mapDef.Name, mapDef.Description));
+
+			// Full-game placeholder slots — visible but unplayable
+			_mapListContainer.AddChild(CreateFullGameMapRow("???", "Available in the full release."));
+			_mapListContainer.AddChild(CreateFullGameMapRow("???", "Available in the full release."));
+
+			if (randomMap != null)
+				_mapListContainer.AddChild(CreateMapButton(randomMap.Id, randomMap.Name, randomMap.Description));
 		}
 		catch (System.Exception ex)
 		{
 			GD.PrintErr($"MapSelectPanel.PopulateMapList() error: {ex.Message}");
 		}
+	}
+
+	private Control CreateFullGameMapRow(string mapName, string description)
+	{
+		var container = new PanelContainer();
+		container.ThemeTypeVariation = "NoVisualHBox";
+		container.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		container.Modulate = new Color(1f, 1f, 1f, 0.45f);
+		if (_isMobile)
+			container.MouseFilter = Control.MouseFilterEnum.Ignore;
+
+		var hbox = new HBoxContainer();
+		hbox.AddThemeConstantOverride("separation",    10);
+		hbox.AddThemeConstantOverride("margin_left",   10);
+		hbox.AddThemeConstantOverride("margin_top",    10);
+		hbox.AddThemeConstantOverride("margin_right",  10);
+		hbox.AddThemeConstantOverride("margin_bottom", 10);
+		if (_isMobile)
+			hbox.MouseFilter = Control.MouseFilterEnum.Ignore;
+		container.AddChild(hbox);
+
+		// Lock badge in place of SELECT button
+		var lockBadge = new Label
+		{
+			Text = "FULL\nGAME",
+			HorizontalAlignment = HorizontalAlignment.Center,
+			VerticalAlignment = VerticalAlignment.Center,
+			CustomMinimumSize = new Vector2(80, 52),
+		};
+		lockBadge.AddThemeFontSizeOverride("font_size", 12);
+		UITheme.ApplyFont(lockBadge, semiBold: true, size: 12);
+		lockBadge.Modulate = new Color(0.55f, 0.60f, 0.80f);
+		hbox.AddChild(lockBadge);
+
+		var textVbox = new VBoxContainer();
+		textVbox.AddThemeConstantOverride("separation", 2);
+		textVbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		if (_isMobile)
+			textVbox.MouseFilter = Control.MouseFilterEnum.Ignore;
+		hbox.AddChild(textVbox);
+
+		var nameLabel = new Label
+		{
+			Text = mapName,
+			HorizontalAlignment = HorizontalAlignment.Left,
+		};
+		if (_isMobile)
+			nameLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
+		UITheme.ApplyFont(nameLabel, semiBold: true, size: 20);
+		nameLabel.Modulate = new Color(0.55f, 0.60f, 0.80f);
+		textVbox.AddChild(nameLabel);
+
+		var descLabel = new Label
+		{
+			Text = description,
+			HorizontalAlignment = HorizontalAlignment.Left,
+			AutowrapMode = _isMobile
+				? TextServer.AutowrapMode.Word
+				: TextServer.AutowrapMode.Off,
+		};
+		if (_isMobile)
+			descLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
+		descLabel.AddThemeFontSizeOverride("font_size", 13);
+		descLabel.Modulate = new Color(0.45f, 0.48f, 0.62f);
+		textVbox.AddChild(descLabel);
+
+		return container;
 	}
 
 	private Control CreateMapButton(string mapId, string mapName, string description)
@@ -292,6 +366,7 @@ public partial class MapSelectPanel : Node
 		_selectedMapId = mapId;
 		SoundManager.Instance?.Play("ui_select");
 		UpdatePersonalBestLabel();
+		UpdateDifficultyVisuals();
 
 		if (_mapListContainer == null) return;
 
@@ -393,15 +468,31 @@ public partial class MapSelectPanel : Node
 
 	private void UpdateDifficultyVisuals()
 	{
-		var selected   = new Color(1.0f, 0.85f, 0.25f); // gold
-		var unselected = new Color(0.55f, 0.55f, 0.55f); // grey
+		UpdateDifficultyButton(_easyButton,   DifficultyMode.Easy,   "Easy");
+		UpdateDifficultyButton(_normalButton, DifficultyMode.Normal, "Normal");
+		UpdateDifficultyButton(_hardButton,   DifficultyMode.Hard,   "Hard");
+	}
 
-		if (_easyButton != null)
-			ApplyDifficultyButtonColor(_easyButton, _selectedDifficulty == DifficultyMode.Easy ? selected : unselected);
-		if (_normalButton != null)
-			ApplyDifficultyButtonColor(_normalButton, _selectedDifficulty == DifficultyMode.Normal ? selected : unselected);
-		if (_hardButton != null)
-			ApplyDifficultyButtonColor(_hardButton, _selectedDifficulty == DifficultyMode.Hard ? selected : unselected);
+	private void UpdateDifficultyButton(Button? btn, DifficultyMode mode, string baseLabel)
+	{
+		if (btn == null) return;
+		var best = HighScoreManager.Instance?.GetPersonalBest(_selectedMapId, mode);
+		bool hasWon    = best?.Won == true;
+		bool hasPlayed = best != null;
+
+		btn.Text = hasWon ? $"{baseLabel} \u2713" : baseLabel;
+
+		Color color;
+		if (_selectedDifficulty == mode)
+			color = new Color(1.0f, 0.85f, 0.25f);  // gold — selected
+		else if (hasWon)
+			color = new Color(0.50f, 0.90f, 0.45f);  // green — cleared
+		else if (hasPlayed)
+			color = new Color(0.90f, 0.75f, 0.35f);  // amber — attempted, not won
+		else
+			color = new Color(0.55f, 0.55f, 0.55f);  // grey — untouched
+
+		ApplyDifficultyButtonColor(btn, color);
 	}
 
 	private void UpdatePersonalBestLabel()

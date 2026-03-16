@@ -22,5 +22,8 @@ public sealed class NullLeaderboardService : ILeaderboardService
             System.Array.Empty<LeaderboardEntryView>());
     }
 
+    public Task<LeaderboardEntryView?> GetEntryAtRankAsync(LeaderboardBucket bucket, int rank)
+        => Task.FromResult<LeaderboardEntryView?>(null);
+
     public Task<bool> ShowNativeUiAsync(LeaderboardBucket bucket) => Task.FromResult(false);
 }

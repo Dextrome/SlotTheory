@@ -124,6 +124,12 @@ public partial class MainMenu : Node
 		quitBtn.Pressed += OnQuit;
 		cardVbox.AddChild(quitBtn);
 
+		// Demo-complete banner — shown once after all 3 campaign maps are cleared
+		bool allUnlocked = AchievementManager.Instance?.IsUnlocked(Unlocks.RiftPrismAchievementId) == true;
+		bool alreadyNotified = SettingsManager.Instance?.DemoCompleteNotified == true;
+		if (allUnlocked && !alreadyNotified)
+			vbox.AddChild(BuildDemoCompleteBanner());
+
 		// Version label — inside vbox so it scales with pinch zoom
 		var versionLabel = new Label
 		{
@@ -247,6 +253,82 @@ public partial class MainMenu : Node
 		ls.ShadowSize    = 14;
 		ls.ShadowOffset  = Vector2.Zero;
 		return ls;
+	}
+
+	private Control BuildDemoCompleteBanner()
+	{
+		var panel = new PanelContainer();
+		panel.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
+		panel.CustomMinimumSize = new Vector2(320, 0);
+		panel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+			bg: new Color(0.06f, 0.04f, 0.14f),
+			border: new Color(0.55f, 0.30f, 0.90f, 0.80f),
+			corners: 10, borderWidth: 2, padH: 16, padV: 10));
+
+		var inner = new VBoxContainer();
+		inner.AddThemeConstantOverride("separation", 6);
+		panel.AddChild(inner);
+
+		var heading = new Label
+		{
+			Text = "Demo complete!",
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		UITheme.ApplyFont(heading, semiBold: true, size: 17);
+		heading.Modulate = new Color(0.80f, 0.60f, 1.00f);
+		inner.AddChild(heading);
+
+		var body = new Label
+		{
+			Text = "You've unlocked everything in the demo.\nThe full game features more maps, towers, and challenges.",
+			HorizontalAlignment = HorizontalAlignment.Center,
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+		};
+		body.AddThemeFontSizeOverride("font_size", 13);
+		body.Modulate = new Color(0.72f, 0.72f, 0.84f);
+		inner.AddChild(body);
+
+		var btnRow = new HBoxContainer();
+		btnRow.Alignment = BoxContainer.AlignmentMode.Center;
+		btnRow.AddThemeConstantOverride("separation", 8);
+		inner.AddChild(btnRow);
+
+		if (SteamAchievements.IsSteamInitialized && Balance.FullGameSteamAppId != 0u)
+		{
+			var wishBtn = new Button
+			{
+				Text = "\u2665  Wishlist",
+				CustomMinimumSize = new Vector2(110, 32),
+			};
+			wishBtn.AddThemeFontSizeOverride("font_size", 14);
+			UITheme.ApplyMutedStyle(wishBtn);
+			wishBtn.AddThemeColorOverride("font_color", new Color(0.85f, 0.65f, 1.0f));
+			wishBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+			wishBtn.Pressed += () =>
+			{
+				SoundManager.Instance?.Play("ui_select");
+				SteamAchievements.OpenFullGameStorePage();
+			};
+			btnRow.AddChild(wishBtn);
+		}
+
+		var dismissBtn = new Button
+		{
+			Text = "Got it",
+			CustomMinimumSize = new Vector2(80, 32),
+		};
+		dismissBtn.AddThemeFontSizeOverride("font_size", 14);
+		UITheme.ApplyMutedStyle(dismissBtn);
+		dismissBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		dismissBtn.Pressed += () =>
+		{
+			SoundManager.Instance?.Play("ui_select");
+			SettingsManager.Instance?.SetDemoCompleteNotified();
+			panel.QueueFree();
+		};
+		btnRow.AddChild(dismissBtn);
+
+		return panel;
 	}
 
 	private static string GetGameVersion()

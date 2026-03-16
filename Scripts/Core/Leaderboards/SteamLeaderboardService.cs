@@ -135,6 +135,28 @@ public sealed class SteamLeaderboardService : ILeaderboardService
         return await _pendingDownload.Task;
     }
 
+    public async Task<LeaderboardEntryView?> GetEntryAtRankAsync(LeaderboardBucket bucket, int rank)
+    {
+        if (!_initialized || rank < 1) return null;
+
+        string boardName = LeaderboardKey.ToSteamLeaderboardName(bucket.MapId, bucket.Difficulty);
+        var board = await FindLeaderboardAsync(boardName);
+        if (!IsValid(board)) return null;
+
+        if (_pendingDownload != null) return null;
+
+        _pendingDownload = new TaskCompletionSource<IReadOnlyList<LeaderboardEntryView>>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var dlCall = SteamUserStats.DownloadLeaderboardEntries(
+            board,
+            ELeaderboardDataRequest.k_ELeaderboardDataRequestGlobal,
+            rank,
+            rank
+        );
+        _downloadResult?.Set(dlCall);
+        var entries = await _pendingDownload.Task;
+        return entries.Count > 0 ? entries[0] : null;
+    }
+
     public Task<bool> ShowNativeUiAsync(LeaderboardBucket bucket)
     {
         if (!_initialized) return Task.FromResult(false);

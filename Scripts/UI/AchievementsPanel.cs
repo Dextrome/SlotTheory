@@ -213,12 +213,12 @@ public partial class AchievementsPanel : Node
         textCol.MouseFilter = Control.MouseFilterEnum.Ignore;
         hbox.AddChild(textCol);
 
-        var nameLabel = new Label { Text = isUnlocked ? def.Name : "???" };
+        var nameLabel = new Label { Text = def.Name };
         UITheme.ApplyFont(nameLabel, semiBold: true, size: 17);
         nameLabel.Modulate = isUnlocked ? new Color("#ffffff") : new Color(0.4f, 0.4f, 0.4f);
         textCol.AddChild(nameLabel);
 
-        var descLabel = new Label { Text = isUnlocked ? def.Desc : "Keep playing to unlock." };
+        var descLabel = new Label { Text = def.Desc };
         descLabel.AddThemeFontSizeOverride("font_size", 13);
         descLabel.Modulate     = isUnlocked ? new Color(0.65f, 0.65f, 0.65f) : new Color(0.3f, 0.3f, 0.3f);
         descLabel.AutowrapMode = TextServer.AutowrapMode.WordSmart;
