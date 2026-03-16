@@ -841,7 +841,11 @@ public partial class SoundManager : Node
     /// Bass notes (MIDI 28–57) and lead notes (MIDI 58–81) are registered
     /// at startup via the MusicNote synthesis loop in _Ready().
     /// </summary>
-    public void PlayNote(int midiNote)
+    /// <param name="volDb">
+    /// Absolute VolumeDb for this note. Default -8 dB (bass level).
+    /// Melody layer passes -11 dB to sit below the bass.
+    /// </param>
+    public void PlayNote(int midiNote, float volDb = -8f)
     {
         if (_headless) return;
         string id = $"mnote_{midiNote}";
@@ -864,6 +868,7 @@ public partial class SoundManager : Node
 
         var player = _notePool[idx];
         player.Stop();
+        player.VolumeDb = volDb;
         player.Play();
         var pb = (AudioStreamGeneratorPlayback)player.GetStreamPlayback();
         pb.PushBuffer(samples);

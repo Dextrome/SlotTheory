@@ -1,3 +1,5 @@
+![Slot Theory](icon2.png)
+
 # Slot Theory
 
 A constraint-driven drafting tower defense game by 7ants Studios. Build a 6-slot loadout across 20 waves, survive to win.
@@ -237,7 +239,7 @@ The banner label and visual treatment are driven by which mods contributed most 
 | HALFWAY_THERE | Halfway There | Survive to wave 10 |
 | FULL_HOUSE | Full House | Fill all 6 tower slots in one run |
 | STACKED | Stacked | Give any tower 3 modifiers in one run |
-| SPEED_RUN | Speed Run | Win in under 8 minutes |
+| SPEED_RUN | Speed Run | Win in under 15 minutes |
 | ANNIHILATOR | Annihilator | Deal 100,000 total damage in one run |
 | CHAIN_MASTER | Chain Master | Win with all 6 slots filled by Arc Emitters |
 | ARC_UNSEALED | Arc Unsealed | Beat the first campaign map (unlocks Arc Emitter) |

@@ -305,7 +305,7 @@ public partial class SlotCodexPanel : Node
         top.AddThemeConstantOverride("separation", 10);
         body.AddChild(top);
 
-        var icon = new TowerIcon
+        var icon = new TowerIconFull
         {
             TowerId = towerId,
             CustomMinimumSize = new Vector2(52f, 52f),
@@ -671,29 +671,13 @@ public partial class SlotCodexPanel : Node
         top.AddThemeConstantOverride("separation", 10);
         body.AddChild(top);
 
-        // Icon: accent-tinted block with centered type initial
-        var iconPanel = new PanelContainer { CustomMinimumSize = new Vector2(52f, 52f) };
-        iconPanel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
-            bg: new Color(accent.R, accent.G, accent.B, 0.15f),
-            border: new Color(accent.R, accent.G, accent.B, 0.60f),
-            corners: 8, borderWidth: 2, padH: 0, padV: 0));
-        iconPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
-        var iconCenter = new CenterContainer
+        var icon = new EnemyIcon
         {
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-            MouseFilter = Control.MouseFilterEnum.Ignore
+            EnemyId = enemyId,
+            CustomMinimumSize = new Vector2(52f, 52f),
+            Size = new Vector2(52f, 52f)
         };
-        iconPanel.AddChild(iconCenter);
-        var iconLetter = new Label
-        {
-            Text = enemyId switch { "armored_walker" => "A", "swift_walker" => "S", _ => "B" },
-            MouseFilter = Control.MouseFilterEnum.Ignore
-        };
-        UITheme.ApplyFont(iconLetter, semiBold: true, size: 22);
-        iconLetter.Modulate = accent;
-        iconCenter.AddChild(iconLetter);
-        top.AddChild(iconPanel);
+        top.AddChild(icon);
 
         var titleCol = new VBoxContainer();
         titleCol.AddThemeConstantOverride("separation", 2);
@@ -710,14 +694,25 @@ public partial class SlotCodexPanel : Node
         typeLabel.Modulate = accent;
         titleCol.AddChild(typeLabel);
 
-        var stats = new Label
+        var statsCombat = new Label
         {
-            Text = GetEnemyStatsLine(enemyId),
-            AutowrapMode = TextServer.AutowrapMode.WordSmart
+            Text = GetEnemyStatsCombatLine(enemyId),
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
         };
-        stats.AddThemeFontSizeOverride("font_size", 14);
-        stats.Modulate = new Color(0.64f, 0.80f, 1.00f);
-        body.AddChild(stats);
+        statsCombat.AddThemeFontSizeOverride("font_size", 14);
+        statsCombat.Modulate = new Color(0.64f, 0.80f, 1.00f);
+        body.AddChild(statsCombat);
+
+        var statsWave = new Label
+        {
+            Text = GetEnemyStatsWaveLine(enemyId),
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+        };
+        statsWave.AddThemeFontSizeOverride("font_size", 14);
+        statsWave.Modulate = new Color(0.64f, 0.80f, 1.00f);
+        body.AddChild(statsWave);
 
         var desc = new Label
         {
@@ -745,11 +740,18 @@ public partial class SlotCodexPanel : Node
         _                => "Basic Walker",
     };
 
-    private static string GetEnemyStatsLine(string enemyId) => enemyId switch
+    private static string GetEnemyStatsCombatLine(string enemyId) => enemyId switch
     {
-        "armored_walker" => $"{Balance.BaseEnemyHp * Balance.TankyHpMultiplier:0} HP base (×{Balance.HpGrowthPerWave}/wave)  |  {Balance.TankyEnemySpeed:0} px/s  |  Leak: 1 life  |  From wave 6",
-        "swift_walker"   => $"{Balance.BaseEnemyHp * Balance.SwiftHpMultiplier:0} HP base (×{Balance.HpGrowthPerWave}/wave)  |  {Balance.SwiftEnemySpeed:0} px/s  |  Leak: 1 life  |  Waves 10–14",
-        _                => $"{Balance.BaseEnemyHp:0} HP base (×{Balance.HpGrowthPerWave}/wave)  |  {Balance.BaseEnemySpeed:0} px/s  |  Leak: 1 life  |  From wave 1",
+        "armored_walker" => $"{Balance.BaseEnemyHp * Balance.TankyHpMultiplier:0} HP base (×{Balance.HpGrowthPerWave}/wave)  |  {Balance.TankyEnemySpeed:0} px/s",
+        "swift_walker"   => $"{Balance.BaseEnemyHp * Balance.SwiftHpMultiplier:0} HP base (×{Balance.HpGrowthPerWave}/wave)  |  {Balance.SwiftEnemySpeed:0} px/s",
+        _                => $"{Balance.BaseEnemyHp:0} HP base (×{Balance.HpGrowthPerWave}/wave)  |  {Balance.BaseEnemySpeed:0} px/s",
+    };
+
+    private static string GetEnemyStatsWaveLine(string enemyId) => enemyId switch
+    {
+        "armored_walker" => "Leak: 1 life  |  From wave 6",
+        "swift_walker"   => "Leak: 1 life  |  Waves 10–14",
+        _                => "Leak: 1 life  |  From wave 1",
     };
 
     private static string GetEnemyDescription(string enemyId) => enemyId switch

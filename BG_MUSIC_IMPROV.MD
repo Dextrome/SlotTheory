@@ -71,11 +71,10 @@ BPM changes are gradual: `MusicClock.SetBpm(newBpm, rampBars: 4)` - tempo ramps 
 ```
 Scripts/Core/
   MusicClock.cs         ✅ Phase 1 - metronome; beat/bar/phrase events; BPM ramp
-  MusicDirector.cs      ✅ Phase 1 stub - owns clock, plays test bass pattern;
-                           Phase 3 wires game state hooks
-  MusicHarmony.cs          Phase 2 - scale/chord knowledge; maps tension → mode/progression
-  MusicBassLayer.cs        Phase 2 - root + fifth patterns; follows chord roots
-  MusicMelodyLayer.cs      Phase 4 - improvised lead; weighted note selection per scale/phrase
+  MusicDirector.cs      ✅ Phase 3 - owns clock + bass layer; game state hooks wired
+  MusicHarmony.cs       ✅ Phase 2 - scale/chord tables; tension → mode/BPM mapping
+  MusicBassLayer.cs     ✅ Phase 2 - root + fifth patterns; phrase-boundary mode changes
+  MusicMelodyLayer.cs   ✅ Phase 4 - improvised lead; contour-based phrase planning, scale-walking
   MusicPercLayer.cs        Phase 5 - kick/hat/snare grid; density varies with tension
 ```
 
@@ -166,22 +165,28 @@ BPM ramp: `SetBpm(float newBpm, float rampBars)` interpolates linearly over `ram
 - `MusicDirector.cs` stub: owns clock, plays 4-bar A-Dorian test pattern (i–IV–i–VII) to validate timing end-to-end
 - `Main.tscn`: MusicDirector added as sibling of GameController
 
-### Phase 2 - Harmony + Bass Layer
-- `MusicHarmony.cs`: scale tables (Dorian, Mixolydian, Phrygian), chord progression pool per mode, tension → mode mapping
-- `MusicBassLayer.cs`: root + fifth patterns following chord changes at bar boundaries; driven by MusicClock.BarFired
-- Replace Phase 1 test pattern in MusicDirector with real bass layer
-- Test: bass line runs through a 4-chord loop in real time, changes at bar boundaries
+### Phase 2 - Harmony + Bass Layer ✅ COMPLETE
+- `MusicHarmony.cs`: scale tables (Dorian, Mixolydian, Phrygian), 4 progressions per mode, `ComputeTension()`, `TensionToMode()`, `TensionToBpm()`, `BassNormalize()`
+- `MusicBassLayer.cs`: root + fifth patterns at bar/beat boundaries; `QueueModeChange()` applies at next phrase boundary; `Density` property (0=root only, 1=root+fifth)
+- `MusicDirector.cs`: replaced hardcoded test pattern with `MusicBassLayer`; picks random progression from Dorian pool at run start
 
-### Phase 3 - Game State Hooks
-- Wire MusicDirector to GameController events (wave start/clear, lives, global surge, run end, draft phase)
-- `MusicDirector.OnWaveStart(waveIndex)` → compute tension tier → call `Clock.SetBpm(newBpm, rampBars: 4)` + notify layers
-- Draft phase: fade bass to low volume or silence; resume on wave start
-- Near-death (≤3 lives): drop melody + percussion; bass holds root only
+### Phase 3 - Game State Hooks ✅ COMPLETE
+- `MusicDirector`: added `Instance` singleton, headless guard, `OnWaveStart`, `OnWaveClear`, `OnLivesChanged`, `OnDraftPhaseStart`, `OnRunEnd`
+- `ApplyTension()`: ramps BPM over 4 bars, queues mode change at next phrase boundary, sets Density
+- Wave-clear breath: 1-bar silence on bass, restored on next BarFired
+- Near-death override: triggers immediately on lives drop, bypasses wave boundary
+- `GameController`: 6 call sites added (wave start, wave clear, loss, win, lives changed, draft phase)
 
-### Phase 4 - Melody Improvisation
-- `MusicMelodyLayer.cs`: phrase planning, contour selection, weighted scale-degree walking, ±10ms timing jitter, ±5% velocity variation
-- MusicDirector wires melody layer to clock + harmony
-- Test: melody improvises over bass for a full 20-wave bot run; verify it never sounds actively bad
+### Phase 4 - Melody Improvisation ✅ COMPLETE
+- `MusicMelodyLayer.cs`: phrase planning, contour selection (Ascending/Descending/Arch/Static),
+  weighted scale-degree walking via `GetMelodyScaleNotes()` + `AdvanceIndex()`; `Active` property
+  for draft-phase silencing; `QueueModeChange()` for phrase-boundary transitions
+- `SoundManager.PlayNote(int midiNote, float volDb = -8f)` — optional per-call volume;
+  melody passes -11 dB to sit 3 dB below the bass
+- `MusicDirector`: wires melody layer in `_Ready()`, `ApplyTension()` (Tension + Active + QueueModeChange),
+  `OnDraftPhaseStart()` (Active = false)
+- 29 unit tests in `MusicMelodyLayerTests` covering `GetMelodyScaleNotes` (range, scale membership,
+  sorted order, mode-specific chromatic exclusions) and `RestProbability` (values + monotonicity)
 
 ### Phase 5 - Percussion + Polish
 - `MusicPercLayer.cs`: kick/hat/snare grid synthesis, density control, syncopation at high tension

@@ -127,31 +127,26 @@ public partial class DraftPanel : CanvasLayer
         Visible = false;
         _rng.Randomize();
 
-        var vpSize = GetViewport().GetVisibleRect().Size;
-
         _bg = new ColorRect
         {
             Color = new Color(0f, 0f, 0f, 0.70f),
-            Position = Vector2.Zero,
-            Size = vpSize,
             MouseFilter = Control.MouseFilterEnum.Stop,
         };
+        _bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         AddChild(_bg);
 
         _bgFx = new DraftBackdropFx
         {
-            Position = Vector2.Zero,
-            Size = vpSize,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
+        _bgFx.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         AddChild(_bgFx);
 
         _center = new CenterContainer
         {
             Theme = UITheme.Build(),
-            Position = Vector2.Zero,
-            Size = vpSize,
         };
+        _center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         AddChild(_center);
 
         var vbox = new VBoxContainer();

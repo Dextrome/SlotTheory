@@ -15,6 +15,7 @@
 script = ExtResource("4_hud")
 
 [node name="DraftPanel" type="CanvasLayer" parent="."]
+layer = 6
 script = ExtResource("3_draft")
 
 [node name="EndScreen" type="CanvasLayer" parent="."]
@@ -24,6 +25,7 @@ script = ExtResource("5_end")
 script = ExtResource("7_unlock")
 
 [node name="PauseScreen" type="CanvasLayer" parent="."]
+layer = 7
 script = ExtResource("6_pause")
 
 [node name="GameController" type="Node" parent="." unique_id=1355479286 node_paths=PackedStringArray("LanePath")]

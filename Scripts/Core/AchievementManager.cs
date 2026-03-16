@@ -23,7 +23,7 @@ public partial class AchievementManager : Node
     private const string Section  = "unlocked";
 
     // ── Evaluation constants ──────────────────────────────────────────────────
-    private const float SpeedRunMaxSeconds = 8f * 60f;  // 8 minutes
+    private const float SpeedRunMaxSeconds = 15f * 60f;  // 15 minutes
     private const int   AnnihilatorDamage  = 100_000;
     private const int   HalfwayWaveIndex   = 9;          // 0-based → wave 10
 
@@ -41,7 +41,7 @@ public partial class AchievementManager : Node
         new("HALFWAY_THERE", "Halfway There",      "Survive to wave 10 in any run."),
         new("FULL_HOUSE",    "Full House",         "Fill all 6 tower slots in a single run."),
         new("STACKED",       "Stacked",            "Give any tower 3 modifiers in a single run."),
-        new("SPEED_RUN",     "Speed Run",          "Win a run in under 8 minutes."),
+        new("SPEED_RUN",     "Speed Run",          "Win a run in under 15 minutes."),
         new("ANNIHILATOR",   "Annihilator",        "Deal 100,000 total damage in a single run."),
         new("CHAIN_MASTER",  "Chain Master",       "Win with all 6 slots filled by Arc Emitters."),
     ];
@@ -252,7 +252,7 @@ public partial class AchievementManager : Node
                 && state.TotalPlayTime <= SpeedRunMaxSeconds + 90f)
             {
                 int overBy = (int)(state.TotalPlayTime - SpeedRunMaxSeconds);
-                hints.Add($"Almost SPEED RUN - {overBy}s over the 8:00 limit");
+                hints.Add($"Almost SPEED RUN - {overBy}s over the 15:00 limit");
             }
         }
 
@@ -291,7 +291,7 @@ public partial class AchievementManager : Node
         if (won && !IsUnlocked("SPEED_RUN"))
         {
             int s = (int)state.TotalPlayTime;
-            return $"Next goal: SPEED RUN - win in under 8:00  (this run: {s / 60}:{s % 60:D2})";
+            return $"Next goal: SPEED RUN - win in under 15:00  (this run: {s / 60}:{s % 60:D2})";
         }
 
         if (!IsUnlocked("ANNIHILATOR"))

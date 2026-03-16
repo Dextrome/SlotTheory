@@ -9,7 +9,7 @@ namespace SlotTheory.Core;
 /// according to the current harmony and density setting.
 ///
 /// Density levels:
-///   0 = root only on beat 0 (near-death sparse)
+///   0 = silent (near-death / draft / wave-clear breath)
 ///   1 = root on beat 0, fifth on beat 2 (standard)
 ///
 /// Phase 5 will add density 2 (walking bass with approach notes).
@@ -79,7 +79,8 @@ public partial class MusicBassLayer : Node
     {
         _currentChordOffset = MusicHarmony.BassNormalize(
             MusicHarmony.GetChordRootOffset(_mode, _progressionIdx, barIndex));
-        PlayRoot();
+        if (Density > 0)
+            PlayRoot();
     }
 
     private void OnBeat(int beatIndex)

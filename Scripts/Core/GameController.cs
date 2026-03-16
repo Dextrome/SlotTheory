@@ -541,6 +541,7 @@ public partial class GameController : Node
 			ScreenFilter.Instance?.FlashVhs(0.45f);
 			if (_runState.Lives <= 2)
 				ShowClutchToast(_runState.Lives <= 1 ? "TOO CLOSE" : "CLUTCH");
+			MusicDirector.Instance?.OnLivesChanged(_runState.Lives);
 		}
 		UpdateLowLivesTension((float)delta);
 
@@ -548,6 +549,7 @@ public partial class GameController : Node
 		{
 			CurrentPhase = GamePhase.Loss;
 			MobileRunSession.Clear();
+			MusicDirector.Instance?.OnRunEnd(won: false);
 			MobileOptimization.HapticStrong();
 			var newlyUnlocked = AchievementManager.Instance?.CheckRunEndAndCollectUnlocks(
 				_runState,
@@ -583,6 +585,7 @@ public partial class GameController : Node
 			{
 				CurrentPhase = GamePhase.Win;
 				MobileRunSession.Clear();
+				MusicDirector.Instance?.OnRunEnd(won: true);
 				MobileOptimization.HapticStrong();
 				var newlyUnlocked = AchievementManager.Instance?.CheckRunEndAndCollectUnlocks(
 					_runState,
@@ -610,6 +613,7 @@ public partial class GameController : Node
 				if (_botRunner == null) ShowWaveClearFlash();
 				MobileOptimization.HapticMedium();
 				SoundManager.Instance?.Play("wave_clear");
+				MusicDirector.Instance?.OnWaveClear();
 				AchievementManager.Instance?.CheckAnnihilator(_runState);
 				_extraPicksRemaining = Balance.ExtraPicksForWave(_runState.WaveIndex);
 				if (_botRunner != null)
@@ -831,6 +835,7 @@ public partial class GameController : Node
 	{
 		ClearUndoPlacementState();
 		CurrentPhase = GamePhase.Draft;
+		MusicDirector.Instance?.OnDraftPhaseStart();
 		_hudPanel.SetBuildName("", visible: false);
 		// Use restored options if available (prevents reload-to-reroll), otherwise generate fresh
 		var options = _currentDraftOptions ?? _draftSystem.GenerateOptions(_runState);
@@ -6263,6 +6268,7 @@ void fragment() {
 			SoundManager.Instance?.SetMusicTension((waveNumber - 14f) / 6f);
 		else
 			SoundManager.Instance?.SetMusicTension(0f);
+		MusicDirector.Instance?.OnWaveStart(waveNumber, _runState.Lives);
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 		string runName = BuildRunName();
 		var runColors = BuildRunNameColors();
