@@ -42,9 +42,16 @@ public partial class DamageNumber : Node2D
     {
         float t     = _life / Duration;
         float alpha = 1f - t * t;   // stays bright longer, then drops off
+
+        // Scale-punch: pop to 1.35× at frame 0, settle to 1.0 by t=0.18
+        const float PunchDur = 0.18f;
+        float punch = _life < PunchDur
+            ? Mathf.Lerp(1.35f, 1.0f, _life / PunchDur)
+            : 1.0f;
+
         var   font  = UITheme.SemiBold;
         int   baseSize = _isKill ? 24 : 18;
-        int   size  = Mathf.Clamp(Mathf.RoundToInt(baseSize * _mobileReadabilityScale), 12, 52);
+        int   size  = Mathf.Clamp(Mathf.RoundToInt(baseSize * _mobileReadabilityScale * punch), 12, 52);
         var   col   = _isKill ? new Color(1f, 0.85f, 0.15f, alpha)
                                : new Color(_color.R, _color.G, _color.B, alpha);
 

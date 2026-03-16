@@ -2222,7 +2222,7 @@ public partial class GameController : Node
 			foreach (var enemy in _runState.EnemiesAlive)
 			{
 				if (!GodotObject.IsInstanceValid(enemy)) continue;
-				float spd = enemy.IsSlowed ? enemy.Speed * Balance.SlowSpeedFactor : enemy.Speed;
+				float spd = enemy.IsSlowed ? enemy.Speed * enemy.SlowSpeedFactor : enemy.Speed;
 				enemy.Progress     += spd * BOT_DT;
 				if (enemy.MarkedRemaining > 0f) enemy.MarkedRemaining -= BOT_DT;
 				if (enemy.SlowRemaining   > 0f) enemy.SlowRemaining   -= BOT_DT;

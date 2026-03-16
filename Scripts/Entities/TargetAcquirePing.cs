@@ -7,7 +7,7 @@ namespace SlotTheory.Entities;
 /// </summary>
 public partial class TargetAcquirePing : Node2D
 {
-    private const float Duration = 0.045f;
+    private const float Duration = 0.10f;
 
     private float _life = 0f;
     private Color _color = new Color(0.75f, 0.95f, 1f);

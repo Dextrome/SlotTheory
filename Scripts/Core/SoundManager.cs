@@ -47,7 +47,9 @@ public partial class SoundManager : Node
 
     private bool _headless;
     private bool _isMobileAudio;
+    private float _gameSpeedScale = 1f;
     private readonly Dictionary<string, ulong> _mobileSfxLastPlayMs = new();
+    private readonly Dictionary<string, ulong> _desktopSfxLastPlayMs = new();
     private ulong[] _poolStopAtMs = Array.Empty<ulong>();
     private const float MobileFxBaseHeadroomDb = -4.0f;
     private const float MobileFxSurgeExtraHeadroomDb = -2.5f;
@@ -74,6 +76,19 @@ public partial class SoundManager : Node
         ["die_swift"] = 45,
         ["leak"] = 120,
         ["wave20_swell"] = 600,
+    };
+
+    // Desktop: applied at speed > 1× to prevent burst stacking when many enemies die in one frame.
+    // Values are divided by game speed so throttling tightens at higher speeds.
+    private static readonly Dictionary<string, int> DesktopSfxCooldownMs = new()
+    {
+        ["hit"]            = 12,
+        ["shoot_rapid"]    = 20,
+        ["die_basic"]      = 60,
+        ["die_armored"]    = 100,
+        ["die_swift"]      = 50,
+        ["mine_pop"]       = 60,
+        ["mine_chain_pop"] = 90,
     };
 
     public override void _Ready()
@@ -284,27 +299,45 @@ public partial class SoundManager : Node
         if (!_samples.TryGetValue(id, out var samples)) return;
         ulong nowMs = Time.GetTicksMsec();
         if (ShouldSkipMobileSfx(id, nowMs)) return;
+        if (!_isMobileAudio && _gameSpeedScale > 1f && ShouldSkipDesktopSfx(id, nowMs)) return;
         float dur = _durations[id];
+        float finalPitch = Mathf.Clamp(pitchScale * _speedFxPitch, 0.75f, 1.40f);
 
-        int idx    = _poolIdx;
-        _poolIdx   = (_poolIdx + 1) % PoolSize;
+        // Prefer a slot that has already finished playing so we never hard-stop active audio.
+        // A hard Stop() on a playing AudioStreamGenerator causes an audible click/pop.
+        int idx = -1;
+        for (int i = 0; i < PoolSize; i++)
+        {
+            int candidate = (_poolIdx + i) % PoolSize;
+            if (_poolStopAtMs[candidate] == 0 || nowMs >= _poolStopAtMs[candidate])
+            {
+                idx = candidate;
+                break;
+            }
+        }
+        if (idx < 0)
+            idx = _poolIdx; // all 20 slots active — steal the oldest (unavoidable click)
+        _poolIdx = (idx + 1) % PoolSize;
+
         var player = _pool[idx];
-
         player.Stop();
         player.Bus = UiSoundIds.Contains(id) ? "UI" : "FX";
         player.VolumeDb = ResolveFxPlaybackDb(id);
-        player.PitchScale = Mathf.Clamp(pitchScale * _speedFxPitch, 0.75f, 1.40f);
+        player.PitchScale = finalPitch;
         player.Play();
         var playback = (AudioStreamGeneratorPlayback)player.GetStreamPlayback();
         playback.PushBuffer(samples);
-        _poolTimers[idx] = dur + 0.05f;
-        _poolStopAtMs[idx] = nowMs + (ulong)Mathf.CeilToInt((dur + 0.05f) * 1000f);
+        // The buffer is consumed at finalPitch rate, so the slot becomes free in dur/finalPitch seconds.
+        float effectiveDurSec = dur / Mathf.Max(0.1f, finalPitch);
+        _poolTimers[idx] = effectiveDurSec + 0.05f;
+        _poolStopAtMs[idx] = nowMs + (ulong)Mathf.CeilToInt((effectiveDurSec + 0.05f) * 1000f);
     }
 
     public void SetSpeedFeel(float speedScale)
     {
         if (_headless) return;
 
+        _gameSpeedScale = Mathf.Max(1f, speedScale);
         // Subtle "machine pushed harder" effect at 2x/3x.
         float speedOver = Mathf.Max(0f, speedScale - 1f);
         _speedFxPitch = 1f + speedOver * 0.026f; // 2x: 1.026, 3x: 1.052
@@ -664,6 +697,21 @@ public partial class SoundManager : Node
             return true;
 
         _mobileSfxLastPlayMs[id] = nowMs;
+        return false;
+    }
+
+    private bool ShouldSkipDesktopSfx(string id, ulong nowMs)
+    {
+        if (!DesktopSfxCooldownMs.TryGetValue(id, out int baseCooldownMs))
+            return false;
+
+        // Tighten cooldown proportionally at higher speeds so stacking is bounded
+        // without silencing sounds entirely (floor at 1ms so something always plays).
+        int cooldownMs = Mathf.Max(1, (int)(baseCooldownMs / Mathf.Max(1f, _gameSpeedScale)));
+        if (_desktopSfxLastPlayMs.TryGetValue(id, out ulong lastMs) && nowMs - lastMs < (ulong)cooldownMs)
+            return true;
+
+        _desktopSfxLastPlayMs[id] = nowMs;
         return false;
     }
 

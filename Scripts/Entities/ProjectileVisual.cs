@@ -160,6 +160,7 @@ public partial class ProjectileVisual : Node2D
             var ctx = new DamageContext(tower, chainTarget, _waveIndex, _enemies, _runState,
                                         isChain: true, damageOverride: damage);
             DamageModel.Apply(ctx);
+            SlotTheory.Core.SoundManager.Instance?.Play("hit");
 
             SpawnChainArc(chainFrom, chainTarget.GlobalPosition);
 
@@ -218,6 +219,7 @@ public partial class ProjectileVisual : Node2D
 
         if (spawned > 0)
         {
+            SlotTheory.Core.SoundManager.Instance?.Play("shoot_rapid");
             float splitScalar = SpectacleDefinitions.SplitShotEventScalar(spawned);
             GameController.Instance?.RegisterSpectacleProc(_tower, SpectacleDefinitions.SplitShot, splitScalar, splitDamage);
         }

@@ -275,6 +275,7 @@ public partial class DraftPanel : CanvasLayer
         cancelPress.BgColor = new Color(0.12f, 0.04f, 0.18f, 1.00f);
         _cancelBtn.AddThemeStyleboxOverride("pressed", cancelPress);
         _cancelBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+        _cancelBtn.Pressed      += () => SoundManager.Instance?.Play("ui_select");
         _placementGroup.AddChild(_cancelBtn);
 
         _placementHintLbl = new Label
