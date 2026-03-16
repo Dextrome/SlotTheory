@@ -91,8 +91,8 @@ public static class DamageModel
                 GameController.Instance?.NotifyMarkedEnemyPop(ctx.Attacker, ctx.Target, ctx.EnemiesAlive);
             foreach (var mod in ctx.Attacker.Modifiers)
             {
-                mod.OnKill(ctx);
-                GameController.Instance?.NotifyModifierProc(ctx.Attacker, mod.ModifierId);
+                if (mod.OnKill(ctx))
+                    GameController.Instance?.NotifyModifierProc(ctx.Attacker, mod.ModifierId);
             }
         }
     }

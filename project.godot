@@ -31,6 +31,7 @@ SettingsManager="*res://Scripts/Core/SettingsManager.cs"
 SoundManager="*res://Scripts/Core/SoundManager.cs"
 Transition="*res://Scripts/Core/Transition.cs"
 HighScoreManager="*res://Scripts/Core/HighScoreManager.cs"
+ScreenFilter="*res://Scripts/Core/ScreenFilter.cs"
 
 [display]
 

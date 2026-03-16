@@ -536,6 +536,7 @@ public partial class GameController : Node
 				hudPanel!.FlashLives();
 			ShakeWorld();
 			MobileOptimization.HapticStrong();
+			ScreenFilter.Instance?.FlashVhs(0.45f);
 			if (_runState.Lives <= 2)
 				ShowClutchToast(_runState.Lives <= 1 ? "TOO CLOSE" : "CLUTCH");
 		}

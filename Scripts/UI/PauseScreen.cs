@@ -17,6 +17,9 @@ public partial class PauseScreen : CanvasLayer
     private Button? _pauseCbBtn;
     private Button? _pauseRmBtn;
     private Button? _pausePostFxBtn;
+    private Button? _pauseScreenFilterBtn;
+    private Button? _pauseVhsGlitchBtn;
+    private Button? _pausePhosphorGridBtn;
     private Button? _pauseEnemyLayeredBtn;
     private Button? _pauseEnemyEmissiveBtn;
     private Button? _pauseEnemyDamageBtn;
@@ -145,6 +148,11 @@ public partial class PauseScreen : CanvasLayer
             320f,
             MobileOptimization.IsMobile() ? 540f : 620f);
 
+        var cardInner = new VBoxContainer();
+        cardInner.AddThemeConstantOverride("separation", 0);
+        cardInner.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        card.AddChild(cardInner);
+
         var scroll = new ScrollContainer();
         scroll.CustomMinimumSize = new Vector2(360f, maxHeight);
         scroll.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -152,7 +160,7 @@ public partial class PauseScreen : CanvasLayer
         scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
         scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         TouchScrollHelper.EnableDragScroll(scroll);
-        card.AddChild(scroll);
+        cardInner.AddChild(scroll);
 
         var margin = new MarginContainer();
         margin.AddThemeConstantOverride("margin_left", 22);
@@ -254,6 +262,50 @@ public partial class PauseScreen : CanvasLayer
                 _pausePostFxBtn.Text = PostFxLabel(next);
         };
         vbox.AddChild(_pausePostFxBtn);
+
+        bool isSf = sm?.ScreenFilterEnabled ?? true;
+        _pauseScreenFilterBtn = new Button
+        {
+            Text              = ScreenFilterLabel(isSf),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _pauseScreenFilterBtn.AddThemeFontSizeOverride("font_size", 20);
+        _pauseScreenFilterBtn.Pressed += () =>
+        {
+            SoundManager.Instance?.Play("ui_select");
+            bool next = !(SettingsManager.Instance?.ScreenFilterEnabled ?? true);
+            SettingsManager.Instance?.SetScreenFilterEnabled(next);
+            if (_pauseScreenFilterBtn != null)
+                _pauseScreenFilterBtn.Text = ScreenFilterLabel(next);
+        };
+        vbox.AddChild(_pauseScreenFilterBtn);
+
+        AddSpacer(vbox, 6);
+        AddSectionHeader(vbox, "SCREEN EFFECTS");
+
+        bool isVhs = sm?.VhsGlitchEnabled ?? false;
+        _pauseVhsGlitchBtn = new Button { Text = VhsGlitchLabel(isVhs), CustomMinimumSize = new Vector2(260, 44) };
+        _pauseVhsGlitchBtn.AddThemeFontSizeOverride("font_size", 20);
+        _pauseVhsGlitchBtn.Pressed += () =>
+        {
+            SoundManager.Instance?.Play("ui_select");
+            bool next = !(SettingsManager.Instance?.VhsGlitchEnabled ?? false);
+            SettingsManager.Instance?.SetVhsGlitchEnabled(next);
+            if (_pauseVhsGlitchBtn != null) _pauseVhsGlitchBtn.Text = VhsGlitchLabel(next);
+        };
+        vbox.AddChild(_pauseVhsGlitchBtn);
+
+        bool isPhos = sm?.PhosphorGridEnabled ?? false;
+        _pausePhosphorGridBtn = new Button { Text = PhosphorGridLabel(isPhos), CustomMinimumSize = new Vector2(260, 44) };
+        _pausePhosphorGridBtn.AddThemeFontSizeOverride("font_size", 20);
+        _pausePhosphorGridBtn.Pressed += () =>
+        {
+            SoundManager.Instance?.Play("ui_select");
+            bool next = !(SettingsManager.Instance?.PhosphorGridEnabled ?? false);
+            SettingsManager.Instance?.SetPhosphorGridEnabled(next);
+            if (_pausePhosphorGridBtn != null) _pausePhosphorGridBtn.Text = PhosphorGridLabel(next);
+        };
+        vbox.AddChild(_pausePhosphorGridBtn);
 
         AddSpacer(vbox, 6);
         AddSectionHeader(vbox, "ENEMY FX");
@@ -357,8 +409,26 @@ public partial class PauseScreen : CanvasLayer
             vbox.AddChild(_pauseResetProfileStatus);
         }
 
-        AddSpacer(vbox, 8);
-        AddBtn(vbox, "\u2190 Back", OnCloseSettings);
+        // Back button pinned below scroll — always visible
+        var sep = new HSeparator();
+        sep.Modulate = new Color(0.22f, 0.22f, 0.22f);
+        cardInner.AddChild(sep);
+
+        var backMargin = new MarginContainer();
+        backMargin.AddThemeConstantOverride("margin_left",   22);
+        backMargin.AddThemeConstantOverride("margin_right",  22);
+        backMargin.AddThemeConstantOverride("margin_top",    10);
+        backMargin.AddThemeConstantOverride("margin_bottom", 10);
+        cardInner.AddChild(backMargin);
+
+        var backBtn = new Button
+        {
+            Text = "\u2190 Back",
+            CustomMinimumSize = new Vector2(160, 44),
+        };
+        backBtn.AddThemeFontSizeOverride("font_size", 20);
+        backBtn.Pressed += () => { SoundManager.Instance?.Play("ui_select"); OnCloseSettings(); };
+        backMargin.AddChild(backBtn);
     }
 
     private void BuildQuitConfirmPanel(VBoxContainer parent)
@@ -643,6 +713,15 @@ public partial class PauseScreen : CanvasLayer
 
     private static string PostFxLabel(bool on) =>
         on ? "Post FX:  On" : "Post FX:  Off";
+
+    private static string ScreenFilterLabel(bool on) =>
+        on ? "Screen Filter (CA/Bloom/Scanlines):  On" : "Screen Filter (CA/Bloom/Scanlines):  Off";
+
+    private static string VhsGlitchLabel(bool on) =>
+        on ? "VHS Glitch:  On" : "VHS Glitch:  Off";
+
+    private static string PhosphorGridLabel(bool on) =>
+        on ? "Phosphor Grid:  On" : "Phosphor Grid:  Off";
 
     private static string EnemyLayeredLabel(bool on) =>
         on ? "Layered Enemies:  On" : "Layered Enemies:  Off";

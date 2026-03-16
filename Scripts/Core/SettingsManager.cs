@@ -14,6 +14,10 @@ public partial class SettingsManager : Node
 {
     public static SettingsManager? Instance { get; private set; }
 
+    public static event System.Action<bool>? ScreenFilterChanged;
+    public static event System.Action<bool>? VhsGlitchChanged;
+    public static event System.Action<bool>? PhosphorGridChanged;
+
     private const string SavePath        = "user://settings.cfg";
     private const string DisplaySavePath = "user://display.cfg";
     private const string SecAudio    = "audio";
@@ -44,6 +48,9 @@ public partial class SettingsManager : Node
     public bool  EnemyEmissiveLines { get; private set; } = true;
     public bool  EnemyDamageMaterial { get; private set; } = true;
     public bool  EnemyBloomHighlights { get; private set; } = !MobileOptimization.IsMobile();
+    public bool  ScreenFilterEnabled  { get; private set; } = true;
+    public bool  VhsGlitchEnabled     { get; private set; } = false;
+    public bool  PhosphorGridEnabled  { get; private set; } = false;
 
     public override void _Ready()
     {
@@ -170,6 +177,27 @@ public partial class SettingsManager : Node
         SaveDisplay();
     }
 
+    public void SetScreenFilterEnabled(bool enabled)
+    {
+        ScreenFilterEnabled = enabled;
+        ScreenFilterChanged?.Invoke(enabled);
+        SaveDisplay();
+    }
+
+    public void SetVhsGlitchEnabled(bool enabled)
+    {
+        VhsGlitchEnabled = enabled;
+        VhsGlitchChanged?.Invoke(enabled);
+        SaveDisplay();
+    }
+
+    public void SetPhosphorGridEnabled(bool enabled)
+    {
+        PhosphorGridEnabled = enabled;
+        PhosphorGridChanged?.Invoke(enabled);
+        SaveDisplay();
+    }
+
     // ── Apply ────────────────────────────────────────────────────────────
 
     private static void EnsureBuses()
@@ -268,6 +296,9 @@ public partial class SettingsManager : Node
         }
 
         Fullscreen = (bool)displayCfg.GetValue(SecDisp, "fullscreen", false);
+        ScreenFilterEnabled = (bool)displayCfg.GetValue(SecDisp, "screen_filter",  true);
+        VhsGlitchEnabled    = (bool)displayCfg.GetValue(SecDisp, "vhs_glitch",     false);
+        PhosphorGridEnabled = (bool)displayCfg.GetValue(SecDisp, "phosphor_grid",  false);
         var renderSettings = EnemyRenderSettingsSnapshot.ReadFrom(displayCfg, defaultBloomEnabled: !MobileOptimization.IsMobile());
         PostFxEnabled         = renderSettings.PostFxEnabled;
         LayeredEnemyRendering = renderSettings.LayeredEnabled;
@@ -303,6 +334,9 @@ public partial class SettingsManager : Node
     {
         var cfg = new ConfigFile();
         cfg.SetValue(SecDisp, "fullscreen", Fullscreen);
+        cfg.SetValue(SecDisp, "screen_filter",   ScreenFilterEnabled);
+        cfg.SetValue(SecDisp, "vhs_glitch",      VhsGlitchEnabled);
+        cfg.SetValue(SecDisp, "phosphor_grid",   PhosphorGridEnabled);
         var renderSettings = new EnemyRenderSettingsSnapshot(
             postFxEnabled: PostFxEnabled,
             layeredEnabled: LayeredEnemyRendering,

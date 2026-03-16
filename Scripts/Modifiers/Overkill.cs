@@ -12,23 +12,48 @@ public class Overkill : Modifier
 
     public Overkill(ModifierDef def) { ModifierId = def.Id; }
 
-    public override void OnKill(DamageContext ctx)
+    public override bool OnKill(DamageContext ctx)
     {
+        // isChain marks spill-sourced hits — skip to prevent recursive spill chains.
+        if (ctx.IsChain) return false;
+
         float excess = -ctx.Target.Hp;
-        if (excess <= 0f) return;
+        if (excess <= 0f) return false;
 
         var next = ctx.EnemiesAlive
             .Where(e => e.Hp > 0f)
             .MaxBy(e => e.ProgressRatio);
 
-        if (next != null)
+        if (next == null) return false;
+
+        float spillDamage = excess * SpillEfficiency;
+
+        // Apply spill as raw damage (no ModifyDamage, no Marked/DamageAmp bonuses, no OnHit side effects)
+        // so the spill amount stays exactly excess * SpillEfficiency and doesn't inherit modifier multipliers.
+        bool wasMarked = next.IsMarked;
+        float hpBefore = next.Hp;
+        next.Hp = System.MathF.Max(0f, next.Hp - spillDamage);
+        float dealt = hpBefore - next.Hp;
+        bool isKill = next.Hp <= 0f;
+
+        if (isKill)
         {
-            float spillDamage = excess * SpillEfficiency;
-            next.Hp -= spillDamage;
-            float spillRatio = spillDamage / System.MathF.Max(1f, ctx.FinalDamage);
-            float scalar = SpectacleDefinitions.OverkillEventScalar(spillRatio);
-            GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId, scalar, spillDamage);
-            GameController.Instance?.NotifyOverkillSpill(next.GlobalPosition, spillDamage);
+            if (wasMarked)
+                GameController.Instance?.NotifyMarkedEnemyPop(ctx.Attacker, next, ctx.EnemiesAlive);
+            // Fire OnKill for other modifiers (e.g. FeedbackLoop) so kill effects aren't silently skipped.
+            // isChain: true prevents this Overkill instance from recursing.
+            var killCtx = new DamageContext(ctx.Attacker, next, ctx.WaveIndex, ctx.EnemiesAlive, ctx.State,
+                                             isChain: true, damageOverride: spillDamage);
+            killCtx.DamageDealt = dealt;
+            foreach (var mod in ctx.Attacker.Modifiers)
+                if (mod.OnKill(killCtx))
+                    GameController.Instance?.NotifyModifierProc(ctx.Attacker, mod.ModifierId);
         }
+
+        float spillRatio = spillDamage / System.MathF.Max(1f, ctx.FinalDamage);
+        float scalar = SpectacleDefinitions.OverkillEventScalar(spillRatio);
+        GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId, scalar, dealt);
+        GameController.Instance?.NotifyOverkillSpill(next.GlobalPosition, spillDamage);
+        return true;
     }
 }

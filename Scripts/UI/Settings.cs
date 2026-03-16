@@ -16,6 +16,9 @@ public partial class Settings : Node
     private Button? _enemyEmissiveBtn;
     private Button? _enemyDamageBtn;
     private Button? _enemyBloomBtn;
+    private Button? _screenFilterBtn;
+    private Button? _vhsGlitchBtn;
+    private Button? _phosphorGridBtn;
     private Button? _resetProfileBtn;
     private Label? _resetProfileStatus;
 
@@ -29,24 +32,19 @@ public partial class Settings : Node
         bg.Color = new Color("#141420");
         canvas.AddChild(bg);
 
-        var scroll = new ScrollContainer();
-        scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
-        scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
-        TouchScrollHelper.EnableDragScroll(scroll);
-        canvas.AddChild(scroll);
+        var root = new VBoxContainer();
+        root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        root.AddThemeConstantOverride("separation", 0);
+        canvas.AddChild(root);
 
-        var center = new CenterContainer();
-        center.Theme = SlotTheory.Core.UITheme.Build();
-        center.CustomMinimumSize = GetViewport().GetVisibleRect().Size;
-        scroll.AddChild(center);
+        // ── Pinned title header ───────────────────────────────────────────
+        var titleMargin = new MarginContainer();
+        titleMargin.AddThemeConstantOverride("margin_left",   24);
+        titleMargin.AddThemeConstantOverride("margin_right",  24);
+        titleMargin.AddThemeConstantOverride("margin_top",    22);
+        titleMargin.AddThemeConstantOverride("margin_bottom", 14);
+        root.AddChild(titleMargin);
 
-        var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 18);
-        vbox.CustomMinimumSize = new Vector2(420, 0);
-        center.AddChild(vbox);
-
-        // Title
         var title = new Label
         {
             Text = "SETTINGS",
@@ -54,9 +52,50 @@ public partial class Settings : Node
         };
         SlotTheory.Core.UITheme.ApplyFont(title, semiBold: true, size: 52);
         title.Modulate = new Color("#a6d608");
-        vbox.AddChild(title);
+        titleMargin.AddChild(title);
 
-        AddSpacer(vbox, 20);
+        // ── Bordered scroll panel — horizontally constrained to content width ──
+        float vpWidth   = GetViewport().GetVisibleRect().Size.X;
+        float sidePad   = Mathf.Max(20f, (vpWidth - 560f) / 2f);
+
+        var scrollPanelMargin = new MarginContainer();
+        scrollPanelMargin.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
+        scrollPanelMargin.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        scrollPanelMargin.AddThemeConstantOverride("margin_left",   (int)sidePad);
+        scrollPanelMargin.AddThemeConstantOverride("margin_right",  (int)sidePad);
+        scrollPanelMargin.AddThemeConstantOverride("margin_top",    0);
+        scrollPanelMargin.AddThemeConstantOverride("margin_bottom", 0);
+        root.AddChild(scrollPanelMargin);
+
+        var scrollPanel = new PanelContainer();
+        scrollPanel.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
+        scrollPanel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        scrollPanel.AddThemeStyleboxOverride("panel", SlotTheory.Core.UITheme.MakePanel(
+            bg: new Color(0.05f, 0.04f, 0.13f),
+            border: new Color(0.30f, 0.18f, 0.55f),
+            corners: 10, borderWidth: 2, padH: 8, padV: 8));
+        scrollPanelMargin.AddChild(scrollPanel);
+
+        var scroll = new ScrollContainer();
+        scroll.SizeFlagsVertical    = Control.SizeFlags.ExpandFill;
+        scroll.SizeFlagsHorizontal  = Control.SizeFlags.ExpandFill;
+        scroll.VerticalScrollMode   = ScrollContainer.ScrollMode.Auto;
+        scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        TouchScrollHelper.EnableDragScroll(scroll);
+        scrollPanel.AddChild(scroll);
+
+        var center = new CenterContainer();
+        center.Theme = SlotTheory.Core.UITheme.Build();
+        center.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        center.CustomMinimumSize = new Vector2(0, GetViewport().GetVisibleRect().Size.Y);
+        scroll.AddChild(center);
+
+        var vbox = new VBoxContainer();
+        vbox.AddThemeConstantOverride("separation", 18);
+        vbox.CustomMinimumSize = new Vector2(420, 0);
+        center.AddChild(vbox);
+
+        AddSpacer(vbox, 12);
 
         // Audio
         AddSectionHeader(vbox, "AUDIO");
@@ -119,6 +158,31 @@ public partial class Settings : Node
         _postFxBtn.AddThemeFontSizeOverride("font_size", 20);
         _postFxBtn.Pressed += OnTogglePostFx;
         vbox.AddChild(_postFxBtn);
+
+        bool isSf = sm?.ScreenFilterEnabled ?? true;
+        _screenFilterBtn = new Button
+        {
+            Text = ScreenFilterLabel(isSf),
+            CustomMinimumSize = new Vector2(260, 44),
+        };
+        _screenFilterBtn.AddThemeFontSizeOverride("font_size", 20);
+        _screenFilterBtn.Pressed += OnToggleScreenFilter;
+        vbox.AddChild(_screenFilterBtn);
+
+        AddSpacer(vbox, 8);
+        AddSectionHeader(vbox, "SCREEN EFFECTS");
+
+        bool isVhs = sm?.VhsGlitchEnabled ?? false;
+        _vhsGlitchBtn = new Button { Text = VhsGlitchLabel(isVhs), CustomMinimumSize = new Vector2(260, 44) };
+        _vhsGlitchBtn.AddThemeFontSizeOverride("font_size", 20);
+        _vhsGlitchBtn.Pressed += OnToggleVhsGlitch;
+        vbox.AddChild(_vhsGlitchBtn);
+
+        bool isPhos = sm?.PhosphorGridEnabled ?? false;
+        _phosphorGridBtn = new Button { Text = PhosphorGridLabel(isPhos), CustomMinimumSize = new Vector2(260, 44) };
+        _phosphorGridBtn.AddThemeFontSizeOverride("font_size", 20);
+        _phosphorGridBtn.Pressed += OnTogglePhosphorGrid;
+        vbox.AddChild(_phosphorGridBtn);
 
         AddSpacer(vbox, 8);
         AddSectionHeader(vbox, "ENEMY FX");
@@ -188,9 +252,20 @@ public partial class Settings : Node
             vbox.AddChild(_resetProfileStatus);
         }
 
-        AddSpacer(vbox, 24);
+        MobileOptimization.ApplyUIScale(center);
 
-        // Back
+        // Back button pinned outside scroll so it's always visible
+        var bottomMargin = new MarginContainer();
+        bottomMargin.AddThemeConstantOverride("margin_left",   24);
+        bottomMargin.AddThemeConstantOverride("margin_right",  24);
+        bottomMargin.AddThemeConstantOverride("margin_top",    12);
+        bottomMargin.AddThemeConstantOverride("margin_bottom", 16);
+        bottomMargin.Theme = SlotTheory.Core.UITheme.Build();
+        root.AddChild(bottomMargin);
+
+        var backCenter = new CenterContainer();
+        bottomMargin.AddChild(backCenter);
+
         var back = new Button
         {
             Text = "Back",
@@ -198,9 +273,7 @@ public partial class Settings : Node
         };
         back.AddThemeFontSizeOverride("font_size", 20);
         back.Pressed += () => SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
-        vbox.AddChild(back);
-        MobileOptimization.ApplyUIScale(center);
-        AddSpacer(vbox, 24);
+        backCenter.AddChild(back);
     }
 
     public override void _Notification(int what)
@@ -252,6 +325,36 @@ public partial class Settings : Node
             _postFxBtn.Text = PostFxLabel(next);
     }
 
+    private void OnToggleScreenFilter()
+    {
+        bool next = !(SettingsManager.Instance?.ScreenFilterEnabled ?? true);
+        SettingsManager.Instance?.SetScreenFilterEnabled(next);
+        if (_screenFilterBtn != null)
+            _screenFilterBtn.Text = ScreenFilterLabel(next);
+    }
+
+    private void OnToggleVhsGlitch()
+    {
+        bool next = !(SettingsManager.Instance?.VhsGlitchEnabled ?? false);
+        SettingsManager.Instance?.SetVhsGlitchEnabled(next);
+        if (_vhsGlitchBtn != null)
+            _vhsGlitchBtn.Text = VhsGlitchLabel(next);
+    }
+
+    private void OnTogglePhosphorGrid()
+    {
+        bool next = !(SettingsManager.Instance?.PhosphorGridEnabled ?? false);
+        SettingsManager.Instance?.SetPhosphorGridEnabled(next);
+        if (_phosphorGridBtn != null)
+            _phosphorGridBtn.Text = PhosphorGridLabel(next);
+    }
+
+    private static string VhsGlitchLabel(bool on) =>
+        on ? "VHS Glitch:  On" : "VHS Glitch:  Off";
+
+    private static string PhosphorGridLabel(bool on) =>
+        on ? "Phosphor Grid:  On" : "Phosphor Grid:  Off";
+
     private static string FullscreenLabel(bool full) =>
         full ? "Display:  Fullscreen" : "Display:  Windowed";
 
@@ -263,6 +366,9 @@ public partial class Settings : Node
 
     private static string PostFxLabel(bool on) =>
         on ? "Post FX:  On" : "Post FX:  Off";
+
+    private static string ScreenFilterLabel(bool on) =>
+        on ? "Screen Filter (CA/Bloom/Scanlines):  On" : "Screen Filter (CA/Bloom/Scanlines):  Off";
 
     private void OnToggleEnemyLayered()
     {

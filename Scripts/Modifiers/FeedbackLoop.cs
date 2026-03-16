@@ -14,7 +14,7 @@ public class FeedbackLoop : Modifier
 {
     public FeedbackLoop(ModifierDef def) { ModifierId = def.Id; }
 
-    public override void OnKill(DamageContext ctx)
+    public override bool OnKill(DamageContext ctx)
     {
         float preCooldown = ctx.Attacker.Cooldown;
         ctx.Attacker.Cooldown = System.MathF.Max(
@@ -29,5 +29,6 @@ public class FeedbackLoop : Modifier
             GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId, scalar, ctx.DamageDealt);
         }
         GameController.Instance?.NotifyFeedbackLoopProc(ctx.Attacker);
+        return true;
     }
 }

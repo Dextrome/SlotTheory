@@ -16,5 +16,6 @@ public abstract class Modifier
     public virtual void ModifyDamage(ref float damage, DamageContext ctx) { }
     /// <summary>Called on every hit. Return true if the modifier did something (triggers proc visual).</summary>
     public virtual bool OnHit(DamageContext ctx) => false;
-    public virtual void OnKill(DamageContext ctx) { }
+    /// <summary>Called on every kill. Return true if the modifier did something (triggers proc visual).</summary>
+    public virtual bool OnKill(DamageContext ctx) => false;
 }

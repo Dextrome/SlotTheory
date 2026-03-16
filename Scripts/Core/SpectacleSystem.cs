@@ -52,11 +52,14 @@ public sealed class SpectacleSystem
     {
         public float Time { get; }
         public ITowerView Tower { get; }
+        /// <summary>Primary mod ID locked at the moment the surge fired. Avoids re-deriving from post-surge state.</summary>
+        public string PrimaryModId { get; }
 
-        public SurgeContribution(float time, ITowerView tower)
+        public SurgeContribution(float time, ITowerView tower, string primaryModId)
         {
             Time = time;
             Tower = tower;
+            PrimaryModId = primaryModId;
         }
     }
 
@@ -291,7 +294,7 @@ public sealed class SpectacleSystem
             state.LockedTertiary = string.Empty;
 
             _globalMeter = Clamp(_globalMeter + SpectacleDefinitions.ResolveGlobalMeterPerSurge(), 0f, globalThreshold);
-            _surgeContributions.Enqueue(new SurgeContribution(_time, tower));
+            _surgeContributions.Enqueue(new SurgeContribution(_time, tower, signature.PrimaryModId));
             PruneGlobalContributions();
 
             OnSurgeTriggered?.Invoke(new SpectacleTriggerInfo(tower, IsSurge: true, signature, state.Meter));
@@ -607,10 +610,8 @@ public sealed class SpectacleSystem
         foreach (var contrib in _surgeContributions)
         {
             if (contrib.Time < cutoff) continue;
-            if (!_towerStates.TryGetValue(contrib.Tower, out var state)) continue;
-            var sig = ResolveSignature(state, contrib.Tower, useLockedRoles: true);
-            if (!string.IsNullOrEmpty(sig.PrimaryModId))
-                modCounts[sig.PrimaryModId] = modCounts.GetValueOrDefault(sig.PrimaryModId, 0) + 1;
+            if (string.IsNullOrEmpty(contrib.PrimaryModId)) continue;
+            modCounts[contrib.PrimaryModId] = modCounts.GetValueOrDefault(contrib.PrimaryModId, 0) + 1;
         }
         if (modCounts.Count == 0)
             return System.Array.Empty<string>();
