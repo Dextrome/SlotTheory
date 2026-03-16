@@ -33,6 +33,14 @@ public partial class MusicPercLayer : Node
     // Hat variation: some bars drop to quarter-note hats
     private bool _useQuarterHats;
 
+    // Surge fill: play an intense 1-bar accent pattern on the next bar after a global surge
+    public bool SurgeFillPending { get; set; } = false;
+    private bool _surgeFillThisBar;
+
+    // Density arc: suppress hats for the first N bars of a wave so they "fill in"
+    public int WaveIntroBarsLeft { get; set; } = 0;
+    private bool _introHatsSuppressed;
+
     // Per-map feel controls (set by MusicDirector from the map profile)
     // HatQuarterChance: probability per bar that 8th-note hats drop to quarters (0=never, 1=always)
     // Style: selects the kick/snare groove table for this map
@@ -143,11 +151,16 @@ public partial class MusicPercLayer : Node
     private static readonly bool[] FillKick  = { false, false, false, false, false, false, true,  false };
     private static readonly bool[] FillSnare = { false, false, false, false, false, true,  true,  true  };
 
+    // Surge fill: 1-bar accent fired after a global surge — double kick + snare roll
+    // Index map: 0=beat1, 1=beat1-and, 2=beat2, 3=beat2-and, 4=beat3, 5=beat3-and, 6=beat4, 7=beat4-and
+    private static readonly bool[] SurgeFillKick  = { true, true, false, false, true, false, true, true  };
+    private static readonly bool[] SurgeFillSnare = { false, false, false, false, true, true, true, true  };
+
     // Volume constants (absolute dB passed to PlayPerc)
     private const float KickVol  = -15f;
-    private const float SnareVol = -14f;
+    private const float SnareVol = -17f;
     private const float HatCVol  = -17f;  // hats sit further back in the mix
-    private const float HatOVol  = -14f;
+    private const float HatOVol  = -15f;
 
     // ── Configuration ──────────────────────────────────────────────────────
 
@@ -175,6 +188,14 @@ public partial class MusicPercLayer : Node
         int patternIdx = TensionToPatternIndex(_tension);
         bool eighthsDefault = patternIdx >= 1;
         _useQuarterHats = eighthsDefault && HatQuarterChance > 0f && (_rng.NextDouble() < HatQuarterChance);
+
+        // Surge fill: latch for this bar, clear pending flag
+        _surgeFillThisBar  = SurgeFillPending;
+        SurgeFillPending   = false;
+
+        // Density arc: snapshot suppression state then decrement counter
+        _introHatsSuppressed = WaveIntroBarsLeft > 0;
+        if (WaveIntroBarsLeft > 0) WaveIntroBarsLeft--;
     }
 
     private void OnSubBeat(int globalIdx)
@@ -202,12 +223,23 @@ public partial class MusicPercLayer : Node
 
         int i = _subBeatInBar;
 
-        // Merge fill overlay on the fill bar
-        bool playKick  = kick[i]  || (_isFillBar && FillKick[i]);
-        bool playSnare = snare[i] || (_isFillBar && FillSnare[i]);
+        // Surge fill overrides the normal pattern for the whole bar
+        bool playKick, playSnare;
+        if (_surgeFillThisBar)
+        {
+            playKick  = SurgeFillKick[i];
+            playSnare = SurgeFillSnare[i];
+        }
+        else
+        {
+            // Merge fill overlay on the fill bar
+            playKick  = kick[i]  || (_isFillBar && FillKick[i]);
+            playSnare = snare[i] || (_isFillBar && FillSnare[i]);
+        }
 
-        // Fill bar: suppress open hat and hats on steps 5–7 to let the fill breathe
-        bool suppressHat = _isFillBar && i >= 5;
+        // Fill bar: suppress open hat and hats on steps 5–7 to let the fill breathe.
+        // Density arc: suppress all hats for the first 2 bars of each wave.
+        bool suppressHat = (_isFillBar && i >= 5) || _introHatsSuppressed;
 
         if (playKick)  SoundManager.Instance?.PlayPerc("perc_kick",  KickVol);
 
@@ -230,8 +262,8 @@ public partial class MusicPercLayer : Node
             }
         }
 
-        // Ghost snare: 12% chance on un-patterned beats at Building+ tension
-        if (!playSnare && patternIdx >= 1 && _rng.NextDouble() < 0.12)
+        // Ghost snare: 12% chance on un-patterned beats at Building+ tension (suppressed during intro arc)
+        if (!playSnare && patternIdx >= 1 && !_introHatsSuppressed && _rng.NextDouble() < 0.12)
             SoundManager.Instance?.PlayPerc("perc_snare", SnareVol - 6f);  // ghost = quieter
     }
 

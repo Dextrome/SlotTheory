@@ -127,10 +127,10 @@ public static class MusicHarmony
     /// </summary>
     public static float TensionToBpm(MusicTension tension) => tension switch
     {
-        MusicTension.MidGame               => 88f,
+        MusicTension.MidGame               => 128f,
         MusicTension.LateGame
-            or MusicTension.NearDeath      => 96f,
-        _                                  => 72f,
+            or MusicTension.NearDeath      => 140f,
+        _                                  => 112f,
     };
 
     // ── Helpers ───────────────────────────────────────────────────────────

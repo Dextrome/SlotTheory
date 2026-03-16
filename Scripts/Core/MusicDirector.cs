@@ -58,12 +58,12 @@ public partial class MusicDirector : Node
     {
         // arena_classic — balanced reference: A Dorian, standard groove
         "arena_classic" => new MapMusicProfile(0, MusicMode.Dorian,      0f,  0.20f, MusicPercLayer.DrumStyle.Standard),
-        // gauntlet — aggressive drive: D Mixolydian, +12 BPM, 4-on-the-floor kick, no hat variation
-        "gauntlet"      => new MapMusicProfile(5, MusicMode.Mixolydian, +12f, 0.00f, MusicPercLayer.DrumStyle.FourOnFloor),
-        // sprawl — spacious and chill: B Dorian, -10 BPM, half-time snare, frequent quarter-hat bars
-        "sprawl"        => new MapMusicProfile(2, MusicMode.Dorian,    -10f,  0.50f, MusicPercLayer.DrumStyle.HalfTime),
-        // random_map — unpredictable edge: C Phrygian, off-beat kick, high hat variation
-        "random_map"    => new MapMusicProfile(3, MusicMode.Phrygian,    0f,  0.40f, MusicPercLayer.DrumStyle.Syncopated),
+        // gauntlet — aggressive drive: D Mixolydian, +24 BPM, 4-on-the-floor kick, no hat variation
+        "gauntlet"      => new MapMusicProfile(5, MusicMode.Mixolydian, +24f, 0.00f, MusicPercLayer.DrumStyle.FourOnFloor),
+        // sprawl — spacious and chill: B Dorian, -24 BPM, half-time snare, frequent quarter-hat bars
+        "sprawl"        => new MapMusicProfile(2, MusicMode.Dorian,    -24f,  0.50f, MusicPercLayer.DrumStyle.HalfTime),
+        // random_map — unpredictable edge: C Phrygian, +10 BPM, off-beat kick, high hat variation
+        "random_map"    => new MapMusicProfile(3, MusicMode.Phrygian,  +10f,  0.40f, MusicPercLayer.DrumStyle.Syncopated),
         _               => new MapMusicProfile(0, MusicMode.Dorian,      0f,  0.20f, MusicPercLayer.DrumStyle.Standard),
     };
 
@@ -100,7 +100,7 @@ public partial class MusicDirector : Node
 
         MelodyLayer = new MusicMelodyLayer();
         AddChild(MelodyLayer);
-        MelodyLayer.Configure(Clock, rootMidi, mode, _tension);
+        MelodyLayer.Configure(Clock, rootMidi, mode, _tension, prog);
         MelodyLayer.Active = false;
 
         PercLayer = new MusicPercLayer();
@@ -140,7 +140,20 @@ public partial class MusicDirector : Node
     {
         if (BassLayer is null) return;
         var newTension = MusicHarmony.ComputeTension(waveIndex, lives);
+        // Density arc: suppress hats for the first 2 bars so they fill in gradually
+        if (newTension != MusicTension.NearDeath)
+            PercLayer.WaveIntroBarsLeft = 2;
         ApplyTension(newTension);
+    }
+
+    /// <summary>
+    /// Call when a global surge triggers. Queues a 1-bar surge fill on the perc layer.
+    /// </summary>
+    public void OnGlobalSurge()
+    {
+        if (PercLayer is null) return;
+        if (PercLayer.Active && PercLayer.Density > 0)
+            PercLayer.SurgeFillPending = true;
     }
 
     /// <summary>
@@ -230,7 +243,7 @@ public partial class MusicDirector : Node
 
             int prog = _rng.Next(MusicHarmony.ProgressionCount(mode));
             BassLayer.QueueModeChange(mode, prog);
-            MelodyLayer.QueueModeChange(mode);
+            MelodyLayer.QueueModeChange(mode, prog);
         }
 
         // Update melody + perc tension for phrase/pattern selection.

@@ -3101,6 +3101,7 @@ void fragment() {
 		if (_runState == null)
 			return;
 		_runState.TrackSpectacleGlobal(info.EffectId);
+		MusicDirector.Instance?.OnGlobalSurge();
 		string traceId = NextSurgeTraceId(global: true);
 		_botLastTraceTriggerId = traceId;
 		AppendBotTraceEvent(

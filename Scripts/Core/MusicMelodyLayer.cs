@@ -19,6 +19,7 @@ public partial class MusicMelodyLayer : Node
     private MusicClock   _clock   = null!;
     private int          _rootMidi;
     private MusicMode    _mode;
+    private int          _progressionIdx;
     private MusicTension _tension = MusicTension.Intro;
     private int          _currentBar;
     private Random       _rng     = new();
@@ -33,6 +34,7 @@ public partial class MusicMelodyLayer : Node
     // Pending mode change — applied at next PhraseFired
     private bool      _pendingChange;
     private MusicMode _pendingMode;
+    private int       _pendingProgressionIdx;
 
     /// <summary>When false, beats are silenced (e.g. during draft phase).</summary>
     public bool Active { get; set; } = false;
@@ -63,12 +65,13 @@ public partial class MusicMelodyLayer : Node
     /// Attach this layer to the clock and begin responding to phrase/beat events.
     /// Call once from MusicDirector._Ready() after MusicBassLayer.Configure().
     /// </summary>
-    public void Configure(MusicClock clock, int rootMidi, MusicMode mode, MusicTension tension)
+    public void Configure(MusicClock clock, int rootMidi, MusicMode mode, MusicTension tension, int progressionIndex = 0)
     {
-        _clock    = clock;
-        _rootMidi = rootMidi;
-        _mode     = mode;
-        _tension  = tension;
+        _clock          = clock;
+        _rootMidi       = rootMidi;
+        _mode           = mode;
+        _progressionIdx = progressionIndex;
+        _tension        = tension;
 
         // Pre-plan the first phrase; it becomes _current at the first PhraseFired.
         _next = PlanPhrase(mode, tension);
@@ -79,13 +82,14 @@ public partial class MusicMelodyLayer : Node
     }
 
     /// <summary>
-    /// Queue a mode change at the next phrase boundary.
+    /// Queue a mode + progression change at the next phrase boundary.
     /// Safe to call mid-phrase.
     /// </summary>
-    public void QueueModeChange(MusicMode mode)
+    public void QueueModeChange(MusicMode mode, int progressionIndex = 0)
     {
-        _pendingMode   = mode;
-        _pendingChange = true;
+        _pendingMode           = mode;
+        _pendingProgressionIdx = progressionIndex;
+        _pendingChange         = true;
     }
 
     // ── Clock event handlers ───────────────────────────────────────────────
@@ -95,11 +99,12 @@ public partial class MusicMelodyLayer : Node
         // Swap pre-planned phrase into current slot
         (_current, _next) = (_next, _current);
 
-        // Apply any deferred mode change
+        // Apply any deferred mode/progression change
         if (_pendingChange)
         {
-            _mode          = _pendingMode;
-            _pendingChange = false;
+            _mode           = _pendingMode;
+            _progressionIdx = _pendingProgressionIdx;
+            _pendingChange  = false;
         }
 
         // Plan ahead for the phrase after this one
@@ -141,17 +146,35 @@ public partial class MusicMelodyLayer : Node
 
         int? lastFilled = null;
 
-        for (int beat = 0; beat < 16; beat++)
+        for (int bar = 0; bar < 4; bar++)
         {
-            if (_rng.NextDouble() < restProb)
-            {
-                slots[beat] = null;
-                continue;
-            }
+            // Chord-aware bias: at each bar boundary, pull the melody toward
+            // the pitch class of the current chord root.
+            int chordOffset    = MusicHarmony.GetChordRootOffset(mode, _progressionIdx, bar);
+            int chordPitchClass = ((_rootMidi + chordOffset) % 12 + 12) % 12;
+            int chordIdx       = FindPitchClassNearest(notes, chordPitchClass, noteIdx);
 
-            slots[beat] = notes[noteIdx];
-            lastFilled  = notes[noteIdx];
-            noteIdx     = AdvanceIndex(notes, noteIdx, beat, contour);
+            if (_rng.NextDouble() < 0.40)
+                noteIdx = chordIdx;                          // hard snap (40%)
+            else
+                noteIdx += Math.Sign(chordIdx - noteIdx);   // gentle drift toward chord root
+
+            noteIdx = Math.Clamp(noteIdx, 0, notes.Count - 1);
+
+            for (int beatInBar = 0; beatInBar < 4; beatInBar++)
+            {
+                int beat = bar * 4 + beatInBar;
+
+                if (_rng.NextDouble() < restProb)
+                {
+                    slots[beat] = null;
+                    continue;
+                }
+
+                slots[beat] = notes[noteIdx];
+                lastFilled  = notes[noteIdx];
+                noteIdx     = AdvanceIndex(notes, noteIdx, beat, contour);
+            }
         }
 
         _lastNote = lastFilled;
@@ -240,6 +263,25 @@ public partial class MusicMelodyLayer : Node
         {
             int d = Math.Abs(notes[i] - targetMidi);
             if (d < bestDist) { bestDist = d; best = i; }
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// Finds the index in <paramref name="notes"/> whose pitch class matches
+    /// <paramref name="pitchClass"/> and is closest (in index distance) to
+    /// <paramref name="nearIdx"/>. Returns <paramref name="nearIdx"/> if no match.
+    /// </summary>
+    public static int FindPitchClassNearest(List<int> notes, int pitchClass, int nearIdx)
+    {
+        int best = nearIdx, bestDist = int.MaxValue;
+        for (int i = 0; i < notes.Count; i++)
+        {
+            if (((notes[i] % 12) + 12) % 12 == pitchClass)
+            {
+                int dist = Math.Abs(i - nearIdx);
+                if (dist < bestDist) { bestDist = dist; best = i; }
+            }
         }
         return best;
     }

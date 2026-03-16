@@ -16,11 +16,14 @@ namespace SlotTheory.Core;
 /// </summary>
 public partial class MusicBassLayer : Node
 {
-    private MusicClock _clock     = null!;
-    private int        _rootMidi;           // run tonic MIDI note (e.g. 45 = A2)
-    private MusicMode  _mode;
-    private int        _progressionIdx;
-    private int        _currentChordOffset; // semitones from _rootMidi for the current bar
+    private MusicClock    _clock     = null!;
+    private int           _rootMidi;           // run tonic MIDI note (e.g. 45 = A2)
+    private MusicMode     _mode;
+    private int           _progressionIdx;
+    private int           _currentChordOffset; // semitones from _rootMidi for the current bar
+    private System.Random _rng = new();
+
+    private const float PassNoteChance = 0.30f;
 
     public int Density { get; set; } = 1;
 
@@ -86,7 +89,12 @@ public partial class MusicBassLayer : Node
     private void OnBeat(int beatIndex)
     {
         if (Density >= 1 && beatIndex == 2)
-            PlayFifth();
+        {
+            if (_rng.NextDouble() < PassNoteChance)
+                PlayPassingNote();
+            else
+                PlayFifth();
+        }
     }
 
     // ── Note helpers ──────────────────────────────────────────────────────
@@ -103,6 +111,33 @@ public partial class MusicBassLayer : Node
     {
         int midi = Clamp(_rootMidi + _currentChordOffset + 7);
         SoundManager.Instance?.PlayNote(midi, BassVolDb);
+    }
+
+    /// <summary>
+    /// On ~30% of beat-3 hits, play a scale tone between the chord root and its
+    /// fifth for a walking bass feel. Picks a random scale degree in (root, root+7).
+    /// Falls back to the fifth if no scale tone exists in that gap.
+    /// </summary>
+    private void PlayPassingNote()
+    {
+        int chordMidi  = Clamp(_rootMidi + _currentChordOffset);
+        int[] scaleOff = MusicHarmony.GetScaleOffsets(_mode);
+        var   scaleSet = new System.Collections.Generic.HashSet<int>(scaleOff);
+
+        // Collect scale tones strictly between the chord root and fifth (semitone gap 1–6)
+        var candidates = new System.Collections.Generic.List<int>();
+        for (int delta = 1; delta <= 6; delta++)
+        {
+            int semitone = ((_rootMidi + _currentChordOffset + delta) % 12 + 12) % 12;
+            if (scaleSet.Contains(semitone))
+                candidates.Add(Clamp(chordMidi + delta));
+        }
+
+        int midi = candidates.Count > 0
+            ? candidates[_rng.Next(candidates.Count)]
+            : Clamp(chordMidi + 7);  // fallback: plain fifth
+
+        SoundManager.Instance?.PlayNote(midi, BassVolDb - 2f);  // passing notes sit slightly softer
     }
 
     // Keep within the registered bass range (MIDI 28–57).
