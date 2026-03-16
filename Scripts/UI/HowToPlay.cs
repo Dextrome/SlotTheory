@@ -54,38 +54,66 @@ public partial class HowToPlay : Node
         // Background
         var bg = new ColorRect();
         bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        bg.Color = new Color("#141420");
+        bg.Color = new Color("#07071a");
         canvas.AddChild(bg);
 
-        // Scroll area
+        var grid = new NeonGridBg();
+        grid.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        grid.MouseFilter = Control.MouseFilterEnum.Ignore;
+        canvas.AddChild(grid);
+
+        // Root layout — full rect VBox so the panel sits inside viewport margins
+        var root = new VBoxContainer();
+        root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        root.AddThemeConstantOverride("separation", 0);
+        canvas.AddChild(root);
+
+        // 15% side margins so the neon grid peeks through on both sides
+        float vpW = GetViewport().GetVisibleRect().Size.X;
+        int sidePad = MobileOptimization.IsMobile() ? 8 : (int)(vpW * 0.15f);
+
+        var panelMargin = new MarginContainer();
+        panelMargin.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
+        panelMargin.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        panelMargin.AddThemeConstantOverride("margin_left",   sidePad);
+        panelMargin.AddThemeConstantOverride("margin_right",  sidePad);
+        panelMargin.AddThemeConstantOverride("margin_top",    20);
+        panelMargin.AddThemeConstantOverride("margin_bottom", 20);
+        root.AddChild(panelMargin);
+
+        var scrollPanel = new PanelContainer();
+        scrollPanel.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
+        scrollPanel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        scrollPanel.AddThemeStyleboxOverride("panel", SlotTheory.Core.UITheme.MakePanel(
+            bg: new Color(0.05f, 0.04f, 0.13f, 0.96f),
+            border: new Color(0.30f, 0.18f, 0.55f),
+            corners: 10, borderWidth: 2, padH: 0, padV: 0));
+        panelMargin.AddChild(scrollPanel);
+
         var scroll = new ScrollContainer();
-        scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        scroll.SizeFlagsVertical    = Control.SizeFlags.ExpandFill;
+        scroll.SizeFlagsHorizontal  = Control.SizeFlags.ExpandFill;
         scroll.Theme = SlotTheory.Core.UITheme.Build();
-        // Enable vertical scrollbar and disable horizontal scrolling
-        scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
+        scroll.VerticalScrollMode   = ScrollContainer.ScrollMode.Auto;
         scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         TouchScrollHelper.EnableDragScroll(scroll);
-        canvas.AddChild(scroll);
+        scrollPanel.AddChild(scroll);
 
-        // Wrap VBox in MarginContainer for proper margins
         var marginContainer = new MarginContainer();
-        // Use smaller margins on mobile to prevent off-screen content
-        var leftMargin = MobileOptimization.IsMobile() ? 10 : 30;
-        var rightMargin = MobileOptimization.IsMobile() ? 10 : 20;
-        marginContainer.AddThemeConstantOverride("margin_left", leftMargin);
-        marginContainer.AddThemeConstantOverride("margin_right", rightMargin);
-        marginContainer.AddThemeConstantOverride("margin_top", 20);
+        int innerH = MobileOptimization.IsMobile() ? 10 : 24;
+        marginContainer.AddThemeConstantOverride("margin_left",   innerH);
+        marginContainer.AddThemeConstantOverride("margin_right",  innerH);
+        marginContainer.AddThemeConstantOverride("margin_top",    20);
         marginContainer.AddThemeConstantOverride("margin_bottom", 20);
         marginContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        marginContainer.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-        marginContainer.MouseFilter = Control.MouseFilterEnum.Pass; // let touch events reach ScrollContainer
+        marginContainer.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
+        marginContainer.MouseFilter = Control.MouseFilterEnum.Pass;
         scroll.AddChild(marginContainer);
 
         // Simple VBox that can expand vertically
         var vbox = new VBoxContainer();
         vbox.AddThemeConstantOverride("separation", 6);
         vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        // Don't set vertical size flags - let it size naturally to content
         marginContainer.AddChild(vbox);
 
         // Title
@@ -265,7 +293,7 @@ public partial class HowToPlay : Node
                 string aName = SpectacleDefinitions.GetDisplayName(a);
                 string bName = SpectacleDefinitions.GetDisplayName(b);
                 AddComboModRow(vbox, a, b, combo.Name.ToUpperInvariant(),
-                    $"{aName} + {bName}: Hybrid payload combining both modifier surge families.");
+                    $"{aName} + {bName}: Hybrid payload.");
             }
         }
         AddSpacer(vbox, 12);

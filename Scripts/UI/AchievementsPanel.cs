@@ -22,24 +22,57 @@ public partial class AchievementsPanel : Node
 
         var bg = new ColorRect();
         bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        bg.Color = new Color("#141420");
+        bg.Color = new Color("#07071a");
         canvas.AddChild(bg);
 
+        var grid = new NeonGridBg();
+        grid.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        grid.MouseFilter = Control.MouseFilterEnum.Ignore;
+        canvas.AddChild(grid);
+
+        var root = new VBoxContainer();
+        root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        root.AddThemeConstantOverride("separation", 0);
+        canvas.AddChild(root);
+
+        float vpW = GetViewport().GetVisibleRect().Size.X;
+        int sidePad = MobileOptimization.IsMobile() ? 8 : (int)(vpW * 0.15f);
+
+        var panelMargin = new MarginContainer();
+        panelMargin.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
+        panelMargin.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        panelMargin.AddThemeConstantOverride("margin_left",   sidePad);
+        panelMargin.AddThemeConstantOverride("margin_right",  sidePad);
+        panelMargin.AddThemeConstantOverride("margin_top",    20);
+        panelMargin.AddThemeConstantOverride("margin_bottom", 20);
+        root.AddChild(panelMargin);
+
+        var scrollPanel = new PanelContainer();
+        scrollPanel.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
+        scrollPanel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        scrollPanel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.05f, 0.04f, 0.13f, 0.96f),
+            border: new Color(0.30f, 0.18f, 0.55f),
+            corners: 10, borderWidth: 2, padH: 0, padV: 0));
+        panelMargin.AddChild(scrollPanel);
+
         var scroll = new ScrollContainer();
-        scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        scroll.SizeFlagsVertical    = Control.SizeFlags.ExpandFill;
+        scroll.SizeFlagsHorizontal  = Control.SizeFlags.ExpandFill;
         scroll.Theme = UITheme.Build();
         scroll.VerticalScrollMode   = ScrollContainer.ScrollMode.Auto;
         scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         TouchScrollHelper.EnableDragScroll(scroll);
-        canvas.AddChild(scroll);
+        scrollPanel.AddChild(scroll);
 
         var margin = new MarginContainer();
-        margin.AddThemeConstantOverride("margin_left",   30);
-        margin.AddThemeConstantOverride("margin_right",  30);
+        margin.AddThemeConstantOverride("margin_left",   24);
+        margin.AddThemeConstantOverride("margin_right",  24);
         margin.AddThemeConstantOverride("margin_top",    24);
         margin.AddThemeConstantOverride("margin_bottom", 24);
         margin.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        margin.MouseFilter = Control.MouseFilterEnum.Pass; // let touch events reach ScrollContainer
+        margin.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
+        margin.MouseFilter = Control.MouseFilterEnum.Pass;
         scroll.AddChild(margin);
 
         var vbox = new VBoxContainer();

@@ -11,6 +11,7 @@ namespace SlotTheory.UI;
 /// </summary>
 public partial class EndScreen : CanvasLayer
 {
+	private Control _root = null!;
 	private Label _titleLabel    = null!;
 	private Label _subtitleLabel = null!;
 	private Label _statsLabel    = null!;
@@ -34,10 +35,11 @@ public partial class EndScreen : CanvasLayer
 		Layer = 10;
 		Visible = false;
 
-		var root = new Control();
-		root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		root.Theme = SlotTheory.Core.UITheme.Build();
-		AddChild(root);
+		_root = new Control();
+		_root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		_root.Theme = SlotTheory.Core.UITheme.Build();
+		AddChild(_root);
+		var root = _root;
 
 		var bg = new ColorRect();
 		bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -189,7 +191,7 @@ public partial class EndScreen : CanvasLayer
 		_buildLabel.Visible = buildSummary.Length > 0;
 		_lossAnalysisLabel.Visible = false;
 		_leaderboardLabel.Visible = false;
-		Visible = true;
+		PlayEntranceAnimation();
 	}
 
 	public void ShowLoss(int waveReached, int livesLost, int kills, int damageDealt, float totalPlayTime, string buildSummary, RunState runState, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor)
@@ -221,7 +223,22 @@ public partial class EndScreen : CanvasLayer
 			_lossAnalysisLabel.Visible = false;
 		}
 
+		PlayEntranceAnimation();
+	}
+
+	private void PlayEntranceAnimation()
+	{
+		_root.Modulate = new Color(1f, 1f, 1f, 0f);
 		Visible = true;
+		_titleLabel.PivotOffset = _titleLabel.Size / 2f;
+		_titleLabel.Scale = new Vector2(0.78f, 0.78f);
+
+		var tw = CreateTween();
+		tw.SetParallel(true);
+		tw.TweenProperty(_root, "modulate:a", 1f, 0.30f)
+		  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+		tw.TweenProperty(_titleLabel, "scale", Vector2.One, 0.26f)
+		  .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
 	}
 
 	public void SetLeaderboardStatus(string text, bool isError = false)

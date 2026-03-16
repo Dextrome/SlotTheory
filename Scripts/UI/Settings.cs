@@ -29,8 +29,13 @@ public partial class Settings : Node
 
         var bg = new ColorRect();
         bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        bg.Color = new Color("#141420");
+        bg.Color = new Color("#07071a");
         canvas.AddChild(bg);
+
+        var grid = new NeonGridBg();
+        grid.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        grid.MouseFilter = Control.MouseFilterEnum.Ignore;
+        canvas.AddChild(grid);
 
         var root = new VBoxContainer();
         root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
