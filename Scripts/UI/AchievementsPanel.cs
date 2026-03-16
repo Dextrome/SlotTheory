@@ -1,3 +1,4 @@
+using System.Linq;
 using Godot;
 using SlotTheory.Core;
 
@@ -91,9 +92,15 @@ public partial class AchievementsPanel : Node
         foreach (var def in AchievementManager.All)
             if (AchievementManager.Instance?.IsUnlocked(def.Id) == true) unlocked++;
 
+        string[] prestigeOrder = { "CHAIN_MASTER", "FLAWLESS", "SPEED_RUN", "HARD_WIN", "LAST_STAND", "ANNIHILATOR" };
+        string? nextHard = prestigeOrder.FirstOrDefault(id => AchievementManager.Instance?.IsUnlocked(id) != true);
+        string progressText = nextHard != null
+            ? $"{unlocked} / {AchievementManager.All.Length}  —  next hard target: {nextHard.Replace('_', ' ')}"
+            : $"{unlocked} / {AchievementManager.All.Length}  unlocked";
+
         var progress = new Label
         {
-            Text = $"{unlocked} / {AchievementManager.All.Length}  unlocked",
+            Text = progressText,
             HorizontalAlignment = HorizontalAlignment.Center,
         };
         progress.AddThemeFontSizeOverride("font_size", 16);

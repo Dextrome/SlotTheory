@@ -96,8 +96,8 @@ dotnet build SlotTheory.sln
 - Range checks are **fully enforced** in bot mode (`ignoreRange: false` hardcoded in `CombatSim.Step`). Enemy `GlobalPosition` is correctly updated by `PathFollow2D` whenever `Progress` is set in `BotTick`.
 - Spectacle gameplay payloads are applied in bot mode for surge/global surge triggers (matching live gameplay logic).
 - Minor spectacle trigger tier no longer exists, so surge/global surge metrics are the primary balancing signal.
-- 11 strategies cycle round-robin: `Random`, `TowerFirst`, `GreedyDps`, `MarkerSynergy`, `ChainFocus`, `SplitFocus`, `HeavyStack`, `RiftPrismFocus`, `SpectacleSingleStack`, `SpectacleComboPairing`, `SpectacleTriadDiversity`.
-- Bot strategy sets: pass `--strategy-set optimization` (8 strategies focused on win-rate) or `--strategy-set edge` (3 edge-case strategies) to scope runs. Default (`all`) cycles all 11.
+- 12 strategies cycle round-robin: `Random`, `TowerFirst`, `GreedyDps`, `MarkerSynergy`, `ChainFocus`, `SplitFocus`, `HeavyStack`, `RiftPrismFocus`, `SpectacleSingleStack`, `SpectacleComboPairing`, `SpectacleTriadDiversity`, `PlayerStyleKenny`.
+- Bot strategy sets: pass `--strategy-set optimization` (8 strategies focused on win-rate) or `--strategy-set edge` (3 edge-case strategies) to scope runs. Default (`all`) cycles all 12.
 - Run `run_tuning_pipeline.ps1` for automated iterative tuning (generates seed from current `SpectacleTuning`, runs bot eval + scenario suite, outputs best profile).
 
 ## Testing

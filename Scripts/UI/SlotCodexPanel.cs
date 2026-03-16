@@ -290,7 +290,7 @@ public partial class SlotCodexPanel : Node
 
         if (!unlocked)
         {
-            BuildCardBack(body, "UNREVEALED TOWER");
+            BuildCardBack(body, "UNREVEALED TOWER", GetUnlockGateNote(towerId));
             return panel;
         }
 
@@ -349,7 +349,7 @@ public partial class SlotCodexPanel : Node
 
         if (!unlocked)
         {
-            BuildCardBack(body, "UNREVEALED MOD");
+            BuildCardBack(body, "UNREVEALED MOD", GetUnlockGateNote(modifierId));
             return panel;
         }
 
@@ -462,7 +462,29 @@ public partial class SlotCodexPanel : Node
         return body;
     }
 
-    private static void BuildCardBack(VBoxContainer body, string label)
+    private static string GetUnlockGateNote(string id)
+    {
+        try
+        {
+            string mapId = id switch
+            {
+                Unlocks.ArcEmitterTowerId  => Unlocks.GetArcEmitterUnlockMapId(),
+                Unlocks.RiftPrismTowerId   => Unlocks.GetRiftPrismUnlockMapId(),
+                Unlocks.SplitShotModifierId => Unlocks.GetSplitShotUnlockMapId(),
+                _ => ""
+            };
+            if (string.IsNullOrEmpty(mapId)) return "Reveal by completing unlock achievements.";
+            var map = DataLoader.GetAllMapDefs().FirstOrDefault(m => m.Id == mapId);
+            string mapName = map?.Name ?? "a campaign map";
+            return $"Unlock by clearing {mapName} on any difficulty.";
+        }
+        catch
+        {
+            return "Reveal by completing unlock achievements.";
+        }
+    }
+
+    private static void BuildCardBack(VBoxContainer body, string label, string? gateNote = null)
     {
         var top = new Label
         {
@@ -492,7 +514,7 @@ public partial class SlotCodexPanel : Node
 
         var note = new Label
         {
-            Text = "Reveal by completing unlock achievements.",
+            Text = gateNote ?? "Reveal by completing unlock achievements.",
             HorizontalAlignment = HorizontalAlignment.Center,
             AutowrapMode = TextServer.AutowrapMode.WordSmart
         };

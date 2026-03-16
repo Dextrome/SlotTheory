@@ -594,7 +594,7 @@ public partial class GameController : Node
 				var localSubmit = HighScoreManager.Instance?.SubmitLocal(scorePayload);
 				string leaderboardLine = BuildInitialLeaderboardLine(scorePayload, localSubmit);
 				_endScreen.SetLeaderboardContext(scorePayload.MapId, scorePayload.Difficulty);
-				_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end);
+				_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end, _runState.Lives);
 				_endScreen.SetLeaderboardStatus(leaderboardLine);
 				var winGoalHint = AchievementManager.Instance?.GetGoalHint(_runState, scorePayload.Difficulty, won: true);
 				if (!string.IsNullOrEmpty(winGoalHint)) _endScreen.SetGoalHint(winGoalHint);

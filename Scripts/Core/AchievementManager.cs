@@ -256,6 +256,17 @@ public partial class AchievementManager : Node
             }
         }
 
+        // Chain Master near-miss: won with 4+ Arc Emitters in filled slots
+        if (won && !IsUnlocked("CHAIN_MASTER") && IsUnlocked(Unlocks.ArcEmitterAchievementId))
+        {
+            int arcCount    = state.Slots.Count(s => s.Tower?.TowerId == "chain_tower");
+            int filledCount = state.Slots.Count(s => s.Tower != null);
+            if (arcCount >= 4 && arcCount < filledCount)
+                hints.Add($"Almost CHAIN MASTER — {arcCount}/{filledCount} slots were Arc Emitters");
+            else if (arcCount == filledCount && filledCount >= 4 && filledCount < Balance.SlotCount)
+                hints.Add($"Almost CHAIN MASTER — all {arcCount} filled slots are Arc Emitters, fill the rest");
+        }
+
         // Annihilator near-miss applies on win or loss
         if (!IsUnlocked("ANNIHILATOR")
             && state.TotalDamageDealt >= AnnihilatorDamage * 0.70f

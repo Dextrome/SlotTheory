@@ -201,12 +201,14 @@ public partial class EndScreen : CanvasLayer
 	AddChild(new PinchZoomHandler(center));
 	}
 
-	public void ShowWin(int kills, int damageDealt, float totalPlayTime, string buildSummary, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor)
+	public void ShowWin(int kills, int damageDealt, float totalPlayTime, string buildSummary, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor, int livesRemaining = Balance.StartingLives)
 	{
 		_titleLabel.Text = "VICTORY";
-		_titleLabel.Modulate = new Color(0.3f, 1.0f, 0.5f);
-		_subtitleLabel.Text = $"All {Balance.TotalWaves} waves survived!";
-		_statsLabel.Text = $"Enemies killed: {kills}  -  Total damage: {damageDealt:N0}  -  Time: {FormatTime(totalPlayTime)}";
+		bool isHardWin = _leaderboardDifficulty == DifficultyMode.Hard;
+		_titleLabel.Modulate = isHardWin ? new Color(1.0f, 0.85f, 0.2f) : new Color(0.3f, 1.0f, 0.5f);
+		string diffSuffix = isHardWin ? "  —  HARD" : "";
+		_subtitleLabel.Text = $"All {Balance.TotalWaves} waves survived{diffSuffix}  ·  {livesRemaining} {(livesRemaining == 1 ? "life" : "lives")} remaining";
+		_statsLabel.Text = $"Enemies killed: {kills}  ·  Damage: {damageDealt:N0}  ·  Lives: {livesRemaining}/{Balance.StartingLives}  ·  Time: {FormatTime(totalPlayTime)}";
 		_statsLabel.Visible = true;
 		SetRunNameGradient(runName, runStartColor, runEndColor);
 		_runNameLabel.Visible = runName.Length > 0;
@@ -219,6 +221,16 @@ public partial class EndScreen : CanvasLayer
 		_lossAnalysisLabel.Visible = false;
 		_goalLabel.Visible = false;
 		_leaderboardLabel.Visible = false;
+		// Escalate Play Again label toward next difficulty tier
+		if (GodotObject.IsInstanceValid(_playAgainButton))
+		{
+			_playAgainButton.Text = _leaderboardDifficulty switch
+			{
+				DifficultyMode.Easy   => "Play Again  ·  Try Normal →",
+				DifficultyMode.Normal => "Play Again  ·  Try Hard →",
+				_                     => "Play Again",
+			};
+		}
 		PlayEntranceAnimation();
 	}
 
@@ -473,10 +485,23 @@ public partial class EndScreen : CanvasLayer
 		}
 
 		var result = await manager.SubmitAsync(payload);
+
+		string? gapSuffix = null;
+		if (result.State == GlobalSubmitState.Submitted && result.Rank.HasValue && result.Rank.Value > 1)
+		{
+			var entryAbove = await manager.GetEntryAtRankAsync(payload.MapId, payload.Difficulty, result.Rank.Value - 1);
+			if (entryAbove != null)
+			{
+				int gap = entryAbove.Score - ScoreCalculator.ComputeScore(payload);
+				if (gap > 0)
+					gapSuffix = $"\u2014 {gap:N0} from #{result.Rank.Value - 1}";
+			}
+		}
+
 		string globalText = result.State switch
 		{
 			GlobalSubmitState.Submitted when result.Rank.HasValue
-				=> $"Global ({result.Provider}): rank #{result.Rank.Value}",
+				=> $"Global ({result.Provider}): rank #{result.Rank.Value}{(gapSuffix != null ? $"  {gapSuffix}" : "")}",
 			GlobalSubmitState.Submitted
 				=> $"Global ({result.Provider}): submitted",
 			GlobalSubmitState.Queued

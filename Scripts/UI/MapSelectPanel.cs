@@ -214,8 +214,8 @@ public partial class MapSelectPanel : Node
 				_mapListContainer.AddChild(CreateMapButton(mapDef.Id, mapDef.Name, mapDef.Description));
 
 			// Full-game placeholder slots — visible but unplayable
-			_mapListContainer.AddChild(CreateFullGameMapRow("???", "Available in the full release."));
-			_mapListContainer.AddChild(CreateFullGameMapRow("???", "Available in the full release."));
+			_mapListContainer.AddChild(CreateFullGameMapRow("???", "A fractured zone — something stranger awaits."));
+			_mapListContainer.AddChild(CreateFullGameMapRow("???", "Classified. Requires full clearance."));
 
 			if (randomMap != null)
 				_mapListContainer.AddChild(CreateMapButton(randomMap.Id, randomMap.Name, randomMap.Description));
@@ -455,6 +455,7 @@ public partial class MapSelectPanel : Node
 			btn.CreateTween().TweenProperty(btn, "scale", Vector2.One, 0.08f)
 			  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
 		};
+
 		return btn;
 	}
 
@@ -479,20 +480,19 @@ public partial class MapSelectPanel : Node
 		var best = HighScoreManager.Instance?.GetPersonalBest(_selectedMapId, mode);
 		bool hasWon    = best?.Won == true;
 		bool hasPlayed = best != null;
+		bool isSelected = _selectedDifficulty == mode;
 
 		btn.Text = hasWon ? $"{baseLabel} \u2713" : baseLabel;
 
 		Color color;
-		if (_selectedDifficulty == mode)
-			color = new Color(1.0f, 0.85f, 0.25f);  // gold — selected
+		if (isSelected)
+			color = new Color(1.0f, 0.85f, 0.25f);   // gold — selected
 		else if (hasWon)
-			color = new Color(0.50f, 0.90f, 0.45f);  // green — cleared
-		else if (hasPlayed)
-			color = new Color(0.90f, 0.75f, 0.35f);  // amber — attempted, not won
+			color = new Color(0.40f, 0.92f, 0.50f);  // green — cleared ✓
 		else
-			color = new Color(0.55f, 0.55f, 0.55f);  // grey — untouched
+			color = new Color(0.45f, 0.45f, 0.45f);  // gray — unplayed or attempted
 
-		ApplyDifficultyButtonColor(btn, color);
+		ApplyDifficultyButtonColor(btn, color, isSelected);
 	}
 
 	private void UpdatePersonalBestLabel()
@@ -501,7 +501,7 @@ public partial class MapSelectPanel : Node
 		var best = HighScoreManager.Instance?.GetPersonalBest(_selectedMapId, _selectedDifficulty);
 		if (best == null)
 		{
-			_personalBestLabel.Text = "Personal Best: --";
+			_personalBestLabel.Text = "No record yet — claim it.";
 			return;
 		}
 
@@ -517,11 +517,31 @@ public partial class MapSelectPanel : Node
 			$"Wave {best.WaveReached}/{Balance.TotalWaves}  |  Lives {best.LivesRemaining}";
 	}
 
-	private static void ApplyDifficultyButtonColor(Button button, Color color)
+	private static void ApplyDifficultyButtonColor(Button button, Color color, bool selected = false)
 	{
 		button.AddThemeColorOverride("font_color", color);
 		button.AddThemeColorOverride("font_hover_color", color);
 		button.AddThemeColorOverride("font_pressed_color", color);
 		button.AddThemeColorOverride("font_focus_color", color);
+
+		if (selected)
+		{
+			var border = new StyleBoxFlat();
+			border.BgColor     = new Color(0.10f, 0.12f, 0.22f, 0.0f);  // transparent fill
+			border.BorderColor = new Color(0.25f, 0.95f, 0.45f);         // bright green
+			border.SetBorderWidthAll(2);
+			border.SetCornerRadiusAll(4);
+			button.AddThemeStyleboxOverride("normal",   border);
+			button.AddThemeStyleboxOverride("hover",    border);
+			button.AddThemeStyleboxOverride("pressed",  border);
+			button.AddThemeStyleboxOverride("focus",    border);
+		}
+		else
+		{
+			button.RemoveThemeStyleboxOverride("normal");
+			button.RemoveThemeStyleboxOverride("hover");
+			button.RemoveThemeStyleboxOverride("pressed");
+			button.RemoveThemeStyleboxOverride("focus");
+		}
 	}
 }
