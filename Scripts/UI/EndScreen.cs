@@ -19,6 +19,7 @@ public partial class EndScreen : CanvasLayer
 	private RichTextLabel _runNameLabel  = null!;
 	private Label _mvpLabel      = null!;
 	private Label _modLabel      = null!;
+	private Label _surgeProfileLabel = null!;
 	private Label _buildLabel    = null!;
 	private Label _lossAnalysisLabel = null!;
 	private Label _goalLabel = null!;
@@ -112,6 +113,12 @@ public partial class EndScreen : CanvasLayer
 		_modLabel.Modulate = new Color(0.80f, 0.88f, 1.00f, 0.90f);
 		_modLabel.Visible = false;
 		vbox.AddChild(_modLabel);
+
+		_surgeProfileLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+		UITheme.ApplyFont(_surgeProfileLabel, semiBold: true, size: 15);
+		_surgeProfileLabel.Modulate = new Color(1.00f, 0.90f, 0.44f, 0.92f);
+		_surgeProfileLabel.Visible = false;
+		vbox.AddChild(_surgeProfileLabel);
 
 		_buildLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
 		_buildLabel.AddThemeFontSizeOverride("font_size", 16);
@@ -219,6 +226,7 @@ public partial class EndScreen : CanvasLayer
 		_buildLabel.Text = buildSummary;
 		_buildLabel.Visible = buildSummary.Length > 0;
 		_lossAnalysisLabel.Visible = false;
+		_surgeProfileLabel.Visible = false;
 		_goalLabel.Visible = false;
 		_leaderboardLabel.Visible = false;
 		// Escalate Play Again label toward next difficulty tier
@@ -252,7 +260,7 @@ public partial class EndScreen : CanvasLayer
 		_buildLabel.Text = buildSummary;
 		_buildLabel.Visible = buildSummary.Length > 0;
 		_leaderboardLabel.Visible = false;
-
+		_surgeProfileLabel.Visible = false;
 		_goalLabel.Visible = false;
 
 		// Show loss analysis for actionable insights
@@ -287,6 +295,7 @@ public partial class EndScreen : CanvasLayer
 			(_runNameLabel,      0.46f, _runNameLabel.Modulate.A),
 			(_mvpLabel,          0.54f, _mvpLabel.Modulate.A),
 			(_modLabel,          0.60f, _modLabel.Modulate.A),
+			(_surgeProfileLabel, 0.63f, _surgeProfileLabel.Modulate.A),
 			(_buildLabel,        0.66f, _buildLabel.Modulate.A),
 			(_lossAnalysisLabel, 0.66f, _lossAnalysisLabel.Modulate.A),
 			(_goalLabel,         0.74f, _goalLabel.Modulate.A),
@@ -332,6 +341,20 @@ public partial class EndScreen : CanvasLayer
 			tw.TweenProperty(_leaderboardLabel, "scale", Vector2.One, 0.18f)
 			  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
 		}
+	}
+
+	public void SetSurgeProfile(string archetypeLabel, int count)
+	{
+		if (!GodotObject.IsInstanceValid(_surgeProfileLabel)) return;
+		if (string.IsNullOrEmpty(archetypeLabel) || count <= 0)
+		{
+			_surgeProfileLabel.Visible = false;
+			return;
+		}
+		_surgeProfileLabel.Text = count == 1
+			? $"Surge archetype: {archetypeLabel}"
+			: $"Surge archetype: {archetypeLabel}  ×{count}";
+		_surgeProfileLabel.Visible = true;
 	}
 
 	public void SetGoalHint(string hint)

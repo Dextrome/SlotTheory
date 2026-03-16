@@ -11,6 +11,10 @@ namespace SlotTheory.Tests;
 
 public class SpectacleSystemTests
 {
+    // Apply a neutral-1.0 profile before each test so that tuned production
+    // defaults in SpectacleTuningProfile don't affect isolated logic assertions.
+    public SpectacleSystemTests() => SpectacleTuning.Apply(SpectacleTuningProfile.Neutral(), "test-neutral");
+
     private sealed class StubModifier : Modifier
     {
         public StubModifier(string id) => ModifierId = id;

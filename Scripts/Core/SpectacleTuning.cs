@@ -6,7 +6,8 @@ namespace SlotTheory.Core;
 
 /// <summary>
 /// Runtime tuning overrides used by automation, sweeps, and combat lab scenarios.
-/// Defaults are neutral multipliers so gameplay is unchanged unless explicitly overridden.
+/// Defaults reflect the tuned best_tuning profile (iter01_cand02, 2026-03-16 pipeline run).
+/// All multipliers are applied on top of Balance.cs constants — Reset() returns to these same defaults.
 /// </summary>
 public sealed class SpectacleTuningProfile
 {
@@ -18,31 +19,31 @@ public sealed class SpectacleTuningProfile
     public bool EnableResidue { get; set; } = true;
 
     [JsonPropertyName("overkill_bloom_damage_scale_multiplier")]
-    public float OverkillBloomDamageScaleMultiplier { get; set; } = 1f;
+    public float OverkillBloomDamageScaleMultiplier { get; set; } = 0.889f;
     [JsonPropertyName("overkill_bloom_radius_multiplier")]
     public float OverkillBloomRadiusMultiplier { get; set; } = 1f;
     [JsonPropertyName("overkill_bloom_threshold_multiplier")]
-    public float OverkillBloomThresholdMultiplier { get; set; } = 1f;
+    public float OverkillBloomThresholdMultiplier { get; set; } = 1.1841f;
     [JsonPropertyName("overkill_bloom_max_targets_multiplier")]
     public float OverkillBloomMaxTargetsMultiplier { get; set; } = 1f;
 
     [JsonPropertyName("detonation_max_targets_multiplier")]
-    public float DetonationMaxTargetsMultiplier { get; set; } = 1f;
+    public float DetonationMaxTargetsMultiplier { get; set; } = 0.9457f;
     [JsonPropertyName("detonation_stagger_multiplier")]
-    public float DetonationStaggerMultiplier { get; set; } = 1f;
+    public float DetonationStaggerMultiplier { get; set; } = 0.9043f;
     [JsonPropertyName("status_detonation_damage_multiplier")]
-    public float StatusDetonationDamageMultiplier { get; set; } = 1f;
+    public float StatusDetonationDamageMultiplier { get; set; } = 1.1732f;
 
     [JsonPropertyName("residue_duration_multiplier")]
-    public float ResidueDurationMultiplier { get; set; } = 1f;
+    public float ResidueDurationMultiplier { get; set; } = 1.1929f;
     [JsonPropertyName("residue_potency_multiplier")]
-    public float ResiduePotencyMultiplier { get; set; } = 1f;
+    public float ResiduePotencyMultiplier { get; set; } = 1.2142f;
     [JsonPropertyName("residue_damage_multiplier")]
     public float ResidueDamageMultiplier { get; set; } = 1f;
     [JsonPropertyName("residue_tick_interval_multiplier")]
     public float ResidueTickIntervalMultiplier { get; set; } = 1f;
     [JsonPropertyName("residue_max_active_multiplier")]
-    public float ResidueMaxActiveMultiplier { get; set; } = 1f;
+    public float ResidueMaxActiveMultiplier { get; set; } = 0.9831f;
 
     [JsonPropertyName("explosion_followup_damage_multiplier")]
     public float ExplosionFollowUpDamageMultiplier { get; set; } = 1f;
@@ -50,67 +51,139 @@ public sealed class SpectacleTuningProfile
     [JsonPropertyName("meter_gain_multiplier")]
     public float MeterGainMultiplier { get; set; } = 1f;
     [JsonPropertyName("surge_threshold_multiplier")]
-    public float SurgeThresholdMultiplier { get; set; } = 1f;
+    public float SurgeThresholdMultiplier { get; set; } = 1.0561f;
     [JsonPropertyName("surge_cooldown_multiplier")]
-    public float SurgeCooldownMultiplier { get; set; } = 1f;
+    public float SurgeCooldownMultiplier { get; set; } = 0.9831f;
     [JsonPropertyName("surge_meter_after_trigger_multiplier")]
-    public float SurgeMeterAfterTriggerMultiplier { get; set; } = 1f;
+    public float SurgeMeterAfterTriggerMultiplier { get; set; } = 1.0825f;
     [JsonPropertyName("global_meter_per_surge_multiplier")]
-    public float GlobalMeterPerSurgeMultiplier { get; set; } = 1f;
+    public float GlobalMeterPerSurgeMultiplier { get; set; } = 1.0778f;
     [JsonPropertyName("global_threshold_multiplier")]
-    public float GlobalThresholdMultiplier { get; set; } = 1f;
+    public float GlobalThresholdMultiplier { get; set; } = 1.1049f;
     [JsonPropertyName("global_meter_after_trigger_multiplier")]
-    public float GlobalMeterAfterTriggerMultiplier { get; set; } = 1f;
+    public float GlobalMeterAfterTriggerMultiplier { get; set; } = 0.9987f;
     [JsonPropertyName("global_contribution_window_multiplier")]
-    public float GlobalContributionWindowMultiplier { get; set; } = 1f;
+    public float GlobalContributionWindowMultiplier { get; set; } = 1.008f;
     [JsonPropertyName("inactivity_grace_multiplier")]
-    public float InactivityGraceMultiplier { get; set; } = 1f;
+    public float InactivityGraceMultiplier { get; set; } = 0.9151f;
     [JsonPropertyName("inactivity_decay_multiplier")]
-    public float InactivityDecayMultiplier { get; set; } = 1f;
+    public float InactivityDecayMultiplier { get; set; } = 1.2156f;
     [JsonPropertyName("contribution_window_multiplier")]
-    public float ContributionWindowMultiplier { get; set; } = 1f;
+    public float ContributionWindowMultiplier { get; set; } = 0.8148f;
     [JsonPropertyName("role_lock_meter_threshold_multiplier")]
-    public float RoleLockMeterThresholdMultiplier { get; set; } = 1f;
+    public float RoleLockMeterThresholdMultiplier { get; set; } = 1.1286f;
     [JsonPropertyName("meter_damage_reference_multiplier")]
-    public float MeterDamageReferenceMultiplier { get; set; } = 1f;
+    public float MeterDamageReferenceMultiplier { get; set; } = 0.8279f;
     [JsonPropertyName("meter_damage_weight_multiplier")]
-    public float MeterDamageWeightMultiplier { get; set; } = 1f;
+    public float MeterDamageWeightMultiplier { get; set; } = 1.1475f;
     [JsonPropertyName("meter_damage_min_clamp_multiplier")]
     public float MeterDamageMinClampMultiplier { get; set; } = 1f;
     [JsonPropertyName("meter_damage_max_clamp_multiplier")]
-    public float MeterDamageMaxClampMultiplier { get; set; } = 1f;
+    public float MeterDamageMaxClampMultiplier { get; set; } = 0.9065f;
     [JsonPropertyName("token_cap_multiplier")]
-    public float TokenCapMultiplier { get; set; } = 1f;
+    public float TokenCapMultiplier { get; set; } = 1.1632f;
     [JsonPropertyName("token_regen_multiplier")]
     public float TokenRegenMultiplier { get; set; } = 1f;
     [JsonPropertyName("copy_multiplier_scale")]
-    public float CopyMultiplierScale { get; set; } = 1f;
+    public float CopyMultiplierScale { get; set; } = 0.8532f;
     [JsonPropertyName("diversity_multiplier_scale")]
-    public float DiversityMultiplierScale { get; set; } = 1f;
+    public float DiversityMultiplierScale { get; set; } = 0.867f;
     [JsonPropertyName("event_scalar_multiplier")]
-    public float EventScalarMultiplier { get; set; } = 1f;
+    public float EventScalarMultiplier { get; set; } = 1.0115f;
     [JsonPropertyName("second_stage_power_threshold")]
     public float SecondStagePowerThreshold { get; set; } = 0.95f;
     [JsonPropertyName("normal_enemy_hp_multiplier")]
-    public float NormalEnemyHpMultiplier { get; set; } = Balance.DifficultyMultipliers.NormalEnemyHpMultiplier;
+    public float NormalEnemyHpMultiplier { get; set; } = 1.208f;
     [JsonPropertyName("normal_enemy_count_multiplier")]
-    public float NormalEnemyCountMultiplier { get; set; } = Balance.DifficultyMultipliers.NormalEnemyCountMultiplier;
+    public float NormalEnemyCountMultiplier { get; set; } = 1.0776f;
     [JsonPropertyName("normal_spawn_interval_multiplier")]
-    public float NormalSpawnIntervalMultiplier { get; set; } = Balance.DifficultyMultipliers.NormalSpawnIntervalMultiplier;
+    public float NormalSpawnIntervalMultiplier { get; set; } = 0.9196f;
     [JsonPropertyName("hard_enemy_hp_multiplier")]
-    public float HardEnemyHpMultiplier { get; set; } = Balance.DifficultyMultipliers.HardEnemyHpMultiplier;
+    public float HardEnemyHpMultiplier { get; set; } = 1.2277f;
     [JsonPropertyName("hard_enemy_count_multiplier")]
-    public float HardEnemyCountMultiplier { get; set; } = Balance.DifficultyMultipliers.HardEnemyCountMultiplier;
+    public float HardEnemyCountMultiplier { get; set; } = 1.074f;
     [JsonPropertyName("hard_spawn_interval_multiplier")]
-    public float HardSpawnIntervalMultiplier { get; set; } = Balance.DifficultyMultipliers.HardSpawnIntervalMultiplier;
+    public float HardSpawnIntervalMultiplier { get; set; } = 0.9312f;
+
     [JsonPropertyName("gain_multipliers")]
-    public Dictionary<string, float> GainMultipliers { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, float> GainMultipliers { get; set; } = new(StringComparer.Ordinal)
+    {
+        ["overkill"]   = 0.879f,
+        ["split_shot"] = 0.8719f,
+    };
+
     [JsonPropertyName("event_scalar_multipliers")]
-    public Dictionary<string, float> EventScalarMultipliers { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, float> EventScalarMultipliers { get; set; } = new(StringComparer.Ordinal)
+    {
+        ["chain_reaction"] = 0.7224f,
+        ["split_shot"]     = 1.2471f,
+        ["feedback_loop"]  = 0.9835f,
+        ["hair_trigger"]   = 0.7396f,
+    };
+
     [JsonPropertyName("token_cap_multipliers")]
-    public Dictionary<string, float> TokenCapMultipliers { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, float> TokenCapMultipliers { get; set; } = new(StringComparer.Ordinal)
+    {
+        ["chain_reaction"] = 1.0174f,
+        ["split_shot"]     = 0.9327f,
+    };
+
     [JsonPropertyName("token_regen_multipliers")]
-    public Dictionary<string, float> TokenRegenMultipliers { get; set; } = new(StringComparer.Ordinal);
+    public Dictionary<string, float> TokenRegenMultipliers { get; set; } = new(StringComparer.Ordinal)
+    {
+        ["overkill"]   = 1.1516f,
+        ["split_shot"] = 0.8316f,
+    };
+
+    /// <summary>
+    /// Returns a profile with every multiplier at 1.0 and no per-mod overrides.
+    /// Use in unit tests that need deterministic, unscaled spectacle behaviour.
+    /// </summary>
+    public static SpectacleTuningProfile Neutral() => new SpectacleTuningProfile
+    {
+        EnableOverkillBloom = true,
+        EnableStatusDetonation = true,
+        EnableResidue = true,
+        OverkillBloomDamageScaleMultiplier = 1f,
+        OverkillBloomRadiusMultiplier = 1f,
+        OverkillBloomThresholdMultiplier = 1f,
+        OverkillBloomMaxTargetsMultiplier = 1f,
+        DetonationMaxTargetsMultiplier = 1f,
+        DetonationStaggerMultiplier = 1f,
+        StatusDetonationDamageMultiplier = 1f,
+        ResidueDurationMultiplier = 1f,
+        ResiduePotencyMultiplier = 1f,
+        ResidueDamageMultiplier = 1f,
+        ResidueTickIntervalMultiplier = 1f,
+        ResidueMaxActiveMultiplier = 1f,
+        ExplosionFollowUpDamageMultiplier = 1f,
+        MeterGainMultiplier = 1f,
+        SurgeThresholdMultiplier = 1f,
+        SurgeCooldownMultiplier = 1f,
+        SurgeMeterAfterTriggerMultiplier = 1f,
+        GlobalMeterPerSurgeMultiplier = 1f,
+        GlobalThresholdMultiplier = 1f,
+        GlobalMeterAfterTriggerMultiplier = 1f,
+        GlobalContributionWindowMultiplier = 1f,
+        InactivityGraceMultiplier = 1f,
+        InactivityDecayMultiplier = 1f,
+        ContributionWindowMultiplier = 1f,
+        RoleLockMeterThresholdMultiplier = 1f,
+        MeterDamageReferenceMultiplier = 1f,
+        MeterDamageWeightMultiplier = 1f,
+        MeterDamageMinClampMultiplier = 1f,
+        MeterDamageMaxClampMultiplier = 1f,
+        TokenCapMultiplier = 1f,
+        TokenRegenMultiplier = 1f,
+        CopyMultiplierScale = 1f,
+        DiversityMultiplierScale = 1f,
+        EventScalarMultiplier = 1f,
+        SecondStagePowerThreshold = 0.95f,
+        GainMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
+        EventScalarMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
+        TokenCapMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
+        TokenRegenMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
+    };
 
     [JsonIgnore]
     public bool HasModGainOverrides => GainMultipliers.Count > 0;

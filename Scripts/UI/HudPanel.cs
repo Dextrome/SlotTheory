@@ -22,9 +22,12 @@ public partial class HudPanel : CanvasLayer
     private Panel _globalSpectaclePanel = null!;
     private ColorRect[] _surgePips = System.Array.Empty<ColorRect>();
     private Label _surgeNameLabel = null!;  // shows "GLOBAL SURGE" normally, archetype name when building
+    private Label _surgeMeterHint = null!;
+    private bool _surgeMeterHintShown = false;
     private const int SurgePipCount = 20;
     private static readonly Color PipFilled = new(1.00f, 0.90f, 0.44f, 0.95f);
     private static readonly Color PipEmpty  = new(0.07f, 0.16f, 0.25f, 0.95f);
+    private string _lastBuildName = "";
     private Button _speedBtn = null!;
     private Button _pausePlayBtn = null!;
     private bool _lastPausedState;
@@ -365,6 +368,8 @@ public partial class HudPanel : CanvasLayer
     public void SetBuildName(string buildName, bool visible = true, Color? startColor = null, Color? endColor = null)
     {
         if (!GodotObject.IsInstanceValid(_buildLabel)) return;
+        bool nameChanged = buildName.Length > 0 && buildName != _lastBuildName;
+        _lastBuildName = buildName;
         _buildLabel.Clear();
         if (buildName.Length > 0)
         {
@@ -373,6 +378,21 @@ public partial class HudPanel : CanvasLayer
             _buildLabel.AppendText(BuildGradientBbCode(buildName, c0, c1));
         }
         _buildLabel.Visible = visible && buildName.Length > 0;
+        if (nameChanged && visible)
+        {
+            _buildLabel.PivotOffset = _buildLabel.Size / 2f;
+            var tw = _buildLabel.CreateTween();
+            tw.SetParallel(true);
+            tw.TweenProperty(_buildLabel, "scale", new Vector2(1.18f, 1.18f), 0.10f)
+              .From(new Vector2(0.82f, 0.82f))
+              .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+            tw.TweenProperty(_buildLabel, "modulate:a", 0.96f, 0.12f)
+              .From(0f)
+              .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+            tw.Chain();
+            tw.TweenProperty(_buildLabel, "scale", Vector2.One, 0.16f)
+              .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+        }
     }
 
     private static string BuildGradientBbCode(string text, Color start, Color end)
@@ -408,9 +428,27 @@ public partial class HudPanel : CanvasLayer
             return;
 
         bool canShow = visible && threshold > 0.001f;
+        bool wasHidden = !_globalSpectaclePanel.Visible;
         _globalSpectaclePanel.Visible = canShow;
         if (!canShow)
             return;
+
+        if (wasHidden && !_surgeMeterHintShown && GodotObject.IsInstanceValid(_surgeMeterHint))
+        {
+            _surgeMeterHintShown = true;
+            _surgeMeterHint.Visible = true;
+            var htw = _surgeMeterHint.CreateTween();
+            htw.TweenProperty(_surgeMeterHint, "modulate:a", 0.88f, 0.30f)
+               .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+            htw.TweenInterval(3.5f);
+            htw.TweenProperty(_surgeMeterHint, "modulate:a", 0f, 0.60f)
+               .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+            htw.TweenCallback(Callable.From(() =>
+            {
+                if (GodotObject.IsInstanceValid(_surgeMeterHint))
+                    _surgeMeterHint.Visible = false;
+            }));
+        }
 
         float fill = Mathf.Clamp(meter / Mathf.Max(1f, threshold), 0f, 1f);
         float pipsToFill = fill * SurgePipCount;
@@ -629,5 +667,27 @@ public partial class HudPanel : CanvasLayer
             _surgePips[i] = pip;
             pipsRow.AddChild(pip);
         }
+
+        _surgeMeterHint = new Label
+        {
+            Text = "Surge Meter — fills as towers fire. Full = global surge.",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            AnchorLeft = 0.5f,
+            AnchorRight = 0.5f,
+            AnchorTop = 1f,
+            AnchorBottom = 1f,
+            OffsetLeft = -230f,
+            OffsetRight = 230f,
+            OffsetTop = -58f,
+            OffsetBottom = -40f,
+            Visible = false,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Modulate = new Color(1f, 1f, 1f, 0f),
+        };
+        UITheme.ApplyFont(_surgeMeterHint, size: 13);
+        _surgeMeterHint.AddThemeColorOverride("font_color", new Color(1.00f, 0.95f, 0.76f));
+        _surgeMeterHint.AddThemeConstantOverride("outline_size", 2);
+        _surgeMeterHint.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.88f));
+        AddChild(_surgeMeterHint);
     }
 }

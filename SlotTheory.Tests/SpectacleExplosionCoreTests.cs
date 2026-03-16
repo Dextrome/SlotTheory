@@ -6,6 +6,8 @@ namespace SlotTheory.Tests;
 
 public class SpectacleExplosionCoreTests
 {
+    public SpectacleExplosionCoreTests() => SpectacleTuning.Apply(SpectacleTuningProfile.Neutral(), "test-neutral");
+
     [Fact]
     public void OverkillBloomProfile_BelowThreshold_DoesNotTrigger()
     {

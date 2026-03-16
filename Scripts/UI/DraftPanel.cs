@@ -826,12 +826,12 @@ public partial class DraftPanel : CanvasLayer
 
             Visible = false;
             var pick = _pendingModifier;
-            if (pick == null) return;
+            _pendingModifier = null;    // lock out re-entry immediately
+            _previewModifierSlot = -1;
+            _previewSetAtMs = 0;
 
             GameController.Instance?.PlayModifierLockInFx(slotIndex, pick.Id, () =>
             {
-                _previewModifierSlot = -1;
-                _previewSetAtMs = 0;
                 GameController.Instance.OnDraftPick(pick, slotIndex);
             });
             return;
@@ -854,7 +854,7 @@ public partial class DraftPanel : CanvasLayer
 
             Visible = false;
             var pick = _pendingTower;
-            if (pick == null) return;
+            _pendingTower = null;       // lock out re-entry immediately
             _previewTowerSlot = -1;
             _previewTowerSetAtMs = 0;
             GameController.Instance.OnDraftPick(pick, slotIndex);

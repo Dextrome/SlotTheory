@@ -53,6 +53,7 @@ public partial class GameController : Node
 	private int _mobileTooltipFontSize = 13;
 	private float _mobileTooltipUiScale = 1f;
 	private TowerInstance? _selectedTooltipTower;
+	private EnemyInstance? _selectedTooltipEnemy;
 	private CanvasLayer _announceLayer = null!;
 	private CanvasLayer _globalSurgeLayer = null!;
 	private Label _waveAnnounce = null!;
@@ -109,6 +110,7 @@ public partial class GameController : Node
 	private readonly System.Collections.Generic.Dictionary<string, ulong> _combatCalloutNextMs = new();
 	private readonly System.Collections.Generic.Dictionary<SlotTheory.Entities.ITowerView, (ulong firstMs, int count)> _feedbackLoopBurst = new();
 	private readonly System.Collections.Generic.Dictionary<string, int> _modifierProcCounts = new();
+	private readonly System.Collections.Generic.Dictionary<string, int> _surgeArchetypeCounts = new();
 	private readonly Queue<UnlockRevealRequest> _pendingUnlockReveals = new();
 	private bool _undoPlacementActive = false;
 	private bool _cancelBtnShown = false;
@@ -561,6 +563,7 @@ public partial class GameController : Node
 			var localSubmit = HighScoreManager.Instance?.SubmitLocal(scorePayload);
 			string leaderboardLine = BuildInitialLeaderboardLine(scorePayload, localSubmit);
 			_endScreen.SetLeaderboardContext(scorePayload.MapId, scorePayload.Difficulty);
+			ApplySurgeProfileToEndScreen();
 			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), _runState, runName, mvpLine, modLine, runColors.start, runColors.end);
 			_endScreen.SetLeaderboardStatus(leaderboardLine);
 			var lossGoalHint = AchievementManager.Instance?.GetGoalHint(_runState, scorePayload.Difficulty, won: false);
@@ -594,7 +597,8 @@ public partial class GameController : Node
 				var localSubmit = HighScoreManager.Instance?.SubmitLocal(scorePayload);
 				string leaderboardLine = BuildInitialLeaderboardLine(scorePayload, localSubmit);
 				_endScreen.SetLeaderboardContext(scorePayload.MapId, scorePayload.Difficulty);
-				_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end, _runState.Lives);
+				ApplySurgeProfileToEndScreen();
+			_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end, _runState.Lives);
 				_endScreen.SetLeaderboardStatus(leaderboardLine);
 				var winGoalHint = AchievementManager.Instance?.GetGoalHint(_runState, scorePayload.Difficulty, won: true);
 				if (!string.IsNullOrEmpty(winGoalHint)) _endScreen.SetGoalHint(winGoalHint);
@@ -906,6 +910,7 @@ public partial class GameController : Node
 		_combatCalloutNextMs.Clear();
 		_feedbackLoopBurst.Clear();
 		_modifierProcCounts.Clear();
+		_surgeArchetypeCounts.Clear();
 		_spectacleSystem.Reset();
 		if (_botRunner != null)
 			ResetBotTraceBuffer();
@@ -1036,6 +1041,7 @@ public partial class GameController : Node
 	/// <summary>Called by DraftPanel after the player picks an option.</summary>
 	public void OnDraftPick(DraftOption option, int targetSlotIndex)
 	{
+		if (CurrentPhase != GamePhase.Draft) return;
 		_currentDraftOptions = null; // always generate fresh options for the next pick
 
 		if (option.Type == DraftOptionType.Tower)
@@ -1426,7 +1432,24 @@ public partial class GameController : Node
 				return;
 			}
 			if (MobileOptimization.IsMobile())
+			{
+				// Check if an enemy was tapped to show/dismiss its tooltip
+				if (_runState?.EnemiesAlive != null)
+				{
+					foreach (var enemy in _runState.EnemiesAlive)
+					{
+						if (!GodotObject.IsInstanceValid(enemy)) continue;
+						var eHit = new Rect2(enemy.GlobalPosition - new Vector2(28f, 28f), new Vector2(56f, 56f));
+						if (!eHit.HasPoint(pressPos)) continue;
+						_selectedTooltipEnemy = (_selectedTooltipEnemy == enemy) ? null : enemy;
+						_selectedTooltipTower = null;
+						GetViewport().SetInputAsHandled();
+						return;
+					}
+				}
 				_selectedTooltipTower = null;
+				_selectedTooltipEnemy = null;
+			}
 		}
 	}
 
@@ -2039,6 +2062,7 @@ public partial class GameController : Node
 		if (_tooltipPanel != null && GodotObject.IsInstanceValid(_tooltipPanel))
 			_tooltipPanel.Visible = false;
 		_selectedTooltipTower = null;
+		_selectedTooltipEnemy = null;
 	}
 
 	private void UpdateTooltip()
@@ -2077,12 +2101,14 @@ public partial class GameController : Node
 		Vector2 mousePos;
 		if (MobileOptimization.IsMobile())
 		{
-			if (_selectedTooltipTower == null || !GodotObject.IsInstanceValid(_selectedTooltipTower))
+			bool towerOk = _selectedTooltipTower != null && GodotObject.IsInstanceValid(_selectedTooltipTower);
+			bool enemyOk = _selectedTooltipEnemy != null && GodotObject.IsInstanceValid(_selectedTooltipEnemy);
+			if (!towerOk && !enemyOk)
 			{
 				HideTooltip();
 				return;
 			}
-			mousePos = _selectedTooltipTower.GlobalPosition;
+			mousePos = towerOk ? _selectedTooltipTower!.GlobalPosition : Vector2.Zero;
 		}
 		else
 		{
@@ -2163,7 +2189,68 @@ public partial class GameController : Node
 				_tooltipPanel.Visible = true;
 				return;
 		}
+
+		// Enemy hover/tap tooltip (wave phase only)
+		if (CurrentPhase == GamePhase.Wave)
+		{
+			EnemyInstance? hoveredEnemy = null;
+			if (MobileOptimization.IsMobile())
+			{
+				if (_selectedTooltipEnemy != null && GodotObject.IsInstanceValid(_selectedTooltipEnemy))
+					hoveredEnemy = _selectedTooltipEnemy;
+			}
+			else
+			{
+				foreach (var e in _runState.EnemiesAlive)
+				{
+					if (!GodotObject.IsInstanceValid(e)) continue;
+					if (new Rect2(e.GlobalPosition - new Vector2(22f, 22f), new Vector2(44f, 44f)).HasPoint(mousePos))
+					{
+						hoveredEnemy = e;
+						break;
+					}
+				}
+			}
+			if (hoveredEnemy != null)
+			{
+				_tooltipLabel.Text = BuildEnemyTooltipText(hoveredEnemy);
+				var labelSize = _tooltipLabel.GetMinimumSize();
+				var padding = new Vector2(16f * _mobileTooltipUiScale, 12f * _mobileTooltipUiScale);
+				_tooltipPanel.Size = labelSize + padding;
+				Vector2 pos;
+				if (MobileOptimization.IsMobile())
+				{
+					var screenAnchor = WorldToScreen(hoveredEnemy.GlobalPosition);
+					pos = new Vector2(screenAnchor.X - _tooltipPanel.Size.X * 0.5f, screenAnchor.Y - _tooltipPanel.Size.Y - 14f);
+				}
+				else
+				{
+					pos = mousePos + new Vector2(20, 10);
+				}
+				var vpSize = viewport.GetVisibleRect().Size;
+				pos.X = Mathf.Clamp(pos.X, 4f, vpSize.X - _tooltipPanel.Size.X - 4f);
+				pos.Y = Mathf.Clamp(pos.Y, 4f, vpSize.Y - _tooltipPanel.Size.Y - 4f);
+				_tooltipPanel.Position = pos;
+				_tooltipPanel.Visible = true;
+				return;
+			}
+		}
+
 		HideTooltip();
+	}
+
+	private static string BuildEnemyTooltipText(EnemyInstance enemy)
+	{
+		string typeName = enemy.EnemyTypeId switch
+		{
+			"armored_walker" => "Armored Walker",
+			"swift_walker"   => "Swift Walker",
+			_                => "Basic Walker",
+		};
+		float displaySpeed = enemy.IsSlowed ? enemy.Speed * enemy.SlowSpeedFactor : enemy.Speed;
+		string speedSuffix = enemy.IsSlowed ? "  (slowed)" : "";
+		string statusSuffix = enemy.IsMarked ? "\nMARKED" : "";
+		return $"{typeName}\nHP  {enemy.Hp:0}/{enemy.MaxHp:0}  |  Speed  {displaySpeed:0} px/s{speedSuffix}\nLeak cost  1 life{statusSuffix}";
 	}
 
 	private string BuildSpectacleTooltipSection(ITowerView tower)
@@ -3016,6 +3103,8 @@ void fragment() {
 		// ── Resolve identity from dominant contributing mods ───────────────────────
 		string[] dominantMods = info.DominantModIds ?? System.Array.Empty<string>();
 		string surgeLabel = SurgeDifferentiation.ResolveLabel(dominantMods);
+		_surgeArchetypeCounts.TryGetValue(surgeLabel, out int _existingCount);
+		_surgeArchetypeCounts[surgeLabel] = _existingCount + 1;
 		SurgeDifferentiation.GlobalSurgeFeel feel = SurgeDifferentiation.ResolveFeel(dominantMods);
 		float flashAlpha = SurgeDifferentiation.ResolveFlashAlpha(feel);
 
@@ -6091,6 +6180,13 @@ void fragment() {
 		return $"{localLine}  |  {globalText}";
 	}
 
+	private void ApplySurgeProfileToEndScreen()
+	{
+		if (_surgeArchetypeCounts.Count == 0) return;
+		var best = _surgeArchetypeCounts.OrderByDescending(kvp => kvp.Value).First();
+		_endScreen.SetSurgeProfile(best.Key, best.Value);
+	}
+
 	private string BuildRunName(bool registerInHistory = false, bool? wonOverride = null, int? waveReachedOverride = null)
 	{
 		var profile = BuildRunNameProfile(wonOverride, waveReachedOverride);
@@ -6770,6 +6866,7 @@ void fragment() {
 		_waveClearFlash.Color   = new Color(0.10f, 1f, 0.45f, 0f);
 		_waveClearFlash.Visible = true;
 		var tween = CreateTween();
+		tween.SetIgnoreTimeScale(true);
 		tween.TweenProperty(_waveClearFlash, "color", new Color(0.10f, 1f, 0.45f, 0.18f), 0.08f);
 		tween.TweenProperty(_waveClearFlash, "color", new Color(0.10f, 1f, 0.45f, 0f),    0.40f)
 			 .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);

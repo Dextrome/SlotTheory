@@ -51,6 +51,13 @@ public partial class SoundManager : Node
     private readonly Dictionary<string, ulong> _mobileSfxLastPlayMs = new();
     private readonly Dictionary<string, ulong> _desktopSfxLastPlayMs = new();
     private ulong[] _poolStopAtMs = Array.Empty<ulong>();
+
+    // Music note pool — separate from the SFX pool; routed to the Music bus
+    private const int NotePoolSize = 8;
+    private const float NoteBufferLength = 2.5f;  // seconds; notes are max 2s
+    private AudioStreamPlayer[] _notePool       = Array.Empty<AudioStreamPlayer>();
+    private ulong[]             _notePoolStopMs = Array.Empty<ulong>();
+    private int                 _notePoolIdx;
     private const float MobileFxBaseHeadroomDb = -4.0f;
     private const float MobileFxSurgeExtraHeadroomDb = -2.5f;
     private const int MobileFxBurstStartVoices = 8;
@@ -123,6 +130,17 @@ public partial class SoundManager : Node
         EnsureFxLimiter();
         EnsureBusLimiter("UI");
 
+        // ── Music note pool ──────────────────────────────────────────────
+        _notePool       = new AudioStreamPlayer[NotePoolSize];
+        _notePoolStopMs = new ulong[NotePoolSize];
+        for (int i = 0; i < NotePoolSize; i++)
+        {
+            var gen    = new AudioStreamGenerator { MixRate = Rate, BufferLength = NoteBufferLength };
+            var player = new AudioStreamPlayer { Stream = gen, VolumeDb = -8f, Bus = "Music" };
+            AddChild(player);
+            _notePool[i] = player;
+        }
+
         // ── Tower attacks ────────────────────────────────────────────────
         Reg("shoot_rapid",  Tone(680f, 0.05f, vol: 0.26f, shape: 'q', env: 'f'));
         Reg("shoot_heavy",  Tone( 72f, 0.24f, vol: 0.72f, shape: 's', env: 'f'));
@@ -187,6 +205,20 @@ public partial class SoundManager : Node
             Seq(new[] { 523f, 659f, 784f, 1047f }, gapMs: 12, noteLen: 0.10f, vol: 0.52f),
             Sweep(1600f, 3400f, 0.44f, vol: 0.12f),
             Tone(1047f, 0.07f, vol: 0.14f, shape: 's', env: 'f')));
+
+        // ── Synthesized music notes ──────────────────────────────────────
+        // Bass range: MIDI 28–57 (E1–A3). Lead range: MIDI 57–81 (A3–A5).
+        // Notes are synthesized once at startup and played via PlayNote(midiNote).
+        for (int midi = 28; midi <= 57; midi++)
+        {
+            float freq = 440f * MathF.Pow(2f, (midi - 69) / 12f);
+            Reg($"mnote_{midi}", MusicNote(freq, isBass: true));
+        }
+        for (int midi = 58; midi <= 81; midi++)
+        {
+            float freq = 440f * MathF.Pow(2f, (midi - 69) / 12f);
+            Reg($"mnote_{midi}", MusicNote(freq, isBass: false));
+        }
 
         StartMusic();
     }
@@ -799,5 +831,92 @@ public partial class SoundManager : Node
         if (_isMobileAudio)
             limiter.PreGainDb = MobileFxBaseHeadroomDb;
         AudioServer.AddBusEffect(busIdx, limiter, 0);
+    }
+
+    // ── Music note playback ───────────────────────────────────────────────
+
+    /// <summary>
+    /// Play a synthesized music note on the Music bus.
+    /// midiNote: standard MIDI number (e.g. 45 = A2, 69 = A4).
+    /// Bass notes (MIDI 28–57) and lead notes (MIDI 58–81) are registered
+    /// at startup via the MusicNote synthesis loop in _Ready().
+    /// </summary>
+    public void PlayNote(int midiNote)
+    {
+        if (_headless) return;
+        string id = $"mnote_{midiNote}";
+        if (!_samples.TryGetValue(id, out var samples)) return;
+
+        // Prefer a slot that has finished; fall back to oldest if all active.
+        ulong nowMs = Time.GetTicksMsec();
+        int idx = -1;
+        for (int i = 0; i < NotePoolSize; i++)
+        {
+            int c = (_notePoolIdx + i) % NotePoolSize;
+            if (_notePoolStopMs[c] == 0 || nowMs >= _notePoolStopMs[c])
+            {
+                idx = c;
+                break;
+            }
+        }
+        if (idx < 0) idx = _notePoolIdx;
+        _notePoolIdx = (idx + 1) % NotePoolSize;
+
+        var player = _notePool[idx];
+        player.Stop();
+        player.Play();
+        var pb = (AudioStreamGeneratorPlayback)player.GetStreamPlayback();
+        pb.PushBuffer(samples);
+        _notePoolStopMs[idx] = nowMs + (ulong)(_durations[id] * 1000f + 50);
+    }
+
+    // ── Music note synthesis ──────────────────────────────────────────────
+
+    /// <summary>
+    /// Synthesizes a single musical note with a short attack and natural exponential decay.
+    /// Bass: fundamental + octave harmonic + subtle detuned pair for warmth.
+    /// Lead: chorused fundamental (two slightly detuned oscillators).
+    /// </summary>
+    private static (Vector2[] s, float d) MusicNote(float freq, bool isBass)
+    {
+        float dur       = isBass ? 2.0f  : 1.6f;
+        float vol       = isBass ? 0.38f : 0.30f;
+        float tau       = isBass ? 1.2f  : 0.7f;   // exponential decay time constant
+        float attackSec = isBass ? 0.008f : 0.012f; // linear attack ramp duration
+        float detune    = isBass ? 1.5f  : 3.0f;   // Hz offset for chorus / warmth
+
+        int n   = (int)(Rate * dur);
+        var arr = new Vector2[n];
+
+        for (int i = 0; i < n; i++)
+        {
+            float t = i / (float)Rate;
+
+            // Envelope: linear attack into exponential decay
+            float envAttack = MathF.Min(1f, t / attackSec);
+            float envDecay  = MathF.Exp(-t / tau);
+            float env       = envAttack * envDecay * vol;
+
+            float s;
+            if (isBass)
+            {
+                // Fundamental + octave harmonic + warm detuned pair
+                s = MathF.Sin(t * MathF.Tau * freq) * 0.55f
+                  + MathF.Sin(t * MathF.Tau * freq * 2f) * 0.18f
+                  + MathF.Sin(t * MathF.Tau * (freq + detune)) * 0.09f
+                  + MathF.Sin(t * MathF.Tau * (freq - detune)) * 0.09f;
+            }
+            else
+            {
+                // Chorused fundamental — two oscillators slightly detuned
+                s = MathF.Sin(t * MathF.Tau * freq) * 0.60f
+                  + MathF.Sin(t * MathF.Tau * (freq + detune)) * 0.22f
+                  + MathF.Sin(t * MathF.Tau * (freq - detune)) * 0.22f;
+            }
+
+            float sample = Mathf.Clamp(s * env, -1f, 1f);
+            arr[i] = new Vector2(sample, sample);
+        }
+        return (arr, dur);
     }
 }

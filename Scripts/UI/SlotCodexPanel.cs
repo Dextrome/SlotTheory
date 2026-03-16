@@ -14,14 +14,17 @@ public partial class SlotCodexPanel : Node
 {
     public Action? BackOverride { get; set; }
 
-    private enum CodexTab { Towers, Mods }
+    private enum CodexTab { Towers, Mods, Enemies }
 
     private ScrollContainer _towerScroll = null!;
     private ScrollContainer _modScroll = null!;
+    private ScrollContainer _enemyScroll = null!;
     private GridContainer _towerGrid = null!;
     private GridContainer _modGrid = null!;
+    private GridContainer _enemyGrid = null!;
     private Button _towerTabBtn = null!;
     private Button _modTabBtn = null!;
+    private Button _enemyTabBtn = null!;
     private Label _progressLabel = null!;
     private float _lastWidth = -1f;
 
@@ -97,7 +100,7 @@ public partial class SlotCodexPanel : Node
 
         var subtitle = new Label
         {
-            Text = "Tower and modifier encyclopedia",
+            Text = "Tower, modifier, and enemy encyclopedia",
             HorizontalAlignment = HorizontalAlignment.Center
         };
         subtitle.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 14 : 16);
@@ -117,10 +120,12 @@ public partial class SlotCodexPanel : Node
         tabs.AddThemeConstantOverride("separation", 12);
         root.AddChild(tabs);
 
-        _towerTabBtn = BuildTabButton("Towers", () => SetActiveTab(CodexTab.Towers));
-        _modTabBtn = BuildTabButton("Mods", () => SetActiveTab(CodexTab.Mods));
+        _towerTabBtn = BuildTabButton("Towers",  () => SetActiveTab(CodexTab.Towers));
+        _modTabBtn   = BuildTabButton("Mods",    () => SetActiveTab(CodexTab.Mods));
+        _enemyTabBtn = BuildTabButton("Enemies", () => SetActiveTab(CodexTab.Enemies));
         tabs.AddChild(_towerTabBtn);
         tabs.AddChild(_modTabBtn);
+        tabs.AddChild(_enemyTabBtn);
 
         var contentFrame = new PanelContainer
         {
@@ -145,11 +150,13 @@ public partial class SlotCodexPanel : Node
         };
         contentFrame.AddChild(contentHolder);
 
-        _towerScroll = BuildCardScroll(contentHolder, out _towerGrid);
-        _modScroll = BuildCardScroll(contentHolder, out _modGrid);
+        _towerScroll  = BuildCardScroll(contentHolder, out _towerGrid);
+        _modScroll    = BuildCardScroll(contentHolder, out _modGrid);
+        _enemyScroll  = BuildCardScroll(contentHolder, out _enemyGrid);
 
         PopulateTowerCards();
         PopulateModifierCards();
+        PopulateEnemyCards();
         SetActiveTab(CodexTab.Towers);
         RefreshGridColumns(force: true);
 
@@ -210,7 +217,7 @@ public partial class SlotCodexPanel : Node
         var btn = new Button
         {
             Text = text,
-            CustomMinimumSize = new Vector2(MobileOptimization.IsMobile() ? 130f : 178f, MobileOptimization.IsMobile() ? 44f : 46f),
+            CustomMinimumSize = new Vector2(MobileOptimization.IsMobile() ? 106f : 158f, MobileOptimization.IsMobile() ? 44f : 46f),
         };
         btn.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 17 : 19);
         UITheme.ApplyCyanStyle(btn);
@@ -525,11 +532,12 @@ public partial class SlotCodexPanel : Node
 
     private void SetActiveTab(CodexTab tab)
     {
-        bool towers = tab == CodexTab.Towers;
-        _towerScroll.Visible = towers;
-        _modScroll.Visible = !towers;
-        ApplyTabButtonState(_towerTabBtn, towers);
-        ApplyTabButtonState(_modTabBtn, !towers);
+        _towerScroll.Visible  = tab == CodexTab.Towers;
+        _modScroll.Visible    = tab == CodexTab.Mods;
+        _enemyScroll.Visible  = tab == CodexTab.Enemies;
+        ApplyTabButtonState(_towerTabBtn,  tab == CodexTab.Towers);
+        ApplyTabButtonState(_modTabBtn,    tab == CodexTab.Mods);
+        ApplyTabButtonState(_enemyTabBtn,  tab == CodexTab.Enemies);
         RefreshProgressLabel(tab);
     }
 
@@ -551,8 +559,9 @@ public partial class SlotCodexPanel : Node
         int maxCols = MobileOptimization.IsMobile() ? 2 : 4;
         float cardMin = MobileOptimization.IsMobile() ? 252f : 296f;
         int cols = Mathf.Clamp(Mathf.FloorToInt((width - 80f) / cardMin), 1, maxCols);
-        _towerGrid.Columns = cols;
-        _modGrid.Columns = cols;
+        _towerGrid.Columns  = cols;
+        _modGrid.Columns    = cols;
+        _enemyGrid.Columns  = cols;
     }
 
     private void RefreshProgressLabel(CodexTab tab)
@@ -562,9 +571,13 @@ public partial class SlotCodexPanel : Node
         int modTotal = DataLoader.GetAllModifierIds(includeLocked: true).Count();
         int modUnlocked = DataLoader.GetAllModifierIds(includeLocked: true).Count(Unlocks.IsModifierUnlocked);
 
-        _progressLabel.Text = tab == CodexTab.Towers
-            ? $"Demo: {towerUnlocked}/{towerTotal} towers   •   Mods: {modUnlocked}/{modTotal}   •   More in full game"
-            : $"Demo: {modUnlocked}/{modTotal} mods   •   Towers: {towerUnlocked}/{towerTotal}   •   More in full game";
+        _progressLabel.Text = tab switch
+        {
+            CodexTab.Towers  => $"Demo: {towerUnlocked}/{towerTotal} towers   •   Mods: {modUnlocked}/{modTotal}   •   More in full game",
+            CodexTab.Mods    => $"Demo: {modUnlocked}/{modTotal} mods   •   Towers: {towerUnlocked}/{towerTotal}   •   More in full game",
+            CodexTab.Enemies => $"3 enemy types   •   Towers: {towerUnlocked}/{towerTotal}   •   Mods: {modUnlocked}/{modTotal}",
+            _                => ""
+        };
     }
 
     private static Control BuildFullGameCard(string note)
@@ -637,5 +650,112 @@ public partial class SlotCodexPanel : Node
         "chain_tower" => "Built-in chain bounces for dense waves and lane clear. Excellent in clustered path sections.",
         "rift_prism" => "Plants charged lane mines. Final charge detonates harder, with rapid wave-start seeding for early trap setup.",
         _ => "Tower entry."
+    };
+
+    // ── Enemies tab ──────────────────────────────────────────────────────────
+
+    private void PopulateEnemyCards()
+    {
+        _enemyGrid.AddChild(BuildEnemyCard("basic_walker"));
+        _enemyGrid.AddChild(BuildEnemyCard("armored_walker"));
+        _enemyGrid.AddChild(BuildEnemyCard("swift_walker"));
+    }
+
+    private Control BuildEnemyCard(string enemyId)
+    {
+        Color accent = GetEnemyAccent(enemyId);
+        var panel = BuildCardShell(unlocked: true, accent);
+        var body  = BuildCardBody(panel);
+
+        var top = new HBoxContainer();
+        top.AddThemeConstantOverride("separation", 10);
+        body.AddChild(top);
+
+        // Icon: accent-tinted block with centered type initial
+        var iconPanel = new PanelContainer { CustomMinimumSize = new Vector2(52f, 52f) };
+        iconPanel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(accent.R, accent.G, accent.B, 0.15f),
+            border: new Color(accent.R, accent.G, accent.B, 0.60f),
+            corners: 8, borderWidth: 2, padH: 0, padV: 0));
+        iconPanel.MouseFilter = Control.MouseFilterEnum.Ignore;
+        var iconCenter = new CenterContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        iconPanel.AddChild(iconCenter);
+        var iconLetter = new Label
+        {
+            Text = enemyId switch { "armored_walker" => "A", "swift_walker" => "S", _ => "B" },
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        UITheme.ApplyFont(iconLetter, semiBold: true, size: 22);
+        iconLetter.Modulate = accent;
+        iconCenter.AddChild(iconLetter);
+        top.AddChild(iconPanel);
+
+        var titleCol = new VBoxContainer();
+        titleCol.AddThemeConstantOverride("separation", 2);
+        titleCol.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        top.AddChild(titleCol);
+
+        var nameLabel = new Label { Text = GetEnemyDisplayName(enemyId) };
+        UITheme.ApplyFont(nameLabel, semiBold: true, size: 18);
+        nameLabel.Modulate = Colors.White;
+        titleCol.AddChild(nameLabel);
+
+        var typeLabel = new Label { Text = "ENEMY" };
+        typeLabel.AddThemeFontSizeOverride("font_size", 12);
+        typeLabel.Modulate = accent;
+        titleCol.AddChild(typeLabel);
+
+        var stats = new Label
+        {
+            Text = GetEnemyStatsLine(enemyId),
+            AutowrapMode = TextServer.AutowrapMode.WordSmart
+        };
+        stats.AddThemeFontSizeOverride("font_size", 14);
+        stats.Modulate = new Color(0.64f, 0.80f, 1.00f);
+        body.AddChild(stats);
+
+        var desc = new Label
+        {
+            Text = GetEnemyDescription(enemyId),
+            AutowrapMode = TextServer.AutowrapMode.WordSmart
+        };
+        desc.AddThemeFontSizeOverride("font_size", 13);
+        desc.Modulate = new Color(0.76f, 0.80f, 0.88f);
+        body.AddChild(desc);
+
+        return panel;
+    }
+
+    private static Color GetEnemyAccent(string enemyId) => enemyId switch
+    {
+        "armored_walker" => new Color(1.00f, 0.58f, 0.10f),
+        "swift_walker"   => new Color(0.20f, 0.92f, 1.00f),
+        _                => new Color(0.55f, 0.95f, 0.25f),
+    };
+
+    private static string GetEnemyDisplayName(string enemyId) => enemyId switch
+    {
+        "armored_walker" => "Armored Walker",
+        "swift_walker"   => "Swift Walker",
+        _                => "Basic Walker",
+    };
+
+    private static string GetEnemyStatsLine(string enemyId) => enemyId switch
+    {
+        "armored_walker" => $"{Balance.BaseEnemyHp * Balance.TankyHpMultiplier:0} HP base (×{Balance.HpGrowthPerWave}/wave)  |  {Balance.TankyEnemySpeed:0} px/s  |  Leak: 1 life  |  From wave 6",
+        "swift_walker"   => $"{Balance.BaseEnemyHp * Balance.SwiftHpMultiplier:0} HP base (×{Balance.HpGrowthPerWave}/wave)  |  {Balance.SwiftEnemySpeed:0} px/s  |  Leak: 1 life  |  Waves 10–14",
+        _                => $"{Balance.BaseEnemyHp:0} HP base (×{Balance.HpGrowthPerWave}/wave)  |  {Balance.BaseEnemySpeed:0} px/s  |  Leak: 1 life  |  From wave 1",
+    };
+
+    private static string GetEnemyDescription(string enemyId) => enemyId switch
+    {
+        "armored_walker" => "High-HP tanker. Takes sustained damage to bring down. Pairs poorly against single-hit burst builds without Overkill.",
+        "swift_walker"   => "Fast sprinter that rushes the lane in waves 10–14. Outpaces slow-paced builds — Chill Shot and Hair Trigger both help.",
+        _                => "Standard threat. Low bulk, steady pace. Pressure escalates each wave via HP scaling.",
     };
 }
