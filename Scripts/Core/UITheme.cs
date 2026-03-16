@@ -13,12 +13,12 @@ public static class UITheme
     public static FontFile Bold     { get; } = GD.Load<FontFile>("res://Assets/Fonts/Rajdhani-Bold.ttf");
 
     // ── Color palette ─────────────────────────────────────────────────────
-    public static readonly Color Lime      = new(0.651f, 0.839f, 0.031f);      // #a6d608 — brand green
+    public static readonly Color Lime      = new(0.651f, 0.839f, 0.031f);      // #a6d608 - brand green
     public static readonly Color LimeDim   = new(0.45f,  0.58f,  0.02f);       // muted lime for pressed
     public static readonly Color LimeDark  = new(0.22f,  0.30f,  0.01f);       // deep lime for normal border
-    public static readonly Color Cyan      = new(0.08f,  0.85f,  0.90f);       // #14d9e6 — secondary accent
+    public static readonly Color Cyan      = new(0.08f,  0.85f,  0.90f);       // #14d9e6 - secondary accent
     public static readonly Color Magenta   = new(0.75f,  0.08f,  0.48f);       // existing pink accent for muted
-    public static readonly Color BgDeep    = new(0.027f, 0.027f, 0.102f);      // #07071a — near-black bg
+    public static readonly Color BgDeep    = new(0.027f, 0.027f, 0.102f);      // #07071a - near-black bg
     public static readonly Color BgMid     = new(0.06f,  0.06f,  0.18f);       // mid-deep bg
     public static readonly Color BgPanel   = new(0.07f,  0.07f,  0.165f);      // card / panel bg
     public static readonly Color BgHover   = new(0.04f,  0.09f,  0.04f);       // tinted green on hover
@@ -35,7 +35,7 @@ public static class UITheme
         theme.DefaultFont     = Regular;
         theme.DefaultFontSize = 18;
 
-        // Standard buttons — lime accent on hover
+        // Standard buttons - lime accent on hover
         theme.SetStylebox("normal",   "Button", MakeBtn(BgDeep,  BorderDim,  border: 1, corners: 8, glowAlpha: 0f,   glowSize: 0));
         theme.SetStylebox("hover",    "Button", MakeBtn(BgHover, Lime,       border: 2, corners: 8, glowAlpha: 0.16f, glowSize: 5));
         theme.SetStylebox("pressed",  "Button", MakeBtn(BgDeep,  LimeDim,    border: 2, corners: 8, glowAlpha: 0.10f, glowSize: 3));
@@ -64,7 +64,7 @@ public static class UITheme
     // ── Per-button style variants ─────────────────────────────────────────
 
     /// <summary>
-    /// Primary action button — Play, Submit, etc.
+    /// Primary action button - Play, Submit, etc.
     /// Stronger lime glow; lime-tinted background.
     /// </summary>
     public static void ApplyPrimaryStyle(Button btn)
@@ -81,7 +81,7 @@ public static class UITheme
     }
 
     /// <summary>
-    /// Muted / destructive button — Quit, etc.
+    /// Muted / destructive button - Quit, etc.
     /// Magenta/pink accent on hover instead of lime.
     /// </summary>
     public static void ApplyMutedStyle(Button btn)
@@ -96,7 +96,7 @@ public static class UITheme
     }
 
     /// <summary>
-    /// Cyan / secondary accent — used for navigational buttons (Back, etc.)
+    /// Cyan / secondary accent - used for navigational buttons (Back, etc.)
     /// </summary>
     public static void ApplyCyanStyle(Button btn)
     {

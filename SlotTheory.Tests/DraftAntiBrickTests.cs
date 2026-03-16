@@ -5,7 +5,7 @@ using Xunit;
 namespace SlotTheory.Tests;
 
 /// <summary>
-/// Tests for DraftSystem's anti-brick rule when towers ARE placed — the case previously blocked
+/// Tests for DraftSystem's anti-brick rule when towers ARE placed - the case previously blocked
 /// by TowerInstance extending Node2D. Unlocked via ITowerView + FakeTower stubs.
 /// </summary>
 public class DraftAntiBrickTests

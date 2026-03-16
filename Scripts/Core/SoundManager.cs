@@ -5,7 +5,7 @@ using Godot;
 namespace SlotTheory.Core;
 
 /// <summary>
-/// Autoload singleton. Generates all SFX procedurally at startup via PCM synthesis —
+/// Autoload singleton. Generates all SFX procedurally at startup via PCM synthesis -
 /// no audio files required. Uses AudioStreamGenerator so samples are pushed into a
 /// ring buffer and played once per pool slot.
 /// Use  SoundManager.Instance?.Play("id")  from anywhere.
@@ -16,7 +16,7 @@ public partial class SoundManager : Node
 
     private const int   Rate     = 22050;
     private const int   PoolSize = 20;
-    private const float MaxDur   = 9.0f;  // buffer length — must exceed longest sound (surge_global = 8s)
+    private const float MaxDur   = 9.0f;  // buffer length - must exceed longest sound (surge_global = 8s)
 
     private readonly Dictionary<string, Vector2[]> _samples  = new();
     private readonly Dictionary<string, float>     _durations = new();
@@ -25,7 +25,7 @@ public partial class SoundManager : Node
     private float[]             _poolTimers = Array.Empty<float>();
     private int                 _poolIdx;
 
-    // Music streaming — precomputed loop pushed frame-by-frame via AudioStreamGenerator
+    // Music streaming - precomputed loop pushed frame-by-frame via AudioStreamGenerator
     private Vector2[]                       _musicFrames   = Array.Empty<Vector2>();
     private int                             _musicPos;
     private AudioStreamPlayer?              _musicPlayer;
@@ -52,7 +52,7 @@ public partial class SoundManager : Node
     private readonly Dictionary<string, ulong> _desktopSfxLastPlayMs = new();
     private ulong[] _poolStopAtMs = Array.Empty<ulong>();
 
-    // Music note pool — separate from the SFX pool; routed to the Music bus
+    // Music note pool - separate from the SFX pool; routed to the Music bus
     private const int NotePoolSize = 8;
     private const float NoteBufferLength = 2.5f;  // seconds; notes are max 2s
     private AudioStreamPlayer[] _notePool       = Array.Empty<AudioStreamPlayer>();
@@ -80,7 +80,7 @@ public partial class SoundManager : Node
         ["mine_chain_pop"] = 85,
         // Per-frame hit ticks: 35ms floor keeps them audible without drowning other SFX.
         ["hit"]            = 35,
-        ["kill_confirm"]   = 40,   // layered kill tick — throttled to avoid pile-up on mass kills
+        ["kill_confirm"]   = 40,   // layered kill tick - throttled to avoid pile-up on mass kills
         // Death sounds: slightly longer gap so the mix breathes between kills.
         ["die_basic"]      = 55,
         ["die_armored"]    = 65,
@@ -92,7 +92,7 @@ public partial class SoundManager : Node
 
     // Desktop: applied at speed > 1× to prevent burst stacking when many enemies die in one frame.
     // Values are divided by game speed so throttling tightens at higher speeds (floor = 1ms).
-    // Goal: at ×3 speed, rapid-fire sounds compress to ~6ms apart — audible but not wall-of-noise.
+    // Goal: at ×3 speed, rapid-fire sounds compress to ~6ms apart - audible but not wall-of-noise.
     private static readonly Dictionary<string, int> DesktopSfxCooldownMs = new()
     {
         // Per-frame hits: very short to feel responsive; throttle only kicks in at high speed.
@@ -231,7 +231,7 @@ public partial class SoundManager : Node
     /// </summary>
     /// <summary>
     /// Precomputes a 32-second synthwave ambient loop.
-    /// Key: A minor Dorian (A, C, E + F# colour tone) — brighter and more energetic
+    /// Key: A minor Dorian (A, C, E + F# colour tone) - brighter and more energetic
     /// than C minor. Wide chorus detuning on mid/upper layers creates the lush
     /// analogue-pad sound. A 4-second gentle pulse on the high register adds groove
     /// without percussion. Each layer has an independent swell period (4/8/16/32 s)
@@ -247,7 +247,7 @@ public partial class SoundManager : Node
         {
             float t = i / (float)Rate;
 
-            // ── Root: A1 + A2, narrow detuning — minimal bass foundation ────
+            // ── Root: A1 + A2, narrow detuning - minimal bass foundation ────
             float root = (MathF.Sin(t * MathF.Tau * 55.00f)
                         + MathF.Sin(t * MathF.Tau * 55.07f)
                         + MathF.Sin(t * MathF.Tau * 54.93f)) * 0.026f
@@ -268,13 +268,13 @@ public partial class SoundManager : Node
                       + (MathF.Sin(t * MathF.Tau * 329.63f) + MathF.Sin(t * MathF.Tau * 329.93f)) * 0.036f; // E4
             pad *= padSwell;
 
-            // ── Dorian colour: F#4 — raised 6th lifts mood, gives 80s feel ───
+            // ── Dorian colour: F#4 - raised 6th lifts mood, gives 80s feel ───
             float dorianSwell = 0.25f + 0.23f * MathF.Sin(t * MathF.Tau / 16f + MathF.PI * 0.2f);
             float dorian = (MathF.Sin(t * MathF.Tau * 369.99f)
                           + MathF.Sin(t * MathF.Tau * 370.35f)) * 0.038f * dorianSwell;
 
             // ── Bright A4: wide chorus, gentle 4-s pulse for groove ──────────
-            // 4 s divides 32 s evenly (8 cycles) — loop stays seamless
+            // 4 s divides 32 s evenly (8 cycles) - loop stays seamless
             float brightPulse = 0.35f + 0.33f * MathF.Sin(t * MathF.Tau / 4f - MathF.PI * 0.5f);
             float bright = (MathF.Sin(t * MathF.Tau * 440.00f)
                           + MathF.Sin(t * MathF.Tau * 440.55f)
@@ -366,7 +366,7 @@ public partial class SoundManager : Node
             }
         }
         if (idx < 0)
-            idx = _poolIdx; // all 20 slots active — steal the oldest (unavoidable click)
+            idx = _poolIdx; // all 20 slots active - steal the oldest (unavoidable click)
         _poolIdx = (idx + 1) % PoolSize;
 
         var player = _pool[idx];
@@ -544,21 +544,21 @@ public partial class SoundManager : Node
     }
 
     /// <summary>
-    /// Synthesizes an electrical crackling sound — rapid irregular noise bursts in the
+    /// Synthesizes an electrical crackling sound - rapid irregular noise bursts in the
     /// 600–4000 Hz range, like a lightning arc or Jacob's ladder.
     /// </summary>
     private static (Vector2[] s, float d) Thunder(
         float dur = 0.9f,
         float vol = 0.88f,
-        float crackVol = 0.70f,    // unused — kept for call-site compat
-        float[]? rollFreqs = null,  // unused — kept for call-site compat
-        float[]? bodyFreqs = null)  // unused — kept for call-site compat
+        float crackVol = 0.70f,    // unused - kept for call-site compat
+        float[]? rollFreqs = null,  // unused - kept for call-site compat
+        float[]? bodyFreqs = null)  // unused - kept for call-site compat
     {
         int n   = (int)(Rate * dur);
         var rng = new Random(17);
         var arr = new Vector2[n];
 
-        // ── "KA-PTSHOWRRRR" — one continuous event, three parallel decays ──
+        // ── "KA-PTSHOWRRRR" - one continuous event, three parallel decays ──
         // No repeating bursts (that's what causes the rattlesnake character).
 
         // Broadband noise for impact + sizzle tail
@@ -590,7 +590,7 @@ public partial class SoundManager : Node
             hpNoise[i] = white[i] - lpW;
         }
 
-        // Spark sweep: 2500→400 Hz over 12ms — electrical "zap" onset, no physical slap
+        // Spark sweep: 2500→400 Hz over 12ms - electrical "zap" onset, no physical slap
         double sparkPhase = 0.0;
         var spark = new float[n];
         int sparkN = (int)(Rate * 0.012f);
@@ -602,7 +602,7 @@ public partial class SoundManager : Node
             spark[i] = MathF.Sin((float)(sparkPhase * MathF.Tau)) * MathF.Exp(-tc / 0.005f);
         }
 
-        // Periodic burst envelope — hard-clipped mid noise per burst
+        // Periodic burst envelope - hard-clipped mid noise per burst
         // 28ms interval = ~36 Hz, slow enough to feel like distinct cracks not rattlesnake
         int burstN = (int)(Rate * 0.028f);
         var rng3 = new Random(77);
@@ -652,7 +652,7 @@ public partial class SoundManager : Node
     /// <summary>
     /// Explosion with expanding shockwave ring.
     /// Layer 1: Low-mid boom (80–300 Hz), sharp attack, 200ms decay.
-    /// Layer 2: Time-varying bandpass that sweeps 150→1500 Hz over 600ms — the "expanding wave."
+    /// Layer 2: Time-varying bandpass that sweeps 150→1500 Hz over 600ms - the "expanding wave."
     /// Layer 3: High sparkle tail above 800 Hz that fades after the wave passes.
     /// </summary>
     private static (Vector2[] s, float d) GlobalSurge(
@@ -908,7 +908,7 @@ public partial class SoundManager : Node
             }
             else
             {
-                // Chorused fundamental — two oscillators slightly detuned
+                // Chorused fundamental - two oscillators slightly detuned
                 s = MathF.Sin(t * MathF.Tau * freq) * 0.60f
                   + MathF.Sin(t * MathF.Tau * (freq + detune)) * 0.22f
                   + MathF.Sin(t * MathF.Tau * (freq - detune)) * 0.22f;

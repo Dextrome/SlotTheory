@@ -298,7 +298,7 @@ public partial class LeaderboardManager : Node
     }
 
     // NoInlining ensures the JIT only compiles this method if it's actually called.
-    // SteamLeaderboardService references Steamworks.NET types that don't exist on Android —
+    // SteamLeaderboardService references Steamworks.NET types that don't exist on Android -
     // keeping this in a separate non-inlined method prevents TypeLoadException at startup.
     [System.Runtime.CompilerServices.MethodImpl(
         System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]

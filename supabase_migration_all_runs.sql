@@ -1,4 +1,4 @@
--- Slot Theory — Migration: switch from keep-best to all-runs leaderboard,
+-- Slot Theory - Migration: switch from keep-best to all-runs leaderboard,
 --                           and add build_name column
 -- Run this in Supabase SQL Editor on your EXISTING database.
 --

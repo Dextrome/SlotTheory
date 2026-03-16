@@ -17,7 +17,7 @@ public interface IDraftDataSource
     IEnumerable<string> GetAllModifierIds();
 }
 
-/// <summary>Production implementation — delegates to the static DataLoader.</summary>
+/// <summary>Production implementation - delegates to the static DataLoader.</summary>
 public sealed class DataLoaderDraftDataSource : IDraftDataSource
 {
     public IEnumerable<string> GetAllTowerIds()    => DataLoader.GetAllTowerIds();

@@ -4,9 +4,9 @@ namespace SlotTheory.Core;
 
 /// <summary>
 /// Autoload singleton. Stacks optional screen-space effects over every scene.
-///   Layer 128 — Base filter   : fake bloom, scanlines, saturation
-///   Layer 130 — VHS Glitch    : scan-band displacement + channel bleed + grain
-///   Layer 131 — Phosphor Grid : screen-door pixel matrix + RGB sub-pixel tint
+///   Layer 128 - Base filter   : fake bloom, scanlines, saturation
+///   Layer 130 - VHS Glitch    : scan-band displacement + channel bleed + grain
+///   Layer 131 - Phosphor Grid : screen-door pixel matrix + RGB sub-pixel tint
 /// </summary>
 public partial class ScreenFilter : Node
 {

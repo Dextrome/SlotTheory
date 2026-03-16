@@ -6,7 +6,7 @@ namespace SlotTheory.UI;
 /// <summary>
 /// Fullscreen animated neon-grid background drawn behind the main menu.
 /// Horizontal + vertical grid lines with per-line alpha sine waves, plus a
-/// slow horizontal scan sweep — all at very low opacity so UI text stays readable.
+/// slow horizontal scan sweep - all at very low opacity so UI text stays readable.
 /// </summary>
 public partial class NeonGridBg : Control
 {
@@ -46,7 +46,7 @@ public partial class NeonGridBg : Control
             DrawLine(new Vector2(x, 0), new Vector2(x, h), new Color(LineV, a), 1f);
         }
 
-        // Slow downward scan sweep — two overlapping rects for a soft glow falloff
+        // Slow downward scan sweep - two overlapping rects for a soft glow falloff
         float scanY = ((_t * 0.28f % 1f) * (h + 140f)) - 70f;
         DrawRect(new Rect2(0, scanY - 35f, w, 70f), new Color(Scan1, 0.030f));
         DrawRect(new Rect2(0, scanY - 10f, w, 20f), new Color(Scan2, 0.038f));

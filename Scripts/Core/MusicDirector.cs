@@ -33,9 +33,9 @@ public partial class MusicDirector : Node
     // ── Phase 1: A-Dorian test bass pattern ──────────────────────────────
     // One MIDI root note per bar, cycling a 4-bar i–IV–i–VII progression.
     //   Bar 0: A2 = MIDI 45 (tonic)
-    //   Bar 1: D2 = MIDI 38 (IV — Dorian subdominant)
+    //   Bar 1: D2 = MIDI 38 (IV - Dorian subdominant)
     //   Bar 2: A2 = MIDI 45 (tonic return)
-    //   Bar 3: G2 = MIDI 43 (VII — Dorian subtonic)
+    //   Bar 3: G2 = MIDI 43 (VII - Dorian subtonic)
     private static readonly int[] _testBassRoots = { 45, 38, 45, 43 };
 
     public override void _Ready()
@@ -55,12 +55,12 @@ public partial class MusicDirector : Node
 
     private void OnBeat(int beatIndex)
     {
-        // Fifth above (7 semitones) on beat 2 — adds harmonic bounce
+        // Fifth above (7 semitones) on beat 2 - adds harmonic bounce
         if (beatIndex == 2)
             SoundManager.Instance?.PlayNote(_testBassRoots[Clock.CurrentBar] + 7);
     }
 
-    // ── Phase 3: game state hooks (stubbed — wired in Phase 3) ───────────
+    // ── Phase 3: game state hooks (stubbed - wired in Phase 3) ───────────
 
     // public void OnWaveStart(int waveIndex) { }
     // public void OnWaveClear(int waveIndex) { }

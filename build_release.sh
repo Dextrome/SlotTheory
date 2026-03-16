@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# build_release.sh — builds C# and exports a Windows release via Godot headless.
+# build_release.sh - builds C# and exports a Windows release via Godot headless.
 #
 # Prerequisites (one-time setup):
 #   1. Open Godot editor → Editor → Manage Export Templates → Download and Install

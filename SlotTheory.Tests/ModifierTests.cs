@@ -10,7 +10,7 @@ namespace SlotTheory.Tests;
 
 /// <summary>
 /// Unit tests for all 10 modifier behaviors using FakeTower and FakeEnemy stubs.
-/// No Godot engine needed — all pure C# logic.
+/// No Godot engine needed - all pure C# logic.
 /// </summary>
 public class ModifierTests
 {

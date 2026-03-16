@@ -7,7 +7,7 @@ namespace SlotTheory.Tests;
 
 /// <summary>
 /// Tests for the three new surge preview features:
-///   1. SpectacleSystem.PeekDominantMods() — live peek without mutating state
+///   1. SpectacleSystem.PeekDominantMods() - live peek without mutating state
 ///   2. Preview alpha ramp formula (70%→100% fill)
 ///   3. Global surge banner subtitle refund-percent formula
 /// </summary>
@@ -116,7 +116,7 @@ public class SurgePreviewFeatureTests
         system.RegisterProc(towerA, SpectacleDefinitions.Momentum, scalar);
         system.Update(SpectacleDefinitions.SurgeCooldownSeconds);
         system.RegisterProc(towerA, SpectacleDefinitions.Momentum, scalar);
-        // Fire towerB immediately — no extra time advance, both towers have independent cooldowns.
+        // Fire towerB immediately - no extra time advance, both towers have independent cooldowns.
         system.RegisterProc(towerB, SpectacleDefinitions.FocusLens, scalar);
 
         string[] peeked = system.PeekDominantMods();
@@ -206,12 +206,12 @@ public class SurgePreviewFeatureTests
     // ── Preview alpha ramp ─────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(0.00f, 0.00f)] // well below threshold — no preview
-    [InlineData(0.50f, 0.00f)] // below threshold — no preview
-    [InlineData(0.70f, 0.00f)] // exactly at threshold — preview just begins (t=0 → alpha=0)
+    [InlineData(0.00f, 0.00f)] // well below threshold - no preview
+    [InlineData(0.50f, 0.00f)] // below threshold - no preview
+    [InlineData(0.70f, 0.00f)] // exactly at threshold - preview just begins (t=0 → alpha=0)
     [InlineData(0.85f, 0.40f)] // halfway through ramp
-    [InlineData(1.00f, 0.80f)] // full meter — maximum preview alpha
-    [InlineData(1.20f, 0.80f)] // over-full — clamped at max
+    [InlineData(1.00f, 0.80f)] // full meter - maximum preview alpha
+    [InlineData(1.20f, 0.80f)] // over-full - clamped at max
     public void PreviewAlpha_RampsCorrectly(float fill, float expected)
     {
         float actual = ComputePreviewAlpha(fill);

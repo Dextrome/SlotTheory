@@ -5,7 +5,7 @@ using System.Collections.Generic;
 namespace SlotTheory.Core;
 
 /// <summary>
-/// Autoload singleton — source of truth for achievement state.
+/// Autoload singleton - source of truth for achievement state.
 ///
 /// Responsibilities:
 ///   - Persist unlock state to user://achievements.cfg
@@ -13,7 +13,7 @@ namespace SlotTheory.Core;
 ///   - Evaluate run-end conditions (logic previously in SteamAchievements)
 ///
 /// Steam forwarding: SteamAchievements.cs subscribes to AchievementUnlocked and
-/// calls Steamworks when available — this class has zero Steam dependency.
+/// calls Steamworks when available - this class has zero Steam dependency.
 /// </summary>
 public partial class AchievementManager : Node
 {
@@ -243,16 +243,16 @@ public partial class AchievementManager : Node
         {
             int livesLost = Balance.StartingLives - state.Lives;
             if (!IsUnlocked("FLAWLESS") && livesLost > 0 && livesLost <= 3)
-                hints.Add($"Almost FLAWLESS — lost {livesLost} {(livesLost == 1 ? "life" : "lives")}");
+                hints.Add($"Almost FLAWLESS - lost {livesLost} {(livesLost == 1 ? "life" : "lives")}");
 
             if (!IsUnlocked("LAST_STAND") && state.Lives == 2)
-                hints.Add("Almost LAST STAND — won with 2 lives (target: 1)");
+                hints.Add("Almost LAST STAND - won with 2 lives (target: 1)");
 
             if (!IsUnlocked("SPEED_RUN") && state.TotalPlayTime > SpeedRunMaxSeconds
                 && state.TotalPlayTime <= SpeedRunMaxSeconds + 90f)
             {
                 int overBy = (int)(state.TotalPlayTime - SpeedRunMaxSeconds);
-                hints.Add($"Almost SPEED RUN — {overBy}s over the 8:00 limit");
+                hints.Add($"Almost SPEED RUN - {overBy}s over the 8:00 limit");
             }
         }
 
@@ -262,9 +262,9 @@ public partial class AchievementManager : Node
             int arcCount    = state.Slots.Count(s => s.Tower?.TowerId == "chain_tower");
             int filledCount = state.Slots.Count(s => s.Tower != null);
             if (arcCount >= 4 && arcCount < filledCount)
-                hints.Add($"Almost CHAIN MASTER — {arcCount}/{filledCount} slots were Arc Emitters");
+                hints.Add($"Almost CHAIN MASTER - {arcCount}/{filledCount} slots were Arc Emitters");
             else if (arcCount == filledCount && filledCount >= 4 && filledCount < Balance.SlotCount)
-                hints.Add($"Almost CHAIN MASTER — all {arcCount} filled slots are Arc Emitters, fill the rest");
+                hints.Add($"Almost CHAIN MASTER - all {arcCount} filled slots are Arc Emitters, fill the rest");
         }
 
         // Annihilator near-miss applies on win or loss
@@ -272,7 +272,7 @@ public partial class AchievementManager : Node
             && state.TotalDamageDealt >= AnnihilatorDamage * 0.70f
             && state.TotalDamageDealt < AnnihilatorDamage)
         {
-            hints.Add($"Almost ANNIHILATOR — {state.TotalDamageDealt:N0} / {AnnihilatorDamage:N0} damage");
+            hints.Add($"Almost ANNIHILATOR - {state.TotalDamageDealt:N0} / {AnnihilatorDamage:N0} damage");
         }
 
         if (hints.Count > 0)
@@ -280,25 +280,25 @@ public partial class AchievementManager : Node
 
         // ── Forward goals: most accessible unearned achievement ───────────
         if (!won && !IsUnlocked("FIRST_WIN"))
-            return "Next goal: FIRST VICTORY — complete all 20 waves";
+            return "Next goal: FIRST VICTORY - complete all 20 waves";
 
         if (won && difficulty != DifficultyMode.Hard && !IsUnlocked("HARD_WIN"))
-            return "Next goal: HARD CARRY — win on Hard difficulty";
+            return "Next goal: HARD CARRY - win on Hard difficulty";
 
         if (won && !IsUnlocked("FLAWLESS"))
-            return "Next goal: FLAWLESS — win without losing a single life";
+            return "Next goal: FLAWLESS - win without losing a single life";
 
         if (won && !IsUnlocked("SPEED_RUN"))
         {
             int s = (int)state.TotalPlayTime;
-            return $"Next goal: SPEED RUN — win in under 8:00  (this run: {s / 60}:{s % 60:D2})";
+            return $"Next goal: SPEED RUN - win in under 8:00  (this run: {s / 60}:{s % 60:D2})";
         }
 
         if (!IsUnlocked("ANNIHILATOR"))
-            return $"Next goal: ANNIHILATOR — deal 100,000 damage in one run";
+            return $"Next goal: ANNIHILATOR - deal 100,000 damage in one run";
 
         if (!IsUnlocked("CHAIN_MASTER") && IsUnlocked(Unlocks.ArcEmitterAchievementId))
-            return "Next goal: CHAIN MASTER — win with Arc Emitters in all 6 slots";
+            return "Next goal: CHAIN MASTER - win with Arc Emitters in all 6 slots";
 
         return null;
     }

@@ -132,7 +132,7 @@ public partial class TowerInstance : Node2D, ITowerView
     {
         if (_spectacleFlashTween != null && GodotObject.IsInstanceValid(_spectacleFlashTween))
             _spectacleFlashTween.Kill();
-        // Blend white toward accent so values stay in [0,1] — visible as a colored tint
+        // Blend white toward accent so values stay in [0,1] - visible as a colored tint
         Color glow = new Color(
             0.45f + accent.R * 0.55f,
             0.45f + accent.G * 0.55f,
@@ -259,7 +259,7 @@ public partial class TowerInstance : Node2D, ITowerView
         DrawArc(Vector2.Zero, r, 0f, Mathf.Tau, 48,
             new Color(BodyColor.R, BodyColor.G, BodyColor.B, 0.16f), 2f);
 
-        // Filled charge arc — clockwise from top
+        // Filled charge arc - clockwise from top
         if (fill > 0.01f)
         {
             float start = -Mathf.Pi / 2f;

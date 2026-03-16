@@ -124,7 +124,7 @@ Python scripts (`Scripts/Tools/`) can still be used for content generation (JSON
 **Solution:** `ModifierDataValidator.cs` runs on startup and validates modifier descriptions match their code implementations.
 
 **How it works:**
-1. Validator checks that key stat tokens appear in descriptions (e.g., "42%", "âˆ’25%", "Ã—1.80")
+1. Validator checks that key stat tokens appear in descriptions (e.g., "42%", "âˆ’25%", "Ã-1.80")
 2. Runs automatically during `DataLoader.LoadAll()`
 3. Prints `[VALIDATOR] OK All modifier descriptions match implementation` or lists mismatches
 4. Zero overhead once validated (no runtime checks after initial load)
@@ -137,7 +137,7 @@ Python scripts (`Scripts/Tools/`) can still be used for content generation (JSON
 
 **To add a new modifier's validation check:**
 1. Add entry to `ModifierDataValidator.cs` `expectations` list with expected tokens
-2. Use exact text from description (e.g., "+40%", "âˆ’25%", "Ã—1.80", "5 s")
+2. Use exact text from description (e.g., "+40%", "âˆ’25%", "Ã-1.80", "5 s")
 3. Rerun to verify
 
 ## Hand-Written .tscn Rules
@@ -229,10 +229,10 @@ Build a `DamageContext` (attacker, target, base damage, wave index) â†’ app
   - Chain-triggered mine pops force the target mine into a final pop to preserve cascade behavior.
 
 ### Procedural Map System (`MapGenerator.cs`):
-- **Grid**: 8 cols Ã— 5 rows, cell 160Ã—128 px, grid origin (0, 80)
+- **Grid**: 8 cols Ã- 5 rows, cell 160Ã-128 px, grid origin (0, 80)
 - **Path**: Fixed 3-horizontal-leg snake, randomized turn rows/cols each run
   - `c1 âˆˆ [2,3]`, `c2 âˆˆ [c1+2,5]` â€” ensures cols 6â€“7 always have grass cells
-- **Slot placement**: 6 zones (3Ã—2 grid of zones), one slot per zone; prefers non-path cells adjacent to path (guaranteed in range), falls back to any grass cell
+- **Slot placement**: 6 zones (3Ã-2 grid of zones), one slot per zone; prefers non-path cells adjacent to path (guaranteed in range), falls back to any grass cell
 - **Rendering**: flat `ColorRect` nodes under `_mapVisuals` Node2D (first child of World); grass `#a6d608`, path `#8B5E3C`
 - **Restart**: `Free()` (not `QueueFree()`) all `_mapVisuals` / slot node children to avoid one-frame flicker
 - `System.Environment.TickCount` must be fully qualified â€” `Godot.Environment` exists in the same namespace
@@ -245,7 +245,7 @@ Build a `DamageContext` (attacker, target, base damage, wave index) â†’ app
 - All visual child nodes must have `MouseFilter = Control.MouseFilterEnum.Ignore` or `_Input` click events on the tower won't fire
 
 ### Click / tooltip system:
-- Tower targeting cycle: `_Input` (not `_UnhandledInput`) + `GetViewport().GetMousePosition()` + 50Ã—50 `Rect2` hit test
+- Tower targeting cycle: `_Input` (not `_UnhandledInput`) + `GetViewport().GetMousePosition()` + 50Ã-50 `Rect2` hit test
 - Tooltip: `CanvasLayer(Layer=5)` â†’ `Panel` â†’ `Label`; sized to `label.GetMinimumSize() + (16,12)`; only visible during `GamePhase.Wave`
 
 ## Current Folder Layout
@@ -397,10 +397,10 @@ If an idea requires a new system â†’ defer to "Project 2."
 
 - **5 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +40% dmg taken, 4s), Arc Emitter (**unlockable** via campaign map clear; chains to 2 enemies, 400 px chain range, 60% decay/bounce), Rift Sapper (**unlockable** via campaign map clear; charged lane-mine trap tower with wave-start seeding burst)
 - **10 modifiers** (always check `Balance.cs` + `modifiers.json` for current values â€” these drift after balance passes):
-  - Momentum: +16% dmg/hit same target, max Ã—1.80
+  - Momentum: +16% dmg/hit same target, max Ã-1.80
   - Overkill: 60% excess dmg spills to next enemy
   - Exploit Weakness: +45% dmg vs Marked enemies
-  - Focus Lens: +140% dmg, Ã—1.85 attack interval
+  - Focus Lens: +140% dmg, Ã-1.85 attack interval
   - Chill Shot: âˆ’30% enemy speed on hit, 6s (stacks multiplicatively per tower)
   - Overreach: +45% range, âˆ’10% dmg
   - Hair Trigger: +30% attack speed, âˆ’18% range
@@ -408,9 +408,9 @@ If an idea requires a new system â†’ defer to "Project 2."
   - Feedback Loop: 65% of remaining cooldown removed on kill
   - Chain Reaction: adds 1 bounce (60% decay/bounce); stacks add more bounces
 - **3 enemy types**:
-  - Basic Walker: 65 HP wave 1, Ã—1.10/wave, 120px/s
-  - Armored Walker: 3.5Ã— HP, 60px/s, first appears wave 6 (index 5)
-  - Swift Walker: 1.5Ã— HP, 240px/s, appears waves 10â€“14
+  - Basic Walker: 65 HP wave 1, Ã-1.10/wave, 120px/s
+  - Armored Walker: 3.5Ã- HP, 60px/s, first appears wave 6 (index 5)
+  - Swift Walker: 1.5Ã- HP, 240px/s, appears waves 10â€“14
 - **10 player lives** â€” each leaked enemy costs 1 life (`Balance.StartingLives = 10`)
 - **20 waves**, 6 tower slots, max 3 modifiers per tower
 - **Extra draft picks**: `Balance.Wave1ExtraPicks` and `Balance.Wave15ExtraPicks` are both currently 0 (temporarily disabled)

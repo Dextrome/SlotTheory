@@ -8,7 +8,7 @@ namespace SlotTheory.Modifiers;
 /// so this activates the full existing chain infrastructure (ProjectileVisual.ApplyChainHits,
 /// SpawnChainArc visual, CombatSim.ApplyChainBotMode) with no extra wiring.
 /// Default ChainRange=260, ChainDamageDecay=0.60 apply automatically on non-chain towers.
-/// Stacks: each copy adds 1 more bounce. Damage decays 60% per hop — diminishing by design.
+/// Stacks: each copy adds 1 more bounce. Damage decays 60% per hop - diminishing by design.
 /// </summary>
 public class ChainReaction : Modifier
 {

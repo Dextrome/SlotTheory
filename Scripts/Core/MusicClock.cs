@@ -6,7 +6,7 @@ namespace SlotTheory.Core;
 /// <summary>
 /// Sample-accurate metronome for the procedural music system.
 ///
-/// Accumulates time via Time.GetTicksUsec() — an absolute wall-clock that never
+/// Accumulates time via Time.GetTicksUsec() - an absolute wall-clock that never
 /// drifts regardless of frame rate or GC pauses. BPM changes can ramp smoothly
 /// over a configurable number of bars (accelerando / ritardando).
 ///
@@ -27,7 +27,7 @@ public partial class MusicClock : Node
     /// <summary>Fires on beat 0 of each bar. barIndex is 0–3 within the current phrase.</summary>
     public event Action<int>? BarFired;
 
-    /// <summary>Fires on beat 0 of bar 0 — the downbeat of every 4-bar phrase.</summary>
+    /// <summary>Fires on beat 0 of bar 0 - the downbeat of every 4-bar phrase.</summary>
     public event Action? PhraseFired;
 
     // ── Properties ────────────────────────────────────────────────────────

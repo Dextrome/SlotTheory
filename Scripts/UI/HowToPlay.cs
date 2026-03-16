@@ -62,7 +62,7 @@ public partial class HowToPlay : Node
         grid.MouseFilter = Control.MouseFilterEnum.Ignore;
         canvas.AddChild(grid);
 
-        // Root layout — full rect VBox so the panel sits inside viewport margins
+        // Root layout - full rect VBox so the panel sits inside viewport margins
         var root = new VBoxContainer();
         root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         root.AddThemeConstantOverride("separation", 0);

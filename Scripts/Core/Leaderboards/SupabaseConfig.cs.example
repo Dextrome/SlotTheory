@@ -1,5 +1,5 @@
 // Copy this file to SupabaseConfig.cs and fill in your values.
-// SupabaseConfig.cs is gitignored — credentials stay out of git history.
+// SupabaseConfig.cs is gitignored - credentials stay out of git history.
 // Get these from: Supabase Dashboard → Settings → API
 
 namespace SlotTheory.Core.Leaderboards;

@@ -2,7 +2,7 @@ namespace SlotTheory.Core;
 
 /// <summary>
 /// Pure-logic helpers for the surge differentiation system (Phase 3–5).
-/// No Godot dependencies — fully unit-testable.
+/// No Godot dependencies - fully unit-testable.
 /// </summary>
 public static class SurgeDifferentiation
 {

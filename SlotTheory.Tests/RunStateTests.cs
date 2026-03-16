@@ -3,7 +3,7 @@ using Xunit;
 
 namespace SlotTheory.Tests;
 
-/// <summary>Unit tests for RunState — pure C#, no Godot dependencies.</summary>
+/// <summary>Unit tests for RunState - pure C#, no Godot dependencies.</summary>
 public class RunStateTests
 {
     // ── HasFreeSlots ──────────────────────────────────────────────────────

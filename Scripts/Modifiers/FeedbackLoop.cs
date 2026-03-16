@@ -6,7 +6,7 @@ namespace SlotTheory.Modifiers;
 
 /// <summary>
 /// Killing an enemy reduces the tower's current cooldown by 50% (Balance.FeedbackLoopCooldownReduction).
-/// Only Cooldown (the live timer) is touched — AttackInterval (base period) is never changed,
+/// Only Cooldown (the live timer) is touched - AttackInterval (base period) is never changed,
 /// so there is no permanent acceleration. Each copy fires independently on kill,
 /// giving multiplicative diminishing returns per copy, never below 0.
 /// </summary>

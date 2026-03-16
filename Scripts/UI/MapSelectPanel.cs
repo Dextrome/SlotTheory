@@ -148,7 +148,7 @@ public partial class MapSelectPanel : Node
 		rightColumn.AddChild(_personalBestLabel);
 		UpdatePersonalBestLabel();
 
-		// Start Run + Back in the right column — always visible, no layout tricks needed
+		// Start Run + Back in the right column - always visible, no layout tricks needed
 		var startBtn = new Button
 		{
 			Text = "Start Run",
@@ -213,8 +213,8 @@ public partial class MapSelectPanel : Node
 			foreach (var mapDef in campaignMaps)
 				_mapListContainer.AddChild(CreateMapButton(mapDef.Id, mapDef.Name, mapDef.Description));
 
-			// Full-game placeholder slots — visible but unplayable
-			_mapListContainer.AddChild(CreateFullGameMapRow("???", "A fractured zone — something stranger awaits."));
+			// Full-game placeholder slots - visible but unplayable
+			_mapListContainer.AddChild(CreateFullGameMapRow("???", "A fractured zone - something stranger awaits."));
 			_mapListContainer.AddChild(CreateFullGameMapRow("???", "Classified. Requires full clearance."));
 
 			if (randomMap != null)
@@ -486,11 +486,11 @@ public partial class MapSelectPanel : Node
 
 		Color color;
 		if (isSelected)
-			color = new Color(1.0f, 0.85f, 0.25f);   // gold — selected
+			color = new Color(1.0f, 0.85f, 0.25f);   // gold - selected
 		else if (hasWon)
-			color = new Color(0.40f, 0.92f, 0.50f);  // green — cleared ✓
+			color = new Color(0.40f, 0.92f, 0.50f);  // green - cleared ✓
 		else
-			color = new Color(0.45f, 0.45f, 0.45f);  // gray — unplayed or attempted
+			color = new Color(0.45f, 0.45f, 0.45f);  // gray - unplayed or attempted
 
 		ApplyDifficultyButtonColor(btn, color, isSelected);
 	}
@@ -501,7 +501,7 @@ public partial class MapSelectPanel : Node
 		var best = HighScoreManager.Instance?.GetPersonalBest(_selectedMapId, _selectedDifficulty);
 		if (best == null)
 		{
-			_personalBestLabel.Text = "No record yet — claim it.";
+			_personalBestLabel.Text = "No record yet - claim it.";
 			return;
 		}
 

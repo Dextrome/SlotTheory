@@ -5,7 +5,7 @@ using Xunit;
 namespace SlotTheory.Tests;
 
 /// <summary>
-/// Tests for DraftSystem using a stub IDraftDataSource — no Godot runtime needed.
+/// Tests for DraftSystem using a stub IDraftDataSource - no Godot runtime needed.
 ///
 /// TESTABLE without Godot (Tower == null path):
 ///   - Anti-brick: no modifier options when no towers are placed (towersWithSpace is empty).

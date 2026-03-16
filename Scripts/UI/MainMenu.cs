@@ -6,7 +6,7 @@ namespace SlotTheory.UI;
 
 /// <summary>
 /// Entry-point scene shown before a run starts and returned to after each run ends.
-/// All UI built procedurally — no .tscn children required.
+/// All UI built procedurally - no .tscn children required.
 /// </summary>
 public partial class MainMenu : Node
 {
@@ -33,7 +33,7 @@ public partial class MainMenu : Node
 		bg.Color = new Color("#07071a");
 		canvas.AddChild(bg);
 
-		// Animated neon grid — rendered above solid bg, below all UI
+		// Animated neon grid - rendered above solid bg, below all UI
 		var grid = new NeonGridBg();
 		grid.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		grid.MouseFilter = Control.MouseFilterEnum.Ignore;
@@ -93,7 +93,7 @@ public partial class MainMenu : Node
 		cardVbox.AddThemeConstantOverride("separation", 7);
 		card.AddChild(cardVbox);
 
-		// Play — primary
+		// Play - primary
 		var playBtn = MakeMenuButton("PLAY", 260, 50, 24);
 		UITheme.ApplyPrimaryStyle(playBtn);
 		playBtn.Pressed += OnPlay;
@@ -126,13 +126,13 @@ public partial class MainMenu : Node
 		AddSeparator(cardVbox);
 		AddSpacer(cardVbox, 4);
 
-		// Quit — muted
+		// Quit - muted
 		var quitBtn = MakeMenuButton("Quit", 260, 36, 18);
 		UITheme.ApplyMutedStyle(quitBtn);
 		quitBtn.Pressed += OnQuit;
 		cardVbox.AddChild(quitBtn);
 
-		// Demo-complete banner — shown once after all 3 campaign maps are cleared, sits to the right of the menu card
+		// Demo-complete banner - shown once after all 3 campaign maps are cleared, sits to the right of the menu card
 		bool allUnlocked = AchievementManager.Instance?.IsUnlocked(Unlocks.RiftPrismAchievementId) == true;
 		bool alreadyNotified = SettingsManager.Instance?.DemoCompleteNotified == true;
 		if (allUnlocked && !alreadyNotified)
@@ -147,7 +147,7 @@ public partial class MainMenu : Node
 			menuRow.AddChild(banner);
 		}
 
-		// Version label — inside vbox so it scales with pinch zoom
+		// Version label - inside vbox so it scales with pinch zoom
 		var versionLabel = new Label
 		{
 			Text = $"v{GetGameVersion()}",

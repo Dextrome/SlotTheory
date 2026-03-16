@@ -13,7 +13,7 @@ public static class ModifierVisuals
     private static readonly Color StatusSynergy = new Color(1.00f, 0.36f, 0.80f); // magenta
     private static readonly Color MultiTarget   = new Color(0.48f, 1.00f, 0.76f); // mint-green
 
-    // Okabe-Ito (2008) colorblind-safe palette — validated for deuteranopia, protanopia, and tritanopia
+    // Okabe-Ito (2008) colorblind-safe palette - validated for deuteranopia, protanopia, and tritanopia
     private static readonly Color CB_DamageScaling = new Color(0.902f, 0.624f, 0.000f); // orange    #E69F00
     private static readonly Color CB_Utility       = new Color(0.337f, 0.706f, 0.914f); // sky blue  #56B4E9
     private static readonly Color CB_Range         = new Color(0.000f, 0.447f, 0.698f); // blue      #0072B2

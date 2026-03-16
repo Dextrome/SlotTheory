@@ -509,7 +509,7 @@ public class BotPlayer
         bool hasMarker  = s.Slots.Any(sl => sl.Tower?.TowerId == "marker_tower");
         int  dpsCount   = s.Slots.Count(sl => IsFastTower(sl.Tower?.TowerId));
 
-        // 1. Need at least one DPS tower before chasing marker synergy — open with rapid/chain, not Rift
+        // 1. Need at least one DPS tower before chasing marker synergy - open with rapid/chain, not Rift
         if (dpsCount == 0 && empty.Count > 0)
         {
             var dps = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rapid_shooter")
@@ -550,7 +550,7 @@ public class BotPlayer
                 if (markerSlot >= 0) return new DraftPick(ht, markerSlot);
             }
 
-            // 5. Momentum on DPS towers (stacks to Ã—1.80 when hitting the same marked enemy)
+            // 5. Momentum on DPS towers (stacks to Ã-1.80 when hitting the same marked enemy)
             var mom = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "momentum");
             if (mom != null)
             {
@@ -632,7 +632,7 @@ public class BotPlayer
     }
 
     // Chain strategy: build up to 2 chain_reactions (on chain_tower), then exactly 1 damage mod,
-    // then pivot fully to direct DPS. Chain bounces decay Ã—0.60/hop â€" diminishing vs armored late game.
+    // then pivot fully to direct DPS. Chain bounces decay Ã-0.60/hop â€" diminishing vs armored late game.
     private DraftPick? PickChainFocus(List<DraftOption> opts, RunState s)
     {
         var empty    = EmptySlots(s);
@@ -748,7 +748,7 @@ public class BotPlayer
 
         if (eligible.Count > 0)
         {
-            // 1. Stack split_shot — prefer heavy_cannon (big base = impactful splits)
+            // 1. Stack split_shot - prefer heavy_cannon (big base = impactful splits)
             var ss = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "split_shot");
             if (ss != null)
             {
@@ -770,7 +770,7 @@ public class BotPlayer
                 return new DraftPick(ok, slot);
             }
 
-            // 3. exploit_weakness if marker placed — every split target benefits
+            // 3. exploit_weakness if marker placed - every split target benefits
             if (hasMarker)
             {
                 var ew = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "exploit_weakness");
@@ -800,7 +800,7 @@ public class BotPlayer
 
         if (empty.Count > 0)
         {
-            // Wave 1: rapid_shooter opener — heavy alone is too slow for early waves
+            // Wave 1: rapid_shooter opener - heavy alone is too slow for early waves
             if (towerCount == 0)
             {
                 var opener = FindTowerOption(opts, "rapid_shooter", "chain_tower");
@@ -1075,7 +1075,7 @@ public class BotPlayer
 
         if (empty.Count > 0)
         {
-            // Open with a DPS tower first — Rift Sapper is a setup tower, not an opener.
+            // Open with a DPS tower first - Rift Sapper is a setup tower, not an opener.
             if (towerCount == 0)
             {
                 var opener = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rapid_shooter")
@@ -1365,7 +1365,7 @@ public class BotPlayer
                 if (slot >= 0) return new DraftPick(fl, slot);
             }
 
-            // 2. Momentum on heavy_cannon: builds Ã—1.80 on armored/tanky clumps
+            // 2. Momentum on heavy_cannon: builds Ã-1.80 on armored/tanky clumps
             var mom = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "momentum");
             if (mom != null)
             {
@@ -1414,7 +1414,7 @@ public class BotPlayer
         {
             int towerCount = s.Slots.Count(sl => sl.Tower != null);
 
-            // Wave 1: rapid_shooter opener — heavy alone can't cover early waves
+            // Wave 1: rapid_shooter opener - heavy alone can't cover early waves
             if (towerCount == 0)
             {
                 var opener = FindTowerOption(opts, "rapid_shooter", "chain_tower");

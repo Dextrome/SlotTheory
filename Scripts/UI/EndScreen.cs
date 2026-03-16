@@ -213,7 +213,7 @@ public partial class EndScreen : CanvasLayer
 		_titleLabel.Text = "VICTORY";
 		bool isHardWin = _leaderboardDifficulty == DifficultyMode.Hard;
 		_titleLabel.Modulate = isHardWin ? new Color(1.0f, 0.85f, 0.2f) : new Color(0.3f, 1.0f, 0.5f);
-		string diffSuffix = isHardWin ? "  —  HARD" : "";
+		string diffSuffix = isHardWin ? "  -  HARD" : "";
 		_subtitleLabel.Text = $"All {Balance.TotalWaves} waves survived{diffSuffix}  ·  {livesRemaining} {(livesRemaining == 1 ? "life" : "lives")} remaining";
 		_statsLabel.Text = $"Enemies killed: {kills}  ·  Damage: {damageDealt:N0}  ·  Lives: {livesRemaining}/{Balance.StartingLives}  ·  Time: {FormatTime(totalPlayTime)}";
 		_statsLabel.Visible = true;
@@ -247,7 +247,7 @@ public partial class EndScreen : CanvasLayer
 		_titleLabel.Text = "GAME OVER";
 		_titleLabel.Modulate = new Color(1.0f, 0.35f, 0.35f);
 		int wavesLeft = Balance.TotalWaves - waveReached;
-		string wavesFromVictory = wavesLeft > 0 ? $"  —  {wavesLeft} wave{(wavesLeft == 1 ? "" : "s")} from victory" : "";
+		string wavesFromVictory = wavesLeft > 0 ? $"  -  {wavesLeft} wave{(wavesLeft == 1 ? "" : "s")} from victory" : "";
 		_subtitleLabel.Text = $"{waveReached} / {Balance.TotalWaves}{wavesFromVictory}  ·  Lives lost: {livesLost}";
 		_statsLabel.Text = $"Enemies killed: {kills}  -  Total damage: {damageDealt:N0}  -  Time: {FormatTime(totalPlayTime)}";
 		_statsLabel.Visible = kills > 0 || damageDealt > 0;

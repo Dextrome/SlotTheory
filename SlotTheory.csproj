@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Steamworks.NET 2025.163.0 (SDK 1.63 compatible) — loaded from lib/ instead of NuGet
+    <!-- Steamworks.NET 2025.163.0 (SDK 1.63 compatible) - loaded from lib/ instead of NuGet
          because NuGet only has 2024.8.0 which calls a function removed in SDK 1.62+. -->
     <Reference Include="Steamworks.NET">
       <HintPath>$(MSBuildProjectDirectory)/lib/Steamworks.NET.dll</HintPath>

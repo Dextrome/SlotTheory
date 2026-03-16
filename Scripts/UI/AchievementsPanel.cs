@@ -95,7 +95,7 @@ public partial class AchievementsPanel : Node
         string[] prestigeOrder = { "CHAIN_MASTER", "FLAWLESS", "SPEED_RUN", "HARD_WIN", "LAST_STAND", "ANNIHILATOR" };
         string? nextHard = prestigeOrder.FirstOrDefault(id => AchievementManager.Instance?.IsUnlocked(id) != true);
         string progressText = nextHard != null
-            ? $"{unlocked} / {AchievementManager.All.Length}  —  next hard target: {nextHard.Replace('_', ' ')}"
+            ? $"{unlocked} / {AchievementManager.All.Length}  -  next hard target: {nextHard.Replace('_', ' ')}"
             : $"{unlocked} / {AchievementManager.All.Length}  unlocked";
 
         var progress = new Label
@@ -189,7 +189,7 @@ public partial class AchievementsPanel : Node
         hbox.MouseFilter = Control.MouseFilterEnum.Ignore;
         inner.AddChild(hbox);
 
-        // Icon badge — procedural icon for unlocked, dim star for locked
+        // Icon badge - procedural icon for unlocked, dim star for locked
         var iconPath = $"res://Assets/Achievements/{def.Id}.png";
         if (isUnlocked && ResourceLoader.Exists(iconPath))
         {

@@ -216,7 +216,7 @@ Don’t lose sight of what’s already landing while chasing fixes.
 
 
 Best order to tackle
-Tier 1 — Fix now
+Tier 1 - Fix now
 
 Duplicate perk exploit
 
@@ -224,13 +224,13 @@ Pause-at-last-hit visual corruption
 
 Speed reset inconsistency
 
-Tier 2 — Strongest design value
+Tier 2 - Strongest design value
 
 Enemy hover/info surface
 
 Enemies tab in Slot Codex
 
-Tier 3 — Perception/polish gains
+Tier 3 - Perception/polish gains
 
 Wide-screen empty-space investigation
 

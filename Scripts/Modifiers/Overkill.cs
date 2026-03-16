@@ -14,7 +14,7 @@ public class Overkill : Modifier
 
     public override bool OnKill(DamageContext ctx)
     {
-        // isChain marks spill-sourced hits — skip to prevent recursive spill chains.
+        // isChain marks spill-sourced hits - skip to prevent recursive spill chains.
         if (ctx.IsChain) return false;
 
         float excess = -ctx.Target.Hp;

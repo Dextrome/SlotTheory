@@ -17,16 +17,16 @@ This document reflects the current implementation in code/data.
 - **Back button SFX:** `ui_select` sound plays on Android back press across all screens.
 - **Tension ramp:** Music volume and pitch gradually increase across waves 15–20 (up to +3.5 dB / +2.5% pitch at wave 20); resets each run.
 - **Colorblind mode:** Settings toggle that switches modifier accent colors to a high-contrast palette with no red/green reliance.
-- **Reduced motion toggle:** Settings toggle that skips card flip animations in draft — cards appear face-up instantly.
+- **Reduced motion toggle:** Settings toggle that skips card flip animations in draft - cards appear face-up instantly.
 - **In-game achievements:** 10 achievements tracked locally (persistent across sessions) with unlock toast notifications and a dedicated achievements screen. Steam forwarding wired for when Steam App ID is live.
 - **All-runs leaderboard:** Global leaderboard now stores every run as a separate row (wins and losses). Previously only kept the personal best per player.
 - **Spectacle system integration:** Surge/global surge spectacle gameplay payloads are active in both live and bot simulations; tooltip and bot analytics now expose spectacle behavior.
-- **Surge differentiation:** Global surge banner shows a dynamic build archetype label (10 named archetypes driven by dominant contributing mod — REDLINE WAVE, OVERKILL STORM, CHAIN STORM, etc.). Visual feel (Detonation/Pressure/Neutral) controls flash alpha, second snap pulse, and ripple intensity. Multi-color ripples (up to 3 colors) reflect top contributing mods. Each tower fires its own identity FX in staggered sequence on global surge. `SurgeDifferentiation.cs` is the single source of truth (no Godot deps, fully unit-tested with 35 xUnit tests). HowToPlay Surges tab lists all 10 archetypes with feel indicators and modifier icons throughout.
+- **Surge differentiation:** Global surge banner shows a dynamic build archetype label (10 named archetypes driven by dominant contributing mod - REDLINE WAVE, OVERKILL STORM, CHAIN STORM, etc.). Visual feel (Detonation/Pressure/Neutral) controls flash alpha, second snap pulse, and ripple intensity. Multi-color ripples (up to 3 colors) reflect top contributing mods. Each tower fires its own identity FX in staggered sequence on global surge. `SurgeDifferentiation.cs` is the single source of truth (no Godot deps, fully unit-tested with 35 xUnit tests). HowToPlay Surges tab lists all 10 archetypes with feel indicators and modifier icons throughout.
 - **Surge readability and wow-factor pass:**
   - Global meter HUD redesigned: 20 discrete pips (1 per surge needed) replace the continuous progress bar; label transitions from "GLOBAL SURGE" to the predicted archetype name at ≥70% fill, fading in as the meter approaches full.
   - Banner subtitle: after global surge, a second line below the archetype label shows the mechanical payload summary (e.g. "TOWERS −36% RELOAD · ENEMIES MARKED & SLOWED"), scaled by unique contributor count (32%–46% refund range).
   - Screen-edge vignette: square-masked shader overlay ramps in during the final 30% of global meter fill, tinted to the dominant mod's color; clears instantly on trigger.
-  - Sustained archetype tint: after global surge fires, a low-alpha full-screen color wash lingers for ~2.4 s keyed to feel — deep red (Pressure), orange (Detonation), purple (Neutral).
+  - Sustained archetype tint: after global surge fires, a low-alpha full-screen color wash lingers for ~2.4 s keyed to feel - deep red (Pressure), orange (Detonation), purple (Neutral).
   - SURGE ×N chain counter: a gold callout at screen center accumulates when surges chain within the contribution window (≥2 surges); resets on global surge or window expiry.
   - Per-tower afterglow: each tower involved in the global surge sequence holds a 2.4 s accent-colored modulate fade after its FX burst.
   - Triad callout polish: combo name and augment name now spawn as separate sequential callouts; augment appears below the combo name in the augment modifier's own color.
@@ -81,7 +81,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
 
 **Signature Flourish:** Scanline-style signature streak on key moments (Bonus Pick waves, wave beat labels).
 
-**In-Game Achievements:** 10 achievements with persistent local state, unlock toast notifications, and a dedicated screen accessible from main menu and pause menu. Steam forwarding is wired — each local unlock is forwarded to Steamworks when available.
+**In-Game Achievements:** 10 achievements with persistent local state, unlock toast notifications, and a dedicated screen accessible from main menu and pause menu. Steam forwarding is wired - each local unlock is forwarded to Steamworks when available.
 
 ---
 
@@ -120,7 +120,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
 
 **Session Persistence:**
 - **Auto-save on pause:** Game state automatically saved when app goes to background
-- **Auto-restore on launch:** Seamlessly resume interrupted runs from main menu (only when a run is genuinely in progress — navigating to main menu clears the session)
+- **Auto-restore on launch:** Seamlessly resume interrupted runs from main menu (only when a run is genuinely in progress - navigating to main menu clears the session)
 - **12-hour expiration:** Saved sessions expire after 12 hours to avoid stale state
 - **Complete state capture:** Saves towers placement, modifiers, wave progress, stats, map seed, current draft options, and pick position
 - **Anti-reroll:** Draft options are serialized into the snapshot so reloading mid-draft always restores the exact same cards
@@ -136,7 +136,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
 - **Adaptive card sizing:** Draft cards scale properly on narrow viewports using unscaled UI space
 - **Session cleanup:** Automatic cleanup on manual menu navigation or run completion
 - **Mobile detection:** Enhanced platform detection including web exports on mobile devices
-- **Back button:** System back navigates contextually — menu screens return to previous screen, draft opens pause menu, active wave shows a quit confirmation dialog
+- **Back button:** System back navigates contextually - menu screens return to previous screen, draft opens pause menu, active wave shows a quit confirmation dialog
 
 ---
 
@@ -373,7 +373,7 @@ Current behavior decision:
   - Entrance duration: 0.34 s
   - Flip reveal, burst FX, icon/title punch
   - Card back shows one large `?`
-  - Reduced motion: skip flip entirely — cards appear face-up immediately (toggle in Settings)
+  - Reduced motion: skip flip entirely - cards appear face-up immediately (toggle in Settings)
 - Lock-in effects:
   - Card pick thunk + subtle vignette pulse
   - Modifier confirm lock-in SFX, border flash, icon snap
@@ -521,7 +521,7 @@ Mobile:
 
 Win:
 - Title: `VICTORY` (amber on Hard difficulty)
-- Subtitle: `All 20 waves survived · N lives remaining` (appends `  —  HARD` on Hard)
+- Subtitle: `All 20 waves survived · N lives remaining` (appends `  -  HARD` on Hard)
 - Play Again button escalates difficulty: Easy → `"Play Again  ·  Try Normal →"`, Normal → `"Play Again  ·  Try Hard →"`
 
 Loss:
@@ -535,7 +535,7 @@ Both states show:
 - MVP tower line
 - Most valuable modifier line (by proc count)
 - Slot-by-slot build summary
-- Leaderboard rank with gap to next rank (e.g. `rank #47  — 293 from #46`)
+- Leaderboard rank with gap to next rank (e.g. `rank #47  - 293 from #46`)
 
 Dismiss with click, Enter, or Space.
 
@@ -545,7 +545,7 @@ Dismiss with click, Enter, or Space.
 
 Pause screen:
 - Resume, Restart Run, Settings, How to Play, Achievements, Main Menu, Quit
-- Achievements opens as an inline overlay (same pattern as How to Play — no scene change)
+- Achievements opens as an inline overlay (same pattern as How to Play - no scene change)
 - ESC/back handling supports subpanel navigation
 - Blocked during win/loss state
 
@@ -756,7 +756,7 @@ Behavior:
 **Configuration Requirements:**
 - Sort Method: Descending (higher scores better)
 - Display Type: Numeric
-- Upload Score Method: Always (every run stored — no keep-best dedup)
+- Upload Score Method: Always (every run stored - no keep-best dedup)
 
 ### Platform Support
 

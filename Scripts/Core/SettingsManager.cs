@@ -7,8 +7,8 @@ namespace SlotTheory.Core;
 /// Creates Music and FX audio buses (children of Master) on first run.
 ///
 /// Two save files:
-///   user://settings.cfg  — account/preference settings; cloud-synced via SteamCloudSync
-///   user://display.cfg   — device-specific display/render settings; NOT cloud-synced
+///   user://settings.cfg  - account/preference settings; cloud-synced via SteamCloudSync
+///   user://display.cfg   - device-specific display/render settings; NOT cloud-synced
 /// </summary>
 public partial class SettingsManager : Node
 {
@@ -71,7 +71,7 @@ public partial class SettingsManager : Node
         }
     }
 
-    // ── Public API — account setters ─────────────────────────────────────
+    // ── Public API - account setters ─────────────────────────────────────
 
     public void SetVolume(float value)
     {
@@ -143,7 +143,7 @@ public partial class SettingsManager : Node
         SaveAccount();
     }
 
-    // ── Public API — display setters ─────────────────────────────────────
+    // ── Public API - display setters ─────────────────────────────────────
 
     public void SetFullscreen(bool full)
     {

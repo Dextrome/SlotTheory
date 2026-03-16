@@ -20,10 +20,10 @@ This is a contract. It does not get updated to accommodate new ideas.
 
 Every change from this point must be one of:
 
-- **Bugfix** — something is broken
-- **Clarity / readability** — code or UI is confusing
-- **Balance / tuning** — numbers, pacing, feel
-- **Shipping / pipeline** — build, Steam, packaging
+- **Bugfix** - something is broken
+- **Clarity / readability** - code or UI is confusing
+- **Balance / tuning** - numbers, pacing, feel
+- **Shipping / pipeline** - build, Steam, packaging
 
 If a change does not fit one of those four categories, it does not happen.
 

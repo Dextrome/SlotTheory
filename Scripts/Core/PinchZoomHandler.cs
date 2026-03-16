@@ -4,7 +4,7 @@ using Godot;
 /// <summary>
 /// Pinch-to-zoom + single-finger pan for a target Control node on mobile.
 /// Zoom: two-finger pinch (manual tracking, works on all Android).
-/// Pan: shifting PivotOffset while zoomed — no layout/offset manipulation,
+/// Pan: shifting PivotOffset while zoomed - no layout/offset manipulation,
 ///      no gray edges, no anchor-system conflicts.
 /// </summary>
 public partial class PinchZoomHandler : Node

@@ -56,7 +56,7 @@ public class CombatSim
     // Set externally by GameController when an enemy scene is needed
     public PackedScene? EnemyScene { get; set; }
 
-    // Set externally — the Path2D node enemies are added to as PathFollow2D children
+    // Set externally - the Path2D node enemies are added to as PathFollow2D children
     public Path2D? LanePath { get; set; }
 
     public CombatSim(RunState state)
@@ -159,7 +159,7 @@ public class CombatSim
             _spawnTimer = waveSystem.GetSpawnInterval();
         }
 
-        // 2. Leaked enemies — each one costs a life; return Loss when lives run out
+        // 2. Leaked enemies - each one costs a life; return Loss when lives run out
         var leaked = state.EnemiesAlive.FindAll(e => e.ProgressRatio >= 1.0f);
         foreach (var e in leaked)
         {
@@ -182,7 +182,7 @@ public class CombatSim
 
         ResolveMineTriggers(delta, state.WaveIndex, state.EnemiesAlive);
 
-        // 3. Tower attacks (hitscan — no projectiles)
+        // 3. Tower attacks (hitscan - no projectiles)
         for (int si = 0; si < state.Slots.Length; si++)
         {
             var slot = state.Slots[si];
@@ -1023,12 +1023,12 @@ public class CombatSim
     {
         if (EnemyScene == null)
         {
-            GD.PrintErr("CombatSim: EnemyScene is null — assign it on GameController in the Inspector.");
+            GD.PrintErr("CombatSim: EnemyScene is null - assign it on GameController in the Inspector.");
             return;
         }
         if (LanePath == null)
         {
-            GD.PrintErr("CombatSim: LanePath is null — assign it on GameController in the Inspector.");
+            GD.PrintErr("CombatSim: LanePath is null - assign it on GameController in the Inspector.");
             return;
         }
 

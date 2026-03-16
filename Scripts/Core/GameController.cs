@@ -792,7 +792,7 @@ public partial class GameController : Node
 			? snapshot.ExtraPicksRemaining
 			: Balance.ExtraPicksForWave(_runState.WaveIndex);
 
-		// Restore the exact draft options that were showing — prevents reload-to-reroll exploit
+		// Restore the exact draft options that were showing - prevents reload-to-reroll exploit
 		if (snapshot.Phase == "draft" && snapshot.DraftOptions.Count > 0)
 		{
 			_currentDraftOptions = snapshot.DraftOptions
@@ -840,7 +840,7 @@ public partial class GameController : Node
 		if (options.Count == 0)
 		{
 			_currentDraftOptions = null;
-			GD.Print("No draft options available — skipping draft.");
+			GD.Print("No draft options available - skipping draft.");
 			StartWavePhase();
 			return;
 		}
@@ -874,7 +874,7 @@ public partial class GameController : Node
 			if (GodotObject.IsInstanceValid(e)) e.QueueFree();
 		}
 
-		// Remove tower nodes from slot scene nodes — use Free() so ClearSlotVisuals
+		// Remove tower nodes from slot scene nodes - use Free() so ClearSlotVisuals
 		// doesn't encounter QueueFree-pending nodes when it iterates slot children.
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
@@ -920,7 +920,7 @@ public partial class GameController : Node
 		_hudPanel.ResetSpeed();
 
 			// In bot mode BotRunner.StartNextRun() already called SetPendingMapSelection
-			// before RestartRun() — pick it up here since _Ready() only runs once.
+			// before RestartRun() - pick it up here since _Ready() only runs once.
 			if (_botRunner != null)
 			{
 				_runState.SelectedMapId = SlotTheory.UI.MapSelectPanel.PendingMapSelection;
@@ -1216,7 +1216,7 @@ public partial class GameController : Node
 		float rangeBorderAlpha = mobile ? 0.16f : 0.11f;
 		float rangeBorderWidth = mobile ? 1.25f : 1.05f;
 
-		// Range indicator — semi-transparent fill in tower's body colour
+		// Range indicator - semi-transparent fill in tower's body colour
 		var rangeCircle = new Polygon2D
 		{
 			Color = new Color(tower.BodyColor.R, tower.BodyColor.G, tower.BodyColor.B, rangeFillAlpha),
@@ -1233,7 +1233,7 @@ public partial class GameController : Node
 		tower.RangeCircle = rangeCircle;
 		tower.AddChild(rangeCircle);
 
-		// Range border — white ring outline
+		// Range border - white ring outline
 		var borderPts = new Vector2[65];
 		for (int p = 0; p < 64; p++) borderPts[p] = pts[p];
 		borderPts[64] = pts[0];
@@ -1248,7 +1248,7 @@ public partial class GameController : Node
 		tower.RangeBorder = rangeBorder;
 		tower.AddChild(rangeBorder);
 
-		// Targeting mode badge — always visible on the right side of each tower.
+		// Targeting mode badge - always visible on the right side of each tower.
 		var modeBadge = new ColorRect
 		{
 			Color = new Color(0.02f, 0.03f, 0.09f, 0.86f),
@@ -1287,7 +1287,7 @@ public partial class GameController : Node
 		_slotNodes[slotIndex].AddChild(tower);
 		_runState.Slots[slotIndex].Tower = tower;
 
-		// Placement bounce — scale from 0 ? 1.15 ? 1.0
+		// Placement bounce - scale from 0 ? 1.15 ? 1.0
 		if (_botRunner == null && !_isRestoringSnapshot)
 		{
 			tower.Scale = Vector2.Zero;
@@ -1817,20 +1817,20 @@ public partial class GameController : Node
 		_slotNodes[i].AddChild(new Line2D { Points = borderSq, Width = 7f,   DefaultColor = new Color(0.80f, 0.00f, 1.00f, 0.18f) });
 		_slotNodes[i].AddChild(new Line2D { Points = borderSq, Width = 1.5f, DefaultColor = new Color(0.80f, 0.00f, 1.00f, 0.80f) });
 
-		// Placement highlight — gold border, invisible until hovered in draft assignment mode
+		// Placement highlight - gold border, invisible until hovered in draft assignment mode
 		var hlSq = new[] { new Vector2(-23f,-23f), new Vector2(23f,-23f), new Vector2(23f,23f), new Vector2(-23f,23f), new Vector2(-23f,-23f) };
 		var hl = new Line2D { Points = hlSq, Width = 2.5f, DefaultColor = new Color(1f, 0.85f, 0.15f) };
 		hl.Modulate = Colors.Transparent;
 		_slotNodes[i].AddChild(hl);
 		_slotHighlights[i] = hl;
 
-		// Preview glow — shown when a modifier is previewed on this slot.
+		// Preview glow - shown when a modifier is previewed on this slot.
 		var previewGlow = new Line2D { Points = hlSq, Width = 4.2f, DefaultColor = new Color(0.45f, 0.95f, 1.00f, 0.92f) };
 		previewGlow.Modulate = Colors.Transparent;
 		_slotNodes[i].AddChild(previewGlow);
 		_slotPreviewGlows[i] = previewGlow;
 
-		// Synergy glow — shown while hovering a modifier card with known tower synergies.
+		// Synergy glow - shown while hovering a modifier card with known tower synergies.
 		var synergyGlow = new Line2D { Points = hlSq, Width = 3.6f, DefaultColor = new Color(0.88f, 0.95f, 1.00f, 0.82f) };
 		synergyGlow.Modulate = Colors.Transparent;
 		_slotNodes[i].AddChild(synergyGlow);
@@ -1843,8 +1843,8 @@ public partial class GameController : Node
 		_slotProcHaloRemaining[i] = 0f;
 		_slotProcHaloColor[i] = Colors.White;
 
-			// Mod-count pip — just below slot square, shown only when tower has = 1 modifier
-			// Modifier pips — 3 small squares below slot, one per modifier slot
+			// Mod-count pip - just below slot square, shown only when tower has = 1 modifier
+			// Modifier pips - 3 small squares below slot, one per modifier slot
 			var pips = new ColorRect[Balance.MaxModifiersPerTower];
 			var icons = new ModifierIcon[Balance.MaxModifiersPerTower];
 			for (int p = 0; p < Balance.MaxModifiersPerTower; p++)
@@ -1989,7 +1989,7 @@ public partial class GameController : Node
 			_mapVisuals.AddChild(decoLayer);
 		}
 
-		// Neon path — tuned to keep lane separation dark and reduce red bleed between segments.
+		// Neon path - tuned to keep lane separation dark and reduce red bleed between segments.
 		Vector2[] pts = _currentMap.Path;
 		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 112f, DefaultColor = new Color(0.72f, 0.01f, 0.50f, 0.015f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
 		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 70f,  DefaultColor = new Color(0.64f, 0.03f, 0.46f, 0.030f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
@@ -2507,7 +2507,7 @@ public partial class GameController : Node
 		_spectaclePulse.MouseFilter = Control.MouseFilterEnum.Ignore;
 		anchor.AddChild(_spectaclePulse);
 
-		// Sustained archetype tint — lingers after global surge, separate from fast flash
+		// Sustained archetype tint - lingers after global surge, separate from fast flash
 		_lingerTint = new ColorRect();
 		_lingerTint.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		_lingerTint.Color = new Color(1f, 0.90f, 0.56f, 0f);
@@ -2515,7 +2515,7 @@ public partial class GameController : Node
 		_lingerTint.MouseFilter = Control.MouseFilterEnum.Ignore;
 		anchor.AddChild(_lingerTint);
 
-		// Screen-edge vignette — intensifies during final 30% of global meter buildup
+		// Screen-edge vignette - intensifies during final 30% of global meter buildup
 		_vignetteRect = new ColorRect();
 		_vignetteRect.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		_vignetteRect.Visible = false;
@@ -2561,7 +2561,7 @@ void fragment() {
 		_globalSpectacleBanner.AddThemeColorOverride("font_outline_color", new Color(0.04f, 0.10f, 0.16f, 0.98f));
 		globalAnchor.AddChild(_globalSpectacleBanner);
 
-		// Subtitle line — smaller text below the main banner, shows the gameplay effect.
+		// Subtitle line - smaller text below the main banner, shows the gameplay effect.
 		_globalSurgeSubtitleLabel = new Label
 		{
 			Text = "",
@@ -2807,7 +2807,7 @@ void fragment() {
 	// Label/feel logic delegated to SurgeDifferentiation (pure, unit-testable).
 
 	/// <summary>
-	/// Spawn mode-based signature rings from a position — 1 ring for Single, 2 for Combo, 3 for Triad.
+	/// Spawn mode-based signature rings from a position - 1 ring for Single, 2 for Combo, 3 for Triad.
 	/// Uses each mod slot's accent color. drama=1.0 for full scale, 0.25 for mini (tower surge rider).
 	/// </summary>
 	private void SpawnSurgeSignatureRings(Vector2 origin, SpectacleSignature sig, float drama)
@@ -2852,7 +2852,7 @@ void fragment() {
 	}
 
 	/// <summary>
-	/// Tower-type archetype FX — pattern=tower visual identity.
+	/// Tower-type archetype FX - pattern=tower visual identity.
 	/// drama: 1.0 = full (global surge), 0.28 = mini rider on tower surge.
 	/// </summary>
 	private void SpawnTowerArchetypeFx(TowerInstance tower, Color accent, float drama)
@@ -2973,7 +2973,7 @@ void fragment() {
 			ApplySpectacleGameplayPayload(info, isMajor: true);
 			return;
 		}
-		// Surge chain counter — accumulates while global meter is building
+		// Surge chain counter - accumulates while global meter is building
 		_surgeChainCount++;
 		_surgeChainResetTimer = SpectacleDefinitions.ResolveGlobalContributionWindowSeconds();
 		if (_surgeChainCount >= 2)
@@ -3027,7 +3027,7 @@ void fragment() {
 			globalSurge: false,
 			info.Signature.SurgePower);
 
-		// Phase 1 (user amendment): mini mode-based signature rings — ripples=mode at tower level
+		// Phase 1 (user amendment): mini mode-based signature rings - ripples=mode at tower level
 		if (!mobileLite)
 			SpawnSurgeSignatureRings(sourceTower.GlobalPosition, info.Signature, drama: 0.28f);
 
@@ -3036,7 +3036,7 @@ void fragment() {
 			SpawnTowerArchetypeFx(towerForArchetype, accent, drama: 0.28f);
 
 		// Phase 3: effect name callout (build archetype label)
-		// For Triad surges use only the combo portion — the augment gets its own callout below.
+		// For Triad surges use only the combo portion - the augment gets its own callout below.
 		string surgeCalloutText = info.Signature.Mode == SpectacleMode.Triad
 			&& !string.IsNullOrEmpty(info.Signature.ComboEffectName)
 			? info.Signature.ComboEffectName
@@ -3047,7 +3047,7 @@ void fragment() {
 			accent,
 			durationScale: 4f);
 
-		// Phase 5: Triad Factorio moment — augment name callout + second flash pulse
+		// Phase 5: Triad Factorio moment - augment name callout + second flash pulse
 		if (info.Signature.Mode == SpectacleMode.Triad && !string.IsNullOrEmpty(info.Signature.AugmentName))
 		{
 			var capturedOrigin = sourceTower.GlobalPosition;
@@ -3108,7 +3108,7 @@ void fragment() {
 		SurgeDifferentiation.GlobalSurgeFeel feel = SurgeDifferentiation.ResolveFeel(dominantMods);
 		float flashAlpha = SurgeDifferentiation.ResolveFlashAlpha(feel);
 
-		// ── Clear buildup effects — vignette and chain counter ────────────────────
+		// ── Clear buildup effects - vignette and chain counter ────────────────────
 		_surgeChainCount = 0;
 		_surgeChainResetTimer = 0f;
 		if (GodotObject.IsInstanceValid(_vignetteRect))
@@ -3121,17 +3121,17 @@ void fragment() {
 
 		GD.Print($"[GlobalSurge] label={surgeLabel}  feel={feel}  dominantMods=[{string.Join(", ", dominantMods)}]  contributors={info.UniqueContributors}");
 
-		// Multi-color ripples — one distinct mod color per contributing role (Phase 1)
+		// Multi-color ripples - one distinct mod color per contributing role (Phase 1)
 		Color[] rippleColors = dominantMods.Length > 0
 			? dominantMods.Select(SlotTheory.UI.ModifierVisuals.GetAccent).ToArray()
 			: new[] { globalColor };
 
-		// ── Group 1: immediate — gameplay payload + center visuals + hitstop/slowmo ──
+		// ── Group 1: immediate - gameplay payload + center visuals + hitstop/slowmo ──
 		ApplyGlobalSurgeGameplayPayload(info);
 		SpawnSpectacleBurstFx(center, globalColor, major: true, power: 2.15f, stageTwoKick: true);
 		SpawnGlobalSurgeRipples(center, rippleColors, Mathf.Max(2, info.UniqueContributors), lingerMultiplier: globalDurationScale);
 		FlashSpectacleScreen(globalColor, peakAlpha: flashAlpha, rampSec: 0.09f, fadeSec: 0.62f * globalDurationScale);
-		// Sustained archetype tint — low-alpha linger keyed to feel
+		// Sustained archetype tint - low-alpha linger keyed to feel
 		Color lingerColor = feel switch
 		{
 			SurgeDifferentiation.GlobalSurgeFeel.Pressure    => new Color(0.85f, 0.08f, 0.08f),
@@ -3198,7 +3198,7 @@ void fragment() {
 				SpawnSurgeSignatureRings(t.GlobalPosition, tSig, drama: 0.7f);
 				if (!IsMobileSpectacleLite())
 					SpawnTowerArchetypeFx(t, accent, drama: 0.75f);
-				// Persistent afterglow — tower stays lit for 2.4s after the surge sequence
+				// Persistent afterglow - tower stays lit for 2.4s after the surge sequence
 				t.StartAfterGlow(accent, duration: 2.4f);
 			};
 		}
@@ -3232,7 +3232,7 @@ void fragment() {
 				spawnResidue: true,
 				damageBaseOverride: globalDamageBase);
 			ShowGlobalSurgeBanner(surgeLabel, globalColor, surgeSubtitle, lingerMultiplier: globalDurationScale);
-		// Phase 5: Triad Factorio moment — second flash pulse when 3 distinct mod identities converge
+		// Phase 5: Triad Factorio moment - second flash pulse when 3 distinct mod identities converge
 		if (dominantMods.Length >= 3)
 		{
 			GetTree().CreateTimer(0.55f, true, false, true).Timeout += () =>
@@ -5212,7 +5212,7 @@ void fragment() {
 		float endRadius = Mathf.Max(340f, diagonal * 0.62f);
 
 		float contributorT = Mathf.Clamp((contributors - 1f) / 5f, 0f, 1f);
-		// Clamp ripple count to number of distinct colors (max 3) — one ripple per mod slot
+		// Clamp ripple count to number of distinct colors (max 3) - one ripple per mod slot
 		int maxRipples = reducedMotion ? 1 : Mathf.Min(3, colors.Length > 1 ? colors.Length : 3);
 		if (IsMobileSpectacleLite())
 			maxRipples = Mathf.Min(maxRipples, 2);
@@ -6137,7 +6137,7 @@ void fragment() {
 		}
 
 		var result = await manager.SubmitAsync(payload);
-		GD.Print($"[Leaderboards] Submit result: {result.State} — {result.Message}");
+		GD.Print($"[Leaderboards] Submit result: {result.State} - {result.Message}");
 
 		string? gapSuffix = null;
 		if (result.State == GlobalSubmitState.Submitted && result.Rank.HasValue && result.Rank.Value > 1)
@@ -6651,7 +6651,7 @@ void fragment() {
 			};
 			_slotNodes[slot].AddChild(_previewTowerGhost);
 
-			// Range preview — fill + border, higher alphas since ghost Modulate will reduce them
+			// Range preview - fill + border, higher alphas since ghost Modulate will reduce them
 			var ghostPts = new Vector2[64];
 			for (int p = 0; p < 64; p++)
 			{

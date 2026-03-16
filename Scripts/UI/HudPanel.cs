@@ -139,7 +139,7 @@ public partial class HudPanel : CanvasLayer
         pad.CustomMinimumSize = new Vector2(8, 0);
         rightHbox.AddChild(pad);
 
-        // Wave label — pinned exactly to screen center via full-width anchor + center alignment.
+        // Wave label - pinned exactly to screen center via full-width anchor + center alignment.
         const float waveCenterShiftX = -40f;
         _waveLabel = new Label
         {
@@ -200,7 +200,7 @@ public partial class HudPanel : CanvasLayer
         _livesLabel.AddThemeFontSizeOverride("font_size", 22);
         bar.AddChild(_livesLabel);
 
-        // Timer — centered between build-name right edge (~370px) and screen center (50%).
+        // Timer - centered between build-name right edge (~370px) and screen center (50%).
         // Anchored at 35% of screen width so it sits visually between the two.
         _timeLabel = new Label
         {
@@ -610,7 +610,7 @@ public partial class HudPanel : CanvasLayer
                 padV: 4));
         AddChild(_globalSpectaclePanel);
 
-        // Horizontal layout: [label] [pips] — with explicit margins so content clears the border.
+        // Horizontal layout: [label] [pips] - with explicit margins so content clears the border.
         var row = new HBoxContainer
         {
             AnchorLeft = 0f,
@@ -625,7 +625,7 @@ public partial class HudPanel : CanvasLayer
         row.AddThemeConstantOverride("separation", 4);
         _globalSpectaclePanel.AddChild(row);
 
-        // Label — fixed width, vertically centred.
+        // Label - fixed width, vertically centred.
         _surgeNameLabel = new Label
         {
             Text = "GLOBAL SURGE",
@@ -670,7 +670,7 @@ public partial class HudPanel : CanvasLayer
 
         _surgeMeterHint = new Label
         {
-            Text = "Surge Meter — fills as towers fire. Full = global surge.",
+            Text = "Surge Meter - fills as towers fire. Full = global surge.",
             HorizontalAlignment = HorizontalAlignment.Center,
             AnchorLeft = 0.5f,
             AnchorRight = 0.5f,

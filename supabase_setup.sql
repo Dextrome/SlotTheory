@@ -1,8 +1,8 @@
--- Slot Theory — Supabase Leaderboard Setup
+-- Slot Theory - Supabase Leaderboard Setup
 -- Run this in the Supabase SQL Editor (Dashboard → SQL Editor → New query)
 --
 -- Design: every run is stored as a separate row (no upsert, no dedup).
--- The leaderboard shows all runs ordered by score — same player can appear
+-- The leaderboard shows all runs ordered by score - same player can appear
 -- multiple times. Use supabase_migration_all_runs.sql on an existing database.
 
 -- ── Table ─────────────────────────────────────────────────────────────────────

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# build_android_debug.sh — builds APK for testing
+# build_android_debug.sh - builds APK for testing
 #
 # Prerequisites:
 #   1. Complete ANDROID_SETUP.md instructions

@@ -11,7 +11,7 @@ public enum DifficultyMode
 /// <summary>All tunables in one place. Change values here, nowhere else.</summary>
 public static class Balance
 {
-    // Steam — demo wishlist CTA
+    // Steam - demo wishlist CTA
     // Set to the full game's Steam App ID (different from the demo's App ID).
     // When non-zero and Steam is running, a "Wishlist" button appears on EndScreen and MainMenu.
     public const uint FullGameSteamAppId = 4523160;
@@ -41,12 +41,12 @@ public static class Balance
     public const int DraftModifierOptions = 3;          // when free slots exist
     public const int DraftModifierOptionsFull = 4;      // when all slots occupied (< pool size keeps scarcity)
 
-    // Enemies — Basic Walker
+    // Enemies - Basic Walker
     public const float BaseEnemyHp = 65f;
     public const float HpGrowthPerWave = 1.10f;  // HP × 1.10^(wave-1)
     public const float BaseEnemySpeed = 120f;     // pixels per second along path
 
-    // Enemies — Armored Walker
+    // Enemies - Armored Walker
     public const float TankyHpMultiplier = 3.5f;  // 3.5× basic walker HP
     public const float TankyEnemySpeed = 60f;     // pixels per second (half speed)
 
@@ -109,7 +109,7 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
     public const float FocusLensDamageBonus = 2.40f; // +140% damage
     public const float FocusLensAttackInterval = 1.85f; // x1.85 attack interval
 
-    // Enemies — Swift Walker
+    // Enemies - Swift Walker
     public const float SwiftHpMultiplier = 1.5f;  // 1.5× basic walker HP
     public const float SwiftEnemySpeed   = 240f;  // pixels per second (2× basic)
 

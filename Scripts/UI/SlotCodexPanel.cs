@@ -755,7 +755,7 @@ public partial class SlotCodexPanel : Node
     private static string GetEnemyDescription(string enemyId) => enemyId switch
     {
         "armored_walker" => "High-HP tanker. Takes sustained damage to bring down. Pairs poorly against single-hit burst builds without Overkill.",
-        "swift_walker"   => "Fast sprinter that rushes the lane in waves 10–14. Outpaces slow-paced builds — Chill Shot and Hair Trigger both help.",
+        "swift_walker"   => "Fast sprinter that rushes the lane in waves 10–14. Outpaces slow-paced builds - Chill Shot and Hair Trigger both help.",
         _                => "Standard threat. Low bulk, steady pace. Pressure escalates each wave via HP scaling.",
     };
 }

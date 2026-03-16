@@ -5,7 +5,7 @@ namespace SlotTheory.Core;
 
 /// <summary>
 /// Thin wrapper around SteamRemoteStorage for syncing save files to Steam Cloud.
-/// All methods are safe to call when Steam is unavailable — failures are logged and swallowed.
+/// All methods are safe to call when Steam is unavailable - failures are logged and swallowed.
 /// All Steamworks.NET references are isolated in NoInlining helpers so the JIT never loads
 /// the Steamworks assembly on platforms where it doesn't exist (Android, iOS).
 ///

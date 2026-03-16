@@ -39,7 +39,7 @@ public static class DamageModel
         float damage = ctx.BaseDamage;
         bool wasMarkedBeforeHit = ctx.Target.IsMarked;
 
-        // 1. Modifier damage pass — applies to all hits (primary, chain, split)
+        // 1. Modifier damage pass - applies to all hits (primary, chain, split)
         foreach (var mod in ctx.Attacker.Modifiers)
         {
             float before = damage;
@@ -48,7 +48,7 @@ public static class DamageModel
                 GameController.Instance?.NotifyModifierProc(ctx.Attacker, mod.ModifierId);
         }
 
-        // 2. Global Marked bonus — all towers deal +20% to Marked enemies
+        // 2. Global Marked bonus - all towers deal +20% to Marked enemies
         if (ctx.Target.IsMarked)
             damage *= (1f + Balance.MarkedDamageBonus);
         if (ctx.Target.DamageAmpRemaining > 0f && ctx.Target.DamageAmpMultiplier > 0f)

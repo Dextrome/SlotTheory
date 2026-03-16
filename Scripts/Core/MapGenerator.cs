@@ -276,12 +276,12 @@ public static class MapGenerator
 	{
 		int c1 = rng.Next(2, 4);              // [2, 3]
 		int c2 = rng.Next(c1 + 1, 5);        // [c1+1, 4]
-		int c3 = rng.Next(Math.Max(c2 + 1, 5), 6); // always 5 — ensures zone 5 (bottom-right) has col 5 vertical path adjacent
+		int c3 = rng.Next(Math.Max(c2 + 1, 5), 6); // always 5 - ensures zone 5 (bottom-right) has col 5 vertical path adjacent
 
-		int r0 = rng.Next(3, 5);              // [3, 4] — low
-		int r1 = rng.Next(0, 2);              // [0, 1] — high
-		int r2 = rng.Next(3, 5);              // [3, 4] — low
-		int r3 = rng.Next(0, 2);              // [0, 1] — high
+		int r0 = rng.Next(3, 5);              // [3, 4] - low
+		int r1 = rng.Next(0, 2);              // [0, 1] - high
+		int r2 = rng.Next(3, 5);              // [3, 4] - low
+		int r3 = rng.Next(0, 2);              // [0, 1] - high
 
 		MarkVertical  (pathGrid, 0,  0,  r0);
 		MarkHorizontal(pathGrid, 0,  c1, r0);
@@ -330,7 +330,7 @@ public static class MapGenerator
 
 	/// <summary>
 	/// Score a cell by weighted path coverage within SlotScoreRange.
-	/// Waypoints (bends) count 5× — slots near bends cover enemies from both approaching legs.
+	/// Waypoints (bends) count 5× - slots near bends cover enemies from both approaching legs.
 	/// </summary>
 	private static int ScoreCell(Vector2 cellCenter, Vector2[] waypoints)
 	{
@@ -383,7 +383,7 @@ public static class MapGenerator
 		return len;
 	}
 
-	// Six spatial zones covering the full grid — guarantees one slot per map area.
+	// Six spatial zones covering the full grid - guarantees one slot per map area.
 	// Zones: top-left | top-center | top-right | bottom-left | bottom-center | bottom-right
 	private static readonly (int minCol, int maxCol, int minRow, int maxRow)[] Zones =
 	{

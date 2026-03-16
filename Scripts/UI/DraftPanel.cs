@@ -363,7 +363,7 @@ public partial class DraftPanel : CanvasLayer
         {
             _bannerHeader.Text = "HOW THIS WORKS  (1/2)";
             _bannerBody.Text =
-                "Pick one card — towers fill empty slots, modifiers upgrade towers you already have.\n" +
+                "Pick one card - towers fill empty slots, modifiers upgrade towers you already have.\n" +
                 "Waves run automatically. You draft once between every wave. Survive 20 waves to win.";
             _bannerNext.Text = "Next \u2192";
             _bannerHowTo.Visible = false;
@@ -448,7 +448,7 @@ public partial class DraftPanel : CanvasLayer
             _cancelCallback = null;
         }
         _placementGroup.Visible = false;
-        // Restore card overlay nodes for next Show() call. Do NOT set Visible = false here —
+        // Restore card overlay nodes for next Show() call. Do NOT set Visible = false here -
         // OnSlotPicked / OnModifierSlotPicked already do that, and Show() (for a next pick) may
         // have already set Visible = true; hiding it here would break the second-pick display.
         _bg.Visible = true;
@@ -797,7 +797,7 @@ public partial class DraftPanel : CanvasLayer
         PulseDraftVignette();
         GetTree().CreateTimer(0.06f).Timeout += () =>
         {
-            // Don't hide if player is already in slot-selection — ShowPlacementUI already owns Visible.
+            // Don't hide if player is already in slot-selection - ShowPlacementUI already owns Visible.
             if (!GodotObject.IsInstanceValid(this) || IsAwaitingSlot || IsAwaitingTower) return;
             var tw = CreateTween();
             tw.SetParallel(true);

@@ -28,7 +28,7 @@ public class WaveSystem
         return GetScaledHp(typeId, waveIndex, difficulty);
     }
 
-    /// <summary>Deterministic overload for unit tests — pass difficulty explicitly.</summary>
+    /// <summary>Deterministic overload for unit tests - pass difficulty explicitly.</summary>
     public static float GetScaledHp(string typeId, int waveIndex, DifficultyMode difficulty)
     {
         float baseHp = typeId switch
@@ -41,6 +41,6 @@ public class WaveSystem
         return scaledHp * Balance.GetEnemyHpMultiplier(difficulty);
     }
 
-    // Backward-compatible overload — assumes basic_walker
+    // Backward-compatible overload - assumes basic_walker
     public static float GetScaledHp(int waveIndex) => GetScaledHp("basic_walker", waveIndex);
 }

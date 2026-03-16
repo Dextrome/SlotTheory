@@ -10,7 +10,7 @@ Platforms: Windows (Steam), Android (phone and tablet)
 
 1. Draft a card between waves.
 2. Place a tower or assign a modifier in the world.
-3. Run the wave (auto-combat — no direct input during waves).
+3. Run the wave (auto-combat - no direct input during waves).
 4. Repeat until wave 20 clear (win) or lives reach 0 (loss).
 
 Starting lives: 10
@@ -119,7 +119,7 @@ Unlock flow:
 
 Max modifiers per tower: 3
 
-Split Shot is unlockable — beat the second campaign map on Normal or Hard.
+Split Shot is unlockable - beat the second campaign map on Normal or Hard.
 
 ---
 

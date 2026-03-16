@@ -110,7 +110,7 @@ public class TargetingTests
     {
         // Two enemies: one in range (close), one out of range (far).
         // Tower picks First (highest progress). Out-of-range enemy has higher progress
-        // but should be excluded — in-range enemy (lower progress) should win.
+        // but should be excluded - in-range enemy (lower progress) should win.
         var tower = new FakeTower
         {
             TargetingMode = TargetingMode.First,
