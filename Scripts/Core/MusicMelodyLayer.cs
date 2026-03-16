@@ -55,7 +55,7 @@ public partial class MusicMelodyLayer : Node
 
     // Volume offset relative to the note pool base (-8 dB).
     // Melody sits 3 dB below bass so it doesn't crowd the low-mid.
-    private const float MelodyVolDb = -11f;
+    private const float MelodyVolDb = -9f;
 
     // ── Configuration ──────────────────────────────────────────────────────
 

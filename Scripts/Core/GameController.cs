@@ -367,12 +367,15 @@ public partial class GameController : Node
 
 			GenerateMap();
 			SetupMobileCamera();
+			CenterWorldNode();
 			SetupSlots();
 			SetupTooltip();
 			SetupAnnouncer();
 
 		_extraPicksRemaining = Balance.ExtraPicksForWave(0);
 		_lastWaveReport = null;
+		_hudPanel.ResetSpeed();   // Engine.TimeScale persists across scene loads; always reset on fresh run
+		GetViewport().SizeChanged += CenterWorldNode;
 		if (!TryRestoreMobileSnapshot())
 			StartDraftPhase();
 	}
@@ -892,6 +895,7 @@ public partial class GameController : Node
 		SlotTheory.Modifiers.ModEvents.Reset();  // Clear static event handlers
 		
 		_runAbandoned = false;
+		_currentDraftOptions = null;
 		_runState.Reset();
 		_combatSim.ResetForWave();
 		_endScreen.Visible = false;
@@ -941,6 +945,7 @@ public partial class GameController : Node
 			ClearMapVisuals();
 			GenerateMap();
 			SetupMobileCamera();
+			CenterWorldNode();
 			ClearSlotVisuals();
 			SetupSlots();
 
@@ -1633,6 +1638,15 @@ public partial class GameController : Node
 		_mobileCamera.MakeCurrent();
 		_mobileLastViewportSize = GetViewport().GetVisibleRect().Size;
 		ResetMobileGestureState();
+	}
+
+	private void CenterWorldNode()
+	{
+		if (MobileOptimization.IsMobile()) return;
+		var vpSize = GetViewport().GetVisibleRect().Size;
+		float xOffset = Mathf.Max(0f, (vpSize.X - 1280f) / 2f);
+		float yOffset = Mathf.Max(0f, (vpSize.Y - 720f) / 2f);
+		_worldNode.Position = new Vector2(xOffset, yOffset);
 	}
 
 	private void ApplyMobileZoom(float zoomLevel)

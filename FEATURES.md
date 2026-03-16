@@ -18,7 +18,9 @@ This document reflects the current implementation in code/data.
 - **Tension ramp:** Music volume and pitch gradually increase across waves 15–20 (up to +3.5 dB / +2.5% pitch at wave 20); resets each run.
 - **Colorblind mode:** Settings toggle that switches modifier accent colors to a high-contrast palette with no red/green reliance.
 - **Reduced motion toggle:** Settings toggle that skips card flip animations in draft - cards appear face-up instantly.
-- **In-game achievements:** 10 achievements tracked locally (persistent across sessions) with unlock toast notifications and a dedicated achievements screen. Steam forwarding wired for when Steam App ID is live.
+- **In-game achievements:** 13 achievements tracked locally (persistent across sessions) with unlock toast notifications and a dedicated achievements screen. Steam forwarding wired for when Steam App ID is live.
+- **Procedural music system (Phases 1–4):** `MusicDirector` drives a fully procedural adaptive score. Phase 1: drift-free `MusicClock` + MIDI note pool. Phase 2: `MusicHarmony` scale/chord tables (Dorian/Mixolydian/Phrygian) + `MusicBassLayer` root+fifth patterns. Phase 3: game-state hooks — wave start/clear, lives changes, draft phase, and run end drive tension tier, BPM, mode, and layer density. Phase 4: `MusicMelodyLayer` — phrase-planned improvised lead with contour weighting (Ascending/Descending/Arch/Static), tension-scaled rest probability, and cross-phrase continuity. Phase 5 (next): `MusicPercLayer` + polish; fade ambient pad.
+- **Slot Codex in-game graphics:** Tower and enemy cards in the Slot Codex now render actual in-game body shapes using `TowerIconFull` and `EnemyIcon` — the same procedural draw geometry used in live gameplay, scaled to icon size.
 - **All-runs leaderboard:** Global leaderboard now stores every run as a separate row (wins and losses). Previously only kept the personal best per player.
 - **Spectacle system integration:** Surge/global surge spectacle gameplay payloads are active in both live and bot simulations; tooltip and bot analytics now expose spectacle behavior.
 - **Surge differentiation:** Global surge banner shows a dynamic build archetype label (10 named archetypes driven by dominant contributing mod - REDLINE WAVE, OVERKILL STORM, CHAIN STORM, etc.). Visual feel (Detonation/Pressure/Neutral) controls flash alpha, second snap pulse, and ripple intensity. Multi-color ripples (up to 3 colors) reflect top contributing mods. Each tower fires its own identity FX in staggered sequence on global surge. `SurgeDifferentiation.cs` is the single source of truth (no Godot deps, fully unit-tested with 35 xUnit tests). HowToPlay Surges tab lists all 10 archetypes with feel indicators and modifier icons throughout.
@@ -50,12 +52,15 @@ Platforms: Windows Desktop, Android (phone and tablet)
 - Added surge differentiation: 10 named global surge archetypes, feel-keyed visual treatment (Detonation/Pressure/Neutral), multi-color ripples, and per-tower identity FX.
 - HowToPlay screens polished with procedural icons throughout (TowerIcon, ModifierIcon with accent tinting, dual icons for combo surges, feel-bar + icon for global surge archetypes).
 - **Automated tuning pipeline:** `run_tuning_pipeline.ps1` + `Scripts/Tools/CombatLab/` drive iterative difficulty optimization against bot win-rate targets. `SpectacleTuning.Current` overrides difficulty multipliers at runtime without recompiling.
-- **Achievement system:** 10 achievements tracked via `AchievementManager` (autoload, persistent to `user://achievements.cfg`). Unlock toasts, dedicated achievements screen, and Steam forwarding via `SteamAchievements`. Gates content unlocks.
+- **Achievement system:** 13 achievements tracked via `AchievementManager` (autoload, persistent to `user://achievements.cfg`). Unlock toasts, dedicated achievements screen, and Steam forwarding via `SteamAchievements`. Gates content unlocks.
 - **Unlockable content:** Arc Emitter, Split Shot, and Rift Prism are gated behind campaign map clears (`Unlocks.cs`). Bots always have full unlock access for deterministic balance testing.
 - **Three difficulty modes:** Easy (no scaling), Normal (~75% bot win target), Hard (~50% bot win target). Multipliers live in `Balance.DifficultyMultipliers` and are overridable at runtime via `SpectacleTuning.Current`.
 - **Enemy render pipeline overhaul:** Layered render pipeline with per-class death FX, perf controls, and mobile-adaptive quality settings (`EnemyRenderPerfProfiler`, `EnemyRenderSettingsSnapshot`, `EnemyRenderLayerSettings`).
 - **New UI screens:** `UnlockRevealScreen` (shown on first map-clear unlock), `AchievementsPanel`, `AchievementToast`, `SlotCodexPanel`.
 - **Supabase leaderboard service:** `SupabaseLeaderboardService` + `SupabaseConfig` provide a web-backend leaderboard path alongside Steam, used for standalone/itch builds.
+- **Procedural music system:** `MusicDirector` + `MusicClock` + `MusicBassLayer` + `MusicMelodyLayer` deliver an adaptive procedural score. Tension tier, BPM, mode, and layer density all respond to live game events. See Procedural Music System section below.
+- **Slot Codex in-game graphics:** `TowerIconFull` and `EnemyIcon` render actual in-game tower/enemy body geometry in codex cards.
+- **Bug fixes:** DraftPanel cards reflow correctly on window resize (FullRect anchors); tooltip no longer renders above DraftPanel or PauseScreen (layer ordering fix).
 
 ---
 
@@ -81,7 +86,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
 
 **Signature Flourish:** Scanline-style signature streak on key moments (Bonus Pick waves, wave beat labels).
 
-**In-Game Achievements:** 10 achievements with persistent local state, unlock toast notifications, and a dedicated screen accessible from main menu and pause menu. Steam forwarding is wired - each local unlock is forwarded to Steamworks when available.
+**In-Game Achievements:** 13 achievements with persistent local state, unlock toast notifications, and a dedicated screen accessible from main menu and pause menu. Steam forwarding is wired - each local unlock is forwarded to Steamworks when available.
 
 ---
 
@@ -404,6 +409,34 @@ On wave start (not in bot mode):
 
 ---
 
+## Procedural Music System
+
+`MusicDirector` (autoload sibling of `GameController`) drives an adaptive procedural score with no audio files — all sound is synthesized from the MIDI note pool in `SoundManager`.
+
+**Phase 1 — Clock + synthesis foundation:**
+- `MusicClock`: drift-free beat/bar/phrase events at a tunable BPM; supports smooth BPM ramps.
+- `SoundManager` note pool: polyphonic MIDI-pitched note playback (range MIDI 28–81).
+
+**Phase 2 — Harmony + bass:**
+- `MusicHarmony`: scale/chord tables for Dorian, Mixolydian, and Phrygian modes; chord-degree progressions per tension tier.
+- `MusicBassLayer`: root + fifth chord-following bass line, density-gated per bar, driven by `MusicHarmony`.
+
+**Phase 3 — Game-state hooks:**
+- `MusicDirector` subscribes to: `OnWaveStart`, `OnWaveClear`, `OnLivesChanged`, `OnDraftPhaseStart`, `OnRunEnd`.
+- Each event adjusts tension tier (Intro → Calm → Rising → Tense → Critical), BPM, mode (Dorian/Mixolydian/Phrygian), and bass/melody density.
+- Wave clear triggers a breath pause (bass silent for N bars) then restores layer.
+
+**Phase 4 — Melody layer:**
+- `MusicMelodyLayer`: phrase-planned improvised lead.
+- Contour selection per phrase: Ascending, Descending, Arch, Static — weighted by tension tier.
+- Rest probability scales with tension (more rests at low tension for breathing room).
+- Cross-phrase continuity: melody starting pitch biased toward previous phrase ending.
+- 417 xUnit tests covering harmony, bass, and melody logic.
+
+**Phase 5 (next):** `MusicPercLayer` (kick/hat/snare density grid) + ambient pad fade-out on tension shift.
+
+---
+
 ## Slot Visuals
 
 Per slot visuals:
@@ -632,7 +665,7 @@ Behavior:
 
 ## Achievements
 
-10 achievements tracked locally via `AchievementManager` (autoload). State persisted to `user://achievements.cfg`.
+13 achievements tracked locally via `AchievementManager` (autoload). State persisted to `user://achievements.cfg`.
 
 | ID | Name | Condition |
 |---|---|---|
@@ -643,13 +676,16 @@ Behavior:
 | HALFWAY_THERE | Halfway There | Survive to wave 10 (win or loss) |
 | FULL_HOUSE | Full House | Fill all 6 tower slots in one run |
 | STACKED | Stacked | Give any tower 3 modifiers in one run |
-| SPEED_RUN | Speed Run | Win in under 8 minutes |
+| SPEED_RUN | Speed Run | Win in under 15 minutes |
 | ANNIHILATOR | Annihilator | Deal 100,000 total damage in one run |
 | CHAIN_MASTER | Chain Master | Win with all 6 slots filled by Arc Emitters |
+| ARC_UNSEALED | Arc Unsealed | Beat the first campaign map (unlocks Arc Emitter) |
+| SPLIT_UNSEALED | Split Unsealed | Beat the second campaign map (unlocks Split Shot) |
+| RIFT_UNSEALED | Rift Unsealed | Beat the third campaign map (unlocks Rift Sapper) |
 
 **Unlock toast:** Small fade-in/out notification in the bottom-right corner when an achievement is newly unlocked. Multiple unlocks queue and show sequentially.
 
-**Achievements screen:** Full-screen list showing all 10 achievements. Locked entries show `???` name and a generic hint. Unlocked entries show name, description, and a green border + star. Accessible from both main menu and pause menu (pause menu opens it as an inline overlay without leaving the game scene).
+**Achievements screen:** Full-screen list showing all 13 achievements. Locked entries show `???` name and a generic hint. Unlocked entries show name, description, and a green border + star. Accessible from both main menu and pause menu (pause menu opens it as an inline overlay without leaving the game scene).
 
 **Steam forwarding:** `AchievementManager.AchievementUnlocked` signal is subscribed by `SteamAchievements`, which forwards each newly unlocked ID to Steamworks when available. No Steam dependency in `AchievementManager` itself.
 
@@ -768,7 +804,7 @@ Behavior:
 
 ## Notes
 
-- This file is intentionally aligned to code/data as of 2026-03-15.
+- This file is intentionally aligned to code/data as of 2026-03-16.
 - If gameplay values change, update:
   - `Data/towers.json`
   - `Data/modifiers.json`

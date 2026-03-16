@@ -58,6 +58,17 @@ public partial class SoundManager : Node
     private AudioStreamPlayer[] _notePool       = Array.Empty<AudioStreamPlayer>();
     private ulong[]             _notePoolStopMs = Array.Empty<ulong>();
     private int                 _notePoolIdx;
+
+    // Percussion pool - 4 slots on the Music bus; short buffer (max perc sample ≈ 0.5s)
+    private const int   PercPoolSize     = 4;
+    private const float PercBufferLength = 0.6f;
+    private AudioStreamPlayer[] _percPool       = Array.Empty<AudioStreamPlayer>();
+    private ulong[]             _percPoolStopMs = Array.Empty<ulong>();
+    private int                 _percPoolIdx;
+
+    // Pad fade - gradually attenuates the ambient loop when the procedural system takes over
+    private float _padFadeDb   = 0f;   // current accumulated fade (dB removed from pad)
+    private float _padFadeRate = 0f;   // dB/second; 0 = no fade in progress
     private const float MobileFxBaseHeadroomDb = -4.0f;
     private const float MobileFxSurgeExtraHeadroomDb = -2.5f;
     private const int MobileFxBurstStartVoices = 8;
@@ -141,6 +152,17 @@ public partial class SoundManager : Node
             _notePool[i] = player;
         }
 
+        // ── Percussion pool ───────────────────────────────────────────────
+        _percPool       = new AudioStreamPlayer[PercPoolSize];
+        _percPoolStopMs = new ulong[PercPoolSize];
+        for (int i = 0; i < PercPoolSize; i++)
+        {
+            var gen    = new AudioStreamGenerator { MixRate = Rate, BufferLength = PercBufferLength };
+            var player = new AudioStreamPlayer { Stream = gen, VolumeDb = -10f, Bus = "Music" };
+            AddChild(player);
+            _percPool[i] = player;
+        }
+
         // ── Tower attacks ────────────────────────────────────────────────
         Reg("shoot_rapid",  Tone(680f, 0.05f, vol: 0.26f, shape: 'q', env: 'f'));
         Reg("shoot_heavy",  Tone( 72f, 0.24f, vol: 0.72f, shape: 's', env: 'f'));
@@ -220,6 +242,27 @@ public partial class SoundManager : Node
             Reg($"mnote_{midi}", MusicNote(freq, isBass: false));
         }
 
+        // ── Percussion sounds (808-style; played via PlayPerc) ────────────
+        // Kick: punchy mid-bass sweep (100→65 Hz), short decay — avoids sub-bass boom.
+        Reg("perc_kick",  Layer(
+            Sweep(100f, 65f, 0.22f, vol: 0.50f),
+            Tone(2000f, 0.005f, vol: 0.22f, shape: 'n', env: 'f')));
+
+        // Snare: mid-freq sweep + broad noise burst for snap.
+        Reg("perc_snare", Layer(
+            Sweep(260f, 100f, 0.18f, vol: 0.54f),
+            Tone(4800f, 0.16f,  vol: 0.42f, shape: 'n', env: 'f')));
+
+        // Closed hat: tight high-freq noise pair, fast decay.
+        Reg("perc_hat_c", Layer(
+            Tone( 9200f, 0.09f, vol: 0.20f, shape: 'n', env: 'f'),
+            Tone(13600f, 0.07f, vol: 0.14f, shape: 'n', env: 'f')));
+
+        // Open hat: same character, slower decay for an open sound.
+        Reg("perc_hat_o", Layer(
+            Tone( 9200f, 0.28f, vol: 0.20f, shape: 'n', env: 'f'),
+            Tone(13600f, 0.24f, vol: 0.14f, shape: 'n', env: 'f')));
+
         StartMusic();
     }
 
@@ -247,13 +290,10 @@ public partial class SoundManager : Node
         {
             float t = i / (float)Rate;
 
-            // ── Root: A1 + A2, narrow detuning - minimal bass foundation ────
-            float root = (MathF.Sin(t * MathF.Tau * 55.00f)
-                        + MathF.Sin(t * MathF.Tau * 55.07f)
-                        + MathF.Sin(t * MathF.Tau * 54.93f)) * 0.026f
-                       + (MathF.Sin(t * MathF.Tau * 110.00f)
+            // ── Root: A2 only (A1 removed — too boomy alongside procedural bass) ─
+            float root = (MathF.Sin(t * MathF.Tau * 110.00f)
                         + MathF.Sin(t * MathF.Tau * 110.10f)
-                        + MathF.Sin(t * MathF.Tau * 109.90f)) * 0.020f;
+                        + MathF.Sin(t * MathF.Tau * 109.90f)) * 0.010f;
 
             // ── Fifth: E3, 32-s swell ─────────────────────────────────────────
             float fifthSwell = 0.42f + 0.38f * MathF.Sin(t * MathF.Tau / 32f - MathF.PI * 0.4f);
@@ -338,7 +378,14 @@ public partial class SoundManager : Node
             else
                 _musicDuckDb = Mathf.Max(0f, _musicDuckDb - 14f * (float)delta);
 
-            float targetDb = MusicBaseDb + _musicTensionDb - _musicDuckDb;
+            // Advance pad fade
+            if (_padFadeRate > 0f)
+            {
+                _padFadeDb += _padFadeRate * (float)delta;
+                if (_padFadeDb >= 60f) { _padFadeDb = 60f; _padFadeRate = 0f; }
+            }
+
+            float targetDb = MusicBaseDb + _musicTensionDb - _musicDuckDb - _padFadeDb;
             _musicPlayer.VolumeDb = Mathf.Lerp(_musicPlayer.VolumeDb, targetDb, 12f * (float)delta);
         }
     }
@@ -873,6 +920,49 @@ public partial class SoundManager : Node
         var pb = (AudioStreamGeneratorPlayback)player.GetStreamPlayback();
         pb.PushBuffer(samples);
         _notePoolStopMs[idx] = nowMs + (ulong)(_durations[id] * 1000f + 50);
+    }
+
+    /// <summary>
+    /// Play a percussion sound from the dedicated perc pool on the Music bus.
+    /// id: "perc_kick", "perc_snare", "perc_hat_c", or "perc_hat_o".
+    /// volDb: absolute VolumeDb; default -10 dB.
+    /// </summary>
+    public void PlayPerc(string id, float volDb = -10f)
+    {
+        if (_headless) return;
+        if (!_samples.TryGetValue(id, out var samples)) return;
+
+        ulong nowMs = Time.GetTicksMsec();
+        int idx = -1;
+        for (int i = 0; i < PercPoolSize; i++)
+        {
+            int c = (_percPoolIdx + i) % PercPoolSize;
+            if (_percPoolStopMs[c] == 0 || nowMs >= _percPoolStopMs[c])
+            {
+                idx = c;
+                break;
+            }
+        }
+        if (idx < 0) idx = _percPoolIdx;
+        _percPoolIdx = (idx + 1) % PercPoolSize;
+
+        var player = _percPool[idx];
+        player.Stop();
+        player.VolumeDb = volDb;
+        player.Play();
+        var pb = (AudioStreamGeneratorPlayback)player.GetStreamPlayback();
+        pb.PushBuffer(samples);
+        _percPoolStopMs[idx] = nowMs + (ulong)(_durations[id] * 1000f + 50);
+    }
+
+    /// <summary>
+    /// Gradually fade out the ambient pad loop over the given duration.
+    /// Called by MusicDirector when the procedural layers first activate.
+    /// </summary>
+    public void FadePad(float durationSec)
+    {
+        if (_headless || _musicPlayer == null) return;
+        _padFadeRate = 60f / MathF.Max(0.1f, durationSec);  // reach -60 dB = inaudible
     }
 
     // ── Music note synthesis ──────────────────────────────────────────────

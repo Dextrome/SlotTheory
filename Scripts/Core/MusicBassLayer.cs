@@ -91,16 +91,18 @@ public partial class MusicBassLayer : Node
 
     // ── Note helpers ──────────────────────────────────────────────────────
 
+    private const float BassVolDb = -17f;
+
     private void PlayRoot()
     {
         int midi = Clamp(_rootMidi + _currentChordOffset);
-        SoundManager.Instance?.PlayNote(midi);
+        SoundManager.Instance?.PlayNote(midi, BassVolDb);
     }
 
     private void PlayFifth()
     {
         int midi = Clamp(_rootMidi + _currentChordOffset + 7);
-        SoundManager.Instance?.PlayNote(midi);
+        SoundManager.Instance?.PlayNote(midi, BassVolDb);
     }
 
     // Keep within the registered bass range (MIDI 28–57).

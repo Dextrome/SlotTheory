@@ -188,13 +188,15 @@ BPM ramp: `SetBpm(float newBpm, float rampBars)` interpolates linearly over `ram
 - 29 unit tests in `MusicMelodyLayerTests` covering `GetMelodyScaleNotes` (range, scale membership,
   sorted order, mode-specific chromatic exclusions) and `RestProbability` (values + monotonicity)
 
-### Phase 5 - Percussion + Polish
-- `MusicPercLayer.cs`: kick/hat/snare grid synthesis, density control, syncopation at high tension
-- Synthesize percussion samples and register them in SoundManager._Ready()
-- Wire game-reactive density drops (wave-clear breath, near-death perc-out)
-- Fade out ambient pad loop; ensure procedural layers sit correctly in the mix with SFX
-- Tune `MusicBalance` weights until improvisation feels natural
-- Crossfade melody out/in over 2 bars at mode transitions
+### Phase 5 - Percussion + Polish ✅ COMPLETE
+- `MusicClock`: added `SubBeatFired(int index)` (8th-note, 0–7 per bar) used by perc layer
+- `SoundManager`: kick/snare/hat_c/hat_o synthesis registered; 4-slot perc pool on Music bus;
+  `PlayPerc(id, volDb)`; `FadePad(durationSec)` fades ambient pad to inaudible
+- `MusicPercLayer.cs`: 8th-note kick/snare/hat grid; 4 tension patterns; ghost snare probability;
+  hat velocity jitter; `Active`/`Density`/`Tension` properties
+- `MusicDirector`: wires perc layer; pad fade starts immediately on load (5s); breath silences
+  bass + perc; near-death drops both to Density=0
+- Mix tuning: kick sweep 100→65 Hz (avoids sub-bass boom); pad A1 root removed; bass at -19 dB
 
 ---
 

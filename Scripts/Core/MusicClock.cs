@@ -30,6 +30,14 @@ public partial class MusicClock : Node
     /// <summary>Fires on beat 0 of bar 0 - the downbeat of every 4-bar phrase.</summary>
     public event Action? PhraseFired;
 
+    /// <summary>
+    /// Fires at 8th-note resolution: 8 times per bar, index 0–7.
+    /// Even indices (0, 2, 4, 6) coincide with BeatFired but fire first.
+    /// Odd indices (1, 3, 5, 7) are the off-beat "and" positions.
+    /// Used by MusicPercLayer for kick/snare/hat grid patterns.
+    /// </summary>
+    public event Action<int>? SubBeatFired;
+
     // ── Properties ────────────────────────────────────────────────────────
 
     public float Bpm        { get; private set; } = 72f;
@@ -51,6 +59,8 @@ public partial class MusicClock : Node
 
     private ulong  _clockOriginUsec;    // Time.GetTicksUsec() at Start()
     private double _nextBeatSec;        // seconds from origin when the next beat fires
+    private double _nextSubBeatSec;     // seconds from origin when the next 8th-note fires
+    private int    _subBeatIdx;         // 0–7 within the current bar
 
     private float  _rampStartBpm;
     private float  _rampTargetBpm;
@@ -70,6 +80,8 @@ public partial class MusicClock : Node
         _rampDurationSec = 0;
         _clockOriginUsec = Time.GetTicksUsec();
         _nextBeatSec     = 0;
+        _nextSubBeatSec  = 0;
+        _subBeatIdx      = 0;
         CurrentBeat      = 0;
         CurrentBar       = 0;
         TotalBeats       = 0;
@@ -112,10 +124,20 @@ public partial class MusicClock : Node
                 _rampDurationSec = 0;
         }
 
+        double nowSec = ElapsedSec();
+
+        // Fire 8th-note sub-beat events (2× per beat; odd indices are off-beat "and" positions).
+        // Runs before the beat loop so SubBeatFired always precedes the coincident BeatFired.
+        while (nowSec >= _nextSubBeatSec)
+        {
+            SubBeatFired?.Invoke(_subBeatIdx);
+            _nextSubBeatSec += 30.0 / Bpm;   // half a beat
+            _subBeatIdx      = (_subBeatIdx + 1) % (BeatsPerBar * 2);
+        }
+
         // Fire beat events.
         // The while handles the (unlikely) case where multiple beats elapse in one frame
         // (e.g. after a GC pause or OS suspend).
-        double nowSec = ElapsedSec();
         while (nowSec >= _nextBeatSec)
         {
             if (CurrentBeat == 0)

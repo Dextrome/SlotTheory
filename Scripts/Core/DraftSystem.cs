@@ -34,6 +34,13 @@ public class DraftSystem
 
     public List<DraftOption> GenerateOptions(RunState state)
     {
+        // Wave 1: always offer towers only — player has no towers yet
+        if (state.WaveIndex == 0)
+        {
+            var wave1Options = new List<DraftOption>(Balance.DraftOptionsCount);
+            AddTowerOptions(wave1Options, Balance.DraftOptionsCount);
+            return wave1Options;
+        }
         var placedTowers = state.Slots
             .Where(s => s.Tower != null)
             .Select(s => (Entities.ITowerView)s.Tower!);
