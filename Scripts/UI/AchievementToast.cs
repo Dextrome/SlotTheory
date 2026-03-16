@@ -161,7 +161,7 @@ public partial class AchievementToast : CanvasLayer
         _lastTickSec = Time.GetTicksUsec() / 1_000_000.0;
         SetProcess(true);
 
-        SoundManager.Instance?.Play("ui_hover");
+        SoundManager.Instance?.Play("achievement_unlock");
 
         // Flashy pop-in: quick flash, slight slide from right, and scale punch.
         if (_panel != null)

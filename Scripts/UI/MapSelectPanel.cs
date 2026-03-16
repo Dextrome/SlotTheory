@@ -87,12 +87,20 @@ public partial class MapSelectPanel : Node
 		TouchScrollHelper.EnableDragScroll(scrollContainer);
 		leftColumn.AddChild(scrollContainer);
 
+		var listMargin = new MarginContainer();
+		listMargin.AddThemeConstantOverride("margin_left",   6);
+		listMargin.AddThemeConstantOverride("margin_right",  6);
+		listMargin.AddThemeConstantOverride("margin_top",    4);
+		listMargin.AddThemeConstantOverride("margin_bottom", 4);
+		listMargin.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		scrollContainer.AddChild(listMargin);
+
 		_mapListContainer = new VBoxContainer();
 		_mapListContainer.AddThemeConstantOverride("separation", 12);
 		_mapListContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		if (_isMobile)
 			_mapListContainer.MouseFilter = Control.MouseFilterEnum.Pass;
-		scrollContainer.AddChild(_mapListContainer);
+		listMargin.AddChild(_mapListContainer);
 		PopulateMapList();
 
 		// Right column: difficulty + personal best

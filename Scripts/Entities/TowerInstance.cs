@@ -30,7 +30,7 @@ public partial class TowerInstance : Node2D, ITowerView
 
     public int   ChainCount       { get; set; } = 0;
     public float ChainRange       { get; set; } = 400f;
-    public float ChainDamageDecay { get; set; } = 0.57f;
+    public float ChainDamageDecay { get; set; } = Balance.ChainDamageDecay;
     public bool  IsChainTower     => ChainCount > 0;
     public int   SplitCount       { get; set; } = 0;
 

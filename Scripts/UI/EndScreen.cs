@@ -29,6 +29,7 @@ public partial class EndScreen : CanvasLayer
 	private RunScorePayload? _pendingPayload;
 	private string _pendingLocalLine = "";
 	private bool _namePromptActive;
+	private bool _canDismiss;
 
 	public override void _Ready()
 	{
@@ -228,8 +229,10 @@ public partial class EndScreen : CanvasLayer
 
 	private void PlayEntranceAnimation()
 	{
+		_canDismiss = false;
 		_root.Modulate = new Color(1f, 1f, 1f, 0f);
 		Visible = true;
+		GetTree().CreateTimer(0.40f).Timeout += () => _canDismiss = true;
 		_titleLabel.PivotOffset = _titleLabel.Size / 2f;
 		_titleLabel.Scale = new Vector2(0.78f, 0.78f);
 
@@ -275,6 +278,16 @@ public partial class EndScreen : CanvasLayer
 			? new Color(1.00f, 0.72f, 0.72f)
 			: new Color(0.72f, 0.93f, 0.78f);
 		_leaderboardLabel.Visible = text.Length > 0;
+		if (text.Length > 0 && GodotObject.IsInstanceValid(_leaderboardLabel))
+		{
+			SoundManager.Instance?.Play(isError ? "ui_cancel" : "ui_select");
+			_leaderboardLabel.PivotOffset = _leaderboardLabel.Size / 2f;
+			var tw = _leaderboardLabel.CreateTween();
+			tw.TweenProperty(_leaderboardLabel, "scale", new Vector2(1.12f, 1.12f), 0.07f)
+			  .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+			tw.TweenProperty(_leaderboardLabel, "scale", Vector2.One, 0.18f)
+			  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+		}
 	}
 
 	public void SetLeaderboardContext(string mapId, DifficultyMode difficulty)
@@ -436,7 +449,7 @@ public partial class EndScreen : CanvasLayer
 
 	public override void _Notification(int what)
 	{
-		if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */ && Visible && !_namePromptActive)
+		if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */ && Visible && !_namePromptActive && _canDismiss)
 		{
 			SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
 			Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
@@ -445,8 +458,9 @@ public partial class EndScreen : CanvasLayer
 
 	public override void _UnhandledInput(InputEvent @event)
 	{
-		if (@event.IsActionPressed("ui_cancel") && Visible && !_namePromptActive)
+		if (@event.IsActionPressed("ui_cancel") && Visible && !_namePromptActive && _canDismiss)
 		{
+			SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
 			Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 			GetViewport().SetInputAsHandled();
 		}

@@ -99,6 +99,16 @@ public partial class AchievementManager : Node
     }
 
     /// <summary>
+    /// Wipes every achievement unlock. Dev/testing tool only.
+    /// </summary>
+    public void ResetAllAchievements()
+    {
+        _cfg.EraseSection(Section);
+        Save();
+        GD.Print("[Achievements] All achievements reset.");
+    }
+
+    /// <summary>
     /// Evaluates all achievements at run end. Call from GameController with the
     /// final RunState (before it is cleared).
     /// </summary>
@@ -173,6 +183,48 @@ public partial class AchievementManager : Node
 
     public void CheckRunEnd(RunState state, DifficultyMode difficulty, bool won)
         => _ = CheckRunEndAndCollectUnlocks(state, difficulty, won);
+
+    /// <summary>
+    /// Called at wave 10 start. Unlocks HALFWAY_THERE mid-run.
+    /// No-op in bot mode or if already unlocked.
+    /// </summary>
+    public void CheckHalfwayThere()
+    {
+        if (OS.GetCmdlineUserArgs().Contains("--bot")) return;
+        Unlock("HALFWAY_THERE");
+    }
+
+    /// <summary>
+    /// Called after each draft pick. Unlocks FULL_HOUSE and/or STACKED mid-run.
+    /// No-op in bot mode or if already unlocked.
+    /// </summary>
+    public void CheckDraftMilestones(RunState state)
+    {
+        if (OS.GetCmdlineUserArgs().Contains("--bot")) return;
+
+        if (state.FreeSlotCount() == 0)
+            Unlock("FULL_HOUSE");
+
+        foreach (var slot in state.Slots)
+        {
+            if (slot.Tower?.Modifiers.Count >= Balance.MaxModifiersPerTower)
+            {
+                Unlock("STACKED");
+                break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Called after each wave clear. Unlocks ANNIHILATOR mid-run once damage threshold is crossed.
+    /// No-op in bot mode or if already unlocked.
+    /// </summary>
+    public void CheckAnnihilator(RunState state)
+    {
+        if (OS.GetCmdlineUserArgs().Contains("--bot")) return;
+        if (state.TotalDamageDealt >= AnnihilatorDamage)
+            Unlock("ANNIHILATOR");
+    }
 
     /// <summary>
     /// Pushes all locally-unlocked achievements to Steam.

@@ -42,7 +42,7 @@ public partial class SoundManager : Node
     {
         "draft_pick", "ui_card_pick", "ui_preview_ghost", "ui_lock_in", "ui_lock_in_hard",
         "ui_thunk", "ui_speed_shift", "card_shing", "ui_select", "tower_place", "ui_hover",
-        "low_heartbeat", "wave_halfway_lift", "wave20_swell",
+        "low_heartbeat", "wave_halfway_lift", "wave20_swell", "achievement_unlock",
     };
 
     private bool _headless;
@@ -169,6 +169,13 @@ public partial class SoundManager : Node
         Reg("low_heartbeat",   Seq(new[] { 74f, 58f }, gapMs: 40, noteLen: 0.10f, vol: 0.30f));
         Reg("wave_halfway_lift", Sweep(300f, 980f, 0.16f, vol: 0.26f));
         Reg("wave20_swell",    Sweep(90f, 480f, 0.56f, vol: 0.62f));
+        // ── Achievement unlock: bright 4-note C major arpeggio + high shimmer ──
+        // Distinct from wave_clear (3-note, lower, shorter) and victory (starts lower, slower).
+        // Goes to the UI bus so it won't duck under FX limiter during combat.
+        Reg("achievement_unlock", Layer(
+            Seq(new[] { 523f, 659f, 784f, 1047f }, gapMs: 12, noteLen: 0.10f, vol: 0.52f),
+            Sweep(1600f, 3400f, 0.44f, vol: 0.12f),
+            Tone(1047f, 0.07f, vol: 0.14f, shape: 's', env: 'f')));
 
         StartMusic();
     }

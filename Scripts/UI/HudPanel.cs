@@ -35,6 +35,8 @@ public partial class HudPanel : CanvasLayer
         ? SpeedStepsDev : SpeedStepsNormal;
     private const float ZoomMin = 1.0f;
     private const float ZoomMax = 2.6f;
+    private const float HudPunchExpandSecs = 0.07f;
+    private const float HudPunchSettleSecs = 0.22f;
     public float CurrentSpeed => (float)SpeedSteps[_speedIdx];
 
     public override void _Ready()
@@ -312,11 +314,12 @@ public partial class HudPanel : CanvasLayer
 
     public void FlashLives()
     {
+        SoundManager.Instance?.Play("life_lost");
         _livesLabel.PivotOffset = _livesLabel.Size / 2f;
         var tween = CreateTween();
-        tween.TweenProperty(_livesLabel, "scale", new Vector2(1.4f, 1.4f), 0.06f);
-        tween.TweenProperty(_livesLabel, "scale", Vector2.One, 0.3f)
-             .SetTrans(Tween.TransitionType.Elastic).SetEase(Tween.EaseType.Out);
+        tween.TweenProperty(_livesLabel, "scale", new Vector2(1.22f, 1.22f), HudPunchExpandSecs);
+        tween.TweenProperty(_livesLabel, "scale", Vector2.One, HudPunchSettleSecs)
+             .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
     }
 
     public void Refresh(int wave, int lives)
@@ -353,10 +356,10 @@ public partial class HudPanel : CanvasLayer
     {
         _waveLabel.PivotOffset = _waveLabel.Size / 2f;
         var tw = _waveLabel.CreateTween();
-        tw.TweenProperty(_waveLabel, "scale", new Vector2(1.18f, 1.18f), 0.08f)
+        tw.TweenProperty(_waveLabel, "scale", new Vector2(1.18f, 1.18f), HudPunchExpandSecs)
           .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
-        tw.TweenProperty(_waveLabel, "scale", Vector2.One, 0.20f)
-          .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+        tw.TweenProperty(_waveLabel, "scale", Vector2.One, HudPunchSettleSecs)
+          .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
     }
 
     public void SetBuildName(string buildName, bool visible = true, Color? startColor = null, Color? endColor = null)

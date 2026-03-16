@@ -144,6 +144,7 @@ public partial class AchievementsPanel : Node
 
     private void OnBack()
     {
+        SoundManager.Instance?.Play("ui_select");
         if (BackOverride != null) { BackOverride(); QueueFree(); return; }
         Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
     }

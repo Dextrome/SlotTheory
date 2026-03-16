@@ -409,9 +409,9 @@ public partial class Settings : Node
 
     private void OnResetProfileUnlocks()
     {
-        AchievementManager.Instance?.ResetUnlockFlags();
+        AchievementManager.Instance?.ResetAllAchievements();
         if (_resetProfileStatus != null)
-            _resetProfileStatus.Text = "Progression unlock flags cleared for this profile.";
+            _resetProfileStatus.Text = "All achievements and unlock flags cleared.";
     }
 
     private static string EnemyLayeredLabel(bool on) =>

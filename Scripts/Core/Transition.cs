@@ -22,7 +22,11 @@ public partial class Transition : CanvasLayer
     private Vector2 _cachedViewportSize = Vector2.Zero;
 
     private const float FadeOutSeconds = 0.34f;
-    private const float FadeInSeconds = 0.40f;
+    private const float FadeInSeconds  = 0.40f;
+
+    private static readonly Color TintColor     = new Color(0.15f, 0.05f, 0.26f, 0f);
+    private static readonly Color ScanlineColor = new Color(0.65f, 0.95f, 1.00f, 0f);
+    private static readonly Color SweepColor    = new Color(0.35f, 1.00f, 0.92f, 0f);
 
     public override void _Ready()
     {
@@ -63,7 +67,7 @@ public partial class Transition : CanvasLayer
         bool reducedMotion = IsReducedMotionEnabled();
         bool postFxEnabled = IsPostFxEnabled();
         _overlay.Color = Colors.Transparent;
-        _tintOverlay.Color = new Color(0.15f, 0.05f, 0.26f, 0f);
+        _tintOverlay.Color = TintColor;
 
         RefreshFxLayout(force: true);
 
@@ -115,7 +119,7 @@ public partial class Transition : CanvasLayer
 
         _tintOverlay = new ColorRect
         {
-            Color = new Color(0.15f, 0.05f, 0.26f, 0f),
+            Color = TintColor,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         _tintOverlay.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -123,14 +127,14 @@ public partial class Transition : CanvasLayer
 
         _scanline = new ColorRect
         {
-            Color = new Color(0.65f, 0.95f, 1.00f, 0f),
+            Color = ScanlineColor,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         AddChild(_scanline);
 
         _sweep = new ColorRect
         {
-            Color = new Color(0.35f, 1.00f, 0.92f, 0f),
+            Color = SweepColor,
             MouseFilter = Control.MouseFilterEnum.Ignore,
             RotationDegrees = 15f,
         };
@@ -172,16 +176,16 @@ public partial class Transition : CanvasLayer
         bool postFxEnabled = IsPostFxEnabled();
 
         _overlay.Color = Colors.Black;
-        _tintOverlay.Color = new Color(0.15f, 0.05f, 0.26f, postFxEnabled ? (reducedMotion ? 0.06f : 0.22f) : 0f);
+        _tintOverlay.Color = TintColor with { A = postFxEnabled ? (reducedMotion ? 0.06f : 0.22f) : 0f };
 
         RefreshFxLayout(force: true);
 
         // Start near bottom to sweep upward on fade in.
         _scanline.Position = new Vector2(0f, _cachedViewportSize.Y + 8f);
-        _scanline.Color = new Color(0.65f, 0.95f, 1.00f, 0f);
+        _scanline.Color = ScanlineColor;
 
         _sweep.Position = new Vector2(_cachedViewportSize.X + _sweep.Size.X, _cachedViewportSize.Y * 0.5f);
-        _sweep.Color = new Color(0.35f, 1.00f, 0.92f, 0f);
+        _sweep.Color = SweepColor;
 
         var tween = CreateTween();
         tween.SetParallel(true);
@@ -214,10 +218,10 @@ public partial class Transition : CanvasLayer
     private void PlayTransitionAccents(float duration)
     {
         _scanline.Position = new Vector2(0f, -10f);
-        _scanline.Color = new Color(0.65f, 0.95f, 1.00f, 0f);
+        _scanline.Color = ScanlineColor;
 
         _sweep.Position = new Vector2(-_sweep.Size.X, _cachedViewportSize.Y * 0.5f);
-        _sweep.Color = new Color(0.35f, 1.00f, 0.92f, 0f);
+        _sweep.Color = SweepColor;
 
         var fx = CreateTween();
         fx.SetParallel(true);

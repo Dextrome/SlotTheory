@@ -16,6 +16,7 @@ obj/
 builds/
 export/
 release/
+promo_images/
 
 # Android development
 *.apk
@@ -82,3 +83,4 @@ ENEMY_VISUAL_EVOLUTION_PLAN.md
 ENEMY_LAYERED_PROCEDURAL_PLAN.md
 SPECTACLE_TRIAD_SYSTEM_PLAN.md
 steam/LEADERBOARDS_SETUP.md
+POLISHPASS_20260316.MD

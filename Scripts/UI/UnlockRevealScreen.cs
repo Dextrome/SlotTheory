@@ -308,8 +308,15 @@ public partial class UnlockRevealScreen : CanvasLayer
     {
         SoundManager.Instance?.Play("ui_select");
         _canClose = false;
-        Visible = false;
-        EmitSignal(SignalName.RevealClosed);
+        var tween = CreateTween();
+        tween.TweenProperty(_root, "modulate:a", 0f, 0.18f)
+             .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+        tween.TweenCallback(Callable.From(() =>
+        {
+            Visible = false;
+            _root.Modulate = Colors.White;
+            EmitSignal(SignalName.RevealClosed);
+        }));
     }
 
     private void ApplyAccent(Color accent)

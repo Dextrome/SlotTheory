@@ -12,6 +12,7 @@ public partial class PauseScreen : CanvasLayer
     private Control _mainPanel        = null!;
     private Control _settingsPanel    = null!;
     private Control _quitConfirmPanel = null!;
+    private Control _rootContainer    = null!;
     private double  _lastBackTime     = -1.0;  // debounce Android back (fires on key-down AND key-up)
     private Button? _pauseFsBtn;
     private Button? _pauseCbBtn;
@@ -46,6 +47,7 @@ public partial class PauseScreen : CanvasLayer
         center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         center.Theme = SlotTheory.Core.UITheme.Build();
         AddChild(center);
+        _rootContainer = center;
 
         // Both panels live inside the same CenterContainer; only one is visible at a time
         var stack = new VBoxContainer();   // wrapper so CenterContainer centres both
@@ -393,9 +395,9 @@ public partial class PauseScreen : CanvasLayer
             _pauseResetProfileBtn.Pressed += () =>
             {
                 SoundManager.Instance?.Play("ui_select");
-                AchievementManager.Instance?.ResetUnlockFlags();
+                AchievementManager.Instance?.ResetAllAchievements();
                 if (_pauseResetProfileStatus != null)
-                    _pauseResetProfileStatus.Text = "Progression unlock flags cleared for this profile.";
+                    _pauseResetProfileStatus.Text = "All achievements and unlock flags cleared.";
             };
             vbox.AddChild(_pauseResetProfileBtn);
 
@@ -570,11 +572,35 @@ public partial class PauseScreen : CanvasLayer
         _mainPanel.Visible        = true;
         _settingsPanel.Visible    = false;
         _quitConfirmPanel.Visible = false;
+        _rootContainer.Modulate = new Color(1f, 1f, 1f, 0f);
         Visible = true;
         GetTree().Paused = true;
+        var tween = CreateTween();
+        tween.SetIgnoreTimeScale(true);
+        tween.TweenProperty(_rootContainer, "modulate:a", 1f, 0.16f)
+             .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
     }
 
-    public void Unpause() { Visible = false; GetTree().Paused = false; }
+    public void Unpause()
+    {
+        if (Visible)
+        {
+            var tween = CreateTween();
+            tween.SetIgnoreTimeScale(true);
+            tween.TweenProperty(_rootContainer, "modulate:a", 0f, 0.12f)
+                 .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+            tween.TweenCallback(Callable.From(() =>
+            {
+                Visible = false;
+                _rootContainer.Modulate = Colors.White;
+                GetTree().Paused = false;
+            }));
+        }
+        else
+        {
+            GetTree().Paused = false;
+        }
+    }
 
     public void ToggleGameplayPause()
     {

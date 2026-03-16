@@ -602,6 +602,7 @@ public partial class GameController : Node
 				if (_botRunner == null) ShowWaveClearFlash();
 				MobileOptimization.HapticMedium();
 				SoundManager.Instance?.Play("wave_clear");
+				AchievementManager.Instance?.CheckAnnihilator(_runState);
 				_extraPicksRemaining = Balance.ExtraPicksForWave(_runState.WaveIndex);
 				if (_botRunner != null)
 				{
@@ -1052,6 +1053,7 @@ public partial class GameController : Node
 				MobileOptimization.HapticLight(); // modifier equipped
 			}
 		}
+		AchievementManager.Instance?.CheckDraftMilestones(_runState);
 		AdvanceAfterDraftPickFlow();
 	}
 
@@ -6127,6 +6129,7 @@ void fragment() {
 		{
 			ShowHalfwayBeat();
 			SoundManager.Instance?.Play("wave_halfway_lift");
+			AchievementManager.Instance?.CheckHalfwayThere();
 		}
 		if (waveNumber >= Balance.TotalWaves)
 		{
@@ -6747,6 +6750,7 @@ void fragment() {
 		tween.TweenProperty(_waveClearFlash, "color", new Color(0.10f, 1f, 0.45f, 0f),    0.40f)
 			 .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);
 		tween.TweenCallback(Callable.From(() => _waveClearFlash.Visible = false));
+		_hudPanel.PulseWaveLabel();
 	}
 
 }
