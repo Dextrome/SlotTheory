@@ -23,6 +23,8 @@ public partial class DamageNumber : Node2D
         _text   = $"{(int)damage}";
         _color  = color;
         _isKill = isKill;
+        if (isKill)
+            SoundManager.Instance?.Play("kill_confirm");
     }
 
     public static void SetMobileReadabilityScale(float scale)

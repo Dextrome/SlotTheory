@@ -30,6 +30,7 @@ public partial class EndScreen : CanvasLayer
 	private string _pendingLocalLine = "";
 	private bool _namePromptActive;
 	private bool _canDismiss;
+	private const float BackgroundOverlayAlpha = 0.88f;
 
 	public override void _Ready()
 	{
@@ -44,7 +45,7 @@ public partial class EndScreen : CanvasLayer
 
 		var bg = new ColorRect();
 		bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		bg.Color = new Color(0f, 0f, 0f, 0.88f);
+		bg.Color = new Color(0f, 0f, 0f, BackgroundOverlayAlpha);
 		root.AddChild(bg);
 
 		var scroll = new ScrollContainer();
@@ -330,7 +331,7 @@ public partial class EndScreen : CanvasLayer
 
 		var overlayBg = new ColorRect();
 		overlayBg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		overlayBg.Color = new Color(0f, 0f, 0f, 0.88f);
+		overlayBg.Color = new Color(0f, 0f, 0f, BackgroundOverlayAlpha);
 		overlay.AddChild(overlayBg);
 
 		var center = new CenterContainer();

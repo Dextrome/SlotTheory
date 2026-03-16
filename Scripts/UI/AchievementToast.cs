@@ -175,7 +175,7 @@ public partial class AchievementToast : CanvasLayer
                 _flash.Color = new Color(_flash.Color.R, _flash.Color.G, _flash.Color.B, 0f);
 
             var tween = CreateTween();
-            tween.SetIgnoreTimeScale(true);
+            tween.SetIgnoreTimeScale(true); // runs regardless of time scale — achievements can unlock during pause or slow-motion surge states
             tween.SetTrans(Tween.TransitionType.Back);
             tween.SetEase(Tween.EaseType.Out);
             tween.TweenProperty(_panel, "modulate:a", 1.0f, 0.12f);

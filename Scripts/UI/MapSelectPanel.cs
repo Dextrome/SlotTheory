@@ -293,11 +293,28 @@ public partial class MapSelectPanel : Node
 		SoundManager.Instance?.Play("ui_select");
 		UpdatePersonalBestLabel();
 
-		if (_mapListContainer != null)
+		if (_mapListContainer == null) return;
+
+		foreach (var old in _mapListContainer.GetChildren())
+			old.QueueFree();
+		PopulateMapList();
+
+		// Alpha-in + scale-punch the newly selected row so selection feels deliberate
+		foreach (var child in _mapListContainer.GetChildren())
 		{
-			for (int i = _mapListContainer.GetChildCount() - 1; i >= 0; i--)
-				_mapListContainer.RemoveChild(_mapListContainer.GetChild(i));
-			PopulateMapList();
+			if (child is Control ctrl && ctrl.Modulate.R > 1.2f) // gold modulate = selected row
+			{
+				ctrl.Modulate = new Color(ctrl.Modulate.R, ctrl.Modulate.G, ctrl.Modulate.B, 0f);
+				ctrl.PivotOffset = ctrl.Size / 2f;
+				ctrl.Scale = new Vector2(0.97f, 0.97f);
+				var tw = ctrl.CreateTween();
+				tw.SetParallel(true);
+				tw.TweenProperty(ctrl, "modulate:a", 1f, 0.10f)
+				  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+				tw.TweenProperty(ctrl, "scale", Vector2.One, 0.12f)
+				  .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+				break;
+			}
 		}
 	}
 

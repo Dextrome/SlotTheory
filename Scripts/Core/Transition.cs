@@ -28,6 +28,13 @@ public partial class Transition : CanvasLayer
     private static readonly Color ScanlineColor = new Color(0.65f, 0.95f, 1.00f, 0f);
     private static readonly Color SweepColor    = new Color(0.35f, 1.00f, 0.92f, 0f);
 
+    /// <summary>Reduced-motion timing multipliers. Scanline and sweep are omitted entirely.</summary>
+    private static class ReducedMotion
+    {
+        public const float FadeScale = 0.72f;  // primary overlay fade runs at 72% duration
+        public const float TintScale = 0.88f;  // tint overlay duration fraction (non-reduced path)
+    }
+
     public override void _Ready()
     {
         Instance = this;
@@ -73,11 +80,11 @@ public partial class Transition : CanvasLayer
 
         var tween = CreateTween();
         tween.SetParallel(true);
-        tween.TweenProperty(_overlay, "color", Colors.Black, reducedMotion ? FadeOutSeconds * 0.72f : FadeOutSeconds)
+        tween.TweenProperty(_overlay, "color", Colors.Black, reducedMotion ? FadeOutSeconds * ReducedMotion.FadeScale : FadeOutSeconds)
              .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.In);
         if (postFxEnabled)
         {
-            tween.TweenProperty(_tintOverlay, "color:a", reducedMotion ? 0.08f : 0.28f, reducedMotion ? FadeOutSeconds * 0.72f : FadeOutSeconds * 0.88f)
+            tween.TweenProperty(_tintOverlay, "color:a", reducedMotion ? 0.08f : 0.28f, reducedMotion ? FadeOutSeconds * ReducedMotion.FadeScale : FadeOutSeconds * ReducedMotion.TintScale)
                  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
         }
 
@@ -189,11 +196,11 @@ public partial class Transition : CanvasLayer
 
         var tween = CreateTween();
         tween.SetParallel(true);
-        tween.TweenProperty(_overlay, "color:a", 0f, reducedMotion ? FadeInSeconds * 0.72f : FadeInSeconds)
+        tween.TweenProperty(_overlay, "color:a", 0f, reducedMotion ? FadeInSeconds * ReducedMotion.FadeScale : FadeInSeconds)
              .SetTrans(Tween.TransitionType.Cubic).SetEase(Tween.EaseType.Out);
         if (postFxEnabled)
         {
-            tween.TweenProperty(_tintOverlay, "color:a", 0f, reducedMotion ? FadeInSeconds * 0.72f : FadeInSeconds * 0.92f)
+            tween.TweenProperty(_tintOverlay, "color:a", 0f, reducedMotion ? FadeInSeconds * ReducedMotion.FadeScale : FadeInSeconds * 0.92f)
                  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
         }
 

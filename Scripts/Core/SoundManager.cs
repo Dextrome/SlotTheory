@@ -64,29 +64,39 @@ public partial class SoundManager : Node
     };
     private static readonly Dictionary<string, int> MobileSfxCooldownMs = new()
     {
-        // Keep tower/combat sounds audible on mobile while preventing runaway spam.
-        ["shoot_rapid"] = 45,
-        ["shoot_heavy"] = 90,
-        ["shoot_marker"] = 60,
-        ["hit"] = 35,
-        ["mine_pop"] = 55,
+        // Rapid-fire tower shots: tight throttle prevents distortion stacking on mobile CPUs.
+        ["shoot_rapid"]    = 45,
+        ["shoot_marker"]   = 60,
+        // Heavy impacts: longer cooldown since they're loud and infrequent by design.
+        ["shoot_heavy"]    = 90,
+        ["mine_pop"]       = 55,
         ["mine_chain_pop"] = 85,
-        ["die_basic"] = 55,
-        ["die_armored"] = 65,
-        ["die_swift"] = 45,
-        ["leak"] = 120,
-        ["wave20_swell"] = 600,
+        // Per-frame hit ticks: 35ms floor keeps them audible without drowning other SFX.
+        ["hit"]            = 35,
+        ["kill_confirm"]   = 40,   // layered kill tick — throttled to avoid pile-up on mass kills
+        // Death sounds: slightly longer gap so the mix breathes between kills.
+        ["die_basic"]      = 55,
+        ["die_armored"]    = 65,
+        ["die_swift"]      = 45,
+        // Critical events: long cooldowns since these punctuate the mix, not fill it.
+        ["leak"]           = 120,
+        ["wave20_swell"]   = 600,
     };
 
     // Desktop: applied at speed > 1× to prevent burst stacking when many enemies die in one frame.
-    // Values are divided by game speed so throttling tightens at higher speeds.
+    // Values are divided by game speed so throttling tightens at higher speeds (floor = 1ms).
+    // Goal: at ×3 speed, rapid-fire sounds compress to ~6ms apart — audible but not wall-of-noise.
     private static readonly Dictionary<string, int> DesktopSfxCooldownMs = new()
     {
+        // Per-frame hits: very short to feel responsive; throttle only kicks in at high speed.
         ["hit"]            = 12,
+        ["kill_confirm"]   = 15,   // matches hit cadence; both fire on the same combat frame
         ["shoot_rapid"]    = 20,
+        // Death sounds: 60–100ms keeps individual kills audibly distinct at ×2/×3.
         ["die_basic"]      = 60,
         ["die_armored"]    = 100,
         ["die_swift"]      = 50,
+        // Mine events: longer gap since chain-pop can cascade many in a single frame.
         ["mine_pop"]       = 60,
         ["mine_chain_pop"] = 90,
     };
@@ -120,6 +130,7 @@ public partial class SoundManager : Node
 
         // ── Enemy events ─────────────────────────────────────────────────
         Reg("hit",          Tone(520f, 0.03f, vol: 0.16f, shape: 'n', env: 'f'));
+        Reg("kill_confirm", Tone(1200f, 0.04f, vol: 0.14f, shape: 's', env: 'f'));  // subtle tick layered with die_* on kill
         Reg("die_basic",    Sweep(400f, 170f, 0.14f, vol: 0.55f));
         Reg("die_armored",  Sweep(155f,  50f, 0.24f, vol: 0.70f));
         Reg("die_swift",    Sweep(900f, 400f, 0.08f, vol: 0.45f));
