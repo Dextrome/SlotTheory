@@ -405,7 +405,7 @@ If an idea requires a new system â†’ defer to "Project 2."
   - Overreach: +45% range, âˆ’10% dmg
   - Hair Trigger: +30% attack speed, âˆ’18% range
   - Split Shot: fires 2 projectiles at nearby enemies for 35% damage each (search radius 280px); **unlockable** via campaign map clear
-  - Feedback Loop: 50% of remaining cooldown removed on kill
+  - Feedback Loop: 65% of remaining cooldown removed on kill
   - Chain Reaction: adds 1 bounce (60% decay/bounce); stacks add more bounces
 - **3 enemy types**:
   - Basic Walker: 65 HP wave 1, Ã—1.10/wave, 120px/s

@@ -193,7 +193,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
 | Overreach | +45% range, -10% damage |
 | Hair Trigger | +35% attack speed, -18% range |
 | Split Shot | Fires 2 split projectiles at 35% damage each, each extra copy adds +1 split projectile |
-| Feedback Loop | On kill, removes 50% of current cooldown |
+| Feedback Loop | On kill, removes 65% of current cooldown |
 | Chain Reaction | Adds +1 chain bounce per copy and sets chain carry to 60% |
 
 ### Modifier Color Language
@@ -520,8 +520,9 @@ Mobile:
 ## End Screen
 
 Win:
-- Title: `VICTORY`
-- Subtitle: `All 20 waves survived!`
+- Title: `VICTORY` (amber on Hard difficulty)
+- Subtitle: `All 20 waves survived · N lives remaining` (appends `  —  HARD` on Hard)
+- Play Again button escalates difficulty: Easy → `"Play Again  ·  Try Normal →"`, Normal → `"Play Again  ·  Try Hard →"`
 
 Loss:
 - Title: `GAME OVER`
@@ -534,6 +535,7 @@ Both states show:
 - MVP tower line
 - Most valuable modifier line (by proc count)
 - Slot-by-slot build summary
+- Leaderboard rank with gap to next rank (e.g. `rank #47  — 293 from #46`)
 
 Dismiss with click, Enter, or Space.
 
@@ -575,7 +577,7 @@ Behavior:
 - Strategies rotate across map/difficulty combinations.
 - Spectacle gameplay payloads are applied in bot mode for surge/global surge triggers (matching live gameplay logic).
 - Minor spectacle trigger tier no longer exists in runtime or bot reporting.
-- Current strategy set has 11 entries:
+- Current strategy set has 12 entries:
   - Random
   - TowerFirst
   - GreedyDps
@@ -587,6 +589,7 @@ Behavior:
   - SpectacleSingleStack
   - SpectacleComboPairing
   - SpectacleTriadDiversity
+  - PlayerStyleKenny
 - Summary output includes win rates, wave curves, usage analysis, and spectacle trigger analysis (tier totals + top effects).
 
 ---
@@ -617,7 +620,7 @@ Behavior:
 | MomentumBonusPerStack | +16% |
 | SplitShotDamageRatio | 35% |
 | SplitShotRange | 280 |
-| FeedbackLoopCooldownReduction | 25% |
+| FeedbackLoopCooldownReduction | 65% |
 | HairTriggerAttackSpeed | +35% |
 | HairTriggerRangeFactor | -18% |
 | OverkillSpillEfficiency | 60% |

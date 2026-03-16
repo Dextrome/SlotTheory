@@ -67,7 +67,7 @@ public static class Balance
     public const float SplitShotRange       = 280f;  // search radius from impact point for split targets
 
     // Feedback Loop modifier
-    public const float FeedbackLoopCooldownReduction = 0.50f; // 50% of remaining cooldown removed on kill
+    public const float FeedbackLoopCooldownReduction = 0.65f; // 65% of remaining cooldown removed on kill
 
     // Hair Trigger modifier
     public const float HairTriggerAttackSpeed = 1.30f; // +30% attack speed

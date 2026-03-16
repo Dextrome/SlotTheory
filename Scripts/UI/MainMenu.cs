@@ -42,6 +42,7 @@ public partial class MainMenu : Node
 		// Centre everything
 		var center = new CenterContainer();
 		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		center.AnchorBottom = 0.78f;  // shift centre point upward so banner fits
 		center.Theme = UITheme.Build();
 		canvas.AddChild(center);
 
@@ -57,6 +58,7 @@ public partial class MainMenu : Node
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
 		title.LabelSettings = MakeTitleSettings();
+		title.AddThemeConstantOverride("line_spacing", -36);
 		vbox.AddChild(title);
 
 		// Sub-title
@@ -69,7 +71,13 @@ public partial class MainMenu : Node
 		sub.Modulate = UITheme.Lime;
 		vbox.AddChild(sub);
 
-		AddSpacer(vbox, 10);
+		AddSpacer(vbox, 4);
+
+		// Row: menu card + optional demo-complete banner side by side
+		var menuRow = new HBoxContainer();
+		menuRow.AddThemeConstantOverride("separation", 12);
+		menuRow.Alignment = BoxContainer.AlignmentMode.Center;
+		vbox.AddChild(menuRow);
 
 		// Menu card
 		var card = new PanelContainer();
@@ -79,7 +87,7 @@ public partial class MainMenu : Node
 			corners: 12, borderWidth: 1, padH: 24, padV: 12));
 		card.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
 		card.CustomMinimumSize   = new Vector2(320, 0);
-		vbox.AddChild(card);
+		menuRow.AddChild(card);
 
 		var cardVbox = new VBoxContainer();
 		cardVbox.AddThemeConstantOverride("separation", 7);
@@ -124,11 +132,20 @@ public partial class MainMenu : Node
 		quitBtn.Pressed += OnQuit;
 		cardVbox.AddChild(quitBtn);
 
-		// Demo-complete banner — shown once after all 3 campaign maps are cleared
+		// Demo-complete banner — shown once after all 3 campaign maps are cleared, sits to the right of the menu card
 		bool allUnlocked = AchievementManager.Instance?.IsUnlocked(Unlocks.RiftPrismAchievementId) == true;
 		bool alreadyNotified = SettingsManager.Instance?.DemoCompleteNotified == true;
 		if (allUnlocked && !alreadyNotified)
-			vbox.AddChild(BuildDemoCompleteBanner());
+		{
+			// Balancing spacer on the left keeps the card visually centered
+			var balancer = new Control { CustomMinimumSize = new Vector2(272, 0) };
+			menuRow.AddChild(balancer);
+			menuRow.MoveChild(balancer, 0); // move before card
+
+			var banner = BuildDemoCompleteBanner(balancer);
+			banner.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
+			menuRow.AddChild(banner);
+		}
 
 		// Version label — inside vbox so it scales with pinch zoom
 		var versionLabel = new Label
@@ -245,21 +262,21 @@ public partial class MainMenu : Node
 	{
 		var ls = new LabelSettings();
 		ls.Font          = UITheme.Bold;
-		ls.FontSize      = 120;
+		ls.FontSize      = 88;
 		ls.FontColor     = new Color("#d4f020");     // bright core lime (slightly lighter)
 		ls.OutlineColor  = new Color("#1a4400");    // very dark green → creates bright-center-dark-edge look
 		ls.OutlineSize   = 4;
 		ls.ShadowColor   = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.55f);
-		ls.ShadowSize    = 14;
+		ls.ShadowSize    = 8;
 		ls.ShadowOffset  = Vector2.Zero;
 		return ls;
 	}
 
-	private Control BuildDemoCompleteBanner()
+	private Control BuildDemoCompleteBanner(Control? balancer = null)
 	{
 		var panel = new PanelContainer();
 		panel.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
-		panel.CustomMinimumSize = new Vector2(320, 0);
+		panel.CustomMinimumSize = new Vector2(260, 0);
 		panel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
 			bg: new Color(0.06f, 0.04f, 0.14f),
 			border: new Color(0.55f, 0.30f, 0.90f, 0.80f),
@@ -324,6 +341,7 @@ public partial class MainMenu : Node
 		{
 			SoundManager.Instance?.Play("ui_select");
 			SettingsManager.Instance?.SetDemoCompleteNotified();
+			balancer?.QueueFree();
 			panel.QueueFree();
 		};
 		btnRow.AddChild(dismissBtn);
