@@ -281,7 +281,7 @@ public partial class AchievementManager : Node
     }
 
     /// <summary>
-    /// Called when the player presses Continue — Endless. Unlocks KEEP_GOING.
+    /// Called when the player presses Continue - Endless. Unlocks KEEP_GOING.
     /// No-op in bot mode.
     /// </summary>
     public void CheckKeepGoing()

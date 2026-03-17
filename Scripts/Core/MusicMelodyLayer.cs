@@ -31,7 +31,7 @@ public partial class MusicMelodyLayer : Node
     // Pitch continuity across phrases
     private int? _lastNote;
 
-    // Pending mode change — applied at next PhraseFired
+    // Pending mode change - applied at next PhraseFired
     private bool      _pendingChange;
     private MusicMode _pendingMode;
     private int       _pendingProgressionIdx;

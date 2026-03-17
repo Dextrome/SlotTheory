@@ -33,7 +33,7 @@ public class DraftSystem
     // Seeded constructor: pass a deterministic seed (e.g. run index) so that
     // draft option pools are identical across candidates in the tuning pipeline.
     // Without this, DraftSystem uses a fresh Random() each time, meaning two
-    // candidates evaluating "run #42" see different card pools — injecting noise
+    // candidates evaluating "run #42" see different card pools - injecting noise
     // that swamps the win-rate signal the optimizer is trying to track.
     public DraftSystem(int seed) : this(new DataLoaderDraftDataSource(), seed) { }
     public DraftSystem(IDraftDataSource data) { _data = data; _rng = new Random(); }
@@ -41,7 +41,7 @@ public class DraftSystem
 
     public List<DraftOption> GenerateOptions(RunState state)
     {
-        // Wave 1: always offer towers only — player has no towers yet
+        // Wave 1: always offer towers only - player has no towers yet
         if (state.WaveIndex == 0)
         {
             var wave1Options = new List<DraftOption>(Balance.DraftOptionsCount);

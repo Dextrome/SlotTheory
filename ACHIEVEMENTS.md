@@ -16,16 +16,16 @@ Tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`
 | `SPEED_RUN` | Speed Run | Win in under 15 minutes | Run end (win) |
 | `ANNIHILATOR` | Annihilator | Deal 100,000 total damage in one run | After wave clear (mid-run) |
 | `CHAIN_MASTER` | Chain Master | Win with all 6 slots filled by Arc Emitters | Run end (win) |
-| `ARC_UNSEALED` | Arc Unsealed | Beat the first campaign map on Normal or Hard | Run end (win) — gates Arc Emitter |
-| `SPLIT_UNSEALED` | Split Unsealed | Beat the second campaign map on Normal or Hard | Run end (win) — gates Split Shot |
-| `RIFT_UNSEALED` | Rift Unsealed | Beat the third campaign map on Normal or Hard | Run end (win) — gates Rift Sapper |
+| `ARC_UNSEALED` | Arc Unsealed | Beat the first campaign map on Normal or Hard | Run end (win) - gates Arc Emitter |
+| `SPLIT_UNSEALED` | Split Unsealed | Beat the second campaign map on Normal or Hard | Run end (win) - gates Split Shot |
+| `RIFT_UNSEALED` | Rift Unsealed | Beat the third campaign map on Normal or Hard | Run end (win) - gates Rift Sapper |
 
 ### Implementation notes
 
-- `CheckRunEndAndCollectUnlocks(state, difficulty, won)` — main evaluation call, run end only
-- `CheckHalfwayThere()` — called at wave 10 start from `GameController`
-- `CheckDraftMilestones(state)` — called after each draft pick; covers `FULL_HOUSE` and `STACKED`
-- `CheckAnnihilator(state)` — called after each wave clear
+- `CheckRunEndAndCollectUnlocks(state, difficulty, won)` - main evaluation call, run end only
+- `CheckHalfwayThere()` - called at wave 10 start from `GameController`
+- `CheckDraftMilestones(state)` - called after each draft pick; covers `FULL_HOUSE` and `STACKED`
+- `CheckAnnihilator(state)` - called after each wave clear
 - Bot mode (`--bot`) skips all unlock evaluation
 
 ---
@@ -93,7 +93,7 @@ new("GLASS_CANNON",  "Glass Cannon",     "Win with Focus Lens and Hair Trigger o
 | `CheckEndlessMilestones(state)` | After each endless wave clear in `GameController` |
 | `CheckKeepGoing()` | In `GameController.OnContinueEndlessPressed`, before `StartDraftPhase` |
 
-`FULL_ARSENAL`, `OVER_EQUIPPED`, `CHAIN_GANG`, `GLASS_CANNON` are run-end checks — add to `CheckRunEndAndCollectUnlocks`.
+`FULL_ARSENAL`, `OVER_EQUIPPED`, `CHAIN_GANG`, `GLASS_CANNON` are run-end checks - add to `CheckRunEndAndCollectUnlocks`.
 
 ### Goal hints to add to `GetGoalHint`
 

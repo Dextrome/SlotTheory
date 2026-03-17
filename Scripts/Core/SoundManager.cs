@@ -244,7 +244,7 @@ public partial class SoundManager : Node
         }
 
         // ── Percussion sounds (808-style; played via PlayPerc) ────────────
-        // Kick: punchy mid-bass sweep (100→65 Hz), short decay — avoids sub-bass boom.
+        // Kick: punchy mid-bass sweep (100→65 Hz), short decay - avoids sub-bass boom.
         Reg("perc_kick",  Layer(
             Sweep(100f, 65f, 0.22f, vol: 0.50f),
             Tone(2000f, 0.005f, vol: 0.22f, shape: 'n', env: 'f')));
@@ -291,7 +291,7 @@ public partial class SoundManager : Node
         {
             float t = i / (float)Rate;
 
-            // ── Root: A2 only (A1 removed — too boomy alongside procedural bass) ─
+            // ── Root: A2 only (A1 removed - too boomy alongside procedural bass) ─
             float root = (MathF.Sin(t * MathF.Tau * 110.00f)
                         + MathF.Sin(t * MathF.Tau * 110.10f)
                         + MathF.Sin(t * MathF.Tau * 109.90f)) * 0.010f;

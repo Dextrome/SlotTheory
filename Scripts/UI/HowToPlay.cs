@@ -271,7 +271,7 @@ public partial class HowToPlay : Node
         AddSpacer(vbox, 8);
 
         AddHeader(vbox, "COMBO SURGES");
-        AddLine(vbox, "Towers with 2 surge-capable mods fire Combo Surges — a hybrid payload blending both mod roles. 45 unique combinations exist, one for every modifier pairing.");
+        AddLine(vbox, "Towers with 2 surge-capable mods fire Combo Surges - a hybrid payload blending both mod roles. 45 unique combinations exist, one for every modifier pairing.");
         AddSpacer(vbox, 8);
 
         AddHeader(vbox, "TRIAD AUGMENT TYPES (10)");

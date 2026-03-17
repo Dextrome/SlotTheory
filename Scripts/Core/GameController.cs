@@ -50,6 +50,7 @@ public partial class GameController : Node
 	private Map _currentMap = null!;
 	private Node2D _mapVisuals = null!;
 	private PathFlow? _pathFlow;
+	private GridBackground? _gridBackground;
 	private Panel _tooltipPanel = null!;
 	private Label _tooltipLabel = null!;
 	private int _mobileTooltipFontSize = 13;
@@ -76,6 +77,8 @@ public partial class GameController : Node
 	private Tween? _globalSurgeBannerTween;
 	private ulong _globalSurgeBannerToken = 0;
 	private Node2D _worldNode = null!;
+	private Line2D[]? _pathLines;
+	private Vector2[]? _fullPathPoints;
 	private BotRunner? _botRunner;
 	private int   _botWaveInRangeSum;
 	private int   _botWaveInRangeSamples;
@@ -386,7 +389,7 @@ public partial class GameController : Node
 		_hudPanel.ResetSpeed();   // Engine.TimeScale persists across scene loads; always reset on fresh run
 		GetViewport().SizeChanged += () => CallDeferred(MethodName.CenterWorldNode);
 		if (!TryRestoreMobileSnapshot())
-			StartDraftPhase();
+			AnimateTileDropIn(() => AnimateMapReveal(() => AnimateSlotDropIn(StartDraftPhase)));
 	}
 
 	public override void _Process(double delta)
@@ -573,7 +576,7 @@ public partial class GameController : Node
 			var runColors = BuildRunNameColors();
 			string mvpLine = BuildMvpLine();
 			string modLine = BuildMostValuableModLine();
-			// Endless runs get won=true — the player did beat wave 20 to get here.
+			// Endless runs get won=true - the player did beat wave 20 to get here.
 			// This ensures endless scores always beat a base wave-20 win, scaled by depth.
 			var scorePayload = BuildRunScorePayload(won: _runState.IsEndlessMode, waveReached: _runState.WaveIndex + 1, buildName: runName);
 			var localSubmit = HighScoreManager.Instance?.SubmitLocal(scorePayload);
@@ -892,7 +895,7 @@ public partial class GameController : Node
 	private void OnContinueEndlessPressed()
 	{
 		AchievementManager.Instance?.CheckKeepGoing();
-		// Discard the deferred win score — the endless result will replace it.
+		// Discard the deferred win score - the endless result will replace it.
 		_pendingWinScorePayload    = null;
 		_pendingWinLeaderboardLine = "";
 		_runState.IsEndlessMode    = true;
@@ -1005,8 +1008,8 @@ public partial class GameController : Node
 				System.GC.Collect(); // Second collection to clean up objects released after finalization
 			}
 		}
-		
-		StartDraftPhase();
+
+		AnimateTileDropIn(() => AnimateMapReveal(() => AnimateSlotDropIn(StartDraftPhase)));
 	}
 
 	private int ResolveBotProceduralSeed()
@@ -1937,6 +1940,11 @@ public partial class GameController : Node
 			}
 			_slotModPips[i] = pips;
 			_slotModIcons[i] = icons;
+
+			// Start offscreen above the grid — AnimateSlotDropIn brings them in after path reveal.
+			// In bot mode, leave at final position so no animation delay occurs.
+			if (_botRunner == null)
+				_slotNodes[i].Position = new Vector2(_currentMap.Slots[i].X, _currentMap.Slots[i].Y - 900f);
 		}
 	}
 
@@ -2039,8 +2047,18 @@ public partial class GameController : Node
 
 	private void RenderMap()
 	{
-		// Neon grid background
-		_mapVisuals.AddChild(new GridBackground());
+		// Permanent dark backdrop — same colour as GridBackground's fill but always visible,
+		// so hiding GridBackground doesn't expose the engine clear colour.
+		const float ext = 4096f;
+		_mapVisuals.AddChild(new ColorRect
+		{
+			Position = new Vector2(-ext, -ext),
+			Size     = new Vector2(ext * 2f, ext * 2f),
+			Color    = new Color(0.04f, 0.00f, 0.10f),
+		});
+		// Grid lines start hidden; AnimateTileDropIn reveals them when tiles dissolve.
+		_gridBackground = new GridBackground { Visible = false };
+		_mapVisuals.AddChild(_gridBackground);
 
 		// Procedural scenery props (trees/rocks) are generated but previously not rendered.
 		if (_currentMap is ProceduralMap procedural && procedural.Decorations.Length > 0)
@@ -2051,16 +2069,19 @@ public partial class GameController : Node
 		}
 
 		// Neon path - tuned to keep lane separation dark and reduce red bleed between segments.
-		Vector2[] pts = _currentMap.Path;
-		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 112f, DefaultColor = new Color(0.72f, 0.01f, 0.50f, 0.015f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
-		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 70f,  DefaultColor = new Color(0.64f, 0.03f, 0.46f, 0.030f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
-		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 46f,  DefaultColor = new Color(0.06f, 0.00f, 0.12f, 0.97f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
-		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 14f,  DefaultColor = new Color(1.00f, 0.12f, 0.58f, 0.11f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
-		_mapVisuals.AddChild(new Line2D { Points = pts, Width = 2.6f, DefaultColor = new Color(1.00f, 0.27f, 0.70f, 0.78f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round });
-		// Path flow arrows
+		// Points start empty; AnimateMapReveal() fills them in over 0.8s before opening the draft panel.
+		_fullPathPoints = _currentMap.Path;
+		var seed = new Vector2[] { _fullPathPoints[0], _fullPathPoints[0] }; // Line2D needs ≥2 pts to be valid
+		var l0 = new Line2D { Points = seed, Width = 112f, DefaultColor = new Color(0.72f, 0.01f, 0.50f, 0.015f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round };
+		var l1 = new Line2D { Points = seed, Width = 70f,  DefaultColor = new Color(0.64f, 0.03f, 0.46f, 0.030f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round };
+		var l2 = new Line2D { Points = seed, Width = 46f,  DefaultColor = new Color(0.06f, 0.00f, 0.12f, 0.97f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round };
+		var l3 = new Line2D { Points = seed, Width = 14f,  DefaultColor = new Color(1.00f, 0.12f, 0.58f, 0.11f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round };
+		var l4 = new Line2D { Points = seed, Width = 2.6f, DefaultColor = new Color(1.00f, 0.27f, 0.70f, 0.78f), JointMode = Line2D.LineJointMode.Round, BeginCapMode = Line2D.LineCapMode.Round, EndCapMode = Line2D.LineCapMode.Round };
+		_pathLines = new[] { l0, l1, l2, l3, l4 };
+		foreach (var line in _pathLines) _mapVisuals.AddChild(line);
+		// Path flow arrows - initialized after reveal animation finishes
 		_pathFlow = new PathFlow();
 		_mapVisuals.AddChild(_pathFlow);
-		_pathFlow.Initialize(_currentMap.Path);
 	}
 
 	private void ClearMapVisuals()
@@ -2068,6 +2089,124 @@ public partial class GameController : Node
 		while (_mapVisuals.GetChildCount() > 0)
 			_mapVisuals.GetChild(0).Free();
 		_pathFlow = null;
+		_pathLines = null;
+		_fullPathPoints = null;
+	}
+
+	private Vector2[] ComputePartialPath(float t)
+	{
+		if (_fullPathPoints == null || _fullPathPoints.Length < 2) return System.Array.Empty<Vector2>();
+		if (t >= 1f) return _fullPathPoints;
+
+		float totalLen = 0f;
+		for (int i = 0; i < _fullPathPoints.Length - 1; i++)
+			totalLen += _fullPathPoints[i].DistanceTo(_fullPathPoints[i + 1]);
+
+		float target = t * totalLen;
+		var pts = new System.Collections.Generic.List<Vector2> { _fullPathPoints[0] };
+		float walked = 0f;
+		for (int i = 0; i < _fullPathPoints.Length - 1; i++)
+		{
+			float segLen = _fullPathPoints[i].DistanceTo(_fullPathPoints[i + 1]);
+			if (walked + segLen >= target)
+			{
+				float frac = segLen > 0f ? (target - walked) / segLen : 0f;
+				pts.Add(_fullPathPoints[i].Lerp(_fullPathPoints[i + 1], frac));
+				break;
+			}
+			walked += segLen;
+			pts.Add(_fullPathPoints[i + 1]);
+		}
+		return pts.ToArray();
+	}
+
+	private void SetPathRevealProgress(float t)
+	{
+		if (_pathLines == null) return;
+		var pts = ComputePartialPath(t);
+		foreach (var line in _pathLines)
+			if (GodotObject.IsInstanceValid(line))
+				line.Points = pts;
+	}
+
+	private void AnimateTileDropIn(System.Action onComplete)
+	{
+		if (_gridBackground != null) _gridBackground.Visible = true;
+		onComplete();
+	}
+
+	private void AnimateSlotDropIn(System.Action onComplete)
+	{
+		if (_botRunner != null) { onComplete(); return; }
+
+		const float stagger      = 0.13f;
+		const float dropDuration = 0.26f;
+		const float bounceUp    = 0.07f;
+		const float bounceDown  = 0.05f;
+		const float scaleUp     = 0.08f;
+		const float scaleDown   = 0.22f;
+
+		float lastLandTime = (Balance.SlotCount - 1) * stagger + dropDuration;
+
+		for (int i = 0; i < Balance.SlotCount; i++)
+		{
+			int    idx        = i;
+			float  finalY     = _currentMap.Slots[i].Y;
+			float  delay      = i * stagger;
+			float  pitchScale = 0.86f + i * 0.05f;
+
+			// Position: gravity drop + bounce
+			var posTween = _slotNodes[i].CreateTween();
+			posTween.TweenInterval(delay);
+			posTween.TweenProperty(_slotNodes[i], "position:y", finalY + 8f, dropDuration)
+				.SetEase(Tween.EaseType.In)
+				.SetTrans(Tween.TransitionType.Quad);
+			posTween.TweenProperty(_slotNodes[i], "position:y", finalY - 4f, bounceUp)
+				.SetEase(Tween.EaseType.Out)
+				.SetTrans(Tween.TransitionType.Sine);
+			posTween.TweenProperty(_slotNodes[i], "position:y", finalY, bounceDown)
+				.SetEase(Tween.EaseType.In)
+				.SetTrans(Tween.TransitionType.Sine);
+
+			// Scale punch on landing + elastic spring back
+			var scaleTween = _slotNodes[i].CreateTween();
+			scaleTween.TweenInterval(delay + dropDuration);
+			scaleTween.TweenCallback(Callable.From(() =>
+				SoundManager.Instance?.Play("tower_place", pitchScale: pitchScale)));
+			scaleTween.TweenProperty(_slotNodes[i], "scale", new Vector2(1.22f, 1.22f), scaleUp)
+				.SetEase(Tween.EaseType.Out)
+				.SetTrans(Tween.TransitionType.Quad);
+			scaleTween.TweenProperty(_slotNodes[i], "scale", Vector2.One, scaleDown)
+				.SetEase(Tween.EaseType.Out)
+				.SetTrans(Tween.TransitionType.Elastic);
+		}
+
+		GetTree().CreateTimer(lastLandTime + bounceUp + bounceDown + scaleDown + 0.15f).Timeout += () =>
+			onComplete();
+	}
+
+	private void AnimateMapReveal(System.Action onComplete)
+	{
+		// Skip animation in bot mode or if path wasn't rendered
+		if (_botRunner != null || _pathLines == null || _fullPathPoints == null)
+		{
+			if (_pathLines != null && _fullPathPoints != null)
+				SetPathRevealProgress(1f);
+			_pathFlow?.Initialize(_fullPathPoints ?? System.Array.Empty<Vector2>());
+			onComplete();
+			return;
+		}
+
+		var tween = CreateTween();
+		tween.TweenMethod(Callable.From<float>(SetPathRevealProgress), 0f, 1f, 1.1f)
+			.SetEase(Tween.EaseType.InOut)
+			.SetTrans(Tween.TransitionType.Cubic);
+		tween.TweenCallback(Callable.From(() =>
+		{
+			SetPathRevealProgress(1f); // ensure final frame is exact
+			_pathFlow?.Initialize(_fullPathPoints);
+			onComplete();
+		}));
 	}
 
 	private void ClearSlotVisuals()
@@ -6332,7 +6471,131 @@ void fragment() {
 		string runName = BuildRunName();
 		var runColors = BuildRunNameColors();
 		_hudPanel.SetBuildName(runName, visible: true, startColor: runColors.start, endColor: runColors.end);
+		if (waveNumber == 2 && _botRunner == null && !(SettingsManager.Instance?.BuildNameTutorialSeen ?? true))
+			ShowBuildNameTutorial();
 		SaveMobileRunSnapshot("start_wave");
+	}
+
+	private void ShowBuildNameTutorial()
+	{
+		SettingsManager.Instance?.MarkBuildNameTutorialSeen();
+		GetTree().Paused = true;
+
+		var overlay = new CanvasLayer { Layer = 6, ProcessMode = ProcessModeEnum.Always };
+		GetTree().Root.AddChild(overlay);
+
+		var blocker = new ColorRect
+		{
+			Color = new Color(0f, 0f, 0f, 0.80f),
+			MouseFilter = Control.MouseFilterEnum.Stop,
+		};
+		blocker.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		overlay.AddChild(blocker);
+
+		// Raise HUD so the build name label renders above the blocker
+		_hudPanel.SetBuildLabelForcedVisible(true);
+
+		// Highlight rect around the build name label
+		Rect2 labelRect = _hudPanel.GetBuildLabelViewportRect();
+		const float pad = 6f;
+		var highlight = new Line2D
+		{
+			DefaultColor = new Color(0.20f, 0.95f, 1.00f, 0.92f),
+			Width = 2.5f,
+			Antialiased = true,
+		};
+		highlight.Points = new Vector2[]
+		{
+			new Vector2(labelRect.Position.X - pad, labelRect.Position.Y - pad),
+			new Vector2(labelRect.End.X + pad,      labelRect.Position.Y - pad),-
+			new Vector2(labelRect.End.X + pad,      labelRect.End.Y + pad),
+			new Vector2(labelRect.Position.X - pad, labelRect.End.Y + pad),
+			new Vector2(labelRect.Position.X - pad, labelRect.Position.Y - pad),
+		};
+		overlay.AddChild(highlight);
+
+		// Connector line from banner top down to label bottom
+		const float bannerTopY = 56f;
+		float labelCx = labelRect.GetCenter().X;
+		var connector = new Line2D
+		{
+			DefaultColor = new Color(0.20f, 0.95f, 1.00f, 0.80f),
+			Width = 2f,
+			Antialiased = true,
+		};
+		connector.Points = new Vector2[]
+		{
+			new Vector2(labelCx, bannerTopY),
+			new Vector2(labelCx, labelRect.End.Y + 6f),
+		};
+		overlay.AddChild(connector);
+
+		// Banner panel
+		var bannerStyle = new StyleBoxFlat
+		{
+			BgColor     = new Color(0.04f, 0.09f, 0.16f, 0.97f),
+			BorderColor = new Color(0.20f, 0.95f, 1.00f, 0.90f),
+			ShadowColor = new Color(0.20f, 0.95f, 1.00f, 0.35f),
+			ShadowSize  = 10,
+			ShadowOffset = Vector2.Zero,
+		};
+		bannerStyle.SetBorderWidthAll(2);
+		bannerStyle.SetCornerRadiusAll(10);
+		bannerStyle.ContentMarginLeft   = 16;
+		bannerStyle.ContentMarginRight  = 16;
+		bannerStyle.ContentMarginTop    = 12;
+		bannerStyle.ContentMarginBottom = 12;
+
+		var banner = new PanelContainer
+		{
+			AnchorLeft   = 0f, AnchorRight  = 0f,
+			AnchorTop    = 0f, AnchorBottom = 0f,
+			GrowHorizontal = Control.GrowDirection.End,
+			GrowVertical   = Control.GrowDirection.End,
+			OffsetLeft   = 10f, OffsetRight  = 10f,
+			OffsetTop    = bannerTopY, OffsetBottom = bannerTopY,
+		};
+		banner.AddThemeStyleboxOverride("panel", bannerStyle);
+		overlay.AddChild(banner);
+
+		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 8);
+		banner.AddChild(vbox);
+
+		var header = new Label { Text = "BUILD NAME" };
+		UITheme.ApplyFont(header, semiBold: true, size: 13);
+		header.AddThemeColorOverride("font_color", UITheme.Lime);
+		vbox.AddChild(header);
+
+		var body = new Label
+		{
+			Text = "This name updates every wave to describe your current strategy — based on which tower is dealing the most damage, the modifier types you're stacking (damage, cryo, chain, etc.), and how fast you're clearing waves.\nWatch it evolve as your build takes shape.",
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			CustomMinimumSize = new Vector2(520f, 0f),
+		};
+		UITheme.ApplyFont(body, size: 14);
+		body.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
+		vbox.AddChild(body);
+
+		var btnRow = new HBoxContainer();
+		btnRow.AddThemeConstantOverride("separation", 10);
+		var spacer = new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+		btnRow.AddChild(spacer);
+
+		var gotItBtn = new Button { Text = "Got it", ProcessMode = ProcessModeEnum.Always };
+		gotItBtn.CustomMinimumSize = new Vector2(90f, 0f);
+		gotItBtn.AddThemeFontSizeOverride("font_size", 13);
+		UITheme.ApplyPrimaryStyle(gotItBtn);
+		gotItBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		gotItBtn.Pressed += () =>
+		{
+			SoundManager.Instance?.Play("ui_select");
+			_hudPanel.SetBuildLabelForcedVisible(false);
+			overlay.QueueFree();
+			GetTree().Paused = false;
+		};
+		btnRow.AddChild(gotItBtn);
+		vbox.AddChild(btnRow);
 	}
 
 	private void ShakeWorld()

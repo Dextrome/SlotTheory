@@ -18,9 +18,9 @@ This document reflects the current implementation in code/data.
 - **Tension ramp:** Music volume and pitch gradually increase across waves 15–20 (up to +3.5 dB / +2.5% pitch at wave 20); resets each run.
 - **Colorblind mode:** Settings toggle that switches modifier accent colors to a high-contrast palette with no red/green reliance.
 - **Reduced motion toggle:** Settings toggle that skips card flip animations in draft - cards appear face-up instantly.
-- **In-game achievements:** 13 achievements tracked locally (persistent across sessions) with unlock toast notifications and a dedicated achievements screen. Steam forwarding wired for when Steam App ID is live.
-- **Procedural music system (Phases 1–5):** `MusicDirector` drives a fully procedural adaptive score. Phase 1: drift-free `MusicClock` + MIDI note pool. Phase 2: `MusicHarmony` scale/chord tables (Dorian/Mixolydian/Phrygian) + `MusicBassLayer` root+fifth patterns. Phase 3: game-state hooks — wave start/clear, lives changes, draft phase, and run end drive tension tier, BPM, mode, and layer density. Phase 4: `MusicMelodyLayer` — phrase-planned improvised lead with contour weighting (Ascending/Descending/Arch/Static), tension-scaled rest probability, and cross-phrase continuity. Phase 5: `MusicPercLayer` — 8th-note kick/snare/hat grid, 4 drum styles, tension-driven patterns, surge fills, density arc, pad fade-out.
-- **Slot Codex in-game graphics:** Tower and enemy cards in the Slot Codex now render actual in-game body shapes using `TowerIconFull` and `EnemyIcon` — the same procedural draw geometry used in live gameplay, scaled to icon size.
+- **In-game achievements:** 13 achievements tracked locally (persistent across sessions) with unlock toast notifications and a dedicated achievements screen. Steam forwarding active via Steamworks.NET.
+- **Procedural music system (Phases 1–8):** `MusicDirector` drives a fully procedural adaptive score. Phase 1: drift-free `MusicClock` + MIDI note pool. Phase 2: `MusicHarmony` scale/chord tables + `MusicBassLayer`. Phase 3: game-state hooks (tension tier, BPM, mode, layer density). Phase 4: `MusicMelodyLayer` - phrase-planned lead with contour weighting and cross-phrase continuity. Phase 5: `MusicPercLayer` - tension-driven kick/snare/hat grid, density arc, pad fade-out. Phase 6: surge percussion fill on global surge trigger. Phase 7: chord-aware melody (root pitch-class snapping) + walking bass. Phase 8: BPM tiers raised (112/128/140) + per-map BPM spread (Gauntlet +24, Sprawl −24).
+- **Slot Codex in-game graphics:** Tower and enemy cards in the Slot Codex now render actual in-game body shapes using `TowerIconFull` and `EnemyIcon` - the same procedural draw geometry used in live gameplay, scaled to icon size.
 - **All-runs leaderboard:** Global leaderboard now stores every run as a separate row (wins and losses). Previously only kept the personal best per player.
 - **Spectacle system integration:** Surge/global surge spectacle gameplay payloads are active in both live and bot simulations; tooltip and bot analytics now expose spectacle behavior.
 - **Surge differentiation:** Global surge banner shows a dynamic build archetype label (10 named archetypes driven by dominant contributing mod - REDLINE WAVE, OVERKILL STORM, CHAIN STORM, etc.). Visual feel (Detonation/Pressure/Neutral) controls flash alpha, second snap pulse, and ripple intensity. Multi-color ripples (up to 3 colors) reflect top contributing mods. Each tower fires its own identity FX in staggered sequence on global surge. `SurgeDifferentiation.cs` is the single source of truth (no Godot deps, fully unit-tested with 35 xUnit tests). HowToPlay Surges tab lists all 10 archetypes with feel indicators and modifier icons throughout.
@@ -33,6 +33,8 @@ This document reflects the current implementation in code/data.
   - Per-tower afterglow: each tower involved in the global surge sequence holds a 2.4 s accent-colored modulate fade after its FX burst.
   - Triad callout polish: combo name and augment name now spawn as separate sequential callouts; augment appears below the combo name in the augment modifier's own color.
   - Unit-tested: `SurgePreviewFeatureTests` (26 tests) covers `PeekDominantMods` state-safety, preview alpha ramp formula, and banner subtitle refund-percent formula.
+- **Surge meter gain - attack-interval scaling:** per-proc meter gain is multiplied by `clamp(attackInterval / 1.0s, 0, 1.5)`. Fast towers (< 1 s interval) earn proportionally less per proc so high fire rate doesn't dominate surge cadence; slow towers (> 1 s) earn up to a 1.5× bonus so heavy hitters remain surge-relevant.
+- **Tutorial surge page - live meter visible:** on the surge tutorial page the actual global surge meter (HudPanel) is forced visible and rendered above the draft overlay (HudPanel temporarily raised to Layer 7) so players see the real UI element being explained.
 
 Platforms: Windows Desktop, Android (phone and tablet)
 
@@ -298,11 +300,11 @@ If a clumped armored wave is incoming (with enough armored units), gameplay uses
 
 Accessible from the win end screen after completing all 20 waves.
 
-- "Continue — Endless" button appears on the win screen.
+- "Continue - Endless" button appears on the win screen.
 - Clicking it continues the run from wave 21 with no victory condition.
 - **Scaling per endless wave** (depth = waves past 20):
-  - Enemy count: ×(1.05^depth) — compounding +5% per wave
-  - Enemy HP: ×(1.02^depth) — compounding +2% per wave
+  - Enemy count: ×(1.05^depth) - compounding +5% per wave
+  - Enemy HP: ×(1.02^depth) - compounding +2% per wave
   - Every 5 endless waves (+25, +30, +35…): +1 Swift Walker added to the wave
   - Spawn interval decreases slowly (floored at 0.70 s)
 - HUD shows "Wave 21 ∞", "Wave 22 ∞", etc.
@@ -435,29 +437,44 @@ On wave start (not in bot mode):
 
 ## Procedural Music System
 
-`MusicDirector` (autoload sibling of `GameController`) drives an adaptive procedural score with no audio files — all sound is synthesized from the MIDI note pool in `SoundManager`.
+`MusicDirector` (autoload sibling of `GameController`) drives an adaptive procedural score with no audio files - all sound is synthesized from the MIDI note pool in `SoundManager`.
 
-**Phase 1 — Clock + synthesis foundation:**
+**Phase 1 - Clock + synthesis foundation:**
 - `MusicClock`: drift-free beat/bar/phrase events at a tunable BPM; supports smooth BPM ramps.
 - `SoundManager` note pool: polyphonic MIDI-pitched note playback (range MIDI 28–81).
 
-**Phase 2 — Harmony + bass:**
+**Phase 2 - Harmony + bass:**
 - `MusicHarmony`: scale/chord tables for Dorian, Mixolydian, and Phrygian modes; chord-degree progressions per tension tier.
 - `MusicBassLayer`: root + fifth chord-following bass line, density-gated per bar, driven by `MusicHarmony`.
 
-**Phase 3 — Game-state hooks:**
+**Phase 3 - Game-state hooks:**
 - `MusicDirector` subscribes to: `OnWaveStart`, `OnWaveClear`, `OnLivesChanged`, `OnDraftPhaseStart`, `OnRunEnd`.
 - Each event adjusts tension tier (Intro → Calm → Rising → Tense → Critical), BPM, mode (Dorian/Mixolydian/Phrygian), and bass/melody density.
 - Wave clear triggers a breath pause (bass silent for N bars) then restores layer.
 
-**Phase 4 — Melody layer:**
+**Phase 4 - Melody layer:**
 - `MusicMelodyLayer`: phrase-planned improvised lead.
-- Contour selection per phrase: Ascending, Descending, Arch, Static — weighted by tension tier.
+- Contour selection per phrase: Ascending, Descending, Arch, Static - weighted by tension tier.
 - Rest probability scales with tension (more rests at low tension for breathing room).
 - Cross-phrase continuity: melody starting pitch biased toward previous phrase ending.
 - 417 xUnit tests covering harmony, bass, and melody logic.
 
-**Phase 5 (done):** `MusicPercLayer` (kick/hat/snare density grid, tension-driven patterns, surge fills, density arc); ambient pad fade-out on tension shift.
+**Phase 5 - Percussion layer:**
+- `MusicPercLayer`: 8th-note kick/snare/hat grid with 4 tension-driven drum styles.
+- Density arc: hats suppressed for the first 2 bars of each new wave for a natural build-in feel.
+- Ambient pad fade-out on tension tier shift.
+
+**Phase 6 - Surge percussion fill:**
+- Global surge trigger wired from `GameController` → `MusicDirector` → `MusicPercLayer`.
+- On global surge: queues a 1-bar double-kick + snare-roll fill before resuming normal pattern.
+
+**Phase 7 - Chord-aware melody + walking bass:**
+- `MusicMelodyLayer`: phrases planned in 4-bar segments; note selection biased toward the chord root pitch class at each bar boundary (40% hard snap, 60% drift) so the melody locks to harmony without sounding mechanical.
+- `MusicBassLayer`: 30% chance on beat 3 to substitute a walking scale tone between root and fifth, giving the bass line more motion.
+
+**Phase 8 - BPM tuning + per-map spread:**
+- `MusicHarmony`: base BPM tiers raised to 112 / 128 / 140 (previously 72 / 88 / 96) for a more energetic feel.
+- `MusicDirector`: per-map BPM spread widened - Gauntlet +24, Sprawl −24, Random +10 - so map identity is reflected in pacing.
 
 ---
 
@@ -524,6 +541,8 @@ Audio polish:
 - Kill combo pitch ramps up in short windows (clamped at 1.15x).
 - Heavy Cannon shots duck music slightly for clarity.
 - Rapid Shooter projectile volume reduced by 20%.
+- **Chill Shot sound variant:** Rapid Shooter and Arc Emitter towers with the `slow` modifier play `shoot_rapid_cold` (softer, icier tone at 420 Hz) instead of `shoot_rapid`. Heavy Cannon and Marker Tower are unaffected (they use their own distinct sounds).
+- **Modifier-based pitch scaling:** each equipped modifier shifts the shoot sound pitch multiplicatively - Focus Lens 0.78× (deeper), Hair Trigger 1.22× (brighter), Chain Reaction 0.88×, Overreach 0.92×, Overkill 0.94×. Stacks are multiplicative, clamped by `SoundManager.Play()` to 0.75–1.40×.
 
 ---
 
@@ -722,13 +741,13 @@ Behavior:
 
 ## Leaderboards and High Scores
 
-**Steam Integration Status:** Core infrastructure implemented, Steamworks.NET integrated, awaiting Steam App ID for global leaderboards.
+**Steam Integration Status:** Fully live. Steamworks.NET integrated, Steam App ID active, global leaderboards operational.
 
 ### Local High Score System
 
 - **HighScoreManager**: Persistent local high scores stored in `user://highscores.json`
 - **Personal Best Tracking**: Wave reached + lives remaining for each map/difficulty combination
-- **Map Select Integration**: Personal best display planned for map selection screen
+- **Map Select Integration**: Personal best displayed on the map selection screen
 
 ### Global Leaderboard Infrastructure
 

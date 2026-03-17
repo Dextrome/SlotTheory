@@ -167,7 +167,7 @@ Normal targets ~75% bot win rate; Hard targets ~50%. Multipliers are tunable at 
 
 ## Endless Mode
 
-After clearing all 20 waves, a **Continue — Endless** button appears on the win screen. Pressing it continues the run from wave 21 with no upper limit.
+After clearing all 20 waves, a **Continue - Endless** button appears on the win screen. Pressing it continues the run from wave 21 with no upper limit.
 
 Scaling per wave past wave 20 (depth = waves past 20):
 
@@ -180,7 +180,7 @@ Scaling per wave past wave 20 (depth = waves past 20):
 - Spawn interval shrinks slowly, floored at 0.70 s.
 - HUD shows "Wave 21 ∞", "Wave 22 ∞", etc.
 - Losing ends the run normally. The endless wave reached is shown on the loss screen.
-- The wave-20 win is not submitted to the global leaderboard if you continue — only the endless result is submitted.
+- The wave-20 win is not submitted to the global leaderboard if you continue - only the endless result is submitted.
 
 ---
 

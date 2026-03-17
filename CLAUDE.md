@@ -415,5 +415,5 @@ If an idea requires a new system â†’ defer to "Project 2."
 - **20 waves**, 6 tower slots, max 3 modifiers per tower
 - **Extra draft picks**: `Balance.Wave1ExtraPicks` and `Balance.Wave15ExtraPicks` are both currently 0 (temporarily disabled)
 - **Difficulty modes**: Easy (no scaling), Normal (tuned ~75% bot win), Hard (tuned ~50% bot win). Exact multipliers are in `Balance.DifficultyMultipliers` and overridable at runtime via `SpectacleTuning.Current`
-- **Endless mode**: After wave 20 win, “Continue — Endless” button on win screen continues the run from wave 21. Each endless wave: +5% enemy count (compounding), +2% enemy HP (compounding), every 5 waves +1 Swift Walker. Global win score is only submitted if the player does NOT continue to endless (endless loss replaces it).
+- **Endless mode**: After wave 20 win, “Continue - Endless” button on win screen continues the run from wave 21. Each endless wave: +5% enemy count (compounding), +2% enemy HP (compounding), every 5 waves +1 Swift Walker. Global win score is only submitted if the player does NOT continue to endless (endless loss replaces it).
 

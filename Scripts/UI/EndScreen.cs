@@ -592,7 +592,7 @@ public partial class EndScreen : CanvasLayer
 		}
 	}
 
-	// Fires WinExited on every exit path except "Continue — Endless".
+	// Fires WinExited on every exit path except "Continue - Endless".
 	private void OnScreenExit()
 	{
 		if (!_continuingEndless) WinExited?.Invoke();

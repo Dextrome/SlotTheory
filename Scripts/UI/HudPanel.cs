@@ -26,6 +26,7 @@ public partial class HudPanel : CanvasLayer
     private Label _surgeMeterHint = null!;
     private bool _surgeMeterHintShown = false;
     private bool _surgeMeterForcedVisible = false;
+    private bool _buildLabelForcedVisible = false;
     private const int SurgePipCount = 20;
     private static readonly Color PipFilled = new(1.00f, 0.90f, 0.44f, 0.95f);
     private static readonly Color PipEmpty  = new(0.07f, 0.16f, 0.25f, 0.95f);
@@ -505,9 +506,35 @@ public partial class HudPanel : CanvasLayer
     public void SetSurgeMeterForcedVisible(bool forced)
     {
         _surgeMeterForcedVisible = forced;
-        Layer = forced ? 7 : 1;
+        Layer = (_surgeMeterForcedVisible || _buildLabelForcedVisible) ? 7 : 1;
         if (!forced && GodotObject.IsInstanceValid(_globalSpectaclePanel))
             _globalSpectaclePanel.Visible = false; // let the next RefreshGlobalSurgeMeter decide
+    }
+
+    /// <summary>
+    /// Returns the viewport-space rect of the build name label.
+    /// Uses the actual laid-out rect when available, falls back to layout constants.
+    /// </summary>
+    public Rect2 GetBuildLabelViewportRect()
+    {
+        if (GodotObject.IsInstanceValid(_buildLabel) && _buildLabel.Visible)
+        {
+            var rect = _buildLabel.GetGlobalRect();
+            if (rect.Size.X > 20f)
+                return rect;
+        }
+        // Fallback: leftPad=18px, bar height=44px, estimated content width
+        return new Rect2(18f, 2f, 220f, 40f);
+    }
+
+    /// <summary>
+    /// Raises HudPanel above DraftPanel (Layer=7) so the build name label renders
+    /// above the tutorial blocker overlay, without forcing the surge meter visible.
+    /// </summary>
+    public void SetBuildLabelForcedVisible(bool forced)
+    {
+        _buildLabelForcedVisible = forced;
+        Layer = (_surgeMeterForcedVisible || _buildLabelForcedVisible) ? 7 : 1;
     }
 
     public void RefreshDevRenderStats(bool enabled, int enemiesAlive, string perfSummary)

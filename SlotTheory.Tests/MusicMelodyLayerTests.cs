@@ -78,17 +78,17 @@ public class MusicMelodyLayerTests
     [Fact]
     public void Phrygian_has_bII_Bb_not_B_in_lead_range()
     {
-        // Phrygian has Bb (offset 1) — midi 70 (Bb4) should appear, midi 71 (B4) should not
+        // Phrygian has Bb (offset 1) - midi 70 (Bb4) should appear, midi 71 (B4) should not
         int rootMidi = 45;  // A2; A4 = 69, Bb4 = 70, B4 = 71
         var notes    = MusicMelodyLayer.GetMelodyScaleNotes(rootMidi, MusicMode.Phrygian);
-        Assert.Contains(70, notes);     // Bb4 — in Phrygian (offset 1)
-        Assert.DoesNotContain(71, notes); // B4 — NOT in Phrygian
+        Assert.Contains(70, notes);     // Bb4 - in Phrygian (offset 1)
+        Assert.DoesNotContain(71, notes); // B4 - NOT in Phrygian
     }
 
     [Fact]
     public void Mixolydian_has_C_sharp_not_C_natural_in_lead_range()
     {
-        // Mixolydian has C# (offset 4) — midi 61 (Db4/C#4) should appear, not midi 60 (C4)
+        // Mixolydian has C# (offset 4) - midi 61 (Db4/C#4) should appear, not midi 60 (C4)
         int rootMidi = 45;  // A2; C4 = 60, C#4 = 61
         var notes    = MusicMelodyLayer.GetMelodyScaleNotes(rootMidi, MusicMode.Mixolydian);
         Assert.Contains(61, notes);
@@ -98,7 +98,7 @@ public class MusicMelodyLayerTests
     [Fact]
     public void Dorian_has_C_natural_not_C_sharp_in_lead_range()
     {
-        // Dorian has C (offset 3) — midi 60 (C4) should appear, midi 61 (C#4) should not
+        // Dorian has C (offset 3) - midi 60 (C4) should appear, midi 61 (C#4) should not
         int rootMidi = 45;
         var notes    = MusicMelodyLayer.GetMelodyScaleNotes(rootMidi, MusicMode.Dorian);
         Assert.Contains(60, notes);

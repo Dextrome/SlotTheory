@@ -12,7 +12,7 @@ namespace SlotTheory.Core;
 ///   Responds to wave start/clear, lives changes, run end, and draft phase
 ///   by adjusting tension tier, BPM, mode, and layer density.
 ///
-/// Phase 4 (done): MusicMelodyLayer — phrase-planned improvised lead.
+/// Phase 4 (done): MusicMelodyLayer - phrase-planned improvised lead.
 /// Phase 5 (done): MusicPercLayer + pad fade-out.
 /// Phase 6 (done): Per-map music profiles, drum fills, hat variation.
 /// </summary>
@@ -56,13 +56,13 @@ public partial class MusicDirector : Node
 
     private static MapMusicProfile GetProfileForMap(string? mapId) => mapId switch
     {
-        // arena_classic — balanced reference: A Dorian, standard groove
+        // arena_classic - balanced reference: A Dorian, standard groove
         "arena_classic" => new MapMusicProfile(0, MusicMode.Dorian,      0f,  0.20f, MusicPercLayer.DrumStyle.Standard),
-        // gauntlet — aggressive drive: D Mixolydian, +24 BPM, 4-on-the-floor kick, no hat variation
+        // gauntlet - aggressive drive: D Mixolydian, +24 BPM, 4-on-the-floor kick, no hat variation
         "gauntlet"      => new MapMusicProfile(5, MusicMode.Mixolydian, +24f, 0.00f, MusicPercLayer.DrumStyle.FourOnFloor),
-        // sprawl — spacious and chill: B Dorian, -24 BPM, half-time snare, frequent quarter-hat bars
+        // sprawl - spacious and chill: B Dorian, -24 BPM, half-time snare, frequent quarter-hat bars
         "sprawl"        => new MapMusicProfile(2, MusicMode.Dorian,    -24f,  0.50f, MusicPercLayer.DrumStyle.HalfTime),
-        // random_map — unpredictable edge: C Phrygian, +10 BPM, off-beat kick, high hat variation
+        // random_map - unpredictable edge: C Phrygian, +10 BPM, off-beat kick, high hat variation
         "random_map"    => new MapMusicProfile(3, MusicMode.Phrygian,  +10f,  0.40f, MusicPercLayer.DrumStyle.Syncopated),
         _               => new MapMusicProfile(0, MusicMode.Dorian,      0f,  0.20f, MusicPercLayer.DrumStyle.Standard),
     };
@@ -114,7 +114,7 @@ public partial class MusicDirector : Node
         float startBpm = MusicHarmony.TensionToBpm(_tension) + _profile.BpmOffset;
         Clock.Start(startBpm);
 
-        // Start fading the ambient pad immediately — procedural layers take over from wave 1.
+        // Start fading the ambient pad immediately - procedural layers take over from wave 1.
         SoundManager.Instance?.FadePad(5f);
     }
 
@@ -168,7 +168,7 @@ public partial class MusicDirector : Node
         BassLayer.Density      = 0;
         PercLayer.Density      = 0;
         // 2 bars: MusicDirector.OnBar fires first (restores density), then
-        // MusicBassLayer.OnBar fires — extra bar ensures bar N is truly silent.
+        // MusicBassLayer.OnBar fires - extra bar ensures bar N is truly silent.
         _breathBarsLeft        = 2;
     }
 
@@ -187,7 +187,7 @@ public partial class MusicDirector : Node
         }
         else if (lives > 3 && _tension == MusicTension.NearDeath)
         {
-            // Recovering from near-death — restore density (next OnWaveStart re-evaluates fully).
+            // Recovering from near-death - restore density (next OnWaveStart re-evaluates fully).
             BassLayer.Density = 1;
             PercLayer.Density = 1;
         }

@@ -517,7 +517,7 @@ public partial class MapSelectPanel : Node
 	{
 		if (_previewControl == null) return;
 
-		// Unstable Anomaly has no fixed path — show the mystery "?" panel
+		// Unstable Anomaly has no fixed path - show the mystery "?" panel
 		if (_selectedMapId == "random_map")
 		{
 			_previewControl.SetMystery();

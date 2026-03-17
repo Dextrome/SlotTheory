@@ -181,7 +181,7 @@ BPM ramp: `SetBpm(float newBpm, float rampBars)` interpolates linearly over `ram
 - `MusicMelodyLayer.cs`: phrase planning, contour selection (Ascending/Descending/Arch/Static),
   weighted scale-degree walking via `GetMelodyScaleNotes()` + `AdvanceIndex()`; `Active` property
   for draft-phase silencing; `QueueModeChange()` for phrase-boundary transitions
-- `SoundManager.PlayNote(int midiNote, float volDb = -8f)` — optional per-call volume;
+- `SoundManager.PlayNote(int midiNote, float volDb = -8f)` - optional per-call volume;
   melody passes -11 dB to sit 3 dB below the bass
 - `MusicDirector`: wires melody layer in `_Ready()`, `ApplyTension()` (Tension + Active + QueueModeChange),
   `OnDraftPhaseStart()` (Active = false)

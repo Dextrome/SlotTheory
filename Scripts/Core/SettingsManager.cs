@@ -40,7 +40,8 @@ public partial class SettingsManager : Node
     public string PlayerId      { get; private set; } = "";
     public int    RunsStarted   { get; private set; } = 0;
     public bool   IsFirstRun    => RunsStarted <= 1;
-    public bool   SurgeTutorialSeen { get; private set; } = false;
+    public bool   SurgeTutorialSeen     { get; private set; } = false;
+    public bool   BuildNameTutorialSeen { get; private set; } = false;
     public bool   DemoCompleteNotified { get; private set; } = false;
 
     // ── Device-specific display settings (NOT cloud-synced) ──────────────
@@ -145,12 +146,20 @@ public partial class SettingsManager : Node
         SaveAccount();
     }
 
+    public void MarkBuildNameTutorialSeen()
+    {
+        if (BuildNameTutorialSeen) return;
+        BuildNameTutorialSeen = true;
+        SaveAccount();
+    }
+
     public void SetDemoCompleteNotified() => DemoCompleteNotified = true;
 
     public void ResetTutorial()
     {
         RunsStarted = 0;
         SurgeTutorialSeen = false;
+        BuildNameTutorialSeen = false;
         SaveAccount();
     }
 
@@ -297,7 +306,8 @@ public partial class SettingsManager : Node
             PlayerName   = (string)cfg.GetValue(SecIdentity, "player_name",    "");
             PlayerId     = (string)cfg.GetValue(SecIdentity, "player_id",      "");
             RunsStarted  = (int)   cfg.GetValue(SecIdentity, "runs_started",   0);
-            SurgeTutorialSeen = (bool)cfg.GetValue(SecIdentity, "surge_tutorial_seen", false);
+            SurgeTutorialSeen     = (bool)cfg.GetValue(SecIdentity, "surge_tutorial_seen",      false);
+            BuildNameTutorialSeen = (bool)cfg.GetValue(SecIdentity, "build_name_tutorial_seen", false);
             DevMode = ReadHiddenDevModeForProfile(cfg, PlayerId, out bool migratedFromLegacy);
             if (migratedFromLegacy)
                 SaveAccount();
@@ -345,7 +355,8 @@ public partial class SettingsManager : Node
         cfg.SetValue(SecIdentity, "player_name",  PlayerName);
         cfg.SetValue(SecIdentity, "player_id",    PlayerId);
         cfg.SetValue(SecIdentity, "runs_started", RunsStarted);
-        cfg.SetValue(SecIdentity, "surge_tutorial_seen", SurgeTutorialSeen);
+        cfg.SetValue(SecIdentity, "surge_tutorial_seen",      SurgeTutorialSeen);
+        cfg.SetValue(SecIdentity, "build_name_tutorial_seen", BuildNameTutorialSeen);
         if (cfg.Save(SavePath) == Error.Ok)
             SteamCloudSync.Push(ProjectSettings.GlobalizePath(SavePath), "settings.cfg");
     }

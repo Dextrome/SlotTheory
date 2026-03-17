@@ -349,7 +349,7 @@ public partial class DraftPanel : CanvasLayer
         bannerBtnRow.AddChild(_bannerNext);
 
         bannerVbox.AddChild(bannerBtnRow);
-        // ── Tutorial blocker — sits above cards, below banner ────────────────
+        // ── Tutorial blocker - sits above cards, below banner ────────────────
         // Blocks card interaction and dims the game while any banner page is open.
         _tutorialBlocker = new ColorRect
         {
@@ -361,7 +361,7 @@ public partial class DraftPanel : CanvasLayer
         AddChild(_tutorialBlocker);
 
         // ── Surge meter highlight + connector (page 2 tutorial) ─────────────
-        // Line2D rect — immune to Godot's layout system; Points set directly in SetBannerPage(1).
+        // Line2D rect - immune to Godot's layout system; Points set directly in SetBannerPage(1).
         _surgeHighlight = new Line2D
         {
             DefaultColor = new Color(0.20f, 0.95f, 1.00f, 0.92f),
@@ -391,7 +391,7 @@ public partial class DraftPanel : CanvasLayer
         // ── Position + style the banner ───────────────────────────────────────
         if (isSurgePage)
         {
-            // Anchor to bottom, grow upward — sits above the global surge meter
+            // Anchor to bottom, grow upward - sits above the global surge meter
             _firstRunBanner.AnchorTop    = 1f;
             _firstRunBanner.AnchorBottom = 1f;
             _firstRunBanner.GrowVertical = Control.GrowDirection.Begin;
@@ -402,7 +402,7 @@ public partial class DraftPanel : CanvasLayer
         }
         else
         {
-            // Center position for page 1
+            // Center position for page 0
             _firstRunBanner.AnchorTop    = 0.5f;
             _firstRunBanner.AnchorBottom = 0.5f;
             _firstRunBanner.GrowVertical = Control.GrowDirection.Both;
@@ -417,7 +417,7 @@ public partial class DraftPanel : CanvasLayer
 
         // Force the surge meter visible on the surge page (it may have threshold=0 at wave 3).
         // The meter lives in its own CanvasLayer (Layer=8) above DraftPanel (Layer=6), so
-        // no overlay hole-punching is needed — it simply renders on top.
+        // no overlay hole-punching is needed - it simply renders on top.
         GetNode<HudPanel>("../HudPanel").SetSurgeMeterForcedVisible(isSurgePage);
 
         // ── Surge highlight + connector line ──────────────────────────────────

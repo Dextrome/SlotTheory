@@ -898,11 +898,11 @@ public class CombatSim
         {
             pitch *= mod.ModifierId switch
             {
-                "focus_lens"     => 0.78f,  // slow/heavy hits — deeper, weightier
-                "hair_trigger"   => 1.22f,  // overclock — crisper, brighter
-                "chain_reaction" => 0.88f,  // loaded payload — heavier onset
-                "overreach"      => 0.92f,  // wide range — more body
-                "overkill"       => 0.94f,  // spill burst — slightly heavier
+                "focus_lens"     => 0.78f,  // slow/heavy hits - deeper, weightier
+                "hair_trigger"   => 1.22f,  // overclock - crisper, brighter
+                "chain_reaction" => 0.88f,  // loaded payload - heavier onset
+                "overreach"      => 0.92f,  // wide range - more body
+                "overkill"       => 0.94f,  // spill burst - slightly heavier
                 _                => 1.00f,
             };
         }

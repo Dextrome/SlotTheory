@@ -4,7 +4,7 @@ using Xunit;
 namespace SlotTheory.Tests;
 
 /// <summary>
-/// Unit tests for MusicHarmony — the pure-C# scale/chord/tension logic
+/// Unit tests for MusicHarmony - the pure-C# scale/chord/tension logic
 /// that drives the procedural music system.
 ///
 /// MusicClock and MusicBassLayer require the Godot runtime and are covered
@@ -23,7 +23,7 @@ public class MusicHarmonyTests
     [Fact]
     public void Dorian_intervals_are_correct()
     {
-        // A Dorian: A B C D E F# G — semitone offsets from root
+        // A Dorian: A B C D E F# G - semitone offsets from root
         int[] expected = { 0, 2, 3, 5, 7, 9, 10 };
         Assert.Equal(expected, MusicHarmony.GetScaleOffsets(MusicMode.Dorian));
     }
@@ -56,12 +56,12 @@ public class MusicHarmonyTests
     // ── BassNormalize ─────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(0,   0)]   // root — unchanged
-    [InlineData(5,   5)]   // D above A — close enough, stays
+    [InlineData(0,   0)]   // root - unchanged
+    [InlineData(5,   5)]   // D above A - close enough, stays
     [InlineData(6,   6)]   // boundary: 6 is NOT > 6, stays
-    [InlineData(7,  -5)]   // E (fifth) — folded down an octave
-    [InlineData(10, -2)]   // G subtonic — folded down
-    [InlineData(12,  0)]   // octave above root — folds back to root offset
+    [InlineData(7,  -5)]   // E (fifth) - folded down an octave
+    [InlineData(10, -2)]   // G subtonic - folded down
+    [InlineData(12,  0)]   // octave above root - folds back to root offset
     [InlineData(-1, -1)]   // negative values pass through unchanged
     [InlineData(-5, -5)]   // already-low values unchanged
     public void BassNormalize_maps_correctly(int input, int expected)

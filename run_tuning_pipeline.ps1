@@ -24,20 +24,27 @@
 #   powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -SkipBuild -SkipTrace
 #
 # TODO(perf-step-3): Add multi-fidelity candidate evaluation (coarse runs for all candidates, full runs for shortlisted candidates).
-# TODO(perf-step-4): Add a dedicated eval shard parallelism parameter (separate from CandidateParallelism).
+# DONE(perf-step-4): -EvalShardParallelism decouples per-eval shard count from candidate-level parallelism.
 # TODO(perf-step-5): Add deterministic metrics cache keyed by tuning hash + runs + strategy_set + run_index_offset.
 # TODO(perf-step-6): Add explicit "search mode" defaults/presets plus a final confirmation pass mode.
+# DONE: Eval + reeval are now merged into a combined payload before scoring (eliminates score-averaging variance).
+# DONE: -FreezeSpectacleParams / -DifficultyOnlyMode suppress spectacle mutations when those params carry no signal.
 
 [CmdletBinding()]
 param(
-    [int]$Runs = 120,
+    [int]$Runs = 200,
     [Alias("TuningIterations")][int]$Iterations = 4,
     [int]$CandidatesPerIteration = 3,
     [int]$CandidateParallelism = 1,
+    # Number of parallel shards per candidate eval (splits N runs across K Godot processes).
+    # 0 = inherit from CandidateParallelism (legacy behaviour). Set independently to decouple
+    # candidate-level concurrency from per-eval shard concurrency, e.g.:
+    #   -CandidateParallelism 2 -EvalShardParallelism 4  => 2 candidates × 4 shards = 8 processes
+    [int]$EvalShardParallelism = 0,
     [int]$SweepRunsPerVariant = 12,
     [int]$Seed = 1337,
     [double]$MutationStrength = 1.0,
-    [double]$TargetExplosionShare = 0.05,
+    [double]$TargetExplosionShare = 0.10,
     [double]$TargetExplosionShareTolerance = 0.12,
     [double]$TargetWinRateEasy = 0.95,
     [double]$TargetWinRateNormal = 0.75,
@@ -51,9 +58,6 @@ param(
     [double]$NormalRegressionPenaltyWeight = 260.0,
     [double]$HardRegressionPenaltyWeight = 320.0,
     [double]$TargetMaxTowerSurgeRatio = 2.0,
-    [double]$TargetMaxSurgesPerRun = 50.0,
-    [double]$TargetMaxSurgesPerRunTolerance = 2.0,
-    [double]$SurgesPerRunPenaltyWeight = 6.0,
     [double]$MinSweepScoreRatioVsBaseline = 1.0,
     [int]$MinTowerPlacementsForParity = 6,
     [double]$MaxChainDepth = 4.0,
@@ -68,7 +72,15 @@ param(
     [string]$ScenarioFile = "Data/combat_lab/core_scenarios.json",
     [string]$OutputRoot = "release/tuning_pipeline",
     [switch]$SkipBuild,
-    [switch]$SkipTrace
+    [switch]$SkipTrace,
+    # Freeze spectacle params (overkill bloom, residue, detonation) during mutation so the search
+    # only moves difficulty levers. Useful when the strategy set doesn't trigger spectacle systems
+    # and those params produce no signal (just noise). DifficultyOnlyMode implies this.
+    [switch]$FreezeSpectacleParams,
+    # Restrict mutation to the 10 difficulty params only (enemy hp/count/spawn + tanky/swift count).
+    # Use this when the sole goal is hitting Normal/Hard win-rate targets; quality params can be
+    # tuned in a separate pass once the difficulty curve is stable.
+    [switch]$DifficultyOnlyMode
 )
 
 $ErrorActionPreference = "Stop"
@@ -370,6 +382,7 @@ function Normalize-TuningProfile {
     }
 
     # Guardrail: keep core spectacle systems enabled.
+    $p.enable_overkill_bloom = $true
     $p.enable_status_detonation = $true
     $p.enable_residue = $true
 
@@ -454,9 +467,6 @@ function Get-MetricsScore {
         [double]$TargetHardWinRate,
         [double]$WinRateTolerance,
         [double]$TargetMaxTowerSurgeRatio,
-        [double]$TargetMaxSurgesPerRun,
-        [double]$TargetMaxSurgesPerRunTolerance,
-        [double]$SurgesPerRunPenaltyWeight,
         [double]$MinNormalWinRate = -1.0,
         [double]$MinHardWinRate = -1.0,
         [double]$NormalRegressionPenaltyWeight = 0.0,
@@ -559,17 +569,6 @@ function Get-MetricsScore {
     $score += $avgWave * 1.0
     $score += $killsPerSurge * 6.0
 
-    $surgeTarget = [Math]::Max(0.0, $TargetMaxSurgesPerRun)
-    $surgeTolerance = [Math]::Max(0.0, $TargetMaxSurgesPerRunTolerance)
-    $surgePenaltyWeight = [Math]::Max(0.0, $SurgesPerRunPenaltyWeight)
-    $surgePenaltyStart = $surgeTarget + $surgeTolerance
-    if ($surgesPerRun -gt $surgePenaltyStart) {
-        $score -= ($surgesPerRun - $surgePenaltyStart) * $surgePenaltyWeight
-    } elseif ($surgeTarget -gt 0.0001 -and $surgesPerRun -le $surgeTarget) {
-        # Reward staying close to the surge budget without incentivizing surge spam.
-        $surgeFit = [Math]::Max(0.0, 1.0 - (($surgeTarget - $surgesPerRun) / $surgeTarget))
-        $score += $surgeFit * 6.0
-    }
 
     $shareError = [Math]::Abs($explosionShare - $TargetShare)
     if ($TargetShareTolerance -gt 0.0001) {
@@ -624,11 +623,120 @@ function Get-MetricsScore {
     }
 }
 
+# Merge two surges_by_tower arrays by summing placements/surges per tower_id, then recompute
+# surges_per_placed_tower. Used when combining eval + reeval payloads for scoring.
+function Merge-SurgesByTower {
+    param(
+        [object[]]$Rows1,
+        [object[]]$Rows2
+    )
+
+    $map = @{}
+    foreach ($row in @($Rows1) + @($Rows2)) {
+        if ($null -eq $row) { continue }
+        $id = [string]$row.tower_id
+        if (-not $map.ContainsKey($id)) {
+            $map[$id] = [PSCustomObject]@{ tower_id = $id; placements = 0.0; surges = 0.0 }
+        }
+        $map[$id].placements += [double](Get-NumberValue -Obj $row -Property "placements")
+        $map[$id].surges     += [double](Get-NumberValue -Obj $row -Property "surges")
+    }
+
+    $result = @()
+    foreach ($key in $map.Keys) {
+        $e = $map[$key]
+        $rate = if ($e.placements -gt 0.000001) { $e.surges / $e.placements } else { 0.0 }
+        $result += [PSCustomObject]@{
+            tower_id                 = $e.tower_id
+            placements               = [int]$e.placements
+            surges                   = [int]$e.surges
+            surges_per_placed_tower  = [Math]::Round($rate, 6)
+        }
+    }
+    return $result
+}
+
+# Combine two metrics payloads (eval + reeval) into a single merged payload so the scorer
+# sees all runs at once rather than averaging two independent scores. This eliminates the
+# artificial score variance caused by treating two 200-run samples as independent rankings.
+function Merge-MetricsPayloads {
+    param(
+        [Parameter(Mandatory = $true)][object]$Payload1,
+        [Parameter(Mandatory = $true)][object]$Payload2
+    )
+
+    $n1 = [double](Get-NumberValue -Obj $Payload1 -Property "run_count")
+    $n2 = [double](Get-NumberValue -Obj $Payload2 -Property "run_count")
+    if ($n1 -lt 0.5) { $n1 = if ($null -ne $Payload1.runs) { @($Payload1.runs).Count } else { 0.0 } }
+    if ($n2 -lt 0.5) { $n2 = if ($null -ne $Payload2.runs) { @($Payload2.runs).Count } else { 0.0 } }
+    $nTotal = $n1 + $n2
+    if ($nTotal -lt 0.5) { return $Payload1 }
+    $w1 = $n1 / $nTotal
+    $w2 = $n2 / $nTotal
+
+    $mergedRuns = @()
+    if ($null -ne $Payload1.runs) { $mergedRuns += @($Payload1.runs) }
+    if ($null -ne $Payload2.runs) { $mergedRuns += @($Payload2.runs) }
+
+    $s1 = $Payload1.summary
+    $s2 = $Payload2.summary
+
+    function WAvg { param($a, $b) return $a * $w1 + $b * $w2 }
+    function WAvgField { param($obj1, $obj2, [string]$name)
+        return (Get-NumberValue -Obj $obj1 -Property $name) * $w1 + (Get-NumberValue -Obj $obj2 -Property $name) * $w2
+    }
+
+    $wins = @($mergedRuns | Where-Object { $_.won -eq $true }).Count
+    $mergedWinRate = if ($mergedRuns.Count -gt 0) { [double]$wins / [double]$mergedRuns.Count } else { 0.0 }
+
+    $d1 = $s1.dps_split
+    $d2 = $s2.dps_split
+    $mergedDps = [PSCustomObject]@{
+        base_attacks       = WAvgField $d1 $d2 "base_attacks"
+        surge_core         = WAvgField $d1 $d2 "surge_core"
+        explosion_follow_ups = WAvgField $d1 $d2 "explosion_follow_ups"
+        residue            = WAvgField $d1 $d2 "residue"
+    }
+
+    $fs1 = $s1.frame_stress_peaks
+    $fs2 = $s2.frame_stress_peaks
+    $mergedFrameStress = [PSCustomObject]@{
+        simultaneous_explosions        = [Math]::Max([int](Get-NumberValue -Obj $fs1 -Property "simultaneous_explosions"), [int](Get-NumberValue -Obj $fs2 -Property "simultaneous_explosions"))
+        simultaneous_active_hazards    = [Math]::Max([int](Get-NumberValue -Obj $fs1 -Property "simultaneous_active_hazards"), [int](Get-NumberValue -Obj $fs2 -Property "simultaneous_active_hazards"))
+        simultaneous_hitstops_requested = [Math]::Max([int](Get-NumberValue -Obj $fs1 -Property "simultaneous_hitstops_requested"), [int](Get-NumberValue -Obj $fs2 -Property "simultaneous_hitstops_requested"))
+    }
+
+    $rows1 = if ($null -ne $s1 -and $s1.PSObject.Properties["surges_by_tower"]) { @($s1.surges_by_tower) } else { @() }
+    $rows2 = if ($null -ne $s2 -and $s2.PSObject.Properties["surges_by_tower"]) { @($s2.surges_by_tower) } else { @() }
+    $mergedSurgesByTower = Merge-SurgesByTower -Rows1 $rows1 -Rows2 $rows2
+
+    $mergedSummary = [PSCustomObject]@{
+        win_rate                  = [Math]::Round($mergedWinRate, 6)
+        avg_wave_reached          = WAvgField $s1 $s2 "avg_wave_reached"
+        avg_run_duration_seconds  = WAvgField $s1 $s2 "avg_run_duration_seconds"
+        avg_surges_per_run        = WAvgField $s1 $s2 "avg_surges_per_run"
+        avg_kills_per_surge       = WAvgField $s1 $s2 "avg_kills_per_surge"
+        avg_max_chain_depth       = WAvgField $s1 $s2 "avg_max_chain_depth"
+        dps_split                 = $mergedDps
+        frame_stress_peaks        = $mergedFrameStress
+        surges_by_tower           = $mergedSurgesByTower
+    }
+
+    return [PSCustomObject]@{
+        run_count = [int]$nTotal
+        summary   = $mergedSummary
+        runs      = $mergedRuns
+    }
+}
+
 function New-MutatedTuningProfile {
     param(
         [Parameter(Mandatory = $true)][object]$BaseProfile,
         [Parameter(Mandatory = $true)][double]$Anneal,
-        [Parameter(Mandatory = $true)][double]$Strength
+        [Parameter(Mandatory = $true)][double]$Strength,
+        # When set, skip all spectacle param mutations (overkill bloom, residue, detonation).
+        # Use when the strategy set produces no explosion/residue signal so those params are noise.
+        [switch]$FreezeSpectacleParams
     )
 
     $candidate = Clone-TuningProfile -Profile $BaseProfile
@@ -669,17 +777,8 @@ function New-MutatedTuningProfile {
 
     $scale = [Math]::Max(0.05, $Anneal * $Strength)
 
-    # Only mutate difficulty multipliers (enemy HP, count, spawn interval for Normal and Hard).
-    #
-    # Why: bot win rate is the primary scoring signal, and only these 6 parameters have direct
-    # leverage on it. All spectacle/surge/meter/per-mod parameters control visual feel and surge
-    # cadence — not raw survivability — and bot runs show explosion_share ≈ 0%, meaning spectacle
-    # damage contributes essentially nothing to win rate. Mutating ~40 irrelevant parameters
-    # alongside the 6 that matter dilutes each mutation's chance of improving the objective and
-    # makes the score variance (already large at 240 runs) look like signal. Once difficulty is
-    # converged, a separate spectacle-focused pass can tune feel parameters against their own
-    # objectives (explosion share, surge cadence, tower parity) without win-rate noise drowning
-    # them out.
+    # Difficulty multipliers: primary win-rate levers. Mutated at high chance since bot win rate
+    # is the dominant scoring signal and only these parameters have direct leverage on it.
     $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
     $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
     $changed += Apply-Mutation -Obj $candidate -Name "normal_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.99 -Chance 0.80
@@ -687,11 +786,25 @@ function New-MutatedTuningProfile {
     $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
     $changed += Apply-Mutation -Obj $candidate -Name "hard_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.98 -Chance 0.80
     # Enemy composition: armored and swift counts are tuned independently from basic walker volume.
-    # Chance 0.50 — these are secondary levers; mutate less aggressively than the core 6.
+    # Chance 0.50 - these are secondary levers; mutate less aggressively than the core 6.
     $changed += Apply-Mutation -Obj $candidate -Name "normal_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
     $changed += Apply-Mutation -Obj $candidate -Name "normal_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
     $changed += Apply-Mutation -Obj $candidate -Name "hard_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
     $changed += Apply-Mutation -Obj $candidate -Name "hard_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+
+    # Explosion share params: overkill bloom trigger, damage, spread, and residue DPS.
+    # Skipped when FreezeSpectacleParams is set — if the strategy set doesn't trigger these
+    # systems they produce zero signal and only add noise to score comparisons.
+    if (-not $FreezeSpectacleParams) {
+        $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_threshold_multiplier" -Step (0.18 * $scale) -Min 0.1 -Max 4.0 -Chance 0.55
+        $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_damage_scale_multiplier" -Step (0.18 * $scale) -Min 0.0 -Max 4.0 -Chance 0.55
+        $changed += Apply-Mutation -Obj $candidate -Name "explosion_followup_damage_multiplier" -Step (0.18 * $scale) -Min 0.0 -Max 6.0 -Chance 0.55
+        $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_radius_multiplier" -Step (0.12 * $scale) -Min 0.1 -Max 4.0 -Chance 0.40
+        $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_max_targets_multiplier" -Step (0.12 * $scale) -Min 0.1 -Max 3.0 -Chance 0.40
+        $changed += Apply-Mutation -Obj $candidate -Name "residue_damage_multiplier" -Step (0.18 * $scale) -Min 0.0 -Max 6.0 -Chance 0.45
+        $changed += Apply-Mutation -Obj $candidate -Name "residue_potency_multiplier" -Step (0.12 * $scale) -Min 0.1 -Max 4.0 -Chance 0.40
+        $changed += Apply-Mutation -Obj $candidate -Name "residue_duration_multiplier" -Step (0.12 * $scale) -Min 0.1 -Max 4.0 -Chance 0.40
+    }
 
     if ($changed -eq 0) {
         $forceDelta = (($script:Rng.NextDouble() * 2.0) - 1.0) * (0.10 * $scale)
@@ -1050,7 +1163,7 @@ function Merge-BotMetricsShards {
     }
 
     # Strip heavy per-run arrays that are only used for wave-difficulty display inside
-    # each shard's own output — they are not needed for scoring (which only reads
+    # each shard's own output - they are not needed for scoring (which only reads
     # `difficulty` and `won` from each run record).  Keeping them bloats the merged
     # file to 10+ MB and causes ConvertTo-Json to hang for minutes in PowerShell.
     $allRuns = [System.Collections.Generic.List[object]]::new()
@@ -1421,6 +1534,82 @@ function Invoke-BotMetricsRunSharded {
     Merge-BotMetricsShards -ShardMetricsPaths $shardPaths -OutputPath $MetricsOut
 }
 
+# Like Invoke-BotMetricsRunBatch but also shards each individual candidate eval when
+# EvalShardCount > 1. All shards across all candidates are submitted as a single flat
+# batch so the scheduler can fill available cores optimally. Shards are merged per-candidate
+# after the batch completes. Falls back to plain RunBatch when EvalShardCount <= 1.
+function Invoke-BotMetricsRunBatchSharded {
+    param(
+        [Parameter(Mandatory = $true)][string]$GodotExe,
+        [Parameter(Mandatory = $true)][string[]]$CommonPrefix,
+        [Parameter(Mandatory = $true)][int]$RunsPerEval,
+        [string]$StrategySet,
+        [Parameter(Mandatory = $true)][object[]]$CandidateSpecs,
+        [Parameter(Mandatory = $true)][int]$CandidateParallelism,
+        [Parameter(Mandatory = $true)][int]$EvalShardCount
+    )
+
+    if ($EvalShardCount -le 1) {
+        Invoke-BotMetricsRunBatch `
+            -GodotExe $GodotExe `
+            -CommonPrefix $CommonPrefix `
+            -RunsPerEval $RunsPerEval `
+            -StrategySet $StrategySet `
+            -CandidateSpecs $CandidateSpecs `
+            -Parallelism $CandidateParallelism
+        return
+    }
+
+    # Pre-expand: each candidate spec becomes EvalShardCount shard specs.
+    $allShardSpecs = @()
+    $mergeMap = [ordered]@{}
+    foreach ($spec in $CandidateSpecs) {
+        $candidateId  = [string]$spec.candidate_id
+        $metricsPath  = [string]$spec.metrics_path
+        $outDir       = Split-Path -Parent $metricsPath
+        $baseName     = [System.IO.Path]::GetFileNameWithoutExtension($metricsPath)
+        $ext          = [System.IO.Path]::GetExtension($metricsPath)
+        if ([string]::IsNullOrWhiteSpace($ext)) { $ext = ".json" }
+        if (-not [string]::IsNullOrWhiteSpace($outDir)) { Ensure-Directory -PathValue $outDir }
+
+        $shardPlan  = Get-RunShardPlan -TotalRuns $RunsPerEval -ShardCount $EvalShardCount
+        $shardPaths = @()
+        foreach ($shard in $shardPlan) {
+            $shardId   = "shard{0:d2}" -f ([int]$shard.shard_index)
+            $shardPath = Join-Path $outDir "$baseName.$shardId$ext"
+            $shardPaths += $shardPath
+            $allShardSpecs += [PSCustomObject]@{
+                candidate_id    = "${candidateId}_${shardId}"
+                tuning_path     = [string]$spec.tuning_path
+                metrics_path    = $shardPath
+                label           = "$([string]$spec.label) [$shardId runs=$($shard.runs) offset=$($shard.offset)]"
+                runs_per_eval   = [int]$shard.runs
+                run_index_offset = [int]$shard.offset
+            }
+        }
+        $mergeMap[$candidateId] = [PSCustomObject]@{
+            metrics_path = $metricsPath
+            shard_paths  = $shardPaths
+        }
+    }
+
+    # Run all shards from all candidates together in one flat batch.
+    $totalParallelism = $CandidateParallelism * $EvalShardCount
+    Invoke-BotMetricsRunBatch `
+        -GodotExe $GodotExe `
+        -CommonPrefix $CommonPrefix `
+        -RunsPerEval $RunsPerEval `
+        -StrategySet $StrategySet `
+        -CandidateSpecs $allShardSpecs `
+        -Parallelism $totalParallelism
+
+    # Merge shards back into each candidate's final metrics file.
+    foreach ($candidateId in $mergeMap.Keys) {
+        $entry = $mergeMap[$candidateId]
+        Merge-BotMetricsShards -ShardMetricsPaths $entry.shard_paths -OutputPath $entry.metrics_path
+    }
+}
+
 $projectRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 Set-Location $projectRoot
 
@@ -1477,10 +1666,11 @@ if ($strategySetNormalized -notin @("all", "optimization", "edge")) {
     throw "StrategySet must be one of: all, optimization, edge."
 }
 
-# TODO(perf-step-4): Introduce a dedicated -EvalShardParallelism parameter and decouple
-# run-shard concurrency from candidate-level concurrency.
 $effectiveCandidateParallelism = [Math]::Max(1, [Math]::Min($CandidateParallelism, $CandidatesPerIteration))
-$effectiveRunParallelism = [Math]::Max(1, [Math]::Min($CandidateParallelism, $Runs))
+# EvalShardParallelism=0 inherits from CandidateParallelism (legacy behaviour).
+$resolvedEvalShardParallelism = if ($EvalShardParallelism -gt 0) { $EvalShardParallelism } else { $CandidateParallelism }
+$effectiveRunParallelism = [Math]::Max(1, [Math]::Min($resolvedEvalShardParallelism, $Runs))
+$effectiveEvalShardParallelism = [Math]::Max(1, [Math]::Min($resolvedEvalShardParallelism, $Runs))
 
 $script:Rng = [System.Random]::new($Seed)
 
@@ -1495,7 +1685,7 @@ Write-Host "Godot exe:    $godotExe"
 Write-Host "Runs:         $Runs"
 Write-Host "Iterations:   $Iterations"
 Write-Host "Candidates:   $CandidatesPerIteration per iteration"
-Write-Host "Parallelism:  candidates=$effectiveCandidateParallelism, eval_shards=$effectiveRunParallelism"
+Write-Host "Parallelism:  candidates=$effectiveCandidateParallelism, eval_shards=$effectiveEvalShardParallelism (total per iter up to $($effectiveCandidateParallelism * $effectiveEvalShardParallelism))"
 Write-Host "Top re-eval:  $TopCandidateReevalCount candidate(s) per iteration"
 Write-Host "Strategy set: $strategySetNormalized"
 Write-Host "Seed:         $Seed"
@@ -1579,9 +1769,6 @@ $baselineScore = Get-MetricsScore `
     -TargetHardWinRate $effectiveTargetWinRateHard `
     -WinRateTolerance $TargetWinRateTolerance `
     -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
-    -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
-    -TargetMaxSurgesPerRunTolerance $TargetMaxSurgesPerRunTolerance `
-    -SurgesPerRunPenaltyWeight $SurgesPerRunPenaltyWeight `
     -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
     -ChainDepthCap $MaxChainDepth `
     -ExplosionCap $MaxSimultaneousExplosions `
@@ -1611,9 +1798,6 @@ $seedScore = Get-MetricsScore `
     -TargetHardWinRate $effectiveTargetWinRateHard `
     -WinRateTolerance $TargetWinRateTolerance `
     -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
-    -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
-    -TargetMaxSurgesPerRunTolerance $TargetMaxSurgesPerRunTolerance `
-    -SurgesPerRunPenaltyWeight $SurgesPerRunPenaltyWeight `
     -MinNormalWinRate $guardMinNormalWinRate `
     -MinHardWinRate $guardMinHardWinRate `
     -NormalRegressionPenaltyWeight $NormalRegressionPenaltyWeight `
@@ -1682,7 +1866,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         $candidateProfile = if ($candidateIndex -eq 1) {
             Clone-TuningProfile -Profile $globalBestProfile
         } else {
-            New-MutatedTuningProfile -BaseProfile $globalBestProfile -Anneal $anneal -Strength $MutationStrength
+            New-MutatedTuningProfile -BaseProfile $globalBestProfile -Anneal $anneal -Strength $MutationStrength -FreezeSpectacleParams:($FreezeSpectacleParams -or $DifficultyOnlyMode)
         }
 
         $candidateTuningPath = Join-Path $iterDir "$candidateId.tuning.json"
@@ -1712,13 +1896,14 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
     # TODO(perf-step-3): Implement multi-fidelity search:
     # Stage A evaluate all mutated candidates with coarse runs, then Stage B reevaluate top-K with full runs.
     if ($candidateSpecsToEvaluate.Count -gt 0) {
-        Invoke-BotMetricsRunBatch `
+        Invoke-BotMetricsRunBatchSharded `
             -GodotExe $godotExe `
             -CommonPrefix $commonPrefix `
             -RunsPerEval $Runs `
             -StrategySet $strategySetNormalized `
             -CandidateSpecs $candidateSpecsToEvaluate `
-            -Parallelism $effectiveCandidateParallelism
+            -CandidateParallelism $effectiveCandidateParallelism `
+            -EvalShardCount $effectiveEvalShardParallelism
     } else {
         Write-Host "No candidate evaluations required for iteration $iteration."
     }
@@ -1739,9 +1924,6 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             -TargetHardWinRate $effectiveTargetWinRateHard `
             -WinRateTolerance $TargetWinRateTolerance `
             -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
-            -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
-            -TargetMaxSurgesPerRunTolerance $TargetMaxSurgesPerRunTolerance `
-            -SurgesPerRunPenaltyWeight $SurgesPerRunPenaltyWeight `
             -MinNormalWinRate $guardMinNormalWinRate `
             -MinHardWinRate $guardMinHardWinRate `
             -NormalRegressionPenaltyWeight $NormalRegressionPenaltyWeight `
@@ -1806,18 +1988,22 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             }
         }
 
-        Invoke-BotMetricsRunBatch `
+        Invoke-BotMetricsRunBatchSharded `
             -GodotExe $godotExe `
             -CommonPrefix $commonPrefix `
             -RunsPerEval $Runs `
             -StrategySet $strategySetNormalized `
             -CandidateSpecs $reevalSpecs `
-            -Parallelism $effectiveCandidateParallelism
+            -CandidateParallelism $effectiveCandidateParallelism `
+            -EvalShardCount $effectiveEvalShardParallelism
 
         foreach ($candidate in $topCandidatesForReeval) {
             $candidateId = [string]$candidate.candidate
             $reevalMetricsPath = [string]$reevalSpecMap[$candidateId]
+            $origPayload  = Read-MetricsPayload -MetricsPath ([string]$candidate.metrics_file)
             $reevalPayload = Read-MetricsPayload -MetricsPath $reevalMetricsPath
+
+            # Score reeval in isolation for diagnostics only.
             $reevalScore = Get-MetricsScore `
                 -Summary $reevalPayload.summary `
                 -Runs $reevalPayload.runs `
@@ -1828,9 +2014,31 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
                 -TargetHardWinRate $effectiveTargetWinRateHard `
                 -WinRateTolerance $TargetWinRateTolerance `
                 -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
-                -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
-                -TargetMaxSurgesPerRunTolerance $TargetMaxSurgesPerRunTolerance `
-                -SurgesPerRunPenaltyWeight $SurgesPerRunPenaltyWeight `
+                -MinNormalWinRate $guardMinNormalWinRate `
+                -MinHardWinRate $guardMinHardWinRate `
+                -NormalRegressionPenaltyWeight $NormalRegressionPenaltyWeight `
+                -HardRegressionPenaltyWeight $HardRegressionPenaltyWeight `
+                -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
+                -ChainDepthCap $MaxChainDepth `
+                -ExplosionCap $MaxSimultaneousExplosions `
+                -HazardCap $MaxSimultaneousHazards `
+                -HitStopCap $MaxSimultaneousHitStops `
+                -DurationFloor $MinRunDurationSeconds
+
+            # Merge eval + reeval into a single combined payload and score that.
+            # This eliminates the artificial variance from averaging two independent scores —
+            # instead the scorer sees all runs at once (e.g. 400 runs vs two 200-run samples).
+            $mergedPayload = Merge-MetricsPayloads -Payload1 $origPayload -Payload2 $reevalPayload
+            $mergedScore = Get-MetricsScore `
+                -Summary $mergedPayload.summary `
+                -Runs $mergedPayload.runs `
+                -TargetShare $TargetExplosionShare `
+                -TargetShareTolerance $TargetExplosionShareTolerance `
+                -TargetEasyWinRate $effectiveTargetWinRateEasy `
+                -TargetNormalWinRate $effectiveTargetWinRateNormal `
+                -TargetHardWinRate $effectiveTargetWinRateHard `
+                -WinRateTolerance $TargetWinRateTolerance `
+                -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
                 -MinNormalWinRate $guardMinNormalWinRate `
                 -MinHardWinRate $guardMinHardWinRate `
                 -NormalRegressionPenaltyWeight $NormalRegressionPenaltyWeight `
@@ -1846,8 +2054,8 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             $candidate.reeval_score = $reevalScore.Score
             $candidate.reeval_metrics_file = $reevalMetricsPath
             $candidate.promoted_metrics_file = $reevalMetricsPath
-            $candidate.effective_score = [Math]::Round((([double]$candidate.score) + ([double]$reevalScore.Score)) / 2.0, 4)
-            Write-Host ("Candidate {0}: reeval_score={1:0.0000}, effective_score={2:0.0000}" -f $candidateId, $reevalScore.Score, $candidate.effective_score)
+            $candidate.effective_score = [Math]::Round($mergedScore.Score, 4)
+            Write-Host ("Candidate {0}: reeval_score={1:0.0000} (isolated), merged_score={2:0.0000} ({3} runs)" -f $candidateId, $reevalScore.Score, $mergedScore.Score, $mergedPayload.run_count)
         }
     }
 
@@ -1966,9 +2174,6 @@ $tunedScore = Get-MetricsScore `
     -TargetHardWinRate $effectiveTargetWinRateHard `
     -WinRateTolerance $TargetWinRateTolerance `
     -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
-    -TargetMaxSurgesPerRun $TargetMaxSurgesPerRun `
-    -TargetMaxSurgesPerRunTolerance $TargetMaxSurgesPerRunTolerance `
-    -SurgesPerRunPenaltyWeight $SurgesPerRunPenaltyWeight `
     -MinNormalWinRate $guardMinNormalWinRate `
     -MinHardWinRate $guardMinHardWinRate `
     -NormalRegressionPenaltyWeight $NormalRegressionPenaltyWeight `
@@ -1986,7 +2191,7 @@ $reportPayload = [ordered]@{
     iterations = $Iterations
     candidates_per_iteration = $CandidatesPerIteration
     candidate_parallelism = $effectiveCandidateParallelism
-    eval_shard_parallelism = $effectiveRunParallelism
+    eval_shard_parallelism = $effectiveEvalShardParallelism
     strategy_set = $strategySetNormalized
     seed = $Seed
     scoring = [ordered]@{
@@ -2008,9 +2213,6 @@ $reportPayload = [ordered]@{
         hard_regression_penalty_weight = $HardRegressionPenaltyWeight
         min_sweep_score_ratio_vs_baseline = $MinSweepScoreRatioVsBaseline
         target_max_tower_surge_ratio = $TargetMaxTowerSurgeRatio
-        target_max_surges_per_run = $TargetMaxSurgesPerRun
-        target_max_surges_per_run_tolerance = $TargetMaxSurgesPerRunTolerance
-        surges_per_run_penalty_weight = $SurgesPerRunPenaltyWeight
         min_tower_placements_for_parity = $MinTowerPlacementsForParity
         max_chain_depth = $MaxChainDepth
         max_simultaneous_explosions = $MaxSimultaneousExplosions
