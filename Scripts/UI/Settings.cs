@@ -18,6 +18,9 @@ public partial class Settings : Node
     private Button? _enemyBloomBtn;
     private Button? _screenFilterBtn;
     private Button? _vhsGlitchBtn;
+    private Button? _resetTutorialBtn;
+    private HBoxContainer? _resetTutorialConfirmRow;
+    private Label?  _resetTutorialStatus;
     private Button? _resetProfileBtn;
     private Label?  _resetProfileStatus;
 
@@ -165,6 +168,73 @@ public partial class Settings : Node
         _enemyBloomBtn = AddSettingRow(vbox, "Bloom Highlights",
             OnOffText(bloom), isOn: bloom, OnToggleEnemyBloom);
 
+        // ── PROFILE ───────────────────────────────────────────────────────────
+        AddSpacer(vbox, 4);
+        AddSectionHeader(vbox, "PROFILE");
+
+        _resetTutorialBtn = AddSettingRow(vbox, "Reset Tutorial",
+            "Reset", isOn: false, OnResetTutorialPressed);
+        UITheme.ApplyMutedStyle(_resetTutorialBtn);
+
+        // Confirmation row (hidden until button is pressed)
+        _resetTutorialConfirmRow = new HBoxContainer();
+        _resetTutorialConfirmRow.AddThemeConstantOverride("separation", 8);
+        _resetTutorialConfirmRow.Visible = false;
+        var confirmMargin = new MarginContainer();
+        confirmMargin.AddThemeConstantOverride("margin_left", 14);
+        confirmMargin.AddThemeConstantOverride("margin_right", 10);
+        confirmMargin.AddThemeConstantOverride("margin_top", 2);
+        confirmMargin.AddThemeConstantOverride("margin_bottom", 2);
+        confirmMargin.AddChild(_resetTutorialConfirmRow);
+        vbox.AddChild(confirmMargin);
+
+        var confirmLabel = new Label
+        {
+            Text = "Show tutorial on next run?",
+            VerticalAlignment = VerticalAlignment.Center,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        confirmLabel.AddThemeFontSizeOverride("font_size", 15);
+        confirmLabel.Modulate = new Color(0.88f, 0.88f, 0.92f);
+        _resetTutorialConfirmRow.AddChild(confirmLabel);
+
+        var yesBtn = new Button
+        {
+            Text = "Yes",
+            CustomMinimumSize = new Vector2(60, 28),
+            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+        };
+        yesBtn.AddThemeFontSizeOverride("font_size", 15);
+        ApplyValueButtonStyle(yesBtn, isOn: true);
+        yesBtn.Pressed      += OnResetTutorialConfirmed;
+        yesBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+        _resetTutorialConfirmRow.AddChild(yesBtn);
+
+        var noBtn = new Button
+        {
+            Text = "No",
+            CustomMinimumSize = new Vector2(60, 28),
+            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+        };
+        noBtn.AddThemeFontSizeOverride("font_size", 15);
+        ApplyValueButtonStyle(noBtn, isOn: false);
+        noBtn.Pressed      += OnResetTutorialCancelled;
+        noBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+        _resetTutorialConfirmRow.AddChild(noBtn);
+
+        _resetTutorialStatus = new Label
+        {
+            Text = "",
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        _resetTutorialStatus.AddThemeFontSizeOverride("font_size", 13);
+        _resetTutorialStatus.Modulate = new Color(0.72f, 0.85f, 0.72f);
+        var tutStatusMargin = new MarginContainer();
+        tutStatusMargin.AddThemeConstantOverride("margin_left", 16);
+        tutStatusMargin.AddChild(_resetTutorialStatus);
+        vbox.AddChild(tutStatusMargin);
+
         if (sm?.DevMode == true)
         {
             AddSpacer(vbox, 4);
@@ -285,6 +355,29 @@ public partial class Settings : Node
         bool next = !(SettingsManager.Instance?.EnemyBloomHighlights ?? !MobileOptimization.IsMobile());
         SettingsManager.Instance?.SetEnemyBloomHighlights(next);
         UpdateValueButton(_enemyBloomBtn, OnOffText(next), next);
+    }
+
+    private void OnResetTutorialPressed()
+    {
+        if (_resetTutorialConfirmRow == null) return;
+        _resetTutorialConfirmRow.Visible = true;
+        if (_resetTutorialStatus != null)
+            _resetTutorialStatus.Text = "";
+    }
+
+    private void OnResetTutorialConfirmed()
+    {
+        SettingsManager.Instance?.ResetTutorial();
+        if (_resetTutorialConfirmRow != null)
+            _resetTutorialConfirmRow.Visible = false;
+        if (_resetTutorialStatus != null)
+            _resetTutorialStatus.Text = "Tutorial will show on your next run.";
+    }
+
+    private void OnResetTutorialCancelled()
+    {
+        if (_resetTutorialConfirmRow != null)
+            _resetTutorialConfirmRow.Visible = false;
     }
 
     private void OnResetProfileUnlocks()

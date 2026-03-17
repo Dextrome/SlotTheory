@@ -80,6 +80,10 @@ public class RunState
     public string? SelectedMapId { get; set; } = null;  // null = random
     public int RngSeed { get; set; } = 0;
 
+    // Endless mode
+    public bool IsEndlessMode    { get; set; } = false;
+    public int  EndlessWaveDepth { get; set; } = 0;   // 1 = first endless wave (wave 21), increments each wave
+
     public RunState()
     {
         for (int i = 0; i < Balance.SlotCount; i++)
@@ -310,6 +314,8 @@ public class RunState
         SpectacleSurgeByEffect.Clear();
         SpectacleGlobalByEffect.Clear();
         SpectacleSurgeByTower.Clear();
+        IsEndlessMode    = false;
+        EndlessWaveDepth = 0;
     }
 
     /// <summary>Gets total damage dealt by a specific tower across all completed waves.</summary>

@@ -143,6 +143,12 @@ public partial class SettingsManager : Node
         SaveAccount();
     }
 
+    public void ResetTutorial()
+    {
+        RunsStarted = 0;
+        SaveAccount();
+    }
+
     // ── Public API - display setters ─────────────────────────────────────
 
     public void SetFullscreen(bool full)

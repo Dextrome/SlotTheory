@@ -11,6 +11,7 @@ public partial class HudPanel : CanvasLayer
 {
     private const string PlayIcon = "\u25B6";
     private const string PauseIcon = "||";
+    private bool _isEndlessMode = false;
     private Label _waveLabel = null!;
     private RichTextLabel _buildLabel = null!;
     private Label _livesLabel = null!;
@@ -303,6 +304,7 @@ public partial class HudPanel : CanvasLayer
 
     public void ResetSpeed()
     {
+        _isEndlessMode = false;
         _speedIdx = 0;
         Engine.TimeScale = 1.0;
         RefreshSpeedLabelFromActual((float)Engine.TimeScale);
@@ -326,9 +328,13 @@ public partial class HudPanel : CanvasLayer
              .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
     }
 
+    public void SetEndlessMode(bool endless) => _isEndlessMode = endless;
+
     public void Refresh(int wave, int lives)
     {
-        _waveLabel.Text = $"Wave {wave} / {Balance.TotalWaves}";
+        _waveLabel.Text = _isEndlessMode
+            ? $"Wave {wave}  \u221e"
+            : $"Wave {wave} / {Balance.TotalWaves}";
         _livesLabel.Text = $"Lives: {lives}";
         _livesLabel.Modulate = lives <= 3 ? new Color(1f, 0.35f, 0.35f) : Colors.White;
         _livesLabel.PivotOffset = _livesLabel.Size / 2f;

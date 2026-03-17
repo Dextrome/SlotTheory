@@ -26,11 +26,18 @@ public sealed class DataLoaderDraftDataSource : IDraftDataSource
 
 public class DraftSystem
 {
-    private readonly Random _rng = new();
+    private readonly Random _rng;
     private readonly IDraftDataSource _data;
 
     public DraftSystem() : this(new DataLoaderDraftDataSource()) { }
-    public DraftSystem(IDraftDataSource data) { _data = data; }
+    // Seeded constructor: pass a deterministic seed (e.g. run index) so that
+    // draft option pools are identical across candidates in the tuning pipeline.
+    // Without this, DraftSystem uses a fresh Random() each time, meaning two
+    // candidates evaluating "run #42" see different card pools — injecting noise
+    // that swamps the win-rate signal the optimizer is trying to track.
+    public DraftSystem(int seed) : this(new DataLoaderDraftDataSource(), seed) { }
+    public DraftSystem(IDraftDataSource data) { _data = data; _rng = new Random(); }
+    public DraftSystem(IDraftDataSource data, int seed) { _data = data; _rng = new Random(seed); }
 
     public List<DraftOption> GenerateOptions(RunState state)
     {

@@ -15,7 +15,7 @@ public static class ScoreCalculator
 
     public static bool IsPayloadSane(RunScorePayload payload)
     {
-        if (payload.WaveReached < 0 || payload.WaveReached > Balance.TotalWaves) return false;
+        if (payload.WaveReached < 0 || payload.WaveReached > Balance.TotalWaves + 9999) return false;
         if (payload.LivesRemaining < 0 || payload.LivesRemaining > 999) return false;
         if (payload.TotalDamageDealt < 0 || payload.TotalDamageDealt > 50_000_000) return false;
         if (payload.TotalKills < 0 || payload.TotalKills > 200_000) return false;

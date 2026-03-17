@@ -111,10 +111,10 @@ Unlock flow:
 | Momentum | +16% damage per consecutive hit on same target, up to ×1.80. Resets on target switch. |
 | Overkill | 60% of excess kill damage spills to next enemy in lane |
 | Exploit Weakness | +45% damage vs Marked enemies |
-| Focus Lens | +125% damage, ×2 attack interval |
-| Chill Shot | On hit: 0.75× enemy speed for 5 s; stacks multiplicatively per tower |
+| Focus Lens | +140% damage, ×1.85 attack interval |
+| Chill Shot | On hit: 0.70× enemy speed for 6 s; stacks multiplicatively per tower |
 | Overreach | +45% range, -10% damage |
-| Hair Trigger | +35% attack speed, -18% range |
+| Hair Trigger | +30% attack speed, -18% range |
 | Split Shot | Fires 2 split projectiles at 35% damage each; each extra copy adds +1 projectile |
 | Feedback Loop | On kill, removes 65% of current cooldown |
 | Chain Reaction | +1 chain bounce per copy, 60% damage carry per bounce |
@@ -134,7 +134,7 @@ Split Shot is unlockable - beat the second campaign map on Normal or Hard.
 | Swift Walker | 1.5× Basic HP | 240 px/s | 1 |
 
 - Armored first appears on wave 6.
-- Swift appears in waves 10-14.
+- Swift appears in waves 10–19 (skips wave 12 and 20).
 
 ---
 
@@ -162,6 +162,25 @@ Rift Sapper uses tower-specific labels/icons for the same 3 internal modes:
 | Hard | 1.3× | 1.1× | 0.90× |
 
 Normal targets ~75% bot win rate; Hard targets ~50%. Multipliers are tunable at runtime via the automated tuning pipeline. Easy has no scaling.
+
+---
+
+## Endless Mode
+
+After clearing all 20 waves, a **Continue — Endless** button appears on the win screen. Pressing it continues the run from wave 21 with no upper limit.
+
+Scaling per wave past wave 20 (depth = waves past 20):
+
+| What scales | Rate |
+|---|---|
+| Enemy count | ×1.05 per wave (compounding) |
+| Enemy HP | ×1.02 per wave (compounding) |
+| Swift Walkers | +1 extra every 5 endless waves |
+
+- Spawn interval shrinks slowly, floored at 0.70 s.
+- HUD shows "Wave 21 ∞", "Wave 22 ∞", etc.
+- Losing ends the run normally. The endless wave reached is shown on the loss screen.
+- The wave-20 win is not submitted to the global leaderboard if you continue — only the endless result is submitted.
 
 ---
 

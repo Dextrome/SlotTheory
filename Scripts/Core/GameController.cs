@@ -31,6 +31,8 @@ public partial class GameController : Node
 	private DraftPanel _draftPanel = null!;
 	private HudPanel _hudPanel = null!;
 	private EndScreen _endScreen = null!;
+	private RunScorePayload? _pendingWinScorePayload;
+	private string _pendingWinLeaderboardLine = "";
 	private UnlockRevealScreen _unlockRevealScreen = null!;
 	private Node2D[]      _slotNodes           = new Node2D[Balance.SlotCount];
 	private Line2D[]      _slotHighlights      = new Line2D[Balance.SlotCount];
@@ -340,7 +342,11 @@ public partial class GameController : Node
 			_runState.RngSeed = ResolveBotProceduralSeed();
 		LoadPendingMobileSnapshot();
 		
-		_draftSystem = new DraftSystem();
+		// In bot mode seed the draft pool deterministically from the run index so
+		// all tuning candidates face identical card offerings on the same run number.
+		_draftSystem = _botRunner != null
+			? new DraftSystem(_botRunner.CompletedRuns * 6271 + 1)
+			: new DraftSystem();
 		_waveSystem = new WaveSystem();
 		_combatSim = new CombatSim(_runState)
 		{
@@ -357,6 +363,8 @@ public partial class GameController : Node
 		_draftPanel = GetNode<DraftPanel>("../DraftPanel");
 		_hudPanel   = GetNode<HudPanel>("../HudPanel");
 		_endScreen  = GetNode<EndScreen>("../EndScreen");
+		_endScreen.ContinueEndlessPressed += OnContinueEndlessPressed;
+		_endScreen.WinExited += OnWinExited;
 		_unlockRevealScreen = GetNode<UnlockRevealScreen>("../UnlockRevealScreen");
 		_unlockRevealScreen.RevealClosed += OnUnlockRevealClosed;
 
@@ -584,7 +592,7 @@ public partial class GameController : Node
 			var waveReport = _runState.CompleteWave();
 			
 			_runState.WaveIndex++;
-			if (_runState.WaveIndex >= Balance.TotalWaves)
+			if (_runState.WaveIndex >= Balance.TotalWaves && !_runState.IsEndlessMode)
 			{
 				CurrentPhase = GamePhase.Win;
 				MobileRunSession.Clear();
@@ -608,11 +616,15 @@ public partial class GameController : Node
 				_endScreen.SetLeaderboardStatus(leaderboardLine);
 				var winGoalHint = AchievementManager.Instance?.GetGoalHint(_runState, scorePayload.Difficulty, won: true);
 				if (!string.IsNullOrEmpty(winGoalHint)) _endScreen.SetGoalHint(winGoalHint);
-				QueueGlobalSubmit(scorePayload, leaderboardLine);
+				// Defer global submit: stored and submitted when player exits win screen.
+				// If they choose Continue-Endless instead, the win entry is discarded.
+				_pendingWinScorePayload    = scorePayload;
+				_pendingWinLeaderboardLine = leaderboardLine;
 				EnqueueUnlockReveals(newlyUnlocked);
 			}
 			else
 			{
+				if (_runState.IsEndlessMode) _runState.EndlessWaveDepth++;
 				if (_botRunner == null) ShowWaveClearFlash();
 				MobileOptimization.HapticMedium();
 				SoundManager.Instance?.Play("wave_clear");
@@ -872,8 +884,31 @@ public partial class GameController : Node
 	public string GetCurrentRunName() => BuildRunName();
 
 	/// <summary>Wipe all in-flight state and restart from wave 1 draft.</summary>
+	private void OnContinueEndlessPressed()
+	{
+		// Discard the deferred win score — the endless result will replace it.
+		_pendingWinScorePayload    = null;
+		_pendingWinLeaderboardLine = "";
+		_runState.IsEndlessMode    = true;
+		_runState.EndlessWaveDepth = 1;
+		_extraPicksRemaining       = 0;
+		_hudPanel.SetEndlessMode(true);
+		MusicDirector.Instance?.OnWaveStart(_runState.WaveIndex + 1, _runState.Lives);
+		StartDraftPhase();
+	}
+
+	private void OnWinExited()
+	{
+		if (_pendingWinScorePayload == null) return;
+		QueueGlobalSubmit(_pendingWinScorePayload, _pendingWinLeaderboardLine);
+		_pendingWinScorePayload    = null;
+		_pendingWinLeaderboardLine = "";
+	}
+
 	public void RestartRun()
 	{
+		_pendingWinScorePayload    = null;
+		_pendingWinLeaderboardLine = "";
 		MobileRunSession.Clear();
 
 		// Free all enemies currently in the scene
@@ -2384,7 +2419,7 @@ public partial class GameController : Node
 				_botRunner!.RecordWaveEnd(_runState.Lives, avgInRange, _botWaveSteps);
 				_botWaveSteps = 0;
 				_runState.WaveIndex++;
-				if (_runState.WaveIndex >= Balance.TotalWaves)
+				if (_runState.WaveIndex >= Balance.TotalWaves && !_runState.IsEndlessMode)
 				{
 					CurrentPhase = GamePhase.Win;
 					_botRunner.RecordRunTrace(_botRunTraceEvents);
@@ -2606,7 +2641,7 @@ void fragment() {
 
 	private void ShowWaveAnnouncement(int wave)
 	{
-		bool isFinalWave = wave >= Balance.TotalWaves;
+		bool isFinalWave = wave >= Balance.TotalWaves && !_runState.IsEndlessMode;
 		_waveAnnounce.Text     = isFinalWave ? $"WAVE {wave}  FINAL" : $"WAVE {wave}";
 		_waveAnnounce.Scale    = isFinalWave ? new Vector2(1.55f, 1.55f) : new Vector2(1.35f, 1.35f);
 		_waveAnnounce.Modulate = new Color(1f, 1f, 1f, 1f);
@@ -6250,11 +6285,13 @@ void fragment() {
 		CurrentPhase = GamePhase.Wave;
 		int waveNumber = _runState.WaveIndex + 1;
 		if (_botRunner == null) ShowWaveAnnouncement(waveNumber);
-		var nextCfg = DataLoader.GetWaveConfig(
-			_runState.WaveIndex,
-			SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy,
-			_runState.SelectedMapId);
-		bool clumpedArmored = nextCfg.ClumpArmored && nextCfg.TankyCount >= 2;
+		WaveConfig? nextCfg = _runState.WaveIndex < Balance.TotalWaves
+			? DataLoader.GetWaveConfig(
+				_runState.WaveIndex,
+				SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy,
+				_runState.SelectedMapId)
+			: null;
+		bool clumpedArmored = (nextCfg?.ClumpArmored ?? false) && (nextCfg?.TankyCount ?? 0) >= 2;
 		_combatSim.InitialSpawnDelay = (_botRunner == null && clumpedArmored) ? 0.8f : 0f;
 		if (_botRunner == null && clumpedArmored)
 			ShowArmoredWaveWarning();
@@ -6271,7 +6308,7 @@ void fragment() {
 			SoundManager.Instance?.Play("wave_halfway_lift");
 			AchievementManager.Instance?.CheckHalfwayThere();
 		}
-		if (waveNumber >= Balance.TotalWaves)
+		if (waveNumber >= Balance.TotalWaves && !_runState.IsEndlessMode)
 		{
 			SoundManager.Instance?.Play("wave20_start");
 			SoundManager.Instance?.Play("wave20_swell");

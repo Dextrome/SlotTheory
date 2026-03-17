@@ -19,7 +19,7 @@ This document reflects the current implementation in code/data.
 - **Colorblind mode:** Settings toggle that switches modifier accent colors to a high-contrast palette with no red/green reliance.
 - **Reduced motion toggle:** Settings toggle that skips card flip animations in draft - cards appear face-up instantly.
 - **In-game achievements:** 13 achievements tracked locally (persistent across sessions) with unlock toast notifications and a dedicated achievements screen. Steam forwarding wired for when Steam App ID is live.
-- **Procedural music system (Phases 1–4):** `MusicDirector` drives a fully procedural adaptive score. Phase 1: drift-free `MusicClock` + MIDI note pool. Phase 2: `MusicHarmony` scale/chord tables (Dorian/Mixolydian/Phrygian) + `MusicBassLayer` root+fifth patterns. Phase 3: game-state hooks — wave start/clear, lives changes, draft phase, and run end drive tension tier, BPM, mode, and layer density. Phase 4: `MusicMelodyLayer` — phrase-planned improvised lead with contour weighting (Ascending/Descending/Arch/Static), tension-scaled rest probability, and cross-phrase continuity. Phase 5 (next): `MusicPercLayer` + polish; fade ambient pad.
+- **Procedural music system (Phases 1–5):** `MusicDirector` drives a fully procedural adaptive score. Phase 1: drift-free `MusicClock` + MIDI note pool. Phase 2: `MusicHarmony` scale/chord tables (Dorian/Mixolydian/Phrygian) + `MusicBassLayer` root+fifth patterns. Phase 3: game-state hooks — wave start/clear, lives changes, draft phase, and run end drive tension tier, BPM, mode, and layer density. Phase 4: `MusicMelodyLayer` — phrase-planned improvised lead with contour weighting (Ascending/Descending/Arch/Static), tension-scaled rest probability, and cross-phrase continuity. Phase 5: `MusicPercLayer` — 8th-note kick/snare/hat grid, 4 drum styles, tension-driven patterns, surge fills, density arc, pad fade-out.
 - **Slot Codex in-game graphics:** Tower and enemy cards in the Slot Codex now render actual in-game body shapes using `TowerIconFull` and `EnemyIcon` — the same procedural draw geometry used in live gameplay, scaled to icon size.
 - **All-runs leaderboard:** Global leaderboard now stores every run as a separate row (wins and losses). Previously only kept the personal best per player.
 - **Spectacle system integration:** Surge/global surge spectacle gameplay payloads are active in both live and bot simulations; tooltip and bot analytics now expose spectacle behavior.
@@ -97,6 +97,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
 3. Place picked tower/modifier in the world.
 4. Wave runs automatically (no direct combat input).
 5. Repeat until wave 20 clear (win) or lives reach 0 (loss).
+6. On win: optionally continue in **Endless Mode** (wave 21+, no victory condition).
 
 ---
 
@@ -193,10 +194,10 @@ Platforms: Windows Desktop, Android (phone and tablet)
 | Momentum | +16% damage per consecutive hit on same target, up to 5 stacks (max x1.80), resets on target switch |
 | Overkill | 60% of excess kill damage spills to next enemy in lane |
 | Exploit Weakness | +45% damage vs Marked enemies |
-| Focus Lens | +125% damage, x2 attack interval |
-| Chill Shot (`slow`) | On hit: enemy speed factor 0.75 for 5 s; copies on the same tower stack multiplicatively |
+| Focus Lens | +140% damage, x1.85 attack interval |
+| Chill Shot (`slow`) | On hit: -30% move speed (factor 0.70) for 6 s; copies on the same tower stack multiplicatively |
 | Overreach | +45% range, -10% damage |
-| Hair Trigger | +35% attack speed, -18% range |
+| Hair Trigger | +30% attack speed, -18% range |
 | Split Shot | Fires 2 split projectiles at 35% damage each, each extra copy adds +1 split projectile |
 | Feedback Loop | On kill, removes 65% of current cooldown |
 | Chain Reaction | Adds +1 chain bounce per copy and sets chain carry to 60% |
@@ -231,7 +232,7 @@ Used consistently in draft cards, proc halos, and live modifier icons. Colorblin
 
 - Armored first appears on wave 6.
 - Armored max count in default wave data is 3 (wave 20).
-- Swift appears in waves 10-14.
+- Swift appears in waves 10–19 (skips wave 12 and 20).
 - Waves 12-14 can use clumped Armored spawn blocks (`ClumpArmored`).
 
 ### Enemy Visuals
@@ -290,6 +291,24 @@ If a clumped armored wave is incoming (with enough armored units), gameplay uses
 - Anti-brick rule:
   - Modifier cards are only offered when at least one tower can still accept one.
 - Bonus picks: currently disabled (Wave1ExtraPicks = 0, Wave15ExtraPicks = 0).
+
+---
+
+## Endless Mode
+
+Accessible from the win end screen after completing all 20 waves.
+
+- "Continue — Endless" button appears on the win screen.
+- Clicking it continues the run from wave 21 with no victory condition.
+- **Scaling per endless wave** (depth = waves past 20):
+  - Enemy count: ×(1.05^depth) — compounding +5% per wave
+  - Enemy HP: ×(1.02^depth) — compounding +2% per wave
+  - Every 5 endless waves (+25, +30, +35…): +1 Swift Walker added to the wave
+  - Spawn interval decreases slowly (floored at 0.70 s)
+- HUD shows "Wave 21 ∞", "Wave 22 ∞", etc.
+- Losing in endless shows the normal loss screen with the actual wave reached.
+- **Leaderboard**: the wave-20 win entry is NOT submitted to the global leaderboard if the player continues to endless. When the endless run ends, only the endless loss result is submitted. Local high scores update on win as normal.
+- Balance constants: `EndlessEnemyCountScalePerWave`, `EndlessEnemyHpScalePerWave`, `EndlessSwiftBonusInterval`, `EndlessSpawnIntervalFloor` in `Balance.cs`.
 
 ### Placement Flow (Preview -> Confirm for modifiers)
 
@@ -387,6 +406,11 @@ Current behavior decision:
 - Card spirit transition from draft card to world hint area
 - Bonus pick animated stamp (shown when extra picks are active)
 - Rare foil shimmer (1 in 12 drafts)
+- **First-run tutorial banner:** Two-page overlay shown on wave 1, pick 1 of the player's first run (controlled by `SettingsManager.IsFirstRun` / `RunsStarted <= 1`):
+  - Page 1 ("HOW THIS WORKS"): anchored at top of screen; explains the draft mechanic and wave loop.
+  - Page 2 ("SURGES"): repositions to just above the global surge meter at the bottom of the screen. A cyan glow border highlights the surge meter panel and a cyan connector line runs from the tutorial panel down to the meter, pointing at it directly. The tutorial panel itself adopts the same cyan glow border for visual cohesion.
+  - "How to Play →" button on page 2 deep-links into the Surges tab of HowToPlay.
+  - Reset via Settings → PROFILE → Reset Tutorial.
 - Synergy hints:
   - Small tags (for example `GOOD WITH: MARKED`)
   - Synergy tower pulse highlights on hover/hold
@@ -433,7 +457,7 @@ On wave start (not in bot mode):
 - Cross-phrase continuity: melody starting pitch biased toward previous phrase ending.
 - 417 xUnit tests covering harmony, bass, and melody logic.
 
-**Phase 5 (next):** `MusicPercLayer` (kick/hat/snare density grid) + ambient pad fade-out on tension shift.
+**Phase 5 (done):** `MusicPercLayer` (kick/hat/snare density grid, tension-driven patterns, surge fills, density arc); ambient pad fade-out on tension shift.
 
 ---
 
@@ -592,7 +616,12 @@ Settings:
 - Display: Windowed/Fullscreen toggle
 - Colorblind mode toggle (high-contrast modifier accent palette)
 - Reduced motion toggle (skip draft card flip animations)
-- Saved to `user://settings.cfg`
+- Screen Filter / VHS Glitch toggles
+- Enemy FX toggles: Layered Rendering, Emissive Lines, Damage Material, Bloom Highlights
+- **PROFILE section** (visible to all users):
+  - **Reset Tutorial** button: shows inline Yes/No confirmation; on Yes, resets `RunsStarted = 0` so the first-run guidance banner appears again on the next run
+- DEVELOPER section (DevMode only): Reset All Achievements
+- Saved to `user://settings.cfg` (account/preferences, cloud-synced) and `user://display.cfg` (device-specific, not synced)
 - Music and FX buses are created if missing
 
 ---
@@ -647,18 +676,18 @@ Behavior:
 | SwiftEnemySpeed | 240 |
 | MarkedDamageBonus | +40% |
 | MarkedDuration | 4.0 s |
-| SlowSpeedFactor | 0.75 |
-| SlowDuration | 5 s |
+| SlowSpeedFactor | 0.70 |
+| SlowDuration | 6 s |
 | MomentumMaxStacks | 5 |
 | MomentumBonusPerStack | +16% |
 | SplitShotDamageRatio | 35% |
 | SplitShotRange | 280 |
 | FeedbackLoopCooldownReduction | 65% |
-| HairTriggerAttackSpeed | +35% |
+| HairTriggerAttackSpeed | +30% |
 | HairTriggerRangeFactor | -18% |
 | OverkillSpillEfficiency | 60% |
-| FocusLensDamageBonus | +125% |
-| FocusLensAttackInterval | x2 |
+| FocusLensDamageBonus | +140% |
+| FocusLensAttackInterval | x1.85 |
 
 ---
 
@@ -804,7 +833,7 @@ Behavior:
 
 ## Notes
 
-- This file is intentionally aligned to code/data as of 2026-03-16.
+- This file is intentionally aligned to code/data as of 2026-03-17.
 - If gameplay values change, update:
   - `Data/towers.json`
   - `Data/modifiers.json`

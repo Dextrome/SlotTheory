@@ -17,15 +17,20 @@ public partial class MapPreviewControl : Control
     private Rect2     _worldBounds;
     private bool      _mystery;
 
-    // ── Palette (matches in-game grass / path colours) ────────────────────
-    private static readonly Color BgColor     = new(0.06f, 0.07f, 0.11f, 1.00f);
-    private static readonly Color BorderColor = new(0.25f, 0.27f, 0.40f, 0.70f);
-    private static readonly Color PathFill    = new(0.545f, 0.369f, 0.235f, 0.90f);
-    private static readonly Color PathOutline = new(0.28f,  0.17f,  0.08f, 0.60f);
-    private static readonly Color SlotShadow  = new(0.08f,  0.08f,  0.12f, 1.00f);
-    public static readonly Color SlotFill    = new(0.90f,  0.85f,  0.30f, 0.90f);
-    public static readonly Color StartMarker = new(0.30f,  0.95f,  0.45f, 1.00f);
-    public static readonly Color ExitMarker  = new(0.95f,  0.30f,  0.30f, 1.00f);
+    // ── Palette (matches actual in-game rendering) ────────────────────────
+    private static readonly Color BgColor      = new(0.06f,  0.07f,  0.11f,  1.00f);
+    private static readonly Color BorderColor  = new(0.25f,  0.27f,  0.40f,  0.70f);
+    // Path layers (mirrors GameController Line2D stack, in draw order)
+    private static readonly Color PathGlow1    = new(0.72f,  0.01f,  0.50f,  0.08f);  // wide magenta glow
+    private static readonly Color PathGlow2    = new(0.64f,  0.03f,  0.46f,  0.15f);  // medium glow
+    private static readonly Color PathDark     = new(0.06f,  0.00f,  0.12f,  0.97f);  // dark near-black fill
+    private static readonly Color PathHighlight= new(1.00f,  0.12f,  0.58f,  0.22f);  // pink inner highlight
+    private static readonly Color PathEdge     = new(1.00f,  0.27f,  0.70f,  0.78f);  // bright pink edge
+    // Slot marker: small yellow-gold square (matches tower body)
+    private static readonly Color SlotShadow   = new(0.08f,  0.08f,  0.12f,  1.00f);
+    public  static readonly Color SlotFill     = new(0.90f,  0.85f,  0.30f,  0.90f);
+    public  static readonly Color StartMarker  = new(0.30f,  0.95f,  0.45f,  1.00f);
+    public  static readonly Color ExitMarker   = new(0.95f,  0.30f,  0.30f,  1.00f);
 
     private const float Padding = 14f;
 
@@ -96,21 +101,31 @@ public partial class MapPreviewControl : Control
         for (int i = 0; i < _pathPoints.Length; i++)
             local[i] = ToLocal(_pathPoints[i]);
 
-        float pathW = Mathf.Clamp(scale * 72f, 5f, 26f);
+        // In-world path width is ~CELL_H (128 px). Scale proportionally.
+        // Clamp so it looks reasonable at small preview sizes.
+        float pathW = Mathf.Clamp(scale * 128f, 6f, 32f);
 
-        DrawPolyline(local, PathOutline, pathW + 3f, antialiased: true);
-        DrawPolyline(local, PathFill,    pathW,      antialiased: true);
+        // Layered polylines matching GameController Line2D stack
+        DrawPolyline(local, PathGlow1,     pathW * 1.75f, antialiased: true);
+        DrawPolyline(local, PathGlow2,     pathW * 1.09f, antialiased: true);
+        DrawPolyline(local, PathDark,      pathW,         antialiased: true);
+        DrawPolyline(local, PathHighlight, pathW * 0.55f, antialiased: true);
+        DrawPolyline(local, PathEdge,      pathW * 0.10f, antialiased: true);
 
-        float slotR = Mathf.Clamp(scale * 26f, 3.5f, 9f);
+        // Tower slots: small squares (not circles), matching in-game tower body style
+        float slotHalf = Mathf.Clamp(scale * 20f, 3f, 7f);
         foreach (var s in _slotPoints)
         {
             var lp = ToLocal(s);
-            DrawCircle(lp, slotR + 1.5f, SlotShadow);
-            DrawCircle(lp, slotR,         SlotFill);
+            DrawRect(new Rect2(lp - Vector2.One * (slotHalf + 1.5f), Vector2.One * (slotHalf * 2 + 3f)), SlotShadow);
+            DrawRect(new Rect2(lp - Vector2.One * slotHalf,           Vector2.One * (slotHalf * 2)),       SlotFill);
         }
 
-        DrawCircle(local[0],   6f, StartMarker);
-        DrawCircle(local[^1],  6f, ExitMarker);
+        float markerR = Mathf.Max(3f, pathW * 0.18f);
+        DrawCircle(local[0],   markerR + 1.5f, SlotShadow);
+        DrawCircle(local[0],   markerR,        StartMarker);
+        DrawCircle(local[^1],  markerR + 1.5f, SlotShadow);
+        DrawCircle(local[^1],  markerR,        ExitMarker);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────

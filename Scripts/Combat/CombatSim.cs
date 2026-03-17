@@ -1032,7 +1032,9 @@ public class CombatSim
             return;
         }
 
-        float hp    = WaveSystem.GetScaledHp(typeId, state.WaveIndex);
+        float hp    = WaveSystem.GetScaledHp(typeId, state.WaveIndex,
+                          SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy,
+                          state.EndlessWaveDepth);
         float speed = typeId switch
         {
             "armored_walker" => Balance.TankyEnemySpeed,

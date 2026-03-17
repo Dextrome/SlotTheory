@@ -54,6 +54,9 @@ public partial class DraftPanel : CanvasLayer
     private Button _bannerNext  = null!;
     private Button _bannerHowTo = null!;
     private int _bannerPage = 0;
+    private ColorRect? _tutorialBlocker;
+    private Panel? _surgeHighlight;
+    private Line2D? _surgeConnectorLine;
     private const float CardFaceDownHoldSeconds = 0.12f;
     private const float CardStaggerSeconds = 0.40f;
     private const float CardEntranceSeconds = 0.34f;
@@ -294,18 +297,16 @@ public partial class DraftPanel : CanvasLayer
         // ── First-run guidance banner ────────────────────────────────────────
         // Two-page overlay shown only on wave 1 pick 1 of the player's first run.
         _firstRunBanner = new PanelContainer();
-        _firstRunBanner.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
-            bg: new Color(0.04f, 0.04f, 0.14f, 0.95f),
-            border: new Color(0.30f, 0.35f, 0.55f),
-            corners: 10, borderWidth: 1, padH: 16, padV: 12));
+        _firstRunBanner.AddThemeStyleboxOverride("panel", MakeTutorialBannerStyle());
         _firstRunBanner.AnchorLeft    = 0.5f;
         _firstRunBanner.AnchorRight   = 0.5f;
-        _firstRunBanner.AnchorTop     = 0f;
-        _firstRunBanner.AnchorBottom  = 0f;
+        _firstRunBanner.AnchorTop     = 0.5f;
+        _firstRunBanner.AnchorBottom  = 0.5f;
         _firstRunBanner.GrowHorizontal = Control.GrowDirection.Both;
+        _firstRunBanner.GrowVertical   = Control.GrowDirection.Both;
         _firstRunBanner.OffsetLeft    = -280f;
         _firstRunBanner.OffsetRight   =  280f;
-        _firstRunBanner.OffsetTop     =  10f;
+        _firstRunBanner.OffsetTop     =  0f;
         _firstRunBanner.Visible = false;
 
         var bannerVbox = new VBoxContainer();
@@ -331,7 +332,7 @@ public partial class DraftPanel : CanvasLayer
         var bannerBtnRow = new HBoxContainer();
         bannerBtnRow.AddThemeConstantOverride("separation", 10);
 
-        _bannerHowTo = new Button { Text = "How to Play \u2192" };
+        _bannerHowTo = new Button { Text = "(More Info)  How to Play \u2192" };
         _bannerHowTo.AddThemeFontSizeOverride("font_size", 13);
         UITheme.ApplyMutedStyle(_bannerHowTo);
         _bannerHowTo.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
@@ -348,12 +349,165 @@ public partial class DraftPanel : CanvasLayer
         bannerBtnRow.AddChild(_bannerNext);
 
         bannerVbox.AddChild(bannerBtnRow);
+        // ── Tutorial blocker — sits above cards, below banner ────────────────
+        // Blocks card interaction and dims the game while any banner page is open.
+        _tutorialBlocker = new ColorRect
+        {
+            Color = new Color(0f, 0f, 0f, 0.80f),
+            MouseFilter = Control.MouseFilterEnum.Stop,
+            Visible = false,
+        };
+        _tutorialBlocker.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        AddChild(_tutorialBlocker);
+
+        // ── Surge meter highlight + connector (page 2 tutorial) ─────────────
+        _surgeHighlight = new Panel
+        {
+            Visible = false,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        // Position and Size are set explicitly in SetBannerPage(1) from viewport dims.
+        // Anchor-based sizing collapses to content minimum when AnchorLeft==AnchorRight.
+        var cyBox = new StyleBoxFlat
+        {
+            BgColor      = new Color(0.04f, 0.09f, 0.15f, 0.92f),  // matches real surge meter bg
+            BorderColor  = new Color(0.20f, 0.95f, 1.00f, 0.92f),
+            ShadowColor  = new Color(0.20f, 0.95f, 1.00f, 0.45f),
+            ShadowSize   = 8,
+            ShadowOffset = Vector2.Zero,
+        };
+        cyBox.SetBorderWidthAll(2);
+        cyBox.SetCornerRadiusAll(9);
+        cyBox.ContentMarginLeft   = 8;
+        cyBox.ContentMarginRight  = 8;
+        cyBox.ContentMarginTop    = 4;
+        cyBox.ContentMarginBottom = 4;
+        _surgeHighlight.AddThemeStyleboxOverride("panel", cyBox);
+
+        // Replica of the surge meter contents (label + empty pips) so it reads
+        // correctly even though the real HUD meter is hidden during draft phase.
+        var surgeRow = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
+        surgeRow.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        surgeRow.AddThemeConstantOverride("separation", 4);
+        _surgeHighlight.AddChild(surgeRow);
+
+        var surgeLabel = new Label
+        {
+            Text = "GLOBAL SURGE",
+            VerticalAlignment = VerticalAlignment.Center,
+            AutowrapMode = TextServer.AutowrapMode.Off,
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin,
+            SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Modulate = new Color(1.00f, 0.95f, 0.76f, 1f),
+        };
+        UITheme.ApplyFont(surgeLabel, semiBold: true, size: 13);
+        surgeRow.AddChild(surgeLabel);
+
+        var pipsRow = new HBoxContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
+            Alignment           = BoxContainer.AlignmentMode.Center,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        pipsRow.AddThemeConstantOverride("separation", 1);
+        surgeRow.AddChild(pipsRow);
+        for (int i = 0; i < 20; i++)
+        {
+            pipsRow.AddChild(new ColorRect
+            {
+                Color = new Color(0.07f, 0.16f, 0.25f, 0.95f),  // PipEmpty color
+                CustomMinimumSize = new Vector2(0f, 6f),
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
+                MouseFilter = Control.MouseFilterEnum.Ignore,
+            });
+        }
+
+        AddChild(_surgeHighlight);
+
+        _surgeConnectorLine = new Line2D
+        {
+            DefaultColor = new Color(0.20f, 0.95f, 1.00f, 0.80f),
+            Width        = 2f,
+            Antialiased  = true,
+            Visible      = false,
+        };
+        AddChild(_surgeConnectorLine);
+
         AddChild(_firstRunBanner);
     }
 
     private void SetBannerPage(int page)
     {
         _bannerPage = page;
+        bool isSurgePage = page == 1;
+
+        // ── Position + style the banner ───────────────────────────────────────
+        if (isSurgePage)
+        {
+            // Anchor to bottom, grow upward — sits above the global surge meter
+            _firstRunBanner.AnchorTop    = 1f;
+            _firstRunBanner.AnchorBottom = 1f;
+            _firstRunBanner.GrowVertical = Control.GrowDirection.Begin;
+            _firstRunBanner.OffsetTop    = -82f;   // both = same point; grows upward from here
+            _firstRunBanner.OffsetBottom = -82f;   // bottom edge = vpH - 82
+
+            _firstRunBanner.AddThemeStyleboxOverride("panel", MakeTutorialBannerStyle());
+        }
+        else
+        {
+            // Center position for page 1
+            _firstRunBanner.AnchorTop    = 0.5f;
+            _firstRunBanner.AnchorBottom = 0.5f;
+            _firstRunBanner.GrowVertical = Control.GrowDirection.Both;
+            _firstRunBanner.OffsetTop    = 0f;
+            _firstRunBanner.OffsetBottom = 0f;
+            _firstRunBanner.AddThemeStyleboxOverride("panel", MakeTutorialBannerStyle());
+        }
+
+        // ── Tutorial blocker (shown on both pages) ────────────────────────────
+        if (_tutorialBlocker != null)
+            _tutorialBlocker.Visible = true;
+
+        // ── Surge highlight + connector line ──────────────────────────────────
+        if (_surgeHighlight != null)
+        {
+            _surgeHighlight.Visible = isSurgePage;
+            if (isSurgePage)
+            {
+                // Set explicit Position + Size — anchor-based sizing collapses to
+                // content min when AnchorLeft==AnchorRight, so we bypass it entirely.
+                var vpSize = GetViewport().GetVisibleRect().Size;
+                // Real meter: center ±211 wide, vpH-36 to vpH-14 (22px tall). Add 20px padding each side.
+                float hw = (211f + 20f) * 2f;       // 462px total
+                float hh = 22f + 12f;               // 34px tall
+                float hx = (vpSize.X - hw) * 0.5f;
+                float hy = vpSize.Y - 36f - 6f;     // 6px above meter top
+                _surgeHighlight.Position = new Vector2(hx, hy);
+                _surgeHighlight.Size     = new Vector2(hw, hh);
+            }
+        }
+
+        if (_surgeConnectorLine != null)
+        {
+            _surgeConnectorLine.Visible = isSurgePage;
+            if (isSurgePage)
+            {
+                var vpSize = GetViewport().GetVisibleRect().Size;
+                float cx = vpSize.X * 0.5f;
+                float cy = vpSize.Y;
+                float highlightTop = cy - 36f - 6f;  // hy from above
+                _surgeConnectorLine.Points = new Vector2[]
+                {
+                    new Vector2(cx, cy - 82f),    // banner bottom
+                    new Vector2(cx, highlightTop),
+                };
+            }
+        }
+
+        // ── Text + buttons ────────────────────────────────────────────────────
         if (page == 0)
         {
             _bannerHeader.Text = "HOW THIS WORKS  (1/2)";
@@ -374,22 +528,50 @@ public partial class DraftPanel : CanvasLayer
         }
     }
 
+    private static StyleBoxFlat MakeTutorialBannerStyle()
+    {
+        var s = new StyleBoxFlat
+        {
+            BgColor      = new Color(0.04f, 0.09f, 0.16f, 0.97f),
+            BorderColor  = new Color(0.20f, 0.95f, 1.00f, 0.90f),
+            ShadowColor  = new Color(0.20f, 0.95f, 1.00f, 0.35f),
+            ShadowSize   = 10,
+            ShadowOffset = Vector2.Zero,
+        };
+        s.SetBorderWidthAll(2);
+        s.SetCornerRadiusAll(10);
+        s.ContentMarginLeft   = 16;
+        s.ContentMarginRight  = 16;
+        s.ContentMarginTop    = 12;
+        s.ContentMarginBottom = 12;
+        return s;
+    }
+
+    private void HideSurgeHighlight()
+    {
+        if (_tutorialBlocker != null)    _tutorialBlocker.Visible    = false;
+        if (_surgeHighlight != null)     _surgeHighlight.Visible     = false;
+        if (_surgeConnectorLine != null) _surgeConnectorLine.Visible = false;
+    }
+
     private void OnBannerNextPressed()
     {
         SoundManager.Instance?.Play("ui_select");
         if (_bannerPage == 0)
             SetBannerPage(1);
         else
+        {
             _firstRunBanner.Visible = false;
+            HideSurgeHighlight();
+        }
     }
 
     private void OnBannerHowToPressed()
     {
         SoundManager.Instance?.Play("ui_select");
-        _firstRunBanner.Visible = false;
         var howTo = new HowToPlay();
         howTo.StartOnSurgesTab = true;
-        howTo.OnBack = () => { /* draft is still open underneath */ };
+        howTo.OnBack = () => { /* tutorial banner still visible underneath */ };
         GetTree().Root.AddChild(howTo);
     }
 
@@ -636,6 +818,10 @@ public partial class DraftPanel : CanvasLayer
             if (_pendingTower != null || _pendingModifier != null)
                 CancelAssignment();
         }
+        // Clean up tutorial overlays if hidden mid-tutorial
+        // (e.g. player picks a card while the banner is still showing)
+        if (what == 30 /* NOTIFICATION_VISIBILITY_CHANGED */ && !Visible)
+            HideSurgeHighlight();
     }
 
     private void BuildCardRow(List<DraftOption> options)

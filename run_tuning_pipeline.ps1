@@ -1031,10 +1031,29 @@ function Merge-BotMetricsShards {
         $payloads += Read-MetricsPayload -MetricsPath $path
     }
 
-    $allRuns = @()
+    # Strip heavy per-run arrays that are only used for wave-difficulty display inside
+    # each shard's own output — they are not needed for scoring (which only reads
+    # `difficulty` and `won` from each run record).  Keeping them bloats the merged
+    # file to 10+ MB and causes ConvertTo-Json to hang for minutes in PowerShell.
+    $allRuns = [System.Collections.Generic.List[object]]::new()
     foreach ($payload in $payloads) {
         if ($null -ne $payload -and $null -ne $payload.runs) {
-            $allRuns += @($payload.runs)
+            foreach ($run in $payload.runs) {
+                $slim = [ordered]@{
+                    strategy           = $run.strategy
+                    map                = $run.map
+                    difficulty         = $run.difficulty
+                    won                = $run.won
+                    wave_reached       = $run.wave_reached
+                    run_duration_seconds = $run.run_duration_seconds
+                    surges             = $run.surges
+                    global_surges      = $run.global_surges
+                    max_chain_depth    = $run.max_chain_depth
+                    damage_split       = $run.damage_split
+                    frame_stress       = $run.frame_stress
+                }
+                $allRuns.Add([PSCustomObject]$slim)
+            }
         }
     }
 

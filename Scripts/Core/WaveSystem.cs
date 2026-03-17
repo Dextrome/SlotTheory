@@ -10,9 +10,30 @@ public class WaveSystem
     public void LoadWave(int waveIndex, RunState state)
     {
         var difficulty = SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy;
-        _current = DataLoader.GetWaveConfig(waveIndex, difficulty, state.SelectedMapId);
+        _current = waveIndex >= Balance.TotalWaves
+            ? BuildEndlessWaveConfig(state.EndlessWaveDepth, difficulty)
+            : DataLoader.GetWaveConfig(waveIndex, difficulty, state.SelectedMapId);
         state.EnemiesSpawnedThisWave = 0;
         state.WaveTime = 0f;
+    }
+
+    private static WaveConfig BuildEndlessWaveConfig(int depth, DifficultyMode difficulty)
+    {
+        // Wave-20 baseline (mirrors waves.json index 19 before difficulty scaling)
+        const int   baseCount    = 36;
+        const int   baseTanky   = 4;
+        const float baseInterval = 1.25f;
+
+        float countMult   = MathF.Pow(1f + Balance.EndlessEnemyCountScalePerWave, depth);
+        int   enemyCount  = (int)MathF.Ceiling(baseCount    * Balance.GetEnemyCountMultiplier(difficulty) * countMult);
+        int   tankyCount  = (int)MathF.Ceiling(baseTanky   * Balance.GetEnemyCountMultiplier(difficulty) * countMult);
+        int   swiftBonus  = depth / Balance.EndlessSwiftBonusInterval;  // +1 per 5 waves
+        float spawnInterval = MathF.Max(
+            baseInterval * Balance.GetSpawnIntervalMultiplier(difficulty)
+                / MathF.Pow(1f + Balance.EndlessEnemyCountScalePerWave * 0.5f, depth),
+            Balance.EndlessSpawnIntervalFloor);
+
+        return new WaveConfig(enemyCount, spawnInterval, tankyCount, ClumpArmored: false, swiftBonus);
     }
 
     public int GetWalkerCount()    => _current?.EnemyCount    ?? Balance.DefaultEnemyCount;
@@ -29,7 +50,7 @@ public class WaveSystem
     }
 
     /// <summary>Deterministic overload for unit tests - pass difficulty explicitly.</summary>
-    public static float GetScaledHp(string typeId, int waveIndex, DifficultyMode difficulty)
+    public static float GetScaledHp(string typeId, int waveIndex, DifficultyMode difficulty, int endlessDepth = 0)
     {
         float baseHp = typeId switch
         {
@@ -38,7 +59,10 @@ public class WaveSystem
             _                => Balance.BaseEnemyHp,
         };
         float scaledHp = baseHp * MathF.Pow(Balance.HpGrowthPerWave, waveIndex);
-        return scaledHp * Balance.GetEnemyHpMultiplier(difficulty);
+        float hp = scaledHp * Balance.GetEnemyHpMultiplier(difficulty);
+        if (endlessDepth > 0)
+            hp *= MathF.Pow(1f + Balance.EndlessEnemyHpScalePerWave, endlessDepth);
+        return hp;
     }
 
     // Backward-compatible overload - assumes basic_walker

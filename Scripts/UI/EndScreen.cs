@@ -27,12 +27,16 @@ public partial class EndScreen : CanvasLayer
 	private Button _wishlistButton = null!;
 	private Button _mainMenuButton = null!;
 	private Button _playAgainButton = null!;
+	private Button _continueEndlessButton = null!;
+	public event System.Action? ContinueEndlessPressed;
+	public event System.Action? WinExited;  // fires when leaving win screen via Play Again or Main Menu
 	private string _leaderboardMapId = LeaderboardKey.RandomMapId;
 	private DifficultyMode _leaderboardDifficulty = DifficultyMode.Easy;
 	private RunScorePayload? _pendingPayload;
 	private string _pendingLocalLine = "";
 	private bool _namePromptActive;
 	private bool _canDismiss;
+	private bool _continuingEndless;
 	private const float BackgroundOverlayAlpha = 0.88f;
 
 	public override void _Ready()
@@ -181,25 +185,46 @@ public partial class EndScreen : CanvasLayer
 		_wishlistButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		secondaryRow.AddChild(_wishlistButton);
 
+		// Play Again + Continue Endless side by side
+		var primaryRow = new HBoxContainer();
+		primaryRow.AddThemeConstantOverride("separation", 8);
+		primaryRow.CustomMinimumSize = new Vector2(360f, 0f);
+		vbox.AddChild(primaryRow);
+
 		_playAgainButton = new Button
 		{
 			Text = "Play Again",
-			CustomMinimumSize = new Vector2(360f, 46f),
+			CustomMinimumSize = new Vector2(0f, 42f),
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 			Visible = false,
 		};
-		_playAgainButton.AddThemeFontSizeOverride("font_size", 20);
+		_playAgainButton.AddThemeFontSizeOverride("font_size", 18);
 		UITheme.ApplyPrimaryStyle(_playAgainButton);
 		_playAgainButton.Pressed += OnPlayAgainPressed;
 		_playAgainButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
-		vbox.AddChild(_playAgainButton);
+		primaryRow.AddChild(_playAgainButton);
+
+		_continueEndlessButton = new Button
+		{
+			Text = "Continue  \u2014  Endless",
+			CustomMinimumSize = new Vector2(0f, 42f),
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+			Visible = false,
+		};
+		_continueEndlessButton.AddThemeFontSizeOverride("font_size", 18);
+		UITheme.ApplyPrimaryStyle(_continueEndlessButton);
+		_continueEndlessButton.AddThemeColorOverride("font_color", new Color(1.0f, 0.82f, 0.30f));
+		_continueEndlessButton.Pressed += OnContinueEndlessPressed;
+		_continueEndlessButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		primaryRow.AddChild(_continueEndlessButton);
 
 		_mainMenuButton = new Button
 		{
 			Text = "Main Menu",
-			CustomMinimumSize = new Vector2(360f, 46f),
+			CustomMinimumSize = new Vector2(360f, 42f),
 			Visible = true,
 		};
-		_mainMenuButton.AddThemeFontSizeOverride("font_size", 20);
+		_mainMenuButton.AddThemeFontSizeOverride("font_size", 18);
 		UITheme.ApplyCyanStyle(_mainMenuButton);
 		_mainMenuButton.Pressed += OnMainMenuPressed;
 		_mainMenuButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
@@ -210,6 +235,7 @@ public partial class EndScreen : CanvasLayer
 
 	public void ShowWin(int kills, int damageDealt, float totalPlayTime, string buildSummary, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor, int livesRemaining = Balance.StartingLives)
 	{
+		_continuingEndless = false;
 		_titleLabel.Text = "VICTORY";
 		bool isHardWin = _leaderboardDifficulty == DifficultyMode.Hard;
 		_titleLabel.Modulate = isHardWin ? new Color(1.0f, 0.85f, 0.2f) : new Color(0.3f, 1.0f, 0.5f);
@@ -239,11 +265,14 @@ public partial class EndScreen : CanvasLayer
 				_                     => "Play Again",
 			};
 		}
+		if (GodotObject.IsInstanceValid(_continueEndlessButton))
+			_continueEndlessButton.Visible = true;
 		PlayEntranceAnimation();
 	}
 
 	public void ShowLoss(int waveReached, int livesLost, int kills, int damageDealt, float totalPlayTime, string buildSummary, RunState runState, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor)
 	{
+		_continuingEndless = false;
 		_titleLabel.Text = "GAME OVER";
 		_titleLabel.Modulate = new Color(1.0f, 0.35f, 0.35f);
 		int wavesLeft = Balance.TotalWaves - waveReached;
@@ -275,6 +304,8 @@ public partial class EndScreen : CanvasLayer
 			_lossAnalysisLabel.Visible = false;
 		}
 
+		if (GodotObject.IsInstanceValid(_continueEndlessButton))
+			_continueEndlessButton.Visible = false;
 		PlayEntranceAnimation();
 	}
 
@@ -388,6 +419,7 @@ public partial class EndScreen : CanvasLayer
 
 	private void OnViewLeaderboardPressed()
 	{
+		OnScreenExit();
 		LeaderboardsMenu.SetPendingContext(_leaderboardMapId, _leaderboardDifficulty, preferGlobal: true);
 		Transition.Instance?.FadeToScene("res://Scenes/Leaderboards.tscn");
 	}
@@ -543,6 +575,7 @@ public partial class EndScreen : CanvasLayer
 	{
 		if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */ && Visible && !_namePromptActive && _canDismiss)
 		{
+			OnScreenExit();
 			SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
 			Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 		}
@@ -552,14 +585,32 @@ public partial class EndScreen : CanvasLayer
 	{
 		if (@event.IsActionPressed("ui_cancel") && Visible && !_namePromptActive && _canDismiss)
 		{
+			OnScreenExit();
 			SlotTheory.Core.SoundManager.Instance?.Play("ui_select");
 			Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 			GetViewport().SetInputAsHandled();
 		}
 	}
 
+	// Fires WinExited on every exit path except "Continue — Endless".
+	private void OnScreenExit()
+	{
+		if (!_continuingEndless) WinExited?.Invoke();
+	}
+
+	private void OnContinueEndlessPressed()
+	{
+		SoundManager.Instance?.Play("ui_select");
+		_continuingEndless = true;
+		if (GodotObject.IsInstanceValid(_continueEndlessButton))
+			_continueEndlessButton.Visible = false;
+		Visible = false;
+		ContinueEndlessPressed?.Invoke();
+	}
+
 	private void OnPlayAgainPressed()
 	{
+		OnScreenExit();
 		SoundManager.Instance?.Play("ui_select");
 		MapSelectPanel.SetPendingMapSelection(_leaderboardMapId);
 		if (_leaderboardMapId == LeaderboardKey.RandomMapId)
@@ -570,6 +621,7 @@ public partial class EndScreen : CanvasLayer
 
 	private void OnMainMenuPressed()
 	{
+		OnScreenExit();
 		Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 	}
 

@@ -18,6 +18,12 @@ public static class Balance
 
     // Run structure
     public const int TotalWaves = 20;
+
+    // Endless mode scaling (waves beyond TotalWaves)
+    public const float EndlessEnemyCountScalePerWave = 0.05f;  // +5% enemy count per endless wave (multiplicative)
+    public const float EndlessEnemyHpScalePerWave    = 0.02f;  // +2% enemy HP per endless wave (multiplicative)
+    public const int   EndlessSwiftBonusInterval     = 5;      // every N endless waves: +1 Swift Walker
+    public const float EndlessSpawnIntervalFloor     = 0.70f;  // minimum spawn interval in endless mode
     public const int SlotCount = 6;
     public const int Wave1ExtraPicks  = 0;          // temporarily disabled: always 1 pick before wave 1
     public const int Wave15ExtraPicks = 0;          // temporarily disabled: always 1 pick before wave 15
