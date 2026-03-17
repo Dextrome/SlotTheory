@@ -376,6 +376,7 @@ public partial class GameController : Node
 			GenerateMap();
 			SetupMobileCamera();
 			CenterWorldNode();
+			CallDeferred(MethodName.CenterWorldNode); // re-run after layout settles
 			SetupSlots();
 			SetupTooltip();
 			SetupAnnouncer();
@@ -383,7 +384,7 @@ public partial class GameController : Node
 		_extraPicksRemaining = Balance.ExtraPicksForWave(0);
 		_lastWaveReport = null;
 		_hudPanel.ResetSpeed();   // Engine.TimeScale persists across scene loads; always reset on fresh run
-		GetViewport().SizeChanged += CenterWorldNode;
+		GetViewport().SizeChanged += () => CallDeferred(MethodName.CenterWorldNode);
 		if (!TryRestoreMobileSnapshot())
 			StartDraftPhase();
 	}
@@ -986,6 +987,7 @@ public partial class GameController : Node
 			GenerateMap();
 			SetupMobileCamera();
 			CenterWorldNode();
+			CallDeferred(MethodName.CenterWorldNode); // re-run after layout settles
 			ClearSlotVisuals();
 			SetupSlots();
 
@@ -6335,12 +6337,13 @@ void fragment() {
 
 	private void ShakeWorld()
 	{
+		var origin = _worldNode.Position;
 		var tween = CreateTween();
-		tween.TweenProperty(_worldNode, "position", new Vector2( 4f,  2f), 0.04f);
-		tween.TweenProperty(_worldNode, "position", new Vector2(-4f, -3f), 0.04f);
-		tween.TweenProperty(_worldNode, "position", new Vector2( 3f, -2f), 0.04f);
-		tween.TweenProperty(_worldNode, "position", new Vector2(-2f,  3f), 0.04f);
-		tween.TweenProperty(_worldNode, "position", Vector2.Zero,          0.04f);
+		tween.TweenProperty(_worldNode, "position", origin + new Vector2( 4f,  2f), 0.04f);
+		tween.TweenProperty(_worldNode, "position", origin + new Vector2(-4f, -3f), 0.04f);
+		tween.TweenProperty(_worldNode, "position", origin + new Vector2( 3f, -2f), 0.04f);
+		tween.TweenProperty(_worldNode, "position", origin + new Vector2(-2f,  3f), 0.04f);
+		tween.TweenProperty(_worldNode, "position", origin,                         0.04f);
 	}
 
 	private void ShakeWorldMicro()
@@ -6348,10 +6351,11 @@ void fragment() {
 		if (!Balance.EnableScreenShake || !GodotObject.IsInstanceValid(_worldNode))
 			return;
 
+		var origin = _worldNode.Position;
 		var tween = CreateTween();
-		tween.TweenProperty(_worldNode, "position", new Vector2(1.6f, 0.9f), 0.018f);
-		tween.TweenProperty(_worldNode, "position", new Vector2(-1.3f, -0.8f), 0.018f);
-		tween.TweenProperty(_worldNode, "position", Vector2.Zero, 0.028f);
+		tween.TweenProperty(_worldNode, "position", origin + new Vector2( 1.6f,  0.9f),  0.018f);
+		tween.TweenProperty(_worldNode, "position", origin + new Vector2(-1.3f, -0.8f),  0.018f);
+		tween.TweenProperty(_worldNode, "position", origin,                               0.028f);
 	}
 
 	private void HandlePerfProfilerHotkey(bool devMode)

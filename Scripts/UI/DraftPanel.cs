@@ -314,7 +314,7 @@ public partial class DraftPanel : CanvasLayer
         _firstRunBanner.AddChild(bannerVbox);
 
         var bannerTopRow = new HBoxContainer();
-        _bannerHeader = new Label { Text = "HOW THIS WORKS  (1/2)" };
+        _bannerHeader = new Label { Text = "HOW THIS WORKS" };
         UITheme.ApplyFont(_bannerHeader, semiBold: true, size: 13);
         _bannerHeader.AddThemeColorOverride("font_color", UITheme.Lime);
         bannerTopRow.AddChild(_bannerHeader);
@@ -510,16 +510,16 @@ public partial class DraftPanel : CanvasLayer
         // ── Text + buttons ────────────────────────────────────────────────────
         if (page == 0)
         {
-            _bannerHeader.Text = "HOW THIS WORKS  (1/2)";
+            _bannerHeader.Text = "HOW THIS WORKS";
             _bannerBody.Text =
-                "Pick one card - towers fill empty slots, modifiers upgrade towers you already have.\n" +
-                "Waves run automatically. You draft once between every wave. Survive 20 waves to win.";
-            _bannerNext.Text = "Next \u2192";
-            _bannerHowTo.Visible = false;
+                "Pick one card each draft. Towers fill empty slots; modifiers upgrade towers you already have.\n" +
+                "Waves run automatically. Survive 20 waves to win.";
+            _bannerNext.Text = "Got it";
+            _bannerHowTo.Visible = true;
         }
         else
         {
-            _bannerHeader.Text = "SURGES  (2/2)";
+            _bannerHeader.Text = "SURGES";
             _bannerBody.Text =
                 "Modifiers generate charge as they activate (hits, kills, procs). When a tower's meter fills, it triggers a Surge: a powerful mid-wave effect.\n" +
                 "Each Surge adds to a global meter. Fill it enough and a Global Surge fires, refunding all cooldowns and hitting every enemy on the lane.";
@@ -557,13 +557,8 @@ public partial class DraftPanel : CanvasLayer
     private void OnBannerNextPressed()
     {
         SoundManager.Instance?.Play("ui_select");
-        if (_bannerPage == 0)
-            SetBannerPage(1);
-        else
-        {
-            _firstRunBanner.Visible = false;
-            HideSurgeHighlight();
-        }
+        _firstRunBanner.Visible = false;
+        HideSurgeHighlight();
     }
 
     private void OnBannerHowToPressed()
@@ -751,11 +746,20 @@ public partial class DraftPanel : CanvasLayer
 
         BuildCardRow(options);
 
-        bool showBanner = waveNumber == 1 && pickNumber == 1
-                       && (SettingsManager.Instance?.IsFirstRun ?? false);
-        if (showBanner)
+        bool showFirstRunBanner = waveNumber == 1 && pickNumber == 1
+                               && (SettingsManager.Instance?.IsFirstRun ?? false);
+        bool showSurgeBanner = waveNumber == 3 && pickNumber == 1
+                            && !(SettingsManager.Instance?.SurgeTutorialSeen ?? true);
+
+        if (showFirstRunBanner)
         {
             SetBannerPage(0);
+            _firstRunBanner.Visible = true;
+        }
+        else if (showSurgeBanner)
+        {
+            SettingsManager.Instance?.MarkSurgeTutorialSeen();
+            SetBannerPage(1);
             _firstRunBanner.Visible = true;
         }
         else

@@ -224,12 +224,6 @@ public partial class HowToPlay : Node
         AddTargetModeRow(vbox, TargetingMode.LowestHp, "Furthest", "Place mines at the furthest valid lane point within range.", TargetModeIconSet.RiftSapper);
         AddSpacer(vbox, 8);
 
-        AddHeader(vbox, "MARK");
-        AddLine(vbox, "Marker Tower hits apply Mark for 4 seconds.");
-        AddLine(vbox, "Marked enemies take +40% damage from all towers.");
-        AddLine(vbox, "Pair with Exploit Weakness for a x2.03 burst combo (+40% mark x +45% exploit).");
-        AddSpacer(vbox, 8);
-
         AddHeader(vbox, "MODIFIERS  (max 3 per tower)");
         AddModRowWithIcon(vbox, "momentum",         "Momentum",            "+16% damage per consecutive hit on same target, up to x1.8. Resets on target switch.");
         AddModRowWithIcon(vbox, "overkill",         "Overkill",            "Excess damage from a kill spills to the next enemy in the lane.");
@@ -255,22 +249,16 @@ public partial class HowToPlay : Node
         AddLine(vbox, "Marker Tower + Exploit Weakness - marks the target then bursts it for x2.03 total damage.");
         AddLine(vbox, "Heavy Cannon + Overkill - chain-kills tightly packed groups; spill damage carries forward.");
         AddLine(vbox, "Arc Emitter + Chain Reaction - each copy adds a bounce; with 3 copies, Arc Emitter can hit 6 targets per shot.");
-        AddLine(vbox, "Heavy Cannon + Split Shot - even at 35%, cannon hits still add meaningful side pressure to nearby enemies.");
-        AddLine(vbox, "Feedback Loop + Hair Trigger - killing enemies reduces cooldown faster; rapid shooters cycle almost instantly.");
         AddLine(vbox, "Set your Marker Tower to First so it tags the lead enemy before damage towers fire.");
-        AddLine(vbox, "Hair Trigger + Chill Shot - rapid-fire slows stack to keep enemies frozen in range.");
-        AddLine(vbox, "Swift Walkers appear waves 10-14 - Chill Shot or Overreach helps catch them before they outrun your range.");
     }
 
     private static void BuildSurgesSection(VBoxContainer vbox)
     {
         AddHeader(vbox, "SURGES OVERVIEW");
         AddLine(vbox, "Each tower builds spectacle charge from supported modifier events.");
-        AddLine(vbox, $"Tower surge: triggers at {SpectacleDefinitions.SurgeThreshold:0} meter, then meter resets to {SpectacleDefinitions.SurgeMeterAfterTrigger:0}.");
-        AddLine(vbox, $"Global meter gain: +{SpectacleDefinitions.GlobalMeterPerSurge:0} per tower surge; global surge triggers at {SpectacleDefinitions.GlobalThreshold:0}, then resets to {SpectacleDefinitions.GlobalMeterAfterTrigger:0}.");
-        AddLine(vbox, "Surge mode by unique supported mods on tower: 1=Single, 2=Combo, 3=Triad (combo core + augment).");
-        AddSpacer(vbox, 8);
-        AddLine(vbox, "Visual grammar: ripples = mode (1 ring for Single, 2 for Combo, 3 for Triad). Pattern = tower type (cannon ring, chain arcs, sparks, etc.). Banner label = your build archetype (REDLINE WAVE, CHAIN STORM, etc.).");
+        AddLine(vbox, $"Tower surge triggers at {SpectacleDefinitions.SurgeThreshold:0} meter, then resets to {SpectacleDefinitions.SurgeMeterAfterTrigger:0}.");
+        AddLine(vbox, $"Each tower surge adds +{SpectacleDefinitions.GlobalMeterPerSurge:0} to the global meter. Global surge triggers at {SpectacleDefinitions.GlobalThreshold:0}, then resets to {SpectacleDefinitions.GlobalMeterAfterTrigger:0}.");
+        AddLine(vbox, "A tower with 1 surge-capable mod fires a Single Surge. Two mods: Combo Surge. Three mods: Triad (Combo payload + Augment bonus).");
         AddSpacer(vbox, 8);
 
         AddHeader(vbox, "SINGLE SURGE TYPES (10)");
@@ -282,20 +270,8 @@ public partial class HowToPlay : Node
         }
         AddSpacer(vbox, 8);
 
-        AddHeader(vbox, "COMBO SURGE TYPES (45)");
-        for (int i = 0; i < CanonicalSurgeMods.Length; i++)
-        {
-            for (int j = i + 1; j < CanonicalSurgeMods.Length; j++)
-            {
-                string a = CanonicalSurgeMods[i];
-                string b = CanonicalSurgeMods[j];
-                var combo = SpectacleDefinitions.GetCombo(a, b);
-                string aName = SpectacleDefinitions.GetDisplayName(a);
-                string bName = SpectacleDefinitions.GetDisplayName(b);
-                AddComboModRow(vbox, a, b, combo.Name.ToUpperInvariant(),
-                    $"{aName} + {bName}: Hybrid payload.");
-            }
-        }
+        AddHeader(vbox, "COMBO SURGES");
+        AddLine(vbox, "Towers with 2 surge-capable mods fire Combo Surges — a hybrid payload blending both mod roles. 45 unique combinations exist, one for every modifier pairing.");
         AddSpacer(vbox, 8);
 
         AddHeader(vbox, "TRIAD AUGMENT TYPES (10)");
@@ -306,14 +282,13 @@ public partial class HowToPlay : Node
             string duration = aug.DurationSec > 0f ? $"{aug.DurationSec:0.0}s" : "instant";
             AddModRowWithIcon(vbox, modId, aug.Name.ToUpperInvariant(), $"{modName}: {DescribeAugmentKind(aug.Kind)}. Coef {aug.Coefficient * 100f:0}% ({duration}).");
         }
-        AddLine(vbox, "Triad surge output always uses one combo core C_* plus one augment package T_AUG_*.");
+        AddLine(vbox, "Every Triad Surge fires one Combo core payload plus one Augment effect.");
         AddSpacer(vbox, 8);
 
         AddHeader(vbox, "GLOBAL SURGE");
         AddLine(vbox, "When it triggers, every placed tower gets a cooldown refund and fires its own major surge payload.");
         AddLine(vbox, "All alive enemies are marked and slowed for a short window.");
-        AddLine(vbox, "The banner names your build archetype based on which mods drove the most surges. Ripple colors reflect the top contributing mods (up to 3 colors for diverse builds). Each tower fires its own identity FX in sequence.");
-        AddLine(vbox, "Detonation builds (Overkill, Focus Lens, Feedback Loop, Hair Trigger) produce a sharper flash + second snap pulse. Pressure builds (Momentum, Chill Shot, Overreach) produce a softer sustained flash. Triad builds (3 mod roles) add an extra pulse at the end.");
+        AddLine(vbox, "The banner names your build archetype based on which mods drove the most surges. Ripple colors reflect the top contributing mods (up to 3 colors for diverse builds).");
         AddSpacer(vbox, 10);
 
         AddHeader(vbox, "GLOBAL SURGE ARCHETYPES (10)");

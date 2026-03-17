@@ -749,7 +749,7 @@ public partial class SlotCodexPanel : Node
 
     private static string GetEnemyStatsWaveLine(string enemyId) => enemyId switch
     {
-        "armored_walker" => "Leak: 1 life  |  From wave 6",
+        "armored_walker" => "Leak: 2 lives  |  From wave 6",
         "swift_walker"   => "Leak: 1 life  |  Waves 10–14",
         _                => "Leak: 1 life  |  From wave 1",
     };

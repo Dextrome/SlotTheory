@@ -182,7 +182,7 @@ Key constraints from the Getting Started guide:
 3. For each tower: reduce cooldown â†’ acquire target via `Targeting.SelectTarget()` â†’ run damage pipeline â†’ reset cooldown
 4. Remove dead enemies
 5. Wave end: quota spawned AND no enemies alive
-6. Loss: player `Lives` reaches 0 â€” each enemy that exits (`ProgressRatio >= 1.0`) costs 1 life (`Balance.StartingLives = 10`)
+6. Loss: player `Lives` reaches 0 â€” each enemy that exits (`ProgressRatio >= 1.0`) costs 1 life; Armored Walker costs 2 lives (`Balance.StartingLives = 10`)
 
 ### Damage pipeline (`DamageModel`):
 Build a `DamageContext` (attacker, target, base damage, wave index) â†’ apply modifier hooks in deterministic order:
@@ -411,7 +411,7 @@ If an idea requires a new system â†’ defer to "Project 2."
   - Basic Walker: 65 HP wave 1, Ã-1.10/wave, 120px/s
   - Armored Walker: 3.5Ã- HP, 60px/s, first appears wave 6 (index 5)
   - Swift Walker: 1.5Ã- HP, 240px/s, appears waves 10â€“19 (skips wave 12 and 20)
-- **10 player lives** â€” each leaked enemy costs 1 life (`Balance.StartingLives = 10`)
+- **10 player lives** â€” each leaked enemy costs 1 life; Armored Walker costs 2 lives (`Balance.StartingLives = 10`)
 - **20 waves**, 6 tower slots, max 3 modifiers per tower
 - **Extra draft picks**: `Balance.Wave1ExtraPicks` and `Balance.Wave15ExtraPicks` are both currently 0 (temporarily disabled)
 - **Difficulty modes**: Easy (no scaling), Normal (tuned ~75% bot win), Hard (tuned ~50% bot win). Exact multipliers are in `Balance.DifficultyMultipliers` and overridable at runtime via `SpectacleTuning.Current`
