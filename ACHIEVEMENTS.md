@@ -52,7 +52,7 @@ Tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`
 | ID | Name | Condition | Notes |
 |---|---|---|---|
 | `FULL_ARSENAL` | Full Arsenal | Use all 5 tower types in one run | Check at run end: all 5 tower IDs (`rapid_shooter`, `heavy_cannon`, `marker_tower`, `chain_tower`, `rift_prism`) must appear in at least one slot. |
-| `OVER_EQUIPPED` | Over Equipped | Fill 9 modifier slots in one run | Check at run end: sum of `Modifiers.Count` across all occupied slots >= 9. |
+| `OVER_EQUIPPED` | Over Equipped | Fill all 18 modifier slots in one run | Check at run end: sum of `Modifiers.Count` across all occupied slots >= 18. |
 | `CHAIN_GANG` | Chain Gang | Win with 3 or more Arc Emitters placed | Stepping stone toward `CHAIN_MASTER`. Check at run end (win only): `chain_tower` count in filled slots >= 3. |
 | `GLASS_CANNON` | Glass Cannon | Win with Focus Lens and Hair Trigger on the same tower | Check at run end (win only): any slot has both `focus_lens` and `hair_trigger` in its modifier list. |
 
@@ -67,7 +67,7 @@ private const int  DevastatorDamage     = 200_000;
 private const int  EndlessWave25        = 24;   // 0-based WaveIndex
 private const int  EndlessWave30        = 29;
 private const int  EndlessWave40        = 39;
-private const int  OverEquippedMinMods  = 9;
+private const int  OverEquippedMinMods  = 18;
 private const int  ChainGangMinArcs     = 3;
 ```
 
@@ -80,7 +80,7 @@ new("ENDLESS_25",    "Into the Void",    "Clear wave 25 in endless mode."),
 new("ENDLESS_30",    "No End in Sight",  "Clear wave 30 in endless mode."),
 new("ENDLESS_40",    "The Abyss",        "Clear wave 40 in endless mode."),
 new("FULL_ARSENAL",  "Full Arsenal",     "Use all 5 tower types in a single run."),
-new("OVER_EQUIPPED", "Over Equipped",    "Fill 9 modifier slots in a single run."),
+new("OVER_EQUIPPED", "Over Equipped",    "Fill all 18 modifier slots in a single run."),
 new("CHAIN_GANG",    "Chain Gang",       "Win with 3 or more Arc Emitters placed."),
 new("GLASS_CANNON",  "Glass Cannon",     "Win with Focus Lens and Hair Trigger on the same tower."),
 ```

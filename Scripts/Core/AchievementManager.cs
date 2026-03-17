@@ -23,9 +23,15 @@ public partial class AchievementManager : Node
     private const string Section  = "unlocked";
 
     // ── Evaluation constants ──────────────────────────────────────────────────
-    private const float SpeedRunMaxSeconds = 15f * 60f;  // 15 minutes
-    private const int   AnnihilatorDamage  = 100_000;
-    private const int   HalfwayWaveIndex   = 9;          // 0-based → wave 10
+    private const float SpeedRunMaxSeconds  = 15f * 60f;  // 15 minutes
+    private const int   AnnihilatorDamage   = 100_000;
+    private const int   DevastatorDamage    = 200_000;
+    private const int   HalfwayWaveIndex    = 9;           // 0-based → wave 10
+    private const int   EndlessWave25Index  = 24;          // 0-based → wave 25
+    private const int   EndlessWave30Index  = 29;
+    private const int   EndlessWave40Index  = 39;
+    private const int   OverEquippedMinMods = 18;          // 6 towers × 3 modifiers
+    private const int   ChainGangMinArcs    = 3;
 
     // ── Achievement definitions ───────────────────────────────────────────────
 
@@ -44,6 +50,15 @@ public partial class AchievementManager : Node
         new("SPEED_RUN",     "Speed Run",          "Win a run in under 15 minutes."),
         new("ANNIHILATOR",   "Annihilator",        "Deal 100,000 total damage in a single run."),
         new("CHAIN_MASTER",  "Chain Master",       "Win with all 6 slots filled by Arc Emitters."),
+        new("DEVASTATOR",    "Devastator",         "Deal 200,000 total damage in a single run."),
+        new("KEEP_GOING",    "Keep Going",         "Start an endless run."),
+        new("ENDLESS_25",    "Into the Void",      "Clear wave 25 in endless mode."),
+        new("ENDLESS_30",    "No End in Sight",    "Clear wave 30 in endless mode."),
+        new("ENDLESS_40",    "The Abyss",          "Clear wave 40 in endless mode."),
+        new("FULL_ARSENAL",  "Full Arsenal",       "Use 5 different towers in one run."),
+        new("OVER_EQUIPPED", "Over Equipped",      "Fill all 18 modifier slots in a single run."),
+        new("CHAIN_GANG",    "Chain Gang",         "Place 3 or more Arc Emitters in a single run."),
+        new("GLASS_CANNON",  "Glass Cannon",       "Equip Focus Lens and Hair Trigger on the same tower."),
     ];
 
     // ── Runtime state ─────────────────────────────────────────────────────────
@@ -144,9 +159,11 @@ public partial class AchievementManager : Node
             }
         }
 
-        // Damage milestone (win or loss)
+        // Damage milestones (win or loss)
         if (state.TotalDamageDealt >= AnnihilatorDamage)
             TryUnlock("ANNIHILATOR");
+        if (state.TotalDamageDealt >= DevastatorDamage)
+            TryUnlock("DEVASTATOR");
 
         // Win-only achievements
         if (won)
@@ -195,7 +212,7 @@ public partial class AchievementManager : Node
     }
 
     /// <summary>
-    /// Called after each draft pick. Unlocks FULL_HOUSE and/or STACKED mid-run.
+    /// Called after each draft pick. Unlocks build-related achievements mid-run.
     /// No-op in bot mode or if already unlocked.
     /// </summary>
     public void CheckDraftMilestones(RunState state)
@@ -205,18 +222,41 @@ public partial class AchievementManager : Node
         if (state.FreeSlotCount() == 0)
             Unlock("FULL_HOUSE");
 
+        int totalMods = 0;
+        int arcCount  = 0;
+        var towerIds  = new System.Collections.Generic.HashSet<string>();
+        bool hasGlassCannon = false;
+
         foreach (var slot in state.Slots)
         {
-            if (slot.Tower?.Modifiers.Count >= Balance.MaxModifiersPerTower)
-            {
+            if (slot.Tower == null) continue;
+            towerIds.Add(slot.Tower.TowerId);
+            int modCount = slot.Tower.Modifiers.Count;
+            totalMods += modCount;
+            if (modCount >= Balance.MaxModifiersPerTower)
                 Unlock("STACKED");
-                break;
-            }
+            if (slot.Tower.TowerId == "chain_tower")
+                arcCount++;
+            if (slot.Tower.Modifiers.Exists(m => m.ModifierId == "focus_lens") &&
+                slot.Tower.Modifiers.Exists(m => m.ModifierId == "hair_trigger"))
+                hasGlassCannon = true;
         }
+
+        if (totalMods >= OverEquippedMinMods)
+            Unlock("OVER_EQUIPPED");
+
+        if (towerIds.Count >= 5)
+            Unlock("FULL_ARSENAL");
+
+        if (arcCount >= ChainGangMinArcs)
+            Unlock("CHAIN_GANG");
+
+        if (hasGlassCannon)
+            Unlock("GLASS_CANNON");
     }
 
     /// <summary>
-    /// Called after each wave clear. Unlocks ANNIHILATOR mid-run once damage threshold is crossed.
+    /// Called after each wave clear. Unlocks ANNIHILATOR and DEVASTATOR mid-run.
     /// No-op in bot mode or if already unlocked.
     /// </summary>
     public void CheckAnnihilator(RunState state)
@@ -224,6 +264,30 @@ public partial class AchievementManager : Node
         if (OS.GetCmdlineUserArgs().Contains("--bot")) return;
         if (state.TotalDamageDealt >= AnnihilatorDamage)
             Unlock("ANNIHILATOR");
+        if (state.TotalDamageDealt >= DevastatorDamage)
+            Unlock("DEVASTATOR");
+    }
+
+    /// <summary>
+    /// Called after each endless wave clear. Unlocks wave-depth milestones.
+    /// No-op in bot mode.
+    /// </summary>
+    public void CheckEndlessMilestones(RunState state)
+    {
+        if (OS.GetCmdlineUserArgs().Contains("--bot")) return;
+        if (state.WaveIndex >= EndlessWave25Index) Unlock("ENDLESS_25");
+        if (state.WaveIndex >= EndlessWave30Index) Unlock("ENDLESS_30");
+        if (state.WaveIndex >= EndlessWave40Index) Unlock("ENDLESS_40");
+    }
+
+    /// <summary>
+    /// Called when the player presses Continue — Endless. Unlocks KEEP_GOING.
+    /// No-op in bot mode.
+    /// </summary>
+    public void CheckKeepGoing()
+    {
+        if (OS.GetCmdlineUserArgs().Contains("--bot")) return;
+        Unlock("KEEP_GOING");
     }
 
     /// <summary>

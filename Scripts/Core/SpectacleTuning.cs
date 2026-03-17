@@ -6,7 +6,7 @@ namespace SlotTheory.Core;
 
 /// <summary>
 /// Runtime tuning overrides used by automation, sweeps, and combat lab scenarios.
-/// Defaults reflect the tuned best_tuning profile (iter01_cand02, 2026-03-16 pipeline run).
+/// Defaults reflect the tuned best_tuning profile (iter01_cand02, 2026-03-17 pipeline run).
 /// All multipliers are applied on top of Balance.cs constants - Reset() returns to these same defaults.
 /// </summary>
 public sealed class SpectacleTuningProfile
@@ -93,9 +93,9 @@ public sealed class SpectacleTuningProfile
     [JsonPropertyName("second_stage_power_threshold")]
     public float SecondStagePowerThreshold { get; set; } = 0.95f;
     [JsonPropertyName("normal_enemy_hp_multiplier")]
-    public float NormalEnemyHpMultiplier { get; set; } = 1.208f;
+    public float NormalEnemyHpMultiplier { get; set; } = 1.124f;
     [JsonPropertyName("normal_enemy_count_multiplier")]
-    public float NormalEnemyCountMultiplier { get; set; } = 1.0776f;
+    public float NormalEnemyCountMultiplier { get; set; } = 1.1535f;
     [JsonPropertyName("normal_spawn_interval_multiplier")]
     public float NormalSpawnIntervalMultiplier { get; set; } = 0.9196f;
     [JsonPropertyName("hard_enemy_hp_multiplier")]
@@ -103,7 +103,7 @@ public sealed class SpectacleTuningProfile
     [JsonPropertyName("hard_enemy_count_multiplier")]
     public float HardEnemyCountMultiplier { get; set; } = 1.074f;
     [JsonPropertyName("hard_spawn_interval_multiplier")]
-    public float HardSpawnIntervalMultiplier { get; set; } = 0.9312f;
+    public float HardSpawnIntervalMultiplier { get; set; } = 0.9163f;
 
     [JsonPropertyName("gain_multipliers")]
     public Dictionary<string, float> GainMultipliers { get; set; } = new(StringComparer.Ordinal)

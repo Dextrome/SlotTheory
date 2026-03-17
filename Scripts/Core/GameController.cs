@@ -572,7 +572,9 @@ public partial class GameController : Node
 			var runColors = BuildRunNameColors();
 			string mvpLine = BuildMvpLine();
 			string modLine = BuildMostValuableModLine();
-			var scorePayload = BuildRunScorePayload(won: false, waveReached: _runState.WaveIndex + 1, buildName: runName);
+			// Endless runs get won=true — the player did beat wave 20 to get here.
+			// This ensures endless scores always beat a base wave-20 win, scaled by depth.
+			var scorePayload = BuildRunScorePayload(won: _runState.IsEndlessMode, waveReached: _runState.WaveIndex + 1, buildName: runName);
 			var localSubmit = HighScoreManager.Instance?.SubmitLocal(scorePayload);
 			string leaderboardLine = BuildInitialLeaderboardLine(scorePayload, localSubmit);
 			_endScreen.SetLeaderboardContext(scorePayload.MapId, scorePayload.Difficulty);
@@ -630,6 +632,8 @@ public partial class GameController : Node
 				SoundManager.Instance?.Play("wave_clear");
 				MusicDirector.Instance?.OnWaveClear();
 				AchievementManager.Instance?.CheckAnnihilator(_runState);
+				if (_runState.IsEndlessMode)
+					AchievementManager.Instance?.CheckEndlessMilestones(_runState);
 				_extraPicksRemaining = Balance.ExtraPicksForWave(_runState.WaveIndex);
 				if (_botRunner != null)
 				{
@@ -886,6 +890,7 @@ public partial class GameController : Node
 	/// <summary>Wipe all in-flight state and restart from wave 1 draft.</summary>
 	private void OnContinueEndlessPressed()
 	{
+		AchievementManager.Instance?.CheckKeepGoing();
 		// Discard the deferred win score — the endless result will replace it.
 		_pendingWinScorePayload    = null;
 		_pendingWinLeaderboardLine = "";
