@@ -65,6 +65,12 @@ public static class SpectacleDefinitions
     public const float MeterGainScale = 0.75f / 1.30f;
     // Damage-aware meter gain normalization so surge pacing is less dominated by hit frequency alone.
     public const float MeterDamageReference = 20f;
+    // Attack-interval scaling reference (1 second). Per-proc meter gain is multiplied by
+    // Clamp(AttackInterval / MeterIntervalReference, 0, 1.5):
+    //   fast towers (< 1s)  → scale < 1.0  (less per proc, prevents fire-rate dominance)
+    //   1s towers           → scale = 1.0  (neutral)
+    //   slow towers (> 1s)  → scale up to 1.5× (bonus so heavy hitters stay surge-relevant)
+    public const float MeterIntervalReference = 1.0f;
     public const float MeterDamageWeight = 0.90f;
     public const float MeterDamageMinMultiplier = 0.45f;
     public const float MeterDamageMaxMultiplier = 2.40f;

@@ -55,7 +55,7 @@ public partial class DraftPanel : CanvasLayer
     private Button _bannerHowTo = null!;
     private int _bannerPage = 0;
     private ColorRect? _tutorialBlocker;
-    private Panel? _surgeHighlight;
+    private Line2D? _surgeHighlight;
     private Line2D? _surgeConnectorLine;
     private const float CardFaceDownHoldSeconds = 0.12f;
     private const float CardStaggerSeconds = 0.40f;
@@ -361,70 +361,14 @@ public partial class DraftPanel : CanvasLayer
         AddChild(_tutorialBlocker);
 
         // ── Surge meter highlight + connector (page 2 tutorial) ─────────────
-        _surgeHighlight = new Panel
+        // Line2D rect — immune to Godot's layout system; Points set directly in SetBannerPage(1).
+        _surgeHighlight = new Line2D
         {
-            Visible = false,
-            MouseFilter = Control.MouseFilterEnum.Ignore,
+            DefaultColor = new Color(0.20f, 0.95f, 1.00f, 0.92f),
+            Width        = 2.5f,
+            Antialiased  = true,
+            Visible      = false,
         };
-        // Position and Size are set explicitly in SetBannerPage(1) from viewport dims.
-        // Anchor-based sizing collapses to content minimum when AnchorLeft==AnchorRight.
-        var cyBox = new StyleBoxFlat
-        {
-            BgColor      = new Color(0.04f, 0.09f, 0.15f, 0.92f),  // matches real surge meter bg
-            BorderColor  = new Color(0.20f, 0.95f, 1.00f, 0.92f),
-            ShadowColor  = new Color(0.20f, 0.95f, 1.00f, 0.45f),
-            ShadowSize   = 8,
-            ShadowOffset = Vector2.Zero,
-        };
-        cyBox.SetBorderWidthAll(2);
-        cyBox.SetCornerRadiusAll(9);
-        cyBox.ContentMarginLeft   = 8;
-        cyBox.ContentMarginRight  = 8;
-        cyBox.ContentMarginTop    = 4;
-        cyBox.ContentMarginBottom = 4;
-        _surgeHighlight.AddThemeStyleboxOverride("panel", cyBox);
-
-        // Replica of the surge meter contents (label + empty pips) so it reads
-        // correctly even though the real HUD meter is hidden during draft phase.
-        var surgeRow = new HBoxContainer { MouseFilter = Control.MouseFilterEnum.Ignore };
-        surgeRow.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        surgeRow.AddThemeConstantOverride("separation", 4);
-        _surgeHighlight.AddChild(surgeRow);
-
-        var surgeLabel = new Label
-        {
-            Text = "GLOBAL SURGE",
-            VerticalAlignment = VerticalAlignment.Center,
-            AutowrapMode = TextServer.AutowrapMode.Off,
-            SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin,
-            SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-            Modulate = new Color(1.00f, 0.95f, 0.76f, 1f),
-        };
-        UITheme.ApplyFont(surgeLabel, semiBold: true, size: 13);
-        surgeRow.AddChild(surgeLabel);
-
-        var pipsRow = new HBoxContainer
-        {
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-            SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
-            Alignment           = BoxContainer.AlignmentMode.Center,
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-        };
-        pipsRow.AddThemeConstantOverride("separation", 1);
-        surgeRow.AddChild(pipsRow);
-        for (int i = 0; i < 20; i++)
-        {
-            pipsRow.AddChild(new ColorRect
-            {
-                Color = new Color(0.07f, 0.16f, 0.25f, 0.95f),  // PipEmpty color
-                CustomMinimumSize = new Vector2(0f, 6f),
-                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-                SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
-                MouseFilter = Control.MouseFilterEnum.Ignore,
-            });
-        }
-
         AddChild(_surgeHighlight);
 
         _surgeConnectorLine = new Line2D
@@ -471,22 +415,29 @@ public partial class DraftPanel : CanvasLayer
         if (_tutorialBlocker != null)
             _tutorialBlocker.Visible = true;
 
+        // Force the surge meter visible on the surge page (it may have threshold=0 at wave 3).
+        // The meter lives in its own CanvasLayer (Layer=8) above DraftPanel (Layer=6), so
+        // no overlay hole-punching is needed — it simply renders on top.
+        GetNode<HudPanel>("../HudPanel").SetSurgeMeterForcedVisible(isSurgePage);
+
         // ── Surge highlight + connector line ──────────────────────────────────
         if (_surgeHighlight != null)
         {
             _surgeHighlight.Visible = isSurgePage;
             if (isSurgePage)
             {
-                // Set explicit Position + Size — anchor-based sizing collapses to
-                // content min when AnchorLeft==AnchorRight, so we bypass it entirely.
-                var vpSize = GetViewport().GetVisibleRect().Size;
-                // Real meter: center ±211 wide, vpH-36 to vpH-14 (22px tall). Add 20px padding each side.
-                float hw = (211f + 20f) * 2f;       // 462px total
-                float hh = 22f + 12f;               // 34px tall
-                float hx = (vpSize.X - hw) * 0.5f;
-                float hy = vpSize.Y - 36f - 6f;     // 6px above meter top
-                _surgeHighlight.Position = new Vector2(hx, hy);
-                _surgeHighlight.Size     = new Vector2(hw, hh);
+                const float pad = 12f;
+                Rect2 meter = GetNode<HudPanel>("../HudPanel").GetSurgeMeterViewportRect();
+                float x = meter.Position.X - pad;
+                float y = meter.Position.Y - pad;
+                float r = meter.End.X + pad;
+                float b = meter.End.Y + pad;
+                _surgeHighlight.Points = new Vector2[]
+                {
+                    new Vector2(x, y), new Vector2(r, y),
+                    new Vector2(r, b), new Vector2(x, b),
+                    new Vector2(x, y),   // close the rect
+                };
             }
         }
 
@@ -495,14 +446,15 @@ public partial class DraftPanel : CanvasLayer
             _surgeConnectorLine.Visible = isSurgePage;
             if (isSurgePage)
             {
-                var vpSize = GetViewport().GetVisibleRect().Size;
-                float cx = vpSize.X * 0.5f;
-                float cy = vpSize.Y;
-                float highlightTop = cy - 36f - 6f;  // hy from above
+                var hudPanel = GetNode<HudPanel>("../HudPanel");
+                Rect2 meter  = hudPanel.GetSurgeMeterViewportRect();
+                var vpSize   = GetViewport().GetVisibleRect().Size;
+                float cx     = meter.GetCenter().X;
+                float top    = meter.Position.Y - 10f;
                 _surgeConnectorLine.Points = new Vector2[]
                 {
-                    new Vector2(cx, cy - 82f),    // banner bottom
-                    new Vector2(cx, highlightTop),
+                    new Vector2(cx, vpSize.Y - 82f),   // banner bottom
+                    new Vector2(cx, top),
                 };
             }
         }
@@ -552,6 +504,7 @@ public partial class DraftPanel : CanvasLayer
         if (_tutorialBlocker != null)    _tutorialBlocker.Visible    = false;
         if (_surgeHighlight != null)     _surgeHighlight.Visible     = false;
         if (_surgeConnectorLine != null) _surgeConnectorLine.Visible = false;
+        GetNode<HudPanel>("../HudPanel").SetSurgeMeterForcedVisible(false);
     }
 
     private void OnBannerNextPressed()

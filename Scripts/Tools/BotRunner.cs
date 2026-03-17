@@ -22,14 +22,13 @@ public class BotRunner
 
     private static readonly BotStrategy[] OptimizationStrategies =
     {
-        BotStrategy.Random,
         BotStrategy.GreedyDps,
         BotStrategy.MarkerSynergy,
         BotStrategy.SplitFocus,
         BotStrategy.RiftPrismFocus,
-        BotStrategy.SpectacleSingleStack,
         BotStrategy.SpectacleComboPairing,
         BotStrategy.SpectacleTriadDiversity,
+        BotStrategy.PlayerStyleKenny,
     };
 
     private static readonly BotStrategy[] EdgeStrategies =

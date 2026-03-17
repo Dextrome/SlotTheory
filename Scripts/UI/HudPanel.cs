@@ -25,6 +25,7 @@ public partial class HudPanel : CanvasLayer
     private Label _surgeNameLabel = null!;  // shows "GLOBAL SURGE" normally, archetype name when building
     private Label _surgeMeterHint = null!;
     private bool _surgeMeterHintShown = false;
+    private bool _surgeMeterForcedVisible = false;
     private const int SurgePipCount = 20;
     private static readonly Color PipFilled = new(1.00f, 0.90f, 0.44f, 0.95f);
     private static readonly Color PipEmpty  = new(0.07f, 0.16f, 0.25f, 0.95f);
@@ -427,6 +428,21 @@ public partial class HudPanel : CanvasLayer
         _enemyLabel.Text = alive > 0 ? $"Enemies: {alive} / {total}" : "";
     }
 
+    /// <summary>
+    /// Computes the surge meter's viewport-space rect from its anchor/offset constants.
+    /// Safe to call even when the panel is invisible (no layout pass required).
+    /// </summary>
+    public Rect2 GetSurgeMeterViewportRect()
+    {
+        // Mirrors _globalSpectaclePanel anchor settings:
+        //   AnchorLeft = AnchorRight = 0.5  →  centered horizontally
+        //   OffsetLeft = -211, OffsetRight = 211  →  422 px wide
+        //   AnchorTop = AnchorBottom = 1.0  →  bottom of viewport
+        //   OffsetTop = -36, OffsetBottom = -14  →  22 px tall
+        var vp = GetViewport().GetVisibleRect().Size;
+        return new Rect2(vp.X * 0.5f - 211f, vp.Y - 36f, 422f, 22f);
+    }
+
     public void RefreshGlobalSurgeMeter(float meter, float threshold, bool visible,
         string archetypePreview = "", float previewAlpha = 0f)
     {
@@ -434,7 +450,7 @@ public partial class HudPanel : CanvasLayer
             || !GodotObject.IsInstanceValid(_surgeNameLabel))
             return;
 
-        bool canShow = visible && threshold > 0.001f;
+        bool canShow = (visible && threshold > 0.001f) || _surgeMeterForcedVisible;
         bool wasHidden = !_globalSpectaclePanel.Visible;
         _globalSpectaclePanel.Visible = canShow;
         if (!canShow)
@@ -478,6 +494,20 @@ public partial class HudPanel : CanvasLayer
             _surgeNameLabel.Text = "GLOBAL SURGE";
             _surgeNameLabel.Modulate = new Color(1.00f, 0.95f, 0.76f, 1f);
         }
+    }
+
+    /// <summary>
+    /// Called by the surge tutorial panel to show the meter above the draft overlay.
+    /// Temporarily raises HudPanel to Layer=7 (above DraftPanel Layer=6) so the surge
+    /// meter renders on top; PauseScreen is also Layer=7 but appears later in the scene
+    /// tree so it still renders above HudPanel when the game is paused.
+    /// </summary>
+    public void SetSurgeMeterForcedVisible(bool forced)
+    {
+        _surgeMeterForcedVisible = forced;
+        Layer = forced ? 7 : 1;
+        if (!forced && GodotObject.IsInstanceValid(_globalSpectaclePanel))
+            _globalSpectaclePanel.Visible = false; // let the next RefreshGlobalSurgeMeter decide
     }
 
     public void RefreshDevRenderStats(bool enabled, int enemiesAlive, string perfSummary)

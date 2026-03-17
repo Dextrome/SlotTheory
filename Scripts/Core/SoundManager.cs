@@ -164,9 +164,10 @@ public partial class SoundManager : Node
         }
 
         // ── Tower attacks ────────────────────────────────────────────────
-        Reg("shoot_rapid",  Tone(680f, 0.05f, vol: 0.26f, shape: 'q', env: 'f'));
-        Reg("shoot_heavy",  Tone( 72f, 0.24f, vol: 0.72f, shape: 's', env: 'f'));
-        Reg("shoot_marker", Tone(360f, 0.07f, vol: 0.32f, shape: 's', env: 'f'));
+        Reg("shoot_rapid",      Tone(680f, 0.05f, vol: 0.26f, shape: 't', env: 'f'));
+        Reg("shoot_rapid_cold", Tone(420f, 0.07f, vol: 0.24f, shape: 's', env: 'f'));  // Chill Shot variant: softer, icier
+        Reg("shoot_heavy",      Tone( 72f, 0.24f, vol: 0.72f, shape: 's', env: 'f'));
+        Reg("shoot_marker",     Tone(360f, 0.07f, vol: 0.32f, shape: 's', env: 'f'));
 
         // ── Enemy events ─────────────────────────────────────────────────
         Reg("hit",          Tone(520f, 0.03f, vol: 0.16f, shape: 'n', env: 'f'));

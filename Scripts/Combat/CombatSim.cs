@@ -264,7 +264,10 @@ public class CombatSim
                 "chain_tower"   => "shoot_rapid",
                 _               => "shoot_rapid",
             };
-            Sounds?.Play(shootId);
+            // Chill Shot gives rapid-fire towers a softer, icier sound
+            if (shootId == "shoot_rapid" && tower.Modifiers.Any(m => m.ModifierId == "slow"))
+                shootId = "shoot_rapid_cold";
+            Sounds?.Play(shootId, pitchScale: ComputeShootPitch(tower));
             if (tower.TowerId == "heavy_cannon")
                 Sounds?.DuckMusic(1.9f, 0.11f);
         }
@@ -881,6 +884,29 @@ public class CombatSim
             float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(bounces);
             GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, initialDamage);
         }
+    }
+
+    /// <summary>
+    /// Computes a pitch multiplier for the shoot sound based on equipped modifiers.
+    /// Each modifier contributes a factor that shifts tonal character to match its gameplay role.
+    /// Stacking is multiplicative and clamped by Play() to 0.75–1.40.
+    /// </summary>
+    private static float ComputeShootPitch(ITowerView tower)
+    {
+        float pitch = 1f;
+        foreach (var mod in tower.Modifiers)
+        {
+            pitch *= mod.ModifierId switch
+            {
+                "focus_lens"     => 0.78f,  // slow/heavy hits — deeper, weightier
+                "hair_trigger"   => 1.22f,  // overclock — crisper, brighter
+                "chain_reaction" => 0.88f,  // loaded payload — heavier onset
+                "overreach"      => 0.92f,  // wide range — more body
+                "overkill"       => 0.94f,  // spill burst — slightly heavier
+                _                => 1.00f,
+            };
+        }
+        return pitch;
     }
 
     private void SpawnMineBurst(Vector2 worldPos, Color color, bool heavy = false, bool chainPop = false, int chainHop = 0)

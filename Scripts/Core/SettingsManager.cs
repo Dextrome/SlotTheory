@@ -145,11 +145,7 @@ public partial class SettingsManager : Node
         SaveAccount();
     }
 
-    public void SetDemoCompleteNotified()
-    {
-        DemoCompleteNotified = true;
-        SaveAccount();
-    }
+    public void SetDemoCompleteNotified() => DemoCompleteNotified = true;
 
     public void ResetTutorial()
     {
@@ -302,7 +298,6 @@ public partial class SettingsManager : Node
             PlayerId     = (string)cfg.GetValue(SecIdentity, "player_id",      "");
             RunsStarted  = (int)   cfg.GetValue(SecIdentity, "runs_started",   0);
             SurgeTutorialSeen = (bool)cfg.GetValue(SecIdentity, "surge_tutorial_seen", false);
-            DemoCompleteNotified = (bool)cfg.GetValue(SecIdentity, "demo_complete_notified", false);
             DevMode = ReadHiddenDevModeForProfile(cfg, PlayerId, out bool migratedFromLegacy);
             if (migratedFromLegacy)
                 SaveAccount();
@@ -351,7 +346,6 @@ public partial class SettingsManager : Node
         cfg.SetValue(SecIdentity, "player_id",    PlayerId);
         cfg.SetValue(SecIdentity, "runs_started", RunsStarted);
         cfg.SetValue(SecIdentity, "surge_tutorial_seen", SurgeTutorialSeen);
-        cfg.SetValue(SecIdentity, "demo_complete_notified", DemoCompleteNotified);
         if (cfg.Save(SavePath) == Error.Ok)
             SteamCloudSync.Push(ProjectSettings.GlobalizePath(SavePath), "settings.cfg");
     }

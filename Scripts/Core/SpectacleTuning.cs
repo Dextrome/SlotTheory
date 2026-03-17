@@ -6,7 +6,7 @@ namespace SlotTheory.Core;
 
 /// <summary>
 /// Runtime tuning overrides used by automation, sweeps, and combat lab scenarios.
-/// Defaults reflect the tuned best_tuning profile (iter01_cand02, 2026-03-17 pipeline run).
+/// Defaults reflect the tuned best_tuning profile (iter04 candidate, 20260317_141925 pipeline run).
 /// All multipliers are applied on top of Balance.cs constants - Reset() returns to these same defaults.
 /// </summary>
 public sealed class SpectacleTuningProfile
@@ -93,30 +93,30 @@ public sealed class SpectacleTuningProfile
     [JsonPropertyName("second_stage_power_threshold")]
     public float SecondStagePowerThreshold { get; set; } = 0.95f;
     [JsonPropertyName("normal_enemy_hp_multiplier")]
-    public float NormalEnemyHpMultiplier { get; set; } = 1.124f;
+    public float NormalEnemyHpMultiplier { get; set; } = 1.1032f;
     [JsonPropertyName("normal_enemy_count_multiplier")]
-    public float NormalEnemyCountMultiplier { get; set; } = 1.1535f;
+    public float NormalEnemyCountMultiplier { get; set; } = 1.1596f;
     [JsonPropertyName("normal_spawn_interval_multiplier")]
-    public float NormalSpawnIntervalMultiplier { get; set; } = 0.9196f;
+    public float NormalSpawnIntervalMultiplier { get; set; } = 0.9181f;
     [JsonPropertyName("hard_enemy_hp_multiplier")]
-    public float HardEnemyHpMultiplier { get; set; } = 1.2277f;
+    public float HardEnemyHpMultiplier { get; set; } = 1.2449f;
     [JsonPropertyName("hard_enemy_count_multiplier")]
-    public float HardEnemyCountMultiplier { get; set; } = 1.074f;
+    public float HardEnemyCountMultiplier { get; set; } = 1.05f;
     [JsonPropertyName("hard_spawn_interval_multiplier")]
-    public float HardSpawnIntervalMultiplier { get; set; } = 0.9163f;
+    public float HardSpawnIntervalMultiplier { get; set; } = 0.9393f;
 
     // Separate multipliers for armored (tanky) and swift enemy counts.
     // The base enemy_count_multiplier scales all types uniformly — these let the
     // optimizer tune enemy composition independently (e.g. more armored without
     // more basics). Applied on top of enemy_count_multiplier in DataLoader.GetWaveConfig.
     [JsonPropertyName("normal_tanky_count_multiplier")]
-    public float NormalTankyCountMultiplier { get; set; } = 1f;
+    public float NormalTankyCountMultiplier { get; set; } = 0.9769f;
     [JsonPropertyName("normal_swift_count_multiplier")]
     public float NormalSwiftCountMultiplier { get; set; } = 1f;
     [JsonPropertyName("hard_tanky_count_multiplier")]
-    public float HardTankyCountMultiplier { get; set; } = 1f;
+    public float HardTankyCountMultiplier { get; set; } = 0.95f;
     [JsonPropertyName("hard_swift_count_multiplier")]
-    public float HardSwiftCountMultiplier { get; set; } = 1f;
+    public float HardSwiftCountMultiplier { get; set; } = 1.0445f;
 
     [JsonPropertyName("gain_multipliers")]
     public Dictionary<string, float> GainMultipliers { get; set; } = new(StringComparer.Ordinal)
