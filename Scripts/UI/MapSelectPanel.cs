@@ -25,6 +25,7 @@ public partial class MapSelectPanel : Node
 	private Button? _normalButton;
 	private Button? _hardButton;
 	private Label? _personalBestLabel;
+	private MapPreviewControl? _previewControl;
 	private ulong _proceduralPreviewSeed;
 	private bool _isMobile;
 
@@ -103,6 +104,22 @@ public partial class MapSelectPanel : Node
 			_mapListContainer.MouseFilter = Control.MouseFilterEnum.Pass;
 		listMargin.AddChild(_mapListContainer);
 		PopulateMapList();
+
+		// Preview row: map thumbnail on the left, legend panel on the right
+		var previewRow = new HBoxContainer();
+		previewRow.AddThemeConstantOverride("separation", 8);
+		leftColumn.AddChild(previewRow);
+
+		_previewControl = new MapPreviewControl();
+		_previewControl.CustomMinimumSize = _isMobile
+			? new Vector2(0, 120)
+			: new Vector2(0, 180);
+		_previewControl.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		_previewControl.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
+		_previewControl.MouseFilter = Control.MouseFilterEnum.Ignore;
+		previewRow.AddChild(_previewControl);
+		previewRow.AddChild(BuildPreviewLegend());
+		UpdateMapPreview();
 
 		// Right column: difficulty + personal best
 		var rightColumnWrap = new MarginContainer();
@@ -367,6 +384,7 @@ public partial class MapSelectPanel : Node
 		SoundManager.Instance?.Play("ui_select");
 		UpdatePersonalBestLabel();
 		UpdateDifficultyVisuals();
+		UpdateMapPreview();
 
 		if (_mapListContainer == null) return;
 
@@ -493,6 +511,93 @@ public partial class MapSelectPanel : Node
 			color = new Color(0.45f, 0.45f, 0.45f);  // gray - unplayed or attempted
 
 		ApplyDifficultyButtonColor(btn, color, isSelected);
+	}
+
+	private void UpdateMapPreview()
+	{
+		if (_previewControl == null) return;
+
+		// Unstable Anomaly has no fixed path — show the mystery "?" panel
+		if (_selectedMapId == "random_map")
+		{
+			_previewControl.SetMystery();
+			return;
+		}
+
+		var mapDef = DataLoader.GetAllMapDefs().FirstOrDefault(m => m.Id == _selectedMapId);
+		if (mapDef == null || mapDef.Path == null || mapDef.Path.Length < 2)
+		{
+			_previewControl.SetMystery();
+			return;
+		}
+
+		var path  = System.Array.ConvertAll(mapDef.Path,  p => new Vector2(p.X, p.Y));
+		var slots = System.Array.ConvertAll(mapDef.Slots, s => new Vector2(s.X, s.Y));
+		_previewControl.SetMap(path, slots);
+	}
+
+	private Control BuildPreviewLegend()
+	{
+		var panel = new PanelContainer();
+		panel.CustomMinimumSize = new Vector2(_isMobile ? 88 : 108, 0);
+		panel.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		panel.MouseFilter       = Control.MouseFilterEnum.Ignore;
+
+		var style = new StyleBoxFlat();
+		style.BgColor = new Color(0.06f, 0.07f, 0.11f, 1f);
+		style.BorderColor = new Color(0.25f, 0.27f, 0.40f, 0.70f);
+		style.SetBorderWidthAll(1);
+		style.SetContentMarginAll(8f);
+		panel.AddThemeStyleboxOverride("panel", style);
+
+		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 6);
+		vbox.MouseFilter = Control.MouseFilterEnum.Ignore;
+		panel.AddChild(vbox);
+
+		var title = new Label
+		{
+			Text = "LEGEND",
+			HorizontalAlignment = HorizontalAlignment.Center,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		UITheme.ApplyFont(title, semiBold: true, size: 11);
+		title.Modulate = new Color(0.55f, 0.55f, 0.75f, 0.80f);
+		vbox.AddChild(title);
+
+		vbox.AddChild(BuildLegendEntry(MapPreviewControl.StartMarker, "Start"));
+		vbox.AddChild(BuildLegendEntry(MapPreviewControl.SlotFill,    "Tower Slot"));
+		vbox.AddChild(BuildLegendEntry(MapPreviewControl.ExitMarker,  "Exit"));
+
+		return panel;
+	}
+
+	private static Control BuildLegendEntry(Color dotColor, string text)
+	{
+		var hbox = new HBoxContainer();
+		hbox.AddThemeConstantOverride("separation", 5);
+		hbox.MouseFilter = Control.MouseFilterEnum.Ignore;
+
+		var dot = new Label
+		{
+			Text        = "\u25CF",   // ●
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		dot.AddThemeFontSizeOverride("font_size", 13);
+		dot.Modulate = dotColor;
+		hbox.AddChild(dot);
+
+		var lbl = new Label
+		{
+			Text               = text,
+			VerticalAlignment  = VerticalAlignment.Center,
+			MouseFilter        = Control.MouseFilterEnum.Ignore,
+		};
+		lbl.AddThemeFontSizeOverride("font_size", 11);
+		lbl.Modulate = new Color(0.72f, 0.72f, 0.82f, 0.85f);
+		hbox.AddChild(lbl);
+
+		return hbox;
 	}
 
 	private void UpdatePersonalBestLabel()

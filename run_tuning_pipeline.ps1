@@ -656,49 +656,18 @@ function New-MutatedTuningProfile {
     }
 
     $scale = [Math]::Max(0.05, $Anneal * $Strength)
-    $toggleChance = [Math]::Min(0.30, [Math]::Max(0.03, 0.16 * $scale))
 
-    $changed += Apply-ToggleMutation -Obj $candidate -Name "enable_overkill_bloom" -Chance $toggleChance
-    # Guardrail: keep these core systems enabled during auto-tune.
-    $candidate.enable_status_detonation = $true
-    $candidate.enable_residue = $true
-
-    $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_damage_scale_multiplier" -Step (0.30 * $scale) -Min 0.0 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_radius_multiplier" -Step (0.24 * $scale) -Min 0.1 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_threshold_multiplier" -Step (0.20 * $scale) -Min 0.1 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_max_targets_multiplier" -Step (0.18 * $scale) -Min 0.1 -Max 3.0
-    $changed += Apply-Mutation -Obj $candidate -Name "detonation_max_targets_multiplier" -Step (0.24 * $scale) -Min 0.1 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "detonation_stagger_multiplier" -Step (0.24 * $scale) -Min 0.1 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "status_detonation_damage_multiplier" -Step (0.34 * $scale) -Min 0.0 -Max 6.0
-    $changed += Apply-Mutation -Obj $candidate -Name "residue_duration_multiplier" -Step (0.28 * $scale) -Min 0.1 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "residue_potency_multiplier" -Step (0.28 * $scale) -Min 0.1 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "residue_damage_multiplier" -Step (0.34 * $scale) -Min 0.0 -Max 6.0
-    $changed += Apply-Mutation -Obj $candidate -Name "residue_tick_interval_multiplier" -Step (0.26 * $scale) -Min 0.2 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "residue_max_active_multiplier" -Step (0.24 * $scale) -Min 0.1 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "explosion_followup_damage_multiplier" -Step (0.36 * $scale) -Min 0.0 -Max 6.0
-    # Guardrail: keep key meter/global knobs in tighter bands.
-    $changed += Apply-Mutation -Obj $candidate -Name "meter_gain_multiplier" -Step (0.14 * $scale) -Min 0.75 -Max 1.60
-    $changed += Apply-Mutation -Obj $candidate -Name "surge_threshold_multiplier" -Step (0.12 * $scale) -Min 0.75 -Max 1.35
-    $changed += Apply-Mutation -Obj $candidate -Name "surge_cooldown_multiplier" -Step (0.14 * $scale) -Min 0.75 -Max 1.80
-    $changed += Apply-Mutation -Obj $candidate -Name "surge_meter_after_trigger_multiplier" -Step (0.12 * $scale) -Min 0.75 -Max 1.35
-    $changed += Apply-Mutation -Obj $candidate -Name "global_meter_per_surge_multiplier" -Step (0.14 * $scale) -Min 0.75 -Max 1.80
-    $changed += Apply-Mutation -Obj $candidate -Name "global_threshold_multiplier" -Step (0.12 * $scale) -Min 0.75 -Max 1.35
-    $changed += Apply-Mutation -Obj $candidate -Name "global_meter_after_trigger_multiplier" -Step (0.12 * $scale) -Min 0.75 -Max 1.35
-    $changed += Apply-Mutation -Obj $candidate -Name "global_contribution_window_multiplier" -Step (0.12 * $scale) -Min 0.75 -Max 1.35
-    $changed += Apply-Mutation -Obj $candidate -Name "inactivity_grace_multiplier" -Step (0.22 * $scale) -Min 0.0 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "inactivity_decay_multiplier" -Step (0.26 * $scale) -Min 0.0 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "contribution_window_multiplier" -Step (0.22 * $scale) -Min 0.05 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "role_lock_meter_threshold_multiplier" -Step (0.20 * $scale) -Min 0.0 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "meter_damage_reference_multiplier" -Step (0.30 * $scale) -Min 0.05 -Max 6.0
-    $changed += Apply-Mutation -Obj $candidate -Name "meter_damage_weight_multiplier" -Step (0.28 * $scale) -Min 0.0 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "meter_damage_min_clamp_multiplier" -Step (0.24 * $scale) -Min 0.0 -Max 6.0
-    $changed += Apply-Mutation -Obj $candidate -Name "meter_damage_max_clamp_multiplier" -Step (0.24 * $scale) -Min 0.0 -Max 6.0
-    $changed += Apply-Mutation -Obj $candidate -Name "token_cap_multiplier" -Step (0.22 * $scale) -Min 0.0 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "token_regen_multiplier" -Step (0.26 * $scale) -Min 0.0 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "copy_multiplier_scale" -Step (0.22 * $scale) -Min 0.0 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "diversity_multiplier_scale" -Step (0.22 * $scale) -Min 0.0 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "event_scalar_multiplier" -Step (0.28 * $scale) -Min 0.0 -Max 4.0
-    $changed += Apply-Mutation -Obj $candidate -Name "second_stage_power_threshold" -Step (0.15 * $scale) -Min 0.05 -Max 3.0
+    # Only mutate difficulty multipliers (enemy HP, count, spawn interval for Normal and Hard).
+    #
+    # Why: bot win rate is the primary scoring signal, and only these 6 parameters have direct
+    # leverage on it. All spectacle/surge/meter/per-mod parameters control visual feel and surge
+    # cadence — not raw survivability — and bot runs show explosion_share ≈ 0%, meaning spectacle
+    # damage contributes essentially nothing to win rate. Mutating ~40 irrelevant parameters
+    # alongside the 6 that matter dilutes each mutation's chance of improving the objective and
+    # makes the score variance (already large at 240 runs) look like signal. Once difficulty is
+    # converged, a separate spectacle-focused pass can tune feel parameters against their own
+    # objectives (explosion share, surge cadence, tower parity) without win-rate noise drowning
+    # them out.
     $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
     $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
     $changed += Apply-Mutation -Obj $candidate -Name "normal_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.99 -Chance 0.80
@@ -706,28 +675,9 @@ function New-MutatedTuningProfile {
     $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
     $changed += Apply-Mutation -Obj $candidate -Name "hard_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.98 -Chance 0.80
 
-    $changed += Apply-Mutation -Obj $candidate.gain_multipliers -Name "overkill" -Step (0.30 * $scale) -Min 0.0 -Max 4.0 -Chance 0.65
-    $changed += Apply-Mutation -Obj $candidate.gain_multipliers -Name "chain_reaction" -Step (0.30 * $scale) -Min 0.0 -Max 4.0 -Chance 0.65
-    $changed += Apply-Mutation -Obj $candidate.gain_multipliers -Name "split_shot" -Step (0.30 * $scale) -Min 0.0 -Max 4.0 -Chance 0.65
-    $changed += Apply-Mutation -Obj $candidate.event_scalar_multipliers -Name "overkill" -Step (0.30 * $scale) -Min 0.0 -Max 4.0 -Chance 0.50
-    $changed += Apply-Mutation -Obj $candidate.event_scalar_multipliers -Name "chain_reaction" -Step (0.30 * $scale) -Min 0.0 -Max 4.0 -Chance 0.50
-    $changed += Apply-Mutation -Obj $candidate.event_scalar_multipliers -Name "split_shot" -Step (0.30 * $scale) -Min 0.0 -Max 4.0 -Chance 0.50
-    $changed += Apply-Mutation -Obj $candidate.event_scalar_multipliers -Name "feedback_loop" -Step (0.30 * $scale) -Min 0.0 -Max 4.0 -Chance 0.50
-    $changed += Apply-Mutation -Obj $candidate.event_scalar_multipliers -Name "hair_trigger" -Step (0.30 * $scale) -Min 0.0 -Max 4.0 -Chance 0.50
-    $changed += Apply-Mutation -Obj $candidate.token_cap_multipliers -Name "overkill" -Step (0.22 * $scale) -Min 0.0 -Max 4.0 -Chance 0.45
-    $changed += Apply-Mutation -Obj $candidate.token_cap_multipliers -Name "chain_reaction" -Step (0.22 * $scale) -Min 0.0 -Max 4.0 -Chance 0.45
-    $changed += Apply-Mutation -Obj $candidate.token_cap_multipliers -Name "split_shot" -Step (0.22 * $scale) -Min 0.0 -Max 4.0 -Chance 0.45
-    $changed += Apply-Mutation -Obj $candidate.token_cap_multipliers -Name "feedback_loop" -Step (0.22 * $scale) -Min 0.0 -Max 4.0 -Chance 0.45
-    $changed += Apply-Mutation -Obj $candidate.token_cap_multipliers -Name "hair_trigger" -Step (0.22 * $scale) -Min 0.0 -Max 4.0 -Chance 0.45
-    $changed += Apply-Mutation -Obj $candidate.token_regen_multipliers -Name "overkill" -Step (0.24 * $scale) -Min 0.0 -Max 4.0 -Chance 0.45
-    $changed += Apply-Mutation -Obj $candidate.token_regen_multipliers -Name "chain_reaction" -Step (0.24 * $scale) -Min 0.0 -Max 4.0 -Chance 0.45
-    $changed += Apply-Mutation -Obj $candidate.token_regen_multipliers -Name "split_shot" -Step (0.24 * $scale) -Min 0.0 -Max 4.0 -Chance 0.45
-    $changed += Apply-Mutation -Obj $candidate.token_regen_multipliers -Name "feedback_loop" -Step (0.24 * $scale) -Min 0.0 -Max 4.0 -Chance 0.45
-    $changed += Apply-Mutation -Obj $candidate.token_regen_multipliers -Name "hair_trigger" -Step (0.24 * $scale) -Min 0.0 -Max 4.0 -Chance 0.45
-
     if ($changed -eq 0) {
-        $forceDelta = (($script:Rng.NextDouble() * 2.0) - 1.0) * (0.20 * $scale)
-        $candidate.meter_gain_multiplier = [Math]::Round((Clamp-Double -Value ([double]$candidate.meter_gain_multiplier + $forceDelta) -Min 0.75 -Max 1.60), 4)
+        $forceDelta = (($script:Rng.NextDouble() * 2.0) - 1.0) * (0.10 * $scale)
+        $candidate.normal_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value ([double]$candidate.normal_enemy_hp_multiplier + $forceDelta) -Min 1.0 -Max 5.0), 4)
     }
 
     return (Normalize-TuningProfile -InputProfile $candidate)

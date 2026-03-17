@@ -94,6 +94,9 @@ public partial class Transition : CanvasLayer
         tween.Chain();
         tween.TweenCallback(Callable.From(() =>
         {
+            // Force-clear any pause left over from gameplay (e.g. Space pressed during the fade).
+            GetTree().Paused = false;
+            Engine.TimeScale  = 1.0;
             GetTree().ChangeSceneToFile(scenePath);
         }));
         tween.TweenInterval(0.05f);

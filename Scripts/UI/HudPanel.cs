@@ -273,6 +273,7 @@ public partial class HudPanel : CanvasLayer
         AddChild(_speedToastStreak);
 
         BuildGlobalSurgeMeter();
+        ResetSpeed();
         _lastPausedState = GetTree().Paused;
         UpdatePausePlayButtonLabel();
     }
