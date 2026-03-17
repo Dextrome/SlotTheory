@@ -166,6 +166,22 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
         _ => 1.0f
     };
 
+    public static float GetTankyCountMultiplier(DifficultyMode difficulty) => difficulty switch
+    {
+        DifficultyMode.Easy => 1f,
+        DifficultyMode.Normal => ClampDifficultyMultiplier(SpectacleTuning.Current.NormalTankyCountMultiplier, 0.1f, 5f),
+        DifficultyMode.Hard => ClampDifficultyMultiplier(SpectacleTuning.Current.HardTankyCountMultiplier, 0.1f, 5f),
+        _ => 1f
+    };
+
+    public static float GetSwiftCountMultiplier(DifficultyMode difficulty) => difficulty switch
+    {
+        DifficultyMode.Easy => 1f,
+        DifficultyMode.Normal => ClampDifficultyMultiplier(SpectacleTuning.Current.NormalSwiftCountMultiplier, 0.1f, 5f),
+        DifficultyMode.Hard => ClampDifficultyMultiplier(SpectacleTuning.Current.HardSwiftCountMultiplier, 0.1f, 5f),
+        _ => 1f
+    };
+
     private static float ClampDifficultyMultiplier(float value, float min, float max)
         => value < min ? min : (value > max ? max : value);
 }

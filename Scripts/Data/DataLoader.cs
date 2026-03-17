@@ -49,13 +49,16 @@ public static class DataLoader
         if (difficulty == DifficultyMode.Easy)
             return ApplyMapDifficultyTuning(index, baseWave, mapId, difficulty);
 
-        // Apply difficulty multipliers for scaled modes (Normal/Hard)
+        // Apply difficulty multipliers for scaled modes (Normal/Hard).
+        // TankyCount and SwiftCount get their own independent multipliers so the
+        // tuning pipeline can adjust enemy composition (armored/swift density)
+        // separately from basic walker volume.
         var scaled = new WaveConfig(
             EnemyCount: Mathf.CeilToInt(baseWave.EnemyCount * Balance.GetEnemyCountMultiplier(difficulty)),
             SpawnInterval: baseWave.SpawnInterval * Balance.GetSpawnIntervalMultiplier(difficulty),
-            TankyCount: Mathf.CeilToInt(baseWave.TankyCount * Balance.GetEnemyCountMultiplier(difficulty)),
+            TankyCount: Mathf.CeilToInt(baseWave.TankyCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetTankyCountMultiplier(difficulty)),
             ClumpArmored: baseWave.ClumpArmored,
-            SwiftCount: Mathf.CeilToInt(baseWave.SwiftCount * Balance.GetEnemyCountMultiplier(difficulty))
+            SwiftCount: Mathf.CeilToInt(baseWave.SwiftCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetSwiftCountMultiplier(difficulty))
         );
 
         return ApplyMapDifficultyTuning(index, scaled, mapId, difficulty);

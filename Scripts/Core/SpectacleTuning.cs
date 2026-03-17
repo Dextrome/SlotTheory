@@ -105,6 +105,19 @@ public sealed class SpectacleTuningProfile
     [JsonPropertyName("hard_spawn_interval_multiplier")]
     public float HardSpawnIntervalMultiplier { get; set; } = 0.9163f;
 
+    // Separate multipliers for armored (tanky) and swift enemy counts.
+    // The base enemy_count_multiplier scales all types uniformly — these let the
+    // optimizer tune enemy composition independently (e.g. more armored without
+    // more basics). Applied on top of enemy_count_multiplier in DataLoader.GetWaveConfig.
+    [JsonPropertyName("normal_tanky_count_multiplier")]
+    public float NormalTankyCountMultiplier { get; set; } = 1f;
+    [JsonPropertyName("normal_swift_count_multiplier")]
+    public float NormalSwiftCountMultiplier { get; set; } = 1f;
+    [JsonPropertyName("hard_tanky_count_multiplier")]
+    public float HardTankyCountMultiplier { get; set; } = 1f;
+    [JsonPropertyName("hard_swift_count_multiplier")]
+    public float HardSwiftCountMultiplier { get; set; } = 1f;
+
     [JsonPropertyName("gain_multipliers")]
     public Dictionary<string, float> GainMultipliers { get; set; } = new(StringComparer.Ordinal)
     {
@@ -179,6 +192,10 @@ public sealed class SpectacleTuningProfile
         DiversityMultiplierScale = 1f,
         EventScalarMultiplier = 1f,
         SecondStagePowerThreshold = 0.95f,
+        NormalTankyCountMultiplier = 1f,
+        NormalSwiftCountMultiplier = 1f,
+        HardTankyCountMultiplier = 1f,
+        HardSwiftCountMultiplier = 1f,
         GainMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
         EventScalarMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
         TokenCapMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
@@ -271,6 +288,10 @@ public sealed class SpectacleTuningProfile
             HardEnemyHpMultiplier = Math.Clamp(HardEnemyHpMultiplier, 0.1f, 5f),
             HardEnemyCountMultiplier = Math.Clamp(HardEnemyCountMultiplier, 0.1f, 5f),
             HardSpawnIntervalMultiplier = Math.Clamp(HardSpawnIntervalMultiplier, 0.2f, 3f),
+            NormalTankyCountMultiplier = Math.Clamp(NormalTankyCountMultiplier, 0.1f, 5f),
+            NormalSwiftCountMultiplier = Math.Clamp(NormalSwiftCountMultiplier, 0.1f, 5f),
+            HardTankyCountMultiplier = Math.Clamp(HardTankyCountMultiplier, 0.1f, 5f),
+            HardSwiftCountMultiplier = Math.Clamp(HardSwiftCountMultiplier, 0.1f, 5f),
             GainMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
             EventScalarMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
             TokenCapMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),

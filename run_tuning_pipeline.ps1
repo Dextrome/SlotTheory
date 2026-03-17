@@ -175,6 +175,10 @@ function New-NeutralTuningProfile {
         hard_enemy_hp_multiplier = 1.40
         hard_enemy_count_multiplier = 1.15
         hard_spawn_interval_multiplier = 0.90
+        normal_tanky_count_multiplier = 1.0
+        normal_swift_count_multiplier = 1.0
+        hard_tanky_count_multiplier = 1.0
+        hard_swift_count_multiplier = 1.0
         gain_multipliers = [PSCustomObject]@{
             overkill = 1.0
             chain_reaction = 1.0
@@ -275,6 +279,10 @@ function Normalize-TuningProfile {
     if ($props -contains "hard_enemy_hp_multiplier") { $p.hard_enemy_hp_multiplier = [double]$InputProfile.hard_enemy_hp_multiplier }
     if ($props -contains "hard_enemy_count_multiplier") { $p.hard_enemy_count_multiplier = [double]$InputProfile.hard_enemy_count_multiplier }
     if ($props -contains "hard_spawn_interval_multiplier") { $p.hard_spawn_interval_multiplier = [double]$InputProfile.hard_spawn_interval_multiplier }
+    if ($props -contains "normal_tanky_count_multiplier") { $p.normal_tanky_count_multiplier = [double]$InputProfile.normal_tanky_count_multiplier }
+    if ($props -contains "normal_swift_count_multiplier") { $p.normal_swift_count_multiplier = [double]$InputProfile.normal_swift_count_multiplier }
+    if ($props -contains "hard_tanky_count_multiplier") { $p.hard_tanky_count_multiplier = [double]$InputProfile.hard_tanky_count_multiplier }
+    if ($props -contains "hard_swift_count_multiplier") { $p.hard_swift_count_multiplier = [double]$InputProfile.hard_swift_count_multiplier }
 
     if ($props -contains "gain_multipliers" -and $InputProfile.gain_multipliers -ne $null) {
         $gm = $InputProfile.gain_multipliers.PSObject.Properties.Name
@@ -344,6 +352,10 @@ function Normalize-TuningProfile {
     $p.hard_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_enemy_hp_multiplier -Min 1.05 -Max 5.0), 4)
     $p.hard_enemy_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_enemy_count_multiplier -Min 1.05 -Max 5.0), 4)
     $p.hard_spawn_interval_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_spawn_interval_multiplier -Min 0.2 -Max 0.98), 4)
+    $p.normal_tanky_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_tanky_count_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.normal_swift_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_swift_count_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.hard_tanky_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_tanky_count_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.hard_swift_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_swift_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.gain_multipliers.overkill = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.overkill -Min 0.0 -Max 4.0), 4)
     $p.gain_multipliers.chain_reaction = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.chain_reaction -Min 0.0 -Max 4.0), 4)
     $p.gain_multipliers.split_shot = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.split_shot -Min 0.0 -Max 4.0), 4)
@@ -674,6 +686,12 @@ function New-MutatedTuningProfile {
     $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
     $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
     $changed += Apply-Mutation -Obj $candidate -Name "hard_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.98 -Chance 0.80
+    # Enemy composition: armored and swift counts are tuned independently from basic walker volume.
+    # Chance 0.50 — these are secondary levers; mutate less aggressively than the core 6.
+    $changed += Apply-Mutation -Obj $candidate -Name "normal_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+    $changed += Apply-Mutation -Obj $candidate -Name "normal_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+    $changed += Apply-Mutation -Obj $candidate -Name "hard_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+    $changed += Apply-Mutation -Obj $candidate -Name "hard_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
 
     if ($changed -eq 0) {
         $forceDelta = (($script:Rng.NextDouble() * 2.0) - 1.0) * (0.10 * $scale)
