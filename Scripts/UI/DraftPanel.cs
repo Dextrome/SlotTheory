@@ -699,9 +699,10 @@ public partial class DraftPanel : CanvasLayer
 
         BuildCardRow(options);
 
-        bool showFirstRunBanner = waveNumber == 1 && pickNumber == 1
+        bool isTutorialMap = GameController.Instance?.GetRunState().SelectedMapId == "tutorial";
+        bool showFirstRunBanner = !isTutorialMap && waveNumber == 1 && pickNumber == 1
                                && (SettingsManager.Instance?.IsFirstRun ?? false);
-        bool showSurgeBanner = waveNumber == 3 && pickNumber == 1
+        bool showSurgeBanner = !isTutorialMap && waveNumber == 3 && pickNumber == 1
                             && !(SettingsManager.Instance?.SurgeTutorialSeen ?? true);
 
         if (showFirstRunBanner)

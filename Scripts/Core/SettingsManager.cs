@@ -43,6 +43,9 @@ public partial class SettingsManager : Node
     public bool   SurgeTutorialSeen     { get; private set; } = false;
     public bool   BuildNameTutorialSeen { get; private set; } = false;
     public bool   DemoCompleteNotified { get; private set; } = false;
+    public bool   TutorialCompleted    { get; private set; } = false;
+    /// <summary>Transient flag - set by MainMenu before loading Main.tscn to request a tutorial run. Not persisted.</summary>
+    public bool   PendingTutorialRun   { get; set; } = false;
 
     // ── Device-specific display settings (NOT cloud-synced) ──────────────
     public bool  Fullscreen    { get; private set; } = false;
@@ -150,6 +153,13 @@ public partial class SettingsManager : Node
     {
         if (BuildNameTutorialSeen) return;
         BuildNameTutorialSeen = true;
+        SaveAccount();
+    }
+
+    public void MarkTutorialCompleted()
+    {
+        if (TutorialCompleted) return;
+        TutorialCompleted = true;
         SaveAccount();
     }
 
@@ -308,6 +318,7 @@ public partial class SettingsManager : Node
             RunsStarted  = (int)   cfg.GetValue(SecIdentity, "runs_started",   0);
             SurgeTutorialSeen     = (bool)cfg.GetValue(SecIdentity, "surge_tutorial_seen",      false);
             BuildNameTutorialSeen = (bool)cfg.GetValue(SecIdentity, "build_name_tutorial_seen", false);
+            TutorialCompleted     = (bool)cfg.GetValue(SecIdentity, "tutorial_completed",        false);
             DevMode = ReadHiddenDevModeForProfile(cfg, PlayerId, out bool migratedFromLegacy);
             if (migratedFromLegacy)
                 SaveAccount();
@@ -357,6 +368,7 @@ public partial class SettingsManager : Node
         cfg.SetValue(SecIdentity, "runs_started", RunsStarted);
         cfg.SetValue(SecIdentity, "surge_tutorial_seen",      SurgeTutorialSeen);
         cfg.SetValue(SecIdentity, "build_name_tutorial_seen", BuildNameTutorialSeen);
+        cfg.SetValue(SecIdentity, "tutorial_completed",        TutorialCompleted);
         if (cfg.Save(SavePath) == Error.Ok)
             SteamCloudSync.Push(ProjectSettings.GlobalizePath(SavePath), "settings.cfg");
     }

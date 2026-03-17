@@ -19,6 +19,7 @@ public class BotRunner
     public const string StrategySetAll = "all";
     public const string StrategySetOptimization = "optimization";
     public const string StrategySetEdge = "edge";
+    public const string StrategySetSpectacle = "spectacle";
 
     private static readonly BotStrategy[] OptimizationStrategies =
     {
@@ -36,6 +37,16 @@ public class BotRunner
         BotStrategy.TowerFirst,
         BotStrategy.ChainFocus,
         BotStrategy.HeavyStack,
+    };
+
+    // Spectacle strategy set: only drafts that consistently build Overkill + Chain combos,
+    // ensuring explosion/residue/detonation systems actually fire during evaluation.
+    private static readonly BotStrategy[] SpectacleStrategies =
+    {
+        BotStrategy.ChainFocus,
+        BotStrategy.SpectacleSingleStack,
+        BotStrategy.SpectacleComboPairing,
+        BotStrategy.SpectacleTriadDiversity,
     };
 
     private record RunTrace(
@@ -170,6 +181,9 @@ public BotRunner(
             case StrategySetEdge:
                 resolvedLabel = StrategySetEdge;
                 return EdgeStrategies;
+            case StrategySetSpectacle:
+                resolvedLabel = StrategySetSpectacle;
+                return SpectacleStrategies;
             case StrategySetAll:
             case "":
                 resolvedLabel = StrategySetAll;

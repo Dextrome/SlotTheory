@@ -35,6 +35,8 @@ This document reflects the current implementation in code/data.
   - Unit-tested: `SurgePreviewFeatureTests` (26 tests) covers `PeekDominantMods` state-safety, preview alpha ramp formula, and banner subtitle refund-percent formula.
 - **Surge meter gain - attack-interval scaling:** per-proc meter gain is multiplied by `clamp(attackInterval / 1.0s, 0, 1.5)`. Fast towers (< 1 s interval) earn proportionally less per proc so high fire rate doesn't dominate surge cadence; slow towers (> 1 s) earn up to a 1.5× bonus so heavy hitters remain surge-relevant.
 - **Tutorial surge page - live meter visible:** on the surge tutorial page the actual global surge meter (HudPanel) is forced visible and rendered above the draft overlay (HudPanel temporarily raised to Layer 7) so players see the real UI element being explained.
+- **Tutorial map:** Dedicated scripted tutorial run accessible from a "▶  Tutorial" button in the main menu (above PLAY). 8 waves on fixed Easy difficulty. Curated draft options per wave (waves 0–5 scripted, 6–7 random). Contextual blocking panels at key moments: draft explanation each pick, build name highlight after first modifier placed, per-tower surge explanation (pauses game, highlights surge bar), global surge activation explanation (pauses game, gold highlight, "Activate →" button). Completion flagged to `SettingsManager.TutorialCompleted` (persisted). Tutorial button becomes muted after completion. Tutorial map excluded from map select and leaderboards. End screen shows "How to Play →" button and re-labels play-again as "Play Again · Real Run →".
+- **Global surge - player-activated:** The global surge meter no longer auto-fires when full. When filled, `SpectacleSystem.IsGlobalSurgeReady` becomes true and `OnGlobalSurgeReady` fires. The HUD surge bar switches to a gold pulsing clickable state with label "▶  ACTIVATE". The player clicks it to fire. `SpectacleSystem.ActivateGlobalSurge()` then fires `OnGlobalTriggered` and plays all existing effects. Bot mode auto-activates immediately to preserve simulation behavior. First-time in tutorial: game pauses, gold-bordered panel appears explaining the mechanic with an "Activate →" button that fires the surge and unpauses.
 
 Platforms: Windows Desktop, Android (phone and tablet)
 
@@ -94,12 +96,13 @@ Platforms: Windows Desktop, Android (phone and tablet)
 
 ## Core Loop
 
-1. Main menu -> Play -> map select -> Main scene loads.
+1. Main menu -> Tutorial (optional) or Play -> map select -> Main scene loads.
 2. Draft: pick 1 card.
 3. Place picked tower/modifier in the world.
 4. Wave runs automatically (no direct combat input).
-5. Repeat until wave 20 clear (win) or lives reach 0 (loss).
-6. On win: optionally continue in **Endless Mode** (wave 21+, no victory condition).
+5. When global surge meter fills: click the glowing bar to activate.
+6. Repeat until wave 20 clear (win) or lives reach 0 (loss).
+7. On win: optionally continue in **Endless Mode** (wave 21+, no victory condition).
 
 ---
 
@@ -326,6 +329,33 @@ Input details:
 
 ---
 
+## Tutorial Map
+
+Accessible via the "▶  Tutorial" button on the main menu (above PLAY).
+
+- **Duration:** 8 waves, always Easy difficulty.
+- **Scripted drafts:** waves 0–5 have curated options; waves 6–7 are random.
+  - Wave 0: Rapid Shooter only
+  - Wave 1: Focus Lens vs Hair Trigger
+  - Wave 2: Overreach only
+  - Wave 3: Marker Tower only
+  - Wave 4: Exploit Weakness only
+  - Wave 5: Chain Reaction / Momentum / Chill Shot (3-way choice)
+- **Contextual teaching panels** (all blocking, player-dismissed):
+  - Each draft wave 0–5: callout explaining the card being offered
+  - Wave 0 wave start: auto-dismiss callout explaining the path/lives
+  - Wave 4 wave start: auto-dismiss callout on Armored Walker appearance
+  - First modifier placed: "BUILD NAME" panel - pauses, highlights build label with cyan rect, explains the naming system
+  - First tower surge: "SURGE" panel - pauses wave, highlights global surge bar with cyan rect, explains surge/global surge
+  - First global surge ready: "GLOBAL SURGE READY" panel - pauses wave, gold highlight on surge bar, "Activate →" button fires the surge
+- **Persistence:** completion stored in `SettingsManager.TutorialCompleted`. Button on main menu becomes muted after first completion.
+- **Isolation:** tutorial map excluded from map select, leaderboards, and score submission. `DataLoader.GetAllMapDefs()` filters it by default (`includeTutorial = false`).
+- **End screen:** shows "How to Play →" button; hides leaderboard/endless buttons; labels play-again "Play Again · Real Run →" (goes to map select).
+- **Wave count:** `_mapTotalWaves = 8` is propagated to HUD, win/loss screens, and wave announcement so no reference to 20-wave totals leaks in.
+- **Implemented in:** `TutorialManager.cs` (scripted picks + callout text, pure C#), `TutorialCallout.cs` (CanvasLayer overlay queue), `GameController.cs` (lifecycle integration, blocking panels), `SettingsManager.cs` (`TutorialCompleted` + `PendingTutorialRun`), `maps.json` (`"tutorial"` key with inline `tutorialWaves` array).
+
+---
+
 ## Map Selection
 
 Before a run:
@@ -378,6 +408,7 @@ Top bar includes:
   - Desktop: ESC button/hint
   - Mobile: hamburger button
 - Build name shown in the top bar (left side) during waves
+- **Global surge bar (bottom center):** 20 pip meter. When full, switches to gold pulsing "▶  ACTIVATE" state - player must click to fire. Click triggers all surge effects and resets meter.
 
 Speed polish:
 - Center toast: `SPEED Xx` with streak FX.
@@ -408,7 +439,7 @@ Current behavior decision:
 - Card spirit transition from draft card to world hint area
 - Bonus pick animated stamp (shown when extra picks are active)
 - Rare foil shimmer (1 in 12 drafts)
-- **First-run tutorial banner:** Two-page overlay shown on wave 1, pick 1 of the player's first run (controlled by `SettingsManager.IsFirstRun` / `RunsStarted <= 1`):
+- **First-run tutorial banner** (regular game only, not shown in tutorial map): Two-page overlay shown on wave 1, pick 1 of the player's first run (controlled by `SettingsManager.IsFirstRun` / `RunsStarted <= 1`):
   - Page 1 ("HOW THIS WORKS"): anchored at top of screen; explains the draft mechanic and wave loop.
   - Page 2 ("SURGES"): repositions to just above the global surge meter at the bottom of the screen. A cyan glow border highlights the surge meter panel and a cyan connector line runs from the tutorial panel down to the meter, pointing at it directly. The tutorial panel itself adopts the same cyan glow border for visual cohesion.
   - "How to Play →" button on page 2 deep-links into the Surges tab of HowToPlay.
@@ -627,7 +658,7 @@ Pause screen:
 
 Main menu:
 - Code-driven layout
-- Buttons: Play, Leaderboards, Achievements, How to Play, Settings, Quit
+- Buttons: Tutorial (above Play, cyan when not yet completed / muted when done), Play, Leaderboards, Achievements, How to Play, Settings, Quit
 - Animated neon grid background
 
 Settings:
@@ -852,7 +883,7 @@ Behavior:
 
 ## Notes
 
-- This file is intentionally aligned to code/data as of 2026-03-17.
+- This file is intentionally aligned to code/data as of 2026-03-18.
 - If gameplay values change, update:
   - `Data/towers.json`
   - `Data/modifiers.json`

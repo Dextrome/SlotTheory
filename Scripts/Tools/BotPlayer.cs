@@ -112,25 +112,25 @@ public class BotPlayer
 
     private static readonly string[] SpectacleModPriority =
     {
-        "hair_trigger",
+        "overkill",         // bloom from kills; spill now tracked as explosion damage
+        "chain_reaction",   // chain bounces → more kills → more overkill spills
+        "split_shot",       // BurnPatch residue (only damage-dealing residue type)
+        "hair_trigger",     // attack speed → more kills → more overkill spills
         "momentum",
-        "split_shot",
-        "chain_reaction",
         "feedback_loop",
         "focus_lens",
-        "overkill",
+        "slow",             // status-primes enemies for detonation
         "exploit_weakness",
         "overreach",
-        "slow",
     };
 
     private static readonly string[] SpectacleTowerPriority =
     {
         "rapid_shooter",
-        "rift_prism",
+        "marker_tower",   // provides Marked status - status-primes enemies for detonation
         "chain_tower",
         "heavy_cannon",
-        "marker_tower",
+        "rift_prism",
     };
 
     private static readonly int[] CenterSlotPreference = { 2, 3, 1, 4, 0, 5 };

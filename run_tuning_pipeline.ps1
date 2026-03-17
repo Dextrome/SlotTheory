@@ -44,8 +44,8 @@ param(
     [int]$SweepRunsPerVariant = 12,
     [int]$Seed = 1337,
     [double]$MutationStrength = 1.0,
-    [double]$TargetExplosionShare = 0.10,
-    [double]$TargetExplosionShareTolerance = 0.12,
+    [double]$TargetExplosionShare = 0.02,
+    [double]$TargetExplosionShareTolerance = 0.05,
     [double]$TargetWinRateEasy = 0.95,
     [double]$TargetWinRateNormal = 0.75,
     [double]$TargetWinRateHard = 0.45,
@@ -80,7 +80,11 @@ param(
     # Restrict mutation to the 10 difficulty params only (enemy hp/count/spawn + tanky/swift count).
     # Use this when the sole goal is hitting Normal/Hard win-rate targets; quality params can be
     # tuned in a separate pass once the difficulty curve is stable.
-    [switch]$DifficultyOnlyMode
+    [switch]$DifficultyOnlyMode,
+    # Restrict mutation to spectacle params only (overkill bloom, residue, detonation, explosion).
+    # Use with -StrategySet spectacle so the scorer actually sees explosion/residue signal.
+    # Difficulty params are frozen; win-rate targets are treated as guardrails only.
+    [switch]$SpectacleOnlyMode
 )
 
 $ErrorActionPreference = "Stop"
@@ -736,7 +740,10 @@ function New-MutatedTuningProfile {
         [Parameter(Mandatory = $true)][double]$Strength,
         # When set, skip all spectacle param mutations (overkill bloom, residue, detonation).
         # Use when the strategy set produces no explosion/residue signal so those params are noise.
-        [switch]$FreezeSpectacleParams
+        [switch]$FreezeSpectacleParams,
+        # When set, skip difficulty param mutations and only mutate spectacle params.
+        # Pair with -StrategySet spectacle so the scorer actually sees explosion/residue signal.
+        [switch]$SpectacleOnlyMode
     )
 
     $candidate = Clone-TuningProfile -Profile $BaseProfile
@@ -777,38 +784,46 @@ function New-MutatedTuningProfile {
 
     $scale = [Math]::Max(0.05, $Anneal * $Strength)
 
-    # Difficulty multipliers: primary win-rate levers. Mutated at high chance since bot win rate
-    # is the dominant scoring signal and only these parameters have direct leverage on it.
-    $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
-    $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
-    $changed += Apply-Mutation -Obj $candidate -Name "normal_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.99 -Chance 0.80
-    $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
-    $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
-    $changed += Apply-Mutation -Obj $candidate -Name "hard_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.98 -Chance 0.80
-    # Enemy composition: armored and swift counts are tuned independently from basic walker volume.
-    # Chance 0.50 - these are secondary levers; mutate less aggressively than the core 6.
-    $changed += Apply-Mutation -Obj $candidate -Name "normal_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
-    $changed += Apply-Mutation -Obj $candidate -Name "normal_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
-    $changed += Apply-Mutation -Obj $candidate -Name "hard_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
-    $changed += Apply-Mutation -Obj $candidate -Name "hard_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+    # Difficulty multipliers: primary win-rate levers. Skipped in SpectacleOnlyMode since
+    # difficulty curve is already set and we don't want those params drifting during spectacle tuning.
+    if (-not $SpectacleOnlyMode) {
+        $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
+        $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
+        $changed += Apply-Mutation -Obj $candidate -Name "normal_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.99 -Chance 0.80
+        $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
+        $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
+        $changed += Apply-Mutation -Obj $candidate -Name "hard_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.98 -Chance 0.80
+        $changed += Apply-Mutation -Obj $candidate -Name "normal_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+        $changed += Apply-Mutation -Obj $candidate -Name "normal_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+        $changed += Apply-Mutation -Obj $candidate -Name "hard_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+        $changed += Apply-Mutation -Obj $candidate -Name "hard_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+    }
 
     # Explosion share params: overkill bloom trigger, damage, spread, and residue DPS.
-    # Skipped when FreezeSpectacleParams is set — if the strategy set doesn't trigger these
-    # systems they produce zero signal and only add noise to score comparisons.
-    if (-not $FreezeSpectacleParams) {
-        $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_threshold_multiplier" -Step (0.18 * $scale) -Min 0.1 -Max 4.0 -Chance 0.55
-        $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_damage_scale_multiplier" -Step (0.18 * $scale) -Min 0.0 -Max 4.0 -Chance 0.55
-        $changed += Apply-Mutation -Obj $candidate -Name "explosion_followup_damage_multiplier" -Step (0.18 * $scale) -Min 0.0 -Max 6.0 -Chance 0.55
-        $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_radius_multiplier" -Step (0.12 * $scale) -Min 0.1 -Max 4.0 -Chance 0.40
-        $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_max_targets_multiplier" -Step (0.12 * $scale) -Min 0.1 -Max 3.0 -Chance 0.40
-        $changed += Apply-Mutation -Obj $candidate -Name "residue_damage_multiplier" -Step (0.18 * $scale) -Min 0.0 -Max 6.0 -Chance 0.45
-        $changed += Apply-Mutation -Obj $candidate -Name "residue_potency_multiplier" -Step (0.12 * $scale) -Min 0.1 -Max 4.0 -Chance 0.40
-        $changed += Apply-Mutation -Obj $candidate -Name "residue_duration_multiplier" -Step (0.12 * $scale) -Min 0.1 -Max 4.0 -Chance 0.40
+    # Skipped when FreezeSpectacleParams is set (unless SpectacleOnlyMode overrides it).
+    # In SpectacleOnlyMode, these are the primary levers so mutation chance is higher.
+    $mutateSpectacle = $SpectacleOnlyMode -or (-not $FreezeSpectacleParams)
+    if ($mutateSpectacle) {
+        $spectacleChanceBoost = if ($SpectacleOnlyMode) { 0.25 } else { 0.0 }
+        $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_threshold_multiplier"     -Step (0.18 * $scale) -Min 0.1 -Max 4.0 -Chance (0.55 + $spectacleChanceBoost)
+        $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_damage_scale_multiplier"  -Step (0.18 * $scale) -Min 0.0 -Max 4.0 -Chance (0.55 + $spectacleChanceBoost)
+        $changed += Apply-Mutation -Obj $candidate -Name "explosion_followup_damage_multiplier"    -Step (0.18 * $scale) -Min 0.0 -Max 6.0 -Chance (0.55 + $spectacleChanceBoost)
+        $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_radius_multiplier"        -Step (0.12 * $scale) -Min 0.1 -Max 4.0 -Chance (0.40 + $spectacleChanceBoost)
+        $changed += Apply-Mutation -Obj $candidate -Name "overkill_bloom_max_targets_multiplier"   -Step (0.12 * $scale) -Min 0.1 -Max 3.0 -Chance (0.40 + $spectacleChanceBoost)
+        $changed += Apply-Mutation -Obj $candidate -Name "residue_damage_multiplier"               -Step (0.18 * $scale) -Min 0.0 -Max 6.0 -Chance (0.45 + $spectacleChanceBoost)
+        $changed += Apply-Mutation -Obj $candidate -Name "residue_potency_multiplier"              -Step (0.12 * $scale) -Min 0.1 -Max 4.0 -Chance (0.40 + $spectacleChanceBoost)
+        $changed += Apply-Mutation -Obj $candidate -Name "residue_duration_multiplier"             -Step (0.12 * $scale) -Min 0.1 -Max 4.0 -Chance (0.40 + $spectacleChanceBoost)
+        $changed += Apply-Mutation -Obj $candidate -Name "detonation_max_targets_multiplier"       -Step (0.12 * $scale) -Min 0.1 -Max 4.0 -Chance (0.40 + $spectacleChanceBoost)
+        $changed += Apply-Mutation -Obj $candidate -Name "status_detonation_damage_multiplier"     -Step (0.15 * $scale) -Min 0.0 -Max 6.0 -Chance (0.45 + $spectacleChanceBoost)
     }
 
     if ($changed -eq 0) {
         $forceDelta = (($script:Rng.NextDouble() * 2.0) - 1.0) * (0.10 * $scale)
-        $candidate.normal_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value ([double]$candidate.normal_enemy_hp_multiplier + $forceDelta) -Min 1.0 -Max 5.0), 4)
+        if ($SpectacleOnlyMode) {
+            $candidate.overkill_bloom_damage_scale_multiplier = [Math]::Round((Clamp-Double -Value ([double]$candidate.overkill_bloom_damage_scale_multiplier + $forceDelta) -Min 0.0 -Max 4.0), 4)
+        } else {
+            $candidate.normal_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value ([double]$candidate.normal_enemy_hp_multiplier + $forceDelta) -Min 1.0 -Max 5.0), 4)
+        }
     }
 
     return (Normalize-TuningProfile -InputProfile $candidate)
@@ -1662,8 +1677,8 @@ $strategySetNormalized = $rawStrategySet.Trim().ToLowerInvariant()
 if ([string]::IsNullOrWhiteSpace($strategySetNormalized)) {
     $strategySetNormalized = "all"
 }
-if ($strategySetNormalized -notin @("all", "optimization", "edge")) {
-    throw "StrategySet must be one of: all, optimization, edge."
+if ($strategySetNormalized -notin @("all", "optimization", "edge", "spectacle")) {
+    throw "StrategySet must be one of: all, optimization, edge, spectacle."
 }
 
 $effectiveCandidateParallelism = [Math]::Max(1, [Math]::Min($CandidateParallelism, $CandidatesPerIteration))
@@ -1866,7 +1881,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         $candidateProfile = if ($candidateIndex -eq 1) {
             Clone-TuningProfile -Profile $globalBestProfile
         } else {
-            New-MutatedTuningProfile -BaseProfile $globalBestProfile -Anneal $anneal -Strength $MutationStrength -FreezeSpectacleParams:($FreezeSpectacleParams -or $DifficultyOnlyMode)
+            New-MutatedTuningProfile -BaseProfile $globalBestProfile -Anneal $anneal -Strength $MutationStrength -FreezeSpectacleParams:($FreezeSpectacleParams -or $DifficultyOnlyMode) -SpectacleOnlyMode:$SpectacleOnlyMode
         }
 
         $candidateTuningPath = Join-Path $iterDir "$candidateId.tuning.json"
@@ -2026,7 +2041,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
                 -DurationFloor $MinRunDurationSeconds
 
             # Merge eval + reeval into a single combined payload and score that.
-            # This eliminates the artificial variance from averaging two independent scores —
+            # This eliminates the artificial variance from averaging two independent scores -
             # instead the scorer sees all runs at once (e.g. 400 runs vs two 200-run samples).
             $mergedPayload = Merge-MetricsPayloads -Payload1 $origPayload -Payload2 $reevalPayload
             $mergedScore = Get-MetricsScore `

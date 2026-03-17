@@ -1,3 +1,4 @@
+using System;
 using Godot;
 using SlotTheory.Core;
 using SlotTheory.Entities;
@@ -27,6 +28,11 @@ public partial class HudPanel : CanvasLayer
     private bool _surgeMeterHintShown = false;
     private bool _surgeMeterForcedVisible = false;
     private bool _buildLabelForcedVisible = false;
+    private bool _isGlobalSurgeReady = false;
+    private Tween? _surgeReadyTween;
+
+    /// <summary>Fired when the player clicks the surge bar while IsGlobalSurgeReady.</summary>
+    public event Action? GlobalSurgeActivateRequested;
     private const int SurgePipCount = 20;
     private static readonly Color PipFilled = new(1.00f, 0.90f, 0.44f, 0.95f);
     private static readonly Color PipEmpty  = new(0.07f, 0.16f, 0.25f, 0.95f);
@@ -330,13 +336,15 @@ public partial class HudPanel : CanvasLayer
              .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
     }
 
+    private int _totalWaves = Balance.TotalWaves;
+    public void SetTotalWaves(int n) => _totalWaves = n;
     public void SetEndlessMode(bool endless) => _isEndlessMode = endless;
 
     public void Refresh(int wave, int lives)
     {
         _waveLabel.Text = _isEndlessMode
             ? $"Wave {wave}  \u221e"
-            : $"Wave {wave} / {Balance.TotalWaves}";
+            : $"Wave {wave} / {_totalWaves}";
         _livesLabel.Text = $"Lives: {lives}";
         _livesLabel.Modulate = lives <= 3 ? new Color(1f, 0.35f, 0.35f) : Colors.White;
         _livesLabel.PivotOffset = _livesLabel.Size / 2f;
@@ -512,6 +520,58 @@ public partial class HudPanel : CanvasLayer
     }
 
     /// <summary>
+    /// Switches the global surge bar into "ready to activate" mode: makes it clickable,
+    /// shows a pulsing glow, and changes the label to prompt the player.
+    /// Pass false to return to normal display after the surge fires.
+    /// </summary>
+    public void SetGlobalSurgeReady(bool ready)
+    {
+        _isGlobalSurgeReady = ready;
+
+        if (!GodotObject.IsInstanceValid(_globalSpectaclePanel)) return;
+
+        // Kill any running pulse tween
+        if (_surgeReadyTween != null && GodotObject.IsInstanceValid(_surgeReadyTween))
+            _surgeReadyTween.Kill();
+        _surgeReadyTween = null;
+
+        if (ready)
+        {
+            _globalSpectaclePanel.MouseFilter = Control.MouseFilterEnum.Stop;
+            // Swap label to prompt
+            if (GodotObject.IsInstanceValid(_surgeNameLabel))
+            {
+                _surgeNameLabel.Text = "▶  ACTIVATE";
+                _surgeNameLabel.Modulate = new Color(1.00f, 0.96f, 0.50f, 1f);
+            }
+            // Override border to bright gold to make it obviously interactive
+            _globalSpectaclePanel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+                bg:     new Color(0.10f, 0.12f, 0.06f, 0.92f),
+                border: new Color(1.00f, 0.88f, 0.20f, 1.00f),
+                corners: 8, borderWidth: 3, padH: 8, padV: 4));
+            // Pulse brightness 1→1.4→1
+            _surgeReadyTween = CreateTween();
+            _surgeReadyTween.SetLoops();
+            _surgeReadyTween.TweenProperty(_globalSpectaclePanel, "modulate:v", 1.38f, 0.45f)
+                .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+            _surgeReadyTween.TweenProperty(_globalSpectaclePanel, "modulate:v", 1.00f, 0.45f)
+                .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+        }
+        else
+        {
+            _globalSpectaclePanel.MouseFilter = Control.MouseFilterEnum.Ignore;
+            // Restore default style
+            _globalSpectaclePanel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+                bg:     new Color(0.04f, 0.09f, 0.15f, 0.88f),
+                border: new Color(0.62f, 0.92f, 1.00f, 0.82f),
+                corners: 8, borderWidth: 2, padH: 8, padV: 4));
+            _globalSpectaclePanel.Modulate = new Color(1f, 1f, 1f, 0.97f);
+            if (GodotObject.IsInstanceValid(_surgeNameLabel))
+                _surgeNameLabel.Modulate = new Color(1.00f, 0.95f, 0.76f, 1f);
+        }
+    }
+
+    /// <summary>
     /// Returns the viewport-space rect of the build name label.
     /// Uses the actual laid-out rect when available, falls back to layout constants.
     /// </summary>
@@ -662,6 +722,11 @@ public partial class HudPanel : CanvasLayer
             Visible = false,
             MouseFilter = Control.MouseFilterEnum.Ignore,
             Modulate = new Color(1f, 1f, 1f, 0.97f),
+        };
+        _globalSpectaclePanel.GuiInput += (@event) =>
+        {
+            if (_isGlobalSurgeReady && @event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
+                GlobalSurgeActivateRequested?.Invoke();
         };
         _globalSpectaclePanel.AddThemeStyleboxOverride(
             "panel",

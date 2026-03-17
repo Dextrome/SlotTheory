@@ -40,5 +40,7 @@ public record MapDef(
     Vector2Def[] Path,
     SlotDef[] Slots,
     bool IsRandom = false,
-    int DisplayOrder = 999
+    int DisplayOrder = 999,
+    bool IsTutorial = false,
+    WaveConfig[]? TutorialWaves = null
 );

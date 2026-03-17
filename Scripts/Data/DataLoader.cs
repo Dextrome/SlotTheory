@@ -45,6 +45,13 @@ public static class DataLoader
 
     public static WaveConfig GetWaveConfig(int index, DifficultyMode difficulty, string? mapId)
     {
+        // Tutorial map has its own inline wave table - bypass global waves and difficulty scaling.
+        if (mapId == "tutorial" && _maps.TryGetValue("tutorial", out var tutDef) && tutDef.TutorialWaves != null)
+        {
+            int clampedIndex = System.Math.Min(index, tutDef.TutorialWaves.Length - 1);
+            return tutDef.TutorialWaves[clampedIndex];
+        }
+
         var baseWave = _waves[index];
         if (difficulty == DifficultyMode.Easy)
             return ApplyMapDifficultyTuning(index, baseWave, mapId, difficulty);
@@ -69,11 +76,12 @@ public static class DataLoader
         => includeLocked ? _towers.Keys : _towers.Keys.Where(Core.Unlocks.IsTowerUnlocked);
     public static IEnumerable<string> GetAllModifierIds(bool includeLocked = false)
         => includeLocked ? _modifiers.Keys : _modifiers.Keys.Where(Core.Unlocks.IsModifierUnlocked);
-    public static IEnumerable<MapDef> GetAllMapDefs() => _maps.Values.OrderBy(m => m.DisplayOrder);
+    public static IEnumerable<MapDef> GetAllMapDefs(bool includeTutorial = false)
+        => _maps.Values.Where(m => includeTutorial || !m.IsTutorial).OrderBy(m => m.DisplayOrder);
 
     private static void LoadMaps()
     {
-        // Load maps.json and extract the "maps" array and "random" object
+        // Load maps.json and extract the "maps" array, "tutorial" object, and "random" object
         using var file = FileAccess.Open("res://Data/maps.json", FileAccess.ModeFlags.Read);
         if (file == null)
             throw new System.Exception(
@@ -94,6 +102,14 @@ public static class DataLoader
                 if (mapDef != null)
                     _maps[mapDef.Id] = mapDef;
             }
+        }
+
+        // Load tutorial map
+        if (root.TryGetProperty("tutorial", out var tutorialElem))
+        {
+            var tutorialDef = JsonSerializer.Deserialize<MapDef>(tutorialElem.GetRawText(), _opts);
+            if (tutorialDef != null)
+                _maps[tutorialDef.Id] = tutorialDef;
         }
 
         // Load random/procedural map

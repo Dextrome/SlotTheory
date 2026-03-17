@@ -119,8 +119,30 @@ public sealed class SpectacleSystem
 
     public event Action<SpectacleTriggerInfo>? OnSurgeTriggered;
     public event Action<GlobalSurgeTriggerInfo>? OnGlobalTriggered;
+    /// <summary>Fires when the global meter fills and is waiting for player activation.</summary>
+    public event Action? OnGlobalSurgeReady;
 
     public float GlobalMeter => _globalMeter;
+
+    /// <summary>True when the global meter is full and waiting for the player to activate it.</summary>
+    public bool IsGlobalSurgeReady { get; private set; } = false;
+    private GlobalSurgeTriggerInfo _pendingGlobalSurge;
+    private bool _hasPendingGlobalSurge = false;
+
+    /// <summary>
+    /// Activates the pending global surge. Call when the player clicks the surge bar (or
+    /// immediately for bot mode). Fires OnGlobalTriggered and resets the ready state.
+    /// No-op if no pending surge.
+    /// </summary>
+    public void ActivateGlobalSurge()
+    {
+        if (!_hasPendingGlobalSurge) return;
+        var info = _pendingGlobalSurge;
+        _hasPendingGlobalSurge = false;
+        IsGlobalSurgeReady = false;
+        _globalMeter = info.MeterAfter;
+        OnGlobalTriggered?.Invoke(info);
+    }
 
     /// <summary>
     /// Returns the current dominant mod IDs based on recent surge contributions,
@@ -305,18 +327,20 @@ public sealed class SpectacleSystem
 
             OnSurgeTriggered?.Invoke(new SpectacleTriggerInfo(tower, IsSurge: true, signature, state.Meter));
 
-            if (_globalMeter >= globalThreshold)
+            if (_globalMeter >= globalThreshold && !IsGlobalSurgeReady)
             {
-                // If the meter is full, fire on this surge instead of waiting on contributor gating.
+                // Meter is full - arm for player activation rather than firing immediately.
                 int uniqueContributors = Math.Max(1, CountUniqueGlobalContributors());
                 string[] dominantMods = ResolveDominantGlobalMods();
-                _globalMeter = SpectacleDefinitions.ResolveGlobalMeterAfterTrigger();
-                OnGlobalTriggered?.Invoke(new GlobalSurgeTriggerInfo(
-                    MeterAfter: _globalMeter,
+                _pendingGlobalSurge = new GlobalSurgeTriggerInfo(
+                    MeterAfter: SpectacleDefinitions.ResolveGlobalMeterAfterTrigger(),
                     UniqueContributors: uniqueContributors,
                     EffectId: "G_SPECTACLE_CATHARSIS",
                     EffectName: "Catastrophe",
-                    DominantModIds: dominantMods));
+                    DominantModIds: dominantMods);
+                _hasPendingGlobalSurge = true;
+                IsGlobalSurgeReady = true;
+                OnGlobalSurgeReady?.Invoke();
             }
 
             return;

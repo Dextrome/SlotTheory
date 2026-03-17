@@ -101,6 +101,9 @@ public partial class GameController : Node
 	private string _previewTowerGhostId = "";
 	private TowerInstance? _previewTowerGhost;
 	private bool _runAbandoned = false;  // set on intentional exit to suppress _ExitTree re-save
+	private TutorialManager? _tutorialManager;
+	private SlotTheory.UI.TutorialCallout? _tutorialCallout;
+	private int _mapTotalWaves = Balance.TotalWaves; // overridden for maps with custom wave counts (e.g. tutorial)
 	private bool _hitStopActive = false;
 	private float _hitStopCooldown = 0f;
 	private float _hitStopFactor = 1f;
@@ -337,6 +340,15 @@ public partial class GameController : Node
 		if (_botRunner != null)
 			ResetBotTraceBuffer();
 		
+		// Tutorial run: override map selection and force Easy difficulty
+		bool isTutorialRun = SettingsManager.Instance?.PendingTutorialRun ?? false;
+		if (isTutorialRun && SettingsManager.Instance != null)
+		{
+			SettingsManager.Instance.PendingTutorialRun = false;
+			SettingsManager.Instance.SetDifficulty(DifficultyMode.Easy);
+			SlotTheory.UI.MapSelectPanel.SetPendingMapSelection("tutorial");
+		}
+
 		// Apply pending map selection from MapSelectPanel if available
 		_runState.SelectedMapId = SlotTheory.UI.MapSelectPanel.PendingMapSelection;
 		if (_runState.SelectedMapId == "random_map" && SlotTheory.UI.MapSelectPanel.PendingProceduralSeed > 0)
@@ -344,6 +356,17 @@ public partial class GameController : Node
 		if (_botRunner != null && _runState.SelectedMapId == "random_map")
 			_runState.RngSeed = ResolveBotProceduralSeed();
 		LoadPendingMobileSnapshot();
+
+		// Determine wave count - tutorial map has its own shorter wave table
+		_mapTotalWaves = ResolveMapTotalWaves(_runState.SelectedMapId);
+
+		// Set up tutorial manager if this is a tutorial run
+		if (isTutorialRun && _botRunner == null)
+		{
+			_tutorialCallout = new SlotTheory.UI.TutorialCallout();
+			GetTree().Root.AddChild(_tutorialCallout);
+			_tutorialManager = new TutorialManager(_tutorialCallout);
+		}
 		
 		// In bot mode seed the draft pool deterministically from the run index so
 		// all tuning candidates face identical card offerings on the same run number.
@@ -359,12 +382,16 @@ public partial class GameController : Node
 		};
 		_combatSim.BotMode = _botRunner != null;
 		_spectacleSystem.Reset();
-		_spectacleSystem.OnSurgeTriggered -= OnSpectacleSurgeTriggered;
-		_spectacleSystem.OnGlobalTriggered -= OnGlobalSurgeTriggered;
-		_spectacleSystem.OnSurgeTriggered += OnSpectacleSurgeTriggered;
-		_spectacleSystem.OnGlobalTriggered += OnGlobalSurgeTriggered;
+		_spectacleSystem.OnSurgeTriggered   -= OnSpectacleSurgeTriggered;
+		_spectacleSystem.OnGlobalTriggered  -= OnGlobalSurgeTriggered;
+		_spectacleSystem.OnGlobalSurgeReady -= OnGlobalSurgeReadyHandler;
+		_spectacleSystem.OnSurgeTriggered   += OnSpectacleSurgeTriggered;
+		_spectacleSystem.OnGlobalTriggered  += OnGlobalSurgeTriggered;
+		_spectacleSystem.OnGlobalSurgeReady += OnGlobalSurgeReadyHandler;
 		_draftPanel = GetNode<DraftPanel>("../DraftPanel");
 		_hudPanel   = GetNode<HudPanel>("../HudPanel");
+		_hudPanel.GlobalSurgeActivateRequested -= OnHudGlobalSurgeActivate;
+		_hudPanel.GlobalSurgeActivateRequested += OnHudGlobalSurgeActivate;
 		_endScreen  = GetNode<EndScreen>("../EndScreen");
 		_endScreen.ContinueEndlessPressed += OnContinueEndlessPressed;
 		_endScreen.WinExited += OnWinExited;
@@ -375,6 +402,8 @@ public partial class GameController : Node
 		_mapVisuals = new Node2D { Name = "_mapVisuals" };
 		_worldNode.AddChild(_mapVisuals);
 		_worldNode.MoveChild(_mapVisuals, 0);
+
+		_hudPanel.SetTotalWaves(_mapTotalWaves);
 
 			GenerateMap();
 			SetupMobileCamera();
@@ -569,7 +598,8 @@ public partial class GameController : Node
 			var newlyUnlocked = AchievementManager.Instance?.CheckRunEndAndCollectUnlocks(
 				_runState,
 				SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy,
-				won: false) ?? System.Array.Empty<string>();
+				won: false,
+				isTutorialRun: _tutorialManager != null) ?? System.Array.Empty<string>();
 			int livesLost = Balance.StartingLives - _runState.Lives;
 			SoundManager.Instance?.Play("game_over");
 				string runName = BuildRunName(registerInHistory: true, wonOverride: false, waveReachedOverride: _runState.WaveIndex + 1);
@@ -583,7 +613,8 @@ public partial class GameController : Node
 			string leaderboardLine = BuildInitialLeaderboardLine(scorePayload, localSubmit);
 			_endScreen.SetLeaderboardContext(scorePayload.MapId, scorePayload.Difficulty);
 			ApplySurgeProfileToEndScreen();
-			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), _runState, runName, mvpLine, modLine, runColors.start, runColors.end);
+			if (_tutorialManager != null) _endScreen.SetTutorialMode(true);
+			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), _runState, runName, mvpLine, modLine, runColors.start, runColors.end, _mapTotalWaves);
 			_endScreen.SetLeaderboardStatus(leaderboardLine);
 			var lossGoalHint = AchievementManager.Instance?.GetGoalHint(_runState, scorePayload.Difficulty, won: false);
 			if (!string.IsNullOrEmpty(lossGoalHint)) _endScreen.SetGoalHint(lossGoalHint);
@@ -598,28 +629,35 @@ public partial class GameController : Node
 			var waveReport = _runState.CompleteWave();
 			
 			_runState.WaveIndex++;
-			if (_runState.WaveIndex >= Balance.TotalWaves && !_runState.IsEndlessMode)
+			if (_runState.WaveIndex >= _mapTotalWaves && !_runState.IsEndlessMode)
 			{
 				CurrentPhase = GamePhase.Win;
+				// Tutorial completion
+				if (_tutorialManager != null)
+					SettingsManager.Instance?.MarkTutorialCompleted();
+				if (_tutorialManager != null)
+					AchievementManager.Instance?.CheckTutorialComplete();
 				MobileRunSession.Clear();
 				MusicDirector.Instance?.OnRunEnd(won: true);
 				MobileOptimization.HapticStrong();
 				var newlyUnlocked = AchievementManager.Instance?.CheckRunEndAndCollectUnlocks(
 					_runState,
 					SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy,
-					won: true) ?? System.Array.Empty<string>();
+					won: true,
+					isTutorialRun: _tutorialManager != null) ?? System.Array.Empty<string>();
 				SoundManager.Instance?.Play("victory");
-					string runName = BuildRunName(registerInHistory: true, wonOverride: true, waveReachedOverride: Balance.TotalWaves);
+					string runName = BuildRunName(registerInHistory: true, wonOverride: true, waveReachedOverride: _mapTotalWaves);
 				var runColors = BuildRunNameColors();
 				string mvpLine = BuildMvpLine();
 				string modLine = BuildMostValuableModLine();
-				var scorePayload = BuildRunScorePayload(won: true, waveReached: Balance.TotalWaves, buildName: runName);
+				var scorePayload = BuildRunScorePayload(won: true, waveReached: _mapTotalWaves, buildName: runName);
 				var localSubmit = HighScoreManager.Instance?.SubmitLocal(scorePayload);
 				string leaderboardLine = BuildInitialLeaderboardLine(scorePayload, localSubmit);
 				_endScreen.SetLeaderboardContext(scorePayload.MapId, scorePayload.Difficulty);
 				ApplySurgeProfileToEndScreen();
-			_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end, _runState.Lives);
-				_endScreen.SetLeaderboardStatus(leaderboardLine);
+				if (_tutorialManager != null) _endScreen.SetTutorialMode(true);
+			_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end, _runState.Lives, _mapTotalWaves);
+				if (_tutorialManager == null) _endScreen.SetLeaderboardStatus(leaderboardLine);
 				var winGoalHint = AchievementManager.Instance?.GetGoalHint(_runState, scorePayload.Difficulty, won: true);
 				if (!string.IsNullOrEmpty(winGoalHint)) _endScreen.SetGoalHint(winGoalHint);
 				// Defer global submit: stored and submitted when player exits win screen.
@@ -692,6 +730,8 @@ public partial class GameController : Node
 		RefreshSpectacleSpeedMultiplier();
 		if (!_runAbandoned)
 			SaveMobileRunSnapshot("exit_tree");
+		if (_tutorialCallout != null && GodotObject.IsInstanceValid(_tutorialCallout))
+			_tutorialCallout.QueueFree();
 	}
 
 	/// <summary>
@@ -860,9 +900,16 @@ public partial class GameController : Node
 		CurrentPhase = GamePhase.Draft;
 		MusicDirector.Instance?.OnDraftPhaseStart();
 		_hudPanel.SetBuildName("", visible: false);
+		// Tutorial: inject scripted picks for this wave (overrides random generation)
+		if (_currentDraftOptions == null && _tutorialManager != null)
+			_currentDraftOptions = _tutorialManager.GetScriptedOptions(_runState.WaveIndex);
+
 		// Use restored options if available (prevents reload-to-reroll), otherwise generate fresh
 		var options = _currentDraftOptions ?? _draftSystem.GenerateOptions(_runState);
 		_currentDraftOptions = options;
+
+		// Fire tutorial callout for this draft wave
+		_tutorialManager?.OnDraftOpened(_runState.WaveIndex);
 
 		// All slots full AND all towers at modifier cap ? nothing to offer, skip draft.
 		if (options.Count == 0)
@@ -971,6 +1018,7 @@ public partial class GameController : Node
 		_hudPanel.Refresh(1, Balance.StartingLives);
 		_hudPanel.SetBuildName("", visible: false);
 		_hudPanel.ResetSpeed();
+		_hudPanel.SetGlobalSurgeReady(false);
 
 			// In bot mode BotRunner.StartNextRun() already called SetPendingMapSelection
 			// before RestartRun() - pick it up here since _Ready() only runs once.
@@ -985,6 +1033,9 @@ public partial class GameController : Node
 				// Fresh procedural seed on player restarts for random_map.
 				_runState.RngSeed = (int)(System.Environment.TickCount64 & 0x7FFFFFFF);
 			}
+
+			_mapTotalWaves = ResolveMapTotalWaves(_runState.SelectedMapId);
+			_hudPanel.SetTotalWaves(_mapTotalWaves);
 
 			ClearMapVisuals();
 			GenerateMap();
@@ -1116,6 +1167,11 @@ public partial class GameController : Node
 				_draftSystem.ApplyModifier(option.Id, tower);
 				if (_botRunner == null) RefreshModPips(targetSlotIndex);
 				MobileOptimization.HapticLight(); // modifier equipped
+				if (_tutorialManager != null && !_tutorialManager.BuildNamePanelShown)
+				{
+					_tutorialManager.MarkBuildNamePanelShown();
+					ShowTutorialBuildNamePanel();
+				}
 			}
 		}
 		AchievementManager.Instance?.CheckDraftMilestones(_runState);
@@ -1941,7 +1997,7 @@ public partial class GameController : Node
 			_slotModPips[i] = pips;
 			_slotModIcons[i] = icons;
 
-			// Start offscreen above the grid — AnimateSlotDropIn brings them in after path reveal.
+			// Start offscreen above the grid - AnimateSlotDropIn brings them in after path reveal.
 			// In bot mode, leave at final position so no animation delay occurs.
 			if (_botRunner == null)
 				_slotNodes[i].Position = new Vector2(_currentMap.Slots[i].X, _currentMap.Slots[i].Y - 900f);
@@ -2047,7 +2103,7 @@ public partial class GameController : Node
 
 	private void RenderMap()
 	{
-		// Permanent dark backdrop — same colour as GridBackground's fill but always visible,
+		// Permanent dark backdrop - same colour as GridBackground's fill but always visible,
 		// so hiding GridBackground doesn't expose the engine clear colour.
 		const float ext = 4096f;
 		_mapVisuals.AddChild(new ColorRect
@@ -2787,7 +2843,7 @@ void fragment() {
 
 	private void ShowWaveAnnouncement(int wave)
 	{
-		bool isFinalWave = wave >= Balance.TotalWaves && !_runState.IsEndlessMode;
+		bool isFinalWave = wave >= _mapTotalWaves && !_runState.IsEndlessMode;
 		_waveAnnounce.Text     = isFinalWave ? $"WAVE {wave}  FINAL" : $"WAVE {wave}";
 		_waveAnnounce.Scale    = isFinalWave ? new Vector2(1.55f, 1.55f) : new Vector2(1.35f, 1.35f);
 		_waveAnnounce.Modulate = new Color(1f, 1f, 1f, 1f);
@@ -3154,6 +3210,11 @@ void fragment() {
 	{
 		if (CurrentPhase != GamePhase.Wave)
 			return;
+		if (_tutorialManager != null && !_tutorialManager.SurgePanelShown)
+		{
+			_tutorialManager.MarkSurgePanelShown();
+			ShowTutorialSurgePanel();
+		}
 		_runState?.TrackSpectacleSurge(info.Signature.EffectId, info.Tower?.TowerId);
 		ComboExplosionSkin comboSkin = ResolveComboExplosionSkin(info.Signature);
 		string traceId = NextSurgeTraceId(global: false);
@@ -3273,6 +3334,32 @@ void fragment() {
 			globalSurge: false,
 			info.Signature.SurgePower);
 		FlashSpectacleAfterimage(accent, afterimageStrength);
+	}
+
+	private void OnGlobalSurgeReadyHandler()
+	{
+		if (CurrentPhase != GamePhase.Wave) return;
+
+		if (_botRunner != null)
+		{
+			// Bot mode: activate immediately (no UI interaction).
+			_spectacleSystem.ActivateGlobalSurge();
+			return;
+		}
+
+		_hudPanel.SetGlobalSurgeReady(true);
+
+		if (_tutorialManager != null && !_tutorialManager.GlobalSurgeActivatePanelShown)
+		{
+			_tutorialManager.MarkGlobalSurgeActivatePanelShown();
+			ShowTutorialGlobalSurgeActivatePanel();
+		}
+	}
+
+	private void OnHudGlobalSurgeActivate()
+	{
+		_hudPanel.SetGlobalSurgeReady(false);
+		_spectacleSystem.ActivateGlobalSurge();
 	}
 
 	private void OnGlobalSurgeTriggered(GlobalSurgeTriggerInfo info)
@@ -6023,10 +6110,21 @@ void fragment() {
 		}));
 	}
 
-	public void NotifyOverkillSpill(Vector2 worldPos, float spillDamage)
+	public void NotifyOverkillSpill(ITowerView sourceTower, Vector2 worldPos, float spillDamage, float dealtDamage)
 	{
 		if (spillDamage <= 0f)
 			return;
+
+		// Track actual damage dealt (capped by target HP), not the attempted spill amount.
+		TrackSpectacleDamage(sourceTower, dealtDamage, isKill: false, SpectacleDamageSource.ExplosionFollowUp);
+
+		// Bloom threshold uses spillDamage (= excess * SpillEfficiency), which represents how large the overkill was.
+		OverkillBloomProfile bloomProfile = SpectacleExplosionCore.BuildOverkillBloomProfile(spillDamage);
+		if (bloomProfile.ShouldTrigger && sourceTower != null)
+		{
+			Color bloomColor = new Color(1.00f, 0.56f, 0.25f);
+			SpawnOverkillBloom(sourceTower, worldPos, bloomProfile, bloomColor, heavySourceHit: spillDamage >= 42f);
+		}
 
 		Color spillColor = new Color(1.00f, 0.56f, 0.25f);
 		float spillT = Mathf.Clamp(spillDamage / 140f, 0f, 1f);
@@ -6406,16 +6504,30 @@ void fragment() {
 		return RunNameGenerator.AnalyzeProfile(_runState, difficulty, mapId, won, waveReached);
 	}
 
+	private static int ResolveMapTotalWaves(string? mapId)
+	{
+		if (mapId == "tutorial")
+		{
+			try
+			{
+				var def = Data.DataLoader.GetMapDef("tutorial");
+				if (def.TutorialWaves != null) return def.TutorialWaves.Length;
+			}
+			catch { }
+		}
+		return Balance.TotalWaves;
+	}
+
 	private int GuessCurrentWaveReached()
 	{
 		int waveReached = CurrentPhase switch
 		{
 			GamePhase.Wave => _runState.WaveIndex + 1,
 			GamePhase.Loss => _runState.WaveIndex + 1,
-			GamePhase.Win => Balance.TotalWaves,
+			GamePhase.Win => _mapTotalWaves,
 			_ => _runState.WaveIndex,
 		};
-		return System.Math.Clamp(waveReached, 0, Balance.TotalWaves);
+		return System.Math.Clamp(waveReached, 0, _mapTotalWaves);
 	}
 
 	private (Color start, Color end) BuildRunNameColors()
@@ -6430,8 +6542,9 @@ void fragment() {
 		ClearUndoPlacementState();
 		CurrentPhase = GamePhase.Wave;
 		int waveNumber = _runState.WaveIndex + 1;
+		_tutorialManager?.OnWaveStarted(_runState.WaveIndex);
 		if (_botRunner == null) ShowWaveAnnouncement(waveNumber);
-		WaveConfig? nextCfg = _runState.WaveIndex < Balance.TotalWaves
+		WaveConfig? nextCfg = _runState.WaveIndex < _mapTotalWaves
 			? DataLoader.GetWaveConfig(
 				_runState.WaveIndex,
 				SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy,
@@ -6454,7 +6567,7 @@ void fragment() {
 			SoundManager.Instance?.Play("wave_halfway_lift");
 			AchievementManager.Instance?.CheckHalfwayThere();
 		}
-		if (waveNumber >= Balance.TotalWaves && !_runState.IsEndlessMode)
+		if (waveNumber >= _mapTotalWaves && !_runState.IsEndlessMode && _tutorialManager == null)
 		{
 			SoundManager.Instance?.Play("wave20_start");
 			SoundManager.Instance?.Play("wave20_swell");
@@ -6471,7 +6584,7 @@ void fragment() {
 		string runName = BuildRunName();
 		var runColors = BuildRunNameColors();
 		_hudPanel.SetBuildName(runName, visible: true, startColor: runColors.start, endColor: runColors.end);
-		if (waveNumber == 2 && _botRunner == null && !(SettingsManager.Instance?.BuildNameTutorialSeen ?? true))
+		if (waveNumber == 2 && _botRunner == null && _tutorialManager == null && !(SettingsManager.Instance?.BuildNameTutorialSeen ?? true))
 			ShowBuildNameTutorial();
 		SaveMobileRunSnapshot("start_wave");
 	}
@@ -6569,7 +6682,7 @@ void fragment() {
 
 		var body = new Label
 		{
-			Text = "This name updates every wave to describe your current strategy — based on which tower is dealing the most damage, the modifier types you're stacking (damage, cryo, chain, etc.), and how fast you're clearing waves.\nWatch it evolve as your build takes shape.",
+			Text = "This name updates every wave to describe your current strategy - based on which tower is dealing the most damage, the modifier types you're stacking (damage, cryo, chain, etc.), and how fast you're clearing waves.\nWatch it evolve as your build takes shape.",
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 			CustomMinimumSize = new Vector2(520f, 0f),
 		};
@@ -6595,6 +6708,379 @@ void fragment() {
 			GetTree().Paused = false;
 		};
 		btnRow.AddChild(gotItBtn);
+		vbox.AddChild(btnRow);
+	}
+
+	/// <summary>
+	/// Tutorial-mode build name panel. Like ShowBuildNameTutorial but called during draft phase
+	/// (no need to pause - the wave isn't running). Highlights the build label above the draft panel.
+	/// </summary>
+	private void ShowTutorialBuildNamePanel()
+	{
+		GetTree().Paused = true;
+
+		var overlay = new CanvasLayer { Layer = 8, ProcessMode = ProcessModeEnum.Always };
+		GetTree().Root.AddChild(overlay);
+
+		var blocker = new ColorRect
+		{
+			Color = new Color(0f, 0f, 0f, 0.80f),
+			MouseFilter = Control.MouseFilterEnum.Stop,
+		};
+		blocker.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		overlay.AddChild(blocker);
+
+		// Raise HUD so the build name label renders above the blocker
+		_hudPanel.SetBuildLabelForcedVisible(true);
+
+		// Open-right bracket highlight: top, left edge, bottom - no right side because name length is variable.
+		Rect2 labelRect = _hudPanel.GetBuildLabelViewportRect();
+		const float pad = 6f;
+		float x  = labelRect.Position.X - pad;
+		float y  = labelRect.Position.Y - pad;
+		float b  = labelRect.End.Y + pad;
+		float rx = labelRect.End.X + pad; // right edge - only used for short top/bottom caps
+		const float capLen = 18f;
+		var highlight = new Line2D
+		{
+			DefaultColor = new Color(0.20f, 0.95f, 1.00f, 0.92f),
+			Width = 2.5f,
+			Antialiased = true,
+		};
+		// Top cap → left edge → bottom cap (open on the right)
+		highlight.Points = new Vector2[]
+		{
+			new Vector2(rx,      y),   // top-right cap start (short)
+			new Vector2(rx - capLen, y),
+			new Vector2(x, y),         // top-left corner
+			new Vector2(x, b),         // bottom-left corner
+			new Vector2(rx - capLen, b),
+			new Vector2(rx,      b),   // bottom-right cap end (short)
+		};
+		overlay.AddChild(highlight);
+
+		// Connector line from banner top down to label bottom
+		const float bannerTopY = 56f;
+		float labelCx = labelRect.GetCenter().X;
+		var connector = new Line2D
+		{
+			DefaultColor = new Color(0.20f, 0.95f, 1.00f, 0.80f),
+			Width = 2f,
+			Antialiased = true,
+		};
+		connector.Points = new Vector2[]
+		{
+			new Vector2(labelCx, bannerTopY),
+			new Vector2(labelCx, labelRect.End.Y + 6f),
+		};
+		overlay.AddChild(connector);
+
+		var bannerStyle = new StyleBoxFlat
+		{
+			BgColor     = new Color(0.04f, 0.09f, 0.16f, 0.97f),
+			BorderColor = new Color(0.20f, 0.95f, 1.00f, 0.90f),
+			ShadowColor = new Color(0.20f, 0.95f, 1.00f, 0.35f),
+			ShadowSize  = 10,
+			ShadowOffset = Vector2.Zero,
+		};
+		bannerStyle.SetBorderWidthAll(2);
+		bannerStyle.SetCornerRadiusAll(10);
+		bannerStyle.ContentMarginLeft = 16; bannerStyle.ContentMarginRight  = 16;
+		bannerStyle.ContentMarginTop  = 12; bannerStyle.ContentMarginBottom = 12;
+
+		var banner = new PanelContainer
+		{
+			AnchorLeft = 0f, AnchorRight = 0f, AnchorTop = 0f, AnchorBottom = 0f,
+			GrowHorizontal = Control.GrowDirection.End, GrowVertical = Control.GrowDirection.End,
+			OffsetLeft = 10f, OffsetRight = 10f, OffsetTop = bannerTopY, OffsetBottom = bannerTopY,
+		};
+		banner.AddThemeStyleboxOverride("panel", bannerStyle);
+		overlay.AddChild(banner);
+
+		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 8);
+		banner.AddChild(vbox);
+
+		var header = new Label { Text = "BUILD NAME" };
+		UITheme.ApplyFont(header, semiBold: true, size: 13);
+		header.AddThemeColorOverride("font_color", UITheme.Lime);
+		vbox.AddChild(header);
+
+		var body = new Label
+		{
+			Text = "Your build now has a name - it describes your current strategy based on which towers are dealing the most damage and which modifier types you're stacking.\nWatch it evolve as your build takes shape.",
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			CustomMinimumSize = new Vector2(480f, 0f),
+		};
+		UITheme.ApplyFont(body, size: 14);
+		body.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
+		vbox.AddChild(body);
+
+		var btnRow = new HBoxContainer();
+		btnRow.AddThemeConstantOverride("separation", 10);
+		btnRow.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+
+		var gotItBtn = new Button { Text = "Got it", ProcessMode = ProcessModeEnum.Always };
+		gotItBtn.CustomMinimumSize = new Vector2(90f, 0f);
+		gotItBtn.AddThemeFontSizeOverride("font_size", 13);
+		UITheme.ApplyPrimaryStyle(gotItBtn);
+		gotItBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		gotItBtn.Pressed += () =>
+		{
+			SoundManager.Instance?.Play("ui_select");
+			_hudPanel.SetBuildLabelForcedVisible(false);
+			overlay.QueueFree();
+			GetTree().Paused = false;
+		};
+		btnRow.AddChild(gotItBtn);
+		vbox.AddChild(btnRow);
+	}
+
+	/// <summary>
+	/// Tutorial-mode surge panel. Pauses the wave, forces the global surge meter visible,
+	/// and shows a blocking overlay with a highlight rect around the surge bar.
+	/// </summary>
+	private void ShowTutorialSurgePanel()
+	{
+		GetTree().Paused = true;
+		_hudPanel.SetSurgeMeterForcedVisible(true);
+
+		var overlay = new CanvasLayer { Layer = 21, ProcessMode = ProcessModeEnum.Always };
+		GetTree().Root.AddChild(overlay);
+
+		var blocker = new ColorRect
+		{
+			Color = new Color(0f, 0f, 0f, 0.75f),
+			MouseFilter = Control.MouseFilterEnum.Stop,
+		};
+		blocker.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		overlay.AddChild(blocker);
+
+		// Highlight rect around the global surge meter
+		const float meterPad = 12f;
+		Rect2 meter = _hudPanel.GetSurgeMeterViewportRect();
+		var surgeHighlight = new Line2D
+		{
+			DefaultColor = new Color(0.20f, 0.95f, 1.00f, 0.92f),
+			Width = 2.5f,
+			Antialiased = true,
+		};
+		surgeHighlight.Points = new Vector2[]
+		{
+			new Vector2(meter.Position.X - meterPad, meter.Position.Y - meterPad),
+			new Vector2(meter.End.X + meterPad,       meter.Position.Y - meterPad),
+			new Vector2(meter.End.X + meterPad,       meter.End.Y + meterPad),
+			new Vector2(meter.Position.X - meterPad,  meter.End.Y + meterPad),
+			new Vector2(meter.Position.X - meterPad,  meter.Position.Y - meterPad),
+		};
+		overlay.AddChild(surgeHighlight);
+
+		// Banner anchored to bottom, above the surge meter
+		var bannerStyle = new StyleBoxFlat
+		{
+			BgColor     = new Color(0.04f, 0.09f, 0.16f, 0.97f),
+			BorderColor = new Color(0.20f, 0.95f, 1.00f, 0.90f),
+			ShadowColor = new Color(0.20f, 0.95f, 1.00f, 0.35f),
+			ShadowSize  = 10,
+			ShadowOffset = Vector2.Zero,
+		};
+		bannerStyle.SetBorderWidthAll(2);
+		bannerStyle.SetCornerRadiusAll(10);
+		bannerStyle.ContentMarginLeft = 16; bannerStyle.ContentMarginRight  = 16;
+		bannerStyle.ContentMarginTop  = 12; bannerStyle.ContentMarginBottom = 12;
+
+		var banner = new PanelContainer
+		{
+			AnchorTop    = 1f, AnchorBottom = 1f,
+			AnchorLeft   = 0f, AnchorRight  = 0f,
+			GrowHorizontal = Control.GrowDirection.End,
+			GrowVertical   = Control.GrowDirection.Begin,
+			OffsetTop    = -82f,
+			OffsetBottom = -82f,
+			OffsetLeft   = 10f,
+			OffsetRight  = 10f,
+		};
+		banner.AddThemeStyleboxOverride("panel", bannerStyle);
+		overlay.AddChild(banner);
+
+		// Connector from banner top to surge meter
+		var vpSize = GetViewport().GetVisibleRect().Size;
+		float cx = meter.GetCenter().X;
+		var connector = new Line2D
+		{
+			DefaultColor = new Color(0.20f, 0.95f, 1.00f, 0.80f),
+			Width = 2f,
+			Antialiased = true,
+		};
+		connector.Points = new Vector2[]
+		{
+			new Vector2(cx, vpSize.Y - 82f),
+			new Vector2(cx, meter.Position.Y - meterPad),
+		};
+		overlay.AddChild(connector);
+
+		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 8);
+		banner.AddChild(vbox);
+
+		var header = new Label { Text = "SURGE" };
+		UITheme.ApplyFont(header, semiBold: true, size: 13);
+		header.AddThemeColorOverride("font_color", UITheme.Lime);
+		vbox.AddChild(header);
+
+		var body = new Label
+		{
+			Text = "Modifiers generate charge as they activate (hits, kills, procs). When a tower's meter fills, it triggers a Surge: a powerful mid-wave effect.\nEach Surge adds to the global meter above. Fill it and a Global Surge fires - refunding all cooldowns and hitting every enemy on the lane.",
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			CustomMinimumSize = new Vector2(520f, 0f),
+		};
+		UITheme.ApplyFont(body, size: 14);
+		body.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
+		vbox.AddChild(body);
+
+		var btnRow = new HBoxContainer();
+		btnRow.AddThemeConstantOverride("separation", 10);
+		btnRow.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+
+		var gotItBtn = new Button { Text = "Got it", ProcessMode = ProcessModeEnum.Always };
+		gotItBtn.CustomMinimumSize = new Vector2(90f, 0f);
+		gotItBtn.AddThemeFontSizeOverride("font_size", 13);
+		UITheme.ApplyPrimaryStyle(gotItBtn);
+		gotItBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		gotItBtn.Pressed += () =>
+		{
+			SoundManager.Instance?.Play("ui_select");
+			_hudPanel.SetSurgeMeterForcedVisible(false);
+			overlay.QueueFree();
+			GetTree().Paused = false;
+		};
+		btnRow.AddChild(gotItBtn);
+		vbox.AddChild(btnRow);
+	}
+
+	/// <summary>
+	/// Tutorial-only first-time panel when the global surge meter fills.
+	/// Pauses the wave, highlights the surge bar, and has an "Activate →" button
+	/// that fires the global surge and unpauses.
+	/// </summary>
+	private void ShowTutorialGlobalSurgeActivatePanel()
+	{
+		GetTree().Paused = true;
+		// Ensure meter is visible and raised above any overlay
+		_hudPanel.SetSurgeMeterForcedVisible(true);
+
+		var overlay = new CanvasLayer { Layer = 21, ProcessMode = ProcessModeEnum.Always };
+		GetTree().Root.AddChild(overlay);
+
+		var blocker = new ColorRect
+		{
+			Color = new Color(0f, 0f, 0f, 0.75f),
+			MouseFilter = Control.MouseFilterEnum.Stop,
+		};
+		blocker.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		overlay.AddChild(blocker);
+
+		// Highlight rect around the global surge meter
+		const float pad = 12f;
+		Rect2 meter = _hudPanel.GetSurgeMeterViewportRect();
+		var highlight = new Line2D
+		{
+			DefaultColor = new Color(1.00f, 0.88f, 0.20f, 0.95f),
+			Width = 3f,
+			Antialiased = true,
+		};
+		highlight.Points = new Vector2[]
+		{
+			new Vector2(meter.Position.X - pad, meter.Position.Y - pad),
+			new Vector2(meter.End.X + pad,       meter.Position.Y - pad),
+			new Vector2(meter.End.X + pad,       meter.End.Y + pad),
+			new Vector2(meter.Position.X - pad,  meter.End.Y + pad),
+			new Vector2(meter.Position.X - pad,  meter.Position.Y - pad),
+		};
+		overlay.AddChild(highlight);
+
+		// Banner anchored above surge meter
+		var bannerStyle = new StyleBoxFlat
+		{
+			BgColor     = new Color(0.04f, 0.09f, 0.16f, 0.97f),
+			BorderColor = new Color(1.00f, 0.88f, 0.20f, 0.95f),
+			ShadowColor = new Color(1.00f, 0.80f, 0.10f, 0.35f),
+			ShadowSize  = 10,
+			ShadowOffset = Vector2.Zero,
+		};
+		bannerStyle.SetBorderWidthAll(2);
+		bannerStyle.SetCornerRadiusAll(10);
+		bannerStyle.ContentMarginLeft = 16; bannerStyle.ContentMarginRight  = 16;
+		bannerStyle.ContentMarginTop  = 12; bannerStyle.ContentMarginBottom = 12;
+
+		var banner = new PanelContainer
+		{
+			AnchorTop    = 1f, AnchorBottom = 1f,
+			AnchorLeft   = 0f, AnchorRight  = 0f,
+			GrowHorizontal = Control.GrowDirection.End,
+			GrowVertical   = Control.GrowDirection.Begin,
+			OffsetTop    = -82f,
+			OffsetBottom = -82f,
+			OffsetLeft   = 10f,
+			OffsetRight  = 10f,
+		};
+		banner.AddThemeStyleboxOverride("panel", bannerStyle);
+		overlay.AddChild(banner);
+
+		var vpSize = GetViewport().GetVisibleRect().Size;
+		float cx = meter.GetCenter().X;
+		var connector = new Line2D
+		{
+			DefaultColor = new Color(1.00f, 0.88f, 0.20f, 0.80f),
+			Width = 2f,
+			Antialiased = true,
+		};
+		connector.Points = new Vector2[]
+		{
+			new Vector2(cx, vpSize.Y - 82f),
+			new Vector2(cx, meter.Position.Y - pad),
+		};
+		overlay.AddChild(connector);
+
+		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 8);
+		banner.AddChild(vbox);
+
+		var header = new Label { Text = "GLOBAL SURGE READY" };
+		UITheme.ApplyFont(header, semiBold: true, size: 13);
+		header.AddThemeColorOverride("font_color", new Color(1.00f, 0.88f, 0.20f));
+		vbox.AddChild(header);
+
+		var body = new Label
+		{
+			Text = "The global meter is full. Click the glowing bar below to release a Global Surge - it hits every enemy on the lane and refunds all tower cooldowns.\nYou control when it fires. Use it at the right moment.",
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			CustomMinimumSize = new Vector2(520f, 0f),
+		};
+		UITheme.ApplyFont(body, size: 14);
+		body.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
+		vbox.AddChild(body);
+
+		var btnRow = new HBoxContainer();
+		btnRow.AddThemeConstantOverride("separation", 10);
+		btnRow.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+
+		var activateBtn = new Button { Text = "Activate →", ProcessMode = ProcessModeEnum.Always };
+		activateBtn.CustomMinimumSize = new Vector2(120f, 0f);
+		activateBtn.AddThemeFontSizeOverride("font_size", 13);
+		UITheme.ApplyPrimaryStyle(activateBtn);
+		activateBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		activateBtn.Pressed += () =>
+		{
+			SoundManager.Instance?.Play("ui_select");
+			_hudPanel.SetSurgeMeterForcedVisible(false);
+			overlay.QueueFree();
+			GetTree().Paused = false;
+			// Fire the global surge immediately via the click path
+			_hudPanel.SetGlobalSurgeReady(false);
+			_spectacleSystem.ActivateGlobalSurge();
+		};
+		btnRow.AddChild(activateBtn);
 		vbox.AddChild(btnRow);
 	}
 

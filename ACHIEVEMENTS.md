@@ -1,11 +1,12 @@
 # Achievements
 
-## Current Achievements (13)
+## Current Achievements (14)
 
 Tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`. Forwarded to Steam when available.
 
 | ID | Name | Condition | When Checked |
 |---|---|---|---|
+| `TUTORIAL_COMPLETE` | First Steps | Complete the tutorial run | Tutorial win - `CheckTutorialComplete()` |
 | `FIRST_WIN` | First Victory | Complete all 20 waves | Run end (win) |
 | `HARD_WIN` | Hard Carry | Complete all 20 waves on Hard | Run end (win) |
 | `FLAWLESS` | Flawless | Win without losing a single life | Run end (win) |
@@ -22,10 +23,13 @@ Tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`
 
 ### Implementation notes
 
-- `CheckRunEndAndCollectUnlocks(state, difficulty, won)` - main evaluation call, run end only
+- `CheckRunEndAndCollectUnlocks(state, difficulty, won, isTutorialRun)` - main evaluation call, run end only. Tutorial runs (`isTutorialRun=true`) return immediately with no unlocks - all achievements require a real run except `TUTORIAL_COMPLETE`.
+- `CheckTutorialComplete()` - called from GameController on tutorial win (before `CheckRunEndAndCollectUnlocks`)
 - `CheckHalfwayThere()` - called at wave 10 start from `GameController`
-- `CheckDraftMilestones(state)` - called after each draft pick; covers `FULL_HOUSE` and `STACKED`
-- `CheckAnnihilator(state)` - called after each wave clear
+- `CheckDraftMilestones(state)` - called after each draft pick; covers `FULL_HOUSE`, `STACKED`, `FULL_ARSENAL`, `OVER_EQUIPPED`, `CHAIN_GANG`, `GLASS_CANNON`
+- `CheckAnnihilator(state)` - called after each wave clear; covers `ANNIHILATOR` and `DEVASTATOR`
+- `CheckEndlessMilestones(state)` - called after each endless wave clear; covers `ENDLESS_25/30/40`
+- `CheckKeepGoing()` - called in `OnContinueEndlessPressed`
 - Bot mode (`--bot`) skips all unlock evaluation
 
 ---

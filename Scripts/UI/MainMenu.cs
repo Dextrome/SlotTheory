@@ -93,6 +93,18 @@ public partial class MainMenu : Node
 		cardVbox.AddThemeConstantOverride("separation", 7);
 		card.AddChild(cardVbox);
 
+		// Tutorial - shown above PLAY with a pulse indicator until completed
+		bool tutorialDone = SettingsManager.Instance?.TutorialCompleted ?? false;
+		var tutorialBtn = MakeMenuButton(tutorialDone ? "Tutorial" : "▶  Tutorial", 260, 44, tutorialDone ? 18 : 20);
+		if (tutorialDone)
+			UITheme.ApplyMutedStyle(tutorialBtn);
+		else
+			UITheme.ApplyCyanStyle(tutorialBtn);
+		tutorialBtn.Pressed += OnTutorial;
+		cardVbox.AddChild(tutorialBtn);
+
+		AddSpacer(cardVbox, 4);
+
 		// Play - primary
 		var playBtn = MakeMenuButton("PLAY", 260, 50, 24);
 		UITheme.ApplyPrimaryStyle(playBtn);
@@ -181,6 +193,15 @@ public partial class MainMenu : Node
 	{
 		SlotTheory.Data.DataLoader.LoadAll();
 		Transition.Instance?.FadeToScene("res://Scenes/MapSelect.tscn");
+	}
+
+	private void OnTutorial()
+	{
+		SoundManager.Instance?.Play("ui_select");
+		SlotTheory.Data.DataLoader.LoadAll();
+		if (SettingsManager.Instance != null)
+			SettingsManager.Instance.PendingTutorialRun = true;
+		Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
 	}
 	private void OnLeaderboards() => Transition.Instance?.FadeToScene("res://Scenes/Leaderboards.tscn");
 	private void OnAchievements() => Transition.Instance?.FadeToScene("res://Scenes/Achievements.tscn");

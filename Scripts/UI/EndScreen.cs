@@ -37,6 +37,8 @@ public partial class EndScreen : CanvasLayer
 	private bool _namePromptActive;
 	private bool _canDismiss;
 	private bool _continuingEndless;
+	private bool _isTutorialRun;
+	private Button _howToPlayButton = null!;
 	private const float BackgroundOverlayAlpha = 0.88f;
 
 	public override void _Ready()
@@ -229,18 +231,31 @@ public partial class EndScreen : CanvasLayer
 		_mainMenuButton.Pressed += OnMainMenuPressed;
 		_mainMenuButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		vbox.AddChild(_mainMenuButton);
+
+		_howToPlayButton = new Button
+		{
+			Text = "How to Play  →",
+			CustomMinimumSize = new Vector2(360f, 38f),
+			Visible = false,
+		};
+		_howToPlayButton.AddThemeFontSizeOverride("font_size", 16);
+		UITheme.ApplyMutedStyle(_howToPlayButton);
+		_howToPlayButton.Pressed += OnHowToPlayPressed;
+		_howToPlayButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		vbox.AddChild(_howToPlayButton);
+
 		MobileOptimization.ApplyUIScale(center);
 	AddChild(new PinchZoomHandler(center));
 	}
 
-	public void ShowWin(int kills, int damageDealt, float totalPlayTime, string buildSummary, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor, int livesRemaining = Balance.StartingLives)
+	public void ShowWin(int kills, int damageDealt, float totalPlayTime, string buildSummary, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor, int livesRemaining = Balance.StartingLives, int totalWaves = Balance.TotalWaves)
 	{
 		_continuingEndless = false;
 		_titleLabel.Text = "VICTORY";
 		bool isHardWin = _leaderboardDifficulty == DifficultyMode.Hard;
 		_titleLabel.Modulate = isHardWin ? new Color(1.0f, 0.85f, 0.2f) : new Color(0.3f, 1.0f, 0.5f);
 		string diffSuffix = isHardWin ? "  -  HARD" : "";
-		_subtitleLabel.Text = $"All {Balance.TotalWaves} waves survived{diffSuffix}  ·  {livesRemaining} {(livesRemaining == 1 ? "life" : "lives")} remaining";
+		_subtitleLabel.Text = $"All {totalWaves} waves survived{diffSuffix}  ·  {livesRemaining} {(livesRemaining == 1 ? "life" : "lives")} remaining";
 		_statsLabel.Text = $"Enemies killed: {kills}  ·  Damage: {damageDealt:N0}  ·  Lives: {livesRemaining}/{Balance.StartingLives}  ·  Time: {FormatTime(totalPlayTime)}";
 		_statsLabel.Visible = true;
 		SetRunNameGradient(runName, runStartColor, runEndColor);
@@ -270,14 +285,14 @@ public partial class EndScreen : CanvasLayer
 		PlayEntranceAnimation();
 	}
 
-	public void ShowLoss(int waveReached, int livesLost, int kills, int damageDealt, float totalPlayTime, string buildSummary, RunState runState, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor)
+	public void ShowLoss(int waveReached, int livesLost, int kills, int damageDealt, float totalPlayTime, string buildSummary, RunState runState, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor, int totalWaves = Balance.TotalWaves)
 	{
 		_continuingEndless = false;
 		_titleLabel.Text = "GAME OVER";
 		_titleLabel.Modulate = new Color(1.0f, 0.35f, 0.35f);
-		int wavesLeft = Balance.TotalWaves - waveReached;
+		int wavesLeft = totalWaves - waveReached;
 		string wavesFromVictory = wavesLeft > 0 ? $"  -  {wavesLeft} wave{(wavesLeft == 1 ? "" : "s")} from victory" : "";
-		_subtitleLabel.Text = $"{waveReached} / {Balance.TotalWaves}{wavesFromVictory}  ·  Lives lost: {livesLost}";
+		_subtitleLabel.Text = $"{waveReached} / {totalWaves}{wavesFromVictory}  ·  Lives lost: {livesLost}";
 		_statsLabel.Text = $"Enemies killed: {kills}  -  Total damage: {damageDealt:N0}  -  Time: {FormatTime(totalPlayTime)}";
 		_statsLabel.Visible = kills > 0 || damageDealt > 0;
 		SetRunNameGradient(runName, runStartColor, runEndColor);
@@ -352,6 +367,20 @@ public partial class EndScreen : CanvasLayer
 			lt.TweenInterval(entry.delay);
 			lt.TweenProperty(entry.item, "modulate:a", target, 0.18f)
 			  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+		}
+	}
+
+	public void SetTutorialMode(bool isTutorial)
+	{
+		_isTutorialRun = isTutorial;
+		if (GodotObject.IsInstanceValid(_howToPlayButton))
+			_howToPlayButton.Visible = isTutorial;
+		// Tutorial runs don't submit leaderboard scores
+		if (isTutorial)
+		{
+			if (GodotObject.IsInstanceValid(_viewLeaderboardButton)) _viewLeaderboardButton.Visible = false;
+			if (GodotObject.IsInstanceValid(_continueEndlessButton)) _continueEndlessButton.Visible = false;
+			if (GodotObject.IsInstanceValid(_playAgainButton)) _playAgainButton.Text = "Play Again  ·  Real Run →";
 		}
 	}
 
@@ -612,6 +641,12 @@ public partial class EndScreen : CanvasLayer
 	{
 		OnScreenExit();
 		SoundManager.Instance?.Play("ui_select");
+		if (_isTutorialRun)
+		{
+			// Tutorial "Play Again" goes to map select so the player picks a real run
+			Transition.Instance?.FadeToScene("res://Scenes/MapSelect.tscn");
+			return;
+		}
 		MapSelectPanel.SetPendingMapSelection(_leaderboardMapId);
 		if (_leaderboardMapId == LeaderboardKey.RandomMapId)
 			MapSelectPanel.SetPendingProceduralSeed((ulong)(System.Environment.TickCount64 & 0x7FFFFFFF));
@@ -623,6 +658,12 @@ public partial class EndScreen : CanvasLayer
 	{
 		OnScreenExit();
 		Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+	}
+
+	private void OnHowToPlayPressed()
+	{
+		SoundManager.Instance?.Play("ui_select");
+		Transition.Instance?.FadeToScene("res://Scenes/HowToPlay.tscn");
 	}
 
 	private static string FormatTime(float seconds)

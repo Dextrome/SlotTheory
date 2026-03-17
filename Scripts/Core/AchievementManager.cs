@@ -37,6 +37,7 @@ public partial class AchievementManager : Node
 
     public static readonly AchievementDefinition[] All =
     [
+        new("TUTORIAL_COMPLETE", "First Steps",   "Complete the tutorial run."),
         new("FIRST_WIN",     "First Victory",     "Complete all 20 waves for the first time."),
         new("HARD_WIN",      "Hard Carry",         "Complete all 20 waves on Hard difficulty."),
         new(Unlocks.ArcEmitterAchievementId, "Arc Unsealed", "Beat the first campaign map to unlock Arc Emitter."),
@@ -127,7 +128,8 @@ public partial class AchievementManager : Node
     /// Evaluates all achievements at run end. Call from GameController with the
     /// final RunState (before it is cleared).
     /// </summary>
-    public IReadOnlyList<string> CheckRunEndAndCollectUnlocks(RunState state, DifficultyMode difficulty, bool won)
+    public IReadOnlyList<string> CheckRunEndAndCollectUnlocks(RunState state, DifficultyMode difficulty, bool won,
+        bool isTutorialRun = false)
     {
         var newlyUnlocked = new List<string>();
 
@@ -140,6 +142,11 @@ public partial class AchievementManager : Node
         // Keep progression/achievement saves deterministic for real play only.
         // Bot simulations should not consume unlocks or suppress toasts in normal runs.
         if (OS.GetCmdlineUserArgs().Contains("--bot"))
+            return newlyUnlocked;
+
+        // Tutorial runs only award TUTORIAL_COMPLETE (handled by CheckTutorialComplete).
+        // All other achievements require a real run.
+        if (isTutorialRun)
             return newlyUnlocked;
 
         // Wave milestone (win or loss)
@@ -288,6 +295,15 @@ public partial class AchievementManager : Node
     {
         if (OS.GetCmdlineUserArgs().Contains("--bot")) return;
         Unlock("KEEP_GOING");
+    }
+
+    /// <summary>
+    /// Called when the tutorial run is completed. Unlocks TUTORIAL_COMPLETE.
+    /// Safe to call multiple times (Unlock is idempotent).
+    /// </summary>
+    public void CheckTutorialComplete()
+    {
+        Unlock("TUTORIAL_COMPLETE");
     }
 
     /// <summary>
