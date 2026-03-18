@@ -253,13 +253,8 @@ public partial class MainMenu : Node
 			float innerTop = 6f;
 			float innerW = pw - 12f;
 			float innerH = ph - 12f;
-			for (int i = 0; i < 6; i++)
-			{
-				float t = i / 5f;
-				float y = innerTop + t * innerH;
-				float a = Mathf.Lerp(0.095f, 0.022f, t);
-				playBtn.DrawRect(new Rect2(innerLeft, y, innerW, innerH / 6f + 1f), new Color(0.80f, 1.00f, 0.70f, a));
-			}
+			playBtn.DrawRect(new Rect2(innerLeft, innerTop, innerW, innerH * 0.48f), new Color(0.80f, 1.00f, 0.70f, 0.10f));
+			playBtn.DrawRect(new Rect2(innerLeft, innerTop + innerH * 0.30f, innerW, innerH * 0.24f), new Color(0.54f, 0.78f, 0.36f, 0.05f));
 			playBtn.DrawRect(new Rect2(innerLeft, innerTop + innerH * 0.54f, innerW, innerH * 0.40f),
 				new Color(0f, 0f, 0f, 0.10f));
 

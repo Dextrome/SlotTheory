@@ -76,13 +76,15 @@ public partial class SlotCodexPanel : Node
 
         var headerPanel = new PanelContainer();
         headerPanel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        headerPanel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+        UITheme.ApplyGlassChassisPanel(
+            headerPanel,
             bg: new Color(0.07f, 0.08f, 0.17f, 0.94f),
-            border: new Color(0.26f, 0.34f, 0.58f, 0.82f),
+            accent: new Color(0.38f, 0.74f, 0.92f, 0.90f),
             corners: 12,
             borderWidth: 2,
             padH: MobileOptimization.IsMobile() ? 12 : 16,
-            padV: MobileOptimization.IsMobile() ? 9 : 10));
+            padV: MobileOptimization.IsMobile() ? 9 : 10,
+            sideEmitters: false);
         root.AddChild(headerPanel);
         UITheme.AddTopAccent(headerPanel);
 
@@ -134,13 +136,16 @@ public partial class SlotCodexPanel : Node
             SizeFlagsVertical = Control.SizeFlags.ExpandFill,
             CustomMinimumSize = new Vector2(0f, MobileOptimization.IsMobile() ? 360f : 440f)
         };
-        contentFrame.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+        UITheme.ApplyGlassChassisPanel(
+            contentFrame,
             bg: new Color(0.05f, 0.06f, 0.13f, 0.90f),
-            border: new Color(0.18f, 0.25f, 0.42f, 0.86f),
+            accent: new Color(0.38f, 0.74f, 0.92f, 0.90f),
             corners: 12,
             borderWidth: 2,
             padH: 8,
-            padV: 8));
+            padV: 8,
+            sideEmitters: true,
+            emitterIntensity: 0.92f);
         root.AddChild(contentFrame);
 
         var contentHolder = new Control

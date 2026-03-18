@@ -77,10 +77,12 @@ public partial class Settings : Node
         var scrollPanel = new PanelContainer();
         scrollPanel.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
         scrollPanel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        scrollPanel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+        UITheme.ApplyGlassChassisPanel(
+            scrollPanel,
             bg: new Color(0.05f, 0.04f, 0.13f),
-            border: new Color(0.30f, 0.18f, 0.55f),
-            corners: 10, borderWidth: 2, padH: 8, padV: 8));
+            accent: new Color(0.42f, 0.78f, 0.94f, 0.92f),
+            corners: 10, borderWidth: 2, padH: 8, padV: 8,
+            sideEmitters: true, emitterIntensity: 0.72f);
         scrollPanelMargin.AddChild(scrollPanel);
 
         var scroll = new ScrollContainer();

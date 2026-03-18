@@ -134,6 +134,93 @@ public static class UITheme
         panel.Draw += () => panel.DrawLine(new Vector2(0f, 1f), new Vector2(panel.Size.X, 1f), c, 2f);
     }
 
+    /// <summary>
+    /// Applies a premium glass stylebox and border treatment used by top-level menu screens.
+    /// Keeps composition intact while adding richer material separation and edge sheen.
+    /// </summary>
+    public static void ApplyGlassChassisPanel(
+        PanelContainer panel,
+        Color? bg = null,
+        Color? accent = null,
+        int corners = 10,
+        int borderWidth = 2,
+        int padH = 8,
+        int padV = 8,
+        bool sideEmitters = true,
+        float emitterIntensity = 1f)
+    {
+        var edge = accent ?? new Color(0.38f, 0.78f, 0.92f, 0.90f);
+        float emitScale = Mathf.Clamp(emitterIntensity, 0f, 2f);
+        var glass = MakePanel(
+            bg: bg ?? new Color(0.028f, 0.048f, 0.095f, 0.95f),
+            border: new Color(edge.R, edge.G, edge.B, 0.72f),
+            corners: corners,
+            borderWidth: borderWidth,
+            padH: padH,
+            padV: padV);
+        glass.ShadowColor = new Color(edge.R, edge.G, edge.B, 0.14f);
+        glass.ShadowSize = 8;
+        glass.ShadowOffset = new Vector2(0f, 2f);
+        panel.AddThemeStyleboxOverride("panel", glass);
+
+        panel.Draw += () =>
+        {
+            float w = panel.Size.X;
+            float h = panel.Size.Y;
+            if (w < 24f || h < 24f)
+                return;
+
+            // Controlled edge glow and clean border stack.
+            for (int i = 0; i < 3; i++)
+            {
+                float spread = 0.8f + i * 1.35f;
+                float a = 0.052f - i * 0.014f;
+                panel.DrawRect(new Rect2(-spread, -spread, w + spread * 2f, h + spread * 2f),
+                    new Color(edge.R, edge.G, edge.B, a), false, 1f);
+            }
+
+            panel.DrawRect(new Rect2(2f, 2f, w - 4f, h - 4f), new Color(0.92f, 0.98f, 1.00f, 0.08f), false, 1f);
+            panel.DrawRect(new Rect2(5f, 5f, w - 10f, h - 10f),
+                new Color(
+                    Mathf.Lerp(0.12f, edge.R, 0.28f),
+                    Mathf.Lerp(0.20f, edge.G, 0.30f),
+                    Mathf.Lerp(0.28f, edge.B, 0.32f),
+                    0.15f),
+                false, 1f);
+
+            // Top lip + bottom cap for a glass chassis silhouette.
+            panel.DrawLine(new Vector2(8f, 3f), new Vector2(w - 8f, 3f), new Color(0.93f, 0.99f, 1.00f, 0.30f), 1f);
+            panel.DrawLine(new Vector2(9f, 4f), new Vector2(w - 9f, 4f), new Color(edge.R, edge.G, edge.B, 0.20f), 1f);
+
+            float capW = Mathf.Clamp(w * 0.16f, 40f, 70f);
+            float capX = (w - capW) * 0.5f;
+            panel.DrawRect(new Rect2(capX, h - 5f, capW, 2f), new Color(edge.R, edge.G, edge.B, 0.30f));
+            panel.DrawRect(new Rect2(capX + 4f, h - 7f, capW - 8f, 2f), new Color(0.88f, 0.97f, 1.00f, 0.14f));
+
+            if (!sideEmitters)
+                return;
+
+            // Side lock emitters to match the main menu panel language.
+            float emitH = Mathf.Clamp(h * 0.11f, 28f, 44f);
+            float emitY = h * 0.52f - emitH * 0.5f;
+
+            for (int i = 0; i < 3; i++)
+            {
+                float spread = i;
+                float a = (0.17f - i * 0.05f) * emitScale;
+                panel.DrawRect(new Rect2(1f - spread, emitY - spread, 4f + spread * 2f, emitH + spread * 2f),
+                    new Color(0.40f, 0.90f, 1.00f, a), false, 1f);
+                panel.DrawRect(new Rect2(w - 5f - spread, emitY - spread, 4f + spread * 2f, emitH + spread * 2f),
+                    new Color(0.62f, 0.58f, 1.00f, a), false, 1f);
+            }
+
+            panel.DrawRect(new Rect2(1f, emitY, 4f, emitH), new Color(0.50f, 0.94f, 1.00f, 0.34f * emitScale));
+            panel.DrawRect(new Rect2(2f, emitY + 4f, 2f, emitH - 8f), new Color(0.84f, 1.00f, 1.00f, 0.56f * emitScale));
+            panel.DrawRect(new Rect2(w - 5f, emitY, 4f, emitH), new Color(0.62f, 0.58f, 1.00f, 0.32f * emitScale));
+            panel.DrawRect(new Rect2(w - 4f, emitY + 4f, 2f, emitH - 8f), new Color(0.90f, 0.84f, 1.00f, 0.54f * emitScale));
+        };
+    }
+
     public static StyleBoxFlat MakePanel(
         Color? bg = null,
         Color? border = null,
