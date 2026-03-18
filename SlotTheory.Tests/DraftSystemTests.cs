@@ -30,7 +30,7 @@ public class DraftSystemTests
     private sealed class StubData : IDraftDataSource
     {
         public IEnumerable<string> GetAllTowerIds()
-            => ["rapid_shooter", "heavy_cannon", "marker_tower", "chain_tower"];
+            => ["rapid_shooter", "heavy_cannon", "marker_tower", "chain_tower", "arc_emitter"];
 
         public IEnumerable<string> GetAllModifierIds()
             => ["momentum", "overkill", "exploit_weakness", "focus_lens",
@@ -77,7 +77,7 @@ public class DraftSystemTests
     [Fact]
     public void GenerateOptions_NoTowersPlaced_AllOfferedIdsAreInPool()
     {
-        var knownTowers = new HashSet<string> { "rapid_shooter", "heavy_cannon", "marker_tower", "chain_tower" };
+        var knownTowers = new HashSet<string> { "rapid_shooter", "heavy_cannon", "marker_tower", "chain_tower", "arc_emitter" };
         var options = MakeDraft().GenerateOptions(new RunState());
 
         Assert.All(options, o => Assert.Contains(o.Id, knownTowers));

@@ -575,7 +575,7 @@ public partial class SlotCodexPanel : Node
         {
             CodexTab.Towers  => $"Demo: {towerUnlocked}/{towerTotal} towers   •   Mods: {modUnlocked}/{modTotal}   •   More in full game",
             CodexTab.Mods    => $"Demo: {modUnlocked}/{modTotal} mods   •   Towers: {towerUnlocked}/{towerTotal}   •   More in full game",
-            CodexTab.Enemies => $"3 enemy types   •   Towers: {towerUnlocked}/{towerTotal}   •   Mods: {modUnlocked}/{modTotal}",
+            CodexTab.Enemies => $"5 enemy types   •   Towers: {towerUnlocked}/{towerTotal}   •   Mods: {modUnlocked}/{modTotal}",
             _                => ""
         };
     }
@@ -658,13 +658,17 @@ public partial class SlotCodexPanel : Node
     {
         _enemyGrid.AddChild(BuildEnemyCard("basic_walker"));
         _enemyGrid.AddChild(BuildEnemyCard("armored_walker"));
+        _enemyGrid.AddChild(BuildEnemyCard("splitter_walker"));
+        _enemyGrid.AddChild(BuildEnemyCard("splitter_shard"));
         _enemyGrid.AddChild(BuildEnemyCard("swift_walker"));
+        _enemyGrid.AddChild(BuildFullGameCard("More enemy types in the full release."));
     }
 
     private Control BuildEnemyCard(string enemyId)
     {
         Color accent = GetEnemyAccent(enemyId);
         var panel = BuildCardShell(unlocked: true, accent);
+        panel.CustomMinimumSize = new Vector2(290f, 0f);
         var body  = BuildCardBody(panel);
 
         var top = new HBoxContainer();
@@ -694,25 +698,12 @@ public partial class SlotCodexPanel : Node
         typeLabel.Modulate = accent;
         titleCol.AddChild(typeLabel);
 
-        var statsCombat = new Label
-        {
-            Text = GetEnemyStatsCombatLine(enemyId),
-            AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
-        };
-        statsCombat.AddThemeFontSizeOverride("font_size", 14);
-        statsCombat.Modulate = new Color(0.64f, 0.80f, 1.00f);
-        body.AddChild(statsCombat);
+        var statsBox = new VBoxContainer();
+        statsBox.AddThemeConstantOverride("separation", 5);
+        body.AddChild(statsBox);
 
-        var statsWave = new Label
-        {
-            Text = GetEnemyStatsWaveLine(enemyId),
-            AutowrapMode = TextServer.AutowrapMode.WordSmart,
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
-        };
-        statsWave.AddThemeFontSizeOverride("font_size", 14);
-        statsWave.Modulate = new Color(0.64f, 0.80f, 1.00f);
-        body.AddChild(statsWave);
+        foreach (var (iconType, text) in GetEnemyStats(enemyId))
+            statsBox.AddChild(BuildStatRow(iconType, GetStatIconColor(iconType), text));
 
         var desc = new Label
         {
@@ -728,36 +719,169 @@ public partial class SlotCodexPanel : Node
 
     private static Color GetEnemyAccent(string enemyId) => enemyId switch
     {
-        "armored_walker" => new Color(1.00f, 0.58f, 0.10f),
-        "swift_walker"   => new Color(0.20f, 0.92f, 1.00f),
-        _                => new Color(0.55f, 0.95f, 0.25f),
+        "armored_walker"  => new Color(1.00f, 0.58f, 0.10f),
+        "swift_walker"    => new Color(0.20f, 0.92f, 1.00f),
+        "splitter_walker" => new Color(1.00f, 0.72f, 0.15f),
+        "splitter_shard"  => new Color(1.00f, 0.88f, 0.45f),
+        _                 => new Color(0.55f, 0.95f, 0.25f),
     };
 
     private static string GetEnemyDisplayName(string enemyId) => enemyId switch
     {
-        "armored_walker" => "Armored Walker",
-        "swift_walker"   => "Swift Walker",
-        _                => "Basic Walker",
+        "armored_walker"  => "Armored Walker",
+        "swift_walker"    => "Swift Walker",
+        "splitter_walker" => "Splitter",
+        "splitter_shard"  => "Splitter Shard",
+        _                 => "Basic Walker",
     };
 
-    private static string GetEnemyStatsCombatLine(string enemyId) => enemyId switch
+    private static Control BuildStatRow(StatIconNode.IconType iconType, Color iconColor, string text)
     {
-        "armored_walker" => $"{Balance.BaseEnemyHp * Balance.TankyHpMultiplier:0} HP base (×{Balance.HpGrowthPerWave}/wave)  |  {Balance.TankyEnemySpeed:0} px/s",
-        "swift_walker"   => $"{Balance.BaseEnemyHp * Balance.SwiftHpMultiplier:0} HP base (×{Balance.HpGrowthPerWave}/wave)  |  {Balance.SwiftEnemySpeed:0} px/s",
-        _                => $"{Balance.BaseEnemyHp:0} HP base (×{Balance.HpGrowthPerWave}/wave)  |  {Balance.BaseEnemySpeed:0} px/s",
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 7);
+        row.MouseFilter = Control.MouseFilterEnum.Ignore;
+
+        var icon = new StatIconNode
+        {
+            Type = iconType,
+            IconColor = iconColor,
+            CustomMinimumSize = new Vector2(14f, 14f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        row.AddChild(icon);
+
+        var label = new Label { Text = text };
+        label.AddThemeFontSizeOverride("font_size", 13);
+        label.Modulate = new Color(0.74f, 0.84f, 1.00f);
+        label.MouseFilter = Control.MouseFilterEnum.Ignore;
+        row.AddChild(label);
+
+        return row;
+    }
+
+    private static Color GetStatIconColor(StatIconNode.IconType type) => type switch
+    {
+        StatIconNode.IconType.Heart => new Color(1.00f, 0.38f, 0.52f),
+        StatIconNode.IconType.Arrow => new Color(0.28f, 0.90f, 1.00f),
+        StatIconNode.IconType.Skull => new Color(1.00f, 0.52f, 0.12f),
+        StatIconNode.IconType.Wave  => new Color(0.90f, 0.88f, 0.28f),
+        StatIconNode.IconType.Split => new Color(1.00f, 0.78f, 0.28f),
+        _ => Colors.White,
     };
 
-    private static string GetEnemyStatsWaveLine(string enemyId) => enemyId switch
+    private static (StatIconNode.IconType, string)[] GetEnemyStats(string enemyId) => enemyId switch
     {
-        "armored_walker" => "Leak: 2 lives  |  From wave 6",
-        "swift_walker"   => "Leak: 1 life  |  Waves 10–14",
-        _                => "Leak: 1 life  |  From wave 1",
+        "armored_walker" => new (StatIconNode.IconType, string)[]
+        {
+            (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp * Balance.TankyHpMultiplier:0} HP"),
+            (StatIconNode.IconType.Arrow, $"{Balance.TankyEnemySpeed:0} px/s"),
+            (StatIconNode.IconType.Skull, "Leak: 2 lives"),
+            (StatIconNode.IconType.Wave,  "From wave 6"),
+        },
+        "swift_walker" => new (StatIconNode.IconType, string)[]
+        {
+            (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp * Balance.SwiftHpMultiplier:0} HP"),
+            (StatIconNode.IconType.Arrow, $"{Balance.SwiftEnemySpeed:0} px/s"),
+            (StatIconNode.IconType.Skull, "Leak: 1 life"),
+            (StatIconNode.IconType.Wave,  "Waves 10–14"),
+        },
+        "splitter_walker" => new (StatIconNode.IconType, string)[]
+        {
+            (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp * Balance.SplitterHpMultiplier:0} HP"),
+            (StatIconNode.IconType.Arrow, $"{Balance.SplitterSpeed:0} px/s"),
+            (StatIconNode.IconType.Skull, "Leak: 3 lives"),
+            (StatIconNode.IconType.Wave,  "Waves 9–15"),
+        },
+        "splitter_shard" => new (StatIconNode.IconType, string)[]
+        {
+            (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp * Balance.SplitterShardHpMultiplier:0} HP"),
+            (StatIconNode.IconType.Arrow, $"{Balance.SplitterShardSpeed:0} px/s"),
+            (StatIconNode.IconType.Skull, "Leak: 1 life"),
+            (StatIconNode.IconType.Split, "On Splitter death"),
+        },
+        _ => new (StatIconNode.IconType, string)[]
+        {
+            (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp:0} HP"),
+            (StatIconNode.IconType.Arrow, $"{Balance.BaseEnemySpeed:0} px/s"),
+            (StatIconNode.IconType.Skull, "Leak: 1 life"),
+            (StatIconNode.IconType.Wave,  "From wave 1"),
+        },
     };
 
     private static string GetEnemyDescription(string enemyId) => enemyId switch
     {
-        "armored_walker" => "High-HP tanker. Takes sustained damage to bring down. Pairs poorly against single-hit burst builds without Overkill.",
-        "swift_walker"   => "Fast sprinter that rushes the lane in waves 10–14. Outpaces slow-paced builds - Chill Shot and Hair Trigger both help.",
-        _                => "Standard threat. Low bulk, steady pace. Pressure escalates each wave via HP scaling.",
+        "armored_walker"  => "High-HP tanker. Takes sustained damage to bring down. Pairs poorly against single-hit burst builds without Overkill.",
+        "swift_walker"    => "Fast sprinter that rushes the lane in waves 10–14. Outpaces slow-paced builds - Chill Shot and Hair Trigger both help.",
+        "splitter_walker" => $"Splits into {Balance.SplitterShardCount} fast shards on death. Burst damage that kills it cleanly doesn't reach the shards - sustained DPS or AoE builds must deal with both. A leaked Splitter risks 3 lives total.",
+        "splitter_shard"  => $"A fragment of a destroyed Splitter. Faster than its parent and harder to catch mid-lane. {Balance.SplitterShardCount} spawn per kill - if your DPS can't clean them up quickly they'll slip through.",
+        _                 => "Standard threat. Low bulk, steady pace. Pressure escalates each wave via HP scaling.",
     };
+}
+
+/// <summary>Small procedural icon drawn in 14×14 local space for the enemy stat rows.</summary>
+public sealed partial class StatIconNode : Control
+{
+    public enum IconType { Heart, Arrow, Skull, Wave, Split }
+
+    public IconType Type      { get; set; }
+    public Color    IconColor { get; set; } = Colors.White;
+
+    public override void _Draw()
+    {
+        switch (Type)
+        {
+            case IconType.Heart: DrawHeart(); break;
+            case IconType.Arrow: DrawArrow(); break;
+            case IconType.Skull: DrawSkull(); break;
+            case IconType.Wave:  DrawWave();  break;
+            case IconType.Split: DrawSplit(); break;
+        }
+    }
+
+    // ♥  HP
+    private void DrawHeart()
+    {
+        var c = IconColor;
+        DrawCircle(new Vector2(4f, 5f),  3.5f, c);
+        DrawCircle(new Vector2(10f, 5f), 3.5f, c);
+        DrawPolygon(new[] { new Vector2(0.5f, 5f), new Vector2(13.5f, 5f), new Vector2(7f, 14f) }, new[] { c });
+    }
+
+    // ▶  Speed
+    private void DrawArrow()
+    {
+        DrawPolygon(new[] { new Vector2(1f, 2f), new Vector2(13f, 7f), new Vector2(1f, 12f) }, new[] { IconColor });
+    }
+
+    // ☠  Leak
+    private void DrawSkull()
+    {
+        var c    = IconColor;
+        var dark = new Color(0.05f, 0.05f, 0.08f, 0.95f);
+        DrawCircle(new Vector2(7f, 6f),   5.5f, c);
+        DrawCircle(new Vector2(4.2f, 6f), 1.6f, dark);
+        DrawCircle(new Vector2(9.8f, 6f), 1.6f, dark);
+        DrawRect(new Rect2(3.5f, 9.5f, 7f, 4f), c);
+        DrawRect(new Rect2(5.4f, 9f, 1.1f, 4.5f), dark);
+        DrawRect(new Rect2(7.5f, 9f, 1.1f, 4.5f), dark);
+    }
+
+    // 🚩  Spawns from wave X
+    private void DrawWave()
+    {
+        var c = IconColor;
+        DrawRect(new Rect2(2f, 0f, 2f, 14f), c);
+        DrawPolygon(new[] { new Vector2(4f, 1f), new Vector2(13f, 4.5f), new Vector2(4f, 8f) }, new[] { c });
+    }
+
+    // ⑃  Spawns on death (split fork)
+    private void DrawSplit()
+    {
+        var c = IconColor;
+        DrawCircle(new Vector2(2.5f, 7f),  2f, c);
+        DrawLine(new Vector2(4.5f, 7f), new Vector2(9f, 4f),   c, 1.5f);
+        DrawLine(new Vector2(4.5f, 7f), new Vector2(9f, 10f),  c, 1.5f);
+        DrawCircle(new Vector2(11f, 3.5f),  2f, c);
+        DrawCircle(new Vector2(11f, 10.5f), 2f, c);
+    }
 }

@@ -44,9 +44,11 @@ public partial class EnemyIcon : Control
 
         switch (_enemyId)
         {
-            case "armored_walker": DrawArmored(style); break;
-            case "swift_walker":   DrawSwift(style);   break;
-            default:               DrawBasic(style);   break;
+            case "armored_walker":  DrawArmored(style);   break;
+            case "swift_walker":    DrawSwift(style);     break;
+            case "splitter_walker": DrawSplitter(style);  break;
+            case "splitter_shard":  DrawShard(style);     break;
+            default:                DrawBasic(style);     break;
         }
     }
 
@@ -161,6 +163,70 @@ public partial class EnemyIcon : Control
 
         // Hot-core eye
         DrawCircle(new Vector2(1.8f, 0f), 2.2f,
+            new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.90f));
+    }
+
+    // ── Splitter Walker (Amber Splitter) ─────────────────────────────────────
+
+    private void DrawSplitter(in EnemyRenderStyle style)
+    {
+        // Glow halo
+        DrawCircle(Vector2.Zero, 13.5f, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.18f));
+
+        // Body layers (hexagonal - shows the "heavy" feel before it splits)
+        DrawPolygon(RegularPoly(6, 11.8f, Mathf.Pi * 0.08f), new[] { style.BodyPrimary });
+        DrawPolygon(RegularPoly(6,  9.0f, Mathf.Pi * 0.08f), new[] { style.BodySecondary });
+
+        // Core glow
+        DrawCircle(new Vector2(0f, -1.2f), 4.0f,
+            new Color(style.BodyPrimary.R, style.BodyPrimary.G, style.BodyPrimary.B, 0.32f));
+
+        // Split-line crack indicating the split mechanic
+        DrawLine(new Vector2(-5f, -8f), new Vector2(5f, 8f),
+            new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.85f), 1.5f);
+        DrawLine(new Vector2(5f, -8f), new Vector2(-5f, 8f),
+            new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.55f), 1.0f);
+
+        // Outer rim
+        var rim = RegularPoly(6, 11.8f, Mathf.Pi * 0.08f);
+        for (int i = 0; i < rim.Length; i++)
+            DrawLine(rim[i], rim[(i + 1) % rim.Length],
+                new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.70f), 1.3f);
+    }
+
+    // ── Splitter Shard (Amber Shard) ─────────────────────────────────────────
+
+    private void DrawShard(in EnemyRenderStyle style)
+    {
+        // Soft glow
+        DrawCircle(Vector2.Zero, 11f, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.16f));
+
+        // Small dart body (like swift but simpler - it's a fragment)
+        var body = new[]
+        {
+            new Vector2( 9.5f,  0f),
+            new Vector2(  0f,  -6.5f),
+            new Vector2(-9.0f, -2.8f),
+            new Vector2(-6.5f,  0f),
+            new Vector2(-9.0f,  2.8f),
+            new Vector2(  0f,   6.5f),
+        };
+        DrawPolygon(body, new[] { style.BodyPrimary });
+        DrawPolygon(new[]
+        {
+            new Vector2( 6.0f,  0f),
+            new Vector2(  0f,  -4.0f),
+            new Vector2(-6.0f,  0f),
+            new Vector2(  0f,   4.0f),
+        }, new[] { style.BodySecondary });
+
+        // Emissive outline
+        for (int i = 0; i < body.Length; i++)
+            DrawLine(body[i], body[(i + 1) % body.Length],
+                new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.65f), 1.1f);
+
+        // Hot eye
+        DrawCircle(new Vector2(1.5f, 0f), 1.8f,
             new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.90f));
     }
 

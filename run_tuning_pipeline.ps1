@@ -198,10 +198,13 @@ function New-NeutralTuningProfile {
         hard_spawn_interval_multiplier = 0.90
         easy_tanky_count_multiplier = 1.0
         easy_swift_count_multiplier = 1.0
+        easy_splitter_count_multiplier = 1.0
         normal_tanky_count_multiplier = 1.0
         normal_swift_count_multiplier = 1.0
+        normal_splitter_count_multiplier = 1.0
         hard_tanky_count_multiplier = 1.0
         hard_swift_count_multiplier = 1.0
+        hard_splitter_count_multiplier = 1.0
         gain_multipliers = [PSCustomObject]@{
             overkill = 1.0
             chain_reaction = 1.0
@@ -304,10 +307,13 @@ function Normalize-TuningProfile {
     if ($props -contains "hard_spawn_interval_multiplier") { $p.hard_spawn_interval_multiplier = [double]$InputProfile.hard_spawn_interval_multiplier }
     if ($props -contains "easy_tanky_count_multiplier") { $p.easy_tanky_count_multiplier = [double]$InputProfile.easy_tanky_count_multiplier }
     if ($props -contains "easy_swift_count_multiplier") { $p.easy_swift_count_multiplier = [double]$InputProfile.easy_swift_count_multiplier }
+    if ($props -contains "easy_splitter_count_multiplier") { $p.easy_splitter_count_multiplier = [double]$InputProfile.easy_splitter_count_multiplier }
     if ($props -contains "normal_tanky_count_multiplier") { $p.normal_tanky_count_multiplier = [double]$InputProfile.normal_tanky_count_multiplier }
     if ($props -contains "normal_swift_count_multiplier") { $p.normal_swift_count_multiplier = [double]$InputProfile.normal_swift_count_multiplier }
+    if ($props -contains "normal_splitter_count_multiplier") { $p.normal_splitter_count_multiplier = [double]$InputProfile.normal_splitter_count_multiplier }
     if ($props -contains "hard_tanky_count_multiplier") { $p.hard_tanky_count_multiplier = [double]$InputProfile.hard_tanky_count_multiplier }
     if ($props -contains "hard_swift_count_multiplier") { $p.hard_swift_count_multiplier = [double]$InputProfile.hard_swift_count_multiplier }
+    if ($props -contains "hard_splitter_count_multiplier") { $p.hard_splitter_count_multiplier = [double]$InputProfile.hard_splitter_count_multiplier }
 
     if ($props -contains "gain_multipliers" -and $InputProfile.gain_multipliers -ne $null) {
         $gm = $InputProfile.gain_multipliers.PSObject.Properties.Name
@@ -379,10 +385,13 @@ function Normalize-TuningProfile {
     $p.hard_spawn_interval_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_spawn_interval_multiplier -Min 0.2 -Max 0.98), 4)
     $p.easy_tanky_count_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_tanky_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.easy_swift_count_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_swift_count_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.easy_splitter_count_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_splitter_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.normal_tanky_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_tanky_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.normal_swift_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_swift_count_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.normal_splitter_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_splitter_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.hard_tanky_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_tanky_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.hard_swift_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_swift_count_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.hard_splitter_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_splitter_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.gain_multipliers.overkill = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.overkill -Min 0.0 -Max 4.0), 4)
     $p.gain_multipliers.chain_reaction = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.chain_reaction -Min 0.0 -Max 4.0), 4)
     $p.gain_multipliers.split_shot = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.split_shot -Min 0.0 -Max 4.0), 4)
@@ -804,6 +813,7 @@ function New-MutatedTuningProfile {
     if (-not $SpectacleOnlyMode) {
         $changed += Apply-Mutation -Obj $candidate -Name "easy_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
         $changed += Apply-Mutation -Obj $candidate -Name "easy_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+        $changed += Apply-Mutation -Obj $candidate -Name "easy_splitter_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
         $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
         $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
         $changed += Apply-Mutation -Obj $candidate -Name "normal_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.99 -Chance 0.80
@@ -814,9 +824,11 @@ function New-MutatedTuningProfile {
         }
         $changed += Apply-Mutation -Obj $candidate -Name "normal_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
         $changed += Apply-Mutation -Obj $candidate -Name "normal_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+        $changed += Apply-Mutation -Obj $candidate -Name "normal_splitter_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
         if (-not $FreezeHardParams) {
             $changed += Apply-Mutation -Obj $candidate -Name "hard_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
             $changed += Apply-Mutation -Obj $candidate -Name "hard_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+            $changed += Apply-Mutation -Obj $candidate -Name "hard_splitter_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
         }
     }
 

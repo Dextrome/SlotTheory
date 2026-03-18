@@ -39,7 +39,8 @@ public class WaveSystem
     public int GetWalkerCount()    => _current?.EnemyCount    ?? Balance.DefaultEnemyCount;
     public int GetTankyCount()     => _current?.TankyCount    ?? 0;
     public int GetSwiftCount()     => _current?.SwiftCount    ?? 0;
-    public int GetTotalCount()     => GetWalkerCount() + GetTankyCount() + GetSwiftCount();
+    public int GetSplitterCount()  => _current?.SplitterCount ?? 0;
+    public int GetTotalCount()     => GetWalkerCount() + GetTankyCount() + GetSwiftCount() + GetSplitterCount();
     public float GetSpawnInterval()  => _current?.SpawnInterval ?? Balance.DefaultSpawnInterval;
     public bool GetClumpArmored()    => _current?.ClumpArmored  ?? false;
 
@@ -54,9 +55,11 @@ public class WaveSystem
     {
         float baseHp = typeId switch
         {
-            "armored_walker" => Balance.BaseEnemyHp * Balance.TankyHpMultiplier,
-            "swift_walker"   => Balance.BaseEnemyHp * Balance.SwiftHpMultiplier,
-            _                => Balance.BaseEnemyHp,
+            "armored_walker"  => Balance.BaseEnemyHp * Balance.TankyHpMultiplier,
+            "swift_walker"    => Balance.BaseEnemyHp * Balance.SwiftHpMultiplier,
+            "splitter_walker" => Balance.BaseEnemyHp * Balance.SplitterHpMultiplier,
+            "splitter_shard"  => Balance.BaseEnemyHp * Balance.SplitterShardHpMultiplier,
+            _                 => Balance.BaseEnemyHp,
         };
         float scaledHp = baseHp * MathF.Pow(Balance.HpGrowthPerWave, waveIndex);
         float hp = scaledHp * Balance.GetEnemyHpMultiplier(difficulty);

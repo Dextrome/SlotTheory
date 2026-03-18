@@ -180,8 +180,8 @@ public partial class HudPanel : CanvasLayer
         bar.AddChild(_waveLabel);
 
         float uiScale = MobileOptimization.GetUIScale();
-        float enemyOffsetX = MobileOptimization.IsMobile() ? 120f * uiScale : 175f;
-        float livesOffsetX = MobileOptimization.IsMobile() ? 240f * uiScale : 350f;
+        float enemyOffsetX = MobileOptimization.IsMobile() ? 120f * uiScale : 160f;
+        float livesOffsetX = MobileOptimization.IsMobile() ? 240f * uiScale : 270f;
 
         _enemyLabel = new Label
         {
@@ -211,8 +211,8 @@ public partial class HudPanel : CanvasLayer
             AnchorRight = 0.5f,
             AnchorTop = 0f,
             AnchorBottom = 0f,
-            OffsetLeft = livesOffsetX - 92f,
-            OffsetRight = livesOffsetX + 92f,
+            OffsetLeft = livesOffsetX - 76f,
+            OffsetRight = livesOffsetX + 76f,
             OffsetTop = 0f,
             OffsetBottom = 44f,
             MouseFilter = Control.MouseFilterEnum.Ignore,

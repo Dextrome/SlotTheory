@@ -74,18 +74,22 @@ public partial class EndScreen : CanvasLayer
 		vbox.AddThemeConstantOverride("separation", 14);
 		center.AddChild(vbox);
 
+		var titleGroup = new VBoxContainer();
+		titleGroup.AddThemeConstantOverride("separation", 2);
+		vbox.AddChild(titleGroup);
+
 		_titleLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
 		_titleLabel.AddThemeFontSizeOverride("font_size", 72);
 		SlotTheory.Core.UITheme.ApplyFont(_titleLabel, semiBold: true, size: 72);
-		vbox.AddChild(_titleLabel);
+		titleGroup.AddChild(_titleLabel);
 
 		_difficultyLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center, Visible = false };
 		UITheme.ApplyFont(_difficultyLabel, semiBold: true, size: 18);
-		vbox.AddChild(_difficultyLabel);
+		titleGroup.AddChild(_difficultyLabel);
 
 		_subtitleLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
 		_subtitleLabel.AddThemeFontSizeOverride("font_size", 28);
-		vbox.AddChild(_subtitleLabel);
+		titleGroup.AddChild(_subtitleLabel);
 
 		_statsLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
 		_statsLabel.AddThemeFontSizeOverride("font_size", 20);
@@ -739,8 +743,10 @@ public partial class EndScreen : CanvasLayer
 			var mostLeaked = runState.TotalLeaksByType.OrderByDescending(kvp => kvp.Value).First();
 			string enemyName = mostLeaked.Key switch
 			{
-				"armored_walker" => "Armored",
-				"swift_walker" => "Swift",
+				"armored_walker"  => "Armored",
+				"swift_walker"    => "Swift",
+				"splitter_walker" => "Splitter",
+				"splitter_shard"  => "Shard",
 				_ => "Basic"
 			};
 			insights.Add($"Most leaks: {enemyName} ({mostLeaked.Value})");
@@ -758,8 +764,10 @@ public partial class EndScreen : CanvasLayer
 		{
 			string lastType = runState.LastLeakedType switch
 			{
-				"armored_walker" => "Armored",
-				"swift_walker" => "Swift",
+				"armored_walker"  => "Armored",
+				"swift_walker"    => "Swift",
+				"splitter_walker" => "Splitter",
+				"splitter_shard"  => "Shard",
 				_ => "Basic"
 			};
 			insights.Add($"Final leak: {lastType}");

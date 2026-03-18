@@ -46,6 +46,20 @@ public readonly struct EnemyRenderStyle
             emissiveHot: new Color(1.00f, 0.60f, 0.32f),
             damageTint: new Color(0.98f, 0.34f, 0.18f),
             bloomTint: new Color(0.96f, 0.36f, 0.20f)),
+        "splitter_walker" => new EnemyRenderStyle(
+            bodyPrimary: new Color(0.96f, 0.62f, 0.08f),
+            bodySecondary: new Color(0.14f, 0.08f, 0.01f),
+            emissive: new Color(1.00f, 0.80f, 0.28f),
+            emissiveHot: new Color(1.00f, 0.92f, 0.60f),
+            damageTint: new Color(1.00f, 0.30f, 0.10f),
+            bloomTint: new Color(1.00f, 0.72f, 0.20f)),
+        "splitter_shard" => new EnemyRenderStyle(
+            bodyPrimary: new Color(1.00f, 0.82f, 0.38f),
+            bodySecondary: new Color(0.18f, 0.12f, 0.02f),
+            emissive: new Color(1.00f, 0.90f, 0.50f),
+            emissiveHot: new Color(1.00f, 0.96f, 0.78f),
+            damageTint: new Color(1.00f, 0.50f, 0.10f),
+            bloomTint: new Color(1.00f, 0.85f, 0.40f)),
         _ => new EnemyRenderStyle(
             bodyPrimary: new Color(0.20f, 0.98f, 0.86f),
             bodySecondary: new Color(0.02f, 0.17f, 0.18f),

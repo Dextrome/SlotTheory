@@ -93,11 +93,11 @@ public sealed class SpectacleTuningProfile
     [JsonPropertyName("second_stage_power_threshold")]
     public float SecondStagePowerThreshold { get; set; } = 0.95f;
     [JsonPropertyName("normal_enemy_hp_multiplier")]
-    public float NormalEnemyHpMultiplier { get; set; } = 1.0074f;
+    public float NormalEnemyHpMultiplier { get; set; } = 1f;
     [JsonPropertyName("normal_enemy_count_multiplier")]
-    public float NormalEnemyCountMultiplier { get; set; } = 1.2343f;
+    public float NormalEnemyCountMultiplier { get; set; } = 1.1949f;
     [JsonPropertyName("normal_spawn_interval_multiplier")]
-    public float NormalSpawnIntervalMultiplier { get; set; } = 0.9129f;
+    public float NormalSpawnIntervalMultiplier { get; set; } = 0.9149f;
     [JsonPropertyName("hard_enemy_hp_multiplier")]
     public float HardEnemyHpMultiplier { get; set; } = 1.2609f;
     [JsonPropertyName("hard_enemy_count_multiplier")]
@@ -113,14 +113,20 @@ public sealed class SpectacleTuningProfile
     public float EasyTankyCountMultiplier { get; set; } = 1f;
     [JsonPropertyName("easy_swift_count_multiplier")]
     public float EasySwiftCountMultiplier { get; set; } = 1f;
+    [JsonPropertyName("easy_splitter_count_multiplier")]
+    public float EasySplitterCountMultiplier { get; set; } = 1f;
     [JsonPropertyName("normal_tanky_count_multiplier")]
     public float NormalTankyCountMultiplier { get; set; } = 0.9148f;
     [JsonPropertyName("normal_swift_count_multiplier")]
-    public float NormalSwiftCountMultiplier { get; set; } = 1.0907f;
+    public float NormalSwiftCountMultiplier { get; set; } = 1.0959f;
+    [JsonPropertyName("normal_splitter_count_multiplier")]
+    public float NormalSplitterCountMultiplier { get; set; } = 1f;
     [JsonPropertyName("hard_tanky_count_multiplier")]
     public float HardTankyCountMultiplier { get; set; } = 0.9586f;
     [JsonPropertyName("hard_swift_count_multiplier")]
     public float HardSwiftCountMultiplier { get; set; } = 1.1471f;
+    [JsonPropertyName("hard_splitter_count_multiplier")]
+    public float HardSplitterCountMultiplier { get; set; } = 1f;
 
     [JsonPropertyName("gain_multipliers")]
     public Dictionary<string, float> GainMultipliers { get; set; } = new(StringComparer.Ordinal)
@@ -198,10 +204,13 @@ public sealed class SpectacleTuningProfile
         SecondStagePowerThreshold = 0.95f,
         EasyTankyCountMultiplier = 1f,
         EasySwiftCountMultiplier = 1f,
+        EasySplitterCountMultiplier = 1f,
         NormalTankyCountMultiplier = 1f,
         NormalSwiftCountMultiplier = 1f,
+        NormalSplitterCountMultiplier = 1f,
         HardTankyCountMultiplier = 1f,
         HardSwiftCountMultiplier = 1f,
+        HardSplitterCountMultiplier = 1f,
         GainMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
         EventScalarMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
         TokenCapMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
@@ -296,10 +305,13 @@ public sealed class SpectacleTuningProfile
             HardSpawnIntervalMultiplier = Math.Clamp(HardSpawnIntervalMultiplier, 0.2f, 3f),
             EasyTankyCountMultiplier = Math.Clamp(EasyTankyCountMultiplier, 0.1f, 5f),
             EasySwiftCountMultiplier = Math.Clamp(EasySwiftCountMultiplier, 0.1f, 5f),
+            EasySplitterCountMultiplier = Math.Clamp(EasySplitterCountMultiplier, 0.1f, 5f),
             NormalTankyCountMultiplier = Math.Clamp(NormalTankyCountMultiplier, 0.1f, 5f),
             NormalSwiftCountMultiplier = Math.Clamp(NormalSwiftCountMultiplier, 0.1f, 5f),
+            NormalSplitterCountMultiplier = Math.Clamp(NormalSplitterCountMultiplier, 0.1f, 5f),
             HardTankyCountMultiplier = Math.Clamp(HardTankyCountMultiplier, 0.1f, 5f),
             HardSwiftCountMultiplier = Math.Clamp(HardSwiftCountMultiplier, 0.1f, 5f),
+            HardSplitterCountMultiplier = Math.Clamp(HardSplitterCountMultiplier, 0.1f, 5f),
             GainMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
             EventScalarMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
             TokenCapMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),

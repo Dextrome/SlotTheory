@@ -1056,7 +1056,7 @@ public BotRunner(
             float livesLost = Balance.StartingLives - avgLives;
             
             GD.Print($"Wave {waveNum,2}: {lossRate,5:0.0%} loss rate, {livesLost,4:0.1} avg lives lost | " +
-                    $"Config: {waveConfig.EnemyCount} basic, {waveConfig.TankyCount} tanky, {waveConfig.SwiftCount} swift, " +
+                    $"Config: {waveConfig.EnemyCount} basic, {waveConfig.TankyCount} tanky, {waveConfig.SwiftCount} swift, {waveConfig.SplitterCount} splitter, " +
                     $"{waveConfig.SpawnInterval:0.0}s interval{(waveConfig.ClumpArmored ? ", clumped" : "")}");
             
             // Identify problem patterns
@@ -1065,6 +1065,10 @@ public BotRunner(
                 if (waveConfig.TankyCount >= 3 && waveConfig.ClumpArmored)
                 {
                     problemWaves.Add((waveNum, "High tank clump spike", $"Reduce TankyCount to {waveConfig.TankyCount - 1} or disable ClumpArmored"));
+                }
+                else if (waveConfig.SplitterCount >= 2)
+                {
+                    problemWaves.Add((waveNum, "Splitter burst overwhelming", $"Reduce SplitterCount to {waveConfig.SplitterCount - 1} or increase SpawnInterval to {waveConfig.SpawnInterval + 0.1f:0.1f}"));
                 }
                 else if (waveConfig.SwiftCount >= 3)
                 {

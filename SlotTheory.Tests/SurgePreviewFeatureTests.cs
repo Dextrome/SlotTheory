@@ -155,6 +155,7 @@ public class SurgePreviewFeatureTests
         // Peek just before the final surge that fires global.
         peekBeforeFire = system.PeekDominantMods();
         system.RegisterProc(tower, SpectacleDefinitions.ChainReaction, scalar);
+        system.ActivateGlobalSurge();
 
         Assert.NotNull(triggered);
         Assert.NotNull(peekBeforeFire);

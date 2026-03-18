@@ -60,6 +60,7 @@ public class SurgeDifferentiationTests
                 system.Update(SpectacleDefinitions.SurgeCooldownSeconds + 0.1f);
         }
 
+        system.ActivateGlobalSurge();
         return result;
     }
 
@@ -229,15 +230,16 @@ public class SurgeDifferentiationTests
         system.RegisterProc(towerB, SpectacleDefinitions.ChainReaction, scalarForSurge);
 
         // If global didn't fire yet, keep going until it does
-        if (result == null)
+        if (!system.IsGlobalSurgeReady)
         {
-            for (int i = 0; i < 20 && result == null; i++)
+            for (int i = 0; i < 20 && !system.IsGlobalSurgeReady; i++)
             {
                 system.Update(SpectacleDefinitions.SurgeCooldownSeconds + 0.1f);
                 system.RegisterProc(towerA, SpectacleDefinitions.Momentum, scalarForSurge);
             }
         }
 
+        system.ActivateGlobalSurge();
         Assert.NotNull(result);
         Assert.NotNull(result!.Value.DominantModIds);
         Assert.True(result.Value.DominantModIds.Length >= 1);
@@ -263,7 +265,7 @@ public class SurgeDifferentiationTests
             * SpectacleDefinitions.ResolveMeterGainScale()
             * SpectacleDefinitions.ResolveDamageMeterMultiplier(-1f))) + 1f;
 
-        for (int i = 0; i < 30 && result == null; i++)
+        for (int i = 0; i < 30 && !system.IsGlobalSurgeReady; i++)
         {
             system.RegisterProc(towerA, SpectacleDefinitions.Momentum, scalarForSurge);
             system.RegisterProc(towerB, SpectacleDefinitions.ChainReaction, scalarForSurge);
@@ -271,6 +273,7 @@ public class SurgeDifferentiationTests
             system.Update(SpectacleDefinitions.SurgeCooldownSeconds + 0.1f);
         }
 
+        system.ActivateGlobalSurge();
         Assert.NotNull(result);
         var mods = result!.Value.DominantModIds;
         Assert.NotNull(mods);
@@ -323,7 +326,8 @@ public class SurgeDifferentiationTests
             // Fire surge, then advance time past the contribution window so contributions expire
             system.RegisterProc(tower, SpectacleDefinitions.Momentum, scalarForSurge);
             system.Update(SpectacleDefinitions.GlobalContributionWindowSeconds * 10f); // way past window
-            system.RegisterProc(tower, SpectacleDefinitions.Momentum, scalarForSurge); // this fires global
+            system.RegisterProc(tower, SpectacleDefinitions.Momentum, scalarForSurge); // this arms global
+            system.ActivateGlobalSurge();
 
             // If DominantModIds is empty, the label should fall back to default
             if (result?.DominantModIds?.Length == 0)

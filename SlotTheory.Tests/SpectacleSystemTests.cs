@@ -597,6 +597,7 @@ public class SpectacleSystemTests
                 system.Update(SpectacleDefinitions.SurgeCooldownSeconds + 0.05f);
         }
 
+        system.ActivateGlobalSurge();
         Assert.Equal(1, globalCount);
         Assert.True(lastGlobal.UniqueContributors >= 2);
         Assert.Equal("G_SPECTACLE_CATHARSIS", lastGlobal.EffectId);
@@ -629,6 +630,7 @@ public class SpectacleSystemTests
                 system.Update(SpectacleDefinitions.SurgeCooldownSeconds + 0.25f);
         }
 
+        system.ActivateGlobalSurge();
         Assert.Equal(requiredSurges, surgeCount);
         Assert.Equal(1, globalCount);
         Assert.Equal(1, lastGlobal.UniqueContributors);
@@ -662,6 +664,7 @@ public class SpectacleSystemTests
             system.RegisterProc(towerA, "split_shot", scalarForSingleProcSurge);
             system.RemoveTower(towerA);
             system.RegisterProc(towerB, "split_shot", scalarForSingleProcSurge);
+            system.ActivateGlobalSurge();
 
             Assert.Equal(1, globalCount);
             Assert.Equal(1, lastGlobal.UniqueContributors);

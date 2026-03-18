@@ -55,9 +55,10 @@ public static class EnemyVisualProfile
 
         Sample motion = enemyTypeId switch
         {
-            "swift_walker" => EvaluateSwift(elapsed, speedNorm),
+            "swift_walker"   => EvaluateSwift(elapsed, speedNorm),
             "armored_walker" => EvaluateArmored(elapsed, speedNorm),
-            _ => EvaluateBasic(elapsed, speedNorm),
+            "splitter_shard" => EvaluateSwift(elapsed, speedNorm),
+            _                => EvaluateBasic(elapsed, speedNorm),
         };
 
         return new Sample(

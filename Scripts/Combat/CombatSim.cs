@@ -96,10 +96,11 @@ public class CombatSim
         ClearMines();
         RebuildMineAnchors();
 
-        int walkers  = ws.GetWalkerCount();
-        int tankies  = ws.GetTankyCount();
-        int swifties = ws.GetSwiftCount();
-        int total    = walkers + tankies + swifties;
+        int walkers   = ws.GetWalkerCount();
+        int tankies   = ws.GetTankyCount();
+        int swifties  = ws.GetSwiftCount();
+        int splitters = ws.GetSplitterCount();
+        int total     = walkers + tankies + swifties + splitters;
 
         // Build a per-slot type array; fill with basics then overlay other types
         var slots = new string[total];
@@ -137,6 +138,20 @@ public class CombatSim
                 {
                     int s = (ideal + d) % total;
                     if (slots[s] == "basic_walker") { slots[s] = "swift_walker"; break; }
+                }
+            }
+        }
+
+        if (splitters > 0)
+        {
+            // Spread splitters evenly, skipping already-assigned slots
+            for (int sp = 0; sp < splitters; sp++)
+            {
+                int ideal = (int)Math.Round((sp + 0.5) * total / splitters);
+                for (int d = 0; d < total; d++)
+                {
+                    int s = (ideal + d) % total;
+                    if (slots[s] == "basic_walker") { slots[s] = "splitter_walker"; break; }
                 }
             }
         }
@@ -277,9 +292,10 @@ public class CombatSim
         {
             string dieSound = dead.EnemyTypeId switch
             {
-                "armored_walker" => "die_armored",
-                "swift_walker"   => "die_swift",
-                _                => "die_basic",
+                "armored_walker"  => "die_armored",
+                "swift_walker"    => "die_swift",
+                "splitter_walker" => "die_basic",
+                _                 => "die_basic",
             };
             if (_killComboTimer <= 0f) _killComboCount = 0;
             float pitch = Mathf.Clamp(1.0f + _killComboCount * 0.05f, 1.0f, 1.15f);
@@ -287,6 +303,8 @@ public class CombatSim
             _killComboCount = Mathf.Min(_killComboCount + 1, 3);
             _killComboTimer = 0.24f;
             SpawnDeathBurst(dead.GlobalPosition, dead.EnemyTypeId);
+            if (dead.EnemyTypeId == "splitter_walker")
+                SpawnShards(state, dead);
             dead.QueueFree();
         }
         state.EnemiesAlive.RemoveAll(e => e.Hp <= 0 || !GodotObject.IsInstanceValid(e));
@@ -1038,11 +1056,41 @@ public class CombatSim
         burst.GlobalPosition = worldPos;
         var (color, scale, style) = typeId switch
         {
-            "armored_walker" => (new Color(0.62f, 0.07f, 0.07f), 1.5f, DeathBurstStyle.Armored),
-            "swift_walker"   => (new Color(0.60f, 1.00f, 0.10f), 0.75f, DeathBurstStyle.Swift),
-            _                => (new Color(0.95f, 0.22f, 0.12f), 1.0f, DeathBurstStyle.Basic),
+            "armored_walker"  => (new Color(0.62f, 0.07f, 0.07f), 1.5f, DeathBurstStyle.Armored),
+            "swift_walker"    => (new Color(0.60f, 1.00f, 0.10f), 0.75f, DeathBurstStyle.Swift),
+            "splitter_walker" => (new Color(0.96f, 0.65f, 0.10f), 1.2f, DeathBurstStyle.Basic),
+            "splitter_shard"  => (new Color(0.96f, 0.65f, 0.10f), 0.55f, DeathBurstStyle.Swift),
+            _                 => (new Color(0.95f, 0.22f, 0.12f), 1.0f, DeathBurstStyle.Basic),
         };
         burst.Initialize(color, scale, style);
+    }
+
+    /// <summary>
+    /// Spawns Balance.SplitterShardCount shards at the dead splitter's current path position.
+    /// Shards are added directly to EnemiesAlive without touching EnemiesSpawnedThisWave,
+    /// so the wave quota logic stays clean and wave-end waits for shards too.
+    /// </summary>
+    private void SpawnShards(RunState state, EnemyInstance parent)
+    {
+        if (EnemyScene == null || LanePath == null) return;
+
+        float shardHp = WaveSystem.GetScaledHp("splitter_shard", state.WaveIndex,
+            SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy,
+            state.EndlessWaveDepth);
+
+        float[] shardOffsets = { -4f, -22f };
+        for (int i = 0; i < Balance.SplitterShardCount; i++)
+        {
+            var shard = EnemyScene.Instantiate<EnemyInstance>();
+            shard.Initialize("splitter_shard", shardHp, Balance.SplitterShardSpeed);
+            LanePath.AddChild(shard);
+            float offset = i < shardOffsets.Length ? shardOffsets[i] : -4f;
+            shard.Progress = Mathf.Max(0f, parent.Progress + offset);
+            if (BotMode)
+                shard.SetProcess(false);
+            state.EnemiesAlive.Add(shard);
+            // EnemiesSpawnedThisWave intentionally not incremented - shards aren't queued enemies
+        }
     }
 
     private void SpawnEnemy(RunState state, string typeId)
@@ -1063,9 +1111,11 @@ public class CombatSim
                           state.EndlessWaveDepth);
         float speed = typeId switch
         {
-            "armored_walker" => Balance.TankyEnemySpeed,
-            "swift_walker"   => Balance.SwiftEnemySpeed,
-            _                => Balance.BaseEnemySpeed,
+            "armored_walker"  => Balance.TankyEnemySpeed,
+            "swift_walker"    => Balance.SwiftEnemySpeed,
+            "splitter_walker" => Balance.SplitterSpeed,
+            "splitter_shard"  => Balance.SplitterShardSpeed,
+            _                 => Balance.BaseEnemySpeed,
         };
 
         var enemy = EnemyScene.Instantiate<EnemyInstance>();

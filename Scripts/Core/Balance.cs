@@ -56,6 +56,15 @@ public static class Balance
     public const float TankyHpMultiplier = 3.5f;  // 3.5× basic walker HP
     public const float TankyEnemySpeed = 60f;     // pixels per second (half speed)
 
+    // Enemies - Splitter Walker
+    public const float SplitterHpMultiplier = 1.8f;   // 1.8× basic walker HP
+    public const float SplitterSpeed = 90f;            // pixels per second (slower than basic)
+    public const int   SplitterShardCount = 2;         // number of shards spawned on death
+
+    // Enemies - Splitter Shard (spawned when a Splitter dies)
+    public const float SplitterShardHpMultiplier = 0.55f;  // 55% of basic walker HP
+    public const float SplitterShardSpeed = 165f;           // pixels per second (faster than basic)
+
     // Marked status
     public const float MarkedDamageBonus = 0.40f; // +40% incoming damage to all towers
     public const float MarkedDuration = 4.0f;     // seconds
@@ -179,6 +188,14 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
         DifficultyMode.Easy => ClampDifficultyMultiplier(SpectacleTuning.Current.EasySwiftCountMultiplier, 0.1f, 5f),
         DifficultyMode.Normal => ClampDifficultyMultiplier(SpectacleTuning.Current.NormalSwiftCountMultiplier, 0.1f, 5f),
         DifficultyMode.Hard => ClampDifficultyMultiplier(SpectacleTuning.Current.HardSwiftCountMultiplier, 0.1f, 5f),
+        _ => 1f
+    };
+
+    public static float GetSplitterCountMultiplier(DifficultyMode difficulty) => difficulty switch
+    {
+        DifficultyMode.Easy => ClampDifficultyMultiplier(SpectacleTuning.Current.EasySplitterCountMultiplier, 0.1f, 5f),
+        DifficultyMode.Normal => ClampDifficultyMultiplier(SpectacleTuning.Current.NormalSplitterCountMultiplier, 0.1f, 5f),
+        DifficultyMode.Hard => ClampDifficultyMultiplier(SpectacleTuning.Current.HardSplitterCountMultiplier, 0.1f, 5f),
         _ => 1f
     };
 

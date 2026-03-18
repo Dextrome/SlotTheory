@@ -38,41 +38,48 @@
   {
     "EnemyCount": 24,
     "SpawnInterval": 1.4,
-    "TankyCount": 2
+    "TankyCount": 2,
+    "SplitterCount": 1
   },
   {
     "EnemyCount": 26,
     "SpawnInterval": 1.35,
     "TankyCount": 2,
-    "SwiftCount": 2
+    "SwiftCount": 2,
+    "SplitterCount": 1
   },
   {
     "EnemyCount": 28,
     "SpawnInterval": 1.3,
     "TankyCount": 2,
-    "SwiftCount": 2
+    "SwiftCount": 2,
+    "SplitterCount": 1
   },
   {
     "EnemyCount": 34,
-    "SpawnInterval": 1.15
+    "SpawnInterval": 1.15,
+    "SplitterCount": 2
   },
   {
     "EnemyCount": 26,
     "SpawnInterval": 1.3,
     "TankyCount": 2,
-    "SwiftCount": 2
+    "SwiftCount": 2,
+    "SplitterCount": 2
   },
   {
     "EnemyCount": 28,
     "SpawnInterval": 1.25,
     "TankyCount": 1,
-    "SwiftCount": 5
+    "SwiftCount": 5,
+    "SplitterCount": 2
   },
   {
     "EnemyCount": 30,
     "SpawnInterval": 1.25,
     "TankyCount": 2,
-    "SwiftCount": 2
+    "SwiftCount": 2,
+    "SplitterCount": 3
   },
   {
     "EnemyCount": 32,

@@ -131,11 +131,11 @@ public class MusicHarmonyTests
     // ── TensionToBpm ─────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData(MusicTension.Intro,     72f)]
-    [InlineData(MusicTension.Building,  72f)]
-    [InlineData(MusicTension.MidGame,   88f)]
-    [InlineData(MusicTension.LateGame,  96f)]
-    [InlineData(MusicTension.NearDeath, 96f)]  // same as LateGame; callers skip BPM change for NearDeath
+    [InlineData(MusicTension.Intro,     112f)]
+    [InlineData(MusicTension.Building,  112f)]
+    [InlineData(MusicTension.MidGame,   128f)]
+    [InlineData(MusicTension.LateGame,  140f)]
+    [InlineData(MusicTension.NearDeath, 140f)]  // same as LateGame; callers skip BPM change for NearDeath
     public void TensionToBpm_maps_correctly(MusicTension tension, float expected)
     {
         Assert.Equal(expected, MusicHarmony.TensionToBpm(tension));

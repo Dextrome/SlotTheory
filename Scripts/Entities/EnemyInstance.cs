@@ -92,15 +92,17 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         Speed = speed;
         _archetype = EnemyVisualArchetype.ForType(typeId);
 
-        bool isArmored = typeId == "armored_walker";
-        bool isSwift = typeId == "swift_walker";
-        _baseScale = isArmored ? new Vector2(1.5f, 1.5f)
-            : isSwift ? new Vector2(0.8f, 0.8f)
+        bool isArmored  = typeId == "armored_walker";
+        bool isSwift    = typeId == "swift_walker";
+        bool isShard    = typeId == "splitter_shard";
+        _baseScale = isArmored  ? new Vector2(1.5f, 1.5f)
+            : isSwift           ? new Vector2(0.8f, 0.8f)
+            : isShard           ? new Vector2(0.7f, 0.7f)
             : Vector2.One;
         Scale = _baseScale;
 
-        _hpBarWidth = isArmored ? 34f : isSwift ? 20f : 24f;
-        float barY = isArmored ? -26f : isSwift ? -17f : -20f;
+        _hpBarWidth = isArmored ? 34f : isSwift ? 20f : isShard ? 16f : 24f;
+        float barY = isArmored ? -26f : isSwift ? -17f : isShard ? -15f : -20f;
         float barX = -_hpBarWidth / 2f;
 
         AddChild(new ColorRect
@@ -206,9 +208,11 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         {
             switch (EnemyTypeId)
             {
-                case "armored_walker": DrawArmoredWalker(); break;
-                case "swift_walker": DrawSwiftWalker(); break;
-                default: DrawBasicWalker(); break;
+                case "armored_walker":   DrawArmoredWalker(); break;
+                case "swift_walker":     DrawSwiftWalker(); break;
+                case "splitter_walker":  DrawSplitterWalker(); break;
+                case "splitter_shard":   DrawSplitterShard(); break;
+                default:                 DrawBasicWalker(); break;
             }
         }
 
@@ -242,6 +246,18 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
                 if (layerSettings.RenderDamage) DrawDamagePassSwift(style, rs);
                 if (layerSettings.RenderEmissive) DrawEmissivePassSwift(style, rs, emissiveWidthScale);
                 DrawBloomOrFallbackSwift(style, rs, layerSettings);
+                break;
+            case "splitter_walker":
+                DrawBodyPassSplitter(style, rs);
+                if (layerSettings.RenderDamage) DrawDamagePassSplitter(style, rs);
+                if (layerSettings.RenderEmissive) DrawEmissivePassSplitter(style, rs, emissiveWidthScale);
+                DrawBloomOrFallbackSplitter(style, rs, layerSettings);
+                break;
+            case "splitter_shard":
+                DrawBodyPassShard(style, rs);
+                if (layerSettings.RenderDamage) DrawDamagePassShard(style, rs);
+                if (layerSettings.RenderEmissive) DrawEmissivePassShard(style, rs, emissiveWidthScale);
+                DrawBloomOrFallbackShard(style, rs, layerSettings);
                 break;
             default:
                 DrawBodyPassBasic(style, rs);
@@ -308,6 +324,34 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
             DrawBloomFallbackArmored(style, rs, layerSettings.BloomFallbackAlphaScale);
     }
 
+    private void DrawBloomOrFallbackSplitter(in EnemyRenderStyle style, in EnemyRenderState rs, in EnemyRenderLayerSettings layerSettings)
+    {
+        const int bloomPrimitives = 3;
+        if (layerSettings.RenderBloom &&
+            EnemyRenderDebugCounters.TryReserveBloom(bloomPrimitives, layerSettings.BloomPrimitiveBudget))
+        {
+            DrawBloomPassSplitter(style, rs, layerSettings.BloomAlphaScale);
+            return;
+        }
+
+        if (ShouldRenderBloomFallback(layerSettings))
+            DrawBloomFallbackSplitter(style, rs, layerSettings.BloomFallbackAlphaScale);
+    }
+
+    private void DrawBloomOrFallbackShard(in EnemyRenderStyle style, in EnemyRenderState rs, in EnemyRenderLayerSettings layerSettings)
+    {
+        const int bloomPrimitives = 1;
+        if (layerSettings.RenderBloom &&
+            EnemyRenderDebugCounters.TryReserveBloom(bloomPrimitives, layerSettings.BloomPrimitiveBudget))
+        {
+            DrawBloomPassShard(style, rs, layerSettings.BloomAlphaScale);
+            return;
+        }
+
+        if (ShouldRenderBloomFallback(layerSettings))
+            DrawBloomFallbackShard(style, rs, layerSettings.BloomFallbackAlphaScale);
+    }
+
     private static bool ShouldRenderBloomFallback(in EnemyRenderLayerSettings layerSettings)
         => layerSettings.RenderBloomFallback || (layerSettings.RenderBloom && layerSettings.RenderEmissive);
 
@@ -320,7 +364,13 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
                 DrawSlowOverlay(21.5f, 17f);
                 DrawNearDeathOverlay(16f);
                 break;
+            case "splitter_walker":
+                DrawMarkedOverlay(14f);
+                DrawSlowOverlay(16f, 12f);
+                DrawNearDeathOverlay(12f);
+                break;
             case "swift_walker":
+            case "splitter_shard":
                 DrawMarkedOverlay(13f);
                 DrawSlowOverlay(14.5f, 11f);
                 DrawNearDeathOverlay(10f);
@@ -383,9 +433,10 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         float speedNorm = Mathf.Clamp(effectiveSpeed / Mathf.Max(1f, Balance.BaseEnemySpeed), 0.35f, 2.6f);
         float response = EnemyTypeId switch
         {
-            "swift_walker" => 6.6f,
+            "swift_walker"   => 6.6f,
+            "splitter_shard" => 5.8f,
             "armored_walker" => 3.8f,
-            _ => 4.9f,
+            _                => 4.9f,
         };
         float lerp = Mathf.Clamp(response * speedNorm * dt, 0.02f, 0.42f);
         _facingAngle = Mathf.LerpAngle(_facingAngle, targetAngle, lerp);
@@ -851,6 +902,169 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         EnemyRenderDebugCounters.RegisterBloomFallback(3);
     }
 
+    // ── Splitter Walker (amber hex + straining lobes + bisecting crack) ──
+
+    private void DrawBodyPassSplitter(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        EnemyRenderDebugCounters.RegisterBodyPass();
+        float lobe = _thrustPulse * 1.8f;
+
+        DrawPolygon(RegularPoly(6, 14.0f, 0f), new[] { new Color(0.08f, 0.04f, 0.00f) });
+        DrawPolygon(RegularPoly(6, 11.8f, 0f), new[] { style.BodyPrimary });
+        DrawPolygon(RegularPoly(6, 7.0f, 0f), new[] { style.BodySecondary });
+
+        DrawCircle(new Vector2(-13.4f - lobe, 0f), 4.6f, new Color(style.BodyPrimary.R, style.BodyPrimary.G, style.BodyPrimary.B, 0.76f));
+        DrawCircle(new Vector2( 13.4f + lobe, 0f), 4.6f, new Color(style.BodyPrimary.R, style.BodyPrimary.G, style.BodyPrimary.B, 0.76f));
+    }
+
+    private void DrawDamagePassSplitter(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        if (rs.DamageBand == EnemyDamageBand.Healthy)
+            return;
+
+        EnemyRenderDebugCounters.RegisterDamagePass();
+        float visibility = ResolveCrackVisibilityScale(rs.HpRatio);
+        float wear = (0.55f + rs.DamageIntensity * 0.42f + rs.HitFlash * 0.24f) * visibility;
+        float widthScale = Mathf.Lerp(0.42f, 1f, visibility);
+        var fissureDark = new Color(0.04f, 0.02f, 0.00f, Mathf.Clamp(wear * 0.88f, 0f, 0.95f));
+        Color hpBandTint = ResolveHpBandColor(rs.HpRatio);
+        Color crackRgb = style.DamageTint.Lerp(hpBandTint, 0.58f).Lerp(Colors.White, 0.20f * visibility);
+        var crack = new Color(crackRgb.R, crackRgb.G, crackRgb.B, Mathf.Clamp(wear * 0.96f, 0f, 0.98f));
+
+        // Vertical bisecting crack
+        DrawLine(new Vector2(0f, -11.5f), new Vector2(0f, 11.5f), fissureDark, 3.0f * widthScale);
+        DrawLine(new Vector2(0f, -11.5f), new Vector2(0f, 11.5f), crack, 1.6f * widthScale);
+
+        // Branch cracks from midline
+        DrawLine(new Vector2(0f, -4.2f), new Vector2(-5.8f, -7.0f), fissureDark, 2.0f * widthScale);
+        DrawLine(new Vector2(0f, -4.2f), new Vector2(-5.8f, -7.0f), new Color(crack.R, crack.G, crack.B, crack.A * 0.72f), 1.1f * widthScale);
+        DrawLine(new Vector2(0f, 4.2f), new Vector2(5.8f, 7.0f), fissureDark, 2.0f * widthScale);
+        DrawLine(new Vector2(0f, 4.2f), new Vector2(5.8f, 7.0f), new Color(crack.R, crack.G, crack.B, crack.A * 0.72f), 1.1f * widthScale);
+
+        if (rs.DamageBand == EnemyDamageBand.Critical)
+        {
+            DrawLine(new Vector2(0f, 2.0f), new Vector2(6.2f, -5.5f), fissureDark, 2.2f * widthScale);
+            DrawLine(new Vector2(0f, 2.0f), new Vector2(6.2f, -5.5f), crack, 1.2f * widthScale);
+        }
+    }
+
+    private void DrawEmissivePassSplitter(in EnemyRenderStyle style, in EnemyRenderState rs, float widthScale)
+    {
+        EnemyRenderDebugCounters.RegisterEmissivePass();
+        float e = Mathf.Clamp(0.44f + rs.EmissivePulse * 0.36f, 0f, 1f);
+        float rimWidth = 1.4f * widthScale;
+        float lobePulse = _thrustPulse * 1.8f;
+
+        var hexPts = RegularPoly(6, 12.6f, 0f);
+        for (int i = 0; i < hexPts.Length; i++)
+        {
+            Vector2 a = hexPts[i];
+            Vector2 b = hexPts[(i + 1) % hexPts.Length];
+            DrawLine(a, b, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.80f * e), rimWidth);
+        }
+
+        DrawLine(new Vector2(0f, -10.8f), new Vector2(0f, 10.8f),
+            new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.72f * e + rs.HitFlash * 0.20f),
+            1.5f * widthScale);
+
+        DrawCircle(new Vector2(-13.4f - lobePulse, 0f), 2.2f, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.54f * e));
+        DrawCircle(new Vector2( 13.4f + lobePulse, 0f), 2.2f, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.54f * e));
+    }
+
+    private void DrawBloomPassSplitter(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        float bloomAlpha = (0.11f + rs.EmissivePulse * 0.07f + rs.HitFlash * 0.16f) * alphaScale;
+        float lobePulse = _thrustPulse * 1.8f;
+        DrawCircle(Vector2.Zero, 14.2f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.44f));
+        DrawCircle(new Vector2(-13.4f - lobePulse, 0f), 5.2f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.62f));
+        DrawCircle(new Vector2( 13.4f + lobePulse, 0f), 5.2f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.62f));
+        EnemyRenderDebugCounters.RegisterBloomPass(3);
+    }
+
+    private void DrawBloomFallbackSplitter(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        float fallbackAlpha = (0.08f + rs.EmissivePulse * 0.05f + rs.HitFlash * 0.05f) * alphaScale;
+        DrawCircle(Vector2.Zero, 10.2f, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, fallbackAlpha * 0.48f));
+        DrawCircle(new Vector2(-13.4f, 0f), 4.2f, new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, fallbackAlpha * 0.62f));
+        DrawCircle(new Vector2( 13.4f, 0f), 4.2f, new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, fallbackAlpha * 0.62f));
+        EnemyRenderDebugCounters.RegisterBloomFallback(3);
+    }
+
+    // ── Splitter Shard (irregular crystal fragment) ───────────────────────
+
+    private static readonly Vector2[] ShardBody =
+    {
+        new Vector2( 9.5f,  0.0f),
+        new Vector2( 3.0f, -7.5f),
+        new Vector2(-1.5f, -5.5f),
+        new Vector2(-8.0f, -1.5f),
+        new Vector2(-7.0f,  3.5f),
+        new Vector2( 2.0f,  6.0f),
+    };
+
+    private void DrawBodyPassShard(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        EnemyRenderDebugCounters.RegisterBodyPass();
+
+        DrawPolygon(ShardBody, new[] { style.BodyPrimary });
+
+        var inner = new Vector2[ShardBody.Length];
+        for (int i = 0; i < ShardBody.Length; i++)
+            inner[i] = ShardBody[i] * 0.55f;
+        DrawPolygon(inner, new[] { style.BodySecondary });
+
+        DrawCircle(new Vector2(2.5f, -1.2f), 1.8f, style.BodyPrimary);
+    }
+
+    private void DrawDamagePassShard(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        if (rs.DamageBand == EnemyDamageBand.Healthy)
+            return;
+
+        EnemyRenderDebugCounters.RegisterDamagePass();
+        float visibility = ResolveCrackVisibilityScale(rs.HpRatio);
+        float wear = (0.52f + rs.DamageIntensity * 0.44f + rs.HitFlash * 0.24f) * visibility;
+        float widthScale = Mathf.Lerp(0.42f, 1f, visibility);
+        var fissureDark = new Color(0.04f, 0.02f, 0.00f, Mathf.Clamp(wear * 0.88f, 0f, 0.95f));
+        Color hpBandTint = ResolveHpBandColor(rs.HpRatio);
+        Color crackRgb = style.DamageTint.Lerp(hpBandTint, 0.58f).Lerp(Colors.White, 0.22f * visibility);
+        var crack = new Color(crackRgb.R, crackRgb.G, crackRgb.B, Mathf.Clamp(wear * 0.96f, 0f, 0.98f));
+
+        DrawLine(new Vector2(-6.0f, -3.5f), new Vector2(6.5f, 2.8f), fissureDark, 2.4f * widthScale);
+        DrawLine(new Vector2(-6.0f, -3.5f), new Vector2(6.5f, 2.8f), crack, 1.3f * widthScale);
+    }
+
+    private void DrawEmissivePassShard(in EnemyRenderStyle style, in EnemyRenderState rs, float widthScale)
+    {
+        EnemyRenderDebugCounters.RegisterEmissivePass();
+        float e = Mathf.Clamp(0.46f + rs.EmissivePulse * 0.36f, 0f, 1f);
+        float lineWidth = 1.2f * widthScale;
+
+        for (int i = 0; i < ShardBody.Length; i++)
+        {
+            Vector2 a = ShardBody[i];
+            Vector2 b = ShardBody[(i + 1) % ShardBody.Length];
+            DrawLine(a, b, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.86f * e), lineWidth);
+        }
+
+        DrawCircle(new Vector2(2.5f, -1.2f), 2.2f + rs.HitFlash * 0.4f,
+            new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.88f * e));
+    }
+
+    private void DrawBloomPassShard(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        float bloomAlpha = (0.12f + rs.EmissivePulse * 0.08f + rs.HitFlash * 0.18f) * alphaScale;
+        DrawCircle(new Vector2(2.5f, -1.2f), 8.5f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.60f));
+        EnemyRenderDebugCounters.RegisterBloomPass(1);
+    }
+
+    private void DrawBloomFallbackShard(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        float fallbackAlpha = (0.10f + rs.EmissivePulse * 0.06f + rs.HitFlash * 0.06f) * alphaScale;
+        DrawCircle(new Vector2(2.5f, -1.2f), 6.5f, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, fallbackAlpha * 0.56f));
+        EnemyRenderDebugCounters.RegisterBloomFallback(1);
+    }
+
     // Basic = neon beetle drone
     private void DrawBasicWalker()
     {
@@ -1067,6 +1281,56 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         DrawMarkedOverlay(19f);
         DrawSlowOverlay(21.5f, 17f);
         DrawNearDeathOverlay(16f);
+    }
+
+    // Splitter Walker = amber hex + straining lobes + bisecting crack
+    private void DrawSplitterWalker()
+    {
+        float lobe = _thrustPulse * 1.8f;
+
+        DrawCircle(Vector2.Zero, 18f, new Color(1.00f, 0.70f, 0.15f, 0.10f));
+
+        DrawPolygon(RegularPoly(6, 14.0f, 0f), new[] { new Color(0.08f, 0.04f, 0.00f) });
+        DrawPolygon(RegularPoly(6, 11.8f, 0f), new[] { new Color(0.96f, 0.62f, 0.08f) });
+        DrawPolygon(RegularPoly(6, 7.0f, 0f), new[] { new Color(0.14f, 0.08f, 0.01f) });
+
+        DrawCircle(new Vector2(-13.4f - lobe, 0f), 4.6f, new Color(0.96f, 0.62f, 0.08f, 0.76f));
+        DrawCircle(new Vector2( 13.4f + lobe, 0f), 4.6f, new Color(0.96f, 0.62f, 0.08f, 0.76f));
+
+        var hexPts = RegularPoly(6, 12.6f, 0f);
+        for (int i = 0; i < hexPts.Length; i++)
+            DrawLine(hexPts[i], hexPts[(i + 1) % hexPts.Length], new Color(1.00f, 0.80f, 0.28f, 0.70f), 1.4f);
+
+        DrawLine(new Vector2(0f, -11.5f), new Vector2(0f, 11.5f), new Color(1.00f, 0.92f, 0.60f, 0.88f), 1.8f);
+
+        DrawCircle(new Vector2(-13.4f - lobe, 0f), 2.2f, new Color(1.00f, 0.80f, 0.28f, 0.62f));
+        DrawCircle(new Vector2( 13.4f + lobe, 0f), 2.2f, new Color(1.00f, 0.80f, 0.28f, 0.62f));
+
+        DrawMarkedOverlay(14f);
+        DrawSlowOverlay(16f, 12f);
+        DrawNearDeathOverlay(12f);
+    }
+
+    // Splitter Shard = irregular crystal fragment
+    private void DrawSplitterShard()
+    {
+        DrawCircle(new Vector2(2.5f, -1.2f), 10f, new Color(1.00f, 0.85f, 0.40f, 0.09f));
+
+        DrawPolygon(ShardBody, new[] { new Color(1.00f, 0.82f, 0.38f) });
+
+        var inner = new Vector2[ShardBody.Length];
+        for (int i = 0; i < ShardBody.Length; i++)
+            inner[i] = ShardBody[i] * 0.55f;
+        DrawPolygon(inner, new[] { new Color(0.18f, 0.12f, 0.02f) });
+
+        for (int i = 0; i < ShardBody.Length; i++)
+            DrawLine(ShardBody[i], ShardBody[(i + 1) % ShardBody.Length], new Color(1.00f, 0.90f, 0.50f, 0.82f), 1.2f);
+
+        DrawCircle(new Vector2(2.5f, -1.2f), 2.4f, new Color(1.00f, 0.96f, 0.78f));
+
+        DrawMarkedOverlay(10f);
+        DrawSlowOverlay(11.5f, 8.5f);
+        DrawNearDeathOverlay(8f);
     }
 
     public void FlashHit()

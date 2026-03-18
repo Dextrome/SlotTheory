@@ -2512,14 +2512,18 @@ public partial class GameController : Node
 	{
 		string typeName = enemy.EnemyTypeId switch
 		{
-			"armored_walker" => "Armored Walker",
-			"swift_walker"   => "Swift Walker",
-			_                => "Basic Walker",
+			"armored_walker"  => "Armored Walker",
+			"swift_walker"    => "Swift Walker",
+			"splitter_walker" => "Splitter",
+			"splitter_shard"  => "Splitter Shard",
+			_                 => "Basic Walker",
 		};
+		int leakCost = enemy.EnemyTypeId == "armored_walker" ? 2 : 1;
 		float displaySpeed = enemy.IsSlowed ? enemy.Speed * enemy.SlowSpeedFactor : enemy.Speed;
 		string speedSuffix = enemy.IsSlowed ? "  (slowed)" : "";
 		string statusSuffix = enemy.IsMarked ? "\nMARKED" : "";
-		return $"{typeName}\nHP  {enemy.Hp:0}/{enemy.MaxHp:0}  |  Speed  {displaySpeed:0} px/s{speedSuffix}\nLeak cost  1 life{statusSuffix}";
+		string splitSuffix = enemy.EnemyTypeId == "splitter_walker" ? $"\nSplits into {Balance.SplitterShardCount} shards on death" : "";
+		return $"{typeName}\nHP  {enemy.Hp:0}/{enemy.MaxHp:0}  |  Speed  {displaySpeed:0} px/s{speedSuffix}\nLeak cost  {leakCost} life{(leakCost > 1 ? "s" : "")}{splitSuffix}{statusSuffix}";
 	}
 
 	private string BuildSpectacleTooltipSection(ITowerView tower)

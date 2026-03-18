@@ -26,7 +26,8 @@ public record WaveConfig(
     float SpawnInterval,
     int TankyCount = 0,
     bool ClumpArmored = false,  // group all armored enemies into one block instead of spreading evenly
-    int SwiftCount = 0          // fast enemies (240px/s, 1.5× HP) - appear in waves 10-14
+    int SwiftCount = 0,         // fast enemies (240px/s, 1.5× HP) - appear in waves 10-14
+    int SplitterCount = 0       // splitter enemies (1.8× HP, 90px/s) - split into 2 shards on death
 );
 
 public record Vector2Def(float X, float Y);
