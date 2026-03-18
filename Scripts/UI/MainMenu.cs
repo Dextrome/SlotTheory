@@ -34,7 +34,7 @@ public partial class MainMenu : Node
 
 		var bg = new ColorRect();
 		bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		bg.Color = new Color("#07071a");
+		bg.Color = new Color("#030a14");
 		canvas.AddChild(bg);
 
 		var grid = new NeonGridBg();
@@ -42,7 +42,6 @@ public partial class MainMenu : Node
 		grid.MouseFilter = Control.MouseFilterEnum.Ignore;
 		canvas.AddChild(grid);
 
-		// Keep exact composition, but add subtle light falloff for premium depth.
 		var atmosphere = new MenuAtmosphereOverlay();
 		atmosphere.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		atmosphere.MouseFilter = Control.MouseFilterEnum.Ignore;
@@ -76,7 +75,7 @@ public partial class MainMenu : Node
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
 		sub.AddThemeFontSizeOverride("font_size", 13);
-		sub.Modulate = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.72f);
+		sub.Modulate = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.82f);
 		vbox.AddChild(sub);
 
 		vbox.AddChild(new ReactorFeedBar());
@@ -89,14 +88,14 @@ public partial class MainMenu : Node
 
 		var card = new PanelContainer();
 		var cardStyle = UITheme.MakePanel(
-			bg:          new Color(0.022f, 0.028f, 0.082f),
-			border:      new Color(0.23f, 0.43f, 0.30f),
+			bg:          new Color(0.016f, 0.021f, 0.064f),
+			border:      new Color(0.20f, 0.37f, 0.43f),
 			corners:     4,
 			borderWidth: 2,
 			padH:        24,
 			padV:        12);
-		cardStyle.ShadowColor  = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.14f);
-		cardStyle.ShadowSize   = 7;
+		cardStyle.ShadowColor  = new Color(0.12f, 0.36f, 0.44f, 0.14f);
+		cardStyle.ShadowSize   = 8;
 		cardStyle.ShadowOffset = new Vector2(0f, 2f);
 		card.AddThemeStyleboxOverride("panel", cardStyle);
 		card.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
@@ -111,43 +110,90 @@ public partial class MainMenu : Node
 				return;
 
 			float breath = 0.5f + 0.5f * Mathf.Sin(_menuAnimTime * 0.42f);
+			float frameInset = 5f;
+			float shellInset = 10f;
+			float contentInset = 14f;
 
-			// Controlled frame glow with tight falloff and subtle breathing.
+			// Outer controlled bloom: crisp cyan underlay + lime edge read.
+			for (int i = 0; i < 5; i++)
+			{
+				float spread = 0.9f + i * 1.5f;
+				float cyanA = 0.058f - i * 0.010f + breath * 0.006f;
+				card.DrawRect(new Rect2(-spread, -spread, cw + spread * 2f, ch + spread * 2f),
+					new Color(0.22f, 0.60f, 0.72f, cyanA), false, 1f);
+			}
+			card.DrawRect(new Rect2(-1f, -1f, cw + 2f, ch + 2f),
+				new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.22f + breath * 0.04f), false, 1f);
+
+			// Chassis shell + inner ring for clear frame/content separation.
+			card.DrawRect(new Rect2(frameInset, frameInset, cw - frameInset * 2f, ch - frameInset * 2f),
+				new Color(0.032f, 0.056f, 0.092f, 0.84f));
+			card.DrawRect(new Rect2(frameInset, frameInset, cw - frameInset * 2f, ch - frameInset * 2f),
+				new Color(0.24f, 0.64f, 0.78f, 0.28f), false, 1f);
+			card.DrawRect(new Rect2(frameInset + 1f, frameInset + 1f, cw - (frameInset + 1f) * 2f, ch - (frameInset + 1f) * 2f),
+				new Color(0.94f, 0.99f, 1.00f, 0.11f), false, 1f);
+			card.DrawRect(new Rect2(shellInset, shellInset, cw - shellInset * 2f, ch - shellInset * 2f),
+				new Color(0.010f, 0.020f, 0.044f, 0.96f));
+			card.DrawRect(new Rect2(shellInset, shellInset, cw - shellInset * 2f, ch - shellInset * 2f),
+				new Color(0.17f, 0.42f, 0.54f, 0.21f), false, 1f);
+
+			// Richer, darker content bay.
+			float contentW = cw - contentInset * 2f;
+			float contentH = ch - contentInset * 2f;
+			card.DrawRect(new Rect2(contentInset - 2f, contentInset - 2f, contentW + 4f, contentH + 4f),
+				new Color(0.13f, 0.30f, 0.40f, 0.22f), false, 1f);
+			card.DrawRect(new Rect2(contentInset, contentInset, contentW, contentH),
+				new Color(0.006f, 0.012f, 0.034f, 0.995f));
+			for (int i = 0; i < 6; i++)
+			{
+				float t = i / 5f;
+				float y = contentInset + 1f + t * contentH * 0.56f;
+				float hBand = contentH * 0.11f;
+				float a = Mathf.Lerp(0.11f, 0.028f, t);
+				card.DrawRect(new Rect2(contentInset + 1f, y, contentW - 2f, hBand), new Color(0.14f, 0.36f, 0.50f, a));
+			}
+			card.DrawRect(new Rect2(contentInset + 1f, contentInset + contentH * 0.60f, contentW - 2f, contentH * 0.40f - 1f),
+				new Color(0f, 0f, 0f, 0.20f));
+			card.DrawRect(new Rect2(contentInset, contentInset, contentW, contentH),
+				new Color(0.22f, 0.52f, 0.64f, 0.16f), false, 1f);
+			card.DrawLine(new Vector2(contentInset + 2f, contentInset + 2f), new Vector2(cw - contentInset - 2f, contentInset + 2f),
+				new Color(0.94f, 0.99f, 1.00f, 0.22f), 1f);
+			card.DrawLine(new Vector2(contentInset + 2f, contentInset + 2f), new Vector2(contentInset + 2f, ch - contentInset - 2f),
+				new Color(0.64f, 0.86f, 0.96f, 0.08f), 1f);
+
+			// Shared edge logic with demo panel: top lip + centered bottom energy cap.
+			card.DrawLine(new Vector2(8f, 3f), new Vector2(cw - 8f, 3f), new Color(0.90f, 0.98f, 0.96f, 0.36f), 1f);
+			card.DrawLine(new Vector2(9f, 4f), new Vector2(cw - 9f, 4f),
+				new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.20f), 1f);
+			float capW = Mathf.Clamp(cw * 0.17f, 44f, 72f);
+			float capX = (cw - capW) * 0.5f;
+			card.DrawRect(new Rect2(capX, 1.2f, capW, 3f), new Color(0.92f, 0.99f, 0.82f, 0.26f + breath * 0.05f));
+			card.DrawRect(new Rect2(capX + 3f, ch - 5.8f, capW - 6f, 3f),
+				new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.38f + breath * 0.10f));
+			card.DrawRect(new Rect2(capX + 6f, ch - 8.8f, capW - 12f, 3f), new Color(0.30f, 0.56f, 0.24f, 0.18f));
+
+			// Tiny, restrained top rail glint (horizontal, never crossing bounds).
+			float glintW = Mathf.Clamp(cw * 0.18f, 44f, 78f);
+			float glintSpan = Mathf.Max(1f, cw - 16f - glintW);
+			float glintX = 8f + ((_menuAnimTime * 0.06f) % 1f) * glintSpan;
+			card.DrawRect(new Rect2(glintX, 6f, glintW, 2f), new Color(0.78f, 0.96f, 1.0f, 0.11f));
+
+			// Glassy side emitters like a premium chassis lock.
+			float emitH = 44f;
+			float emitY = ch * 0.53f - emitH * 0.5f;
 			for (int i = 0; i < 4; i++)
 			{
-				float spread = 1f + i * 1.8f;
-				float alpha = 0.048f - i * 0.010f + breath * 0.006f;
-				card.DrawRect(new Rect2(-spread, -spread, cw + spread * 2f, ch + spread * 2f),
-					new Color(0.30f, 0.58f, 0.34f, alpha), false, 1f);
+				float spread = i;
+				float a = 0.18f - i * 0.036f + breath * 0.035f;
+				card.DrawRect(new Rect2(1f - spread, emitY - spread, 5f + spread * 2f, emitH + spread * 2f),
+					new Color(0.42f, 0.90f, 1.0f, a), false, 1f);
+				card.DrawRect(new Rect2(cw - 6f - spread, emitY - spread, 5f + spread * 2f, emitH + spread * 2f),
+					new Color(0.64f, 0.52f, 1.0f, a), false, 1f);
 			}
-
-			// Frame shell.
-			card.DrawRect(new Rect2(2f, 2f, cw - 4f, ch - 4f), new Color(0.06f, 0.10f, 0.14f, 0.22f));
-			card.DrawRect(new Rect2(2f, 2f, cw - 4f, ch - 4f), new Color(0.28f, 0.52f, 0.26f, 0.26f), false, 1f);
-
-			// Content well: darker, richer, clearly separated from outer frame.
-			const float contentInset = 12f;
-			card.DrawRect(new Rect2(contentInset, contentInset, cw - contentInset * 2f, ch - contentInset * 2f),
-				new Color(0.015f, 0.020f, 0.058f, 0.96f));
-			card.DrawRect(new Rect2(contentInset + 1f, contentInset + 1f, cw - (contentInset + 1f) * 2f, (ch - contentInset * 2f) * 0.28f),
-				new Color(0.08f, 0.16f, 0.20f, 0.11f));
-			card.DrawRect(new Rect2(contentInset, contentInset, cw - contentInset * 2f, ch - contentInset * 2f),
-				new Color(0.20f, 0.48f, 0.40f, 0.17f), false, 1f);
-
-			// Shared framing language: crisp top lip + restrained bottom rail.
-			card.DrawLine(new Vector2(6f, 2f), new Vector2(cw - 6f, 2f), new Color(0.94f, 0.99f, 0.84f, 0.42f), 1f);
-			card.DrawLine(new Vector2(8f, 3f), new Vector2(cw - 8f, 3f), new Color(0.66f, 0.84f, 0.34f, 0.18f), 1f);
-			card.DrawRect(new Rect2(10f, ch - 6f, cw - 20f, 2f), new Color(0.80f, 0.90f, 0.56f, 0.26f + breath * 0.04f));
-			card.DrawRect(new Rect2(10f, ch - 10f, cw - 20f, 4f), new Color(0.38f, 0.58f, 0.24f, 0.08f));
-
-			// Restrained sweep over the core, always fully inside bounds.
-			float sweepW = 18f;
-			float coreLeft = contentInset + 2f;
-			float coreRight = cw - contentInset - 2f;
-			float coreSpan = Mathf.Max(1f, coreRight - coreLeft - sweepW);
-			float sweepLeft = coreLeft + ((_menuAnimTime * 0.08f) % 1f) * coreSpan;
-			card.DrawRect(new Rect2(sweepLeft, contentInset + 6f, sweepW, ch - contentInset * 2f - 12f),
-				new Color(0.70f, 0.84f, 0.92f, 0.014f + breath * 0.004f));
+			card.DrawRect(new Rect2(1f, emitY, 5f, emitH), new Color(0.52f, 0.94f, 1.0f, 0.35f + breath * 0.09f));
+			card.DrawRect(new Rect2(2f, emitY + 5f, 3f, emitH - 10f), new Color(0.86f, 1.0f, 1.0f, 0.58f + breath * 0.10f));
+			card.DrawRect(new Rect2(cw - 6f, emitY, 5f, emitH), new Color(0.60f, 0.56f, 1.0f, 0.34f + breath * 0.09f));
+			card.DrawRect(new Rect2(cw - 5f, emitY + 5f, 3f, emitH - 10f), new Color(0.90f, 0.84f, 1.0f, 0.56f + breath * 0.10f));
 		};
 		RegisterAnimatedSurface(card);
 
@@ -170,21 +216,21 @@ public partial class MainMenu : Node
 		var playBtn = MakeMenuButton("PLAY", 260, 52, 22);
 		UITheme.ApplyPrimaryStyle(playBtn);
 		playBtn.AddThemeStyleboxOverride("normal", UITheme.MakeBtn(
-			new Color(0.060f, 0.125f, 0.038f),
-			new Color(0.36f, 0.52f, 0.13f),
-			border: 2, corners: 10, glowAlpha: 0.18f, glowSize: 6, glowColor: UITheme.Lime));
+			new Color(0.052f, 0.112f, 0.034f),
+			new Color(0.56f, 0.76f, 0.20f),
+			border: 2, corners: 10, glowAlpha: 0.24f, glowSize: 7, glowColor: UITheme.Lime));
 		playBtn.AddThemeStyleboxOverride("hover", UITheme.MakeBtn(
-			new Color(0.105f, 0.235f, 0.070f),
+			new Color(0.088f, 0.205f, 0.064f),
 			UITheme.Lime,
-			border: 2, corners: 10, glowAlpha: 0.30f, glowSize: 9, glowColor: UITheme.Lime));
+			border: 2, corners: 10, glowAlpha: 0.34f, glowSize: 9, glowColor: UITheme.Lime));
 		playBtn.AddThemeStyleboxOverride("focus", UITheme.MakeBtn(
-			new Color(0.093f, 0.205f, 0.058f),
+			new Color(0.082f, 0.186f, 0.054f),
 			UITheme.Lime,
-			border: 2, corners: 10, glowAlpha: 0.24f, glowSize: 8, glowColor: UITheme.Lime));
+			border: 2, corners: 10, glowAlpha: 0.28f, glowSize: 8, glowColor: UITheme.Lime));
 		playBtn.AddThemeStyleboxOverride("pressed", UITheme.MakeBtn(
-			new Color(0.036f, 0.084f, 0.022f),
-			new Color(0.34f, 0.48f, 0.11f),
-			border: 2, corners: 10, glowAlpha: 0.12f, glowSize: 4, glowColor: UITheme.LimeDim));
+			new Color(0.030f, 0.074f, 0.020f),
+			new Color(0.38f, 0.54f, 0.13f),
+			border: 2, corners: 10, glowAlpha: 0.14f, glowSize: 4, glowColor: UITheme.LimeDim));
 		playBtn.AddThemeFontOverride("font", UITheme.Bold);
 		playBtn.AddThemeColorOverride("font_color", new Color(0.93f, 0.98f, 0.86f));
 		playBtn.AddThemeColorOverride("font_hover_color", new Color(0.94f, 1.0f, 0.74f));
@@ -193,21 +239,38 @@ public partial class MainMenu : Node
 			float pw = playBtn.Size.X;
 			float ph = playBtn.Size.Y;
 			float breath = 0.5f + 0.5f * Mathf.Sin(_menuAnimTime * 0.85f);
-			float sweepT = (_menuAnimTime * 0.22f) % 1f;
+
 			for (int i = 0; i < 3; i++)
 			{
-				float spread = 0.8f + i * 1.4f;
-				float alpha = 0.045f - i * 0.010f + breath * 0.006f;
+				float spread = 0.9f + i * 1.2f;
+				float alpha = 0.064f - i * 0.013f + breath * 0.008f;
 				playBtn.DrawRect(new Rect2(-spread, -spread, pw + spread * 2f, ph + spread * 2f),
 					new Color(0.44f, 0.72f, 0.22f, alpha), false, 1f);
 			}
-			playBtn.DrawRect(new Rect2(6f, 6f, pw - 12f, ph * 0.22f), new Color(0.90f, 1.0f, 0.86f, 0.04f));
-			float sweepW = 10f;
-			float btnLeft = 7f;
-			float btnRight = pw - 7f;
-			float playSpan = Mathf.Max(1f, btnRight - btnLeft - sweepW);
-			float playSweepLeft = btnLeft + sweepT * playSpan;
-			playBtn.DrawRect(new Rect2(playSweepLeft, 6f, sweepW, ph - 12f), new Color(0.84f, 0.95f, 0.82f, 0.034f + breath * 0.010f));
+
+			// Subtle inner material gradient for a richer, less flat PLAY surface.
+			float innerLeft = 6f;
+			float innerTop = 6f;
+			float innerW = pw - 12f;
+			float innerH = ph - 12f;
+			for (int i = 0; i < 6; i++)
+			{
+				float t = i / 5f;
+				float y = innerTop + t * innerH;
+				float a = Mathf.Lerp(0.095f, 0.022f, t);
+				playBtn.DrawRect(new Rect2(innerLeft, y, innerW, innerH / 6f + 1f), new Color(0.80f, 1.00f, 0.70f, a));
+			}
+			playBtn.DrawRect(new Rect2(innerLeft, innerTop + innerH * 0.54f, innerW, innerH * 0.40f),
+				new Color(0f, 0f, 0f, 0.10f));
+
+			// Restrained reflective sweep near the top edge only.
+			float sweepW = Mathf.Clamp(pw * 0.17f, 26f, 44f);
+			float sweepX = 10f + (((_menuAnimTime * 0.14f) % 1f) * Mathf.Max(1f, pw - 20f - sweepW));
+			playBtn.DrawRect(new Rect2(sweepX, 7f, sweepW, 2f), new Color(0.92f, 1.0f, 0.88f, 0.12f));
+			playBtn.DrawRect(new Rect2(5f, 5f, pw - 10f, ph - 10f), new Color(0.84f, 0.99f, 0.74f, 0.14f), false, 1f);
+			playBtn.DrawLine(new Vector2(8f, 6f), new Vector2(pw - 8f, 6f), new Color(1.0f, 1.0f, 0.90f, 0.34f), 1f);
+			playBtn.DrawLine(new Vector2(8f, 7f), new Vector2(pw - 8f, 7f), new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.28f), 1f);
+
 			playBtn.DrawLine(new Vector2(13f, 2f), new Vector2(pw - 13f, 2f),
 				new Color(0.94f, 1.0f, 0.84f, 0.46f), 1f);
 			playBtn.DrawLine(new Vector2(15f, 3f), new Vector2(pw - 15f, 3f),
@@ -260,26 +323,6 @@ public partial class MainMenu : Node
 			var balancer = new Control { CustomMinimumSize = new Vector2(272, 0) };
 			menuRow.AddChild(balancer);
 			menuRow.MoveChild(balancer, 0);
-
-			var purpleNode = new Color(0.55f, 0.30f, 0.90f);
-			balancer.Draw += () =>
-			{
-				float midY = balancer.Size.Y * 0.5f;
-				float pulse = 0.5f + 0.5f * Mathf.Sin(_menuAnimTime * 0.95f);
-				float packetX = 10f + (((_menuAnimTime * 0.14f) % 1f) * (Mathf.Max(20f, balancer.Size.X - 20f)));
-				balancer.DrawLine(new Vector2(6f, midY),
-					new Vector2(balancer.Size.X - 6f, midY),
-					new Color(purpleNode, 0.22f + pulse * 0.10f), 1f);
-				balancer.DrawLine(new Vector2(6f, midY + 1f),
-					new Vector2(balancer.Size.X - 6f, midY + 1f),
-					new Color(0.20f, 0.90f, 0.95f, 0.05f + pulse * 0.04f), 1f);
-				balancer.DrawRect(new Rect2(3f, midY - 2.5f, 5f, 5f),
-					new Color(purpleNode, 0.38f));
-				balancer.DrawRect(new Rect2(balancer.Size.X - 8f, midY - 2.5f, 5f, 5f),
-					new Color(purpleNode, 0.38f));
-				balancer.DrawRect(new Rect2(packetX - 2f, midY - 2f, 4f, 4f), new Color(0.80f, 0.60f, 1.0f, 0.30f));
-			};
-			RegisterAnimatedSurface(balancer);
 
 			var banner = BuildDemoCompleteBanner(balancer);
 			banner.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
@@ -386,17 +429,17 @@ public partial class MainMenu : Node
 	{
 		var btn = MakeMenuButton(text, 260, 38, 20);
 		btn.AddThemeStyleboxOverride("normal", UITheme.MakeBtn(
-			new Color(0.020f, 0.028f, 0.085f),
-			new Color(0.12f, 0.18f, 0.20f),
-			border: 1, corners: 8, glowAlpha: 0.06f, glowSize: 2, glowColor: UITheme.Cyan));
+			new Color(0.018f, 0.028f, 0.080f),
+			new Color(0.16f, 0.28f, 0.36f),
+			border: 1, corners: 8, glowAlpha: 0.08f, glowSize: 3, glowColor: UITheme.Cyan));
 		btn.AddThemeStyleboxOverride("hover", UITheme.MakeBtn(
-			new Color(0.030f, 0.050f, 0.10f),
-			new Color(0.27f, 0.72f, 0.78f),
-			border: 2, corners: 8, glowAlpha: 0.16f, glowSize: 6, glowColor: UITheme.Cyan));
+			new Color(0.028f, 0.050f, 0.10f),
+			new Color(0.30f, 0.78f, 0.84f),
+			border: 2, corners: 8, glowAlpha: 0.18f, glowSize: 6, glowColor: UITheme.Cyan));
 		btn.AddThemeStyleboxOverride("focus", UITheme.MakeBtn(
-			new Color(0.028f, 0.044f, 0.095f),
-			new Color(0.27f, 0.72f, 0.78f),
-			border: 2, corners: 8, glowAlpha: 0.14f, glowSize: 5, glowColor: UITheme.Cyan));
+			new Color(0.026f, 0.044f, 0.095f),
+			new Color(0.30f, 0.78f, 0.84f),
+			border: 2, corners: 8, glowAlpha: 0.16f, glowSize: 5, glowColor: UITheme.Cyan));
 		btn.AddThemeStyleboxOverride("pressed", UITheme.MakeBtn(
 			new Color(0.018f, 0.024f, 0.078f),
 			new Color(0.20f, 0.50f, 0.54f),
@@ -404,10 +447,12 @@ public partial class MainMenu : Node
 		btn.Draw += () =>
 		{
 			float bw = btn.Size.X;
-			btn.DrawLine(new Vector2(11f, 2f), new Vector2(bw - 11f, 2f), new Color(UITheme.Cyan, 0.18f), 1f);
+			btn.DrawLine(new Vector2(11f, 2f), new Vector2(bw - 11f, 2f), new Color(UITheme.Cyan, 0.22f), 1f);
 			btn.DrawLine(new Vector2(11f, btn.Size.Y - 2f), new Vector2(bw - 11f, btn.Size.Y - 2f), new Color(0f, 0f, 0f, 0.34f), 1f);
+			btn.DrawRect(new Rect2(5f, 5f, bw - 10f, btn.Size.Y - 10f), new Color(0.80f, 0.95f, 1.0f, 0.10f), false, 1f);
+			btn.DrawLine(new Vector2(8f, 6f), new Vector2(bw - 8f, 6f), new Color(0.90f, 0.99f, 1.0f, 0.19f), 1f);
 		};
-		AddButtonSurface(btn, UITheme.Cyan, 0.08f, 0.12f);
+		AddButtonSurface(btn, UITheme.Cyan, 0.10f, 0.12f);
 		btn.Pressed += callback;
 		parent.AddChild(btn);
 	}
@@ -479,7 +524,7 @@ public partial class MainMenu : Node
 	{
 		var ls = new LabelSettings();
 		ls.Font = GD.Load<FontFile>("res://Assets/Fonts/Anagram.ttf");
-		ls.FontSize = 88;
+		ls.FontSize = 70;
 		ls.FontColor = new Color("#d4f020");
 		ls.OutlineColor = new Color("#1a4400");
 		ls.OutlineSize = 4;
@@ -496,14 +541,14 @@ public partial class MainMenu : Node
 		panel.CustomMinimumSize = new Vector2(260, 0);
 
 		var bannerStyle = UITheme.MakePanel(
-			bg:          new Color(0.030f, 0.022f, 0.102f),
-			border:      new Color(0.52f, 0.38f, 0.78f, 0.86f),
+			bg:          new Color(0.024f, 0.020f, 0.090f),
+			border:      new Color(0.56f, 0.44f, 0.86f, 0.88f),
 			corners:     6,
 			borderWidth: 2,
 			padH:        16,
 			padV:        10);
-		bannerStyle.ShadowColor = new Color(0.55f, 0.28f, 0.90f, 0.22f);
-		bannerStyle.ShadowSize = 8;
+		bannerStyle.ShadowColor = new Color(0.55f, 0.28f, 0.90f, 0.20f);
+		bannerStyle.ShadowSize = 7;
 		bannerStyle.ShadowOffset = new Vector2(0f, 2f);
 		panel.AddThemeStyleboxOverride("panel", bannerStyle);
 
@@ -512,12 +557,19 @@ public partial class MainMenu : Node
 			float w = panel.Size.X;
 			float h = panel.Size.Y;
 			float pulse = 0.5f + 0.5f * Mathf.Sin(_menuAnimTime * 0.72f + 1.1f);
-			panel.DrawRect(new Rect2(3f, 3f, w - 6f, h - 6f), new Color(0.64f, 0.44f, 0.95f, 0.10f + pulse * 0.05f), false, 1f);
-			panel.DrawRect(new Rect2(4f, 4f, w - 8f, h - 8f), new Color(0.06f, 0.10f, 0.18f, 0.22f));
-			panel.DrawRect(new Rect2(12f, 12f, w - 24f, h - 24f), new Color(0.02f, 0.03f, 0.09f, 0.72f));
-			panel.DrawRect(new Rect2(12f, 12f, w - 24f, h - 24f), new Color(0.58f, 0.43f, 0.84f, 0.12f), false, 1f);
-			panel.DrawLine(new Vector2(8f, 3f), new Vector2(w - 8f, 3f), new Color(0.88f, 0.72f, 1.00f, 0.38f), 1f);
-			panel.DrawRect(new Rect2(10f, h - 6f, w - 20f, 2f), new Color(0.70f, 0.42f, 0.95f, 0.24f + pulse * 0.06f));
+			panel.DrawRect(new Rect2(3f, 3f, w - 6f, h - 6f), new Color(0.66f, 0.48f, 0.98f, 0.10f + pulse * 0.04f), false, 1f);
+			panel.DrawRect(new Rect2(4f, 4f, w - 8f, h - 8f), new Color(0.05f, 0.08f, 0.14f, 0.24f));
+			panel.DrawRect(new Rect2(8f, 8f, w - 16f, h - 16f), new Color(0.012f, 0.020f, 0.060f, 0.88f));
+			panel.DrawRect(new Rect2(8f, 8f, w - 16f, h - 16f), new Color(0.22f, 0.46f, 0.60f, 0.09f), false, 1f);
+			panel.DrawRect(new Rect2(11f, 11f, w - 22f, h - 22f), new Color(0.008f, 0.012f, 0.040f, 0.78f));
+			panel.DrawRect(new Rect2(5f, 5f, w - 10f, h - 10f), new Color(0.92f, 0.86f, 1.00f, 0.10f), false, 1f);
+			panel.DrawLine(new Vector2(8f, 3f), new Vector2(w - 8f, 3f), new Color(0.88f, 0.72f, 1.00f, 0.34f), 1f);
+			panel.DrawLine(new Vector2(9f, 4f), new Vector2(w - 9f, 4f), new Color(0.66f, 0.84f, 0.98f, 0.16f), 1f);
+			panel.DrawRect(new Rect2((w - 42f) * 0.5f, 2f, 42f, 3f), new Color(0.84f, 0.68f, 1.0f, 0.18f + pulse * 0.04f));
+			panel.DrawRect(new Rect2(10f, h - 6f, w - 20f, 2f), new Color(0.70f, 0.42f, 0.95f, 0.20f + pulse * 0.05f));
+			panel.DrawRect(new Rect2((w - 34f) * 0.5f, h - 6f, 34f, 2f), new Color(0.68f, 0.84f, 0.95f, 0.18f + pulse * 0.05f));
+			panel.DrawRect(new Rect2(14f, h - 4f, 24f, 2f), new Color(0.52f, 0.64f, 1.0f, 0.28f + pulse * 0.05f));
+			panel.DrawRect(new Rect2(w - 38f, h - 4f, 24f, 2f), new Color(0.52f, 0.64f, 1.0f, 0.28f + pulse * 0.05f));
 		};
 
 		var inner = new VBoxContainer();
@@ -610,16 +662,93 @@ public partial class MainMenu : Node
 			var size = GetViewportRect().Size;
 			float w = size.X;
 			float h = size.Y;
-			var core = new Vector2(w * 0.5f, h * 0.48f);
-			var side = new Vector2(w * 0.66f, h * 0.53f);
 			float breath = 0.5f + 0.5f * MathF.Sin(_time * 0.30f);
+			var core = new Vector2(w * 0.50f, h * 0.50f);
 
-			DrawCircle(core, w * 0.33f, new Color(0.07f, 0.15f, 0.10f, 0.07f + 0.020f * breath));
-			DrawCircle(core, w * 0.23f, new Color(0.11f, 0.24f, 0.14f, 0.05f + 0.015f * breath));
-			DrawCircle(side, w * 0.16f, new Color(0.17f, 0.14f, 0.24f, 0.018f + 0.012f * breath));
-			DrawCircle(new Vector2(core.X, h * 0.64f), w * 0.21f, new Color(0f, 0f, 0f, 0.18f));
-			DrawRect(new Rect2(0f, 0f, w * 0.13f, h), new Color(0f, 0f, 0f, 0.12f));
-			DrawRect(new Rect2(w * 0.87f, 0f, w * 0.13f, h), new Color(0f, 0f, 0f, 0.12f));
+			// Distributed cloud field so the atmosphere reads wispy instead of circular overlays.
+			for (int i = 0; i < 140; i++)
+			{
+				float t = i + 1f;
+				float hx = Hash01(t * 3.17f + 0.8f);
+				float hy = Hash01(t * 5.03f + 1.9f);
+				float hr = Hash01(t * 7.91f + 2.6f);
+				var p = new Vector2(
+					core.X + (hx - 0.5f) * w * 0.44f,
+					core.Y + (hy - 0.5f) * h * 0.30f);
+				float r = w * (0.006f + hr * 0.020f);
+				float a = (0.002f + hr * 0.004f) * (0.82f + 0.18f * breath);
+				Color c = hr > 0.68f
+					? new Color(0.10f, 0.34f, 0.48f, a)
+					: new Color(0.05f, 0.17f, 0.26f, a);
+				DrawCircle(p, r, c);
+			}
+
+			// Left cyan-green nebula pocket.
+			for (int i = 0; i < 150; i++)
+			{
+				float t = i + 1f;
+				float hx = Hash01(t * 9.31f + 0.6f);
+				float hy = Hash01(t * 7.87f + 2.2f);
+				float hr = Hash01(t * 5.61f + 1.4f);
+				var p = new Vector2(
+					w * 0.34f + (hx - 0.5f) * w * 0.24f,
+					h * 0.62f + (hy - 0.5f) * h * 0.24f);
+				float r = w * (0.003f + hr * 0.010f);
+				float a = (0.0018f + hr * 0.0038f) * (0.80f + 0.20f * breath);
+				DrawCircle(p, r, new Color(0.07f, 0.30f, 0.26f, a));
+			}
+
+			// Right blue-violet pocket behind demo card.
+			for (int i = 0; i < 110; i++)
+			{
+				float t = i + 1f;
+				float hx = Hash01(t * 6.11f + 0.4f);
+				float hy = Hash01(t * 4.87f + 1.6f);
+				float hr = Hash01(t * 8.61f + 2.4f);
+				var p = new Vector2(
+					w * 0.63f + (hx - 0.5f) * w * 0.18f,
+					h * 0.50f + (hy - 0.5f) * h * 0.18f);
+				float r = w * (0.003f + hr * 0.009f);
+				float a = (0.0015f + hr * 0.0034f) * (0.80f + 0.20f * breath);
+				DrawCircle(p, r, new Color(0.06f, 0.22f, 0.34f, a));
+			}
+
+			DrawCircle(new Vector2(w * 0.34f, h * 0.62f), w * 0.11f, new Color(0.08f, 0.36f, 0.30f, 0.022f + breath * 0.006f));
+			DrawCircle(new Vector2(w * 0.57f, h * 0.50f), w * 0.12f, new Color(0.07f, 0.26f, 0.42f, 0.020f + breath * 0.006f));
+			DrawCircle(new Vector2(w * 0.50f, h * 0.56f), w * 0.14f, new Color(0.05f, 0.18f, 0.30f, 0.016f + breath * 0.004f));
+
+			// Fine haze grain to avoid visible large circles.
+			for (int i = 0; i < 180; i++)
+			{
+				float t = i + 1f;
+				float hx = Hash01(t * 12.17f + 0.2f);
+				float hy = Hash01(t * 9.37f + 1.1f);
+				float hr = Hash01(t * 6.77f + 2.5f);
+				var p = new Vector2(
+					w * 0.50f + (hx - 0.5f) * w * 0.52f,
+					h * 0.54f + (hy - 0.5f) * h * 0.40f);
+				float r = w * (0.0012f + hr * 0.0056f);
+				float a = 0.0016f + hr * 0.0035f;
+				Color c = hr > 0.64f
+					? new Color(0.10f, 0.38f, 0.48f, a)
+					: new Color(0.05f, 0.20f, 0.30f, a);
+				DrawCircle(p, r, c);
+			}
+
+			// Local glow pockets around the panel side emitters.
+			DrawCircle(new Vector2(w * 0.40f, h * 0.58f), w * 0.028f, new Color(0.30f, 0.96f, 1.0f, 0.14f));
+			DrawCircle(new Vector2(w * 0.60f, h * 0.58f), w * 0.028f, new Color(0.66f, 0.58f, 1.0f, 0.12f));
+			DrawCircle(new Vector2(w * 0.40f, h * 0.58f), w * 0.016f, new Color(0.80f, 1.0f, 1.0f, 0.22f));
+			DrawCircle(new Vector2(w * 0.60f, h * 0.58f), w * 0.016f, new Color(0.94f, 0.86f, 1.0f, 0.20f));
+
+			DrawRect(new Rect2(0f, 0f, w * 0.09f, h), new Color(0f, 0f, 0f, 0.035f));
+			DrawRect(new Rect2(w * 0.91f, 0f, w * 0.09f, h), new Color(0f, 0f, 0f, 0.035f));
+		}
+
+		private static float Hash01(float x)
+		{
+			float s = MathF.Sin(x) * 43758.5453f;
+			return s - MathF.Floor(s);
 		}
 	}
 }
