@@ -4,54 +4,227 @@ using Godot;
 namespace SlotTheory.UI;
 
 /// <summary>
-/// Fullscreen animated background drawn behind the main menu.
-/// Visual language is grounded entirely in Slot Theory's own systems:
-///   - 8×5 map grid (MapGenerator.COLS=8, ROWS=5)
-///   - Representative Serpent Grid snake path (3 horizontal legs)
-///   - Energy pulses flowing along path legs (like enemies on a lane)
-///   - Slot zone nodes at the 3×2 slot placement grid
-///   - Two tower range rings (circular range-indicator motif)
-///   - Lime/cyan palette from the game's own UI colors
-/// All elements are at very low opacity — texture, not overlay.
+/// Fullscreen animated circuit-board background for the main menu.
+/// PCB infrastructure in dormant standby — crisp traces, tight annular pads,
+/// component footprints, via holes. Atmosphere from corner vignette and a soft
+/// central light pocket, not from density or noise.
 /// </summary>
 public partial class NeonGridBg : Control
 {
     private float _t = 0f;
 
-    // Game palette — matches UITheme exactly
-    private static readonly Color LaneH  = new(0.651f, 0.839f, 0.031f); // lime  – horizontal grid / path
-    private static readonly Color LaneV  = new(0.08f,  0.85f,  0.90f);  // cyan  – vertical grid columns
-    private static readonly Color PathC  = new(0.80f,  1.00f,  0.20f);  // bright lime – snake path + pulses
-    private static readonly Color NodeC  = new(0.08f,  0.85f,  0.90f);  // cyan  – slot zone nodes
-    private static readonly Color RingC  = new(0.651f, 0.839f, 0.031f); // lime  – tower range rings
+    private static readonly Color TraceC = new(0.10f, 0.60f, 0.35f);
+    private static readonly Color Orange = new(1.00f, 0.52f, 0.05f);
+    private static readonly Color Cyan   = new(0.08f, 0.85f, 0.90f);
+    private static readonly Color Lime   = new(0.651f, 0.839f, 0.031f);
 
-    // Representative Serpent Grid snake path in normalized 8×5 grid coords.
-    // Mirrors the MapGenerator's 3-horizontal-leg snake with c1=5, row turns at row 2 and row 4.
-    //   Leg 1 (right):  col 0→5, row 0
-    //   Down:           col 5, row 0→2
-    //   Leg 2 (left):   col 5→1, row 2
-    //   Down:           col 1, row 2→4
-    //   Leg 3 (right):  col 1→8, row 4
-    private static readonly (float C, float R)[] PathWaypoints =
+    // ── Traces (weight: 0=primary 2px, 1=secondary 1.5px, 2=stub 1px) ────────
+    private static readonly (float X1, float Y1, float X2, float Y2, int W)[] Traces =
     {
-        (0f, 0f), (5f, 0f),   // Leg 1
-        (5f, 2f),              // Turn down
-        (1f, 2f),              // Leg 2
-        (1f, 4f),              // Turn down
-        (8f, 4f),              // Leg 3 exit
+        // PRIMARY TRUNKS
+        (0.13f, 0.00f, 0.13f, 1.00f, 0),
+        (0.87f, 0.00f, 0.87f, 1.00f, 0),
+        (0.00f, 0.14f, 0.20f, 0.14f, 0),
+        (0.80f, 0.14f, 1.00f, 0.14f, 0),
+        (0.00f, 0.38f, 0.13f, 0.38f, 0),
+        (0.87f, 0.40f, 1.00f, 0.40f, 0),
+        (0.00f, 0.62f, 0.18f, 0.62f, 0),
+        (0.82f, 0.62f, 1.00f, 0.62f, 0),
+        (0.00f, 0.85f, 0.13f, 0.85f, 0),
+        (0.87f, 0.85f, 1.00f, 0.85f, 0),
+        (0.13f, 0.48f, 0.27f, 0.48f, 0),
+        (0.73f, 0.48f, 0.87f, 0.48f, 0),
+        (0.00f, 0.06f, 0.34f, 0.06f, 0),
+        (0.66f, 0.06f, 1.00f, 0.06f, 0),
+        (0.33f, 0.00f, 0.33f, 0.16f, 0),
+        (0.67f, 0.00f, 0.67f, 0.16f, 0),
+        (0.00f, 0.92f, 0.42f, 0.92f, 0),
+        (0.58f, 0.92f, 1.00f, 0.92f, 0),
+        (0.42f, 0.92f, 0.42f, 1.00f, 0),
+        (0.58f, 0.92f, 0.58f, 1.00f, 0),
+        // SECONDARY COLUMNS
+        (0.06f, 0.14f, 0.06f, 0.65f, 1),
+        (0.94f, 0.14f, 0.94f, 0.65f, 1),
+        (0.04f, 0.38f, 0.04f, 0.62f, 1),
+        (0.96f, 0.38f, 0.96f, 0.62f, 1),
+        // LEFT PANEL ROUTING
+        (0.00f, 0.25f, 0.06f, 0.25f, 1),
+        (0.00f, 0.30f, 0.13f, 0.30f, 1),
+        (0.06f, 0.44f, 0.13f, 0.44f, 1),
+        (0.00f, 0.50f, 0.06f, 0.50f, 1),
+        (0.00f, 0.55f, 0.13f, 0.55f, 1),
+        (0.06f, 0.65f, 0.13f, 0.65f, 1),
+        (0.00f, 0.72f, 0.13f, 0.72f, 1),
+        (0.00f, 0.78f, 0.06f, 0.78f, 1),
+        (0.13f, 0.14f, 0.34f, 0.14f, 1),
+        (0.13f, 0.76f, 0.06f, 0.76f, 1),
+        (0.00f, 0.13f, 0.13f, 0.13f, 2),
+        // RIGHT PANEL ROUTING
+        (0.94f, 0.25f, 1.00f, 0.25f, 1),
+        (0.87f, 0.30f, 1.00f, 0.30f, 1),
+        (0.87f, 0.44f, 0.94f, 0.44f, 1),
+        (0.94f, 0.50f, 1.00f, 0.50f, 1),
+        (0.87f, 0.55f, 1.00f, 0.55f, 1),
+        (0.87f, 0.65f, 0.94f, 0.65f, 1),
+        (0.87f, 0.72f, 1.00f, 0.72f, 1),
+        (0.94f, 0.78f, 1.00f, 0.78f, 1),
+        (0.66f, 0.14f, 0.87f, 0.14f, 1),
+        (0.87f, 0.76f, 0.94f, 0.76f, 1),
+        (0.87f, 0.13f, 1.00f, 0.13f, 2),
+        // COLUMN CONNECTOR BRIDGES
+        (0.06f, 0.38f, 0.13f, 0.38f, 2),
+        (0.06f, 0.50f, 0.13f, 0.50f, 2),
+        (0.04f, 0.44f, 0.06f, 0.44f, 2),
+        (0.04f, 0.55f, 0.06f, 0.55f, 2),
+        (0.20f, 0.14f, 0.20f, 0.24f, 1),
+        (0.20f, 0.24f, 0.27f, 0.24f, 2),
+        (0.87f, 0.50f, 0.94f, 0.50f, 2),
+        (0.96f, 0.44f, 0.94f, 0.44f, 2),
+        (0.96f, 0.55f, 0.94f, 0.55f, 2),
+        (0.80f, 0.14f, 0.80f, 0.24f, 1),
+        (0.80f, 0.24f, 0.73f, 0.24f, 2),
+        // INNER FEED ROUTING
+        (0.27f, 0.48f, 0.27f, 0.62f, 1),
+        (0.27f, 0.62f, 0.38f, 0.62f, 1),
+        (0.38f, 0.62f, 0.38f, 0.48f, 2),
+        (0.73f, 0.48f, 0.73f, 0.62f, 1),
+        (0.73f, 0.62f, 0.62f, 0.62f, 1),
+        (0.62f, 0.62f, 0.62f, 0.48f, 2),
+        (0.27f, 0.35f, 0.38f, 0.35f, 2),
+        (0.62f, 0.35f, 0.73f, 0.35f, 2),
+        (0.13f, 0.54f, 0.27f, 0.54f, 2),
+        (0.73f, 0.54f, 0.87f, 0.54f, 2),
+        // CENTER ROUTING (above card)
+        (0.27f, 0.28f, 0.38f, 0.28f, 2),
+        (0.62f, 0.28f, 0.73f, 0.28f, 2),
+        (0.27f, 0.32f, 0.50f, 0.32f, 2),
+        (0.50f, 0.28f, 0.73f, 0.28f, 2),
+        (0.38f, 0.28f, 0.38f, 0.35f, 2),
+        (0.62f, 0.28f, 0.62f, 0.35f, 2),
+        (0.50f, 0.24f, 0.50f, 0.32f, 2),
+        // CENTER ROUTING (below card)
+        (0.27f, 0.74f, 0.38f, 0.74f, 2),
+        (0.62f, 0.74f, 0.73f, 0.74f, 2),
+        (0.38f, 0.74f, 0.38f, 0.62f, 2),
+        (0.62f, 0.74f, 0.62f, 0.62f, 2),
+        (0.27f, 0.78f, 0.50f, 0.78f, 2),
+        (0.50f, 0.78f, 0.73f, 0.78f, 2),
+        // CROSS-ROUTES
+        (0.13f, 0.70f, 0.27f, 0.70f, 1),
+        (0.87f, 0.70f, 0.73f, 0.70f, 1),
+        (0.27f, 0.70f, 0.27f, 0.62f, 2),
+        (0.73f, 0.70f, 0.73f, 0.62f, 2),
+        // FOOTER EXTRAS
+        (0.42f, 0.85f, 0.42f, 0.92f, 2),
+        (0.58f, 0.85f, 0.58f, 0.92f, 2),
+        (0.00f, 0.91f, 0.13f, 0.91f, 2),
+        (0.87f, 0.91f, 1.00f, 0.91f, 2),
+        // DIAGONAL STUBS
+        (0.13f, 0.14f, 0.16f, 0.11f, 2),
+        (0.87f, 0.14f, 0.84f, 0.11f, 2),
+        (0.13f, 0.62f, 0.10f, 0.59f, 2),
+        (0.87f, 0.62f, 0.90f, 0.59f, 2),
+        (0.33f, 0.06f, 0.30f, 0.03f, 2),
+        (0.67f, 0.06f, 0.70f, 0.03f, 2),
+        (0.13f, 0.38f, 0.10f, 0.35f, 2),
+        (0.87f, 0.40f, 0.90f, 0.37f, 2),
+        (0.06f, 0.25f, 0.03f, 0.22f, 2),
+        (0.94f, 0.25f, 0.97f, 0.22f, 2),
+        (0.20f, 0.24f, 0.23f, 0.27f, 2),
+        (0.80f, 0.24f, 0.77f, 0.27f, 2),
+        (0.38f, 0.28f, 0.35f, 0.25f, 2),
+        (0.62f, 0.28f, 0.65f, 0.25f, 2),
     };
 
-    // Slot zone centers in 8×5 grid coords (3 cols × 2 rows of zones).
-    // These match where slots are placed in each zone (slightly inset from zone edge,
-    // preferring cells adjacent to the path).
-    private static readonly (float C, float R)[] SlotZones =
+    // ── Nodes (annular ring + bright core — no wide soft halos) ──────────────
+    private static readonly (float X, float Y, int C, float R)[] Nodes =
     {
-        (1.5f, 1f), (4f, 1f), (6.5f, 1f),   // top row of zones
-        (1.5f, 3f), (4f, 3f), (6.5f, 3f),   // bottom row of zones
+        // Orange hot nodes
+        (0.13f, 0.14f, 0, 8f), (0.87f, 0.14f, 0, 9f),
+        (0.13f, 0.62f, 0, 7f), (0.87f, 0.62f, 0, 8f),
+        (0.00f, 0.38f, 0, 6f), (0.13f, 0.38f, 0, 5f),
+        (1.00f, 0.40f, 0, 6f), (0.87f, 0.40f, 0, 5f),
+        (0.13f, 0.30f, 0, 4f), (0.87f, 0.30f, 0, 4f),
+        // Cyan routing nodes
+        (0.27f, 0.48f, 1, 6f), (0.73f, 0.48f, 1, 6f),
+        (0.33f, 0.06f, 1, 5f), (0.67f, 0.06f, 1, 5f),
+        (0.06f, 0.38f, 1, 4f), (0.94f, 0.40f, 1, 4f),
+        (0.20f, 0.14f, 1, 3f), (0.80f, 0.14f, 1, 3f),
+        (0.38f, 0.62f, 1, 4f), (0.62f, 0.62f, 1, 4f),
+        (0.27f, 0.35f, 1, 3f), (0.73f, 0.35f, 1, 3f),
+        (0.50f, 0.28f, 1, 3f), (0.50f, 0.78f, 1, 3f),
+        // Lime passive nodes (square pad shape)
+        (0.13f, 0.85f, 2, 4f), (0.87f, 0.85f, 2, 4f),
+        (0.42f, 0.92f, 2, 3f), (0.58f, 0.92f, 2, 3f),
+        (0.06f, 0.25f, 2, 3f), (0.94f, 0.25f, 2, 3f),
+        (0.27f, 0.62f, 2, 3f), (0.73f, 0.62f, 2, 3f),
+        (0.06f, 0.65f, 2, 3f), (0.94f, 0.65f, 2, 3f),
+        (0.38f, 0.74f, 2, 3f), (0.62f, 0.74f, 2, 3f),
     };
 
-    // Which horizontal path legs carry energy pulses (leg index 0, 2, 4 = h-legs)
-    private static readonly int[] PulseLegIndices = { 0, 2, 4 };
+    // ── Via holes ─────────────────────────────────────────────────────────────
+    private static readonly (float X, float Y, float R)[] Vias =
+    {
+        (0.13f, 0.48f, 4.5f), (0.87f, 0.48f, 4.5f),
+        (0.33f, 0.16f, 3.5f), (0.67f, 0.16f, 3.5f),
+        (0.06f, 0.62f, 3.0f), (0.94f, 0.62f, 3.0f),
+        (0.06f, 0.50f, 2.8f), (0.94f, 0.50f, 2.8f),
+        (0.20f, 0.24f, 2.8f), (0.80f, 0.24f, 2.8f),
+        (0.42f, 0.85f, 2.5f), (0.58f, 0.85f, 2.5f),
+        (0.38f, 0.35f, 2.5f), (0.62f, 0.35f, 2.5f),
+        (0.50f, 0.24f, 2.5f),
+    };
+
+    // ── Junction pads (2×2 squares at bends / termini) ────────────────────────
+    private static readonly (float X, float Y)[] JunctionPads =
+    {
+        (0.13f, 0.25f), (0.13f, 0.30f), (0.13f, 0.44f), (0.13f, 0.50f),
+        (0.13f, 0.54f), (0.13f, 0.55f), (0.13f, 0.65f), (0.13f, 0.70f),
+        (0.13f, 0.72f), (0.13f, 0.76f),
+        (0.06f, 0.44f), (0.06f, 0.50f), (0.06f, 0.55f), (0.06f, 0.65f), (0.06f, 0.78f),
+        (0.04f, 0.44f), (0.04f, 0.55f),
+        (0.00f, 0.25f), (0.00f, 0.30f), (0.00f, 0.50f), (0.00f, 0.55f),
+        (0.00f, 0.72f), (0.00f, 0.78f), (0.00f, 0.62f), (0.00f, 0.85f),
+        (0.20f, 0.14f), (0.27f, 0.24f), (0.27f, 0.70f),
+        (0.16f, 0.11f), (0.10f, 0.59f), (0.10f, 0.35f),
+        (0.23f, 0.27f), (0.03f, 0.22f), (0.03f, 0.50f),
+        (0.38f, 0.48f), (0.38f, 0.28f), (0.50f, 0.32f),
+        (0.62f, 0.48f), (0.62f, 0.28f),
+        (0.87f, 0.25f), (0.87f, 0.30f), (0.87f, 0.44f), (0.87f, 0.50f),
+        (0.87f, 0.54f), (0.87f, 0.55f), (0.87f, 0.65f), (0.87f, 0.70f),
+        (0.87f, 0.72f), (0.87f, 0.76f),
+        (0.94f, 0.44f), (0.94f, 0.50f), (0.94f, 0.55f), (0.94f, 0.65f), (0.94f, 0.78f),
+        (0.96f, 0.44f), (0.96f, 0.55f),
+        (1.00f, 0.25f), (1.00f, 0.30f), (1.00f, 0.50f), (1.00f, 0.55f),
+        (1.00f, 0.72f), (1.00f, 0.78f), (1.00f, 0.62f), (1.00f, 0.85f),
+        (0.80f, 0.14f), (0.73f, 0.24f), (0.73f, 0.70f),
+        (0.84f, 0.11f), (0.90f, 0.59f), (0.90f, 0.37f),
+        (0.77f, 0.27f), (0.97f, 0.22f), (0.97f, 0.50f),
+        (0.33f, 0.00f), (0.67f, 0.00f), (0.34f, 0.06f), (0.66f, 0.06f),
+        (0.30f, 0.03f), (0.70f, 0.03f), (0.00f, 0.13f), (1.00f, 0.13f),
+        (0.42f, 1.00f), (0.58f, 1.00f),
+        (0.00f, 0.91f), (0.13f, 0.91f), (0.87f, 0.91f), (1.00f, 0.91f),
+        (0.38f, 0.35f), (0.62f, 0.35f),
+        (0.27f, 0.28f), (0.73f, 0.28f), (0.50f, 0.24f), (0.27f, 0.78f), (0.73f, 0.78f),
+    };
+
+    // ── SMD component footprints ───────────────────────────────────────────────
+    private static readonly (float CX, float CY, float HW, float HH, int Pads)[] Components =
+    {
+        (0.055f, 0.305f, 0.030f, 0.038f, 4),
+        (0.055f, 0.710f, 0.038f, 0.024f, 3),
+        (0.945f, 0.305f, 0.030f, 0.038f, 4),
+        (0.945f, 0.710f, 0.038f, 0.024f, 3),
+        (0.185f, 0.145f, 0.018f, 0.016f, 2),
+        (0.815f, 0.145f, 0.018f, 0.016f, 2),
+        (0.020f, 0.680f, 0.016f, 0.026f, 3),
+        (0.980f, 0.680f, 0.016f, 0.026f, 3),
+        (0.020f, 0.500f, 0.012f, 0.016f, 2),
+        (0.980f, 0.500f, 0.012f, 0.016f, 2),
+    };
+
+    // Slow traversal on 8 well-distributed traces
+    private static readonly int[] PulseTraces = { 0, 6, 10, 11, 20, 21, 1, 7 };
 
     public override void _Process(double delta)
     {
@@ -63,100 +236,130 @@ public partial class NeonGridBg : Control
     {
         var sz = GetViewportRect().Size;
         float w = sz.X, h = sz.Y;
+        Vector2 S(float nx, float ny) => new(nx * w, ny * h);
 
-        // ── Helper: convert 8×5 grid coord → screen position ────────────────
-        Vector2 ToScreen(float col, float row) => new(col / 8f * w, row / 5f * h);
+        // ── Corner vignette ───────────────────────────────────────────────────
+        // Four dark circles at screen corners pull the eye inward toward the
+        // central panel. This is the primary source of atmospheric depth.
+        float vigR = MathF.Max(w, h) * 0.60f;
+        var   vigC = new Color(0f, 0f, 0f, 0.26f);
+        DrawCircle(new Vector2(0f, 0f), vigR, vigC);
+        DrawCircle(new Vector2(w,  0f), vigR, vigC);
+        DrawCircle(new Vector2(0f, h),  vigR, vigC);
+        DrawCircle(new Vector2(w,  h),  vigR, vigC);
 
-        // ── Tower range rings at two slot zone positions ──────────────────────
-        // Placed at top-left zone and bottom-right zone for visual balance.
-        // This is exactly the range-circle motif drawn around towers in gameplay.
-        float ringPulse1 = 0.008f + 0.004f * MathF.Sin(_t * 0.25f);
-        float ringPulse2 = 0.007f + 0.004f * MathF.Sin(_t * 0.20f + 1.4f);
-        var ringCenter1 = ToScreen(SlotZones[0].C, SlotZones[0].R); // top-left zone
-        var ringCenter2 = ToScreen(SlotZones[5].C, SlotZones[5].R); // bottom-right zone
-        // Outer ring (large — tower max range suggestion)
-        DrawArc(ringCenter1, h * 0.27f, 0f, MathF.Tau, 72, new Color(RingC, ringPulse1), 1f);
-        DrawArc(ringCenter2, h * 0.22f, 0f, MathF.Tau, 72, new Color(RingC, ringPulse2), 1f);
-        // Inner concentric ring (like the 10% opacity range circle on towers)
-        DrawArc(ringCenter1, h * 0.15f, 0f, MathF.Tau, 48, new Color(LaneV, ringPulse1 * 0.55f), 1f);
-        DrawArc(ringCenter2, h * 0.12f, 0f, MathF.Tau, 48, new Color(LaneV, ringPulse2 * 0.50f), 1f);
+        // ── Central atmospheric light ─────────────────────────────────────────
+        // A faint blue-indigo light pocket behind the menu card area.
+        // Creates the impression the board is powered and the card is lit
+        // from within — not a visible glow, just a warmth/depth separation.
+        var focus = S(0.50f, 0.45f);
+        DrawCircle(focus, w * 0.32f, new Color(0.03f, 0.04f, 0.18f, 0.10f));
+        DrawCircle(focus, w * 0.18f, new Color(0.04f, 0.06f, 0.22f, 0.06f));
 
-        // ── 8×5 map grid lines ───────────────────────────────────────────────
-        // Same proportions as MapGenerator.COLS=8, ROWS=5.
-        // Horizontal = lime (map grass color), vertical = cyan.
-        const int GridCols = 8;
-        const int GridRows = 5;
-        for (int row = 0; row <= GridRows; row++)
+        // ── Trunk glow halos (tight columns only) ────────────────────────────
+        var halo = new Color(TraceC.R, TraceC.G, TraceC.B, 0.014f);
+        DrawLine(S(0.13f, 0.00f), S(0.13f, 1.00f), halo, 5f);
+        DrawLine(S(0.87f, 0.00f), S(0.87f, 1.00f), halo, 5f);
+        DrawLine(S(0.00f, 0.06f), S(0.34f, 0.06f), halo, 4f);
+        DrawLine(S(0.66f, 0.06f), S(1.00f, 0.06f), halo, 4f);
+
+        // ── Circuit traces ────────────────────────────────────────────────────
+        // Drawn quiet — the structure should read as detail, not as the scene.
+        foreach (var (x1, y1, x2, y2, wClass) in Traces)
         {
-            float y = h * row / GridRows;
-            float a = 0.032f + 0.016f * MathF.Sin(_t * 0.70f + row * 0.80f);
-            DrawLine(new Vector2(0, y), new Vector2(w, y), new Color(LaneH, a), 1f);
-        }
-        for (int col = 0; col <= GridCols; col++)
-        {
-            float x = w * col / GridCols;
-            float a = 0.025f + 0.012f * MathF.Sin(_t * 0.55f + col * 0.60f);
-            DrawLine(new Vector2(x, 0), new Vector2(x, h), new Color(LaneV, a), 1f);
-        }
-
-        // ── Ghost snake path ─────────────────────────────────────────────────
-        // A representative Serpent Grid path — the same 3-horizontal-leg snake
-        // the map generator produces. Drawn as a faint bright line.
-        float pathAlpha = 0.060f + 0.020f * MathF.Sin(_t * 0.30f);
-        for (int i = 0; i < PathWaypoints.Length - 1; i++)
-        {
-            var a = ToScreen(PathWaypoints[i].C, PathWaypoints[i].R);
-            var b = ToScreen(PathWaypoints[i + 1].C, PathWaypoints[i + 1].R);
-            DrawLine(a, b, new Color(PathC, pathAlpha), 1.5f);
+            float ba  = wClass switch { 0 => 0.068f, 1 => 0.048f, _ => 0.030f };
+            float lw  = wClass switch { 0 => 2.0f,   1 => 1.5f,   _ => 1.0f   };
+            float ta  = ba + ba * 0.16f * MathF.Sin(_t * 0.38f + x1 * 4.1f + y1 * 3.3f);
+            DrawLine(S(x1, y1), S(x2, y2), new Color(TraceC, ta), lw);
         }
 
-        // ── Energy pulses along horizontal path legs ─────────────────────────
-        // Bright packets travel along the horizontal legs of the snake path,
-        // mimicking enemy movement on the lane. One pulse per horizontal leg,
-        // each with its own offset so they don't move in sync.
-        foreach (int legIdx in PulseLegIndices)
+        // ── SMD component footprints ──────────────────────────────────────────
+        float compA = 0.11f + 0.03f * MathF.Sin(_t * 0.8f);
+        foreach (var (cx, cy, hw, hh, pads) in Components)
         {
-            if (legIdx >= PathWaypoints.Length - 1) continue;
-            var legStart = ToScreen(PathWaypoints[legIdx].C, PathWaypoints[legIdx].R);
-            var legEnd   = ToScreen(PathWaypoints[legIdx + 1].C, PathWaypoints[legIdx + 1].R);
-            // Only pulse along horizontal segments (same row)
-            if (MathF.Abs(legStart.Y - legEnd.Y) > 2f) continue;
-
-            float phase  = legIdx * 1.618f; // golden ratio offset per leg
-            float xNorm  = ((_t * 0.18f + phase) % 1.0f + 1.0f) % 1.0f;
-            float lx     = legStart.X + xNorm * (legEnd.X - legStart.X);
-            float ly     = legStart.Y;
-
-            // Direction: left or right
-            bool goingLeft = legEnd.X < legStart.X;
-            float dx = goingLeft ? -1f : 1f;
-
-            // Soft tail → bright core (enemy-packet feel)
-            DrawLine(new Vector2(lx - dx * 24f, ly), new Vector2(lx, ly), new Color(PathC, 0.030f), 2f);
-            DrawLine(new Vector2(lx - dx * 8f,  ly), new Vector2(lx, ly), new Color(PathC, 0.075f), 2f);
-            DrawRect(new Rect2(lx - 3f, ly - 2f, 6f, 4f), new Color(PathC, 0.150f));
+            var  cPos = S(cx, cy);
+            float cw2 = hw * w * 2f, ch2 = hh * h * 2f;
+            var  br   = new Rect2(cPos.X - hw * w, cPos.Y - hh * h, cw2, ch2);
+            DrawRect(br, new Color(0.02f, 0.05f, 0.03f, 0.38f));
+            DrawRect(br, new Color(TraceC, compA * 0.55f), false, 1f);
+            float mk = 2.5f;
+            DrawRect(new Rect2(br.Position.X,           br.Position.Y,           mk, mk), new Color(TraceC, compA));
+            DrawRect(new Rect2(br.Position.X + cw2 - mk, br.Position.Y,           mk, mk), new Color(TraceC, compA));
+            DrawRect(new Rect2(br.Position.X,           br.Position.Y + ch2 - mk, mk, mk), new Color(TraceC, compA));
+            DrawRect(new Rect2(br.Position.X + cw2 - mk, br.Position.Y + ch2 - mk, mk, mk), new Color(TraceC, compA));
+            for (int pi = 0; pi < pads; pi++)
+            {
+                float frac = (pi + 1f) / (pads + 1f);
+                float padY = br.Position.Y + frac * ch2;
+                float ps = 3.5f, pd = 2.0f;
+                DrawRect(new Rect2(br.Position.X - pd - ps,  padY - ps * 0.5f, ps, ps), new Color(TraceC, compA * 0.80f));
+                DrawRect(new Rect2(br.Position.X + cw2 + pd, padY - ps * 0.5f, ps, ps), new Color(TraceC, compA * 0.80f));
+            }
         }
 
-        // ── Slot zone node markers ───────────────────────────────────────────
-        // Small squares at the 6 slot zone centers, showing where tower slots live.
-        // Pulse individually like powered nodes in the system.
-        for (int i = 0; i < SlotZones.Length; i++)
+        // ── Junction pads ─────────────────────────────────────────────────────
+        foreach (var (jx, jy) in JunctionPads)
         {
-            var sp = ToScreen(SlotZones[i].C, SlotZones[i].R);
-            float pulse = 0.5f + 0.5f * MathF.Sin(_t * 1.10f + i * 0.85f);
-            float a = 0.045f + 0.035f * pulse;
-            DrawRect(new Rect2(sp.X - 3f, sp.Y - 3f, 6f, 6f), new Color(NodeC, a));
-            // Small cross-hair tick (like a slot position indicator)
-            float tickA = 0.025f + 0.015f * pulse;
-            DrawLine(new Vector2(sp.X - 8f, sp.Y), new Vector2(sp.X + 8f, sp.Y), new Color(NodeC, tickA), 1f);
-            DrawLine(new Vector2(sp.X, sp.Y - 8f), new Vector2(sp.X, sp.Y + 8f), new Color(NodeC, tickA), 1f);
+            var  pos = S(jx, jy);
+            float pa = 0.072f + 0.038f * MathF.Sin(_t * 2.1f + jx * 5.7f + jy * 3.9f);
+            DrawRect(new Rect2(pos.X - 1.5f, pos.Y - 1.5f, 3f, 3f), new Color(TraceC, pa));
         }
 
-        // ── Scan sweep (lime tint — Pressure-archetype feel) ─────────────────
-        // The slow downward scan gives a "sustained pressure" ambient quality,
-        // referencing the Pressure feel-class from SurgeDifferentiation.
-        float scanY = ((_t * 0.28f % 1f) * (h + 140f)) - 70f;
-        DrawRect(new Rect2(0, scanY - 35f, w, 70f), new Color(LaneH, 0.014f));
-        DrawRect(new Rect2(0, scanY - 10f, w, 20f), new Color(LaneH, 0.020f));
+        // ── Via holes ─────────────────────────────────────────────────────────
+        foreach (var (vx, vy, vr) in Vias)
+        {
+            var  pos = S(vx, vy);
+            float va = 0.24f + 0.12f * MathF.Sin(_t * 1.6f + vx * 6.3f);
+            DrawCircle(pos, vr,       new Color(0.02f, 0.02f, 0.06f, 0.90f));
+            DrawArc(pos, vr,       0f, MathF.Tau, 16, new Color(TraceC, va * 0.55f), 1.2f);
+            DrawArc(pos, vr * 0.6f, 0f, MathF.Tau, 16, new Color(Cyan,   va * 0.26f), 1.0f);
+        }
+
+        // ── Glow nodes — tight annular rings, controlled cores ────────────────
+        for (int ni = 0; ni < Nodes.Length; ni++)
+        {
+            var (nx, ny, colorIdx, r) = Nodes[ni];
+            var   pos   = S(nx, ny);
+            float pulse = 0.5f + 0.5f * MathF.Sin(_t * 11f + ni * 0.73f);
+
+            switch (colorIdx)
+            {
+                case 0: // orange — tight halo + annular ring + bright core
+                    DrawCircle(pos, r * 1.85f, new Color(Orange, 0.050f + 0.035f * pulse));
+                    DrawArc(pos, r,       0f, MathF.Tau, 18, new Color(Orange, 0.48f + 0.30f * pulse), 1.5f);
+                    DrawCircle(pos, r * 0.48f, new Color(1.0f, 0.84f, 0.44f, 0.60f + 0.30f * pulse));
+                    DrawCircle(pos, r * 0.18f, new Color(1.0f, 0.96f, 0.80f, 0.80f + 0.18f * pulse));
+                    break;
+                case 1: // cyan — tight halo + ring + core
+                    DrawCircle(pos, r * 1.65f, new Color(Cyan, 0.036f + 0.026f * pulse));
+                    DrawArc(pos, r,       0f, MathF.Tau, 16, new Color(Cyan, 0.36f + 0.26f * pulse), 1.2f);
+                    DrawCircle(pos, r * 0.44f, new Color(Cyan, 0.68f + 0.26f * pulse));
+                    break;
+                case 2: // lime — square SMD pad
+                    DrawRect(new Rect2(pos.X - r * 1.1f, pos.Y - r * 1.1f, r * 2.2f, r * 2.2f),
+                        new Color(Lime, 0.035f + 0.025f * pulse));
+                    DrawRect(new Rect2(pos.X - r,        pos.Y - r,        r * 2.0f, r * 2.0f),
+                        new Color(Lime, 0.11f + 0.09f * pulse), false, 1f);
+                    DrawRect(new Rect2(pos.X - r * 0.5f, pos.Y - r * 0.5f, r * 1.0f, r * 1.0f),
+                        new Color(Lime, 0.38f + 0.20f * pulse));
+                    break;
+            }
+        }
+
+        // ── Charge packets — slow, deliberate, 8 traces ───────────────────────
+        for (int pi = 0; pi < PulseTraces.Length; pi++)
+        {
+            int ti = PulseTraces[pi];
+            if (ti >= Traces.Length) continue;
+            var (x1, y1, x2, y2, _) = Traces[ti];
+            var pA = S(x1, y1); var pB = S(x2, y2);
+            float tNorm = ((_t + pi * 1.618f) % 1.0f + 1.0f) % 1.0f;
+            var pPt = pA.Lerp(pB, tNorm);
+            var dir = (pB - pA).Normalized();
+            DrawLine(pPt - dir * 18f, pPt, new Color(Cyan, 0.012f), 2.5f);
+            DrawLine(pPt - dir *  5f, pPt, new Color(Cyan, 0.048f), 2.5f);
+            DrawCircle(pPt, 2.8f, new Color(Cyan, 0.18f));
+            DrawCircle(pPt, 1.1f, new Color(Cyan, 0.50f));
+        }
     }
 }

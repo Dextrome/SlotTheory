@@ -1,4 +1,5 @@
 using Godot;
+using System;
 using System.Linq;
 using SlotTheory.Core;
 
@@ -27,22 +28,25 @@ public partial class MainMenu : Node
 		var canvas = new CanvasLayer();
 		AddChild(canvas);
 
-		// Background
 		var bg = new ColorRect();
 		bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		bg.Color = new Color("#07071a");
 		canvas.AddChild(bg);
 
-		// Animated neon grid - rendered above solid bg, below all UI
 		var grid = new NeonGridBg();
 		grid.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		grid.MouseFilter = Control.MouseFilterEnum.Ignore;
 		canvas.AddChild(grid);
 
-		// Centre everything
+		// Keep exact composition, but add subtle light falloff for premium depth.
+		var atmosphere = new MenuAtmosphereOverlay();
+		atmosphere.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		atmosphere.MouseFilter = Control.MouseFilterEnum.Ignore;
+		canvas.AddChild(atmosphere);
+
 		var center = new CenterContainer();
 		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		center.AnchorBottom = 0.78f;  // shift centre point upward so banner fits
+		center.AnchorBottom = 0.78f;
 		center.Theme = UITheme.Build();
 		canvas.AddChild(center);
 
@@ -51,11 +55,8 @@ public partial class MainMenu : Node
 		vbox.CustomMinimumSize = new Vector2(300, 0);
 		center.AddChild(vbox);
 
-		// Title arm connectors — circuit-bus framing above the title,
-		// referencing the surge meter's converging-toward-activation state.
 		vbox.AddChild(new TitleArmDecor());
 
-		// Title
 		var title = new Label
 		{
 			Text = "SLOT THEORY",
@@ -65,63 +66,124 @@ public partial class MainMenu : Node
 		title.AddThemeConstantOverride("line_spacing", -36);
 		vbox.AddChild(title);
 
-		// Sub-title
 		var sub = new Label
 		{
 			Text = "TOWER DEFENSE  ·  DRAFT  ·  SURVIVE 20 WAVES",
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
-		sub.AddThemeFontSizeOverride("font_size", 15);
-		sub.Modulate = UITheme.Lime;
+		sub.AddThemeFontSizeOverride("font_size", 13);
+		sub.Modulate = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.72f);
 		vbox.AddChild(sub);
 
-		// 6-slot indicator row — directly visualizes the game's core structural
-		// mechanic: 6 tower slots in a staggered cascade-pulse animation.
-		vbox.AddChild(new SlotIndicatorRow());
+		vbox.AddChild(new ReactorFeedBar());
+		AddSpacer(vbox, 2);
 
-		AddSpacer(vbox, 6);
-
-		// Row: menu card + optional demo-complete banner side by side
 		var menuRow = new HBoxContainer();
 		menuRow.AddThemeConstantOverride("separation", 12);
 		menuRow.Alignment = BoxContainer.AlignmentMode.Center;
 		vbox.AddChild(menuRow);
 
-		// Menu card — styled as a "slot module": a functional component of the
-		// same systemic world as the map, the draft panel, and the codex.
 		var card = new PanelContainer();
 		var cardStyle = UITheme.MakePanel(
-			bg: new Color(0.04f, 0.04f, 0.12f),
-			border: new Color(0.22f, 0.38f, 0.12f),
-			corners: 12, borderWidth: 1, padH: 24, padV: 12);
-		cardStyle.ShadowColor  = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.11f);
-		cardStyle.ShadowSize   = 10;
-		cardStyle.ShadowOffset = Vector2.Zero;
+			bg:          new Color(0.022f, 0.028f, 0.082f),
+			border:      new Color(0.31f, 0.50f, 0.14f),
+			corners:     4,
+			borderWidth: 2,
+			padH:        24,
+			padV:        12);
+		cardStyle.ShadowColor  = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.14f);
+		cardStyle.ShadowSize   = 7;
+		cardStyle.ShadowOffset = new Vector2(0f, 2f);
 		card.AddThemeStyleboxOverride("panel", cardStyle);
 		card.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
 		card.CustomMinimumSize   = new Vector2(320, 0);
 		menuRow.AddChild(card);
 
+		card.Draw += () =>
+		{
+			float cw = card.Size.X;
+			float ch = card.Size.Y;
+			if (cw < 20f || ch < 20f)
+				return;
+
+			// Tight multi-pass edge glow: controlled falloff, no broad neon haze.
+			for (int i = 0; i < 5; i++)
+			{
+				float spread = 1f + i * 1.5f;
+				float alpha = 0.070f - i * 0.012f;
+				card.DrawRect(new Rect2(-spread, -spread, cw + spread * 2f, ch + spread * 2f),
+					new Color(0.35f, 0.66f, 0.22f, alpha), false, 1f);
+			}
+
+			card.DrawRect(new Rect2(2f, 2f, cw - 4f, ch - 4f),
+				new Color(UITheme.Cyan.R, UITheme.Cyan.G, UITheme.Cyan.B, 0.030f));
+			card.DrawRect(new Rect2(4f, 4f, cw - 8f, ch - 8f),
+				new Color(0.16f, 0.26f, 0.10f, 0.18f), false, 1f);
+			card.DrawRect(new Rect2(5f, 5f, cw - 10f, ch * 0.24f), new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.020f));
+			card.DrawLine(new Vector2(6f, 2f), new Vector2(cw - 6f, 2f), new Color(0.95f, 1.0f, 0.82f, 0.46f), 1f);
+			card.DrawLine(new Vector2(8f, 3f), new Vector2(cw - 8f, 3f), new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.20f), 1f);
+			card.DrawLine(new Vector2(2f, 10f), new Vector2(2f, ch - 10f),
+				new Color(UITheme.Cyan.R, UITheme.Cyan.G, UITheme.Cyan.B, 0.10f), 1f);
+			card.DrawRect(new Rect2(6f, ch - 18f, cw - 12f, 12f), new Color(0f, 0f, 0f, 0.20f));
+			card.DrawRect(new Rect2(10f, ch - 6f, cw - 20f, 2f), new Color(0.84f, 0.92f, 0.58f, 0.28f));
+		};
 
 		var cardVbox = new VBoxContainer();
-		cardVbox.AddThemeConstantOverride("separation", 7);
+		cardVbox.AddThemeConstantOverride("separation", 8);
 		card.AddChild(cardVbox);
 
-		// Tutorial - shown above PLAY with a pulse indicator until completed
 		bool tutorialDone = SettingsManager.Instance?.TutorialCompleted ?? false;
-		var tutorialBtn = MakeMenuButton(tutorialDone ? "Tutorial" : "▶  Tutorial", 260, 44, tutorialDone ? 18 : 20);
+		var tutorialBtn = MakeMenuButton(tutorialDone ? "Tutorial" : "> Tutorial", 260, 44, tutorialDone ? 18 : 20);
 		if (tutorialDone)
 			UITheme.ApplyMutedStyle(tutorialBtn);
 		else
 			UITheme.ApplyCyanStyle(tutorialBtn);
+		AddButtonSurface(tutorialBtn, UITheme.Cyan, 0.10f, 0.14f);
 		tutorialBtn.Pressed += OnTutorial;
 		cardVbox.AddChild(tutorialBtn);
 
 		AddSpacer(cardVbox, 4);
 
-		// Play - primary
-		var playBtn = MakeMenuButton("PLAY", 260, 50, 24);
+		var playBtn = MakeMenuButton("PLAY", 260, 52, 22);
 		UITheme.ApplyPrimaryStyle(playBtn);
+		playBtn.AddThemeStyleboxOverride("normal", UITheme.MakeBtn(
+			new Color(0.060f, 0.125f, 0.038f),
+			new Color(0.36f, 0.52f, 0.13f),
+			border: 2, corners: 10, glowAlpha: 0.18f, glowSize: 6, glowColor: UITheme.Lime));
+		playBtn.AddThemeStyleboxOverride("hover", UITheme.MakeBtn(
+			new Color(0.105f, 0.235f, 0.070f),
+			UITheme.Lime,
+			border: 2, corners: 10, glowAlpha: 0.30f, glowSize: 9, glowColor: UITheme.Lime));
+		playBtn.AddThemeStyleboxOverride("focus", UITheme.MakeBtn(
+			new Color(0.093f, 0.205f, 0.058f),
+			UITheme.Lime,
+			border: 2, corners: 10, glowAlpha: 0.24f, glowSize: 8, glowColor: UITheme.Lime));
+		playBtn.AddThemeStyleboxOverride("pressed", UITheme.MakeBtn(
+			new Color(0.036f, 0.084f, 0.022f),
+			new Color(0.34f, 0.48f, 0.11f),
+			border: 2, corners: 10, glowAlpha: 0.12f, glowSize: 4, glowColor: UITheme.LimeDim));
+		playBtn.AddThemeFontOverride("font", UITheme.Bold);
+		playBtn.AddThemeColorOverride("font_color", new Color(0.93f, 0.98f, 0.86f));
+		playBtn.AddThemeColorOverride("font_hover_color", new Color(0.94f, 1.0f, 0.74f));
+		playBtn.Draw += () =>
+		{
+			float pw = playBtn.Size.X;
+			float ph = playBtn.Size.Y;
+			for (int i = 0; i < 4; i++)
+			{
+				float spread = 0.5f + i * 1.2f;
+				float alpha = 0.06f - i * 0.011f;
+				playBtn.DrawRect(new Rect2(-spread, -spread, pw + spread * 2f, ph + spread * 2f),
+					new Color(0.42f, 0.70f, 0.20f, alpha), false, 1f);
+			}
+			playBtn.DrawLine(new Vector2(13f, 2f), new Vector2(pw - 13f, 2f),
+				new Color(0.94f, 1.0f, 0.84f, 0.52f), 1f);
+			playBtn.DrawLine(new Vector2(15f, 3f), new Vector2(pw - 15f, 3f),
+				new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.20f), 1f);
+			playBtn.DrawLine(new Vector2(14f, playBtn.Size.Y - 2f), new Vector2(pw - 14f, playBtn.Size.Y - 2f),
+				new Color(0f, 0f, 0f, 0.42f), 1f);
+		};
+		AddButtonSurface(playBtn, UITheme.Lime, 0.12f, 0.14f);
 		playBtn.Pressed += OnPlay;
 		cardVbox.AddChild(playBtn);
 
@@ -130,16 +192,17 @@ public partial class MainMenu : Node
 		AddSpacer(cardVbox, 4);
 
 		AddNavButton(cardVbox, "Leaderboards", OnLeaderboards);
-		AddNavButton(cardVbox, "Achievements",  OnAchievements);
-		AddNavButton(cardVbox, "Slot Codex",    OnSlotCodex);
-		AddNavButton(cardVbox, "How to Play",   OnHowToPlay);
-		AddNavButton(cardVbox, "Settings",      OnSettings);
+		AddNavButton(cardVbox, "Achievements", OnAchievements);
+		AddNavButton(cardVbox, "Slot Codex", OnSlotCodex);
+		AddNavButton(cardVbox, "How to Play", OnHowToPlay);
+		AddNavButton(cardVbox, "Settings", OnSettings);
 
 		if (SteamAchievements.IsSteamInitialized && Balance.FullGameSteamAppId != 0u)
 		{
-			var wishBtn = MakeMenuButton("\u2665  Wishlist on Steam", 260, 40, 17);
+			var wishBtn = MakeMenuButton("Wishlist on Steam", 260, 40, 17);
 			UITheme.ApplyMutedStyle(wishBtn);
 			wishBtn.AddThemeColorOverride("font_color", new Color(0.85f, 0.65f, 1.0f));
+			AddButtonSurface(wishBtn, UITheme.Magenta, 0.10f, 0.16f);
 			wishBtn.Pressed += () =>
 			{
 				SoundManager.Instance?.Play("ui_select");
@@ -152,28 +215,41 @@ public partial class MainMenu : Node
 		AddSeparator(cardVbox);
 		AddSpacer(cardVbox, 4);
 
-		// Quit - muted
 		var quitBtn = MakeMenuButton("Quit", 260, 36, 18);
 		UITheme.ApplyMutedStyle(quitBtn);
+		AddButtonSurface(quitBtn, UITheme.Magenta, 0.10f, 0.16f);
 		quitBtn.Pressed += OnQuit;
 		cardVbox.AddChild(quitBtn);
 
-		// Demo-complete banner - shown once after all 3 campaign maps are cleared, sits to the right of the menu card
 		bool allUnlocked = AchievementManager.Instance?.IsUnlocked(Unlocks.RiftPrismAchievementId) == true;
 		bool alreadyNotified = SettingsManager.Instance?.DemoCompleteNotified == true;
 		if (allUnlocked && !alreadyNotified)
 		{
-			// Balancing spacer on the left keeps the card visually centered
 			var balancer = new Control { CustomMinimumSize = new Vector2(272, 0) };
 			menuRow.AddChild(balancer);
-			menuRow.MoveChild(balancer, 0); // move before card
+			menuRow.MoveChild(balancer, 0);
+
+			var purpleNode = new Color(0.55f, 0.30f, 0.90f);
+			balancer.Draw += () =>
+			{
+				float midY = balancer.Size.Y * 0.5f;
+				balancer.DrawLine(new Vector2(6f, midY),
+					new Vector2(balancer.Size.X - 6f, midY),
+					new Color(purpleNode, 0.28f), 1f);
+				balancer.DrawLine(new Vector2(6f, midY + 1f),
+					new Vector2(balancer.Size.X - 6f, midY + 1f),
+					new Color(0.20f, 0.90f, 0.95f, 0.08f), 1f);
+				balancer.DrawRect(new Rect2(3f, midY - 2.5f, 5f, 5f),
+					new Color(purpleNode, 0.38f));
+				balancer.DrawRect(new Rect2(balancer.Size.X - 8f, midY - 2.5f, 5f, 5f),
+					new Color(purpleNode, 0.38f));
+			};
 
 			var banner = BuildDemoCompleteBanner(balancer);
 			banner.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
 			menuRow.AddChild(banner);
 		}
 
-		// Version label - inside vbox so it scales with pinch zoom
 		var versionLabel = new Label
 		{
 			Text = $"v{GetGameVersion()}",
@@ -183,6 +259,7 @@ public partial class MainMenu : Node
 		versionLabel.AddThemeFontSizeOverride("font_size", 13);
 		versionLabel.Modulate = new Color(0.30f, 0.30f, 0.38f);
 		vbox.AddChild(versionLabel);
+
 		if (MobileOptimization.IsMobile())
 			CallDeferred(nameof(ApplyFitScale), center);
 		AddChild(new PinchZoomHandler(center));
@@ -190,7 +267,7 @@ public partial class MainMenu : Node
 
 	public override void _Notification(int what)
 	{
-		if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */)
+		if (what == 1007)
 			GetTree().Quit();
 	}
 
@@ -217,17 +294,18 @@ public partial class MainMenu : Node
 			SettingsManager.Instance.PendingTutorialRun = true;
 		Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
 	}
+
 	private void OnLeaderboards() => Transition.Instance?.FadeToScene("res://Scenes/Leaderboards.tscn");
 	private void OnAchievements() => Transition.Instance?.FadeToScene("res://Scenes/Achievements.tscn");
-	private void OnSlotCodex()   => Transition.Instance?.FadeToScene("res://Scenes/SlotCodex.tscn");
-	private void OnHowToPlay()    => Transition.Instance?.FadeToScene("res://Scenes/HowToPlay.tscn");
-	private void OnSettings()     => Transition.Instance?.FadeToScene("res://Scenes/Settings.tscn");
-	private void OnQuit()         => GetTree().Quit();
+	private void OnSlotCodex() => Transition.Instance?.FadeToScene("res://Scenes/SlotCodex.tscn");
+	private void OnHowToPlay() => Transition.Instance?.FadeToScene("res://Scenes/HowToPlay.tscn");
+	private void OnSettings() => Transition.Instance?.FadeToScene("res://Scenes/Settings.tscn");
+	private void OnQuit() => GetTree().Quit();
 
 	private void ApplyFitScale(CenterContainer center)
 	{
 		var vp = GetViewport().GetVisibleRect().Size;
-		center.Size = vp; // anchor-independent size for reliable pivot
+		center.Size = vp;
 		var content = center.GetChild<Control>(0);
 		float contentH = content.Size.Y;
 		float maxScale = MobileOptimization.GetUIScale();
@@ -243,15 +321,35 @@ public partial class MainMenu : Node
 
 	private void AutoStartBotRun()
 	{
-		// Headless bot mode bypasses menu/map-select and enters gameplay directly.
 		GetTree().ChangeSceneToFile("res://Scenes/Main.tscn");
 	}
 
-	// ── Helpers ────────────────────────────────────────────────────────────
-
-	private void AddNavButton(VBoxContainer parent, string text, System.Action callback)
+	private void AddNavButton(VBoxContainer parent, string text, Action callback)
 	{
 		var btn = MakeMenuButton(text, 260, 38, 20);
+		btn.AddThemeStyleboxOverride("normal", UITheme.MakeBtn(
+			new Color(0.020f, 0.028f, 0.085f),
+			new Color(0.12f, 0.18f, 0.20f),
+			border: 1, corners: 8, glowAlpha: 0.06f, glowSize: 2, glowColor: UITheme.Cyan));
+		btn.AddThemeStyleboxOverride("hover", UITheme.MakeBtn(
+			new Color(0.030f, 0.050f, 0.10f),
+			new Color(0.27f, 0.72f, 0.78f),
+			border: 2, corners: 8, glowAlpha: 0.16f, glowSize: 6, glowColor: UITheme.Cyan));
+		btn.AddThemeStyleboxOverride("focus", UITheme.MakeBtn(
+			new Color(0.028f, 0.044f, 0.095f),
+			new Color(0.27f, 0.72f, 0.78f),
+			border: 2, corners: 8, glowAlpha: 0.14f, glowSize: 5, glowColor: UITheme.Cyan));
+		btn.AddThemeStyleboxOverride("pressed", UITheme.MakeBtn(
+			new Color(0.018f, 0.024f, 0.078f),
+			new Color(0.20f, 0.50f, 0.54f),
+			border: 2, corners: 8, glowAlpha: 0.08f, glowSize: 3, glowColor: UITheme.Cyan));
+		btn.Draw += () =>
+		{
+			float bw = btn.Size.X;
+			btn.DrawLine(new Vector2(11f, 2f), new Vector2(bw - 11f, 2f), new Color(UITheme.Cyan, 0.18f), 1f);
+			btn.DrawLine(new Vector2(11f, btn.Size.Y - 2f), new Vector2(bw - 11f, btn.Size.Y - 2f), new Color(0f, 0f, 0f, 0.34f), 1f);
+		};
+		AddButtonSurface(btn, UITheme.Cyan, 0.08f, 0.12f);
 		btn.Pressed += callback;
 		parent.AddChild(btn);
 	}
@@ -267,6 +365,31 @@ public partial class MainMenu : Node
 		btn.AddThemeFontSizeOverride("font_size", fontSize);
 		btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		return btn;
+	}
+
+	private static void AddButtonSurface(Button btn, Color accent, float topAlpha, float bottomAlpha)
+	{
+		btn.Draw += () =>
+		{
+			float bw = btn.Size.X;
+			float bh = btn.Size.Y;
+			if (bw < 8f || bh < 8f)
+				return;
+
+			float inset = 4f;
+			float innerW = bw - inset * 2f;
+			float innerH = bh - inset * 2f;
+			float topBandH = Mathf.Max(2f, bh * 0.14f);
+			float bottomBandH = Mathf.Max(3f, bh * 0.16f);
+
+			btn.DrawRect(new Rect2(inset, inset, innerW, topBandH), new Color(accent.R, accent.G, accent.B, topAlpha));
+			btn.DrawRect(new Rect2(inset, bh - inset - bottomBandH, innerW, bottomBandH), new Color(0f, 0f, 0f, bottomAlpha));
+			btn.DrawLine(new Vector2(inset + 1f, inset + 1f), new Vector2(bw - inset - 1f, inset + 1f),
+				new Color(1f, 1f, 1f, topAlpha * 0.45f), 1f);
+			btn.DrawLine(new Vector2(inset + 1f, bh - inset - 1f), new Vector2(bw - inset - 1f, bh - inset - 1f),
+				new Color(0f, 0f, 0f, bottomAlpha * 1.2f), 1f);
+			btn.DrawRect(new Rect2(inset, inset, innerW, innerH), new Color(accent.R, accent.G, accent.B, topAlpha * 0.22f), false, 1f);
+		};
 	}
 
 	private static void AddSpacer(Control parent, int px)
@@ -287,8 +410,8 @@ public partial class MainMenu : Node
 		var line = new ColorRect
 		{
 			CustomMinimumSize = new Vector2(0, 1),
-			Color             = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.12f),
-			MouseFilter       = Control.MouseFilterEnum.Ignore,
+			Color = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.12f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
 		parent.AddChild(line);
 	}
@@ -296,14 +419,14 @@ public partial class MainMenu : Node
 	private static LabelSettings MakeTitleSettings()
 	{
 		var ls = new LabelSettings();
-		ls.Font          = UITheme.Bold;
-		ls.FontSize      = 88;
-		ls.FontColor     = new Color("#d4f020");     // bright core lime (slightly lighter)
-		ls.OutlineColor  = new Color("#1a4400");    // very dark green → creates bright-center-dark-edge look
-		ls.OutlineSize   = 4;
-		ls.ShadowColor   = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.55f);
-		ls.ShadowSize    = 8;
-		ls.ShadowOffset  = Vector2.Zero;
+		ls.Font = UITheme.Bold;
+		ls.FontSize = 88;
+		ls.FontColor = new Color("#d4f020");
+		ls.OutlineColor = new Color("#1a4400");
+		ls.OutlineSize = 4;
+		ls.ShadowColor = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.65f);
+		ls.ShadowSize = 11;
+		ls.ShadowOffset = Vector2.Zero;
 		return ls;
 	}
 
@@ -312,10 +435,26 @@ public partial class MainMenu : Node
 		var panel = new PanelContainer();
 		panel.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
 		panel.CustomMinimumSize = new Vector2(260, 0);
-		panel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
-			bg: new Color(0.06f, 0.04f, 0.14f),
-			border: new Color(0.55f, 0.30f, 0.90f, 0.80f),
-			corners: 10, borderWidth: 2, padH: 16, padV: 10));
+
+		var bannerStyle = UITheme.MakePanel(
+			bg:          new Color(0.030f, 0.022f, 0.102f),
+			border:      new Color(0.52f, 0.38f, 0.78f, 0.86f),
+			corners:     6,
+			borderWidth: 2,
+			padH:        16,
+			padV:        10);
+		bannerStyle.ShadowColor = new Color(0.55f, 0.28f, 0.90f, 0.22f);
+		bannerStyle.ShadowSize = 8;
+		bannerStyle.ShadowOffset = new Vector2(0f, 2f);
+		panel.AddThemeStyleboxOverride("panel", bannerStyle);
+
+		panel.Draw += () =>
+		{
+			float w = panel.Size.X;
+			float h = panel.Size.Y;
+			panel.DrawRect(new Rect2(3f, 3f, w - 6f, h - 6f), new Color(0.64f, 0.44f, 0.95f, 0.12f), false, 1f);
+			panel.DrawRect(new Rect2(4f, 4f, w - 8f, h - 8f), new Color(0.06f, 0.10f, 0.18f, 0.20f));
+		};
 
 		var inner = new VBoxContainer();
 		inner.AddThemeConstantOverride("separation", 6);
@@ -327,7 +466,7 @@ public partial class MainMenu : Node
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
 		UITheme.ApplyFont(heading, semiBold: true, size: 17);
-		heading.Modulate = new Color(0.80f, 0.60f, 1.00f);
+		heading.Modulate = new Color(0.82f, 0.64f, 1.00f);
 		inner.AddChild(heading);
 
 		var body = new Label
@@ -337,7 +476,7 @@ public partial class MainMenu : Node
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 		};
 		body.AddThemeFontSizeOverride("font_size", 13);
-		body.Modulate = new Color(0.72f, 0.72f, 0.84f);
+		body.Modulate = new Color(0.75f, 0.74f, 0.86f);
 		inner.AddChild(body);
 
 		var btnRow = new HBoxContainer();
@@ -349,12 +488,13 @@ public partial class MainMenu : Node
 		{
 			var wishBtn = new Button
 			{
-				Text = "\u2665  Wishlist",
+				Text = "Wishlist",
 				CustomMinimumSize = new Vector2(110, 32),
 			};
 			wishBtn.AddThemeFontSizeOverride("font_size", 14);
 			UITheme.ApplyMutedStyle(wishBtn);
 			wishBtn.AddThemeColorOverride("font_color", new Color(0.85f, 0.65f, 1.0f));
+			AddButtonSurface(wishBtn, UITheme.Magenta, 0.09f, 0.14f);
 			wishBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 			wishBtn.Pressed += () =>
 			{
@@ -371,6 +511,7 @@ public partial class MainMenu : Node
 		};
 		dismissBtn.AddThemeFontSizeOverride("font_size", 14);
 		UITheme.ApplyMutedStyle(dismissBtn);
+		AddButtonSurface(dismissBtn, UITheme.Magenta, 0.09f, 0.14f);
 		dismissBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		dismissBtn.Pressed += () =>
 		{
@@ -389,4 +530,31 @@ public partial class MainMenu : Node
 		string gameVersion = ProjectSettings.GetSetting("application/config/version", "dev").AsString();
 		return string.IsNullOrWhiteSpace(gameVersion) ? "dev" : gameVersion;
 	}
+
+	private sealed partial class MenuAtmosphereOverlay : Control
+	{
+		private float _time;
+
+		public override void _Process(double delta)
+		{
+			_time += (float)delta;
+			QueueRedraw();
+		}
+
+		public override void _Draw()
+		{
+			var size = GetViewportRect().Size;
+			float w = size.X;
+			float h = size.Y;
+			var center = new Vector2(w * 0.5f, h * 0.48f);
+			float breath = 0.5f + 0.5f * MathF.Sin(_time * 0.35f);
+
+			DrawCircle(center, w * 0.33f, new Color(0.07f, 0.15f, 0.10f, 0.08f + 0.025f * breath));
+			DrawCircle(center, w * 0.23f, new Color(0.11f, 0.24f, 0.14f, 0.06f + 0.018f * breath));
+			DrawCircle(new Vector2(center.X, h * 0.64f), w * 0.21f, new Color(0f, 0f, 0f, 0.18f));
+			DrawRect(new Rect2(0f, 0f, w * 0.13f, h), new Color(0f, 0f, 0f, 0.12f));
+			DrawRect(new Rect2(w * 0.87f, 0f, w * 0.13f, h), new Color(0f, 0f, 0f, 0.12f));
+		}
+	}
 }
+
