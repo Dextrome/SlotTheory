@@ -14,6 +14,7 @@ public partial class EndScreen : CanvasLayer
 	private Control _root = null!;
 	private Label _titleLabel    = null!;
 	private Label _subtitleLabel = null!;
+	private Label _difficultyLabel = null!;
 	private Label _statsLabel    = null!;
 	private Label _leaderboardLabel = null!;
 	private RichTextLabel _runNameLabel  = null!;
@@ -77,6 +78,10 @@ public partial class EndScreen : CanvasLayer
 		_titleLabel.AddThemeFontSizeOverride("font_size", 72);
 		SlotTheory.Core.UITheme.ApplyFont(_titleLabel, semiBold: true, size: 72);
 		vbox.AddChild(_titleLabel);
+
+		_difficultyLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center, Visible = false };
+		UITheme.ApplyFont(_difficultyLabel, semiBold: true, size: 18);
+		vbox.AddChild(_difficultyLabel);
 
 		_subtitleLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
 		_subtitleLabel.AddThemeFontSizeOverride("font_size", 28);
@@ -256,8 +261,8 @@ public partial class EndScreen : CanvasLayer
 		_titleLabel.Text = "VICTORY";
 		bool isHardWin = _leaderboardDifficulty == DifficultyMode.Hard;
 		_titleLabel.Modulate = isHardWin ? new Color(1.0f, 0.85f, 0.2f) : new Color(0.3f, 1.0f, 0.5f);
-		string diffSuffix = isHardWin ? "  -  HARD" : "";
-		_subtitleLabel.Text = $"All {totalWaves} waves survived{diffSuffix}  ·  {livesRemaining} {(livesRemaining == 1 ? "life" : "lives")} remaining";
+		_subtitleLabel.Text = $"All {totalWaves} waves survived  ·  {livesRemaining} {(livesRemaining == 1 ? "life" : "lives")} remaining";
+		ShowDifficultyLabel();
 		_statsLabel.Text = $"Enemies killed: {kills}  ·  Damage: {damageDealt:N0}  ·  Lives: {livesRemaining}/{Balance.StartingLives}  ·  Time: {FormatTime(totalPlayTime)}";
 		_statsLabel.Visible = true;
 		SetRunNameGradient(runName, runStartColor, runEndColor);
@@ -295,6 +300,7 @@ public partial class EndScreen : CanvasLayer
 		int wavesLeft = totalWaves - waveReached;
 		string wavesFromVictory = wavesLeft > 0 ? $"  -  {wavesLeft} wave{(wavesLeft == 1 ? "" : "s")} from victory" : "";
 		_subtitleLabel.Text = $"{waveReached} / {totalWaves}{wavesFromVictory}  ·  Lives lost: {livesLost}";
+		ShowDifficultyLabel();
 		_statsLabel.Text = $"Enemies killed: {kills}  -  Total damage: {damageDealt:N0}  -  Time: {FormatTime(totalPlayTime)}";
 		_statsLabel.Visible = kills > 0 || damageDealt > 0;
 		SetRunNameGradient(runName, runStartColor, runEndColor);
@@ -624,6 +630,19 @@ public partial class EndScreen : CanvasLayer
 			Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 			GetViewport().SetInputAsHandled();
 		}
+	}
+
+	private void ShowDifficultyLabel()
+	{
+		if (!GodotObject.IsInstanceValid(_difficultyLabel)) return;
+		(_difficultyLabel.Text, _difficultyLabel.Modulate) = _leaderboardDifficulty switch
+		{
+			DifficultyMode.Easy   => ("EASY",   new Color(0.40f, 0.90f, 0.45f)),
+			DifficultyMode.Normal => ("NORMAL", new Color(1.00f, 0.82f, 0.30f)),
+			DifficultyMode.Hard   => ("HARD",   new Color(1.00f, 0.35f, 0.30f)),
+			_                     => ("",       Colors.White),
+		};
+		_difficultyLabel.Visible = _difficultyLabel.Text.Length > 0;
 	}
 
 	// Fires WinExited on every exit path except "Continue - Endless".

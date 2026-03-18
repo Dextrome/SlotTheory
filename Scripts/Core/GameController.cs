@@ -406,6 +406,7 @@ public partial class GameController : Node
 		_worldNode.MoveChild(_mapVisuals, 0);
 
 		_hudPanel.SetTotalWaves(_mapTotalWaves);
+		_hudPanel.SetDifficulty(SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal);
 
 			GenerateMap();
 			SetupMobileCamera();
@@ -905,7 +906,7 @@ public partial class GameController : Node
 		_tutorialManager?.DismissCallouts();
 		ClearUndoPlacementState();
 		CurrentPhase = GamePhase.Draft;
-		MusicDirector.Instance?.OnDraftPhaseStart();
+		// Music continues uninterrupted through the draft phase.
 		_hudPanel.SetBuildName("", visible: false);
 		// Tutorial: inject scripted picks for this wave (overrides random generation)
 		if (_currentDraftOptions == null && _tutorialManager != null)
@@ -1043,6 +1044,7 @@ public partial class GameController : Node
 
 			_mapTotalWaves = ResolveMapTotalWaves(_runState.SelectedMapId);
 			_hudPanel.SetTotalWaves(_mapTotalWaves);
+			_hudPanel.SetDifficulty(SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal);
 
 			ClearMapVisuals();
 			GenerateMap();

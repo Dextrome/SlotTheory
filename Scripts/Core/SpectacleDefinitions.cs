@@ -71,6 +71,9 @@ public static class SpectacleDefinitions
     //   1s towers           → scale = 1.0  (neutral)
     //   slow towers (> 1s)  → scale up to 1.5× (bonus so heavy hitters stay surge-relevant)
     public const float MeterIntervalReference = 1.0f;
+    // Minimum intervalScale floor so very fast towers (Rapid Shooter, RS+Hair Trigger) aren't
+    // penalized into near-impossible surge fill. At 0.65 RS base earns ~same per-proc as a 0.65s tower.
+    public const float MeterIntervalMinScale = 0.65f;
     public const float MeterDamageWeight = 0.90f;
     public const float MeterDamageMinMultiplier = 0.45f;
     public const float MeterDamageMaxMultiplier = 2.40f;

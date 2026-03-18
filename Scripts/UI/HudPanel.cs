@@ -19,6 +19,7 @@ public partial class HudPanel : CanvasLayer
     private Label _enemyLabel = null!;
     private Label _timeLabel = null!;
     private Label _devStatsLabel = null!;
+    private Label _difficultyLabel = null!;
     private Label _speedToast = null!;
     private ColorRect _speedToastStreak = null!;
     private Panel _globalSpectaclePanel = null!;
@@ -117,6 +118,15 @@ public partial class HudPanel : CanvasLayer
         _speedBtn.AddThemeFontSizeOverride("font_size", 18);
         _speedBtn.Pressed += OnSpeedToggle;
         rightHbox.AddChild(_speedBtn);
+
+        _difficultyLabel = new Label
+        {
+            Text = "",
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        _difficultyLabel.AddThemeFontSizeOverride("font_size", 15);
+        _difficultyLabel.Modulate = new Color(0.55f, 0.65f, 0.75f);
+        rightHbox.AddChild(_difficultyLabel);
 
         // Platform-specific pause controls
         if (OS.GetName() == "Android")
@@ -340,6 +350,18 @@ public partial class HudPanel : CanvasLayer
     private int _totalWaves = Balance.TotalWaves;
     public void SetTotalWaves(int n) => _totalWaves = n;
     public void SetEndlessMode(bool endless) => _isEndlessMode = endless;
+
+    public void SetDifficulty(Core.DifficultyMode difficulty)
+    {
+        if (!GodotObject.IsInstanceValid(_difficultyLabel)) return;
+        (_difficultyLabel.Text, _difficultyLabel.Modulate) = difficulty switch
+        {
+            Core.DifficultyMode.Easy   => ("EASY",   new Color(0.40f, 0.90f, 0.45f)),
+            Core.DifficultyMode.Normal => ("NORMAL", new Color(1.00f, 0.82f, 0.30f)),
+            Core.DifficultyMode.Hard   => ("HARD",   new Color(1.00f, 0.35f, 0.30f)),
+            _                          => ("",       Colors.White),
+        };
+    }
 
     public void Refresh(int wave, int lives)
     {

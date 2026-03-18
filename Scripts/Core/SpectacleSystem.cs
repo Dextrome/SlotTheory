@@ -291,7 +291,10 @@ public sealed class SpectacleSystem
         // Scale meter gain by attack interval relative to 1s reference:
         // - Fast towers (< 1s interval) earn less per proc so high fire rate doesn't dominate surge count.
         // - Slow towers (> 1s interval) earn a bonus (up to 1.5×) so heavy hitters remain surge-relevant.
-        float intervalScale = MathF.Min(1.5f, tower.AttackInterval / SpectacleDefinitions.MeterIntervalReference);
+        // - Floor (MeterIntervalMinScale) prevents very fast towers (e.g. Rapid Shooter + Hair Trigger)
+        //   from being double-penalized into near-impossible surge fill.
+        float intervalScale = MathF.Min(1.5f, MathF.Max(SpectacleDefinitions.MeterIntervalMinScale,
+            tower.AttackInterval / SpectacleDefinitions.MeterIntervalReference));
 
         float gain = SpectacleDefinitions.GetBaseGain(modId)
             * eventScalar
