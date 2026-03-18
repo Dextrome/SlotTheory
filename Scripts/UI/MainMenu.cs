@@ -51,6 +51,10 @@ public partial class MainMenu : Node
 		vbox.CustomMinimumSize = new Vector2(300, 0);
 		center.AddChild(vbox);
 
+		// Title arm connectors — circuit-bus framing above the title,
+		// referencing the surge meter's converging-toward-activation state.
+		vbox.AddChild(new TitleArmDecor());
+
 		// Title
 		var title = new Label
 		{
@@ -71,7 +75,11 @@ public partial class MainMenu : Node
 		sub.Modulate = UITheme.Lime;
 		vbox.AddChild(sub);
 
-		AddSpacer(vbox, 4);
+		// 6-slot indicator row — directly visualizes the game's core structural
+		// mechanic: 6 tower slots in a staggered cascade-pulse animation.
+		vbox.AddChild(new SlotIndicatorRow());
+
+		AddSpacer(vbox, 6);
 
 		// Row: menu card + optional demo-complete banner side by side
 		var menuRow = new HBoxContainer();
@@ -79,15 +87,21 @@ public partial class MainMenu : Node
 		menuRow.Alignment = BoxContainer.AlignmentMode.Center;
 		vbox.AddChild(menuRow);
 
-		// Menu card
+		// Menu card — styled as a "slot module": a functional component of the
+		// same systemic world as the map, the draft panel, and the codex.
 		var card = new PanelContainer();
-		card.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+		var cardStyle = UITheme.MakePanel(
 			bg: new Color(0.04f, 0.04f, 0.12f),
-			border: new Color(0.18f, 0.22f, 0.18f),
-			corners: 12, borderWidth: 1, padH: 24, padV: 12));
+			border: new Color(0.22f, 0.38f, 0.12f),
+			corners: 12, borderWidth: 1, padH: 24, padV: 12);
+		cardStyle.ShadowColor  = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.11f);
+		cardStyle.ShadowSize   = 10;
+		cardStyle.ShadowOffset = Vector2.Zero;
+		card.AddThemeStyleboxOverride("panel", cardStyle);
 		card.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
 		card.CustomMinimumSize   = new Vector2(320, 0);
 		menuRow.AddChild(card);
+
 
 		var cardVbox = new VBoxContainer();
 		cardVbox.AddThemeConstantOverride("separation", 7);
