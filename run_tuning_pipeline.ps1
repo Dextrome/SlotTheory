@@ -81,6 +81,11 @@ param(
     # Use this when the sole goal is hitting Normal/Hard win-rate targets; quality params can be
     # tuned in a separate pass once the difficulty curve is stable.
     [switch]$DifficultyOnlyMode,
+    # Restrict difficulty mutations to Normal-only params (normal_enemy_*, normal_tanky_count,
+    # normal_swift_count). Freezes hard_* params so Hard difficulty cannot drift. Implies
+    # DifficultyOnlyMode (spectacle params are also frozen). Use when targeting Normal win-rate
+    # without disturbing the Hard curve.
+    [switch]$NormalOnlyMode,
     # Restrict mutation to spectacle params only (overkill bloom, residue, detonation, explosion).
     # Use with -StrategySet spectacle so the scorer actually sees explosion/residue signal.
     # Difficulty params are frozen; win-rate targets are treated as guardrails only.
@@ -191,6 +196,8 @@ function New-NeutralTuningProfile {
         hard_enemy_hp_multiplier = 1.40
         hard_enemy_count_multiplier = 1.15
         hard_spawn_interval_multiplier = 0.90
+        easy_tanky_count_multiplier = 1.0
+        easy_swift_count_multiplier = 1.0
         normal_tanky_count_multiplier = 1.0
         normal_swift_count_multiplier = 1.0
         hard_tanky_count_multiplier = 1.0
@@ -295,6 +302,8 @@ function Normalize-TuningProfile {
     if ($props -contains "hard_enemy_hp_multiplier") { $p.hard_enemy_hp_multiplier = [double]$InputProfile.hard_enemy_hp_multiplier }
     if ($props -contains "hard_enemy_count_multiplier") { $p.hard_enemy_count_multiplier = [double]$InputProfile.hard_enemy_count_multiplier }
     if ($props -contains "hard_spawn_interval_multiplier") { $p.hard_spawn_interval_multiplier = [double]$InputProfile.hard_spawn_interval_multiplier }
+    if ($props -contains "easy_tanky_count_multiplier") { $p.easy_tanky_count_multiplier = [double]$InputProfile.easy_tanky_count_multiplier }
+    if ($props -contains "easy_swift_count_multiplier") { $p.easy_swift_count_multiplier = [double]$InputProfile.easy_swift_count_multiplier }
     if ($props -contains "normal_tanky_count_multiplier") { $p.normal_tanky_count_multiplier = [double]$InputProfile.normal_tanky_count_multiplier }
     if ($props -contains "normal_swift_count_multiplier") { $p.normal_swift_count_multiplier = [double]$InputProfile.normal_swift_count_multiplier }
     if ($props -contains "hard_tanky_count_multiplier") { $p.hard_tanky_count_multiplier = [double]$InputProfile.hard_tanky_count_multiplier }
@@ -368,6 +377,8 @@ function Normalize-TuningProfile {
     $p.hard_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_enemy_hp_multiplier -Min 1.05 -Max 5.0), 4)
     $p.hard_enemy_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_enemy_count_multiplier -Min 1.05 -Max 5.0), 4)
     $p.hard_spawn_interval_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_spawn_interval_multiplier -Min 0.2 -Max 0.98), 4)
+    $p.easy_tanky_count_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_tanky_count_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.easy_swift_count_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_swift_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.normal_tanky_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_tanky_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.normal_swift_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_swift_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.hard_tanky_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_tanky_count_multiplier -Min 0.1 -Max 5.0), 4)
@@ -743,7 +754,11 @@ function New-MutatedTuningProfile {
         [switch]$FreezeSpectacleParams,
         # When set, skip difficulty param mutations and only mutate spectacle params.
         # Pair with -StrategySet spectacle so the scorer actually sees explosion/residue signal.
-        [switch]$SpectacleOnlyMode
+        [switch]$SpectacleOnlyMode,
+        # When set, skip hard_* difficulty param mutations (hard_enemy_*, hard_tanky_count,
+        # hard_swift_count). Normal difficulty params are still mutated freely. Use when the goal
+        # is Normal win-rate improvement without disturbing the Hard curve.
+        [switch]$FreezeHardParams
     )
 
     $candidate = Clone-TuningProfile -Profile $BaseProfile
@@ -787,16 +802,22 @@ function New-MutatedTuningProfile {
     # Difficulty multipliers: primary win-rate levers. Skipped in SpectacleOnlyMode since
     # difficulty curve is already set and we don't want those params drifting during spectacle tuning.
     if (-not $SpectacleOnlyMode) {
+        $changed += Apply-Mutation -Obj $candidate -Name "easy_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+        $changed += Apply-Mutation -Obj $candidate -Name "easy_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
         $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
         $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
         $changed += Apply-Mutation -Obj $candidate -Name "normal_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.99 -Chance 0.80
-        $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
-        $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
-        $changed += Apply-Mutation -Obj $candidate -Name "hard_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.98 -Chance 0.80
+        if (-not $FreezeHardParams) {
+            $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
+            $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
+            $changed += Apply-Mutation -Obj $candidate -Name "hard_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.98 -Chance 0.80
+        }
         $changed += Apply-Mutation -Obj $candidate -Name "normal_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
         $changed += Apply-Mutation -Obj $candidate -Name "normal_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
-        $changed += Apply-Mutation -Obj $candidate -Name "hard_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
-        $changed += Apply-Mutation -Obj $candidate -Name "hard_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+        if (-not $FreezeHardParams) {
+            $changed += Apply-Mutation -Obj $candidate -Name "hard_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+            $changed += Apply-Mutation -Obj $candidate -Name "hard_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+        }
     }
 
     # Explosion share params: overkill bloom trigger, damage, spread, and residue DPS.
@@ -1881,7 +1902,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         $candidateProfile = if ($candidateIndex -eq 1) {
             Clone-TuningProfile -Profile $globalBestProfile
         } else {
-            New-MutatedTuningProfile -BaseProfile $globalBestProfile -Anneal $anneal -Strength $MutationStrength -FreezeSpectacleParams:($FreezeSpectacleParams -or $DifficultyOnlyMode) -SpectacleOnlyMode:$SpectacleOnlyMode
+            New-MutatedTuningProfile -BaseProfile $globalBestProfile -Anneal $anneal -Strength $MutationStrength -FreezeSpectacleParams:($FreezeSpectacleParams -or $DifficultyOnlyMode -or $NormalOnlyMode) -SpectacleOnlyMode:$SpectacleOnlyMode -FreezeHardParams:($NormalOnlyMode)
         }
 
         $candidateTuningPath = Join-Path $iterDir "$candidateId.tuning.json"

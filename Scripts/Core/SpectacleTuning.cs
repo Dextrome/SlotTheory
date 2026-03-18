@@ -6,7 +6,7 @@ namespace SlotTheory.Core;
 
 /// <summary>
 /// Runtime tuning overrides used by automation, sweeps, and combat lab scenarios.
-/// Defaults reflect the tuned best_tuning profile (iter03_cand01/iter05_cand03, 20260317_170149 pipeline run).
+/// Defaults reflect the tuned best_tuning profile (iter06_cand02, 20260318_001423 pipeline run).
 /// All multipliers are applied on top of Balance.cs constants - Reset() returns to these same defaults.
 /// </summary>
 public sealed class SpectacleTuningProfile
@@ -19,34 +19,34 @@ public sealed class SpectacleTuningProfile
     public bool EnableResidue { get; set; } = true;
 
     [JsonPropertyName("overkill_bloom_damage_scale_multiplier")]
-    public float OverkillBloomDamageScaleMultiplier { get; set; } = 0.889f;
+    public float OverkillBloomDamageScaleMultiplier { get; set; } = 0.975f;
     [JsonPropertyName("overkill_bloom_radius_multiplier")]
-    public float OverkillBloomRadiusMultiplier { get; set; } = 1f;
+    public float OverkillBloomRadiusMultiplier { get; set; } = 1.0171f;
     [JsonPropertyName("overkill_bloom_threshold_multiplier")]
-    public float OverkillBloomThresholdMultiplier { get; set; } = 1.1841f;
+    public float OverkillBloomThresholdMultiplier { get; set; } = 1.091f;
     [JsonPropertyName("overkill_bloom_max_targets_multiplier")]
-    public float OverkillBloomMaxTargetsMultiplier { get; set; } = 1f;
+    public float OverkillBloomMaxTargetsMultiplier { get; set; } = 1.0245f;
 
     [JsonPropertyName("detonation_max_targets_multiplier")]
-    public float DetonationMaxTargetsMultiplier { get; set; } = 0.9457f;
+    public float DetonationMaxTargetsMultiplier { get; set; } = 1.0799f;
     [JsonPropertyName("detonation_stagger_multiplier")]
     public float DetonationStaggerMultiplier { get; set; } = 0.9043f;
     [JsonPropertyName("status_detonation_damage_multiplier")]
-    public float StatusDetonationDamageMultiplier { get; set; } = 1.1732f;
+    public float StatusDetonationDamageMultiplier { get; set; } = 1.2879f;
 
     [JsonPropertyName("residue_duration_multiplier")]
-    public float ResidueDurationMultiplier { get; set; } = 1.1929f;
+    public float ResidueDurationMultiplier { get; set; } = 1.2448f;
     [JsonPropertyName("residue_potency_multiplier")]
-    public float ResiduePotencyMultiplier { get; set; } = 1.2142f;
+    public float ResiduePotencyMultiplier { get; set; } = 1.1722f;
     [JsonPropertyName("residue_damage_multiplier")]
-    public float ResidueDamageMultiplier { get; set; } = 1f;
+    public float ResidueDamageMultiplier { get; set; } = 0.8358f;
     [JsonPropertyName("residue_tick_interval_multiplier")]
     public float ResidueTickIntervalMultiplier { get; set; } = 1f;
     [JsonPropertyName("residue_max_active_multiplier")]
     public float ResidueMaxActiveMultiplier { get; set; } = 0.9831f;
 
     [JsonPropertyName("explosion_followup_damage_multiplier")]
-    public float ExplosionFollowUpDamageMultiplier { get; set; } = 1f;
+    public float ExplosionFollowUpDamageMultiplier { get; set; } = 0.9763f;
 
     [JsonPropertyName("meter_gain_multiplier")]
     public float MeterGainMultiplier { get; set; } = 1f;
@@ -93,30 +93,34 @@ public sealed class SpectacleTuningProfile
     [JsonPropertyName("second_stage_power_threshold")]
     public float SecondStagePowerThreshold { get; set; } = 0.95f;
     [JsonPropertyName("normal_enemy_hp_multiplier")]
-    public float NormalEnemyHpMultiplier { get; set; } = 1.0268f;
+    public float NormalEnemyHpMultiplier { get; set; } = 1.0074f;
     [JsonPropertyName("normal_enemy_count_multiplier")]
-    public float NormalEnemyCountMultiplier { get; set; } = 1.2286f;
+    public float NormalEnemyCountMultiplier { get; set; } = 1.2343f;
     [JsonPropertyName("normal_spawn_interval_multiplier")]
-    public float NormalSpawnIntervalMultiplier { get; set; } = 0.9181f;
+    public float NormalSpawnIntervalMultiplier { get; set; } = 0.9129f;
     [JsonPropertyName("hard_enemy_hp_multiplier")]
-    public float HardEnemyHpMultiplier { get; set; } = 1.2449f;
+    public float HardEnemyHpMultiplier { get; set; } = 1.2609f;
     [JsonPropertyName("hard_enemy_count_multiplier")]
     public float HardEnemyCountMultiplier { get; set; } = 1.05f;
     [JsonPropertyName("hard_spawn_interval_multiplier")]
-    public float HardSpawnIntervalMultiplier { get; set; } = 0.9257f;
+    public float HardSpawnIntervalMultiplier { get; set; } = 0.9725f;
 
     // Separate multipliers for armored (tanky) and swift enemy counts.
     // The base enemy_count_multiplier scales all types uniformly - these let the
     // optimizer tune enemy composition independently (e.g. more armored without
     // more basics). Applied on top of enemy_count_multiplier in DataLoader.GetWaveConfig.
+    [JsonPropertyName("easy_tanky_count_multiplier")]
+    public float EasyTankyCountMultiplier { get; set; } = 1f;
+    [JsonPropertyName("easy_swift_count_multiplier")]
+    public float EasySwiftCountMultiplier { get; set; } = 1f;
     [JsonPropertyName("normal_tanky_count_multiplier")]
-    public float NormalTankyCountMultiplier { get; set; } = 0.945f;
+    public float NormalTankyCountMultiplier { get; set; } = 0.9148f;
     [JsonPropertyName("normal_swift_count_multiplier")]
-    public float NormalSwiftCountMultiplier { get; set; } = 1.0408f;
+    public float NormalSwiftCountMultiplier { get; set; } = 1.0907f;
     [JsonPropertyName("hard_tanky_count_multiplier")]
-    public float HardTankyCountMultiplier { get; set; } = 1.0051f;
+    public float HardTankyCountMultiplier { get; set; } = 0.9586f;
     [JsonPropertyName("hard_swift_count_multiplier")]
-    public float HardSwiftCountMultiplier { get; set; } = 1.1057f;
+    public float HardSwiftCountMultiplier { get; set; } = 1.1471f;
 
     [JsonPropertyName("gain_multipliers")]
     public Dictionary<string, float> GainMultipliers { get; set; } = new(StringComparer.Ordinal)
@@ -192,6 +196,8 @@ public sealed class SpectacleTuningProfile
         DiversityMultiplierScale = 1f,
         EventScalarMultiplier = 1f,
         SecondStagePowerThreshold = 0.95f,
+        EasyTankyCountMultiplier = 1f,
+        EasySwiftCountMultiplier = 1f,
         NormalTankyCountMultiplier = 1f,
         NormalSwiftCountMultiplier = 1f,
         HardTankyCountMultiplier = 1f,
@@ -288,6 +294,8 @@ public sealed class SpectacleTuningProfile
             HardEnemyHpMultiplier = Math.Clamp(HardEnemyHpMultiplier, 0.1f, 5f),
             HardEnemyCountMultiplier = Math.Clamp(HardEnemyCountMultiplier, 0.1f, 5f),
             HardSpawnIntervalMultiplier = Math.Clamp(HardSpawnIntervalMultiplier, 0.2f, 3f),
+            EasyTankyCountMultiplier = Math.Clamp(EasyTankyCountMultiplier, 0.1f, 5f),
+            EasySwiftCountMultiplier = Math.Clamp(EasySwiftCountMultiplier, 0.1f, 5f),
             NormalTankyCountMultiplier = Math.Clamp(NormalTankyCountMultiplier, 0.1f, 5f),
             NormalSwiftCountMultiplier = Math.Clamp(NormalSwiftCountMultiplier, 0.1f, 5f),
             HardTankyCountMultiplier = Math.Clamp(HardTankyCountMultiplier, 0.1f, 5f),

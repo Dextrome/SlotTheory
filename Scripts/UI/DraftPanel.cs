@@ -699,27 +699,9 @@ public partial class DraftPanel : CanvasLayer
 
         BuildCardRow(options);
 
-        bool isTutorialMap = GameController.Instance?.GetRunState().SelectedMapId == "tutorial";
-        bool showFirstRunBanner = !isTutorialMap && waveNumber == 1 && pickNumber == 1
-                               && (SettingsManager.Instance?.IsFirstRun ?? false);
-        bool showSurgeBanner = !isTutorialMap && waveNumber == 3 && pickNumber == 1
-                            && !(SettingsManager.Instance?.SurgeTutorialSeen ?? true);
-
-        if (showFirstRunBanner)
-        {
-            SetBannerPage(0);
-            _firstRunBanner.Visible = true;
-        }
-        else if (showSurgeBanner)
-        {
-            SettingsManager.Instance?.MarkSurgeTutorialSeen();
-            SetBannerPage(1);
-            _firstRunBanner.Visible = true;
-        }
-        else
-        {
-            _firstRunBanner.Visible = false;
-        }
+        // First-run and surge tutorial banners removed - the dedicated tutorial map
+        // now covers this content. Banner infrastructure kept for potential future use.
+        _firstRunBanner.Visible = false;
 
         Visible = true;
     }

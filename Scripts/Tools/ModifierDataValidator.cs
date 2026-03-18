@@ -69,7 +69,7 @@ public static class ModifierDataValidator
         }
         else
         {
-            GD.PrintErr($"[VALIDATOR] \u2717 {errorCount} mismatch(es) found \u2014 update tooltip!");
+            GD.PrintErr($"[VALIDATOR] \u2717 {errorCount} mismatch(es) found - update tooltip!");
         }
     }
 

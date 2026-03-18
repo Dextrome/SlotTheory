@@ -28,11 +28,9 @@ public class TutorialManager
 
     public bool BuildNamePanelShown        { get; private set; } = false;
     public bool SurgePanelShown            { get; private set; } = false;
-    public bool GlobalSurgeActivatePanelShown { get; private set; } = false;
 
     public void MarkBuildNamePanelShown()           => BuildNamePanelShown           = true;
     public void MarkSurgePanelShown()               => SurgePanelShown               = true;
-    public void MarkGlobalSurgeActivatePanelShown() => GlobalSurgeActivatePanelShown = true;
 
     private readonly UI.TutorialCallout _callout;
 
@@ -69,14 +67,15 @@ public class TutorialManager
         if (waveIndex == 0)
         {
             _callout.Show(
-                "Enemies walk the path. Stop them before they reach the end.\nEach one that escapes costs you a life.",
-                autoDismissSeconds: 5f);
+                "Enemies walk the path. Stop them before they reach the end.\nEach one that escapes costs you a life.");
         }
         else if (waveIndex == 4)
         {
             _callout.Show(
-                "ARMORED WALKER - 3.5× HP, costs 2 lives if it escapes.\nFocus your heaviest hitters on it.",
-                autoDismissSeconds: 6f);
+                "ARMORED WALKER - 3.5× HP, costs 2 lives if it escapes.\nFocus your heaviest hitters on it.");
         }
     }
+
+    /// <summary>Clears any active or queued wave callouts (called when the wave ends).</summary>
+    public void DismissCallouts() => _callout.DismissAll();
 }

@@ -217,6 +217,21 @@ public partial class MusicDirector : Node
         MelodyLayer.Active = false;
     }
 
+    /// <summary>
+    /// Call when the player continues into Endless mode. Restarts the clock and
+    /// re-activates procedural layers that were stopped by OnRunEnd.
+    /// </summary>
+    public void OnEndlessContinue(int waveIndex, int lives)
+    {
+        if (BassLayer is null) return;
+        _tension = MusicHarmony.ComputeTension(waveIndex, lives);
+        float bpm = MusicHarmony.TensionToBpm(_tension) + _profile.BpmOffset;
+        Clock.Start(bpm);
+        PercLayer.Active  = true;
+        MelodyLayer.Active = true;
+        OnWaveStart(waveIndex, lives);
+    }
+
     // ── Internal ──────────────────────────────────────────────────────────
 
     private void ApplyTension(MusicTension newTension)

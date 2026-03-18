@@ -39,6 +39,7 @@ public partial class EndScreen : CanvasLayer
 	private bool _continuingEndless;
 	private bool _isTutorialRun;
 	private Button _howToPlayButton = null!;
+	private HBoxContainer _primaryRow = null!;
 	private const float BackgroundOverlayAlpha = 0.88f;
 
 	public override void _Ready()
@@ -188,7 +189,8 @@ public partial class EndScreen : CanvasLayer
 		secondaryRow.AddChild(_wishlistButton);
 
 		// Play Again + Continue Endless side by side
-		var primaryRow = new HBoxContainer();
+		_primaryRow = new HBoxContainer();
+		var primaryRow = _primaryRow;
 		primaryRow.AddThemeConstantOverride("separation", 8);
 		primaryRow.CustomMinimumSize = new Vector2(360f, 0f);
 		vbox.AddChild(primaryRow);
@@ -208,7 +210,7 @@ public partial class EndScreen : CanvasLayer
 
 		_continueEndlessButton = new Button
 		{
-			Text = "Continue  \u2014  Endless",
+			Text = "Continue - Endless",
 			CustomMinimumSize = new Vector2(0f, 42f),
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 			Visible = false,
@@ -375,12 +377,15 @@ public partial class EndScreen : CanvasLayer
 		_isTutorialRun = isTutorial;
 		if (GodotObject.IsInstanceValid(_howToPlayButton))
 			_howToPlayButton.Visible = isTutorial;
-		// Tutorial runs don't submit leaderboard scores
 		if (isTutorial)
 		{
+			// Hide play-again row and endless button - tutorial win screen only shows How to Play + Main Menu.
+			if (GodotObject.IsInstanceValid(_primaryRow))           _primaryRow.Visible = false;
 			if (GodotObject.IsInstanceValid(_viewLeaderboardButton)) _viewLeaderboardButton.Visible = false;
 			if (GodotObject.IsInstanceValid(_continueEndlessButton)) _continueEndlessButton.Visible = false;
-			if (GodotObject.IsInstanceValid(_playAgainButton)) _playAgainButton.Text = "Play Again  ·  Real Run →";
+			// Move How to Play above Main Menu.
+			if (GodotObject.IsInstanceValid(_howToPlayButton) && GodotObject.IsInstanceValid(_mainMenuButton))
+				_howToPlayButton.GetParent().MoveChild(_howToPlayButton, _mainMenuButton.GetIndex());
 		}
 	}
 
@@ -578,7 +583,7 @@ public partial class EndScreen : CanvasLayer
 			{
 				int gap = entryAbove.Score - ScoreCalculator.ComputeScore(payload);
 				if (gap > 0)
-					gapSuffix = $"\u2014 {gap:N0} from #{result.Rank.Value - 1}";
+					gapSuffix = $"- {gap:N0} from #{result.Rank.Value - 1}";
 			}
 		}
 

@@ -84,6 +84,14 @@ public partial class TutorialCallout : CanvasLayer
                 ? Control.MouseFilterEnum.Stop
                 : Control.MouseFilterEnum.Ignore,
         };
+        if (needsBlocker)
+        {
+            panel.GuiInput += (@event) =>
+            {
+                if (@event is InputEventMouseButton mb && mb.Pressed)
+                    DismissWithSound();
+            };
+        }
         panel.AddThemeStyleboxOverride("panel", Core.UITheme.MakePanel(
             bg: new Color(0.04f, 0.04f, 0.14f, 0.96f),
             border: new Color(0.20f, 0.95f, 1.00f, 0.80f),
@@ -126,6 +134,13 @@ public partial class TutorialCallout : CanvasLayer
 
         if (spec.AutoDismissSeconds > 0f)
             GetTree().CreateTimer(spec.AutoDismissSeconds).Timeout += DismissSilently;
+    }
+
+    /// <summary>Immediately clears all queued and active callouts (e.g. when a wave ends).</summary>
+    public void DismissAll()
+    {
+        _queue.Clear();
+        DismissSilently();
     }
 
     private void DismissWithSound()

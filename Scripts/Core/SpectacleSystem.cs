@@ -119,10 +119,20 @@ public sealed class SpectacleSystem
 
     public event Action<SpectacleTriggerInfo>? OnSurgeTriggered;
     public event Action<GlobalSurgeTriggerInfo>? OnGlobalTriggered;
-    /// <summary>Fires when the global meter fills and is waiting for player activation.</summary>
-    public event Action? OnGlobalSurgeReady;
+    /// <summary>Fires when the global meter fills and is waiting for player activation. Passes the resolved archetype label.</summary>
+    public event Action<string>? OnGlobalSurgeReady;
 
     public float GlobalMeter => _globalMeter;
+
+    /// <summary>
+    /// Sets the global meter to a fraction of the current threshold (clamped 0–0.99).
+    /// Used by the tutorial to pre-fill the meter so it fires naturally during play.
+    /// </summary>
+    public void SetGlobalMeterFraction(float fraction)
+    {
+        float threshold = SpectacleDefinitions.ResolveGlobalThreshold();
+        _globalMeter = threshold * Math.Clamp(fraction, 0f, 0.99f);
+    }
 
     /// <summary>True when the global meter is full and waiting for the player to activate it.</summary>
     public bool IsGlobalSurgeReady { get; private set; } = false;
@@ -340,7 +350,7 @@ public sealed class SpectacleSystem
                     DominantModIds: dominantMods);
                 _hasPendingGlobalSurge = true;
                 IsGlobalSurgeReady = true;
-                OnGlobalSurgeReady?.Invoke();
+                OnGlobalSurgeReady?.Invoke(SurgeDifferentiation.ResolveLabel(dominantMods));
             }
 
             return;

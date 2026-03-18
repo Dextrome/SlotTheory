@@ -103,6 +103,8 @@ public partial class GameController : Node
 	private bool _runAbandoned = false;  // set on intentional exit to suppress _ExitTree re-save
 	private TutorialManager? _tutorialManager;
 	private SlotTheory.UI.TutorialCallout? _tutorialCallout;
+	private CanvasLayer? _tutorialTargetingOverlay;
+	private bool _awaitingTargetingCycleDismiss = false;
 	private int _mapTotalWaves = Balance.TotalWaves; // overridden for maps with custom wave counts (e.g. tutorial)
 	private bool _hitStopActive = false;
 	private float _hitStopCooldown = 0f;
@@ -423,6 +425,10 @@ public partial class GameController : Node
 
 	public override void _Process(double delta)
 	{
+		// When ProcessMode=Always is set (e.g. targeting tutorial panel) _Process still ticks
+		// while the tree is paused. Skip all game logic - only _Input needs to work.
+		if (GetTree().Paused) return;
+
 		if (MobileOptimization.IsMobile() && GodotObject.IsInstanceValid(_mobileCamera))
 		{
 			var vpSize = GetViewport().GetVisibleRect().Size;
@@ -896,6 +902,7 @@ public partial class GameController : Node
 
 	public void StartDraftPhase()
 	{
+		_tutorialManager?.DismissCallouts();
 		ClearUndoPlacementState();
 		CurrentPhase = GamePhase.Draft;
 		MusicDirector.Instance?.OnDraftPhaseStart();
@@ -949,7 +956,7 @@ public partial class GameController : Node
 		_runState.EndlessWaveDepth = 1;
 		_extraPicksRemaining       = 0;
 		_hudPanel.SetEndlessMode(true);
-		MusicDirector.Instance?.OnWaveStart(_runState.WaveIndex + 1, _runState.Lives);
+		MusicDirector.Instance?.OnEndlessContinue(_runState.WaveIndex + 1, _runState.Lives);
 		StartDraftPhase();
 	}
 
@@ -1531,13 +1538,17 @@ public partial class GameController : Node
 				if (MobileOptimization.IsMobile())
 				{
 					if (_selectedTooltipTower == tower)
+					{
 						tower.CycleTargetingMode();
+						DismissTutorialTargetingPanel();
+					}
 					else
 						_selectedTooltipTower = tower;
 				}
 				else
 				{
 					tower.CycleTargetingMode();
+					DismissTutorialTargetingPanel();
 				}
 				GetViewport().SetInputAsHandled();
 				return;
@@ -3336,7 +3347,7 @@ void fragment() {
 		FlashSpectacleAfterimage(accent, afterimageStrength);
 	}
 
-	private void OnGlobalSurgeReadyHandler()
+	private void OnGlobalSurgeReadyHandler(string archetypeName)
 	{
 		if (CurrentPhase != GamePhase.Wave) return;
 
@@ -3347,13 +3358,11 @@ void fragment() {
 			return;
 		}
 
-		_hudPanel.SetGlobalSurgeReady(true);
+		_hudPanel.SetGlobalSurgeReady(true, archetypeName);
 
-		if (_tutorialManager != null && !_tutorialManager.GlobalSurgeActivatePanelShown)
-		{
-			_tutorialManager.MarkGlobalSurgeActivatePanelShown();
+		// In tutorial, always pause and guide the player to activate the surge bar.
+		if (_tutorialManager != null)
 			ShowTutorialGlobalSurgeActivatePanel();
-		}
 	}
 
 	private void OnHudGlobalSurgeActivate()
@@ -6446,7 +6455,7 @@ void fragment() {
 			{
 				int gap = entryAbove.Score - ScoreCalculator.ComputeScore(payload);
 				if (gap > 0)
-					gapSuffix = $"\u2014 {gap:N0} from #{result.Rank.Value - 1}";
+					gapSuffix = $"- {gap:N0} from #{result.Rank.Value - 1}";
 			}
 		}
 
@@ -6543,6 +6552,11 @@ void fragment() {
 		CurrentPhase = GamePhase.Wave;
 		int waveNumber = _runState.WaveIndex + 1;
 		_tutorialManager?.OnWaveStarted(_runState.WaveIndex);
+		if (_tutorialManager != null && _runState.WaveIndex == 2)
+			ShowTutorialTargetingPanel();
+		// Tutorial: pre-fill global meter to 90% at wave 6 so it fills naturally during combat.
+		if (_tutorialManager != null && _runState.WaveIndex == 6)
+			_spectacleSystem.SetGlobalMeterFraction(0.95f);
 		if (_botRunner == null) ShowWaveAnnouncement(waveNumber);
 		WaveConfig? nextCfg = _runState.WaveIndex < _mapTotalWaves
 			? DataLoader.GetWaveConfig(
@@ -6584,8 +6598,6 @@ void fragment() {
 		string runName = BuildRunName();
 		var runColors = BuildRunNameColors();
 		_hudPanel.SetBuildName(runName, visible: true, startColor: runColors.start, endColor: runColors.end);
-		if (waveNumber == 2 && _botRunner == null && _tutorialManager == null && !(SettingsManager.Instance?.BuildNameTutorialSeen ?? true))
-			ShowBuildNameTutorial();
 		SaveMobileRunSnapshot("start_wave");
 	}
 
@@ -6837,6 +6849,89 @@ void fragment() {
 	}
 
 	/// <summary>
+	/// Tutorial-mode targeting panel. Pauses the wave and explains targeting modes.
+	/// Dismissed when the player clicks any tower to cycle its targeting mode.
+	/// </summary>
+	private void ShowTutorialTargetingPanel()
+	{
+		if (_awaitingTargetingCycleDismiss) return;
+		GetTree().Paused = true;
+		ProcessMode = ProcessModeEnum.Always; // keep _Input alive so tower clicks register
+
+		var overlay = new CanvasLayer { Layer = 21, ProcessMode = ProcessModeEnum.Always };
+		_tutorialTargetingOverlay = overlay;
+		GetTree().Root.AddChild(overlay);
+
+		// Semi-transparent backdrop that does NOT eat clicks (towers must still be clickable).
+		var backdrop = new ColorRect
+		{
+			Color = new Color(0f, 0f, 0f, 0.72f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		backdrop.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		overlay.AddChild(backdrop);
+
+		var vpSize = GetViewport().GetVisibleRect().Size;
+		float panelW = Mathf.Min(520f, vpSize.X - 32f);
+
+		var bannerStyle = new StyleBoxFlat
+		{
+			BgColor     = new Color(0.04f, 0.09f, 0.16f, 0.97f),
+			BorderColor = new Color(0.20f, 0.95f, 1.00f, 0.80f),
+			ShadowColor = new Color(0.10f, 0.70f, 1.00f, 0.25f),
+			ShadowSize  = 8,
+			ShadowOffset = Vector2.Zero,
+		};
+		bannerStyle.SetBorderWidthAll(2);
+		bannerStyle.SetCornerRadiusAll(10);
+		bannerStyle.ContentMarginLeft = 18; bannerStyle.ContentMarginRight  = 18;
+		bannerStyle.ContentMarginTop  = 14; bannerStyle.ContentMarginBottom = 14;
+
+		var panel = new PanelContainer
+		{
+			Position = new Vector2((vpSize.X - panelW) / 2f, 24f),
+			CustomMinimumSize = new Vector2(panelW, 0f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		panel.AddThemeStyleboxOverride("panel", bannerStyle);
+		overlay.AddChild(panel);
+
+		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 8);
+		panel.AddChild(vbox);
+
+		var header = new Label { Text = "TARGETING MODE" };
+		UITheme.ApplyFont(header, semiBold: true, size: 13);
+		header.HorizontalAlignment = HorizontalAlignment.Center;
+		header.AddThemeColorOverride("font_color", new Color(0.20f, 0.95f, 1.00f));
+		vbox.AddChild(header);
+
+		var body = new Label
+		{
+			Text = "Each tower has a small arrow icon showing how it picks targets.\n▶ First - attacks the enemy furthest along the path.\n★ Strongest - attacks the highest HP enemy in range.\n▼ Lowest HP - focuses the weakest enemy to finish it fast.\n\nClick any tower now to cycle its targeting mode.",
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			HorizontalAlignment = HorizontalAlignment.Center,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		UITheme.ApplyFont(body, size: 14);
+		body.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
+		vbox.AddChild(body);
+
+		_awaitingTargetingCycleDismiss = true;
+	}
+
+	private void DismissTutorialTargetingPanel()
+	{
+		if (!_awaitingTargetingCycleDismiss) return;
+		_awaitingTargetingCycleDismiss = false;
+		if (_tutorialTargetingOverlay != null && GodotObject.IsInstanceValid(_tutorialTargetingOverlay))
+			_tutorialTargetingOverlay.QueueFree();
+		_tutorialTargetingOverlay = null;
+		ProcessMode = ProcessModeEnum.Inherit;
+		GetTree().Paused = false;
+	}
+
+	/// <summary>
 	/// Tutorial-mode surge panel. Pauses the wave, forces the global surge meter visible,
 	/// and shows a blocking overlay with a highlight rect around the surge bar.
 	/// </summary>
@@ -6889,23 +6984,26 @@ void fragment() {
 		bannerStyle.ContentMarginLeft = 16; bannerStyle.ContentMarginRight  = 16;
 		bannerStyle.ContentMarginTop  = 12; bannerStyle.ContentMarginBottom = 12;
 
+		var vpSize = GetViewport().GetVisibleRect().Size;
+		float cx = meter.GetCenter().X;
+		const float bannerW = 552f;
+		float bannerLeft = Mathf.Clamp(cx - bannerW / 2f, 8f, vpSize.X - bannerW - 8f);
+
 		var banner = new PanelContainer
 		{
 			AnchorTop    = 1f, AnchorBottom = 1f,
 			AnchorLeft   = 0f, AnchorRight  = 0f,
-			GrowHorizontal = Control.GrowDirection.End,
+			GrowHorizontal = Control.GrowDirection.Both,
 			GrowVertical   = Control.GrowDirection.Begin,
 			OffsetTop    = -82f,
 			OffsetBottom = -82f,
-			OffsetLeft   = 10f,
-			OffsetRight  = 10f,
+			OffsetLeft   = bannerLeft,
+			OffsetRight  = bannerLeft + bannerW,
 		};
 		banner.AddThemeStyleboxOverride("panel", bannerStyle);
 		overlay.AddChild(banner);
 
 		// Connector from banner top to surge meter
-		var vpSize = GetViewport().GetVisibleRect().Size;
-		float cx = meter.GetCenter().X;
 		var connector = new Line2D
 		{
 			DefaultColor = new Color(0.20f, 0.95f, 1.00f, 0.80f),
@@ -6930,7 +7028,7 @@ void fragment() {
 
 		var body = new Label
 		{
-			Text = "Modifiers generate charge as they activate (hits, kills, procs). When a tower's meter fills, it triggers a Surge: a powerful mid-wave effect.\nEach Surge adds to the global meter above. Fill it and a Global Surge fires - refunding all cooldowns and hitting every enemy on the lane.",
+			Text = "Modifiers generate charge as they activate (hits, kills, procs). When a tower's meter fills, it triggers a Surge: a powerful mid-wave effect.\nEach Surge adds to the global meter below. Fill it and you can activate a Global Surge, reducing tower cooldowns and hitting every enemy on the lane.",
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 			CustomMinimumSize = new Vector2(520f, 0f),
 		};
@@ -6966,16 +7064,18 @@ void fragment() {
 	private void ShowTutorialGlobalSurgeActivatePanel()
 	{
 		GetTree().Paused = true;
-		// Ensure meter is visible and raised above any overlay
+		// Raise HudPanel above the overlay (Layer=22) so the surge bar receives clicks directly.
 		_hudPanel.SetSurgeMeterForcedVisible(true);
+		_hudPanel.Layer = 22;
 
 		var overlay = new CanvasLayer { Layer = 21, ProcessMode = ProcessModeEnum.Always };
 		GetTree().Root.AddChild(overlay);
 
+		// Dim backdrop - Ignore so clicks pass through to HudPanel above it.
 		var blocker = new ColorRect
 		{
 			Color = new Color(0f, 0f, 0f, 0.75f),
-			MouseFilter = Control.MouseFilterEnum.Stop,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
 		blocker.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		overlay.AddChild(blocker);
@@ -6999,7 +7099,12 @@ void fragment() {
 		};
 		overlay.AddChild(highlight);
 
-		// Banner anchored above surge meter
+		// Banner centered on the surge meter's horizontal midpoint
+		var vpSize = GetViewport().GetVisibleRect().Size;
+		float cx = meter.GetCenter().X;
+		const float bannerW = 552f;
+		float bannerLeft = Mathf.Clamp(cx - bannerW / 2f, 8f, vpSize.X - bannerW - 8f);
+
 		var bannerStyle = new StyleBoxFlat
 		{
 			BgColor     = new Color(0.04f, 0.09f, 0.16f, 0.97f),
@@ -7017,18 +7122,15 @@ void fragment() {
 		{
 			AnchorTop    = 1f, AnchorBottom = 1f,
 			AnchorLeft   = 0f, AnchorRight  = 0f,
-			GrowHorizontal = Control.GrowDirection.End,
+			GrowHorizontal = Control.GrowDirection.Both,
 			GrowVertical   = Control.GrowDirection.Begin,
 			OffsetTop    = -82f,
 			OffsetBottom = -82f,
-			OffsetLeft   = 10f,
-			OffsetRight  = 10f,
+			OffsetLeft   = bannerLeft,
+			OffsetRight  = bannerLeft + bannerW,
 		};
 		banner.AddThemeStyleboxOverride("panel", bannerStyle);
 		overlay.AddChild(banner);
-
-		var vpSize = GetViewport().GetVisibleRect().Size;
-		float cx = meter.GetCenter().X;
 		var connector = new Line2D
 		{
 			DefaultColor = new Color(1.00f, 0.88f, 0.20f, 0.80f),
@@ -7061,27 +7163,21 @@ void fragment() {
 		body.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
 		vbox.AddChild(body);
 
-		var btnRow = new HBoxContainer();
-		btnRow.AddThemeConstantOverride("separation", 10);
-		btnRow.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+		// Allow HudPanel to receive input while the tree is paused so the bar is clickable.
+		_hudPanel.ProcessMode = ProcessModeEnum.Always;
 
-		var activateBtn = new Button { Text = "Activate →", ProcessMode = ProcessModeEnum.Always };
-		activateBtn.CustomMinimumSize = new Vector2(120f, 0f);
-		activateBtn.AddThemeFontSizeOverride("font_size", 13);
-		UITheme.ApplyPrimaryStyle(activateBtn);
-		activateBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
-		activateBtn.Pressed += () =>
+		void OnSurgeBarClicked()
 		{
-			SoundManager.Instance?.Play("ui_select");
+			_hudPanel.GlobalSurgeActivateRequested -= OnSurgeBarClicked;
+			_hudPanel.ProcessMode = ProcessModeEnum.Inherit;
+			_hudPanel.Layer = 1; // restore normal layer
 			_hudPanel.SetSurgeMeterForcedVisible(false);
 			overlay.QueueFree();
 			GetTree().Paused = false;
-			// Fire the global surge immediately via the click path
-			_hudPanel.SetGlobalSurgeReady(false);
-			_spectacleSystem.ActivateGlobalSurge();
-		};
-		btnRow.AddChild(activateBtn);
-		vbox.AddChild(btnRow);
+			// OnHudGlobalSurgeActivate (subscribed at init) has already fired SetGlobalSurgeReady(false)
+			// and ActivateGlobalSurge() - nothing extra needed here.
+		}
+		_hudPanel.GlobalSurgeActivateRequested += OnSurgeBarClicked;
 	}
 
 	private void ShakeWorld()

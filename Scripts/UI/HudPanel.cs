@@ -30,6 +30,7 @@ public partial class HudPanel : CanvasLayer
     private bool _buildLabelForcedVisible = false;
     private bool _isGlobalSurgeReady = false;
     private Tween? _surgeReadyTween;
+    private string _lockedSurgeName = "";
 
     /// <summary>Fired when the player clicks the surge bar while IsGlobalSurgeReady.</summary>
     public event Action? GlobalSurgeActivateRequested;
@@ -492,16 +493,25 @@ public partial class HudPanel : CanvasLayer
             _surgePips[i].Color = PipEmpty.Lerp(PipFilled, pipFill);
         }
 
-        bool hasPreview = !string.IsNullOrEmpty(archetypePreview) && previewAlpha > 0.01f;
-        if (hasPreview)
+        if (!string.IsNullOrEmpty(_lockedSurgeName))
         {
-            _surgeNameLabel.Text = archetypePreview;
-            _surgeNameLabel.Modulate = new Color(1.00f, 0.92f, 0.60f, 0.60f + previewAlpha * 0.40f);
+            // Surge is ready and waiting for activation - hold the archetype name.
+            _surgeNameLabel.Text = _lockedSurgeName;
+            _surgeNameLabel.Modulate = new Color(1.00f, 0.92f, 0.60f, 1f);
         }
         else
         {
-            _surgeNameLabel.Text = "GLOBAL SURGE";
-            _surgeNameLabel.Modulate = new Color(1.00f, 0.95f, 0.76f, 1f);
+            bool hasPreview = !string.IsNullOrEmpty(archetypePreview) && previewAlpha > 0.01f;
+            if (hasPreview)
+            {
+                _surgeNameLabel.Text = archetypePreview;
+                _surgeNameLabel.Modulate = new Color(1.00f, 0.92f, 0.60f, 0.60f + previewAlpha * 0.40f);
+            }
+            else
+            {
+                _surgeNameLabel.Text = "GLOBAL SURGE";
+                _surgeNameLabel.Modulate = new Color(1.00f, 0.95f, 0.76f, 1f);
+            }
         }
     }
 
@@ -524,9 +534,10 @@ public partial class HudPanel : CanvasLayer
     /// shows a pulsing glow, and changes the label to prompt the player.
     /// Pass false to return to normal display after the surge fires.
     /// </summary>
-    public void SetGlobalSurgeReady(bool ready)
+    public void SetGlobalSurgeReady(bool ready, string surgeName = "")
     {
         _isGlobalSurgeReady = ready;
+        _lockedSurgeName = ready ? surgeName : "";
 
         if (!GodotObject.IsInstanceValid(_globalSpectaclePanel)) return;
 
@@ -538,12 +549,7 @@ public partial class HudPanel : CanvasLayer
         if (ready)
         {
             _globalSpectaclePanel.MouseFilter = Control.MouseFilterEnum.Stop;
-            // Swap label to prompt
-            if (GodotObject.IsInstanceValid(_surgeNameLabel))
-            {
-                _surgeNameLabel.Text = "▶  ACTIVATE";
-                _surgeNameLabel.Modulate = new Color(1.00f, 0.96f, 0.50f, 1f);
-            }
+            // Label is now driven by _lockedSurgeName in RefreshGlobalSurgeMeter; nothing to set here.
             // Override border to bright gold to make it obviously interactive
             _globalSpectaclePanel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
                 bg:     new Color(0.10f, 0.12f, 0.06f, 0.92f),
@@ -566,8 +572,7 @@ public partial class HudPanel : CanvasLayer
                 border: new Color(0.62f, 0.92f, 1.00f, 0.82f),
                 corners: 8, borderWidth: 2, padH: 8, padV: 4));
             _globalSpectaclePanel.Modulate = new Color(1f, 1f, 1f, 0.97f);
-            if (GodotObject.IsInstanceValid(_surgeNameLabel))
-                _surgeNameLabel.Modulate = new Color(1.00f, 0.95f, 0.76f, 1f);
+            // Label text/colour will be reset to "GLOBAL SURGE" on the next RefreshGlobalSurgeMeter tick.
         }
     }
 
