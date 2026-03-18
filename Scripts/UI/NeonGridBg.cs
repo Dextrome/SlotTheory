@@ -223,8 +223,8 @@ public partial class NeonGridBg : Control
         (0.980f, 0.500f, 0.012f, 0.016f, 2),
     };
 
-    // Slow traversal on 8 well-distributed traces
-    private static readonly int[] PulseTraces = { 0, 6, 10, 11, 20, 21, 1, 7 };
+    // Reduced packet routes so the board reads quieter at a glance.
+    private static readonly int[] PulseTraces = { 0, 6, 1, 7 };
 
     public override void _Process(double delta)
     {
@@ -257,7 +257,7 @@ public partial class NeonGridBg : Control
         DrawCircle(focus, w * 0.18f, new Color(0.04f, 0.06f, 0.22f, 0.06f));
 
         // ── Trunk glow halos (tight columns only) ────────────────────────────
-        var halo = new Color(TraceC.R, TraceC.G, TraceC.B, 0.014f);
+        var halo = new Color(TraceC.R, TraceC.G, TraceC.B, 0.009f);
         DrawLine(S(0.13f, 0.00f), S(0.13f, 1.00f), halo, 5f);
         DrawLine(S(0.87f, 0.00f), S(0.87f, 1.00f), halo, 5f);
         DrawLine(S(0.00f, 0.06f), S(0.34f, 0.06f), halo, 4f);
@@ -267,14 +267,14 @@ public partial class NeonGridBg : Control
         // Drawn quiet — the structure should read as detail, not as the scene.
         foreach (var (x1, y1, x2, y2, wClass) in Traces)
         {
-            float ba  = wClass switch { 0 => 0.068f, 1 => 0.048f, _ => 0.030f };
+            float ba  = wClass switch { 0 => 0.050f, 1 => 0.030f, _ => 0.015f };
             float lw  = wClass switch { 0 => 2.0f,   1 => 1.5f,   _ => 1.0f   };
-            float ta  = ba + ba * 0.16f * MathF.Sin(_t * 0.38f + x1 * 4.1f + y1 * 3.3f);
+            float ta  = ba + ba * 0.10f * MathF.Sin(_t * 0.35f + x1 * 4.1f + y1 * 3.3f);
             DrawLine(S(x1, y1), S(x2, y2), new Color(TraceC, ta), lw);
         }
 
         // ── SMD component footprints ──────────────────────────────────────────
-        float compA = 0.11f + 0.03f * MathF.Sin(_t * 0.8f);
+        float compA = 0.08f + 0.02f * MathF.Sin(_t * 0.7f);
         foreach (var (cx, cy, hw, hh, pads) in Components)
         {
             var  cPos = S(cx, cy);
@@ -301,7 +301,7 @@ public partial class NeonGridBg : Control
         foreach (var (jx, jy) in JunctionPads)
         {
             var  pos = S(jx, jy);
-            float pa = 0.072f + 0.038f * MathF.Sin(_t * 2.1f + jx * 5.7f + jy * 3.9f);
+            float pa = 0.040f + 0.022f * MathF.Sin(_t * 1.8f + jx * 5.7f + jy * 3.9f);
             DrawRect(new Rect2(pos.X - 1.5f, pos.Y - 1.5f, 3f, 3f), new Color(TraceC, pa));
         }
 
@@ -309,10 +309,10 @@ public partial class NeonGridBg : Control
         foreach (var (vx, vy, vr) in Vias)
         {
             var  pos = S(vx, vy);
-            float va = 0.24f + 0.12f * MathF.Sin(_t * 1.6f + vx * 6.3f);
+            float va = 0.16f + 0.08f * MathF.Sin(_t * 1.4f + vx * 6.3f);
             DrawCircle(pos, vr,       new Color(0.02f, 0.02f, 0.06f, 0.90f));
-            DrawArc(pos, vr,       0f, MathF.Tau, 16, new Color(TraceC, va * 0.55f), 1.2f);
-            DrawArc(pos, vr * 0.6f, 0f, MathF.Tau, 16, new Color(Cyan,   va * 0.26f), 1.0f);
+            DrawArc(pos, vr,       0f, MathF.Tau, 16, new Color(TraceC, va * 0.42f), 1.1f);
+            DrawArc(pos, vr * 0.6f, 0f, MathF.Tau, 16, new Color(Cyan,   va * 0.18f), 0.9f);
         }
 
         // ── Glow nodes — tight annular rings, controlled cores ────────────────
@@ -325,23 +325,23 @@ public partial class NeonGridBg : Control
             switch (colorIdx)
             {
                 case 0: // orange — tight halo + annular ring + bright core
-                    DrawCircle(pos, r * 1.85f, new Color(Orange, 0.050f + 0.035f * pulse));
-                    DrawArc(pos, r,       0f, MathF.Tau, 18, new Color(Orange, 0.48f + 0.30f * pulse), 1.5f);
-                    DrawCircle(pos, r * 0.48f, new Color(1.0f, 0.84f, 0.44f, 0.60f + 0.30f * pulse));
-                    DrawCircle(pos, r * 0.18f, new Color(1.0f, 0.96f, 0.80f, 0.80f + 0.18f * pulse));
+                    DrawCircle(pos, r * 1.70f, new Color(Orange, 0.032f + 0.022f * pulse));
+                    DrawArc(pos, r,       0f, MathF.Tau, 18, new Color(Orange, 0.34f + 0.18f * pulse), 1.3f);
+                    DrawCircle(pos, r * 0.44f, new Color(1.0f, 0.84f, 0.44f, 0.46f + 0.16f * pulse));
+                    DrawCircle(pos, r * 0.16f, new Color(1.0f, 0.96f, 0.80f, 0.60f + 0.12f * pulse));
                     break;
                 case 1: // cyan — tight halo + ring + core
-                    DrawCircle(pos, r * 1.65f, new Color(Cyan, 0.036f + 0.026f * pulse));
-                    DrawArc(pos, r,       0f, MathF.Tau, 16, new Color(Cyan, 0.36f + 0.26f * pulse), 1.2f);
-                    DrawCircle(pos, r * 0.44f, new Color(Cyan, 0.68f + 0.26f * pulse));
+                    DrawCircle(pos, r * 1.52f, new Color(Cyan, 0.024f + 0.016f * pulse));
+                    DrawArc(pos, r,       0f, MathF.Tau, 16, new Color(Cyan, 0.24f + 0.16f * pulse), 1.0f);
+                    DrawCircle(pos, r * 0.40f, new Color(Cyan, 0.46f + 0.16f * pulse));
                     break;
                 case 2: // lime — square SMD pad
                     DrawRect(new Rect2(pos.X - r * 1.1f, pos.Y - r * 1.1f, r * 2.2f, r * 2.2f),
-                        new Color(Lime, 0.035f + 0.025f * pulse));
+                        new Color(Lime, 0.022f + 0.015f * pulse));
                     DrawRect(new Rect2(pos.X - r,        pos.Y - r,        r * 2.0f, r * 2.0f),
-                        new Color(Lime, 0.11f + 0.09f * pulse), false, 1f);
+                        new Color(Lime, 0.08f + 0.06f * pulse), false, 1f);
                     DrawRect(new Rect2(pos.X - r * 0.5f, pos.Y - r * 0.5f, r * 1.0f, r * 1.0f),
-                        new Color(Lime, 0.38f + 0.20f * pulse));
+                        new Color(Lime, 0.26f + 0.12f * pulse));
                     break;
             }
         }
@@ -356,10 +356,10 @@ public partial class NeonGridBg : Control
             float tNorm = ((_t + pi * 1.618f) % 1.0f + 1.0f) % 1.0f;
             var pPt = pA.Lerp(pB, tNorm);
             var dir = (pB - pA).Normalized();
-            DrawLine(pPt - dir * 18f, pPt, new Color(Cyan, 0.012f), 2.5f);
-            DrawLine(pPt - dir *  5f, pPt, new Color(Cyan, 0.048f), 2.5f);
-            DrawCircle(pPt, 2.8f, new Color(Cyan, 0.18f));
-            DrawCircle(pPt, 1.1f, new Color(Cyan, 0.50f));
+            DrawLine(pPt - dir * 14f, pPt, new Color(Cyan, 0.008f), 2.0f);
+            DrawLine(pPt - dir *  4f, pPt, new Color(Cyan, 0.028f), 2.0f);
+            DrawCircle(pPt, 2.3f, new Color(Cyan, 0.10f));
+            DrawCircle(pPt, 1.0f, new Color(Cyan, 0.30f));
         }
     }
 }
