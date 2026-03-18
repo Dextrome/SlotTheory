@@ -18,14 +18,14 @@ This document reflects the current implementation in code/data.
 - **Tension ramp:** Music volume and pitch gradually increase across waves 15–20 (up to +3.5 dB / +2.5% pitch at wave 20); resets each run.
 - **Colorblind mode:** Settings toggle that switches modifier accent colors to a high-contrast palette with no red/green reliance.
 - **Reduced motion toggle:** Settings toggle that skips card flip animations in draft - cards appear face-up instantly.
-- **In-game achievements:** 13 achievements tracked locally (persistent across sessions) with unlock toast notifications and a dedicated achievements screen. Steam forwarding active via Steamworks.NET.
+- **In-game achievements:** 14 achievements tracked locally (persistent across sessions) with unlock toast notifications and a dedicated achievements screen. Steam forwarding active via Steamworks.NET.
 - **Procedural music system (Phases 1–8):** `MusicDirector` drives a fully procedural adaptive score. Phase 1: drift-free `MusicClock` + MIDI note pool. Phase 2: `MusicHarmony` scale/chord tables + `MusicBassLayer`. Phase 3: game-state hooks (tension tier, BPM, mode, layer density). Phase 4: `MusicMelodyLayer` - phrase-planned lead with contour weighting and cross-phrase continuity. Phase 5: `MusicPercLayer` - tension-driven kick/snare/hat grid, density arc, pad fade-out. Phase 6: surge percussion fill on global surge trigger. Phase 7: chord-aware melody (root pitch-class snapping) + walking bass. Phase 8: BPM tiers raised (112/128/140) + per-map BPM spread (Gauntlet +24, Sprawl −24).
-- **Slot Codex in-game graphics:** Tower and enemy cards in the Slot Codex now render actual in-game body shapes using `TowerIconFull` and `EnemyIcon` - the same procedural draw geometry used in live gameplay, scaled to icon size.
+- **Slot Codex in-game graphics:** Tower and enemy cards in the Slot Codex now render actual in-game body shapes using `TowerIconFull` and `EnemyIcon` - the same procedural draw geometry used in live gameplay, scaled to icon size. Codex header and each card have a 2 px colored top accent stripe via `UITheme.AddTopAccent()`.
 - **All-runs leaderboard:** Global leaderboard now stores every run as a separate row (wins and losses). Previously only kept the personal best per player.
 - **Spectacle system integration:** Surge/global surge spectacle gameplay payloads are active in both live and bot simulations; tooltip and bot analytics now expose spectacle behavior.
 - **Surge differentiation:** Global surge banner shows a dynamic build archetype label (10 named archetypes driven by dominant contributing mod - REDLINE WAVE, OVERKILL STORM, CHAIN STORM, etc.). Visual feel (Detonation/Pressure/Neutral) controls flash alpha, second snap pulse, and ripple intensity. Multi-color ripples (up to 3 colors) reflect top contributing mods. Each tower fires its own identity FX in staggered sequence on global surge. `SurgeDifferentiation.cs` is the single source of truth (no Godot deps, fully unit-tested with 35 xUnit tests). HowToPlay Surges tab lists all 10 archetypes with feel indicators and modifier icons throughout.
 - **Surge readability and wow-factor pass:**
-  - Global meter HUD redesigned: 20 discrete pips (1 per surge needed) replace the continuous progress bar; label transitions from "GLOBAL SURGE" to the predicted archetype name at ≥70% fill, fading in as the meter approaches full.
+  - Global meter HUD redesigned: 20 discrete pips (1 per surge needed) replace the continuous progress bar; label transitions from "GLOBAL SURGE" to the predicted archetype name at ≥70% fill, then locks to the archetype name once surge is ready; resets to "GLOBAL SURGE" on activation.
   - Banner subtitle: after global surge, a second line below the archetype label shows the mechanical payload summary (e.g. "TOWERS −36% RELOAD · ENEMIES MARKED & SLOWED"), scaled by unique contributor count (32%–46% refund range).
   - Screen-edge vignette: square-masked shader overlay ramps in during the final 30% of global meter fill, tinted to the dominant mod's color; clears instantly on trigger.
   - Sustained archetype tint: after global surge fires, a low-alpha full-screen color wash lingers for ~2.4 s keyed to feel - deep red (Pressure), orange (Detonation), purple (Neutral).
@@ -33,10 +33,16 @@ This document reflects the current implementation in code/data.
   - Per-tower afterglow: each tower involved in the global surge sequence holds a 2.4 s accent-colored modulate fade after its FX burst.
   - Triad callout polish: combo name and augment name now spawn as separate sequential callouts; augment appears below the combo name in the augment modifier's own color.
   - Unit-tested: `SurgePreviewFeatureTests` (26 tests) covers `PeekDominantMods` state-safety, preview alpha ramp formula, and banner subtitle refund-percent formula.
-- **Surge meter gain - attack-interval scaling:** per-proc meter gain is multiplied by `clamp(attackInterval / 1.0s, 0, 1.5)`. Fast towers (< 1 s interval) earn proportionally less per proc so high fire rate doesn't dominate surge cadence; slow towers (> 1 s) earn up to a 1.5× bonus so heavy hitters remain surge-relevant.
+- **Surge meter gain - attack-interval scaling:** per-proc meter gain is multiplied by `clamp(attackInterval / 1.0s, 0.65, 1.5)`. Fast towers (< 1 s interval) earn proportionally less per proc (floored at 0.65× so Rapid Shooter + Hair Trigger isn't double-penalized into near-impossible surge fill); slow towers (> 1 s) earn up to a 1.5× bonus so heavy hitters remain surge-relevant.
 - **Tutorial surge page - live meter visible:** on the surge tutorial page the actual global surge meter (HudPanel) is forced visible and rendered above the draft overlay (HudPanel temporarily raised to Layer 7) so players see the real UI element being explained.
-- **Tutorial map:** Dedicated scripted tutorial run accessible from a "▶  Tutorial" button in the main menu (above PLAY). 8 waves on fixed Easy difficulty. Curated draft options per wave (waves 0–5 scripted, 6–7 random). Contextual blocking panels at key moments: draft explanation each pick, build name highlight after first modifier placed, per-tower surge explanation (pauses game, highlights surge bar), global surge activation explanation (pauses game, gold highlight, "Activate →" button). Completion flagged to `SettingsManager.TutorialCompleted` (persisted). Tutorial button becomes muted after completion. Tutorial map excluded from map select and leaderboards. End screen shows "How to Play →" button and re-labels play-again as "Play Again · Real Run →".
-- **Global surge - player-activated:** The global surge meter no longer auto-fires when full. When filled, `SpectacleSystem.IsGlobalSurgeReady` becomes true and `OnGlobalSurgeReady` fires. The HUD surge bar switches to a gold pulsing clickable state with label "▶  ACTIVATE". The player clicks it to fire. `SpectacleSystem.ActivateGlobalSurge()` then fires `OnGlobalTriggered` and plays all existing effects. Bot mode auto-activates immediately to preserve simulation behavior. First-time in tutorial: game pauses, gold-bordered panel appears explaining the mechanic with an "Activate →" button that fires the surge and unpauses.
+- **Tutorial map:** Dedicated scripted tutorial run accessible from a "▶  Tutorial" button in the main menu (above PLAY). 8 waves on fixed Easy difficulty. Curated draft options per wave (waves 0–5 scripted, 6–7 random). Contextual blocking panels at key moments: draft explanation each pick, build name highlight after first modifier placed, targeting mode panel at wave 3 (pauses game, explains First/Strongest/Lowest HP, unpauses when player clicks a tower to cycle mode), per-tower surge explanation (pauses game, highlights surge bar), global surge activation explanation (pauses game, gold highlight, "Activate →" button). Global surge meter pre-filled to 95% at wave 6 start so it fires naturally during combat. All wave callouts are click-to-dismiss; cleared on draft start. Completion flagged to `SettingsManager.TutorialCompleted` (persisted). Tutorial button becomes muted after completion. Tutorial map excluded from map select and leaderboards. End screen shows "How to Play →" button and re-labels play-again as "Play Again · Real Run →". Earns TUTORIAL_COMPLETE achievement.
+- **Global surge - player-activated:** The global surge meter no longer auto-fires when full. When filled, `SpectacleSystem.IsGlobalSurgeReady` becomes true and `OnGlobalSurgeReady` fires (passing the resolved archetype label). The HUD surge bar switches to a gold pulsing clickable state with label "▶  ACTIVATE"; the label is locked to the archetype name until activation. The player clicks it to fire. `SpectacleSystem.ActivateGlobalSurge()` then fires `OnGlobalTriggered` and plays all existing effects. Bot mode auto-activates immediately to preserve simulation behavior. First-time in tutorial: game pauses, gold-bordered panel appears explaining the mechanic with an "Activate →" button that fires the surge and unpauses.
+- **Difficulty label in HUD and end screen:** HudPanel shows the current difficulty mode (EASY / NORMAL / HARD) color-coded in the top-right bar during gameplay. EndScreen shows the difficulty label between the title and subtitle on both win and loss screens.
+- **Music plays uninterrupted through draft:** Music no longer restarts at draft phase start — it flows continuously from wave to draft to wave for a seamless adaptive score.
+- **Map intro animations:** On run start, the neon path draws from start to finish before the draft panel opens (grid background hidden during reveal). Tower slots then drop in from off-screen with a bounce and landing sound; slots start 900 px above their final position so bottom-row slots are fully hidden before the drop.
+- **Endless mode music fix:** `MusicDirector.OnEndlessContinue()` restarts the clock and reactivates all layers after `OnRunEnd` stopped them, fixing music going silent when continuing to Endless.
+- **Splitter Walker enemy:** New enemy type appearing in waves 9–15. HP is 1.8× basic, speed 90 px/s, leak cost 3 lives. On death, spawns 2 Splitter Shards (0.55× basic HP, 165 px/s, 1 life each) offset behind the death position. Both types have unique layered procedural visuals (amber hex + bisecting crack for Splitter; irregular crystal fragment polygon for Shard) and full Slot Codex cards with icon-per-stat rows.
+- **HUD wave label polish:** Wave label now displays as `[ Wave N / 20 ]` with cyan bracket tinting. A 2 px cyan accent stripe runs along the bottom edge of the HUD bar. Difficulty label and enemy counter offsets tightened to prevent overlap.
 
 Platforms: Windows Desktop, Android (phone and tablet)
 
@@ -229,22 +235,26 @@ Used consistently in draft cards, proc halos, and live modifier icons. Colorblin
 
 ## Enemies
 
-| Enemy | HP Base | Speed | Leak Cost |
-|---|---|---|---:|
-| Basic Walker | `65 * 1.10^(wave-1)` | 120 px/s | 1 |
-| Armored Walker | 3.5x Basic HP | 60 px/s | 2 |
-| Swift Walker | 1.5x Basic HP | 240 px/s | 1 |
+| Enemy | HP Base | Speed | Leak Cost | Waves |
+|---|---|---|---:|---|
+| Basic Walker | `65 * 1.10^(wave-1)` | 120 px/s | 1 | 1–20 |
+| Armored Walker | 3.5× Basic HP | 60 px/s | 2 | 6–20 |
+| Swift Walker | 1.5× Basic HP | 240 px/s | 1 | 10–19 (skips 12, 20) |
+| Splitter Walker | 1.8× Basic HP | 90 px/s | 3 | 9–15 |
+| Splitter Shard | 0.55× Basic HP | 165 px/s | 1 | spawned on Splitter death |
 
-- Armored first appears on wave 6.
-- Armored max count in default wave data is 3 (wave 20).
+- Armored first appears on wave 6. Max count in default wave data is 3 (wave 20).
 - Swift appears in waves 10–19 (skips wave 12 and 20).
-- Waves 12-14 can use clumped Armored spawn blocks (`ClumpArmored`).
+- Waves 12–14 can use clumped Armored spawn blocks (`ClumpArmored`).
+- Splitter Walker spawns 2 Splitter Shards on death, offset -4 px and -22 px behind the death position. Shard spawn is handled by `CombatSim.SpawnShards()`.
 
 ### Enemy Visuals
 
 - Basic: round teal body.
 - Armored: larger crimson hex body, rendered at 1.5x scale.
 - Swift: small lime diamond, rendered at 0.8x scale.
+- Splitter: amber hex with straining lobes and a bisecting crack; simple-path fallback for low-perf mode.
+- Shard: irregular crystal fragment polygon; simple-path fallback available.
 - HP bar color shifts with health.
 - Marked ring: rotating purple arcs.
 - Slow ring: cyan ring plus blue-grey tint.
@@ -341,13 +351,14 @@ Accessible via the "▶  Tutorial" button on the main menu (above PLAY).
   - Wave 3: Marker Tower only
   - Wave 4: Exploit Weakness only
   - Wave 5: Chain Reaction / Momentum / Chill Shot (3-way choice)
-- **Contextual teaching panels** (all blocking, player-dismissed):
+- **Contextual teaching panels** (all click-to-dismiss; cleared on draft start):
   - Each draft wave 0–5: callout explaining the card being offered
   - Wave 0 wave start: auto-dismiss callout explaining the path/lives
   - Wave 4 wave start: auto-dismiss callout on Armored Walker appearance
-  - First modifier placed: "BUILD NAME" panel - pauses, highlights build label with cyan rect, explains the naming system
-  - First tower surge: "SURGE" panel - pauses wave, highlights global surge bar with cyan rect, explains surge/global surge
-  - First global surge ready: "GLOBAL SURGE READY" panel - pauses wave, gold highlight on surge bar, "Activate →" button fires the surge
+  - First modifier placed: "BUILD NAME" panel — pauses, highlights build label with cyan rect, explains the naming system
+  - Wave 3 draft: "TARGETING" panel — pauses game, explains First/Strongest/Lowest HP modes, unpauses when player clicks any tower to cycle mode
+  - First tower surge: "SURGE" panel — pauses wave, highlights global surge bar with cyan rect, explains surge/global surge; persisted via `SurgeTutorialSeen` flag (shows once)
+  - First global surge ready: "GLOBAL SURGE READY" panel — pauses wave, gold highlight on surge bar, "Activate →" button fires the surge; global surge meter pre-filled to 95% at wave 6 start to ensure it fires naturally during combat
 - **Persistence:** completion stored in `SettingsManager.TutorialCompleted`. Button on main menu becomes muted after first completion.
 - **Isolation:** tutorial map excluded from map select, leaderboards, and score submission. `DataLoader.GetAllMapDefs()` filters it by default (`includeTutorial = false`).
 - **End screen:** shows "How to Play →" button; hides leaderboard/endless buttons; labels play-again "Play Again · Real Run →" (goes to map select).
@@ -506,6 +517,7 @@ On wave start (not in bot mode):
 **Phase 8 - BPM tuning + per-map spread:**
 - `MusicHarmony`: base BPM tiers raised to 112 / 128 / 140 (previously 72 / 88 / 96) for a more energetic feel.
 - `MusicDirector`: per-map BPM spread widened - Gauntlet +24, Sprawl −24, Random +10 - so map identity is reflected in pacing.
+- `MusicDirector.OnEndlessContinue()`: restarts clock and reactivates all layers after `OnRunEnd` stops them, fixing music going silent when the player continues to Endless mode.
 
 ---
 
@@ -744,7 +756,7 @@ Behavior:
 
 ## Achievements
 
-13 achievements tracked locally via `AchievementManager` (autoload). State persisted to `user://achievements.cfg`.
+14 achievements tracked locally via `AchievementManager` (autoload). State persisted to `user://achievements.cfg`.
 
 | ID | Name | Condition |
 |---|---|---|
@@ -761,6 +773,7 @@ Behavior:
 | ARC_UNSEALED | Arc Unsealed | Beat the first campaign map (unlocks Arc Emitter) |
 | SPLIT_UNSEALED | Split Unsealed | Beat the second campaign map (unlocks Split Shot) |
 | RIFT_UNSEALED | Rift Unsealed | Beat the third campaign map (unlocks Rift Sapper) |
+| TUTORIAL_COMPLETE | First Steps | Complete the tutorial run |
 
 **Unlock toast:** Small fade-in/out notification in the bottom-right corner when an achievement is newly unlocked. Multiple unlocks queue and show sequentially.
 
@@ -883,7 +896,7 @@ Behavior:
 
 ## Notes
 
-- This file is intentionally aligned to code/data as of 2026-03-18.
+- This file is intentionally aligned to code/data as of 2026-03-18 (post v0.2.4).
 - If gameplay values change, update:
   - `Data/towers.json`
   - `Data/modifiers.json`
