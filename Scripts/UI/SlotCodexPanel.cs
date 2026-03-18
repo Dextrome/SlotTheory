@@ -84,6 +84,7 @@ public partial class SlotCodexPanel : Node
             padH: MobileOptimization.IsMobile() ? 12 : 16,
             padV: MobileOptimization.IsMobile() ? 9 : 10));
         root.AddChild(headerPanel);
+        UITheme.AddTopAccent(headerPanel);
 
         var headerBody = new VBoxContainer();
         headerBody.AddThemeConstantOverride("separation", 4);
@@ -456,6 +457,9 @@ public partial class SlotCodexPanel : Node
                   .SetEase(Tween.EaseType.Out);
                 tw.TweenCallback(Callable.From(() => panel.ZIndex = 0));
             };
+
+            // 2px accent stripe at top of card in the card's accent color
+            UITheme.AddTopAccent(panel, new Color(accent.R, accent.G, accent.B, 0.75f));
         }
 
         return panel;
@@ -730,7 +734,7 @@ public partial class SlotCodexPanel : Node
     {
         "armored_walker"  => "Armored Walker",
         "swift_walker"    => "Swift Walker",
-        "splitter_walker" => "Splitter",
+        "splitter_walker" => "Splitter Walker",
         "splitter_shard"  => "Splitter Shard",
         _                 => "Basic Walker",
     };
@@ -783,7 +787,7 @@ public partial class SlotCodexPanel : Node
             (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp * Balance.SwiftHpMultiplier:0} HP"),
             (StatIconNode.IconType.Arrow, $"{Balance.SwiftEnemySpeed:0} px/s"),
             (StatIconNode.IconType.Skull, "Leak: 1 life"),
-            (StatIconNode.IconType.Wave,  "Waves 10–14"),
+            (StatIconNode.IconType.Wave,  "Waves 10–19"),
         },
         "splitter_walker" => new (StatIconNode.IconType, string)[]
         {

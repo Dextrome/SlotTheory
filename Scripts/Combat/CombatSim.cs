@@ -178,7 +178,12 @@ public class CombatSim
         var leaked = state.EnemiesAlive.FindAll(e => e.ProgressRatio >= 1.0f);
         foreach (var e in leaked)
         {
-            int livesLost = e.EnemyTypeId == "armored_walker" ? 2 : 1;
+            int livesLost = e.EnemyTypeId switch
+            {
+                "armored_walker"  => 2,
+                "splitter_walker" => 3,
+                _                 => 1,
+            };
             state.Lives = Math.Max(0, state.Lives - livesLost);
 
             // Track leaks for post-wave micro reports and loss analysis

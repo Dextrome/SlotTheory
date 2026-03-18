@@ -6,7 +6,7 @@ namespace SlotTheory.Core;
 
 /// <summary>
 /// Runtime tuning overrides used by automation, sweeps, and combat lab scenarios.
-/// Defaults reflect the tuned best_tuning profile (iter06_cand02, 20260318_001423 pipeline run).
+/// Defaults reflect the tuned best_tuning profile (iter01_cand03, 20260318_194733 pipeline run).
 /// All multipliers are applied on top of Balance.cs constants - Reset() returns to these same defaults.
 /// </summary>
 public sealed class SpectacleTuningProfile
@@ -110,17 +110,17 @@ public sealed class SpectacleTuningProfile
     // optimizer tune enemy composition independently (e.g. more armored without
     // more basics). Applied on top of enemy_count_multiplier in DataLoader.GetWaveConfig.
     [JsonPropertyName("easy_tanky_count_multiplier")]
-    public float EasyTankyCountMultiplier { get; set; } = 1f;
+    public float EasyTankyCountMultiplier { get; set; } = 1.0612f;
     [JsonPropertyName("easy_swift_count_multiplier")]
     public float EasySwiftCountMultiplier { get; set; } = 1f;
     [JsonPropertyName("easy_splitter_count_multiplier")]
     public float EasySplitterCountMultiplier { get; set; } = 1f;
     [JsonPropertyName("normal_tanky_count_multiplier")]
-    public float NormalTankyCountMultiplier { get; set; } = 0.9148f;
+    public float NormalTankyCountMultiplier { get; set; } = 0.9522f;
     [JsonPropertyName("normal_swift_count_multiplier")]
-    public float NormalSwiftCountMultiplier { get; set; } = 1.0959f;
+    public float NormalSwiftCountMultiplier { get; set; } = 1.0863f;
     [JsonPropertyName("normal_splitter_count_multiplier")]
-    public float NormalSplitterCountMultiplier { get; set; } = 1f;
+    public float NormalSplitterCountMultiplier { get; set; } = 1.055f;
     [JsonPropertyName("hard_tanky_count_multiplier")]
     public float HardTankyCountMultiplier { get; set; } = 0.9586f;
     [JsonPropertyName("hard_swift_count_multiplier")]

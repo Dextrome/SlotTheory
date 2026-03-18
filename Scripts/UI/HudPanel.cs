@@ -163,7 +163,7 @@ public partial class HudPanel : CanvasLayer
         const float waveCenterShiftX = -40f;
         _waveLabel = new Label
         {
-            Text = "Wave 1 / 20",
+            Text = "[ Wave 1 / 20 ]",
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             AnchorLeft   = 0f,
@@ -177,10 +177,11 @@ public partial class HudPanel : CanvasLayer
             MouseFilter  = Control.MouseFilterEnum.Ignore,
         };
         _waveLabel.AddThemeFontSizeOverride("font_size", 22);
+        _waveLabel.Modulate = new Color(0.78f, 0.96f, 1.00f);
         bar.AddChild(_waveLabel);
 
         float uiScale = MobileOptimization.GetUIScale();
-        float enemyOffsetX = MobileOptimization.IsMobile() ? 120f * uiScale : 160f;
+        float enemyOffsetX = MobileOptimization.IsMobile() ? 120f * uiScale : 130f;
         float livesOffsetX = MobileOptimization.IsMobile() ? 240f * uiScale : 270f;
 
         _enemyLabel = new Label
@@ -292,6 +293,18 @@ public partial class HudPanel : CanvasLayer
         };
         AddChild(_speedToastStreak);
 
+        // #8: 2px cyan accent line at the bottom edge of the HUD bar
+        var bottomAccent = new ColorRect
+        {
+            Color = new Color(UITheme.Cyan.R, UITheme.Cyan.G, UITheme.Cyan.B, 0.55f),
+            AnchorLeft   = 0f, AnchorRight  = 1f,
+            AnchorTop    = 1f, AnchorBottom = 1f,
+            OffsetTop    = -2f, OffsetBottom = 0f,
+            MouseFilter  = Control.MouseFilterEnum.Ignore,
+            ZIndex       = 1,
+        };
+        bar.AddChild(bottomAccent);
+
         BuildGlobalSurgeMeter();
         ResetSpeed();
         _lastPausedState = GetTree().Paused;
@@ -366,8 +379,8 @@ public partial class HudPanel : CanvasLayer
     public void Refresh(int wave, int lives)
     {
         _waveLabel.Text = _isEndlessMode
-            ? $"Wave {wave}  \u221e"
-            : $"Wave {wave} / {_totalWaves}";
+            ? $"[ Wave {wave}  \u221e ]"
+            : $"[ Wave {wave} / {_totalWaves} ]";
         _livesLabel.Text = $"Lives: {lives}";
         _livesLabel.Modulate = lives <= 3 ? new Color(1f, 0.35f, 0.35f) : Colors.White;
         _livesLabel.PivotOffset = _livesLabel.Size / 2f;

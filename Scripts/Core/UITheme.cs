@@ -122,6 +122,18 @@ public static class UITheme
             control.AddThemeFontSizeOverride("font_size", size);
     }
 
+    /// <summary>
+    /// Adds a 2 px lime accent stripe at the top of any Control (panel, card, bar).
+    /// Call after AddChild so it renders above the panel content.
+    /// </summary>
+    public static void AddTopAccent(Control panel, Color? color = null)
+    {
+        var c = color ?? new Color(Lime.R, Lime.G, Lime.B, 0.82f);
+        // Draw a 2px line at the top of the control's own draw pass so it works
+        // for PanelContainer (which overrides child sizing) as well as plain Panel.
+        panel.Draw += () => panel.DrawLine(new Vector2(0f, 1f), new Vector2(panel.Size.X, 1f), c, 2f);
+    }
+
     public static StyleBoxFlat MakePanel(
         Color? bg = null,
         Color? border = null,
