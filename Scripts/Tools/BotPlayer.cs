@@ -51,6 +51,10 @@ public class BotPlayer
         if (_forcedLabMode)
             return PickForcedLab(options, state);
 
+        var earlySecondTowerPick = TryForceEarlySecondTower(options, state);
+        if (earlySecondTowerPick != null)
+            return earlySecondTowerPick;
+
         return Strategy switch
     {
         BotStrategy.Random        => PickRandom(options, state),
@@ -69,7 +73,46 @@ public class BotPlayer
     };
     }
 
-    // â"€â"€ Helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    //  Helpers 
+
+    /// <summary>
+    /// Ridgeback safety guard:
+    /// for modifier-heavy profiles, force a second tower before the first mod
+    /// so early armored waves don't auto-leak due to single-slot coverage.
+    /// </summary>
+    private DraftPick? TryForceEarlySecondTower(List<DraftOption> opts, RunState s)
+    {
+        if (!string.Equals(s.SelectedMapId, "ridgeback", StringComparison.Ordinal))
+            return null;
+
+        bool guardStrategy = Strategy is
+            BotStrategy.TowerFirst or
+            BotStrategy.ChainFocus or
+            BotStrategy.SpectacleSingleStack or
+            BotStrategy.SpectacleComboPairing or
+            BotStrategy.SpectacleTriadDiversity;
+        if (!guardStrategy)
+            return null;
+
+        int towerCount = s.Slots.Count(sl => sl.Tower != null);
+        if (towerCount != 1)
+            return null;
+
+        int totalMods = s.Slots.Sum(sl => sl.Tower?.Modifiers.Count ?? 0);
+        if (totalMods > 0)
+            return null;
+
+        var empty = EmptySlots(s);
+        if (empty.Count == 0)
+            return null;
+
+        var forcedTower = FindTowerOption(opts, "marker_tower", "rapid_shooter", "chain_tower", "heavy_cannon", "rift_prism")
+                       ?? Towers(opts).FirstOrDefault();
+        if (forcedTower == null)
+            return null;
+
+        return new DraftPick(forcedTower, empty[0]);
+    }
 
     private List<int> EmptySlots(RunState s) =>
         Enumerable.Range(0, s.Slots.Length).Where(i => s.Slots[i].Tower == null && !s.Slots[i].IsLocked).ToList();
@@ -245,7 +288,7 @@ public class BotPlayer
         return null;
     }
 
-    // â"€â"€ Strategies â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    //  Strategies 
 
     // Human-inspired profile modeled from a practical ladder playstyle.
     // Arc Emitter is represented by chain_tower in data ids.

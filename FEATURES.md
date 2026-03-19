@@ -214,7 +214,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
 | Overreach | +45% range, -10% damage |
 | Hair Trigger | +30% attack speed, -18% range |
 | Split Shot | Fires 2 split projectiles at 35% damage each, each extra copy adds +1 split projectile |
-| Feedback Loop | On kill, removes 65% of current cooldown |
+| Feedback Loop | On kill, instantly resets cooldown to zero |
 | Chain Reaction | Adds +1 chain bounce per copy and sets chain carry to 60% |
 
 ### Modifier Color Language
@@ -751,7 +751,7 @@ Behavior:
 | MomentumBonusPerStack | +16% |
 | SplitShotDamageRatio | 35% |
 | SplitShotRange | 280 |
-| FeedbackLoopCooldownReduction | 65% |
+| FeedbackLoopCooldownReduction | 100% (full reset to zero) |
 | HairTriggerAttackSpeed | +30% |
 | HairTriggerRangeFactor | -18% |
 | OverkillSpillEfficiency | 60% |
@@ -955,7 +955,7 @@ Mandate is stored on `RunState.ActiveMandate`. All mandate logic is a no-op when
 
 ## Notes
 
-- This file is intentionally aligned to code/data as of 2026-03-18 (post v0.2.4).
+- This file is intentionally aligned to code/data as of 2026-03-19 (post v0.2.5).
 - If gameplay values change, update:
   - `Data/towers.json`
   - `Data/modifiers.json`
