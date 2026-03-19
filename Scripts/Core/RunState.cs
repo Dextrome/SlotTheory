@@ -80,6 +80,9 @@ public class RunState
     public string? SelectedMapId { get; set; } = null;  // null = random
     public int RngSeed { get; set; } = 0;
 
+    // Campaign
+    public MandateDefinition? ActiveMandate { get; set; }
+
     // Endless mode
     public bool IsEndlessMode    { get; set; } = false;
     public int  EndlessWaveDepth { get; set; } = 0;   // 1 = first endless wave (wave 21), increments each wave
@@ -90,8 +93,8 @@ public class RunState
             Slots[i] = new SlotInstance(i);
     }
 
-    public bool HasFreeSlots() => System.Array.Exists(Slots, s => s.Tower == null);
-    public int FreeSlotCount() => System.Array.FindAll(Slots, s => s.Tower == null).Length;
+    public bool HasFreeSlots() => System.Array.Exists(Slots, s => s.Tower == null && !s.IsLocked);
+    public int FreeSlotCount() => System.Array.FindAll(Slots, s => s.Tower == null && !s.IsLocked).Length;
 
     /// <summary>Called at the start of each new wave to reset tracking.</summary>
     public void StartNewWave(int waveNumber)
@@ -316,6 +319,7 @@ public class RunState
         SpectacleSurgeByTower.Clear();
         IsEndlessMode    = false;
         EndlessWaveDepth = 0;
+        ActiveMandate    = null;
     }
 
     /// <summary>Gets total damage dealt by a specific tower across all completed waves.</summary>

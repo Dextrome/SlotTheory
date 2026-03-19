@@ -1,0 +1,60 @@
+{
+  "stages": [
+    {
+      "stageIndex": 0,
+      "mapId": "sprawl",
+      "stageName": "Orbit Breach",
+      "stageSubtitle": "Outer defense ring",
+      "introLine": "Outer grid compromised. Response latency acceptable.",
+      "clearStamp": "SECTOR BREACHED",
+      "mandate": {
+        "type": "None",
+        "bannedTowerIds": ["chain_tower", "rift_prism"],
+        "bannedModifierIds": ["split_shot"],
+        "displayText": "MANDATE: Arc Emitter · Rift Sapper · Split Shot unavailable"
+      }
+    },
+    {
+      "stageIndex": 1,
+      "mapId": "arena_classic",
+      "stageName": "Crossroads Interdiction",
+      "stageSubtitle": "Adaptive response sector",
+      "introLine": "Adaptive filtering active. Draft channels restricted.",
+      "clearStamp": "INTERDICTION BROKEN",
+      "mandate": {
+        "type": "None",
+        "bannedTowerIds": ["rift_prism"],
+        "bannedModifierIds": ["momentum", "exploit_weakness", "split_shot"],
+        "displayText": "MANDATE: Rift Sapper locked · Momentum · Exploit Weakness · Split Shot banned"
+      }
+    },
+    {
+      "stageIndex": 2,
+      "mapId": "gauntlet",
+      "stageName": "Pinch & Bleed",
+      "stageSubtitle": "Constricted deployment lane",
+      "introLine": "Spatial permissions revoked. Deployment capacity reduced.",
+      "clearStamp": "CAPACITY OVERRIDE SURVIVED",
+      "mandate": {
+        "type": "LockedSlots",
+        "lockedSlotCount": 1,
+        "bannedTowerIds": ["rift_prism"],
+        "displayText": "MANDATE: Only 5 tower slots · Rift Sapper unavailable"
+      }
+    },
+    {
+      "stageIndex": 3,
+      "mapId": "ridgeback",
+      "stageName": "Iron Mandate",
+      "stageSubtitle": "Core reinforcement spine",
+      "introLine": "Final sector awake. Resistance parameters lifted.",
+      "clearStamp": "CORE MANDATE SHATTERED",
+      "mandate": {
+        "type": "EnemyHpBonus",
+        "enemyHpMultiplier": 1.25,
+        "displayText": "MANDATE: All enemies have +25% HP"
+      }
+    }
+  ],
+  "finalCompletionText": "The circuit does not die.\nIt goes quiet.\nFor now."
+}

@@ -10,10 +10,11 @@ Platforms: Windows (Steam), Android (phone and tablet)
 
 ## Core Loop
 
-1. Draft a card between waves.
-2. Place a tower or assign a modifier in the world.
-3. Run the wave (auto-combat - no direct input during waves).
-4. Repeat until wave 20 clear (win) or lives reach 0 (loss).
+1. Play → **Mode Select** → Campaign or Skirmish.
+2. Draft a card between waves.
+3. Place a tower or assign a modifier in the world.
+4. Run the wave (auto-combat - no direct input during waves).
+5. Repeat until wave 20 clear (win) or lives reach 0 (loss).
 
 Starting lives: 10
 
@@ -77,7 +78,7 @@ Modifier assignment uses `Preview -> Confirm`:
 | Arc Emitter | 18 | 1.2 s | 257 px | Chains to 2 extra enemies, 400 px chain range, 60% damage decay per bounce |
 | Rift Sapper | 22 | 0.98 s | 230 px | Charged lane-mine trap tower with wave-start rapid seeding |
 
-Unlock flow:
+Unlock flow (via Campaign mode):
 - Arc Emitter: beat the first campaign map on Normal or Hard (`ARC_UNSEALED`)
 - Split Shot modifier: beat the second campaign map on Normal or Hard (`SPLIT_UNSEALED`)
 - Rift Sapper: beat the third campaign map on Normal or Hard (`RIFT_UNSEALED`)
@@ -245,9 +246,24 @@ The banner label and visual treatment are driven by which mods contributed most 
 
 ---
 
+## Campaign Mode — The Fracture Circuit
+
+4-stage linear campaign accessible from Play → Mode Select → Campaign.
+
+| # | Stage | Map | Mandate |
+|---|---|---|---|
+| 1 | Orbit Breach | sprawl | Rapid, Heavy, Marker only · Split Shot banned |
+| 2 | Crossroads Interdiction | arena_classic | + Arc Emitter · Momentum, Exploit Weakness, Split Shot banned |
+| 3 | Pinch & Bleed | gauntlet | + Arc Emitter · 5 slots only · Rift Sapper banned |
+| 4 | Iron Mandate | ridgeback | All towers · Enemies +25% HP |
+
+Stages unlock sequentially. Per-stage clear state persisted per difficulty. Campaign end screen shows sector stamps, "Next Stage →" on win, and "Campaign Select" instead of "Main Menu".
+
+---
+
 ## Achievements
 
-13 achievements tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`. Forwarded to Steam when available.
+16 achievements tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`. Forwarded to Steam when available.
 
 | ID | Name | Condition |
 |---|---|---|
@@ -264,6 +280,9 @@ The banner label and visual treatment are driven by which mods contributed most 
 | ARC_UNSEALED | Arc Unsealed | Beat the first campaign map (unlocks Arc Emitter) |
 | SPLIT_UNSEALED | Split Unsealed | Beat the second campaign map (unlocks Split Shot) |
 | RIFT_UNSEALED | Rift Unsealed | Beat the third campaign map (unlocks Rift Sapper) |
+| TUTORIAL_COMPLETE | First Steps | Complete the tutorial run |
+| CAMPAIGN_CLEAR | The Circuit | Clear all four campaign stages |
+| CAMPAIGN_HARD_CLEAR | Iron Mandate | Clear all four campaign stages on Hard |
 
 ---
 
@@ -282,7 +301,7 @@ The game is available on Steam. Store page: [Slot Theory on Steam](https://store
 
 Steam features:
 - **Global leaderboards**: per map/difficulty, all runs stored (not just personal best)
-- **Achievements**: all 13 achievements forwarded to Steam
+- **Achievements**: all 16 achievements forwarded to Steam
 - **Steam Cloud**: settings and high scores sync across devices
 
 ---

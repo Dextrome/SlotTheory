@@ -45,37 +45,38 @@ public class DraftSystem
         if (state.WaveIndex == 0)
         {
             var wave1Options = new List<DraftOption>(Balance.DraftOptionsCount);
-            AddTowerOptions(wave1Options, Balance.DraftOptionsCount);
+            AddTowerOptions(wave1Options, Balance.DraftOptionsCount, state.ActiveMandate);
             return wave1Options;
         }
         var placedTowers = state.Slots
             .Where(s => s.Tower != null)
             .Select(s => (Entities.ITowerView)s.Tower!);
-        return GenerateOptions(state.HasFreeSlots(), placedTowers);
+        return GenerateOptions(state.HasFreeSlots(), placedTowers, state.ActiveMandate);
     }
 
     /// <summary>
     /// Overload for unit tests: supply free-slot status and tower views directly,
     /// with no dependency on RunState or Godot-backed TowerInstance.
     /// </summary>
-    public List<DraftOption> GenerateOptions(bool hasFreeSlots, IEnumerable<Entities.ITowerView> placedTowers)
+    public List<DraftOption> GenerateOptions(bool hasFreeSlots, IEnumerable<Entities.ITowerView> placedTowers,
+        MandateDefinition? mandate = null)
     {
         var options = new List<DraftOption>(Balance.DraftOptionsCount);
 
         if (hasFreeSlots)
         {
-            AddTowerOptions(options, Balance.DraftTowerOptions);
-            AddModifierOptions(options, Balance.DraftModifierOptions, placedTowers);
+            AddTowerOptions(options, Balance.DraftTowerOptions, mandate);
+            AddModifierOptions(options, Balance.DraftModifierOptions, placedTowers, mandate);
         }
         else
         {
-            AddModifierOptions(options, Balance.DraftModifierOptionsFull, placedTowers);
+            AddModifierOptions(options, Balance.DraftModifierOptionsFull, placedTowers, mandate);
         }
 
         // Pad to 5 with tower options if modifiers couldn't fill the list
         // (e.g. wave 1 with no towers yet, or all towers at modifier cap)
         if (options.Count < Balance.DraftOptionsCount && hasFreeSlots)
-            AddTowerOptions(options, Balance.DraftOptionsCount - options.Count);
+            AddTowerOptions(options, Balance.DraftOptionsCount - options.Count, mandate);
 
         return options;
     }
@@ -83,7 +84,7 @@ public class DraftSystem
     public void ApplyTower(string towerId, RunState state)
     {
         var def = DataLoader.GetTowerDef(towerId);
-        var freeSlot = state.Slots.FirstOrDefault(s => s.Tower == null);
+        var freeSlot = state.Slots.FirstOrDefault(s => s.Tower == null && !s.IsLocked);
         if (freeSlot == null) return;
 
         // Tower node is instantiated and wired up by GameController via scene
@@ -99,21 +100,28 @@ public class DraftSystem
         mod.OnEquip(tower);
     }
 
-    private void AddTowerOptions(List<DraftOption> list, int count)
+    private void AddTowerOptions(List<DraftOption> list, int count, MandateDefinition? mandate = null)
     {
-        var pool = _data.GetAllTowerIds().OrderBy(_ => _rng.Next()).Take(count);
+        var pool = _data.GetAllTowerIds()
+            .Where(id => mandate?.IsTowerBanned(id) != true)
+            .OrderBy(_ => _rng.Next())
+            .Take(count);
         foreach (var id in pool)
             list.Add(new DraftOption(DraftOptionType.Tower, id));
     }
 
     private void AddModifierOptions(List<DraftOption> list, int count,
-                                     IEnumerable<Entities.ITowerView> placedTowers)
+                                     IEnumerable<Entities.ITowerView> placedTowers,
+                                     MandateDefinition? mandate = null)
     {
         var towersWithSpace = placedTowers.Where(t => t.CanAddModifier).ToList();
 
         if (towersWithSpace.Count == 0) return; // full anti-brick: no eligible towers
 
-        var pool = _data.GetAllModifierIds().OrderBy(_ => _rng.Next()).Take(count);
+        var pool = _data.GetAllModifierIds()
+            .Where(id => mandate?.IsModifierBanned(id) != true)
+            .OrderBy(_ => _rng.Next())
+            .Take(count);
         foreach (var id in pool)
             list.Add(new DraftOption(DraftOptionType.Modifier, id));
     }

@@ -13,6 +13,8 @@ public static class DataLoader
     private static Dictionary<string, ModifierDef> _modifiers = new();
     private static WaveConfig[] _waves = System.Array.Empty<WaveConfig>();
     private static Dictionary<string, MapDef> _maps = new();
+    private static List<CampaignStageDef> _campaignStages = new();
+    private static string _campaignFinalCompletionText = "";
 
     private static readonly JsonSerializerOptions _opts = new()
     {
@@ -26,6 +28,7 @@ public static class DataLoader
         _modifiers = Load<Dictionary<string, ModifierDef>>("res://Data/modifiers.json");
         _waves = Load<WaveConfig[]>("res://Data/waves.json");
         LoadMaps();
+        LoadCampaignStages();
 
         // Validate modifier descriptions match implementation (debug check)
         Tools.ModifierDataValidator.ValidateModifierData(_modifiers);
@@ -73,6 +76,8 @@ public static class DataLoader
     }
 
     public static MapDef GetMapDef(string id) => _maps[id];
+    public static IReadOnlyList<CampaignStageDef> GetCampaignStages() => _campaignStages;
+    public static string GetFinalCompletionText() => _campaignFinalCompletionText;
     public static IEnumerable<string> GetAllTowerIds(bool includeLocked = false)
         => includeLocked ? _towers.Keys : _towers.Keys.Where(Core.Unlocks.IsTowerUnlocked);
     public static IEnumerable<string> GetAllModifierIds(bool includeLocked = false)
@@ -131,6 +136,22 @@ public static class DataLoader
 
         string json = file.GetAsText();
         return JsonSerializer.Deserialize<T>(json, _opts)!;
+    }
+
+    private static void LoadCampaignStages()
+    {
+        try
+        {
+            var root = Load<CampaignDataRoot>("res://Data/campaign_stages.json");
+            _campaignStages = new List<CampaignStageDef>(root.Stages ?? System.Array.Empty<CampaignStageDef>());
+            _campaignFinalCompletionText = root.FinalCompletionText ?? "";
+        }
+        catch (System.Exception ex)
+        {
+            GD.PrintErr($"[Campaign] Failed to load campaign_stages.json: {ex.Message}");
+            _campaignStages = new List<CampaignStageDef>();
+            _campaignFinalCompletionText = "";
+        }
     }
 
     private static WaveConfig ApplyMapDifficultyTuning(int waveIndex, WaveConfig wave, string? mapId, DifficultyMode difficulty)

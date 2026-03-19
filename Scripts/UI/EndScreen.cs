@@ -29,6 +29,9 @@ public partial class EndScreen : CanvasLayer
 	private Button _mainMenuButton = null!;
 	private Button _playAgainButton = null!;
 	private Button _continueEndlessButton = null!;
+	private Button _nextCampaignButton = null!;
+	private bool _isCampaignRun;
+	private CampaignStageDefinition? _nextCampaignStage;
 	public event System.Action? ContinueEndlessPressed;
 	public event System.Action? WinExited;  // fires when leaving win screen via Play Again or Main Menu
 	private string _leaderboardMapId = LeaderboardKey.RandomMapId;
@@ -41,6 +44,7 @@ public partial class EndScreen : CanvasLayer
 	private bool _isTutorialRun;
 	private Button _howToPlayButton = null!;
 	private HBoxContainer _primaryRow = null!;
+	private VBoxContainer _vbox = null!;
 	private const float BackgroundOverlayAlpha = 0.88f;
 
 	public override void _Ready()
@@ -70,9 +74,10 @@ public partial class EndScreen : CanvasLayer
 		center.CustomMinimumSize = GetViewport().GetVisibleRect().Size;
 		scroll.AddChild(center);
 
-		var vbox = new VBoxContainer();
-		vbox.AddThemeConstantOverride("separation", 14);
-		center.AddChild(vbox);
+		_vbox = new VBoxContainer();
+		_vbox.AddThemeConstantOverride("separation", 14);
+		center.AddChild(_vbox);
+		var vbox = _vbox;
 
 		var titleGroup = new VBoxContainer();
 		titleGroup.AddThemeConstantOverride("separation", 2);
@@ -235,6 +240,19 @@ public partial class EndScreen : CanvasLayer
 		_continueEndlessButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		primaryRow.AddChild(_continueEndlessButton);
 
+		_nextCampaignButton = new Button
+		{
+			Text = "Next Stage  →",
+			CustomMinimumSize = new Vector2(360f, 48f),
+			Visible = false,
+		};
+		_nextCampaignButton.AddThemeFontSizeOverride("font_size", 20);
+		UITheme.ApplyPrimaryStyle(_nextCampaignButton);
+		UITheme.ApplyMenuButtonFinish(_nextCampaignButton, UITheme.Lime, 0.11f, 0.14f);
+		_nextCampaignButton.Pressed += OnNextCampaignPressed;
+		_nextCampaignButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		vbox.AddChild(_nextCampaignButton);
+
 		_mainMenuButton = new Button
 		{
 			Text = "Main Menu",
@@ -263,6 +281,80 @@ public partial class EndScreen : CanvasLayer
 
 		MobileOptimization.ApplyUIScale(center);
 	AddChild(new PinchZoomHandler(center));
+	}
+
+	/// <summary>
+	/// Injects a campaign sector stamp (e.g. "SECTOR BREACHED") into the win screen.
+	/// Called by GameController immediately after ShowWin on a campaign run win.
+	/// </summary>
+	public void SetCampaignStageStamp(string stampText, bool isFinalStage, string finalCompletionText)
+	{
+		if (!GodotObject.IsInstanceValid(_vbox) || string.IsNullOrEmpty(stampText)) return;
+
+		var stamp = new Label
+		{
+			Text = stampText,
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		UITheme.ApplyFont(stamp, semiBold: true, size: 26);
+		stamp.Modulate = isFinalStage
+			? new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 1.0f)
+			: new Color(1.0f, 0.85f, 0.25f, 0.96f);
+		_vbox.AddChild(stamp);
+		// Place right after the subtitle label
+		_vbox.MoveChild(stamp, _subtitleLabel.GetIndex() + 1);
+
+		if (isFinalStage && !string.IsNullOrEmpty(finalCompletionText))
+		{
+			var finalLabel = new Label
+			{
+				Text = finalCompletionText,
+				HorizontalAlignment = HorizontalAlignment.Center,
+				AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			};
+			UITheme.ApplyFont(finalLabel, semiBold: false, size: 18);
+			finalLabel.Modulate = new Color(0.55f, 0.72f, 0.88f, 0.88f);
+			_vbox.AddChild(finalLabel);
+			_vbox.MoveChild(finalLabel, stamp.GetIndex() + 1);
+		}
+	}
+
+	/// <summary>
+	/// Switches the end screen into campaign mode: hides leaderboard/play-again/endless buttons,
+	/// shows a "Next Stage" button if nextStage is provided, and relabels Main Menu → Campaign Select.
+	/// </summary>
+	public void SetCampaignMode(CampaignStageDefinition? nextStage)
+	{
+		_isCampaignRun = true;
+		_nextCampaignStage = nextStage;
+
+		if (GodotObject.IsInstanceValid(_viewLeaderboardButton)) _viewLeaderboardButton.Visible = false;
+		if (GodotObject.IsInstanceValid(_primaryRow))            _primaryRow.Visible = false;
+
+		if (GodotObject.IsInstanceValid(_nextCampaignButton))
+		{
+			if (nextStage != null)
+			{
+				_nextCampaignButton.Text = $"Next Stage: {nextStage.StageName}  →";
+				_nextCampaignButton.Visible = true;
+			}
+			else
+			{
+				_nextCampaignButton.Visible = false;
+			}
+		}
+
+		if (GodotObject.IsInstanceValid(_mainMenuButton))
+			_mainMenuButton.Text = "Campaign Select";
+	}
+
+	private void OnNextCampaignPressed()
+	{
+		if (_nextCampaignStage == null) return;
+		SoundManager.Instance?.Play("ui_select");
+		CampaignManager.SetActiveStage(_nextCampaignStage);
+		MapSelectPanel.SetPendingMapSelection(_nextCampaignStage.MapId);
+		Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
 	}
 
 	public void ShowWin(int kills, int damageDealt, float totalPlayTime, string buildSummary, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor, int livesRemaining = Balance.StartingLives, int totalWaves = Balance.TotalWaves)
@@ -694,7 +786,8 @@ public partial class EndScreen : CanvasLayer
 	private void OnMainMenuPressed()
 	{
 		OnScreenExit();
-		Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+		string dest = _isCampaignRun ? "res://Scenes/CampaignSelect.tscn" : "res://Scenes/MainMenu.tscn";
+		Transition.Instance?.FadeToScene(dest);
 	}
 
 	private void OnHowToPlayPressed()

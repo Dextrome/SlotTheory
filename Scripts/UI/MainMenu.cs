@@ -371,7 +371,11 @@ public partial class MainMenu : Node
 	private void OnPlay()
 	{
 		SlotTheory.Data.DataLoader.LoadAll();
-		Transition.Instance?.FadeToScene("res://Scenes/MapSelect.tscn");
+		// Demo build skips mode select and goes straight to map select (no campaign available)
+		string destination = Core.Balance.IsDemo
+			? "res://Scenes/MapSelect.tscn"
+			: "res://Scenes/ModeSelect.tscn";
+		Transition.Instance?.FadeToScene(destination);
 	}
 
 	private void OnTutorial()

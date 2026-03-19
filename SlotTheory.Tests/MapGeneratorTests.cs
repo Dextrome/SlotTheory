@@ -50,4 +50,47 @@ public class MapGeneratorTests
             }
         }
     }
+
+    [Fact]
+    public void Generate_RandomSeeds_UsesMultiplePathFamilies()
+    {
+        var waypointCounts = new HashSet<int>();
+
+        for (int seed = 0; seed < 400; seed++)
+        {
+            var layout = MapGenerator.Generate(seed);
+            waypointCounts.Add(layout.PathWaypoints.Length);
+        }
+
+        Assert.True(
+            waypointCounts.Count >= 3,
+            $"Expected at least 3 different waypoint counts, got {waypointCounts.Count}: {string.Join(", ", waypointCounts.OrderBy(v => v))}");
+    }
+
+    [Fact]
+    public void Generate_RandomSeeds_SlotRowPatternsHaveStrongVariety()
+    {
+        var rowPatterns = new HashSet<string>();
+
+        for (int seed = 0; seed < 400; seed++)
+        {
+            var layout = MapGenerator.Generate(seed);
+            var orderedRows = layout.SlotPositions
+                .Select(slot =>
+                {
+                    int col = (int)(slot.X / MapGenerator.CELL_W);
+                    int row = (int)((slot.Y - MapGenerator.GRID_Y) / MapGenerator.CELL_H);
+                    return (col, row);
+                })
+                .OrderBy(p => p.col)
+                .ThenBy(p => p.row)
+                .Select(p => p.row);
+
+            rowPatterns.Add(string.Join(",", orderedRows));
+        }
+
+        Assert.True(
+            rowPatterns.Count >= 12,
+            $"Expected at least 12 distinct slot-row patterns, got {rowPatterns.Count}.");
+    }
 }

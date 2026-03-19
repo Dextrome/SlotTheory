@@ -407,11 +407,14 @@ public partial class GameController : Node
 
 		_hudPanel.SetTotalWaves(_mapTotalWaves);
 		_hudPanel.SetDifficulty(SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal);
+		if (CampaignManager.IsCampaignRun && CampaignManager.ActiveStage?.Mandate.IsActive == true)
+			_hudPanel.SetMandateStrip(CampaignManager.ActiveStage.Mandate.DisplayText);
 
 			GenerateMap();
 			SetupMobileCamera();
 			CenterWorldNode();
 			CallDeferred(MethodName.CenterWorldNode); // re-run after layout settles
+			ApplyCampaignMandate();
 			SetupSlots();
 			SetupTooltip();
 			SetupAnnouncer();
@@ -421,7 +424,7 @@ public partial class GameController : Node
 		_hudPanel.ResetSpeed();   // Engine.TimeScale persists across scene loads; always reset on fresh run
 		GetViewport().SizeChanged += () => CallDeferred(MethodName.CenterWorldNode);
 		if (!TryRestoreMobileSnapshot())
-			AnimateTileDropIn(() => AnimateMapReveal(() => AnimateSlotDropIn(StartDraftPhase)));
+			AnimateTileDropIn(() => AnimateMapReveal(() => AnimateSlotDropIn(() => ShowStageIntroThenContinue(StartDraftPhase))));
 	}
 
 	public override void _Process(double delta)
@@ -625,6 +628,7 @@ public partial class GameController : Node
 			_endScreen.SetLeaderboardStatus(leaderboardLine);
 			var lossGoalHint = AchievementManager.Instance?.GetGoalHint(_runState, scorePayload.Difficulty, won: false);
 			if (!string.IsNullOrEmpty(lossGoalHint)) _endScreen.SetGoalHint(lossGoalHint);
+			if (CampaignManager.IsCampaignRun) _endScreen.SetCampaignMode(null);
 			QueueGlobalSubmit(scorePayload, leaderboardLine);
 			EnqueueUnlockReveals(newlyUnlocked);
 			return;
@@ -667,6 +671,7 @@ public partial class GameController : Node
 				if (_tutorialManager == null) _endScreen.SetLeaderboardStatus(leaderboardLine);
 				var winGoalHint = AchievementManager.Instance?.GetGoalHint(_runState, scorePayload.Difficulty, won: true);
 				if (!string.IsNullOrEmpty(winGoalHint)) _endScreen.SetGoalHint(winGoalHint);
+				HandleCampaignStageWin(SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal);
 				// Defer global submit: stored and submitted when player exits win screen.
 				// If they choose Continue-Endless instead, the win entry is discarded.
 				_pendingWinScorePayload    = scorePayload;
@@ -1161,7 +1166,9 @@ public partial class GameController : Node
 
 		if (option.Type == DraftOptionType.Tower)
 		{
-			if (targetSlotIndex >= 0 && targetSlotIndex < _runState.Slots.Length && _runState.Slots[targetSlotIndex].Tower == null)
+			if (targetSlotIndex >= 0 && targetSlotIndex < _runState.Slots.Length
+			    && _runState.Slots[targetSlotIndex].Tower == null
+			    && !_runState.Slots[targetSlotIndex].IsLocked)
 			{
 				ClearTowerPlacementPreviewGhost();
 				PlaceTower(option.Id, targetSlotIndex);
@@ -1312,6 +1319,7 @@ public partial class GameController : Node
 	public void PlaceTower(string towerId, int slotIndex)
 	{
 		if (_runState.Slots[slotIndex].Tower != null) return;
+		if (_runState.Slots[slotIndex].IsLocked) return;
 
 		MobileOptimization.HapticMedium();
 		var def = DataLoader.GetTowerDef(towerId);
@@ -2010,6 +2018,32 @@ public partial class GameController : Node
 			_slotModPips[i] = pips;
 			_slotModIcons[i] = icons;
 
+			// Locked slot overlay (campaign LockedSlots mandate)
+			if (_runState.Slots[i].IsLocked)
+			{
+				var lockFill = new ColorRect
+				{
+					Color        = new Color(0.0f, 0.0f, 0.0f, 0.72f),
+					OffsetLeft   = -20f,
+					OffsetTop    = -20f,
+					OffsetRight  =  20f,
+					OffsetBottom =  20f,
+					MouseFilter  = Control.MouseFilterEnum.Ignore,
+				};
+				_slotNodes[i].AddChild(lockFill);
+				var lockLabel = new Label
+				{
+					Text = "🔒",
+					HorizontalAlignment = HorizontalAlignment.Center,
+					VerticalAlignment   = VerticalAlignment.Center,
+					Position = new Vector2(-12f, -12f),
+					Size     = new Vector2(24f, 24f),
+					MouseFilter = Control.MouseFilterEnum.Ignore,
+				};
+				lockLabel.AddThemeFontSizeOverride("font_size", 14);
+				_slotNodes[i].AddChild(lockLabel);
+			}
+
 			// Start offscreen above the grid - AnimateSlotDropIn brings them in after path reveal.
 			// In bot mode, leave at final position so no animation delay occurs.
 			if (_botRunner == null)
@@ -2295,6 +2329,200 @@ public partial class GameController : Node
 			curve.AddPoint(pt);
 		return curve;
 	}
+
+	// ── Campaign ─────────────────────────────────────────────────────────────
+
+	/// <summary>
+	/// Applies the active campaign mandate to RunState before the run begins.
+	/// Locks the last N slots for a LockedSlots mandate.
+	/// No-op when not a campaign run.
+	/// </summary>
+	private void ApplyCampaignMandate()
+	{
+		if (!CampaignManager.IsCampaignRun || CampaignManager.ActiveStage == null)
+			return;
+
+		var mandate = CampaignManager.ActiveStage.Mandate;
+		_runState.ActiveMandate = mandate;
+
+		if (mandate.Type == MandateType.LockedSlots && mandate.LockedSlotCount > 0)
+		{
+			int lockFrom = Balance.SlotCount - mandate.LockedSlotCount;
+			for (int i = lockFrom; i < Balance.SlotCount; i++)
+				_runState.Slots[i].IsLocked = true;
+		}
+	}
+
+	/// <summary>
+	/// Shows the stage intro overlay for a campaign run then calls onDismiss.
+	/// For non-campaign runs, calls onDismiss immediately.
+	/// </summary>
+	private void ShowStageIntroThenContinue(System.Action onDismiss)
+	{
+		if (!CampaignManager.IsCampaignRun || CampaignManager.ActiveStage == null)
+		{
+			onDismiss();
+			return;
+		}
+
+		var stage = CampaignManager.ActiveStage;
+		var overlayLayer = new CanvasLayer { Layer = 20 };
+		AddChild(overlayLayer);
+
+		// CanvasLayer has no Modulate — use an inner Control as the fade target
+		var overlay = new Control();
+		overlay.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		overlayLayer.AddChild(overlay);
+
+		var bg = new ColorRect();
+		bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		bg.Color = new Color(0f, 0f, 0f, 0.92f);
+		bg.MouseFilter = Control.MouseFilterEnum.Stop;
+		overlay.AddChild(bg);
+
+		var center = new CenterContainer();
+		center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		center.Theme = UITheme.Build();
+		overlay.AddChild(center);
+
+		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 10);
+		vbox.CustomMinimumSize = new Vector2(640f, 0f);
+		center.AddChild(vbox);
+
+		var stageNum = new Label
+		{
+			Text = $"STAGE {stage.StageIndex + 1}",
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		UITheme.ApplyFont(stageNum, semiBold: true, size: 16);
+		stageNum.Modulate = new Color(0.35f, 0.55f, 0.65f, 0.88f);
+		vbox.AddChild(stageNum);
+
+		var nameLabel = new Label
+		{
+			Text = stage.StageName.ToUpper(),
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		UITheme.ApplyFont(nameLabel, semiBold: true, size: 52);
+		nameLabel.Modulate = new Color(0.93f, 0.97f, 1.00f);
+		vbox.AddChild(nameLabel);
+
+		var subtitleLabel = new Label
+		{
+			Text = stage.StageSubtitle.ToUpper(),
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		UITheme.ApplyFont(subtitleLabel, semiBold: false, size: 16);
+		subtitleLabel.Modulate = new Color(0.40f, 0.78f, 0.92f, 0.80f);
+		vbox.AddChild(subtitleLabel);
+
+		var rule = new ColorRect
+		{
+			Color = new Color(0.24f, 0.52f, 0.64f, 0.44f),
+			CustomMinimumSize = new Vector2(0f, 1f),
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		vbox.AddChild(rule);
+
+		if (!string.IsNullOrEmpty(stage.IntroLine))
+		{
+			var introLabel = new Label
+			{
+				Text = stage.IntroLine,
+				HorizontalAlignment = HorizontalAlignment.Center,
+				AutowrapMode = TextServer.AutowrapMode.Off,
+			};
+			UITheme.ApplyFont(introLabel, semiBold: false, size: 18);
+			introLabel.Modulate = new Color(0.70f, 0.88f, 0.72f, 0.90f);
+			vbox.AddChild(introLabel);
+		}
+
+		if (stage.Mandate.IsActive && !string.IsNullOrEmpty(stage.Mandate.DisplayText))
+		{
+			var mandateLabel = new Label
+			{
+				Text = stage.Mandate.DisplayText,
+				HorizontalAlignment = HorizontalAlignment.Center,
+				AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			};
+			UITheme.ApplyFont(mandateLabel, semiBold: true, size: 15);
+			mandateLabel.Modulate = new Color(1.0f, 0.62f, 0.15f, 0.96f);
+			vbox.AddChild(mandateLabel);
+		}
+
+		var hint = new Label
+		{
+			Text = "[click or wait]",
+			HorizontalAlignment = HorizontalAlignment.Center,
+		};
+		hint.AddThemeFontSizeOverride("font_size", 12);
+		hint.Modulate = new Color(0.35f, 0.45f, 0.55f, 0.70f);
+		vbox.AddChild(hint);
+
+		overlay.Modulate = new Color(1f, 1f, 1f, 0f);
+		var tw = overlay.CreateTween();
+		tw.TweenProperty(overlay, "modulate:a", 1f, 0.40f).SetTrans(Tween.TransitionType.Sine);
+
+		bool dismissed = false;
+		void Dismiss()
+		{
+			if (dismissed || !GodotObject.IsInstanceValid(overlayLayer)) return;
+			dismissed = true;
+			var fadeTw = overlay.CreateTween();
+			fadeTw.TweenProperty(overlay, "modulate:a", 0f, 0.35f).SetTrans(Tween.TransitionType.Sine);
+			fadeTw.TweenCallback(Callable.From(() => { overlayLayer.QueueFree(); onDismiss(); }));
+		}
+
+		bg.GuiInput += (InputEvent ev) =>
+		{
+			if (ev is InputEventMouseButton mb && mb.Pressed)
+				Dismiss();
+		};
+		GetTree().CreateTimer(3.8).Timeout += Dismiss;
+	}
+
+	/// <summary>
+	/// Records campaign stage completion and shows the sector stamp on the end screen.
+	/// Also checks for full-campaign achievement unlocks.
+	/// </summary>
+	private void HandleCampaignStageWin(DifficultyMode difficulty)
+	{
+		if (!CampaignManager.IsCampaignRun || CampaignManager.ActiveStage == null)
+			return;
+
+		var stage = CampaignManager.ActiveStage;
+		CampaignProgress.MarkCleared(stage.StageIndex, difficulty);
+
+		int stageCount = DataLoader.GetCampaignStages().Count;
+		bool isFinal = stage.StageIndex == stageCount - 1;
+		string finalText = isFinal ? DataLoader.GetFinalCompletionText() : "";
+		_endScreen.SetCampaignStageStamp(stage.ClearStamp, isFinal, finalText);
+
+		bool allCleared     = true;
+		bool allHardCleared = true;
+		for (int i = 0; i < stageCount; i++)
+		{
+			if (!CampaignProgress.IsClearedOnAny(i))        allCleared     = false;
+			if (!CampaignProgress.IsCleared(i, DifficultyMode.Hard)) allHardCleared = false;
+		}
+		if (allCleared)     AchievementManager.Instance?.Unlock("CAMPAIGN_CLEAR");
+		if (allHardCleared) AchievementManager.Instance?.Unlock("CAMPAIGN_HARD_CLEAR");
+
+		// Configure end screen: hide standard buttons, show next stage button if not final
+		CampaignStageDefinition? nextStage = null;
+		if (!isFinal)
+		{
+			var allStages = DataLoader.GetCampaignStages();
+			int nextIndex = stage.StageIndex + 1;
+			if (nextIndex < allStages.Count)
+				nextStage = new CampaignStageDefinition(allStages[nextIndex]);
+		}
+		_endScreen.SetCampaignMode(nextStage);
+	}
+
+	// ── End Campaign ──────────────────────────────────────────────────────────
 
 	private void SetupTooltip()
 	{

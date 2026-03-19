@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://campaignselect001"]
+
+[ext_resource type="Script" path="res://Scripts/UI/CampaignSelectPanel.cs" id="1"]
+
+[node name="CampaignSelect" type="Node"]
+script = ExtResource("1")

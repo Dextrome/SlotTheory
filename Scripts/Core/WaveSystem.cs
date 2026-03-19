@@ -51,7 +51,8 @@ public class WaveSystem
     }
 
     /// <summary>Deterministic overload for unit tests - pass difficulty explicitly.</summary>
-    public static float GetScaledHp(string typeId, int waveIndex, DifficultyMode difficulty, int endlessDepth = 0)
+    public static float GetScaledHp(string typeId, int waveIndex, DifficultyMode difficulty,
+        int endlessDepth = 0, float mandateHpMultiplier = 1.0f)
     {
         float baseHp = typeId switch
         {
@@ -65,6 +66,8 @@ public class WaveSystem
         float hp = scaledHp * Balance.GetEnemyHpMultiplier(difficulty);
         if (endlessDepth > 0)
             hp *= MathF.Pow(1f + Balance.EndlessEnemyHpScalePerWave, endlessDepth);
+        if (mandateHpMultiplier != 1.0f)
+            hp *= mandateHpMultiplier;
         return hp;
     }
 

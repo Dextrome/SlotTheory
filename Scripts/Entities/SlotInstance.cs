@@ -16,5 +16,11 @@ public class SlotInstance
     /// <summary>Set by DraftSystem when a tower card is selected but not yet instantiated in scene.</summary>
     public string? PendingTowerId { get; set; }
 
+    /// <summary>
+    /// When true, this slot is excluded from tower placement for the current run.
+    /// Set by GameController on boot when an active campaign mandate includes LockedSlots.
+    /// </summary>
+    public bool IsLocked { get; set; } = false;
+
     public SlotInstance(int index) => Index = index;
 }

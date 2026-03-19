@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using SlotTheory.Core;
+using SlotTheory.Data;
 using SlotTheory.Entities;
 
 namespace SlotTheory.Combat;
@@ -1079,9 +1080,11 @@ public class CombatSim
     {
         if (EnemyScene == null || LanePath == null) return;
 
+        float shardMandateMult = state.ActiveMandate?.Type == MandateType.EnemyHpBonus
+            ? state.ActiveMandate.EnemyHpMultiplier : 1.0f;
         float shardHp = WaveSystem.GetScaledHp("splitter_shard", state.WaveIndex,
             SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy,
-            state.EndlessWaveDepth);
+            state.EndlessWaveDepth, shardMandateMult);
 
         float[] shardOffsets = { -4f, -22f };
         for (int i = 0; i < Balance.SplitterShardCount; i++)
@@ -1111,9 +1114,11 @@ public class CombatSim
             return;
         }
 
+        float mandateMult = state.ActiveMandate?.Type == MandateType.EnemyHpBonus
+            ? state.ActiveMandate.EnemyHpMultiplier : 1.0f;
         float hp    = WaveSystem.GetScaledHp(typeId, state.WaveIndex,
                           SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy,
-                          state.EndlessWaveDepth);
+                          state.EndlessWaveDepth, mandateMult);
         float speed = typeId switch
         {
             "armored_walker"  => Balance.TankyEnemySpeed,

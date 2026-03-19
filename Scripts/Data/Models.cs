@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace SlotTheory.Data;
 
@@ -45,4 +46,41 @@ public record MapDef(
     bool IsTutorial = false,
     bool IsFullGame = false,
     WaveConfig[]? TutorialWaves = null
+);
+
+// ── Campaign ──────────────────────────────────────────────────────────────────
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
+public enum MandateType
+{
+    None,
+    BannedModifiers,
+    BannedTowers,
+    LockedSlots,
+    EnemyHpBonus,
+}
+
+public record MandateDef(
+    MandateType  Type,
+    string       DisplayText,
+    string[]?    BannedIds         = null,
+    int          LockedSlotCount   = 0,
+    float        EnemyHpMultiplier = 1.0f,
+    string[]?    BannedTowerIds    = null,
+    string[]?    BannedModifierIds = null
+);
+
+public record CampaignStageDef(
+    int         StageIndex,
+    string      MapId,
+    MandateDef  Mandate,
+    string      StageName     = "",
+    string      StageSubtitle = "",
+    string      IntroLine     = "",
+    string      ClearStamp    = ""
+);
+
+public record CampaignDataRoot(
+    CampaignStageDef[] Stages,
+    string FinalCompletionText = ""
 );

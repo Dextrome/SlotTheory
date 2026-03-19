@@ -20,6 +20,8 @@ public partial class HudPanel : CanvasLayer
     private Label _timeLabel = null!;
     private Label _devStatsLabel = null!;
     private Label _difficultyLabel = null!;
+    private Panel _mandateBanner   = null!;
+    private Label _mandateLabel    = null!;
     private Label _speedToast = null!;
     private ColorRect _speedToastStreak = null!;
     private Panel _globalSpectaclePanel = null!;
@@ -127,6 +129,32 @@ public partial class HudPanel : CanvasLayer
         _difficultyLabel.AddThemeFontSizeOverride("font_size", 15);
         _difficultyLabel.Modulate = new Color(0.55f, 0.65f, 0.75f);
         rightHbox.AddChild(_difficultyLabel);
+
+        // Mandate banner — sits below the main HUD bar, full width
+        _mandateBanner = new Panel();
+        _mandateBanner.LayoutMode = 1;
+        _mandateBanner.AnchorLeft   = 0f;
+        _mandateBanner.AnchorTop    = 0f;
+        _mandateBanner.AnchorRight  = 1f;
+        _mandateBanner.AnchorBottom = 0f;
+        _mandateBanner.OffsetTop    = 44f;
+        _mandateBanner.OffsetBottom = 66f;
+        _mandateBanner.Visible = false;
+        var bannerStyle = new StyleBoxFlat();
+        bannerStyle.BgColor = new Color(0.12f, 0.07f, 0.01f, 0.88f);
+        _mandateBanner.AddThemeStyleboxOverride("panel", bannerStyle);
+        AddChild(_mandateBanner);
+
+        _mandateLabel = new Label
+        {
+            Text = "",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment   = VerticalAlignment.Center,
+        };
+        _mandateLabel.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        _mandateLabel.AddThemeFontSizeOverride("font_size", 13);
+        _mandateLabel.Modulate = new Color(1.0f, 0.70f, 0.20f, 0.96f);
+        _mandateBanner.AddChild(_mandateLabel);
 
         // Platform-specific pause controls
         if (OS.GetName() == "Android")
@@ -374,6 +402,15 @@ public partial class HudPanel : CanvasLayer
             Core.DifficultyMode.Hard   => ("HARD",   new Color(1.00f, 0.35f, 0.30f)),
             _                          => ("",       Colors.White),
         };
+    }
+
+    public void SetMandateStrip(string mandateText)
+    {
+        if (!GodotObject.IsInstanceValid(_mandateLabel)) return;
+        _mandateLabel.Text = mandateText;
+        bool show = !string.IsNullOrEmpty(mandateText);
+        _mandateLabel.Visible = show;
+        if (GodotObject.IsInstanceValid(_mandateBanner)) _mandateBanner.Visible = show;
     }
 
     public void Refresh(int wave, int lives)

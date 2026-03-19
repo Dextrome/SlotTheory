@@ -78,27 +78,30 @@ public static class MapGenerator
 	private static Vector2[] GeneratePathWaypoints(Random rng, out bool[,] pathGrid)
 	{
 		var canonicalGrid = new bool[COLS, ROWS];
-		Vector2[] canonical = rng.Next(3) switch
+		Vector2[] canonical = rng.Next(100) switch
 		{
-			0 => GenerateZigzag(rng, canonicalGrid),
-			1 => GenerateTopFirstZigzag(rng, canonicalGrid),
-			_ => GenerateDualLoopZigzag(rng, canonicalGrid),
+			< 24 => GenerateZigzag(rng, canonicalGrid),
+			< 45 => GenerateTopFirstZigzag(rng, canonicalGrid),
+			< 64 => GenerateDualLoopZigzag(rng, canonicalGrid),
+			< 83 => GenerateSShape(rng, canonicalGrid),
+			_    => GenerateWShape(rng, canonicalGrid),
 		};
 
-		// Symmetry transform broadens visual variety and allows starts/exits on
-		// different map sides while keeping path length and balance consistent.
+		// Blend mirrored/normal variants to widen visible route families.
 		bool mirrorX = rng.Next(2) == 1;
-		// Vertical mirrors are visually strong but tend to create harder outliers.
-		// Keep them in the pool at lower frequency.
-		bool mirrorY = rng.Next(4) == 0;
-		if (!mirrorX && !mirrorY)
-		{
-			pathGrid = canonicalGrid;
-			return canonical;
-		}
+		bool mirrorY = rng.Next(3) == 0;
+		pathGrid = mirrorX || mirrorY
+			? TransformGrid(canonicalGrid, mirrorX, mirrorY)
+			: canonicalGrid;
+		var transformed = mirrorX || mirrorY
+			? TransformWaypoints(canonical, mirrorX, mirrorY)
+			: canonical;
 
-		pathGrid = TransformGrid(canonicalGrid, mirrorX, mirrorY);
-		return TransformWaypoints(canonical, mirrorX, mirrorY);
+		// Occasionally reverse lane direction so shared cell layouts still play differently.
+		if (rng.Next(4) == 0)
+			transformed = ReverseWaypoints(transformed);
+
+		return transformed;
 	}
 
 	/// <summary>
@@ -192,6 +195,7 @@ public static class MapGenerator
 		int midRow = rng.Next(2, 4);    // [2, 3]
 		int returnCol = rng.Next(1, 3); // [1, 2]
 		int exitCol = returnCol + 5;    // 6 or 7
+		int loopExitCol = rng.Next(returnCol + 1, exitCol); // [returnCol+1, exitCol-1]
 
 		MarkVertical  (pathGrid, 0,         0,        midRow);   // entry vertical
 		MarkHorizontal(pathGrid, 0,         7,        midRow);   // mid sweep
@@ -199,13 +203,14 @@ public static class MapGenerator
 		MarkHorizontal(pathGrid, returnCol, 7,        0);        // top sweep
 		MarkVertical  (pathGrid, returnCol, 0,        ROWS - 1); // drop to bottom
 		MarkHorizontal(pathGrid, returnCol, exitCol,  ROWS - 1); // bottom sweep
-		MarkVertical  (pathGrid, exitCol,   0,        ROWS - 1); // rise to top for exit
-		MarkHorizontal(pathGrid, returnCol, exitCol,  0);        // top backtrack cells
+		MarkVertical  (pathGrid, exitCol,   0,        ROWS - 1); // rise to top for second loop
+		MarkHorizontal(pathGrid, loopExitCol, exitCol, 0);       // final top exit leg
 
 		float cx0 = CellCenter(0,         0).X;
 		float cxR = CellCenter(returnCol, 0).X;
 		float cx7 = CellCenter(7,         0).X;
 		float cxE = CellCenter(exitCol,   0).X;
+		float cxL = CellCenter(loopExitCol, 0).X;
 		float cy0 = CellCenter(0,         0).Y;
 		float cyM = CellCenter(0,         midRow).Y;
 		float cyB = CellCenter(0,         ROWS - 1).Y;
@@ -220,7 +225,8 @@ public static class MapGenerator
 			new(cxR, cyB),
 			new(cxE, cyB),
 			new(cxE, cy0),
-			new(cxE, 50),    // exit
+			new(cxL, cy0),   // final top leg before exit
+			new(cxL, 50),    // exit
 		};
 	}
 
@@ -325,8 +331,22 @@ public static class MapGenerator
 	private const float SlotScoreRange     = 340f;
 	// Sample spacing along path for coverage scoring.
 	private const float ScoreSampleSpacing = 30f;
-	// Search radius when finding best non-path cell near a path segment midpoint.
-	private const float SlotSearchRadius   = 340f;
+
+	private enum SlotPlacementProfile
+	{
+		Coverage,
+		Balanced,
+		Wild,
+	}
+
+	private readonly record struct SlotCandidate(
+		int Col,
+		int Row,
+		Vector2 Position,
+		int CoverageScore,
+		bool AdjacentToPath,
+		int ZoneIndex
+	);
 
 	/// <summary>
 	/// Score a cell by weighted path coverage within SlotScoreRange.
@@ -356,33 +376,6 @@ public static class MapGenerator
 		return count;
 	}
 
-	/// <summary>
-	/// Compute path length segments and return the world-space point at a given distance along the path.
-	/// </summary>
-	private static Vector2 SamplePathAt(Vector2[] waypoints, float targetDist)
-	{
-		float travelled = 0f;
-		for (int i = 0; i < waypoints.Length - 1; i++)
-		{
-			float segLen = waypoints[i].DistanceTo(waypoints[i + 1]);
-			if (travelled + segLen >= targetDist)
-			{
-				float t = (targetDist - travelled) / segLen;
-				return waypoints[i].Lerp(waypoints[i + 1], t);
-			}
-			travelled += segLen;
-		}
-		return waypoints[^1];
-	}
-
-	private static float PathLength(Vector2[] waypoints)
-	{
-		float len = 0f;
-		for (int i = 0; i < waypoints.Length - 1; i++)
-			len += waypoints[i].DistanceTo(waypoints[i + 1]);
-		return len;
-	}
-
 	// Six spatial zones covering the full grid - guarantees one slot per map area.
 	// Zones: top-left | top-center | top-right | bottom-left | bottom-center | bottom-right
 	private static readonly (int minCol, int maxCol, int minRow, int maxRow)[] Zones =
@@ -399,95 +392,172 @@ public static class MapGenerator
 	{
 		const int NumSlots = 6;
 
-		// Find the horizontal leg: the row with the most path cells.
-		// For U-shape this is always the bottom bend row (r0).
-		int hRow = 0, maxCount = 0;
+		var profile = (SlotPlacementProfile)rng.Next(0, 3);
+		int targetAdjacentCount = profile switch
+		{
+			SlotPlacementProfile.Coverage => 5,
+			SlotPlacementProfile.Balanced => 4 + rng.Next(0, 2),
+			_                             => 3 + rng.Next(0, 3),
+		};
+
+		var allCandidates = BuildSlotCandidates(pathGrid, waypoints);
+		var selected = new List<SlotCandidate>(NumSlots);
+		var used = new HashSet<(int Col, int Row)>();
+
+		// Pass 1: take one per zone where possible, but in random zone order each run.
+		var zoneOrder = Enumerable.Range(0, Zones.Length)
+			.OrderBy(_ => rng.Next())
+			.ToArray();
+		foreach (int zone in zoneOrder)
+		{
+			if (selected.Count >= NumSlots) break;
+
+			var zoneCandidates = allCandidates.Where(c => c.ZoneIndex == zone && !used.Contains((c.Col, c.Row)));
+			var picked = PickCandidate(zoneCandidates, selected, profile, targetAdjacentCount, rng);
+			if (picked == null) continue;
+
+			selected.Add(picked.Value);
+			used.Add((picked.Value.Col, picked.Value.Row));
+		}
+
+		// Pass 2: fill remaining slots globally with spacing-aware weighted picks.
+		while (selected.Count < NumSlots)
+		{
+			var remaining = allCandidates.Where(c => !used.Contains((c.Col, c.Row)));
+			var picked = PickCandidate(remaining, selected, profile, targetAdjacentCount, rng);
+			if (picked == null) break;
+
+			selected.Add(picked.Value);
+			used.Add((picked.Value.Col, picked.Value.Row));
+		}
+
+		// Hard safety net: include any non-path cell not already used (should be rare).
+		if (selected.Count < NumSlots)
+		{
+			for (int c = 0; c < COLS && selected.Count < NumSlots; c++)
+			for (int r = 0; r < ROWS && selected.Count < NumSlots; r++)
+			{
+				if (pathGrid[c, r] || used.Contains((c, r)))
+					continue;
+
+				var fallback = new SlotCandidate(
+					c,
+					r,
+					CellCenter(c, r),
+					ScoreCell(CellCenter(c, r), waypoints),
+					IsAdjacentToPath(pathGrid, c, r),
+					GetZoneIndex(c, r));
+
+				selected.Add(fallback);
+				used.Add((c, r));
+			}
+		}
+
+		return selected
+			.Take(NumSlots)
+			.OrderBy(s => s.Position.X)
+			.ThenBy(s => s.Position.Y)
+			.Select(s => s.Position)
+			.ToArray();
+	}
+
+	private static List<SlotCandidate> BuildSlotCandidates(bool[,] pathGrid, Vector2[] waypoints)
+	{
+		var candidates = new List<SlotCandidate>(COLS * ROWS);
+		for (int c = 0; c < COLS; c++)
 		for (int r = 0; r < ROWS; r++)
 		{
-			int n = 0;
-			for (int c = 0; c < COLS; c++) if (pathGrid[c, r]) n++;
-			if (n > maxCount) { maxCount = n; hRow = r; }
+			if (pathGrid[c, r]) continue;
+
+			var pos = CellCenter(c, r);
+			candidates.Add(new SlotCandidate(
+				c,
+				r,
+				pos,
+				ScoreCell(pos, waypoints),
+				IsAdjacentToPath(pathGrid, c, r),
+				GetZoneIndex(c, r)));
 		}
 
-		int slotRow = hRow > 0 ? hRow - 1 : hRow + 1;
-		int altRow;
-		if (hRow == 0)
-			altRow = Math.Min(ROWS - 1, slotRow + 1);
-		else if (hRow == ROWS - 1)
-			altRow = Math.Max(0, slotRow - 1);
-		else
-			altRow = hRow + 1;
+		return candidates;
+	}
 
-		var result = new Vector2[NumSlots];
-		var used = new HashSet<(int Col, int Row)>();
-		int placed = 0;
+	private static SlotCandidate? PickCandidate(
+		IEnumerable<SlotCandidate> candidates,
+		IReadOnlyList<SlotCandidate> alreadyPlaced,
+		SlotPlacementProfile profile,
+		int targetAdjacentCount,
+		Random rng)
+	{
+		var ranked = candidates
+			.Select(c => (Candidate: c, Score: ScoreSlotCandidate(c, alreadyPlaced, profile, targetAdjacentCount, rng)))
+			.OrderByDescending(x => x.Score)
+			.ToArray();
 
-		bool TryPlace(int col, int row)
+		if (ranked.Length == 0)
+			return null;
+
+		// Pick among the strongest few to preserve quality while introducing variety.
+		int topPool = Math.Min(profile == SlotPlacementProfile.Wild ? 4 : 3, ranked.Length);
+		int idx = rng.Next(topPool);
+		return ranked[idx].Candidate;
+	}
+
+	private static float ScoreSlotCandidate(
+		SlotCandidate candidate,
+		IReadOnlyList<SlotCandidate> alreadyPlaced,
+		SlotPlacementProfile profile,
+		int targetAdjacentCount,
+		Random rng)
+	{
+		float spacing = MinDistanceToPlaced(candidate.Position, alreadyPlaced);
+		float spacingScore = Mathf.Clamp(spacing / 140f, 0f, 3f);
+
+		int adjacentPlaced = alreadyPlaced.Count(s => s.AdjacentToPath);
+		int adjacentNeed = Math.Max(0, targetAdjacentCount - adjacentPlaced);
+		float adjacencyBias = 0f;
+		if (adjacentNeed > 0)
+			adjacencyBias = candidate.AdjacentToPath ? 8f : -3f;
+		else if (candidate.AdjacentToPath)
+			adjacencyBias = 2f;
+
+		float profileScore = profile switch
 		{
-			if (placed >= NumSlots) return false;
-			if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return false;
-			if (pathGrid[col, row]) return false;
-			if (!used.Add((col, row))) return false;
-			result[placed++] = CellCenter(col, row);
-			return true;
-		}
+			SlotPlacementProfile.Coverage => candidate.CoverageScore * 1.35f + (candidate.AdjacentToPath ? 5f : -1f),
+			SlotPlacementProfile.Balanced => candidate.CoverageScore * 1.10f + spacingScore * 4f,
+			_                             => candidate.CoverageScore * 0.85f + spacingScore * 6f,
+		};
 
-		// Pass 1: preferred row.
-		for (int c = 1; c < COLS && placed < NumSlots; c++)
-			TryPlace(c, slotRow);
-
-		// Pass 2: opposite-side row.
-		if (altRow != slotRow)
+		float randomness = profile switch
 		{
-			for (int c = 1; c < COLS && placed < NumSlots; c++)
-				TryPlace(c, altRow);
-		}
+			SlotPlacementProfile.Coverage => rng.Next(0, 6),
+			SlotPlacementProfile.Balanced => rng.Next(-1, 9),
+			_                             => rng.Next(-3, 14),
+		};
 
-		// Pass 3: nearest rows first, favoring adjacent-to-path cells.
-		if (placed < NumSlots)
+		return profileScore + adjacencyBias + randomness;
+	}
+
+	private static float MinDistanceToPlaced(Vector2 pos, IReadOnlyList<SlotCandidate> placed)
+	{
+		if (placed.Count == 0)
+			return 999f;
+
+		float min = float.MaxValue;
+		foreach (var slot in placed)
+			min = MathF.Min(min, pos.DistanceTo(slot.Position));
+		return min;
+	}
+
+	private static int GetZoneIndex(int col, int row)
+	{
+		for (int i = 0; i < Zones.Length; i++)
 		{
-			var rowOrder = Enumerable.Range(0, ROWS)
-				.OrderBy(r => Math.Abs(r - slotRow))
-				.ThenBy(r => Math.Abs(r - hRow))
-				.ToArray();
-
-			foreach (int r in rowOrder)
-			{
-				for (int c = 1; c < COLS && placed < NumSlots; c++)
-				{
-					if (IsAdjacentToPath(pathGrid, c, r))
-						TryPlace(c, r);
-				}
-				if (placed >= NumSlots) break;
-			}
-
-			foreach (int r in rowOrder)
-			{
-				for (int c = 1; c < COLS && placed < NumSlots; c++)
-					TryPlace(c, r);
-				if (placed >= NumSlots) break;
-			}
+			var zone = Zones[i];
+			if (col >= zone.minCol && col <= zone.maxCol && row >= zone.minRow && row <= zone.maxRow)
+				return i;
 		}
-
-		// Hard safety net: include edge-column cells only if needed.
-		if (placed < NumSlots)
-		{
-			for (int r = 0; r < ROWS && placed < NumSlots; r++)
-				TryPlace(0, r);
-		}
-
-		// Last resort: fill with any unused cell (should never be reached).
-		if (placed < NumSlots)
-		{
-			for (int c = 0; c < COLS && placed < NumSlots; c++)
-			for (int r = 0; r < ROWS && placed < NumSlots; r++)
-			{
-				if (used.Add((c, r)))
-					result[placed++] = CellCenter(c, r);
-			}
-		}
-
-		return result;
+		return -1;
 	}
 
 	private static DecorationData[] PlaceDecorations(Random rng, bool[,] pathGrid, Vector2[] slotPositions)
@@ -554,6 +624,14 @@ public static class MapGenerator
 			if (mirrorY) y = GRID_Y + ROWS * CELL_H + GRID_Y - y;
 			result[i] = new Vector2(x, y);
 		}
+		return result;
+	}
+
+	private static Vector2[] ReverseWaypoints(Vector2[] source)
+	{
+		var result = new Vector2[source.Length];
+		for (int i = 0; i < source.Length; i++)
+			result[i] = source[source.Length - 1 - i];
 		return result;
 	}
 

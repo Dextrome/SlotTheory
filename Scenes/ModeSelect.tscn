@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://modeselect001"]
+
+[ext_resource type="Script" path="res://Scripts/UI/ModeSelectPanel.cs" id="1"]
+
+[node name="ModeSelect" type="Node"]
+script = ExtResource("1")

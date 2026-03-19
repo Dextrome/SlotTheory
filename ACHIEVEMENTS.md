@@ -1,6 +1,6 @@
 # Achievements
 
-## Current Achievements (14)
+## Current Achievements (16)
 
 Tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`. Forwarded to Steam when available.
 
@@ -20,10 +20,13 @@ Tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`
 | `ARC_UNSEALED` | Arc Unsealed | Beat the first campaign map on Normal or Hard | Run end (win) - gates Arc Emitter |
 | `SPLIT_UNSEALED` | Split Unsealed | Beat the second campaign map on Normal or Hard | Run end (win) - gates Split Shot |
 | `RIFT_UNSEALED` | Rift Unsealed | Beat the third campaign map on Normal or Hard | Run end (win) - gates Rift Sapper |
+| `CAMPAIGN_CLEAR` | The Circuit | Clear all four stages of The Fracture Circuit (any difficulty) | Campaign stage win - `HandleCampaignStageWin()` |
+| `CAMPAIGN_HARD_CLEAR` | Iron Mandate | Clear all four stages of The Fracture Circuit on Hard difficulty | Campaign stage win - `HandleCampaignStageWin()` |
 
 ### Implementation notes
 
 - `CheckRunEndAndCollectUnlocks(state, difficulty, won, isTutorialRun)` - main evaluation call, run end only. Tutorial runs (`isTutorialRun=true`) return immediately with no unlocks - all achievements require a real run except `TUTORIAL_COMPLETE`.
+- `HandleCampaignStageWin(difficulty)` in `GameController` - calls `CampaignProgress.MarkCleared`, then checks all stages cleared for `CAMPAIGN_CLEAR` (any difficulty) and `CAMPAIGN_HARD_CLEAR` (all on Hard). Checked after every campaign stage win, not just the final one.
 - `CheckTutorialComplete()` - called from GameController on tutorial win (before `CheckRunEndAndCollectUnlocks`)
 - `CheckHalfwayThere()` - called at wave 10 start from `GameController`
 - `CheckDraftMilestones(state)` - called after each draft pick; covers `FULL_HOUSE`, `STACKED`, `FULL_ARSENAL`, `OVER_EQUIPPED`, `CHAIN_GANG`, `GLASS_CANNON`

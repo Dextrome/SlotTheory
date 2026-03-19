@@ -8,6 +8,7 @@ This document reflects the current implementation in code/data.
 - Combat callout notifications
 - Low-life tension feedback
 - Comprehensive audio polish
+- **Campaign mode:** 4-stage linear campaign "The Fracture Circuit" with escalating per-stage mandates (tower restrictions, modifier bans, slot lockouts, HP bonuses). Play → Mode Select → Campaign or Skirmish. CampaignSelect stage ladder with lock/clear state, difficulty checkmarks, and stage intro overlays. Campaign end screen replaces leaderboard/play-again/endless with "Next Stage →" and "Campaign Select" buttons. Mandate displayed as a full-width banner below the HUD bar.
 - **Leaderboard build-name label:** Each leaderboard row now displays a large build-name label on the right, generated per entry from map/difficulty/stats/build snapshot (see below for details).
 - **Run naming engine:** Dedicated naming engine with richer profile analysis and anti-repeat logic (see below).
 - **Mobile camera system:** Pinch-to-zoom, pan controls, camera bounds, and readability scaling for mobile gameplay.
@@ -18,7 +19,7 @@ This document reflects the current implementation in code/data.
 - **Tension ramp:** Music volume and pitch gradually increase across waves 15–20 (up to +3.5 dB / +2.5% pitch at wave 20); resets each run.
 - **Colorblind mode:** Settings toggle that switches modifier accent colors to a high-contrast palette with no red/green reliance.
 - **Reduced motion toggle:** Settings toggle that skips card flip animations in draft - cards appear face-up instantly.
-- **In-game achievements:** 14 achievements tracked locally (persistent across sessions) with unlock toast notifications and a dedicated achievements screen. Steam forwarding active via Steamworks.NET.
+- **In-game achievements:** 16 achievements tracked locally (persistent across sessions) with unlock toast notifications and a dedicated achievements screen. Steam forwarding active via Steamworks.NET.
 - **Procedural music system (Phases 1–8):** `MusicDirector` drives a fully procedural adaptive score. Phase 1: drift-free `MusicClock` + MIDI note pool. Phase 2: `MusicHarmony` scale/chord tables + `MusicBassLayer`. Phase 3: game-state hooks (tension tier, BPM, mode, layer density). Phase 4: `MusicMelodyLayer` - phrase-planned lead with contour weighting and cross-phrase continuity. Phase 5: `MusicPercLayer` - tension-driven kick/snare/hat grid, density arc, pad fade-out. Phase 6: surge percussion fill on global surge trigger. Phase 7: chord-aware melody (root pitch-class snapping) + walking bass. Phase 8: BPM tiers raised (112/128/140) + per-map BPM spread (Gauntlet +24, Sprawl −24).
 - **Slot Codex in-game graphics:** Tower and enemy cards in the Slot Codex now render actual in-game body shapes using `TowerIconFull` and `EnemyIcon` - the same procedural draw geometry used in live gameplay, scaled to icon size. Codex header and each card have a 2 px colored top accent stripe via `UITheme.AddTopAccent()`.
 - **All-runs leaderboard:** Global leaderboard now stores every run as a separate row (wins and losses). Previously only kept the personal best per player.
@@ -102,13 +103,16 @@ Platforms: Windows Desktop, Android (phone and tablet)
 
 ## Core Loop
 
-1. Main menu -> Tutorial (optional) or Play -> map select -> Main scene loads.
+1. Main menu → Tutorial (optional) or Play → **Mode Select** → Campaign or Skirmish.
+   - **Campaign**: CampaignSelect stage ladder → pick stage + difficulty → Main scene loads with active mandate.
+   - **Skirmish**: Map select → Main scene loads (free play, no mandate).
 2. Draft: pick 1 card.
 3. Place picked tower/modifier in the world.
 4. Wave runs automatically (no direct combat input).
 5. When global surge meter fills: click the glowing bar to activate.
 6. Repeat until wave 20 clear (win) or lives reach 0 (loss).
-7. On win: optionally continue in **Endless Mode** (wave 21+, no victory condition).
+7. On win (skirmish): optionally continue in **Endless Mode** (wave 21+, no victory condition).
+8. On win (campaign): proceed to the next stage with the "Next Stage →" button.
 
 ---
 
@@ -420,6 +424,7 @@ Top bar includes:
   - Mobile: hamburger button
 - Build name shown in the top bar (left side) during waves
 - **Global surge bar (bottom center):** 20 pip meter. When full, switches to gold pulsing "▶  ACTIVATE" state - player must click to fire. Click triggers all surge effects and resets meter.
+- **Mandate banner (campaign only):** Full-width dark-orange strip directly below the HUD bar showing the active stage mandate (e.g. "MANDATE: Rift Sapper locked · Momentum · Exploit Weakness · Split Shot banned"). Hidden in skirmish/free play.
 
 Speed polish:
 - Center toast: `SPEED Xx` with streak FX.
@@ -642,10 +647,12 @@ Win:
 - Title: `VICTORY` (amber on Hard difficulty)
 - Subtitle: `All 20 waves survived · N lives remaining` (appends `  -  HARD` on Hard)
 - Play Again button escalates difficulty: Easy → `"Play Again  ·  Try Normal →"`, Normal → `"Play Again  ·  Try Hard →"`
+- **Campaign win:** Play Again / Continue Endless / Open Leaderboards hidden. "Next Stage: {name}  →" shown if not the final stage. "Campaign Select" replaces "Main Menu" and returns to `CampaignSelect.tscn`. Sector stamp (e.g. `SECTOR BREACHED`) injected below subtitle; final stage shows completion text.
 
 Loss:
 - Title: `GAME OVER`
 - Subtitle includes reached wave and lives lost.
+- **Campaign loss:** Leaderboard / Play Again buttons hidden. "Campaign Select" replaces "Main Menu".
 
 Both states show:
 - Enemies killed
@@ -754,9 +761,59 @@ Behavior:
 ---
 
 
+## Campaign Mode — The Fracture Circuit
+
+Linear 4-stage campaign with escalating mandates. Accessible from Play → Mode Select → Campaign.
+
+### Scene flow
+
+`MainMenu` → `ModeSelect` → `CampaignSelect` → `Main` (with active mandate) → `EndScreen` → `CampaignSelect`
+
+### Stage ladder
+
+| # | Stage | Map | Mandate |
+|---|---|---|---|
+| 1 | Orbit Breach | sprawl | Tower pool: Rapid, Heavy, Marker only. Split Shot banned. |
+| 2 | Crossroads Interdiction | arena_classic | Tower pool: + Arc Emitter. Momentum, Exploit Weakness, Split Shot banned. |
+| 3 | Pinch & Bleed | gauntlet | Tower pool: + Arc Emitter. Only 5 tower slots. Rift Sapper banned. |
+| 4 | Iron Mandate | ridgeback | All towers. All modifiers. Enemies have +25% HP. |
+
+- Stages unlock sequentially (each requires the previous cleared on any difficulty).
+- Per-stage, per-difficulty clear state saved to `user://campaign_progress.cfg` via `CampaignProgress.cs`.
+
+### Mandate system
+
+`MandateDefinition` wraps `MandateDef` from `campaign_stages.json` and exposes:
+- `IsTowerBanned(id)` — checked in `DraftSystem` to filter tower options
+- `IsModifierBanned(id)` — checked in `DraftSystem` to filter modifier options
+- `LockedSlotCount` — last N slots marked `IsLocked` by `GameController.ApplyCampaignMandate()`; locked slots are excluded from `HasFreeSlots()` / `FreeSlotCount()` and never receive towers
+- `EnemyHpMultiplier` — applied as a final multiplier in `WaveSystem.GetScaledHp()`
+- `IsActive` — true if any field is set (drives HUD banner visibility)
+
+Mandate is stored on `RunState.ActiveMandate`. All mandate logic is a no-op when `CampaignManager.ActiveStage == null` so skirmish is completely unaffected.
+
+### CampaignSelect screen
+
+- Stage cards showing: number badge, name, subtitle, mandate badge (color-coded by type), difficulty checkmarks (E✓ N✓ H✓)
+- Locked stages show "—" badge and "Clear previous stage to unlock"
+- Right panel: difficulty selector, intro flavor text, Begin / Back buttons
+- `OnBegin()`: sets `CampaignManager.ActiveStage`, calls `MapSelectPanel.SetPendingMapSelection`, fades to `Main.tscn`
+
+### Key files
+
+- `Data/campaign_stages.json` — stage definitions and mandate data
+- `Scripts/Core/CampaignManager.cs` — static context holder (ActiveStage, IsCampaignRun)
+- `Scripts/Core/CampaignProgress.cs` — ConfigFile-backed save
+- `Scripts/Core/MandateDefinition.cs` — runtime mandate logic
+- `Scripts/Core/CampaignStageDefinition.cs` — typed wrapper around CampaignStageDef
+- `Scripts/UI/ModeSelectPanel.cs` — Campaign / Skirmish card screen
+- `Scripts/UI/CampaignSelectPanel.cs` — Stage ladder UI
+
+---
+
 ## Achievements
 
-14 achievements tracked locally via `AchievementManager` (autoload). State persisted to `user://achievements.cfg`.
+16 achievements tracked locally via `AchievementManager` (autoload). State persisted to `user://achievements.cfg`.
 
 | ID | Name | Condition |
 |---|---|---|
@@ -774,10 +831,12 @@ Behavior:
 | SPLIT_UNSEALED | Split Unsealed | Beat the second campaign map (unlocks Split Shot) |
 | RIFT_UNSEALED | Rift Unsealed | Beat the third campaign map (unlocks Rift Sapper) |
 | TUTORIAL_COMPLETE | First Steps | Complete the tutorial run |
+| CAMPAIGN_CLEAR | The Circuit | Clear all four stages of The Fracture Circuit |
+| CAMPAIGN_HARD_CLEAR | Iron Mandate | Clear all four stages of The Fracture Circuit on Hard difficulty |
 
 **Unlock toast:** Small fade-in/out notification in the bottom-right corner when an achievement is newly unlocked. Multiple unlocks queue and show sequentially.
 
-**Achievements screen:** Full-screen list showing all 13 achievements. Locked entries show `???` name and a generic hint. Unlocked entries show name, description, and a green border + star. Accessible from both main menu and pause menu (pause menu opens it as an inline overlay without leaving the game scene).
+**Achievements screen:** Full-screen list showing all 16 achievements. Locked entries show `???` name and a generic hint. Unlocked entries show name, description, and a green border + star. Accessible from both main menu and pause menu (pause menu opens it as an inline overlay without leaving the game scene).
 
 **Steam forwarding:** `AchievementManager.AchievementUnlocked` signal is subscribed by `SteamAchievements`, which forwards each newly unlocked ID to Steamworks when available. No Steam dependency in `AchievementManager` itself.
 

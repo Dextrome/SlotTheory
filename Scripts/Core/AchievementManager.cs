@@ -60,6 +60,8 @@ public partial class AchievementManager : Node
         new("OVER_EQUIPPED", "Over Equipped",      "Fill all 18 modifier slots in a single run."),
         new("CHAIN_GANG",    "Chain Gang",         "Place 3 or more Arc Emitters in a single run."),
         new("GLASS_CANNON",  "Glass Cannon",       "Equip Focus Lens and Hair Trigger on the same tower."),
+        new("CAMPAIGN_CLEAR",      "The Circuit",    "Clear all four stages of The Fracture Circuit."),
+        new("CAMPAIGN_HARD_CLEAR", "Iron Mandate",   "Clear all four stages of The Fracture Circuit on Hard difficulty."),
     ];
 
     // ── Runtime state ─────────────────────────────────────────────────────────

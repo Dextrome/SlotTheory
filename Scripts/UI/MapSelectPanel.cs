@@ -550,7 +550,11 @@ public partial class MapSelectPanel : Node
 
 	private void OnBack()
 	{
-		Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+		// Demo goes back to MainMenu; full game goes back to ModeSelect
+		string destination = Balance.IsDemo
+			? "res://Scenes/MainMenu.tscn"
+			: "res://Scenes/ModeSelect.tscn";
+		Transition.Instance?.FadeToScene(destination);
 	}
 
 	private static void AddButton(Node parent, string text,

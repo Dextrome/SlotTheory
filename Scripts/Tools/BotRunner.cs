@@ -162,7 +162,7 @@ public BotRunner(
         _runIndexOffset = Math.Max(0, runIndexOffset);
 		_maps = targetMap != null
 			? new[] { targetMap }
-			: new[] { "arena_classic", "gauntlet", "sprawl" };
+			: new[] { "arena_classic", "gauntlet", "sprawl", "ridgeback" };
 		// Filter difficulties if specific one requested
 		if (targetDifficulty.HasValue)
 			_difficulties = new[] { targetDifficulty.Value };
@@ -375,6 +375,7 @@ public BotRunner(
                 "arena_classic" => "Crossroads",
                 "gauntlet" => "Pinch & Bleed",
                 "sprawl" => "Orbit",
+                "ridgeback" => "Ridgeback",
                 _ => mapId
             };
 
