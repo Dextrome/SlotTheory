@@ -638,8 +638,6 @@ public class BotPlayer
         var empty    = EmptySlots(s);
         var eligible = ModSlots(s);
 
-        int chainReactionTotal = s.Slots.Sum(sl =>
-            sl.Tower?.Modifiers.Count(m => m.ModifierId == "chain_reaction") ?? 0);
         bool hasDmgMod = s.Slots.Any(sl =>
             sl.Tower?.Modifiers.Any(m => m.ModifierId is
                 "hair_trigger" or "momentum" or "split_shot" or "overkill" or "feedback_loop") == true);
@@ -663,18 +661,18 @@ public class BotPlayer
                 }
             }
 
-            // 1. Up to 2 chain_reactions total â€" always on chain_tower if possible
-            if (chainReactionTotal < 2)
+            // 1. chain_reaction up to 2 per tower — prefer chain_tower, then any fast tower with headroom
             {
                 var cr = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "chain_reaction");
                 if (cr != null)
                 {
                     int slot = eligible
+                        .Where(i => s.Slots[i].Tower!.Modifiers.Count(m => m.ModifierId == "chain_reaction") < 2)
                         .OrderByDescending(i => s.Slots[i].Tower?.TowerId == "chain_tower" ? 2 :
                                                 IsFastTower(s.Slots[i].Tower?.TowerId) ? 1 : 0)
                         .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
-                        .First();
-                    return new DraftPick(cr, slot);
+                        .FirstOrDefault(-1);
+                    if (slot >= 0) return new DraftPick(cr, slot);
                 }
             }
 
@@ -722,7 +720,7 @@ public class BotPlayer
                     "split_shot"       =>  7f,
                     "overkill"         =>  6f,
                     "focus_lens"       =>  6f,
-                    "chain_reaction"   =>  3f,  // already have 2, deprioritize
+                    "chain_reaction"   =>  3f,  // low fallback priority — step 1 handles active placement
                     "overreach"        =>  5f,
                     "slow"             =>  6f,
                     "exploit_weakness" => hasMarker ? 15f : 2f,

@@ -7161,7 +7161,7 @@ void fragment() {
 
 		var body = new Label
 		{
-			Text = "The global meter is full. Click the glowing bar below to release a Global Surge - it hits every enemy on the lane and refunds all tower cooldowns.\nYou control when it fires. Use it at the right moment.",
+			Text = "The global meter is full. Click the glowing bar below to release a Global Surge - it hits every enemy on the lane and refunds all tower cooldowns.\nYou control when it fires. Click it now to continue tutorial.",
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 			CustomMinimumSize = new Vector2(520f, 0f),
 		};

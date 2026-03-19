@@ -288,7 +288,7 @@ public partial class MainMenu : Node
 		AddNavButton(cardVbox, "How to Play", OnHowToPlay);
 		AddNavButton(cardVbox, "Settings", OnSettings);
 
-		if (SteamAchievements.IsSteamInitialized && Balance.FullGameSteamAppId != 0u)
+		if (Balance.IsDemo && SteamAchievements.IsSteamInitialized && Balance.FullGameSteamAppId != 0u)
 		{
 			var wishBtn = MakeMenuButton("Wishlist on Steam", 260, 40, 17);
 			UITheme.ApplyMutedStyle(wishBtn);
@@ -315,7 +315,7 @@ public partial class MainMenu : Node
 
 		bool allUnlocked = AchievementManager.Instance?.IsUnlocked(Unlocks.RiftPrismAchievementId) == true;
 		bool alreadyNotified = SettingsManager.Instance?.DemoCompleteNotified == true;
-		if (allUnlocked && !alreadyNotified)
+		if (Balance.IsDemo && allUnlocked && !alreadyNotified)
 		{
 			var balancer = new Control { CustomMinimumSize = new Vector2(272, 0) };
 			menuRow.AddChild(balancer);
@@ -593,7 +593,7 @@ public partial class MainMenu : Node
 		btnRow.AddThemeConstantOverride("separation", 8);
 		inner.AddChild(btnRow);
 
-		if (SteamAchievements.IsSteamInitialized && Balance.FullGameSteamAppId != 0u)
+		if (Balance.IsDemo && SteamAchievements.IsSteamInitialized && Balance.FullGameSteamAppId != 0u)
 		{
 			var wishBtn = new Button
 			{

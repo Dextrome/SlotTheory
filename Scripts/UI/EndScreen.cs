@@ -176,6 +176,7 @@ public partial class EndScreen : CanvasLayer
 		};
 		_viewLeaderboardButton.AddThemeFontSizeOverride("font_size", 16);
 		UITheme.ApplyCyanStyle(_viewLeaderboardButton);
+		UITheme.ApplyMenuButtonFinish(_viewLeaderboardButton, UITheme.Cyan, 0.09f, 0.11f);
 		_viewLeaderboardButton.Pressed += OnViewLeaderboardPressed;
 		secondaryRow.AddChild(_viewLeaderboardButton);
 
@@ -184,10 +185,11 @@ public partial class EndScreen : CanvasLayer
 			Text = "\u2665  Wishlist Full Game",
 			CustomMinimumSize = new Vector2(0f, 42f),
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-			Visible = SteamAchievements.IsSteamInitialized && Balance.FullGameSteamAppId != 0u,
+			Visible = Balance.IsDemo && SteamAchievements.IsSteamInitialized && Balance.FullGameSteamAppId != 0u,
 		};
 		_wishlistButton.AddThemeFontSizeOverride("font_size", 15);
 		UITheme.ApplyMutedStyle(_wishlistButton);
+		UITheme.ApplyMenuButtonFinish(_wishlistButton, UITheme.Magenta, 0.09f, 0.14f);
 		_wishlistButton.AddThemeColorOverride("font_color", new Color(0.85f, 0.65f, 1.0f));
 		_wishlistButton.Pressed += () =>
 		{
@@ -213,6 +215,7 @@ public partial class EndScreen : CanvasLayer
 		};
 		_playAgainButton.AddThemeFontSizeOverride("font_size", 18);
 		UITheme.ApplyPrimaryStyle(_playAgainButton);
+		UITheme.ApplyMenuButtonFinish(_playAgainButton, UITheme.Lime, 0.11f, 0.14f);
 		_playAgainButton.Pressed += OnPlayAgainPressed;
 		_playAgainButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		primaryRow.AddChild(_playAgainButton);
@@ -226,6 +229,7 @@ public partial class EndScreen : CanvasLayer
 		};
 		_continueEndlessButton.AddThemeFontSizeOverride("font_size", 18);
 		UITheme.ApplyPrimaryStyle(_continueEndlessButton);
+		UITheme.ApplyMenuButtonFinish(_continueEndlessButton, UITheme.Lime, 0.11f, 0.14f);
 		_continueEndlessButton.AddThemeColorOverride("font_color", new Color(1.0f, 0.82f, 0.30f));
 		_continueEndlessButton.Pressed += OnContinueEndlessPressed;
 		_continueEndlessButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
@@ -239,6 +243,7 @@ public partial class EndScreen : CanvasLayer
 		};
 		_mainMenuButton.AddThemeFontSizeOverride("font_size", 18);
 		UITheme.ApplyCyanStyle(_mainMenuButton);
+		UITheme.ApplyMenuButtonFinish(_mainMenuButton, UITheme.Cyan, 0.09f, 0.11f);
 		_mainMenuButton.Pressed += OnMainMenuPressed;
 		_mainMenuButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		vbox.AddChild(_mainMenuButton);
@@ -251,6 +256,7 @@ public partial class EndScreen : CanvasLayer
 		};
 		_howToPlayButton.AddThemeFontSizeOverride("font_size", 16);
 		UITheme.ApplyMutedStyle(_howToPlayButton);
+		UITheme.ApplyMenuButtonFinish(_howToPlayButton, UITheme.Magenta, 0.09f, 0.14f);
 		_howToPlayButton.Pressed += OnHowToPlayPressed;
 		_howToPlayButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		vbox.AddChild(_howToPlayButton);
@@ -532,6 +538,8 @@ public partial class EndScreen : CanvasLayer
 			CustomMinimumSize = new Vector2(300, 44),
 		};
 		confirmBtn.AddThemeFontSizeOverride("font_size", 20);
+		UITheme.ApplyPrimaryStyle(confirmBtn);
+		UITheme.ApplyMenuButtonFinish(confirmBtn, UITheme.Lime, 0.11f, 0.14f);
 		confirmBtn.Pressed += () =>
 		{
 			string name = nameEdit.Text.Trim();
@@ -553,7 +561,8 @@ public partial class EndScreen : CanvasLayer
 			Flat = true,
 		};
 		skipBtn.AddThemeFontSizeOverride("font_size", 15);
-		skipBtn.Modulate = new Color(0.55f, 0.55f, 0.55f);
+		UITheme.ApplyMutedStyle(skipBtn);
+		UITheme.ApplyMenuButtonFinish(skipBtn, UITheme.Magenta, 0.09f, 0.14f);
 		skipBtn.Pressed += () =>
 		{
 			SlotTheory.Core.SoundManager.Instance?.Play("ui_select");

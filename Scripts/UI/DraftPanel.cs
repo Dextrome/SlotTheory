@@ -272,6 +272,7 @@ public partial class DraftPanel : CanvasLayer
         var cancelPress = (StyleBoxFlat)cancelStyle.Duplicate();
         cancelPress.BgColor = new Color(0.12f, 0.04f, 0.18f, 1.00f);
         _cancelBtn.AddThemeStyleboxOverride("pressed", cancelPress);
+        UITheme.ApplyMenuButtonFinish(_cancelBtn, UITheme.Magenta, 0.09f, 0.14f);
         _cancelBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         _cancelBtn.Pressed      += () => SoundManager.Instance?.Play("ui_select");
         _placementGroup.AddChild(_cancelBtn);
@@ -335,6 +336,7 @@ public partial class DraftPanel : CanvasLayer
         _bannerHowTo = new Button { Text = "(More Info)  How to Play \u2192" };
         _bannerHowTo.AddThemeFontSizeOverride("font_size", 13);
         UITheme.ApplyMutedStyle(_bannerHowTo);
+        UITheme.ApplyMenuButtonFinish(_bannerHowTo, UITheme.Magenta, 0.09f, 0.14f);
         _bannerHowTo.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         _bannerHowTo.Pressed += OnBannerHowToPressed;
         _bannerHowTo.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
@@ -343,6 +345,7 @@ public partial class DraftPanel : CanvasLayer
         _bannerNext = new Button { Text = "Next \u2192" };
         _bannerNext.AddThemeFontSizeOverride("font_size", 13);
         UITheme.ApplyPrimaryStyle(_bannerNext);
+        UITheme.ApplyMenuButtonFinish(_bannerNext, UITheme.Lime, 0.11f, 0.14f);
         _bannerNext.CustomMinimumSize = new Vector2(90f, 0f);
         _bannerNext.Pressed += OnBannerNextPressed;
         _bannerNext.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");

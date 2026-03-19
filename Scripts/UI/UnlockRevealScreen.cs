@@ -165,6 +165,7 @@ public partial class UnlockRevealScreen : CanvasLayer
             Disabled = true
         };
         UITheme.ApplyPrimaryStyle(_okButton);
+        UITheme.ApplyMenuButtonFinish(_okButton, UITheme.Lime, 0.11f, 0.14f);
         _okButton.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 18 : 22);
         _okButton.Pressed += OnOkayPressed;
         buttonWrap.AddChild(_okButton);

@@ -85,6 +85,7 @@ public partial class PauseScreen : CanvasLayer
 
         var resumeBtn = MakePauseBtn("Resume", 260, 44, 22);
         UITheme.ApplyPrimaryStyle(resumeBtn);
+        UITheme.ApplyMenuButtonFinish(resumeBtn, UITheme.Lime, 0.11f, 0.14f);
         resumeBtn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); OnResume(); };
         resumeBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         vbox.AddChild(resumeBtn);
@@ -101,12 +102,14 @@ public partial class PauseScreen : CanvasLayer
 
         var mmBtn = MakePauseBtn("Main Menu", 260, 38, 20);
         UITheme.ApplyCyanStyle(mmBtn);
+        UITheme.ApplyMenuButtonFinish(mmBtn, UITheme.Cyan, 0.09f, 0.11f);
         mmBtn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); OnMainMenu(); };
         mmBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         vbox.AddChild(mmBtn);
 
         var quitBtn = MakePauseBtn("Quit", 260, 38, 20);
         UITheme.ApplyMutedStyle(quitBtn);
+        UITheme.ApplyMenuButtonFinish(quitBtn, UITheme.Magenta, 0.09f, 0.14f);
         quitBtn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); OnQuit(); };
         quitBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         vbox.AddChild(quitBtn);
@@ -330,6 +333,8 @@ public partial class PauseScreen : CanvasLayer
             CustomMinimumSize = new Vector2(140, 38),
         };
         backBtn.AddThemeFontSizeOverride("font_size", 18);
+        UITheme.ApplyCyanStyle(backBtn);
+        UITheme.ApplyMenuButtonFinish(backBtn, UITheme.Cyan, 0.09f, 0.11f);
         backBtn.Pressed += () => { SoundManager.Instance?.Play("ui_select"); OnCloseSettings(); };
         backMargin.AddChild(backBtn);
     }
@@ -358,6 +363,7 @@ public partial class PauseScreen : CanvasLayer
         var yesBtn = new Button { Text = "Yes", CustomMinimumSize = new Vector2(130, 46) };
         yesBtn.AddThemeFontSizeOverride("font_size", 22);
         UITheme.ApplyMutedStyle(yesBtn);
+        UITheme.ApplyMenuButtonFinish(yesBtn, UITheme.Magenta, 0.09f, 0.14f);
         yesBtn.Pressed += () =>
         {
             _quitConfirmPanel.Visible = false;
@@ -368,6 +374,7 @@ public partial class PauseScreen : CanvasLayer
         var noBtn = new Button { Text = "No", CustomMinimumSize = new Vector2(130, 46) };
         noBtn.AddThemeFontSizeOverride("font_size", 22);
         UITheme.ApplyPrimaryStyle(noBtn);
+        UITheme.ApplyMenuButtonFinish(noBtn, UITheme.Lime, 0.11f, 0.14f);
         noBtn.Pressed += () =>
         {
             SoundManager.Instance?.Play("ui_select");
@@ -599,6 +606,7 @@ public partial class PauseScreen : CanvasLayer
         };
         btn.AddThemeFontSizeOverride("font_size", 14);
         ApplyPauseValueButtonStyle(btn, isOn);
+        UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, 0.07f, 0.11f);
         btn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); callback(); };
         btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         inner.AddChild(btn);
@@ -775,6 +783,8 @@ public partial class PauseScreen : CanvasLayer
     {
         var btn = new Button { Text = text, CustomMinimumSize = new Vector2(260, 36) };
         btn.AddThemeFontSizeOverride("font_size", 20);
+        UITheme.ApplyCyanStyle(btn);
+        UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, 0.09f, 0.11f);
         btn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); callback(); };
         btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         parent.AddChild(btn);

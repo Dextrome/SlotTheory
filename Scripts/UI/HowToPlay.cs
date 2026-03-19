@@ -92,6 +92,47 @@ public partial class HowToPlay : Node
             sideEmitters: true, emitterIntensity: 0.78f);
         panelMargin.AddChild(scrollPanel);
 
+        int innerH = MobileOptimization.IsMobile() ? 10 : 24;
+
+        // Outer VBox inside the glass panel: frozen header + scrollable content + frozen footer
+        var outerVBox = new VBoxContainer();
+        outerVBox.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
+        outerVBox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        outerVBox.AddThemeConstantOverride("separation", 0);
+        scrollPanel.AddChild(outerVBox);
+
+        // --- Frozen header: title + tab buttons ---
+        var headerMargin = new MarginContainer();
+        headerMargin.AddThemeConstantOverride("margin_left",   innerH);
+        headerMargin.AddThemeConstantOverride("margin_right",  innerH);
+        headerMargin.AddThemeConstantOverride("margin_top",    12);
+        headerMargin.AddThemeConstantOverride("margin_bottom", 8);
+        headerMargin.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        outerVBox.AddChild(headerMargin);
+
+        var headerVBox = new VBoxContainer();
+        headerVBox.AddThemeConstantOverride("separation", 6);
+        headerVBox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        headerMargin.AddChild(headerVBox);
+
+        AddTitle(headerVBox, "HOW TO PLAY");
+        AddSpacer(headerVBox, 4);
+
+        var tabRow = new HBoxContainer();
+        tabRow.Alignment = BoxContainer.AlignmentMode.Center;
+        tabRow.AddThemeConstantOverride("separation", 12);
+        headerVBox.AddChild(tabRow);
+
+        _basicsTabBtn = BuildTabButton("How To Play", () => SetActiveTab(HowToTab.Basics));
+        _surgesTabBtn = BuildTabButton("Surges", () => SetActiveTab(HowToTab.Surges));
+        tabRow.AddChild(_basicsTabBtn);
+        tabRow.AddChild(_surgesTabBtn);
+
+        var headerSep = new HSeparator();
+        headerSep.Modulate = new Color(0.28f, 0.28f, 0.38f, 0.8f);
+        outerVBox.AddChild(headerSep);
+
+        // --- Scrollable content ---
         var scroll = new ScrollContainer();
         scroll.SizeFlagsVertical    = Control.SizeFlags.ExpandFill;
         scroll.SizeFlagsHorizontal  = Control.SizeFlags.ExpandFill;
@@ -99,40 +140,22 @@ public partial class HowToPlay : Node
         scroll.VerticalScrollMode   = ScrollContainer.ScrollMode.Auto;
         scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         TouchScrollHelper.EnableDragScroll(scroll);
-        scrollPanel.AddChild(scroll);
+        outerVBox.AddChild(scroll);
 
         var marginContainer = new MarginContainer();
-        int innerH = MobileOptimization.IsMobile() ? 10 : 24;
         marginContainer.AddThemeConstantOverride("margin_left",   innerH);
         marginContainer.AddThemeConstantOverride("margin_right",  innerH);
-        marginContainer.AddThemeConstantOverride("margin_top",    12);
-        marginContainer.AddThemeConstantOverride("margin_bottom", 12);
+        marginContainer.AddThemeConstantOverride("margin_top",    10);
+        marginContainer.AddThemeConstantOverride("margin_bottom", 10);
         marginContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         marginContainer.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
         marginContainer.MouseFilter = Control.MouseFilterEnum.Pass;
         scroll.AddChild(marginContainer);
 
-        // Simple VBox that can expand vertically
         var vbox = new VBoxContainer();
         vbox.AddThemeConstantOverride("separation", 6);
         vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         marginContainer.AddChild(vbox);
-
-        // Title
-        AddTitle(vbox, "HOW TO PLAY");
-        AddSpacer(vbox, 6);
-
-        var tabRow = new HBoxContainer();
-        tabRow.Alignment = BoxContainer.AlignmentMode.Center;
-        tabRow.AddThemeConstantOverride("separation", 12);
-        vbox.AddChild(tabRow);
-
-        _basicsTabBtn = BuildTabButton("How To Play", () => SetActiveTab(HowToTab.Basics));
-        _surgesTabBtn = BuildTabButton("Surges", () => SetActiveTab(HowToTab.Surges));
-        tabRow.AddChild(_basicsTabBtn);
-        tabRow.AddChild(_surgesTabBtn);
-
-        AddSpacer(vbox, 4);
 
         _basicsSection = new VBoxContainer();
         _basicsSection.AddThemeConstantOverride("separation", 6);
@@ -145,9 +168,24 @@ public partial class HowToPlay : Node
         BuildSurgesSection(_surgesSection);
 
         SetActiveTab(StartOnSurgesTab ? HowToTab.Surges : HowToTab.Basics);
-        AddSpacer(vbox, 10);
 
-        // Back button
+        var footerSep = new HSeparator();
+        footerSep.Modulate = new Color(0.28f, 0.28f, 0.38f, 0.8f);
+        outerVBox.AddChild(footerSep);
+
+        // --- Frozen footer: back button ---
+        var footerMargin = new MarginContainer();
+        footerMargin.AddThemeConstantOverride("margin_left",   innerH);
+        footerMargin.AddThemeConstantOverride("margin_right",  innerH);
+        footerMargin.AddThemeConstantOverride("margin_top",    10);
+        footerMargin.AddThemeConstantOverride("margin_bottom", 10);
+        footerMargin.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        outerVBox.AddChild(footerMargin);
+
+        var footerHBox = new HBoxContainer();
+        footerHBox.Alignment = BoxContainer.AlignmentMode.Center;
+        footerMargin.AddChild(footerHBox);
+
         var backBtn = new Button
         {
             Text = "Back",
@@ -163,9 +201,7 @@ public partial class HowToPlay : Node
             if (OnBack != null) { OnBack(); QueueFree(); }
             else SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
         };
-        vbox.AddChild(backBtn);
-
-        AddSpacer(vbox, 8);
+        footerHBox.AddChild(backBtn);
     }
 
     public override void _Notification(int what)
