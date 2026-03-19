@@ -249,6 +249,7 @@ public partial class MapSelectPanel : Node
 		};
 		startBtn.AddThemeFontSizeOverride("font_size", 24);
 		UITheme.ApplyPrimaryStyle(startBtn);
+		UITheme.ApplyMenuButtonFinish(startBtn, UITheme.Lime, 0.11f, 0.14f);
 		startBtn.Pressed      += OnStartRun;
 		startBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		rightColumn.AddChild(startBtn);
@@ -261,6 +262,7 @@ public partial class MapSelectPanel : Node
 		};
 		backBtn.AddThemeFontSizeOverride("font_size", 20);
 		UITheme.ApplyCyanStyle(backBtn);
+		UITheme.ApplyMenuButtonFinish(backBtn, UITheme.Cyan, 0.09f, 0.11f);
 		backBtn.Pressed      += OnBack;
 		backBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		rightColumn.AddChild(backBtn);
@@ -414,9 +416,15 @@ public partial class MapSelectPanel : Node
 			CustomMinimumSize = new Vector2(80, 52),
 		};
 		if (isSelected)
+		{
 			UITheme.ApplyPrimaryStyle(btn);
+			UITheme.ApplyMenuButtonFinish(btn, UITheme.Lime, 0.10f, 0.13f);
+		}
 		else
+		{
 			UITheme.ApplyCyanStyle(btn);
+			UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, 0.09f, 0.11f);
+		}
 		if (_isMobile)
 			btn.MouseFilter = Control.MouseFilterEnum.Pass;
 		btn.AddThemeFontSizeOverride("font_size", 15);
@@ -576,6 +584,7 @@ public partial class MapSelectPanel : Node
 			ToggleMode = false,
 		};
 		btn.AddThemeFontSizeOverride("font_size", 18);
+		UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, 0.08f, 0.10f);
 		btn.Pressed      += () => SelectDifficulty(difficulty);
 		btn.MouseEntered += () =>
 		{

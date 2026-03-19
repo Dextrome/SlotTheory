@@ -155,6 +155,9 @@ public partial class HowToPlay : Node
         };
         var backBtnSize = MobileOptimization.IsMobile() ? 18 : 22;
         backBtn.AddThemeFontSizeOverride("font_size", backBtnSize);
+        UITheme.ApplyCyanStyle(backBtn);
+        UITheme.ApplyMenuButtonFinish(backBtn, UITheme.Cyan, 0.10f, 0.12f);
+        backBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         backBtn.Pressed += () =>
         {
             if (OnBack != null) { OnBack(); QueueFree(); }
@@ -353,6 +356,9 @@ public partial class HowToPlay : Node
             CustomMinimumSize = new Vector2(180f, 42f),
         };
         btn.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 15 : 18);
+        UITheme.ApplyCyanStyle(btn);
+        UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, 0.09f, 0.11f);
+        btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         btn.Pressed += () =>
         {
             SoundManager.Instance?.Play("ui_select");

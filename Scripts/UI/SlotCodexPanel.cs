@@ -179,6 +179,7 @@ public partial class SlotCodexPanel : Node
         };
         backBtn.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 18 : 20);
         UITheme.ApplyCyanStyle(backBtn);
+        UITheme.ApplyMenuButtonFinish(backBtn, UITheme.Cyan, 0.10f, 0.12f);
         backBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         backBtn.Pressed += HandleBack;
         backCenter.AddChild(backBtn);
@@ -227,6 +228,7 @@ public partial class SlotCodexPanel : Node
         };
         btn.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 17 : 19);
         UITheme.ApplyCyanStyle(btn);
+        UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, 0.09f, 0.11f);
         btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         btn.Pressed += () =>
         {

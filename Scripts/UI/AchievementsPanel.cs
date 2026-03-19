@@ -127,6 +127,8 @@ public partial class AchievementsPanel : Node
             CustomMinimumSize = new Vector2(160, 44),
         };
         backBtn.AddThemeFontSizeOverride("font_size", 18);
+        UITheme.ApplyCyanStyle(backBtn);
+        UITheme.ApplyMenuButtonFinish(backBtn, UITheme.Cyan, 0.10f, 0.12f);
         backBtn.Pressed += OnBack;
         backBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 

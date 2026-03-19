@@ -609,6 +609,17 @@ public partial class LeaderboardsMenu : Node
             CustomMinimumSize = new Vector2(width, height),
         };
         btn.AddThemeFontSizeOverride("font_size", fontSize);
+        bool isPrimary = text == "Refresh";
+        if (isPrimary)
+        {
+            UITheme.ApplyPrimaryStyle(btn);
+            UITheme.ApplyMenuButtonFinish(btn, UITheme.Lime, 0.10f, 0.13f);
+        }
+        else
+        {
+            UITheme.ApplyCyanStyle(btn);
+            UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, 0.09f, 0.11f);
+        }
         btn.Pressed      += callback;
         btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         return btn;
@@ -622,6 +633,8 @@ public partial class LeaderboardsMenu : Node
             CustomMinimumSize = new Vector2(48, 36),
         };
         btn.AddThemeFontSizeOverride("font_size", 17);
+        UITheme.ApplyCyanStyle(btn);
+        UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, 0.08f, 0.11f);
         btn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); callback(); };
         btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         return btn;

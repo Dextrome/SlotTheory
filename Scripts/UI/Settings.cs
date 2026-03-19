@@ -177,6 +177,7 @@ public partial class Settings : Node
         _resetTutorialBtn = AddSettingRow(vbox, "Reset Tutorial",
             "Reset", isOn: false, OnResetTutorialPressed);
         UITheme.ApplyMutedStyle(_resetTutorialBtn);
+        UITheme.ApplyMenuButtonFinish(_resetTutorialBtn, UITheme.Magenta, 0.09f, 0.14f);
 
         // Confirmation row (hidden until button is pressed)
         _resetTutorialConfirmRow = new HBoxContainer();
@@ -208,6 +209,7 @@ public partial class Settings : Node
         };
         yesBtn.AddThemeFontSizeOverride("font_size", 15);
         ApplyValueButtonStyle(yesBtn, isOn: true);
+        UITheme.ApplyMenuButtonFinish(yesBtn, UITheme.Lime, 0.08f, 0.11f);
         yesBtn.Pressed      += OnResetTutorialConfirmed;
         yesBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         _resetTutorialConfirmRow.AddChild(yesBtn);
@@ -220,6 +222,7 @@ public partial class Settings : Node
         };
         noBtn.AddThemeFontSizeOverride("font_size", 15);
         ApplyValueButtonStyle(noBtn, isOn: false);
+        UITheme.ApplyMenuButtonFinish(noBtn, UITheme.Cyan, 0.08f, 0.11f);
         noBtn.Pressed      += OnResetTutorialCancelled;
         noBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         _resetTutorialConfirmRow.AddChild(noBtn);
@@ -245,6 +248,7 @@ public partial class Settings : Node
             _resetProfileBtn = AddSettingRow(vbox, "Reset All Achievements",
                 "Reset", isOn: false, OnResetProfileUnlocks);
             UITheme.ApplyMutedStyle(_resetProfileBtn);
+            UITheme.ApplyMenuButtonFinish(_resetProfileBtn, UITheme.Magenta, 0.09f, 0.14f);
 
             _resetProfileStatus = new Label
             {
@@ -281,6 +285,8 @@ public partial class Settings : Node
             CustomMinimumSize = new Vector2(160, 44),
         };
         back.AddThemeFontSizeOverride("font_size", 20);
+        UITheme.ApplyCyanStyle(back);
+        UITheme.ApplyMenuButtonFinish(back, UITheme.Cyan, 0.10f, 0.12f);
         back.Pressed      += () => Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
         back.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         backCenter.AddChild(back);
@@ -423,6 +429,7 @@ public partial class Settings : Node
         };
         btn.AddThemeFontSizeOverride("font_size", 15);
         ApplyValueButtonStyle(btn, isOn);
+        UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, 0.07f, 0.11f);
         btn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); callback(); };
         btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         inner.AddChild(btn);

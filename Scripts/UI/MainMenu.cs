@@ -365,11 +365,7 @@ public partial class MainMenu : Node
 
 	public override void _UnhandledInput(InputEvent @event)
 	{
-		if (@event.IsActionPressed("ui_cancel"))
-		{
-			GetTree().Quit();
-			GetViewport().SetInputAsHandled();
-		}
+		// Escape does nothing on the main menu — quit via the Quit button only.
 	}
 
 	private void OnPlay()

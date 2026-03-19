@@ -123,6 +123,41 @@ public static class UITheme
     }
 
     /// <summary>
+    /// Adds the main-menu style top/bottom material bands and inner edge polish to a button.
+    /// This is a lightweight finish layer that can be used on top of any base button style.
+    /// </summary>
+    public static void ApplyMenuButtonFinish(Button btn, Color accent, float topAlpha = 0.10f, float bottomAlpha = 0.12f)
+    {
+        const string MetaKey = "menu_finish_applied";
+        if (btn.HasMeta(MetaKey))
+            return;
+        btn.SetMeta(MetaKey, true);
+
+        btn.Draw += () =>
+        {
+            float bw = btn.Size.X;
+            float bh = btn.Size.Y;
+            if (bw < 8f || bh < 8f)
+                return;
+
+            float inset = 4f;
+            float innerW = bw - inset * 2f;
+            float innerH = bh - inset * 2f;
+            float topBandH = Mathf.Max(2f, bh * 0.14f);
+            float bottomBandH = Mathf.Max(3f, bh * 0.16f);
+
+            btn.DrawRect(new Rect2(inset, inset, innerW, topBandH), new Color(accent.R, accent.G, accent.B, topAlpha));
+            btn.DrawRect(new Rect2(inset, bh - inset - bottomBandH, innerW, bottomBandH), new Color(0f, 0f, 0f, bottomAlpha));
+            btn.DrawLine(new Vector2(inset + 1f, inset + 1f), new Vector2(bw - inset - 1f, inset + 1f),
+                new Color(1f, 1f, 1f, topAlpha * 0.45f), 1f);
+            btn.DrawLine(new Vector2(inset + 1f, bh - inset - 1f), new Vector2(bw - inset - 1f, bh - inset - 1f),
+                new Color(0f, 0f, 0f, bottomAlpha * 1.2f), 1f);
+            btn.DrawRect(new Rect2(inset, inset, innerW, innerH),
+                new Color(accent.R, accent.G, accent.B, topAlpha * 0.22f), false, 1f);
+        };
+    }
+
+    /// <summary>
     /// Adds a 2 px lime accent stripe at the top of any Control (panel, card, bar).
     /// Call after AddChild so it renders above the panel content.
     /// </summary>
