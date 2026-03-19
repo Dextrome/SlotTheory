@@ -807,7 +807,7 @@ public partial class SlotCodexPanel : Node
             (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp * Balance.ReverseWalkerHpMultiplier:0} HP"),
             (StatIconNode.IconType.Arrow, $"{Balance.ReverseWalkerSpeed:0} px/s"),
             (StatIconNode.IconType.Skull, "Leak: 1 life"),
-            (StatIconNode.IconType.Wave,  "From wave 11 (full)"),
+            (StatIconNode.IconType.Wave,  "From wave 11"),
         },
         "splitter_walker" => new (StatIconNode.IconType, string)[]
         {
