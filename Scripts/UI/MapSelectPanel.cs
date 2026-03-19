@@ -31,6 +31,7 @@ public partial class MapSelectPanel : Node
 
 	public override void _Ready()
 	{
+		DataLoader.LoadAll();
 		_selectedMapId = DataLoader.GetAllMapDefs().FirstOrDefault()?.Id ?? "random_map";
 		_selectedDifficulty = DifficultyMode.Normal;
 		_proceduralPreviewSeed = (ulong)(System.Environment.TickCount64 & 0x7FFFFFFF);
@@ -40,7 +41,7 @@ public partial class MapSelectPanel : Node
 
 		var bg = new ColorRect();
 		bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		bg.Color = new Color("#141420");
+		bg.Color = new Color("#030a14");
 		canvas.AddChild(bg);
 
 		var grid = new NeonGridBg();
@@ -67,17 +68,52 @@ public partial class MapSelectPanel : Node
 		title.Modulate = new Color("#a6d608");
 		vbox.AddChild(title);
 
+		_isMobile = MobileOptimization.IsMobile();
+
+		var bodyPanel = new PanelContainer();
+		bodyPanel.CustomMinimumSize = _isMobile ? new Vector2(680, 420) : new Vector2(1120, 560);
+		bodyPanel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		bodyPanel.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		UITheme.ApplyGlassChassisPanel(
+			bodyPanel,
+			bg: new Color(0.040f, 0.052f, 0.102f, 0.94f),
+			accent: new Color(0.40f, 0.78f, 0.94f, 0.92f),
+			corners: 12,
+			borderWidth: 2,
+			padH: 14,
+			padV: 12,
+			sideEmitters: true,
+			emitterIntensity: 0.86f);
+		vbox.AddChild(bodyPanel);
+
 		// Content row: map list | difficulty
 		var contentRow = new HBoxContainer();
 		contentRow.AddThemeConstantOverride("separation", 16);
-		vbox.AddChild(contentRow);
+		contentRow.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		contentRow.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		bodyPanel.AddChild(contentRow);
+
+		var leftFrame = new PanelContainer();
+		leftFrame.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		leftFrame.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		UITheme.ApplyGlassChassisPanel(
+			leftFrame,
+			bg: new Color(0.022f, 0.038f, 0.080f, 0.95f),
+			accent: new Color(0.36f, 0.74f, 0.90f, 0.88f),
+			corners: 10,
+			borderWidth: 1,
+			padH: 10,
+			padV: 10,
+			sideEmitters: false);
+		contentRow.AddChild(leftFrame);
 
 		// Left column: map list
 		var leftColumn = new VBoxContainer();
 		leftColumn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-		contentRow.AddChild(leftColumn);
+		leftColumn.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		leftColumn.AddThemeConstantOverride("separation", 8);
+		leftFrame.AddChild(leftColumn);
 
-		_isMobile = MobileOptimization.IsMobile();
 		var scrollContainer = new ScrollContainer();
 		scrollContainer.CustomMinimumSize = _isMobile
 			? new Vector2(420, 200)
@@ -87,6 +123,7 @@ public partial class MapSelectPanel : Node
 		scrollContainer.SizeFlagsHorizontal  = Control.SizeFlags.ExpandFill;
 		scrollContainer.SizeFlagsVertical    = Control.SizeFlags.ExpandFill;
 		TouchScrollHelper.EnableDragScroll(scrollContainer);
+		ApplySlimScrollBarStyle(scrollContainer);
 		leftColumn.AddChild(scrollContainer);
 
 		var listMargin = new MarginContainer();
@@ -107,7 +144,7 @@ public partial class MapSelectPanel : Node
 
 		// Preview row: map thumbnail on the left, legend panel on the right
 		var previewRow = new HBoxContainer();
-		previewRow.AddThemeConstantOverride("separation", 8);
+		previewRow.AddThemeConstantOverride("separation", 10);
 		leftColumn.AddChild(previewRow);
 
 		_previewControl = new MapPreviewControl();
@@ -122,15 +159,41 @@ public partial class MapSelectPanel : Node
 		UpdateMapPreview();
 
 		// Right column: difficulty + personal best
-		var rightColumnWrap = new MarginContainer();
-		if (!_isMobile)
-			rightColumnWrap.AddThemeConstantOverride("margin_top", -32);
-		contentRow.AddChild(rightColumnWrap);
+		var rightFrame = new PanelContainer();
+		rightFrame.CustomMinimumSize = new Vector2(248, 0);
+		rightFrame.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+		UITheme.ApplyGlassChassisPanel(
+			rightFrame,
+			bg: new Color(0.022f, 0.038f, 0.080f, 0.95f),
+			accent: new Color(0.36f, 0.74f, 0.90f, 0.88f),
+			corners: 10,
+			borderWidth: 1,
+			padH: 12,
+			padV: 10,
+			sideEmitters: false);
+		contentRow.AddChild(rightFrame);
 
 		var rightColumn = new VBoxContainer();
-		rightColumn.AddThemeConstantOverride("separation", 10);
+		rightColumn.AddThemeConstantOverride("separation", 12);
 		rightColumn.CustomMinimumSize = new Vector2(240, 0);
-		rightColumnWrap.AddChild(rightColumn);
+		rightFrame.AddChild(rightColumn);
+
+		var difficultyCard = new PanelContainer();
+		difficultyCard.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		UITheme.ApplyGlassChassisPanel(
+			difficultyCard,
+			bg: new Color(0.020f, 0.034f, 0.074f, 0.96f),
+			accent: new Color(0.34f, 0.70f, 0.88f, 0.78f),
+			corners: 8,
+			borderWidth: 1,
+			padH: 10,
+			padV: 8,
+			sideEmitters: false);
+		rightColumn.AddChild(difficultyCard);
+
+		var difficultyVBox = new VBoxContainer();
+		difficultyVBox.AddThemeConstantOverride("separation", 8);
+		difficultyCard.AddChild(difficultyVBox);
 
 		var difficultyLabel = new Label
 		{
@@ -139,11 +202,12 @@ public partial class MapSelectPanel : Node
 		};
 		UITheme.ApplyFont(difficultyLabel, semiBold: true, size: 20);
 		difficultyLabel.Modulate = new Color("#a6d608");
-		rightColumn.AddChild(difficultyLabel);
+		difficultyVBox.AddChild(difficultyLabel);
 
 		var difficultyContainer = new HBoxContainer();
-		difficultyContainer.AddThemeConstantOverride("separation", 12);
-		rightColumn.AddChild(difficultyContainer);
+		difficultyContainer.AddThemeConstantOverride("separation", 10);
+		difficultyContainer.Alignment = BoxContainer.AlignmentMode.Center;
+		difficultyVBox.AddChild(difficultyContainer);
 
 		_easyButton = CreateDifficultyButton("Easy", DifficultyMode.Easy);
 		difficultyContainer.AddChild(_easyButton);
@@ -153,26 +217,38 @@ public partial class MapSelectPanel : Node
 		difficultyContainer.AddChild(_hardButton);
 		UpdateDifficultyVisuals();
 
+		var diffDivider = new ColorRect
+		{
+			Color = new Color(0.32f, 0.70f, 0.90f, 0.24f),
+			CustomMinimumSize = new Vector2(0, 1),
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		difficultyVBox.AddChild(diffDivider);
+
 		_personalBestLabel = new Label
 		{
 			HorizontalAlignment = HorizontalAlignment.Center,
 			AutowrapMode = TextServer.AutowrapMode.Word,
-			CustomMinimumSize = new Vector2(220, 0),
+			CustomMinimumSize = new Vector2(220, 44),
 			Text = "",
 		};
-		_personalBestLabel.AddThemeFontSizeOverride("font_size", 15);
-		_personalBestLabel.Modulate = new Color(0.74f, 0.88f, 1.00f, 0.95f);
-		rightColumn.AddChild(_personalBestLabel);
+		_personalBestLabel.AddThemeFontSizeOverride("font_size", 14);
+		_personalBestLabel.Modulate = new Color(0.78f, 0.90f, 1.00f, 0.94f);
+		difficultyVBox.AddChild(_personalBestLabel);
 		UpdatePersonalBestLabel();
+
+		rightColumn.AddChild(new Control { CustomMinimumSize = new Vector2(0, 2) });
 
 		// Start Run + Back in the right column - always visible, no layout tricks needed
 		var startBtn = new Button
 		{
 			Text = "Start Run",
-			CustomMinimumSize = new Vector2(0, 48),
+			CustomMinimumSize = new Vector2(0, 50),
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 		};
 		startBtn.AddThemeFontSizeOverride("font_size", 24);
+		UITheme.ApplyPrimaryStyle(startBtn);
 		startBtn.Pressed      += OnStartRun;
 		startBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		rightColumn.AddChild(startBtn);
@@ -184,6 +260,7 @@ public partial class MapSelectPanel : Node
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 		};
 		backBtn.AddThemeFontSizeOverride("font_size", 20);
+		UITheme.ApplyCyanStyle(backBtn);
 		backBtn.Pressed      += OnBack;
 		backBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		rightColumn.AddChild(backBtn);
@@ -248,16 +325,16 @@ public partial class MapSelectPanel : Node
 		var container = new PanelContainer();
 		container.ThemeTypeVariation = "NoVisualHBox";
 		container.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-		container.Modulate = new Color(1f, 1f, 1f, 0.45f);
 		if (_isMobile)
 			container.MouseFilter = Control.MouseFilterEnum.Ignore;
+		ApplyMapRowStyle(container, selected: false, locked: true);
 
 		var hbox = new HBoxContainer();
 		hbox.AddThemeConstantOverride("separation",    10);
 		hbox.AddThemeConstantOverride("margin_left",   10);
-		hbox.AddThemeConstantOverride("margin_top",    10);
+		hbox.AddThemeConstantOverride("margin_top",    9);
 		hbox.AddThemeConstantOverride("margin_right",  10);
-		hbox.AddThemeConstantOverride("margin_bottom", 10);
+		hbox.AddThemeConstantOverride("margin_bottom", 9);
 		if (_isMobile)
 			hbox.MouseFilter = Control.MouseFilterEnum.Ignore;
 		container.AddChild(hbox);
@@ -276,7 +353,7 @@ public partial class MapSelectPanel : Node
 		hbox.AddChild(lockBadge);
 
 		var textVbox = new VBoxContainer();
-		textVbox.AddThemeConstantOverride("separation", 2);
+		textVbox.AddThemeConstantOverride("separation", 1);
 		textVbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		if (_isMobile)
 			textVbox.MouseFilter = Control.MouseFilterEnum.Ignore;
@@ -289,7 +366,7 @@ public partial class MapSelectPanel : Node
 		};
 		if (_isMobile)
 			nameLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
-		UITheme.ApplyFont(nameLabel, semiBold: true, size: 20);
+		UITheme.ApplyFont(nameLabel, semiBold: true, size: 19);
 		nameLabel.Modulate = new Color(0.55f, 0.60f, 0.80f);
 		textVbox.AddChild(nameLabel);
 
@@ -303,7 +380,7 @@ public partial class MapSelectPanel : Node
 		};
 		if (_isMobile)
 			descLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
-		descLabel.AddThemeFontSizeOverride("font_size", 13);
+		descLabel.AddThemeFontSizeOverride("font_size", 12);
 		descLabel.Modulate = new Color(0.45f, 0.48f, 0.62f);
 		textVbox.AddChild(descLabel);
 
@@ -312,18 +389,21 @@ public partial class MapSelectPanel : Node
 
 	private Control CreateMapButton(string mapId, string mapName, string description)
 	{
+		bool isSelected = mapId == _selectedMapId;
 		var container = new PanelContainer();
 		container.ThemeTypeVariation = "NoVisualHBox";
 		container.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		container.SetMeta("map_id", mapId);
 		if (_isMobile)
 			container.MouseFilter = Control.MouseFilterEnum.Pass;
+		ApplyMapRowStyle(container, selected: isSelected, locked: false);
 
 		var hbox = new HBoxContainer();
 		hbox.AddThemeConstantOverride("separation",    10);
 		hbox.AddThemeConstantOverride("margin_left",   10);
-		hbox.AddThemeConstantOverride("margin_top",    10);
+		hbox.AddThemeConstantOverride("margin_top",    9);
 		hbox.AddThemeConstantOverride("margin_right",  10);
-		hbox.AddThemeConstantOverride("margin_bottom", 10);
+		hbox.AddThemeConstantOverride("margin_bottom", 9);
 		if (_isMobile)
 			hbox.MouseFilter = Control.MouseFilterEnum.Ignore;
 		container.AddChild(hbox);
@@ -333,6 +413,10 @@ public partial class MapSelectPanel : Node
 			Text = "SELECT",
 			CustomMinimumSize = new Vector2(80, 52),
 		};
+		if (isSelected)
+			UITheme.ApplyPrimaryStyle(btn);
+		else
+			UITheme.ApplyCyanStyle(btn);
 		if (_isMobile)
 			btn.MouseFilter = Control.MouseFilterEnum.Pass;
 		btn.AddThemeFontSizeOverride("font_size", 15);
@@ -341,7 +425,7 @@ public partial class MapSelectPanel : Node
 		hbox.AddChild(btn);
 
 		var textVbox = new VBoxContainer();
-		textVbox.AddThemeConstantOverride("separation", 2);
+		textVbox.AddThemeConstantOverride("separation", 1);
 		textVbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		if (_isMobile)
 			textVbox.MouseFilter = Control.MouseFilterEnum.Ignore;
@@ -355,7 +439,10 @@ public partial class MapSelectPanel : Node
 		};
 		if (_isMobile)
 			nameLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
-		UITheme.ApplyFont(nameLabel, semiBold: true, size: 20);
+		UITheme.ApplyFont(nameLabel, semiBold: true, size: 19);
+		nameLabel.Modulate = isSelected
+			? new Color(0.95f, 0.99f, 0.86f)
+			: new Color(0.90f, 0.95f, 1.00f);
 		textVbox.AddChild(nameLabel);
 
 		var descLabel = new Label
@@ -368,14 +455,40 @@ public partial class MapSelectPanel : Node
 		};
 		if (_isMobile)
 			descLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
-		descLabel.AddThemeFontSizeOverride("font_size", 13);
-		descLabel.Modulate = new Color(0.7f, 0.7f, 0.7f);
+		descLabel.AddThemeFontSizeOverride("font_size", 12);
+		descLabel.Modulate = isSelected
+			? new Color(0.78f, 0.84f, 0.70f)
+			: new Color(0.66f, 0.70f, 0.78f);
 		textVbox.AddChild(descLabel);
 
-		if (mapId == _selectedMapId)
-			container.Modulate = new Color(1.5f, 1.4f, 0.8f);
-
 		return container;
+	}
+
+	private static void ApplyMapRowStyle(PanelContainer container, bool selected, bool locked)
+	{
+		Color bg = locked
+			? new Color(0.030f, 0.036f, 0.072f, 0.70f)
+			: new Color(0.018f, 0.030f, 0.078f, 0.94f);
+		Color border = locked
+			? new Color(0.30f, 0.34f, 0.46f, 0.44f)
+			: selected
+				? new Color(0.64f, 0.82f, 0.24f, 0.96f)
+				: new Color(0.24f, 0.62f, 0.76f, 0.72f);
+
+		container.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+			bg: bg,
+			border: border,
+			corners: 9,
+			borderWidth: selected ? 2 : 1,
+			padH: 0,
+			padV: 0));
+
+		if (locked)
+			UITheme.AddTopAccent(container, new Color(0.56f, 0.64f, 0.82f, 0.18f));
+		else if (selected)
+			UITheme.AddTopAccent(container, new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.42f));
+		else
+			UITheme.AddTopAccent(container, new Color(0.70f, 0.92f, 1.00f, 0.18f));
 	}
 
 	private void SelectMap(string mapId)
@@ -392,22 +505,26 @@ public partial class MapSelectPanel : Node
 			old.QueueFree();
 		PopulateMapList();
 
-		// Alpha-in + scale-punch the newly selected row so selection feels deliberate
+		// Alpha-in + scale-punch the newly selected row so selection feels deliberate.
 		foreach (var child in _mapListContainer.GetChildren())
 		{
-			if (child is Control ctrl && ctrl.Modulate.R > 1.2f) // gold modulate = selected row
-			{
-				ctrl.Modulate = new Color(ctrl.Modulate.R, ctrl.Modulate.G, ctrl.Modulate.B, 0f);
-				ctrl.PivotOffset = ctrl.Size / 2f;
-				ctrl.Scale = new Vector2(0.97f, 0.97f);
-				var tw = ctrl.CreateTween();
-				tw.SetParallel(true);
-				tw.TweenProperty(ctrl, "modulate:a", 1f, 0.10f)
-				  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
-				tw.TweenProperty(ctrl, "scale", Vector2.One, 0.12f)
-				  .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
-				break;
-			}
+			if (child is not PanelContainer row || !row.HasMeta("map_id"))
+				continue;
+
+			string rowId = row.GetMeta("map_id").AsString();
+			if (rowId != _selectedMapId)
+				continue;
+
+			row.Modulate = new Color(row.Modulate.R, row.Modulate.G, row.Modulate.B, 0f);
+			row.PivotOffset = row.Size / 2f;
+			row.Scale = new Vector2(0.97f, 0.97f);
+			var tw = row.CreateTween();
+			tw.SetParallel(true);
+			tw.TweenProperty(row, "modulate:a", 1f, 0.10f)
+				.SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+			tw.TweenProperty(row, "scale", Vector2.One, 0.12f)
+				.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+			break;
 		}
 	}
 
@@ -542,13 +659,15 @@ public partial class MapSelectPanel : Node
 		panel.CustomMinimumSize = new Vector2(_isMobile ? 88 : 108, 0);
 		panel.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
 		panel.MouseFilter       = Control.MouseFilterEnum.Ignore;
-
-		var style = new StyleBoxFlat();
-		style.BgColor = new Color(0.06f, 0.07f, 0.11f, 1f);
-		style.BorderColor = new Color(0.25f, 0.27f, 0.40f, 0.70f);
-		style.SetBorderWidthAll(1);
-		style.SetContentMarginAll(8f);
-		panel.AddThemeStyleboxOverride("panel", style);
+		UITheme.ApplyGlassChassisPanel(
+			panel,
+			bg: new Color(0.030f, 0.046f, 0.088f, 0.94f),
+			accent: new Color(0.36f, 0.72f, 0.90f, 0.82f),
+			corners: 8,
+			borderWidth: 1,
+			padH: 8,
+			padV: 8,
+			sideEmitters: false);
 
 		var vbox = new VBoxContainer();
 		vbox.AddThemeConstantOverride("separation", 6);
@@ -622,6 +741,41 @@ public partial class MapSelectPanel : Node
 			$"Wave {best.WaveReached}/{Balance.TotalWaves}  |  Lives {best.LivesRemaining}";
 	}
 
+	private static void ApplySlimScrollBarStyle(ScrollContainer container)
+	{
+		var vbar = container.GetVScrollBar();
+		if (vbar == null)
+			return;
+
+		vbar.CustomMinimumSize = new Vector2(8f, 0f);
+		vbar.AddThemeStyleboxOverride("scroll", UITheme.MakePanel(
+			bg: new Color(0.014f, 0.024f, 0.060f, 0.88f),
+			border: new Color(0.14f, 0.28f, 0.40f, 0.66f),
+			corners: 4,
+			borderWidth: 1,
+			padH: 1,
+			padV: 1));
+
+		var grabberNormal = UITheme.MakePanel(
+			bg: new Color(0.30f, 0.70f, 0.86f, 0.58f),
+			border: new Color(0.70f, 0.93f, 1.00f, 0.74f),
+			corners: 4,
+			borderWidth: 1,
+			padH: 1,
+			padV: 1);
+		var grabberHover = UITheme.MakePanel(
+			bg: new Color(0.40f, 0.86f, 0.98f, 0.72f),
+			border: new Color(0.86f, 0.98f, 1.00f, 0.86f),
+			corners: 4,
+			borderWidth: 1,
+			padH: 1,
+			padV: 1);
+
+		vbar.AddThemeStyleboxOverride("grabber", grabberNormal);
+		vbar.AddThemeStyleboxOverride("grabber_highlight", grabberHover);
+		vbar.AddThemeStyleboxOverride("grabber_pressed", grabberHover);
+	}
+
 	private static void ApplyDifficultyButtonColor(Button button, Color color, bool selected = false)
 	{
 		button.AddThemeColorOverride("font_color", color);
@@ -631,22 +785,37 @@ public partial class MapSelectPanel : Node
 
 		if (selected)
 		{
-			var border = new StyleBoxFlat();
-			border.BgColor     = new Color(0.10f, 0.12f, 0.22f, 0.0f);  // transparent fill
-			border.BorderColor = new Color(0.25f, 0.95f, 0.45f);         // bright green
-			border.SetBorderWidthAll(2);
-			border.SetCornerRadiusAll(4);
-			button.AddThemeStyleboxOverride("normal",   border);
-			button.AddThemeStyleboxOverride("hover",    border);
-			button.AddThemeStyleboxOverride("pressed",  border);
-			button.AddThemeStyleboxOverride("focus",    border);
+			var sel = UITheme.MakeBtn(
+				new Color(0.06f, 0.14f, 0.08f, 0.92f),
+				new Color(0.64f, 0.92f, 0.30f),
+				border: 2, corners: 6,
+				glowAlpha: 0.12f, glowSize: 4,
+				glowColor: new Color(0.64f, 0.92f, 0.30f));
+			button.AddThemeStyleboxOverride("normal",   sel);
+			button.AddThemeStyleboxOverride("hover",    sel);
+			button.AddThemeStyleboxOverride("pressed",  sel);
+			button.AddThemeStyleboxOverride("focus",    sel);
 		}
 		else
 		{
-			button.RemoveThemeStyleboxOverride("normal");
-			button.RemoveThemeStyleboxOverride("hover");
-			button.RemoveThemeStyleboxOverride("pressed");
-			button.RemoveThemeStyleboxOverride("focus");
+			var border = new Color(color.R * 0.72f, color.G * 0.72f, color.B * 0.72f, 0.72f);
+			var normal = UITheme.MakeBtn(
+				new Color(0.018f, 0.028f, 0.076f, 0.94f),
+				border,
+				border: 1,
+				corners: 6);
+			var hover = UITheme.MakeBtn(
+				new Color(0.024f, 0.040f, 0.090f, 0.96f),
+				new Color(color.R, color.G, color.B, 0.92f),
+				border: 2,
+				corners: 6,
+				glowAlpha: 0.08f,
+				glowSize: 3,
+				glowColor: color);
+			button.AddThemeStyleboxOverride("normal", normal);
+			button.AddThemeStyleboxOverride("hover", hover);
+			button.AddThemeStyleboxOverride("pressed", normal);
+			button.AddThemeStyleboxOverride("focus", hover);
 		}
 	}
 }

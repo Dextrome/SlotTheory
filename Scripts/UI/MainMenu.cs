@@ -200,6 +200,7 @@ public partial class MainMenu : Node
 		var cardVbox = new VBoxContainer();
 		cardVbox.AddThemeConstantOverride("separation", 8);
 		card.AddChild(cardVbox);
+		AddSpacer(cardVbox, 6); // keep Tutorial from riding the top frame edge
 
 		bool tutorialDone = SettingsManager.Instance?.TutorialCompleted ?? false;
 		var tutorialBtn = MakeMenuButton(tutorialDone ? "Tutorial" : "> Tutorial", 260, 44, tutorialDone ? 18 : 20);
@@ -310,6 +311,7 @@ public partial class MainMenu : Node
 		AddButtonSurface(quitBtn, UITheme.Magenta, 0.10f, 0.16f);
 		quitBtn.Pressed += OnQuit;
 		cardVbox.AddChild(quitBtn);
+		AddSpacer(cardVbox, 10); // keep Quit inside the lower frame edge
 
 		bool allUnlocked = AchievementManager.Instance?.IsUnlocked(Unlocks.RiftPrismAchievementId) == true;
 		bool alreadyNotified = SettingsManager.Instance?.DemoCompleteNotified == true;

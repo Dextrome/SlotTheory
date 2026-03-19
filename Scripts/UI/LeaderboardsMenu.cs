@@ -89,6 +89,8 @@ public partial class LeaderboardsMenu : Node
         var frame = new VBoxContainer();
         frame.CustomMinimumSize = new Vector2(940f, 560f);
         frame.AddThemeConstantOverride("separation", 10);
+        frame.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
+        frame.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
         center.AddChild(frame);
 
         var title = new Label
@@ -100,11 +102,35 @@ public partial class LeaderboardsMenu : Node
         title.Modulate = new Color("#a6d608");
         frame.AddChild(title);
 
+        var bodyPanel = new PanelContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(940f, 490f),
+        };
+        UITheme.ApplyGlassChassisPanel(
+            bodyPanel,
+            bg: new Color(0.040f, 0.052f, 0.105f, 0.94f),
+            accent: new Color(0.40f, 0.78f, 0.94f, 0.92f),
+            corners: 12,
+            borderWidth: 2,
+            padH: 14,
+            padV: 12,
+            sideEmitters: true,
+            emitterIntensity: 0.84f);
+        frame.AddChild(bodyPanel);
+
+        var body = new VBoxContainer();
+        body.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        body.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+        body.AddThemeConstantOverride("separation", 10);
+        bodyPanel.AddChild(body);
+
         // ── Mode row ──────────────────────────────────────────────────────────
         var modeRow = new HBoxContainer();
         modeRow.Alignment = BoxContainer.AlignmentMode.Center;
         modeRow.AddThemeConstantOverride("separation", 10);
-        frame.AddChild(modeRow);
+        body.AddChild(modeRow);
 
         _localButton  = MakeButton("Local",  140, 40, 20, OnLocalMode);
         _globalButton = MakeButton("Global", 140, 40, 20, OnGlobalMode);
@@ -115,7 +141,7 @@ public partial class LeaderboardsMenu : Node
         var filterRow = new HBoxContainer();
         filterRow.Alignment = BoxContainer.AlignmentMode.Center;
         filterRow.AddThemeConstantOverride("separation", 10);
-        frame.AddChild(filterRow);
+        body.AddChild(filterRow);
 
         _mapOption = new OptionButton { CustomMinimumSize = new Vector2(360, 40) };
         _mapOption.AddThemeFontSizeOverride("font_size", 18);
@@ -141,17 +167,19 @@ public partial class LeaderboardsMenu : Node
             Modulate = new Color(0.90f, 0.90f, 0.92f, 0.86f),
         };
         _status.AddThemeFontSizeOverride("font_size", 16);
-        frame.AddChild(_status);
+        body.AddChild(_status);
 
         // ── Entry list ────────────────────────────────────────────────────────
         var entriesScroll = new ScrollContainer
         {
             CustomMinimumSize = new Vector2(900f, 380f),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
         };
         entriesScroll.VerticalScrollMode   = ScrollContainer.ScrollMode.Auto;
         entriesScroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         TouchScrollHelper.EnableDragScroll(entriesScroll);
-        frame.AddChild(entriesScroll);
+        body.AddChild(entriesScroll);
 
         _entryList = new VBoxContainer();
         _entryList.AddThemeConstantOverride("separation", 10);
@@ -162,7 +190,7 @@ public partial class LeaderboardsMenu : Node
         var pageRow = new HBoxContainer();
         pageRow.Alignment = BoxContainer.AlignmentMode.Center;
         pageRow.AddThemeConstantOverride("separation", 8);
-        frame.AddChild(pageRow);
+        body.AddChild(pageRow);
 
         _firstBtn = MakePageButton("|<", () => GoToPage(0));
         _prevBtn  = MakePageButton("<",  () => GoToPage(_currentPage - 1));
@@ -188,7 +216,7 @@ public partial class LeaderboardsMenu : Node
         var footer = new HBoxContainer();
         footer.Alignment = BoxContainer.AlignmentMode.Center;
         footer.AddThemeConstantOverride("separation", 16);
-        frame.AddChild(footer);
+        body.AddChild(footer);
 
         var refresh = MakeButton("Refresh", 180, 42, 20, () => _ = RefreshBoardAsync());
         var back    = MakeButton("Back",    180, 42, 20, OnBack);
@@ -353,6 +381,14 @@ public partial class LeaderboardsMenu : Node
         panel.ThemeTypeVariation = "NoVisualHBox";
         panel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         panel.CustomMinimumSize = new Vector2(880f, 84f);
+        panel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.018f, 0.030f, 0.078f, 0.94f),
+            border: new Color(0.24f, 0.62f, 0.76f, 0.74f),
+            corners: 9,
+            borderWidth: 1,
+            padH: 12,
+            padV: 10));
+        UITheme.AddTopAccent(panel, new Color(0.70f, 0.92f, 1.00f, 0.24f));
 
         var contentRow = new HBoxContainer();
         contentRow.AddThemeConstantOverride("separation", 12);
