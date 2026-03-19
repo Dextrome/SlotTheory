@@ -62,6 +62,17 @@ public static class DamageModel
         float damageDealtRaw = hpBefore - System.MathF.Max(0f, ctx.Target.Hp);
         ctx.DamageDealt = damageDealtRaw;
         bool isKill = ctx.Target.Hp <= 0f;
+
+        if (damageDealtRaw > 0f && ctx.Target is EnemyInstance runtimeEnemy)
+        {
+            if (runtimeEnemy.TryTriggerReverseJump(damageDealtRaw))
+            {
+                float hpRatio = damageDealtRaw / System.MathF.Max(1f, runtimeEnemy.MaxHp);
+                float pitch = 1f + System.MathF.Min(0.22f, hpRatio * 0.30f);
+                SoundManager.Instance?.Play("enemy_rewind", pitchScale: pitch);
+            }
+        }
+
         if (ctx.State != null)
         {
             int damageDealt = (int)(hpBefore - System.MathF.Max(0f, ctx.Target.Hp));

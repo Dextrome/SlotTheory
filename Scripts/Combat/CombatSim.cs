@@ -101,7 +101,8 @@ public class CombatSim
         int tankies   = ws.GetTankyCount();
         int swifties  = ws.GetSwiftCount();
         int splitters = ws.GetSplitterCount();
-        int total     = walkers + tankies + swifties + splitters;
+        int reversers = ws.GetReverseCount();
+        int total     = walkers + tankies + swifties + splitters + reversers;
 
         // Build a per-slot type array; fill with basics then overlay other types
         var slots = new string[total];
@@ -153,6 +154,20 @@ public class CombatSim
                 {
                     int s = (ideal + d) % total;
                     if (slots[s] == "basic_walker") { slots[s] = "splitter_walker"; break; }
+                }
+            }
+        }
+
+        if (reversers > 0)
+        {
+            // Spread reverse walkers evenly, skipping already-assigned slots.
+            for (int rv = 0; rv < reversers; rv++)
+            {
+                int ideal = (int)Math.Round((rv + 0.5) * total / reversers);
+                for (int d = 0; d < total; d++)
+                {
+                    int s = (ideal + d) % total;
+                    if (slots[s] == "basic_walker") { slots[s] = "reverse_walker"; break; }
                 }
             }
         }
@@ -300,6 +315,7 @@ public class CombatSim
             {
                 "armored_walker"  => "die_armored",
                 "swift_walker"    => "die_swift",
+                "reverse_walker"  => "die_reverse",
                 "splitter_walker" => "die_basic",
                 _                 => "die_basic",
             };
@@ -1064,6 +1080,7 @@ public class CombatSim
         {
             "armored_walker"  => (new Color(0.62f, 0.07f, 0.07f), 1.5f, DeathBurstStyle.Armored),
             "swift_walker"    => (new Color(0.60f, 1.00f, 0.10f), 0.75f, DeathBurstStyle.Swift),
+            "reverse_walker"  => (new Color(0.36f, 0.92f, 1.00f), 0.96f, DeathBurstStyle.Swift),
             "splitter_walker" => (new Color(0.96f, 0.65f, 0.10f), 1.2f, DeathBurstStyle.Basic),
             "splitter_shard"  => (new Color(0.96f, 0.65f, 0.10f), 0.55f, DeathBurstStyle.Swift),
             _                 => (new Color(0.95f, 0.22f, 0.12f), 1.0f, DeathBurstStyle.Basic),
@@ -1125,6 +1142,7 @@ public class CombatSim
             "swift_walker"    => Balance.SwiftEnemySpeed,
             "splitter_walker" => Balance.SplitterSpeed,
             "splitter_shard"  => Balance.SplitterShardSpeed,
+            "reverse_walker"  => Balance.ReverseWalkerSpeed,
             _                 => Balance.BaseEnemySpeed,
         };
 

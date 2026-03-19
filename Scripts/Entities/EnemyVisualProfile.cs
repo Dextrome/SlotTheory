@@ -56,6 +56,7 @@ public static class EnemyVisualProfile
         Sample motion = enemyTypeId switch
         {
             "swift_walker"   => EvaluateSwift(elapsed, speedNorm),
+            "reverse_walker" => EvaluateReverse(elapsed, speedNorm),
             "armored_walker" => EvaluateArmored(elapsed, speedNorm),
             "splitter_shard" => EvaluateSwift(elapsed, speedNorm),
             _                => EvaluateBasic(elapsed, speedNorm),
@@ -99,6 +100,16 @@ public static class EnemyVisualProfile
         float jitterY = Mathf.Sin(elapsed * 1.12f) * 0.10f;
         float thrust = 0.18f + speedNorm * 0.19f + 0.05f * Mathf.Sin(elapsed * 4.2f);
         float tilt = 0.014f * Mathf.Sin(elapsed * 1.5f);
+        return new Sample(bob, jitterX, jitterY, Mathf.Max(0f, thrust), tilt, 0f, 0f);
+    }
+
+    private static Sample EvaluateReverse(float elapsed, float speedNorm)
+    {
+        float bob = Mathf.Sin(elapsed * (2.5f + speedNorm * 0.45f)) * 1.08f;
+        float jitterX = (Mathf.Sin(elapsed * 9.8f) + Mathf.Sin(elapsed * 18.4f) * 0.45f) * 0.34f;
+        float jitterY = (Mathf.Sin(elapsed * 12.3f) + Mathf.Sin(elapsed * 21.5f) * 0.41f) * 0.26f;
+        float thrust = 0.30f + speedNorm * 0.34f + 0.12f * Mathf.Sin(elapsed * 7.7f);
+        float tilt = 0.05f * Mathf.Sin(elapsed * 7.2f) + 0.03f * Mathf.Sin(elapsed * 3.8f);
         return new Sample(bob, jitterX, jitterY, Mathf.Max(0f, thrust), tilt, 0f, 0f);
     }
 }

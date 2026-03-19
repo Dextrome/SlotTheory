@@ -282,7 +282,8 @@ public partial class HowToPlay : Node
         AddLine(vbox, $"Basic Walker: {Balance.BaseEnemyHp:0} HP on wave 1, x{Balance.HpGrowthPerWave:0.00} per wave. Speed: {Balance.BaseEnemySpeed:0} px/s. Leaks cost 1 life.");
         AddLine(vbox, $"Armored Walker: {Balance.TankyHpMultiplier:0.#}x HP, half speed ({Balance.TankyEnemySpeed:0} px/s). Leaks cost 2 lives. First appears wave 6.");
         AddLine(vbox, $"Swift Walker: {Balance.SwiftHpMultiplier:0.#}x HP, double speed ({Balance.SwiftEnemySpeed:0} px/s). Leaks cost 1 life. Appears in mid-game surge waves.");
-        AddLine(vbox, $"Splitter: {Balance.SplitterHpMultiplier:0.#}x HP, {Balance.SplitterSpeed:0} px/s. Splits into {Balance.SplitterShardCount} fast shards on death. Leaking one risks 3 lives total. Waves 9–15.");
+        AddLine(vbox, $"Reverse Walker (full game): {Balance.ReverseWalkerHpMultiplier:0.#}x HP, {Balance.ReverseWalkerSpeed:0} px/s. Single hit >= {Balance.ReverseWalkerTriggerDamageRatio * 100f:0}% max HP can rewind it a short distance. Cooldown-gated and capped per enemy. First appears wave 11.");
+        AddLine(vbox, $"Splitter: {Balance.SplitterHpMultiplier:0.#}x HP, {Balance.SplitterSpeed:0} px/s. Splits into {Balance.SplitterShardCount} fast shards on death. Leaking one risks 3 lives total. Waves 9-15.");
         AddLine(vbox, "Enemy count scales with map and difficulty; late waves can exceed 40 total enemies on harder settings.");
         AddSpacer(vbox, 8);
 

@@ -96,6 +96,8 @@ public partial class SoundManager : Node
         ["die_basic"]      = 55,
         ["die_armored"]    = 65,
         ["die_swift"]      = 45,
+        ["die_reverse"]    = 45,
+        ["enemy_rewind"]   = 85,
         // Critical events: long cooldowns since these punctuate the mix, not fill it.
         ["leak"]           = 120,
         ["wave20_swell"]   = 600,
@@ -114,6 +116,8 @@ public partial class SoundManager : Node
         ["die_basic"]      = 60,
         ["die_armored"]    = 100,
         ["die_swift"]      = 50,
+        ["die_reverse"]    = 55,
+        ["enemy_rewind"]   = 80,
         // Mine events: longer gap since chain-pop can cascade many in a single frame.
         ["mine_pop"]       = 60,
         ["mine_chain_pop"] = 90,
@@ -175,6 +179,12 @@ public partial class SoundManager : Node
         Reg("die_basic",    Sweep(400f, 170f, 0.14f, vol: 0.55f));
         Reg("die_armored",  Sweep(155f,  50f, 0.24f, vol: 0.70f));
         Reg("die_swift",    Sweep(900f, 400f, 0.08f, vol: 0.45f));
+        Reg("die_reverse",  Layer(
+            Sweep(860f, 230f, 0.12f, vol: 0.46f),
+            Tone(4100f, 0.03f, vol: 0.08f, shape: 'n', env: 'f')));
+        Reg("enemy_rewind", Layer(
+            Sweep(1650f, 620f, 0.16f, vol: 0.30f),
+            Tone(2900f, 0.07f, vol: 0.11f, shape: 'n', env: 'f')));
         Reg("leak",         Sweep(230f,  90f, 0.34f, vol: 0.60f));
         Reg("mine_pop", Layer(
             Sweep(220f, 72f, 0.16f, vol: 0.44f),

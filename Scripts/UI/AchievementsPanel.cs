@@ -193,11 +193,15 @@ public partial class AchievementsPanel : Node
         hbox.MouseFilter = Control.MouseFilterEnum.Ignore;
         inner.AddChild(hbox);
 
-        // Icon badge - procedural icon for unlocked, dim star for locked
-        var iconPath = $"res://Assets/Achievements/{def.Id}.png";
-        if (isUnlocked && ResourceLoader.Exists(iconPath))
+        // Icon badge - use achievement icon (locked variant when not yet unlocked)
+        var iconPath       = $"res://Assets/Achievements/{def.Id}.png";
+        var iconLockedPath = $"res://Assets/Achievements/{def.Id}_locked.png";
+        string? loadPath = isUnlocked && ResourceLoader.Exists(iconPath)        ? iconPath
+                         : !isUnlocked && ResourceLoader.Exists(iconLockedPath) ? iconLockedPath
+                         : null;
+        if (loadPath != null)
         {
-            var tex = ResourceLoader.Load<Texture2D>(iconPath);
+            var tex = ResourceLoader.Load<Texture2D>(loadPath);
             var iconRect = new TextureRect
             {
                 Texture             = tex,

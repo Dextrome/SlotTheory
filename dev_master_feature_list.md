@@ -185,7 +185,7 @@ Modifier system traits:
 
 ## Enemy Roster
 
-Current enemy roster: 5 active enemy types.
+Current enemy roster: 6 active enemy types.
 
 ### Basic Walker
 - Baseline unit
@@ -196,6 +196,10 @@ Current enemy roster: 5 active enemy types.
 
 ### Swift Walker
 - Fast pressure unit
+
+### Reverse Walker
+- Trickster pressure unit (full game) that can rewind along the path after heavy non-lethal hits (single-hit threshold: >=10% max HP)
+- Rewind trigger is cooldown-gated and per-life capped for fairness/readability
 
 ### Splitter Walker
 - Mid-tier enemy that breaks into shards on death

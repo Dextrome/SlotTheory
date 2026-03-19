@@ -114,7 +114,8 @@ public partial class DraftPanel : CanvasLayer
     public bool IsSlotValidTarget(int i)
     {
         var slots = GameController.Instance.GetRunState().Slots;
-        if (IsAwaitingSlot) return slots[i].Tower == null;
+        if (i < 0 || i >= slots.Length) return false;
+        if (IsAwaitingSlot) return slots[i].Tower == null && !slots[i].IsLocked;
         if (IsAwaitingTower) return slots[i].Tower?.CanAddModifier == true;
         return false;
     }
@@ -640,6 +641,7 @@ public partial class DraftPanel : CanvasLayer
             int basic = cfg.EnemyCount;
             int armored = cfg.TankyCount;
             int swift = cfg.SwiftCount;
+            int reverse = cfg.ReverseCount;
 
             List<string> parts = new() { $"{basic} Basic" };
             if (armored > 0)
@@ -650,10 +652,13 @@ public partial class DraftPanel : CanvasLayer
 
             if (swift > 0)
                 parts.Add($"{swift} Swift");
+            if (reverse > 0)
+                parts.Add($"{reverse} Reverse");
 
             List<string> threats = new();
             if (armored >= 3) threats.Add("TANK");
             if (swift >= 2) threats.Add("FAST");
+            if (reverse >= 1) threats.Add("REWIND");
             if (cfg.ClumpArmored && armored >= 2) threats.Add("SURGE");
 
             string baseText = string.Join("  |  ", parts);
@@ -1575,11 +1580,15 @@ public partial class DraftPanel : CanvasLayer
     /// </summary>
     private string GenerateArchetypeHint(WaveConfig cfg)
     {
-        if (cfg.TankyCount + cfg.SwiftCount < 2) return "";
+        if (cfg.TankyCount + cfg.SwiftCount + cfg.ReverseCount < 2) return "";
 
         List<string> hints = new();
 
-        if (cfg.TankyCount >= 3)
+        if (cfg.ReverseCount >= 2)
+            hints.Add("Sustained DPS");
+        else if (cfg.ReverseCount >= 1 && cfg.TankyCount >= 1)
+            hints.Add("Multi-hit pressure");
+        else if (cfg.TankyCount >= 3)
             hints.Add("Marker recommended");
         else if (cfg.TankyCount >= 1 && cfg.SwiftCount >= 2)
             hints.Add("AoE favored");

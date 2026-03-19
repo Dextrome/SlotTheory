@@ -22,25 +22,40 @@ public class WaveSystem
         // Wave-20 baseline (mirrors waves.json index 19 before difficulty scaling)
         const int   baseCount    = 36;
         const int   baseTanky   = 4;
+        const int   baseReverse = 1;
         const float baseInterval = 1.25f;
 
         float countMult   = MathF.Pow(1f + Balance.EndlessEnemyCountScalePerWave, depth);
         int   enemyCount  = (int)MathF.Ceiling(baseCount    * Balance.GetEnemyCountMultiplier(difficulty) * countMult);
         int   tankyCount  = (int)MathF.Ceiling(baseTanky   * Balance.GetEnemyCountMultiplier(difficulty) * countMult);
         int   swiftBonus  = depth / Balance.EndlessSwiftBonusInterval;  // +1 per 5 waves
+        int   reverseCount = Balance.IsDemo
+            ? 0
+            : (int)MathF.Ceiling(baseReverse
+                * Balance.GetEnemyCountMultiplier(difficulty)
+                * Balance.GetReverseCountMultiplier(difficulty)
+                * (1f + (depth / (float)Balance.EndlessReverseBonusInterval) * 0.45f));
         float spawnInterval = MathF.Max(
             baseInterval * Balance.GetSpawnIntervalMultiplier(difficulty)
                 / MathF.Pow(1f + Balance.EndlessEnemyCountScalePerWave * 0.5f, depth),
             Balance.EndlessSpawnIntervalFloor);
 
-        return new WaveConfig(enemyCount, spawnInterval, tankyCount, ClumpArmored: false, swiftBonus);
+        return new WaveConfig(
+            EnemyCount: enemyCount,
+            SpawnInterval: spawnInterval,
+            TankyCount: tankyCount,
+            ClumpArmored: false,
+            SwiftCount: swiftBonus,
+            SplitterCount: 0,
+            ReverseCount: reverseCount);
     }
 
     public int GetWalkerCount()    => _current?.EnemyCount    ?? Balance.DefaultEnemyCount;
     public int GetTankyCount()     => _current?.TankyCount    ?? 0;
     public int GetSwiftCount()     => _current?.SwiftCount    ?? 0;
     public int GetSplitterCount()  => _current?.SplitterCount ?? 0;
-    public int GetTotalCount()     => GetWalkerCount() + GetTankyCount() + GetSwiftCount() + GetSplitterCount();
+    public int GetReverseCount()   => _current?.ReverseCount  ?? 0;
+    public int GetTotalCount()     => GetWalkerCount() + GetTankyCount() + GetSwiftCount() + GetSplitterCount() + GetReverseCount();
     public float GetSpawnInterval()  => _current?.SpawnInterval ?? Balance.DefaultSpawnInterval;
     public bool GetClumpArmored()    => _current?.ClumpArmored  ?? false;
 
@@ -60,6 +75,7 @@ public class WaveSystem
             "swift_walker"    => Balance.BaseEnemyHp * Balance.SwiftHpMultiplier,
             "splitter_walker" => Balance.BaseEnemyHp * Balance.SplitterHpMultiplier,
             "splitter_shard"  => Balance.BaseEnemyHp * Balance.SplitterShardHpMultiplier,
+            "reverse_walker"  => Balance.BaseEnemyHp * Balance.ReverseWalkerHpMultiplier,
             _                 => Balance.BaseEnemyHp,
         };
         float scaledHp = baseHp * MathF.Pow(Balance.HpGrowthPerWave, waveIndex);

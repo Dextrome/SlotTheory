@@ -581,12 +581,13 @@ public partial class SlotCodexPanel : Node
         int towerUnlocked = DataLoader.GetAllTowerIds(includeLocked: true).Count(Unlocks.IsTowerUnlocked);
         int modTotal = DataLoader.GetAllModifierIds(includeLocked: true).Count();
         int modUnlocked = DataLoader.GetAllModifierIds(includeLocked: true).Count(Unlocks.IsModifierUnlocked);
+        int enemyTotal = Balance.IsDemo ? 5 : 6;
 
         _progressLabel.Text = tab switch
         {
             CodexTab.Towers  => $"Demo: {towerUnlocked}/{towerTotal} towers   •   Mods: {modUnlocked}/{modTotal}   •   More in full game",
             CodexTab.Mods    => $"Demo: {modUnlocked}/{modTotal} mods   •   Towers: {towerUnlocked}/{towerTotal}   •   More in full game",
-            CodexTab.Enemies => $"5 enemy types   •   Towers: {towerUnlocked}/{towerTotal}   •   Mods: {modUnlocked}/{modTotal}",
+            CodexTab.Enemies => $"{enemyTotal} enemy types   •   Towers: {towerUnlocked}/{towerTotal}   •   Mods: {modUnlocked}/{modTotal}",
             _                => ""
         };
     }
@@ -672,7 +673,10 @@ public partial class SlotCodexPanel : Node
         _enemyGrid.AddChild(BuildEnemyCard("splitter_walker"));
         _enemyGrid.AddChild(BuildEnemyCard("splitter_shard"));
         _enemyGrid.AddChild(BuildEnemyCard("swift_walker"));
-        _enemyGrid.AddChild(BuildFullGameCard("More enemy types in the full release."));
+        if (!Balance.IsDemo)
+            _enemyGrid.AddChild(BuildEnemyCard("reverse_walker"));
+        if (Balance.IsDemo)
+            _enemyGrid.AddChild(BuildFullGameCard("More enemy types in the full release."));
     }
 
     private Control BuildEnemyCard(string enemyId)
@@ -732,6 +736,7 @@ public partial class SlotCodexPanel : Node
     {
         "armored_walker"  => new Color(1.00f, 0.58f, 0.10f),
         "swift_walker"    => new Color(0.20f, 0.92f, 1.00f),
+        "reverse_walker"  => new Color(0.48f, 0.96f, 1.00f),
         "splitter_walker" => new Color(1.00f, 0.72f, 0.15f),
         "splitter_shard"  => new Color(1.00f, 0.88f, 0.45f),
         _                 => new Color(0.55f, 0.95f, 0.25f),
@@ -741,6 +746,7 @@ public partial class SlotCodexPanel : Node
     {
         "armored_walker"  => "Armored Walker",
         "swift_walker"    => "Swift Walker",
+        "reverse_walker"  => "Reverse Walker",
         "splitter_walker" => "Splitter Walker",
         "splitter_shard"  => "Splitter Shard",
         _                 => "Basic Walker",
@@ -794,14 +800,21 @@ public partial class SlotCodexPanel : Node
             (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp * Balance.SwiftHpMultiplier:0} HP"),
             (StatIconNode.IconType.Arrow, $"{Balance.SwiftEnemySpeed:0} px/s"),
             (StatIconNode.IconType.Skull, "Leak: 1 life"),
-            (StatIconNode.IconType.Wave,  "Waves 10–19"),
+            (StatIconNode.IconType.Wave,  "Waves 10-19"),
+        },
+        "reverse_walker" => new (StatIconNode.IconType, string)[]
+        {
+            (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp * Balance.ReverseWalkerHpMultiplier:0} HP"),
+            (StatIconNode.IconType.Arrow, $"{Balance.ReverseWalkerSpeed:0} px/s"),
+            (StatIconNode.IconType.Skull, "Leak: 1 life"),
+            (StatIconNode.IconType.Wave,  "From wave 11 (full)"),
         },
         "splitter_walker" => new (StatIconNode.IconType, string)[]
         {
             (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp * Balance.SplitterHpMultiplier:0} HP"),
             (StatIconNode.IconType.Arrow, $"{Balance.SplitterSpeed:0} px/s"),
             (StatIconNode.IconType.Skull, "Leak: 3 lives"),
-            (StatIconNode.IconType.Wave,  "Waves 9–15"),
+            (StatIconNode.IconType.Wave,  "Waves 9-15"),
         },
         "splitter_shard" => new (StatIconNode.IconType, string)[]
         {
@@ -822,9 +835,10 @@ public partial class SlotCodexPanel : Node
     private static string GetEnemyDescription(string enemyId) => enemyId switch
     {
         "armored_walker"  => "High-HP tanker. Takes sustained damage to bring down. Pairs poorly against single-hit burst builds without Overkill.",
-        "swift_walker"    => "Fast sprinter that rushes the lane in waves 10–14. Outpaces slow-paced builds - Chill Shot and Hair Trigger both help.",
-        "splitter_walker" => $"Splits into {Balance.SplitterShardCount} fast shards on death. Burst damage that kills it cleanly doesn't reach the shards - sustained DPS or AoE builds must deal with both. A leaked Splitter risks 3 lives total.",
-        "splitter_shard"  => $"A fragment of a destroyed Splitter. Faster than its parent and harder to catch mid-lane. {Balance.SplitterShardCount} spawn per kill - if your DPS can't clean them up quickly they'll slip through.",
+        "swift_walker"    => "Fast sprinter that rushes the lane in mid-game pressure waves. Outpaces slow-paced builds - Chill Shot and Hair Trigger both help.",
+        "reverse_walker"  => $"Trickster unit. If one hit chunks at least {Balance.ReverseWalkerTriggerDamageRatio * 100f:0}% of its max HP, it rewinds a short distance. Cooldown-gated and capped at {Balance.ReverseWalkerMaxTriggersPerLife} rewinds per life.",
+        "splitter_walker" => $"Splits into {Balance.SplitterShardCount} fast shards on death. Burst damage that kills it cleanly does not reach the shards - sustained DPS or AoE builds must deal with both. A leaked Splitter risks 3 lives total.",
+        "splitter_shard"  => $"A fragment of a destroyed Splitter. Faster than its parent and harder to catch mid-lane. {Balance.SplitterShardCount} spawn per kill - if your DPS cannot clean them up quickly they will slip through.",
         _                 => "Standard threat. Low bulk, steady pace. Pressure escalates each wave via HP scaling.",
     };
 }

@@ -115,18 +115,24 @@ public sealed class SpectacleTuningProfile
     public float EasySwiftCountMultiplier { get; set; } = 1f;
     [JsonPropertyName("easy_splitter_count_multiplier")]
     public float EasySplitterCountMultiplier { get; set; } = 1f;
+    [JsonPropertyName("easy_reverse_count_multiplier")]
+    public float EasyReverseCountMultiplier { get; set; } = 1f;
     [JsonPropertyName("normal_tanky_count_multiplier")]
     public float NormalTankyCountMultiplier { get; set; } = 0.9522f;
     [JsonPropertyName("normal_swift_count_multiplier")]
     public float NormalSwiftCountMultiplier { get; set; } = 1.0863f;
     [JsonPropertyName("normal_splitter_count_multiplier")]
     public float NormalSplitterCountMultiplier { get; set; } = 1.055f;
+    [JsonPropertyName("normal_reverse_count_multiplier")]
+    public float NormalReverseCountMultiplier { get; set; } = 1f;
     [JsonPropertyName("hard_tanky_count_multiplier")]
     public float HardTankyCountMultiplier { get; set; } = 0.9586f;
     [JsonPropertyName("hard_swift_count_multiplier")]
     public float HardSwiftCountMultiplier { get; set; } = 1.1471f;
     [JsonPropertyName("hard_splitter_count_multiplier")]
     public float HardSplitterCountMultiplier { get; set; } = 1f;
+    [JsonPropertyName("hard_reverse_count_multiplier")]
+    public float HardReverseCountMultiplier { get; set; } = 1f;
 
     [JsonPropertyName("gain_multipliers")]
     public Dictionary<string, float> GainMultipliers { get; set; } = new(StringComparer.Ordinal)
@@ -205,12 +211,15 @@ public sealed class SpectacleTuningProfile
         EasyTankyCountMultiplier = 1f,
         EasySwiftCountMultiplier = 1f,
         EasySplitterCountMultiplier = 1f,
+        EasyReverseCountMultiplier = 1f,
         NormalTankyCountMultiplier = 1f,
         NormalSwiftCountMultiplier = 1f,
         NormalSplitterCountMultiplier = 1f,
+        NormalReverseCountMultiplier = 1f,
         HardTankyCountMultiplier = 1f,
         HardSwiftCountMultiplier = 1f,
         HardSplitterCountMultiplier = 1f,
+        HardReverseCountMultiplier = 1f,
         GainMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
         EventScalarMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
         TokenCapMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
@@ -306,12 +315,15 @@ public sealed class SpectacleTuningProfile
             EasyTankyCountMultiplier = Math.Clamp(EasyTankyCountMultiplier, 0.1f, 5f),
             EasySwiftCountMultiplier = Math.Clamp(EasySwiftCountMultiplier, 0.1f, 5f),
             EasySplitterCountMultiplier = Math.Clamp(EasySplitterCountMultiplier, 0.1f, 5f),
+            EasyReverseCountMultiplier = Math.Clamp(EasyReverseCountMultiplier, 0.1f, 5f),
             NormalTankyCountMultiplier = Math.Clamp(NormalTankyCountMultiplier, 0.1f, 5f),
             NormalSwiftCountMultiplier = Math.Clamp(NormalSwiftCountMultiplier, 0.1f, 5f),
             NormalSplitterCountMultiplier = Math.Clamp(NormalSplitterCountMultiplier, 0.1f, 5f),
+            NormalReverseCountMultiplier = Math.Clamp(NormalReverseCountMultiplier, 0.1f, 5f),
             HardTankyCountMultiplier = Math.Clamp(HardTankyCountMultiplier, 0.1f, 5f),
             HardSwiftCountMultiplier = Math.Clamp(HardSwiftCountMultiplier, 0.1f, 5f),
             HardSplitterCountMultiplier = Math.Clamp(HardSplitterCountMultiplier, 0.1f, 5f),
+            HardReverseCountMultiplier = Math.Clamp(HardReverseCountMultiplier, 0.1f, 5f),
             GainMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
             EventScalarMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
             TokenCapMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),

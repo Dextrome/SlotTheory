@@ -56,11 +56,17 @@ public static class DataLoader
         }
 
         var baseWave = _waves[index];
+        if (Balance.IsDemo && baseWave.ReverseCount > 0)
+        {
+            // Reverse Walker is a full-game enemy. Demo builds parse the same data file,
+            // but force this lane type to zero so composition stays demo-safe.
+            baseWave = baseWave with { ReverseCount = 0 };
+        }
         if (difficulty == DifficultyMode.Easy)
             return ApplyMapDifficultyTuning(index, baseWave, mapId, difficulty);
 
         // Apply difficulty multipliers for scaled modes (Normal/Hard).
-        // TankyCount, SwiftCount, and SplitterCount get their own independent multipliers
+        // TankyCount/SwiftCount/SplitterCount/ReverseCount get independent multipliers
         // so the tuning pipeline can adjust enemy composition (armored/swift/splitter density)
         // separately from basic walker volume.
         var scaled = new WaveConfig(
@@ -69,7 +75,8 @@ public static class DataLoader
             TankyCount: Mathf.CeilToInt(baseWave.TankyCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetTankyCountMultiplier(difficulty)),
             ClumpArmored: baseWave.ClumpArmored,
             SwiftCount: Mathf.CeilToInt(baseWave.SwiftCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetSwiftCountMultiplier(difficulty)),
-            SplitterCount: Mathf.CeilToInt(baseWave.SplitterCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetSplitterCountMultiplier(difficulty))
+            SplitterCount: Mathf.CeilToInt(baseWave.SplitterCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetSplitterCountMultiplier(difficulty)),
+            ReverseCount: Mathf.CeilToInt(baseWave.ReverseCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetReverseCountMultiplier(difficulty))
         );
 
         return ApplyMapDifficultyTuning(index, scaled, mapId, difficulty);
@@ -162,6 +169,7 @@ public static class DataLoader
         int enemyCount = wave.EnemyCount;
         int tankyCount = wave.TankyCount;
         int swiftCount = wave.SwiftCount;
+        int reverseCount = wave.ReverseCount;
         float spawnInterval = wave.SpawnInterval;
 
         // 0-based wave indices: 17=wave18, 18=wave19, 19=wave20.
@@ -177,7 +185,8 @@ public static class DataLoader
             TankyCount: tankyCount,
             ClumpArmored: wave.ClumpArmored,
             SwiftCount: swiftCount,
-            SplitterCount: wave.SplitterCount
+            SplitterCount: wave.SplitterCount,
+            ReverseCount: reverseCount
         );
     }
 }

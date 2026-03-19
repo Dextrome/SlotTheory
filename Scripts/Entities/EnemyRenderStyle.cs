@@ -39,6 +39,13 @@ public readonly struct EnemyRenderStyle
             emissiveHot: new Color(1.00f, 0.98f, 0.74f),
             damageTint: new Color(1.00f, 0.62f, 0.12f),
             bloomTint: new Color(0.86f, 1.00f, 0.45f)),
+        "reverse_walker" => new EnemyRenderStyle(
+            bodyPrimary: new Color(0.24f, 0.92f, 1.00f),
+            bodySecondary: new Color(0.05f, 0.08f, 0.19f),
+            emissive: new Color(0.66f, 1.00f, 0.98f),
+            emissiveHot: new Color(0.96f, 0.66f, 1.00f),
+            damageTint: new Color(1.00f, 0.44f, 0.68f),
+            bloomTint: new Color(0.46f, 0.92f, 1.00f)),
         "armored_walker" => new EnemyRenderStyle(
             bodyPrimary: new Color(0.86f, 0.28f, 0.11f),
             bodySecondary: new Color(0.10f, 0.02f, 0.03f),

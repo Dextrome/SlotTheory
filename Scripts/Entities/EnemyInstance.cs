@@ -77,6 +77,12 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
     private float _turnTilt;
     private float _trailEmitTimer;
     private readonly List<TrailSample> _trail = new();
+    private float _reverseJumpCooldownRemaining;
+    private int _reverseJumpTriggersUsed;
+    private float _reverseJumpFxRemaining;
+    private float _reverseJumpPulse;
+    private Vector2 _reverseJumpFromWorld;
+    private Vector2 _reverseJumpToWorld;
 
     public override void _Ready()
     {
@@ -94,15 +100,17 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
 
         bool isArmored  = typeId == "armored_walker";
         bool isSwift    = typeId == "swift_walker";
+        bool isReverse  = typeId == "reverse_walker";
         bool isShard    = typeId == "splitter_shard";
         _baseScale = isArmored  ? new Vector2(1.5f, 1.5f)
             : isSwift           ? new Vector2(0.8f, 0.8f)
+            : isReverse         ? new Vector2(0.96f, 0.96f)
             : isShard           ? new Vector2(0.7f, 0.7f)
             : Vector2.One;
         Scale = _baseScale;
 
-        _hpBarWidth = isArmored ? 34f : isSwift ? 20f : isShard ? 16f : 24f;
-        float barY = isArmored ? -26f : isSwift ? -17f : isShard ? -15f : -20f;
+        _hpBarWidth = isArmored ? 34f : isSwift ? 20f : isReverse ? 24f : isShard ? 16f : 24f;
+        float barY = isArmored ? -26f : isSwift ? -17f : isReverse ? -21f : isShard ? -15f : -20f;
         float barX = -_hpBarWidth / 2f;
 
         AddChild(new ColorRect
@@ -127,6 +135,12 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         _hasLastHeading = false;
         _hasFacingAngle = false;
         _turnTilt = 0f;
+        _reverseJumpCooldownRemaining = 0f;
+        _reverseJumpTriggersUsed = 0;
+        _reverseJumpFxRemaining = 0f;
+        _reverseJumpPulse = 0f;
+        _reverseJumpFromWorld = GlobalPosition;
+        _reverseJumpToWorld = GlobalPosition;
     }
 
     public override void _Process(double delta)
@@ -139,18 +153,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         Progress += effectiveSpeed * dt;
         Vector2 worldAfter = GlobalPosition;
         _visualTime += dt;
-
-        if (MarkedRemaining > 0f) MarkedRemaining -= dt;
-        if (SlowRemaining > 0f) SlowRemaining -= dt;
-        if (DamageAmpRemaining > 0f)
-        {
-            DamageAmpRemaining -= dt;
-            if (DamageAmpRemaining <= 0f)
-            {
-                DamageAmpRemaining = 0f;
-                DamageAmpMultiplier = 0f;
-            }
-        }
+        AdvanceCombatTimers(dt);
 
         _hpRatio = MaxHp > 0f ? Mathf.Clamp(Hp / MaxHp, 0f, 1f) : 1f;
         _hitFlash = Mathf.Max(0f, _hitFlash - dt * 5.2f);
@@ -168,6 +171,13 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         _drawScale = new Vector2(
             1f + motion.ThrustPulse * 0.025f - bankAbs * 0.10f,
             1f - motion.ThrustPulse * 0.016f + bankAbs * 0.08f);
+        if (_reverseJumpPulse > 0f)
+        {
+            _drawOffset += new Vector2(-_reverseJumpPulse * 6.5f, 0f);
+            _drawScale = new Vector2(
+                _drawScale.X * (1f - _reverseJumpPulse * 0.16f),
+                _drawScale.Y * (1f + _reverseJumpPulse * 0.24f));
+        }
         _thrustPulse = motion.ThrustPulse;
         _nearDeathPulse = motion.NearDeathPulse;
         _nearDeathFlicker = motion.NearDeathFlicker;
@@ -191,10 +201,84 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         QueueRedraw();
     }
 
+    public void AdvanceCombatTimers(float dt)
+    {
+        if (dt <= 0f)
+            return;
+
+        if (MarkedRemaining > 0f) MarkedRemaining -= dt;
+        if (SlowRemaining > 0f) SlowRemaining -= dt;
+        if (DamageAmpRemaining > 0f)
+        {
+            DamageAmpRemaining -= dt;
+            if (DamageAmpRemaining <= 0f)
+            {
+                DamageAmpRemaining = 0f;
+                DamageAmpMultiplier = 0f;
+            }
+        }
+
+        if (_reverseJumpCooldownRemaining > 0f)
+            _reverseJumpCooldownRemaining = Mathf.Max(0f, _reverseJumpCooldownRemaining - dt);
+        if (_reverseJumpFxRemaining > 0f)
+            _reverseJumpFxRemaining = Mathf.Max(0f, _reverseJumpFxRemaining - dt);
+        if (_reverseJumpPulse > 0f)
+            _reverseJumpPulse = Mathf.Max(0f, _reverseJumpPulse - dt * 5.2f);
+    }
+
+    /// <summary>
+    /// Reverse Walker gimmick trigger:
+    /// if a single non-lethal hit crosses the configured max-HP ratio threshold,
+    /// rewind along path distance with cooldown and per-life trigger cap.
+    /// Uses Progress only, so path/collision logic stays valid on all map shapes.
+    /// </summary>
+    public bool TryTriggerReverseJump(float damageDealt)
+    {
+        if (EnemyTypeId != "reverse_walker" || Hp <= 0f || MaxHp <= 0f || damageDealt <= 0f)
+            return false;
+        if (_reverseJumpCooldownRemaining > 0f || _reverseJumpTriggersUsed >= Balance.ReverseWalkerMaxTriggersPerLife)
+            return false;
+
+        float damageRatio = damageDealt / MaxHp;
+        if (damageRatio < Balance.ReverseWalkerTriggerDamageRatio)
+            return false;
+
+        float severity = Mathf.Clamp(
+            (damageRatio - Balance.ReverseWalkerTriggerDamageRatio) / Mathf.Max(0.001f, Balance.ReverseWalkerTriggerDamageRamp),
+            0f, 1f);
+        float jumpDistance = Mathf.Lerp(Balance.ReverseWalkerJumpDistanceMin, Balance.ReverseWalkerJumpDistanceMax, severity);
+
+        float startProgress = Progress;
+        float endProgress = Mathf.Max(0f, startProgress - jumpDistance);
+        if (startProgress - endProgress < Balance.ReverseWalkerMinEffectiveJump)
+            return false;
+
+        Vector2 fromWorld = GlobalPosition;
+        Progress = endProgress;
+        Vector2 toWorld = GlobalPosition;
+
+        _reverseJumpCooldownRemaining = Balance.ReverseWalkerJumpCooldown;
+        _reverseJumpTriggersUsed += 1;
+        _reverseJumpFxRemaining = Balance.ReverseWalkerFxDuration;
+        _reverseJumpPulse = 1f;
+        _reverseJumpFromWorld = fromWorld;
+        _reverseJumpToWorld = toWorld;
+
+        // Kill stale trail samples so rewind reads as a deliberate phase-jump, not trail corruption.
+        _trail.Clear();
+        _trailEmitTimer = 0f;
+        _lastWorldPos = toWorld;
+        _hasLastHeading = false;
+        _hasFacingAngle = false;
+        QueueRedraw();
+        return true;
+    }
+
     public override void _Draw()
     {
         DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
         DrawMotionTrail();
+        DrawReverseJumpEffect();
 
         DrawSetTransform(_drawOffset, _drawRotation, _drawScale);
         var layerSettings = EnemyRenderLayerSettings.Resolve(SettingsManager.Instance);
@@ -210,6 +294,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
             {
                 case "armored_walker":   DrawArmoredWalker(); break;
                 case "swift_walker":     DrawSwiftWalker(); break;
+                case "reverse_walker":   DrawReverseWalker(); break;
                 case "splitter_walker":  DrawSplitterWalker(); break;
                 case "splitter_shard":   DrawSplitterShard(); break;
                 default:                 DrawBasicWalker(); break;
@@ -246,6 +331,12 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
                 if (layerSettings.RenderDamage) DrawDamagePassSwift(style, rs);
                 if (layerSettings.RenderEmissive) DrawEmissivePassSwift(style, rs, emissiveWidthScale);
                 DrawBloomOrFallbackSwift(style, rs, layerSettings);
+                break;
+            case "reverse_walker":
+                DrawBodyPassReverse(style, rs);
+                if (layerSettings.RenderDamage) DrawDamagePassReverse(style, rs);
+                if (layerSettings.RenderEmissive) DrawEmissivePassReverse(style, rs, emissiveWidthScale);
+                DrawBloomOrFallbackReverse(style, rs, layerSettings);
                 break;
             case "splitter_walker":
                 DrawBodyPassSplitter(style, rs);
@@ -310,6 +401,20 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
             DrawBloomFallbackSwift(style, rs, layerSettings.BloomFallbackAlphaScale);
     }
 
+    private void DrawBloomOrFallbackReverse(in EnemyRenderStyle style, in EnemyRenderState rs, in EnemyRenderLayerSettings layerSettings)
+    {
+        const int bloomPrimitives = 3;
+        if (layerSettings.RenderBloom &&
+            EnemyRenderDebugCounters.TryReserveBloom(bloomPrimitives, layerSettings.BloomPrimitiveBudget))
+        {
+            DrawBloomPassReverse(style, rs, layerSettings.BloomAlphaScale);
+            return;
+        }
+
+        if (ShouldRenderBloomFallback(layerSettings))
+            DrawBloomFallbackReverse(style, rs, layerSettings.BloomFallbackAlphaScale);
+    }
+
     private void DrawBloomOrFallbackArmored(in EnemyRenderStyle style, in EnemyRenderState rs, in EnemyRenderLayerSettings layerSettings)
     {
         const int bloomPrimitives = 3;
@@ -367,6 +472,11 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
             case "splitter_walker":
                 DrawMarkedOverlay(14f);
                 DrawSlowOverlay(16f, 12f);
+                DrawNearDeathOverlay(12f);
+                break;
+            case "reverse_walker":
+                DrawMarkedOverlay(14f);
+                DrawSlowOverlay(16.5f, 12f);
                 DrawNearDeathOverlay(12f);
                 break;
             case "swift_walker":
@@ -434,6 +544,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         float response = EnemyTypeId switch
         {
             "swift_walker"   => 6.6f,
+            "reverse_walker" => 5.7f,
             "splitter_shard" => 5.8f,
             "armored_walker" => 3.8f,
             _                => 4.9f,
@@ -521,6 +632,42 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
                     break;
             }
         }
+    }
+
+    private void DrawReverseJumpEffect()
+    {
+        if (_reverseJumpFxRemaining <= 0f)
+            return;
+
+        float t = _reverseJumpFxRemaining / Mathf.Max(0.001f, Balance.ReverseWalkerFxDuration);
+        Vector2 from = ToLocal(_reverseJumpFromWorld);
+        Vector2 to = ToLocal(_reverseJumpToWorld);
+        Vector2 axis = to - from;
+        if (axis.LengthSquared() <= 0.0001f)
+            return;
+
+        Vector2 dir = axis.Normalized();
+        Vector2 perp = new Vector2(-dir.Y, dir.X);
+        Color beam = new Color(0.52f, 1.00f, 0.96f, 0.22f + t * 0.54f);
+        Color core = new Color(0.98f, 0.70f, 1.00f, 0.12f + t * 0.40f);
+
+        DrawLine(from, to, beam, 2.0f + t * 4.0f);
+        DrawLine(from + perp * 2.2f, to + perp * 2.2f, core, 1.0f + t * 1.8f);
+        DrawLine(from - perp * 2.2f, to - perp * 2.2f, core, 1.0f + t * 1.8f);
+
+        for (int i = 0; i < 3; i++)
+        {
+            float p = 0.18f + i * 0.22f;
+            Vector2 c = to.Lerp(from, p);
+            float wing = 4.0f + i * 0.7f + (1f - t) * 1.8f;
+            float tail = 6.0f + i * 1.4f;
+            Color chevron = new Color(0.84f, 1.00f, 0.98f, (0.26f - i * 0.06f) * t);
+            DrawLine(c, c - dir * tail + perp * wing, chevron, 1.6f);
+            DrawLine(c, c - dir * tail - perp * wing, chevron, 1.6f);
+        }
+
+        float ringRadius = 10.5f + (1f - t) * 7f;
+        DrawArc(to, ringRadius, 0f, Mathf.Tau, 22, new Color(0.84f, 1.00f, 1.00f, t * 0.44f), 1.4f + t * 1.0f);
     }
 
     private void DrawMarkedOverlay(float radius)
@@ -786,6 +933,120 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         DrawLine(new Vector2(-9f, -2.8f), new Vector2(-14f * (1.0f + _thrustPulse * 0.30f), -4.6f), new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, fallbackAlpha), 1.0f);
         DrawLine(new Vector2(-9f, 2.8f), new Vector2(-14f * (1.0f + _thrustPulse * 0.30f), 4.6f), new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, fallbackAlpha), 1.0f);
         EnemyRenderDebugCounters.RegisterBloomFallback(3);
+    }
+
+    private void DrawBodyPassReverse(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        _ = rs;
+        EnemyRenderDebugCounters.RegisterBodyPass();
+
+        float tailKick = _thrustPulse * 1.4f;
+        var shell = new[]
+        {
+            new Vector2(11.8f,  0f),
+            new Vector2( 2.2f, -9.1f),
+            new Vector2(-12.8f, -5.8f),
+            new Vector2(-7.4f,  0f),
+            new Vector2(-12.8f,  5.8f),
+            new Vector2( 2.2f,  9.1f),
+        };
+        DrawPolygon(shell, new[] { style.BodyPrimary });
+
+        DrawPolygon(new[]
+        {
+            new Vector2(7.6f, 0f),
+            new Vector2(1.0f, -5.2f),
+            new Vector2(-8.2f, 0f),
+            new Vector2(1.0f, 5.2f),
+        }, new[] { style.BodySecondary });
+
+        DrawPolygon(new[]
+        {
+            new Vector2(-7.4f, -1.8f),
+            new Vector2(-15.6f - tailKick, -6.7f),
+            new Vector2(-11.2f, 0.1f),
+        }, new[] { new Color(style.BodyPrimary.R, style.BodyPrimary.G, style.BodyPrimary.B, 0.76f) });
+        DrawPolygon(new[]
+        {
+            new Vector2(-7.4f, 1.8f),
+            new Vector2(-15.6f - tailKick, 6.7f),
+            new Vector2(-11.2f, -0.1f),
+        }, new[] { new Color(style.BodyPrimary.R, style.BodyPrimary.G, style.BodyPrimary.B, 0.76f) });
+    }
+
+    private void DrawDamagePassReverse(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        if (rs.DamageBand == EnemyDamageBand.Healthy)
+            return;
+
+        EnemyRenderDebugCounters.RegisterDamagePass();
+        float visibility = ResolveCrackVisibilityScale(rs.HpRatio);
+        float wear = (0.52f + rs.DamageIntensity * 0.44f + rs.HitFlash * 0.26f) * visibility;
+        float widthScale = Mathf.Lerp(0.42f, 1f, visibility);
+        var fissureDark = new Color(0.03f, 0.03f, 0.08f, Mathf.Clamp(wear * 0.88f, 0f, 0.95f));
+        Color hpBandTint = ResolveHpBandColor(rs.HpRatio);
+        Color crackRgb = style.DamageTint.Lerp(hpBandTint, 0.58f).Lerp(Colors.White, 0.24f * visibility);
+        var crack = new Color(crackRgb.R, crackRgb.G, crackRgb.B, Mathf.Clamp(wear * 0.96f, 0f, 0.98f));
+
+        DrawLine(new Vector2(-6.8f, -4.2f), new Vector2(5.8f, 1.6f), fissureDark, 2.5f * widthScale);
+        DrawLine(new Vector2(-1.4f, 4.8f), new Vector2(8.6f, -3.4f), fissureDark, 2.2f * widthScale);
+        DrawLine(new Vector2(-6.8f, -4.2f), new Vector2(5.8f, 1.6f), crack, 1.4f * widthScale);
+        DrawLine(new Vector2(-1.4f, 4.8f), new Vector2(8.6f, -3.4f), crack, 1.2f * widthScale);
+
+        if (rs.DamageBand == EnemyDamageBand.Critical)
+        {
+            DrawLine(new Vector2(-10.8f, -2.2f), new Vector2(-15.4f, -7.6f), crack, 1.8f * widthScale);
+            DrawLine(new Vector2(-10.8f, 2.2f), new Vector2(-15.4f, 7.6f), crack, 1.8f * widthScale);
+        }
+    }
+
+    private void DrawEmissivePassReverse(in EnemyRenderStyle style, in EnemyRenderState rs, float widthScale)
+    {
+        EnemyRenderDebugCounters.RegisterEmissivePass();
+        float e = Mathf.Clamp(0.44f + rs.EmissivePulse * 0.34f, 0f, 1f);
+        float lineWidth = 1.30f * widthScale;
+
+        var shell = new[]
+        {
+            new Vector2(11.8f,  0f),
+            new Vector2( 2.2f, -9.1f),
+            new Vector2(-12.8f, -5.8f),
+            new Vector2(-7.4f,  0f),
+            new Vector2(-12.8f,  5.8f),
+            new Vector2( 2.2f,  9.1f),
+        };
+        for (int i = 0; i < shell.Length; i++)
+        {
+            Vector2 a = shell[i];
+            Vector2 b = shell[(i + 1) % shell.Length];
+            DrawLine(a, b, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.84f * e), lineWidth);
+        }
+
+        DrawArc(new Vector2(-0.4f, 0f), 4.0f, Mathf.Pi * 0.2f, Mathf.Pi * 1.8f, 16,
+            new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.78f * e),
+            1.4f * widthScale);
+        DrawLine(new Vector2(-3.8f, 0f), new Vector2(3.8f, 0f),
+            new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.68f * e + rs.HitFlash * 0.20f),
+            1.2f * widthScale);
+    }
+
+    private void DrawBloomPassReverse(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        float bloomAlpha = (0.11f + rs.EmissivePulse * 0.07f + rs.HitFlash * 0.16f) * alphaScale;
+        DrawCircle(Vector2.Zero, 14.2f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.48f));
+        DrawCircle(new Vector2(-11.8f - _thrustPulse * 1.1f, 0f), 4.2f,
+            new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.74f));
+        DrawCircle(new Vector2(1.8f, 0f), 3.2f,
+            new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, bloomAlpha * 0.72f));
+        EnemyRenderDebugCounters.RegisterBloomPass(3);
+    }
+
+    private void DrawBloomFallbackReverse(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        float fallbackAlpha = (0.09f + rs.EmissivePulse * 0.06f + rs.HitFlash * 0.05f) * alphaScale;
+        DrawCircle(Vector2.Zero, 10.6f, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, fallbackAlpha * 0.56f));
+        DrawCircle(new Vector2(-11.4f, 0f), 3.4f, new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, fallbackAlpha * 0.76f));
+        EnemyRenderDebugCounters.RegisterBloomFallback(2);
     }
 
     private void DrawBodyPassArmored(in EnemyRenderStyle style, in EnemyRenderState rs)
@@ -1166,6 +1427,63 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         DrawMarkedOverlay(13f);
         DrawSlowOverlay(14.5f, 11f);
         DrawNearDeathOverlay(10f);
+    }
+
+    // Reverse Walker = phase-skipping trickster with rewind chevrons
+    private void DrawReverseWalker()
+    {
+        var shell = new Color(0.24f, 0.92f, 1.00f);
+        var coreDark = new Color(0.05f, 0.08f, 0.19f);
+        var hot = new Color(0.96f, 0.66f, 1.00f);
+        float tailKick = _thrustPulse * 1.4f;
+
+        DrawCircle(Vector2.Zero, 15f, new Color(shell.R, shell.G, shell.B, 0.11f));
+        DrawCircle(new Vector2(-12.6f - tailKick, 0f), 5.2f, new Color(shell.R, shell.G, shell.B, 0.18f));
+
+        var shellPts = new[]
+        {
+            new Vector2(11.8f,  0f),
+            new Vector2( 2.2f, -9.1f),
+            new Vector2(-12.8f, -5.8f),
+            new Vector2(-7.4f,  0f),
+            new Vector2(-12.8f,  5.8f),
+            new Vector2( 2.2f,  9.1f),
+        };
+        DrawPolygon(shellPts, new[] { shell });
+        DrawPolygon(new[]
+        {
+            new Vector2(7.6f, 0f),
+            new Vector2(1.0f, -5.2f),
+            new Vector2(-8.2f, 0f),
+            new Vector2(1.0f, 5.2f),
+        }, new[] { coreDark });
+
+        DrawPolygon(new[]
+        {
+            new Vector2(-7.4f, -1.8f),
+            new Vector2(-15.6f - tailKick, -6.7f),
+            new Vector2(-11.2f, 0.1f),
+        }, new[] { new Color(shell.R, shell.G, shell.B, 0.78f) });
+        DrawPolygon(new[]
+        {
+            new Vector2(-7.4f, 1.8f),
+            new Vector2(-15.6f - tailKick, 6.7f),
+            new Vector2(-11.2f, -0.1f),
+        }, new[] { new Color(shell.R, shell.G, shell.B, 0.78f) });
+
+        for (int i = 0; i < shellPts.Length; i++)
+        {
+            Vector2 a = shellPts[i];
+            Vector2 b = shellPts[(i + 1) % shellPts.Length];
+            DrawLine(a, b, new Color(0.66f, 1.00f, 0.98f, 0.74f), 1.25f);
+        }
+
+        DrawArc(new Vector2(-0.4f, 0f), 4.0f, Mathf.Pi * 0.2f, Mathf.Pi * 1.8f, 18, new Color(hot.R, hot.G, hot.B, 0.88f), 1.55f);
+        DrawLine(new Vector2(-3.8f, 0f), new Vector2(3.8f, 0f), new Color(hot.R, hot.G, hot.B, 0.82f), 1.5f);
+
+        DrawMarkedOverlay(14f);
+        DrawSlowOverlay(16.5f, 12f);
+        DrawNearDeathOverlay(12f);
     }
 
     // Armored = plated rhino core

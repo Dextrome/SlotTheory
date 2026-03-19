@@ -317,6 +317,8 @@ public partial class GameController : Node
 
 			int runIndexOffset = 0;
 			int rio = System.Array.IndexOf(userArgs, "--run_index_offset");
+			if (rio < 0)
+				rio = System.Array.IndexOf(userArgs, "--run_offset"); // legacy alias
 			if (rio >= 0 && rio + 1 < userArgs.Length)
 				int.TryParse(userArgs[rio + 1], out runIndexOffset);
 
@@ -1162,7 +1164,7 @@ public partial class GameController : Node
 	public void OnDraftPick(DraftOption option, int targetSlotIndex)
 	{
 		if (CurrentPhase != GamePhase.Draft) return;
-		_currentDraftOptions = null; // always generate fresh options for the next pick
+		bool pickApplied = false;
 
 		if (option.Type == DraftOptionType.Tower)
 		{
@@ -1173,23 +1175,37 @@ public partial class GameController : Node
 				ClearTowerPlacementPreviewGhost();
 				PlaceTower(option.Id, targetSlotIndex);
 				// Tower placement haptic fired inside PlaceTower
+				pickApplied = true;
 			}
 		}
 		else
 		{
-			var tower = _runState.Slots[targetSlotIndex].Tower;
-			if (tower != null)
+			if (targetSlotIndex >= 0 && targetSlotIndex < _runState.Slots.Length)
 			{
-				_draftSystem.ApplyModifier(option.Id, tower);
-				if (_botRunner == null) RefreshModPips(targetSlotIndex);
-				MobileOptimization.HapticLight(); // modifier equipped
-				if (_tutorialManager != null && !_tutorialManager.BuildNamePanelShown)
+				var tower = _runState.Slots[targetSlotIndex].Tower;
+				if (tower != null)
 				{
-					_tutorialManager.MarkBuildNamePanelShown();
-					ShowTutorialBuildNamePanel();
+					_draftSystem.ApplyModifier(option.Id, tower);
+					if (_botRunner == null) RefreshModPips(targetSlotIndex);
+					MobileOptimization.HapticLight(); // modifier equipped
+					if (_tutorialManager != null && !_tutorialManager.BuildNamePanelShown)
+					{
+						_tutorialManager.MarkBuildNamePanelShown();
+						ShowTutorialBuildNamePanel();
+					}
+					pickApplied = true;
 				}
 			}
 		}
+
+		if (!pickApplied)
+		{
+			GD.PrintErr($"[Draft] Ignored invalid pick '{option.Id}' at slot {targetSlotIndex}. Re-opening draft.");
+			CallDeferred(nameof(StartDraftPhase));
+			return;
+		}
+
+		_currentDraftOptions = null; // generate fresh options for the next pick once a pick is applied
 		AchievementManager.Instance?.CheckDraftMilestones(_runState);
 		AdvanceAfterDraftPickFlow();
 	}
@@ -2742,16 +2758,25 @@ public partial class GameController : Node
 		{
 			"armored_walker"  => "Armored Walker",
 			"swift_walker"    => "Swift Walker",
+			"reverse_walker"  => "Reverse Walker",
 			"splitter_walker" => "Splitter",
 			"splitter_shard"  => "Splitter Shard",
 			_                 => "Basic Walker",
 		};
-		int leakCost = enemy.EnemyTypeId == "armored_walker" ? 2 : 1;
+		int leakCost = enemy.EnemyTypeId switch
+		{
+			"armored_walker"  => 2,
+			"splitter_walker" => 3,
+			_                 => 1,
+		};
 		float displaySpeed = enemy.IsSlowed ? enemy.Speed * enemy.SlowSpeedFactor : enemy.Speed;
 		string speedSuffix = enemy.IsSlowed ? "  (slowed)" : "";
 		string statusSuffix = enemy.IsMarked ? "\nMARKED" : "";
 		string splitSuffix = enemy.EnemyTypeId == "splitter_walker" ? $"\nSplits into {Balance.SplitterShardCount} shards on death" : "";
-		return $"{typeName}\nHP  {enemy.Hp:0}/{enemy.MaxHp:0}  |  Speed  {displaySpeed:0} px/s{speedSuffix}\nLeak cost  {leakCost} life{(leakCost > 1 ? "s" : "")}{splitSuffix}{statusSuffix}";
+		string reverseSuffix = enemy.EnemyTypeId == "reverse_walker"
+			? $"\nSingle hit >= {Balance.ReverseWalkerTriggerDamageRatio * 100f:0}% max HP can rewind ({Balance.ReverseWalkerMaxTriggersPerLife}x max)"
+			: "";
+		return $"{typeName}\nHP  {enemy.Hp:0}/{enemy.MaxHp:0}  |  Speed  {displaySpeed:0} px/s{speedSuffix}\nLeak cost  {leakCost} life{(leakCost > 1 ? "s" : "")}{splitSuffix}{reverseSuffix}{statusSuffix}";
 	}
 
 	private string BuildSpectacleTooltipSection(ITowerView tower)
@@ -2818,17 +2843,7 @@ public partial class GameController : Node
 				if (!GodotObject.IsInstanceValid(enemy)) continue;
 				float spd = enemy.IsSlowed ? enemy.Speed * enemy.SlowSpeedFactor : enemy.Speed;
 				enemy.Progress     += spd * BOT_DT;
-				if (enemy.MarkedRemaining > 0f) enemy.MarkedRemaining -= BOT_DT;
-				if (enemy.SlowRemaining   > 0f) enemy.SlowRemaining   -= BOT_DT;
-				if (enemy.DamageAmpRemaining > 0f)
-				{
-					enemy.DamageAmpRemaining -= BOT_DT;
-					if (enemy.DamageAmpRemaining <= 0f)
-					{
-						enemy.DamageAmpRemaining = 0f;
-						enemy.DamageAmpMultiplier = 0f;
-					}
-				}
+				enemy.AdvanceCombatTimers(BOT_DT);
 			}
 
 			_spectacleSystem.Update(BOT_DT);

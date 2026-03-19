@@ -27,6 +27,7 @@ public static class Balance
     public const float EndlessEnemyCountScalePerWave = 0.05f;  // +5% enemy count per endless wave (multiplicative)
     public const float EndlessEnemyHpScalePerWave    = 0.02f;  // +2% enemy HP per endless wave (multiplicative)
     public const int   EndlessSwiftBonusInterval     = 5;      // every N endless waves: +1 Swift Walker
+    public const int   EndlessReverseBonusInterval   = 6;      // every N endless waves: +1 Reverse Walker (full game only)
     public const float EndlessSpawnIntervalFloor     = 0.70f;  // minimum spawn interval in endless mode
     public const int SlotCount = 6;
     public const int Wave1ExtraPicks  = 0;          // temporarily disabled: always 1 pick before wave 1
@@ -68,6 +69,18 @@ public static class Balance
     // Enemies - Splitter Shard (spawned when a Splitter dies)
     public const float SplitterShardHpMultiplier = 0.55f;  // 55% of basic walker HP
     public const float SplitterShardSpeed = 165f;           // pixels per second (faster than basic)
+
+    // Enemies - Reverse Walker (full game)
+    public const float ReverseWalkerHpMultiplier = 1.35f;
+    public const float ReverseWalkerSpeed = 108f;
+    public const float ReverseWalkerTriggerDamageRatio = 0.10f;     // trigger when a single non-lethal hit deals >= 10% max HP
+    public const float ReverseWalkerTriggerDamageRamp = 0.24f;      // controls scaling into max jump distance
+    public const float ReverseWalkerJumpDistanceMin = 62f;          // path distance in pixels
+    public const float ReverseWalkerJumpDistanceMax = 102f;         // path distance in pixels
+    public const float ReverseWalkerMinEffectiveJump = 16f;         // ignore triggers if near lane start
+    public const float ReverseWalkerJumpCooldown = 2.6f;
+    public const int   ReverseWalkerMaxTriggersPerLife = 2;
+    public const float ReverseWalkerFxDuration = 0.32f;
 
     // Marked status
     public const float MarkedDamageBonus = 0.40f; // +40% incoming damage to all towers
@@ -200,6 +213,14 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
         DifficultyMode.Easy => ClampDifficultyMultiplier(SpectacleTuning.Current.EasySplitterCountMultiplier, 0.1f, 5f),
         DifficultyMode.Normal => ClampDifficultyMultiplier(SpectacleTuning.Current.NormalSplitterCountMultiplier, 0.1f, 5f),
         DifficultyMode.Hard => ClampDifficultyMultiplier(SpectacleTuning.Current.HardSplitterCountMultiplier, 0.1f, 5f),
+        _ => 1f
+    };
+
+    public static float GetReverseCountMultiplier(DifficultyMode difficulty) => difficulty switch
+    {
+        DifficultyMode.Easy => ClampDifficultyMultiplier(SpectacleTuning.Current.EasyReverseCountMultiplier, 0.1f, 5f),
+        DifficultyMode.Normal => ClampDifficultyMultiplier(SpectacleTuning.Current.NormalReverseCountMultiplier, 0.1f, 5f),
+        DifficultyMode.Hard => ClampDifficultyMultiplier(SpectacleTuning.Current.HardReverseCountMultiplier, 0.1f, 5f),
         _ => 1f
     };
 

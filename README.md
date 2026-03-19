@@ -128,14 +128,16 @@ Split Shot is unlockable - beat the second campaign map on Normal or Hard.
 
 ## Enemies
 
-| Enemy | HP | Speed | Leak Cost |
-|---|---|---|---:|
-| Basic Walker | `65 × 1.10^(wave-1)` | 120 px/s | 1 |
-| Armored Walker | 3.5× Basic HP | 60 px/s | 2 |
-| Swift Walker | 1.5× Basic HP | 240 px/s | 1 |
+| Enemy | HP | Speed | Leak Cost | Notes |
+|---|---|---|---:|---|
+| Basic Walker | `65 × 1.10^(wave-1)` | 120 px/s | 1 | baseline |
+| Armored Walker | 3.5× Basic HP | 60 px/s | 2 | first appears wave 6 |
+| Swift Walker | 1.5× Basic HP | 240 px/s | 1 | waves 10-19 (skips wave 12 and 20) |
+| Reverse Walker | 1.35× Basic HP | 108 px/s | 1 | full game: appears from wave 11 |
+| Splitter Walker | 1.8× Basic HP | 90 px/s | 3 | waves 9-15, splits on death |
+| Splitter Shard | 0.55× Basic HP | 165 px/s | 1 | spawned by Splitter death |
 
-- Armored first appears on wave 6.
-- Swift appears in waves 10–19 (skips wave 12 and 20).
+- Reverse Walker rewinds on heavy single-hit bursts (`>=10%` max HP in one hit); rewinds are cooldown-gated and capped per enemy.
 
 ---
 
@@ -177,6 +179,7 @@ Scaling per wave past wave 20 (depth = waves past 20):
 | Enemy count | ×1.05 per wave (compounding) |
 | Enemy HP | ×1.02 per wave (compounding) |
 | Swift Walkers | +1 extra every 5 endless waves |
+| Reverse Walkers (full game) | +1 extra every 6 endless waves |
 
 - Spawn interval shrinks slowly, floored at 0.70 s.
 - HUD shows "Wave 21 ∞", "Wave 22 ∞", etc.

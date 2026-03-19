@@ -576,7 +576,7 @@ public BotRunner(
         // ── Wave Difficulty Analysis for Balancing ─────────────────────────────────
         GD.Print("\n╔═══════════════════════════════════════════════════════════════════╗");
         GD.Print("║                    WAVE DIFFICULTY ANALYSIS                       ║");
-        GD.Print("║  For balancing SpawnInterval, TankyCount, SwiftCount adjustments  ║");
+        GD.Print("║  For balancing SpawnInterval, Tanky/Swift/Splitter/Reverse counts ║");
         GD.Print("╚═══════════════════════════════════════════════════════════════════╝");
 
         AnalyzeWaveDifficulty();
@@ -1026,7 +1026,7 @@ public BotRunner(
 
     /// <summary>
     /// Analyzes per-wave difficulty metrics to identify balance issues.
-    /// Focuses on the three main tuning levers: SpawnInterval, TankyCount, SwiftCount.
+    /// Focuses on wave-shape tuning levers: SpawnInterval and enemy composition counts.
     /// </summary>
     private void AnalyzeWaveDifficulty()
     {
@@ -1057,7 +1057,7 @@ public BotRunner(
             float livesLost = Balance.StartingLives - avgLives;
             
             GD.Print($"Wave {waveNum,2}: {lossRate,5:0.0%} loss rate, {livesLost,4:0.1} avg lives lost | " +
-                    $"Config: {waveConfig.EnemyCount} basic, {waveConfig.TankyCount} tanky, {waveConfig.SwiftCount} swift, {waveConfig.SplitterCount} splitter, " +
+                    $"Config: {waveConfig.EnemyCount} basic, {waveConfig.TankyCount} tanky, {waveConfig.SwiftCount} swift, {waveConfig.SplitterCount} splitter, {waveConfig.ReverseCount} reverse, " +
                     $"{waveConfig.SpawnInterval:0.0}s interval{(waveConfig.ClumpArmored ? ", clumped" : "")}");
             
             // Identify problem patterns
@@ -1070,6 +1070,10 @@ public BotRunner(
                 else if (waveConfig.SplitterCount >= 2)
                 {
                     problemWaves.Add((waveNum, "Splitter burst overwhelming", $"Reduce SplitterCount to {waveConfig.SplitterCount - 1} or increase SpawnInterval to {waveConfig.SpawnInterval + 0.1f:0.1f}"));
+                }
+                else if (waveConfig.ReverseCount >= 3)
+                {
+                    problemWaves.Add((waveNum, "Reverse walker pressure spike", $"Reduce ReverseCount to {waveConfig.ReverseCount - 1} or raise SpawnInterval by 0.1s"));
                 }
                 else if (waveConfig.SwiftCount >= 3)
                 {

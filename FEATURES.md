@@ -43,6 +43,7 @@ This document reflects the current implementation in code/data.
 - **Map intro animations:** On run start, the neon path draws from start to finish before the draft panel opens (grid background hidden during reveal). Tower slots then drop in from off-screen with a bounce and landing sound; slots start 900 px above their final position so bottom-row slots are fully hidden before the drop.
 - **Endless mode music fix:** `MusicDirector.OnEndlessContinue()` restarts the clock and reactivates all layers after `OnRunEnd` stopped them, fixing music going silent when continuing to Endless.
 - **Splitter Walker enemy:** New enemy type appearing in waves 9–15. HP is 1.8× basic, speed 90 px/s, leak cost 3 lives. On death, spawns 2 Splitter Shards (0.55× basic HP, 165 px/s, 1 life each) offset behind the death position. Both types have unique layered procedural visuals (amber hex + bisecting crack for Splitter; irregular crystal fragment polygon for Shard) and full Slot Codex cards with icon-per-stat rows.
+- **Reverse Walker enemy (full game):** Trickster unit introduced in late-mid waves. Heavy non-lethal hits (>=10% max HP from a single hit) can trigger a short path-safe rewind with strong VFX/SFX feedback. Triggered rewinds are cooldown-gated and capped per enemy to prevent spam.
 - **HUD wave label polish:** Wave label now displays as `[ Wave N / 20 ]` with cyan bracket tinting. A 2 px cyan accent stripe runs along the bottom edge of the HUD bar. Difficulty label and enemy counter offsets tightened to prevent overlap.
 
 Platforms: Windows Desktop, Android (phone and tablet)
@@ -244,11 +245,13 @@ Used consistently in draft cards, proc halos, and live modifier icons. Colorblin
 | Basic Walker | `65 * 1.10^(wave-1)` | 120 px/s | 1 | 1–20 |
 | Armored Walker | 3.5× Basic HP | 60 px/s | 2 | 6–20 |
 | Swift Walker | 1.5× Basic HP | 240 px/s | 1 | 10–19 (skips 12, 20) |
+| Reverse Walker | 1.35× Basic HP | 108 px/s | 1 | 11+ (full game) |
 | Splitter Walker | 1.8× Basic HP | 90 px/s | 3 | 9–15 |
 | Splitter Shard | 0.55× Basic HP | 165 px/s | 1 | spawned on Splitter death |
 
 - Armored first appears on wave 6. Max count in default wave data is 3 (wave 20).
 - Swift appears in waves 10–19 (skips wave 12 and 20).
+- Reverse Walker appears from wave 11 onward in full-game wave compositions and endless scaling.
 - Waves 12–14 can use clumped Armored spawn blocks (`ClumpArmored`).
 - Splitter Walker spawns 2 Splitter Shards on death, offset -4 px and -22 px behind the death position. Shard spawn is handled by `CombatSim.SpawnShards()`.
 
@@ -257,6 +260,7 @@ Used consistently in draft cards, proc halos, and live modifier icons. Colorblin
 - Basic: round teal body.
 - Armored: larger crimson hex body, rendered at 1.5x scale.
 - Swift: small lime diamond, rendered at 0.8x scale.
+- Reverse: cyan/magenta phase-arrow silhouette with explicit rewind beam/chevron trail feedback.
 - Splitter: amber hex with straining lobes and a bisecting crack; simple-path fallback for low-perf mode.
 - Shard: irregular crystal fragment polygon; simple-path fallback available.
 - HP bar color shifts with health.
@@ -962,4 +966,3 @@ Mandate is stored on `RunState.ActiveMandate`. All mandate logic is a no-op when
   - `Data/waves.json`
   - `Scripts/Core/Balance.cs`
   - and this document together.
-

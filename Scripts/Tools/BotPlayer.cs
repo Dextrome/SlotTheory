@@ -209,7 +209,7 @@ public class BotPlayer
         if (empty.Count == 0) return -1;
         foreach (int slot in CenterSlotPreference)
         {
-            if (slot >= 0 && slot < s.Slots.Length && s.Slots[slot].Tower == null)
+            if (slot >= 0 && slot < s.Slots.Length && s.Slots[slot].Tower == null && !s.Slots[slot].IsLocked)
                 return slot;
         }
         return empty[0];

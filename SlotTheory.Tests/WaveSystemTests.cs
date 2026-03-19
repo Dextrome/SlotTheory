@@ -68,4 +68,13 @@ public class WaveSystemTests
         float actual = WaveSystem.GetScaledHp("swift_walker", 0, DifficultyMode.Easy);
         Assert.Equal(expected, actual, precision: 2);
     }
+
+    [Fact]
+    public void GetScaledHp_ReverseWalker_Wave0_AppliesReverseMultiplier()
+    {
+        float expected = Balance.BaseEnemyHp * Balance.ReverseWalkerHpMultiplier
+                       * Balance.GetEnemyHpMultiplier(DifficultyMode.Easy);
+        float actual = WaveSystem.GetScaledHp("reverse_walker", 0, DifficultyMode.Easy);
+        Assert.Equal(expected, actual, precision: 2);
+    }
 }

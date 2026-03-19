@@ -30,6 +30,8 @@ public partial class EndScreen : CanvasLayer
 	private Button _playAgainButton = null!;
 	private Button _continueEndlessButton = null!;
 	private Button _nextCampaignButton = null!;
+	private MarginContainer _campaignFooter = null!;
+	private MarginContainer _buttonBlock = null!;
 	private bool _isCampaignRun;
 	private CampaignStageDefinition? _nextCampaignStage;
 	public event System.Action? ContinueEndlessPressed;
@@ -166,11 +168,20 @@ public partial class EndScreen : CanvasLayer
 		_goalLabel.Visible = false;
 		vbox.AddChild(_goalLabel);
 
+		// Shared button stack (slightly lifted so footer actions fit on shorter viewports).
+		_buttonBlock = new MarginContainer();
+		_buttonBlock.AddThemeConstantOverride("margin_top", -14);
+		vbox.AddChild(_buttonBlock);
+
+		var buttonStack = new VBoxContainer();
+		buttonStack.AddThemeConstantOverride("separation", 14);
+		_buttonBlock.AddChild(buttonStack);
+
 		// Secondary actions row: Leaderboards + Wishlist side by side
 		var secondaryRow = new HBoxContainer();
 		secondaryRow.AddThemeConstantOverride("separation", 8);
 		secondaryRow.CustomMinimumSize = new Vector2(360f, 0f);
-		vbox.AddChild(secondaryRow);
+		buttonStack.AddChild(secondaryRow);
 
 		_viewLeaderboardButton = new Button
 		{
@@ -209,7 +220,7 @@ public partial class EndScreen : CanvasLayer
 		var primaryRow = _primaryRow;
 		primaryRow.AddThemeConstantOverride("separation", 8);
 		primaryRow.CustomMinimumSize = new Vector2(360f, 0f);
-		vbox.AddChild(primaryRow);
+		buttonStack.AddChild(primaryRow);
 
 		_playAgainButton = new Button
 		{
@@ -251,7 +262,15 @@ public partial class EndScreen : CanvasLayer
 		UITheme.ApplyMenuButtonFinish(_nextCampaignButton, UITheme.Lime, 0.11f, 0.14f);
 		_nextCampaignButton.Pressed += OnNextCampaignPressed;
 		_nextCampaignButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
-		vbox.AddChild(_nextCampaignButton);
+
+		_campaignFooter = new MarginContainer();
+		_campaignFooter.AddThemeConstantOverride("margin_top", 0);
+		buttonStack.AddChild(_campaignFooter);
+
+		var campaignFooterVbox = new VBoxContainer();
+		campaignFooterVbox.AddThemeConstantOverride("separation", 14);
+		_campaignFooter.AddChild(campaignFooterVbox);
+		campaignFooterVbox.AddChild(_nextCampaignButton);
 
 		_mainMenuButton = new Button
 		{
@@ -264,7 +283,7 @@ public partial class EndScreen : CanvasLayer
 		UITheme.ApplyMenuButtonFinish(_mainMenuButton, UITheme.Cyan, 0.09f, 0.11f);
 		_mainMenuButton.Pressed += OnMainMenuPressed;
 		_mainMenuButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
-		vbox.AddChild(_mainMenuButton);
+		campaignFooterVbox.AddChild(_mainMenuButton);
 
 		_howToPlayButton = new Button
 		{
@@ -277,7 +296,7 @@ public partial class EndScreen : CanvasLayer
 		UITheme.ApplyMenuButtonFinish(_howToPlayButton, UITheme.Magenta, 0.09f, 0.14f);
 		_howToPlayButton.Pressed += OnHowToPlayPressed;
 		_howToPlayButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
-		vbox.AddChild(_howToPlayButton);
+		buttonStack.AddChild(_howToPlayButton);
 
 		MobileOptimization.ApplyUIScale(center);
 	AddChild(new PinchZoomHandler(center));
@@ -346,6 +365,10 @@ public partial class EndScreen : CanvasLayer
 
 		if (GodotObject.IsInstanceValid(_mainMenuButton))
 			_mainMenuButton.Text = "Campaign Select";
+
+		// Campaign-only: add a little extra lift to the footer CTA pair.
+		if (GodotObject.IsInstanceValid(_campaignFooter))
+			_campaignFooter.AddThemeConstantOverride("margin_top", -10);
 	}
 
 	private void OnNextCampaignPressed()
@@ -847,6 +870,7 @@ public partial class EndScreen : CanvasLayer
 			{
 				"armored_walker"  => "Armored",
 				"swift_walker"    => "Swift",
+				"reverse_walker"  => "Reverse",
 				"splitter_walker" => "Splitter",
 				"splitter_shard"  => "Shard",
 				_ => "Basic"
@@ -868,6 +892,7 @@ public partial class EndScreen : CanvasLayer
 			{
 				"armored_walker"  => "Armored",
 				"swift_walker"    => "Swift",
+				"reverse_walker"  => "Reverse",
 				"splitter_walker" => "Splitter",
 				"splitter_shard"  => "Shard",
 				_ => "Basic"

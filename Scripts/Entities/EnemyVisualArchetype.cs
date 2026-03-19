@@ -55,6 +55,15 @@ public readonly struct EnemyVisualArchetype
             turnTiltScale: 2.35f,
             turnTiltMaxRad: 0.34f,
             trailColor: new Color(0.72f, 1.00f, 0.45f, 0.62f)),
+        "reverse_walker" => new EnemyVisualArchetype(
+            name: "Reverse Walker",
+            trailShape: EnemyTrailShape.RazorArc,
+            trailLifetime: 0.26f,
+            trailSpacing: 0.020f,
+            trailWidth: 2.2f,
+            turnTiltScale: 1.90f,
+            turnTiltMaxRad: 0.30f,
+            trailColor: new Color(0.44f, 0.96f, 1.00f, 0.64f)),
         "armored_walker" => new EnemyVisualArchetype(
             name: "Plated Rhino Core",
             trailShape: EnemyTrailShape.DenseEmber,
