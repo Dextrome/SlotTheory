@@ -116,7 +116,7 @@ Unlock flow:
 | Overreach | +45% range, -10% damage |
 | Hair Trigger | +30% attack speed, -18% range |
 | Split Shot | Fires 2 split projectiles at 35% damage each; each extra copy adds +1 projectile |
-| Feedback Loop | On kill, removes 65% of current cooldown |
+| Feedback Loop | On kill, instantly resets cooldown to zero |
 | Chain Reaction | +1 chain bounce per copy, 60% damage carry per bounce |
 
 Max modifiers per tower: 3

@@ -238,7 +238,7 @@ public partial class HowToPlay : Node
         AddModRowWithIcon(vbox, "overreach",        "Overreach",           "+45% range, -10% damage. Wider coverage with a light damage tradeoff.");
         AddModRowWithIcon(vbox, "hair_trigger",     "Hair Trigger",        "+30% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
         AddModRowWithIcon(vbox, "split_shot",       "Split Shot (unlock)", "Unlock by beating the second campaign map. On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
-        AddModRowWithIcon(vbox, "feedback_loop",    "Feedback Loop",       "Killing an enemy reduces this tower's current cooldown by 50%. Lets rapid killers fire again sooner.");
+        AddModRowWithIcon(vbox, "feedback_loop",    "Feedback Loop",       "Killing an enemy instantly resets this tower's cooldown to zero. Fire again immediately after each kill.");
         AddModRowWithIcon(vbox, "chain_reaction",   "Chain Reaction",      "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
         AddSpacer(vbox, 8);
 

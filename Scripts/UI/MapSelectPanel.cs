@@ -303,15 +303,19 @@ public partial class MapSelectPanel : Node
 			}
 
 			// Campaign maps and fixed maps first, random map kept last
-			var campaignMaps = maps.Where(m => m.Id != "random_map");
+			var campaignMaps = maps.Where(m => m.Id != "random_map" && (!m.IsFullGame || !Balance.IsDemo));
+			var fullGameMaps = maps.Where(m => m.IsFullGame);
 			var randomMap    = maps.FirstOrDefault(m => m.Id == "random_map");
 
 			foreach (var mapDef in campaignMaps)
 				_mapListContainer.AddChild(CreateMapButton(mapDef.Id, mapDef.Name, mapDef.Description));
 
-			// Full-game placeholder slots - visible but unplayable
-			_mapListContainer.AddChild(CreateFullGameMapRow("???", "A fractured zone - something stranger awaits."));
-			_mapListContainer.AddChild(CreateFullGameMapRow("???", "Classified. Requires full clearance."));
+			// In demo: show locked placeholders for full-game maps
+			if (Balance.IsDemo)
+			{
+				foreach (var _ in fullGameMaps)
+					_mapListContainer.AddChild(CreateFullGameMapRow("???", "Available in the full game."));
+			}
 
 			if (randomMap != null)
 				_mapListContainer.AddChild(CreateMapButton(randomMap.Id, randomMap.Name, randomMap.Description));

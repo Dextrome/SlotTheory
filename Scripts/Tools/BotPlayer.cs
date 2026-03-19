@@ -644,8 +644,25 @@ public class BotPlayer
             sl.Tower?.Modifiers.Any(m => m.ModifierId is
                 "hair_trigger" or "momentum" or "split_shot" or "overkill" or "feedback_loop") == true);
 
+        bool hasMarker = s.Slots.Any(sl => sl.Tower?.TowerId == "marker_tower");
+        bool hasEW     = s.Slots.Any(sl => sl.Tower?.Modifiers.Any(m => m.ModifierId == "exploit_weakness") == true);
+
         if (eligible.Count > 0)
         {
+            // 0. EW top priority until first copy — only pays off once marker is placed
+            if (hasMarker && !hasEW)
+            {
+                var ew = FindModOption(opts, "exploit_weakness");
+                if (ew != null)
+                {
+                    int slot = eligible
+                        .Where(i => s.Slots[i].Tower?.TowerId != "marker_tower")
+                        .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                        .FirstOrDefault(-1);
+                    if (slot >= 0) return new DraftPick(ew, slot);
+                }
+            }
+
             // 1. Up to 2 chain_reactions total â€" always on chain_tower if possible
             if (chainReactionTotal < 2)
             {
@@ -699,16 +716,17 @@ public class BotPlayer
             {
                 float score = opt.Id switch
                 {
-                    "hair_trigger"   => 10f,
-                    "momentum"       =>  9f,
-                    "feedback_loop"  =>  8f,
-                    "split_shot"     =>  7f,
-                    "overkill"       =>  6f,
-                    "focus_lens"     =>  6f,
-                    "chain_reaction" =>  3f,  // already have 2, deprioritize
-                    "overreach"      =>  5f,
-                    "slow"           =>  6f,
-                    _                =>  2f,
+                    "hair_trigger"     => 10f,
+                    "momentum"         =>  9f,
+                    "feedback_loop"    =>  8f,
+                    "split_shot"       =>  7f,
+                    "overkill"         =>  6f,
+                    "focus_lens"       =>  6f,
+                    "chain_reaction"   =>  3f,  // already have 2, deprioritize
+                    "overreach"        =>  5f,
+                    "slow"             =>  6f,
+                    "exploit_weakness" => hasMarker ? 15f : 2f,
+                    _                  =>  2f,
                 };
                 if (score > bestScore) { bestScore = score; bestMod = opt; }
             }
@@ -729,6 +747,12 @@ public class BotPlayer
             if (rapid != null) return new DraftPick(rapid, empty[0]);
             var chain = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "chain_tower");
             if (chain != null) return new DraftPick(chain, empty[0]);
+            // Grab marker for EW synergy once initial pressure towers are placed
+            if (!hasMarker)
+            {
+                var marker = FindTowerOption(opts, "marker_tower");
+                if (marker != null) return new DraftPick(marker, empty[0]);
+            }
             var rift = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rift_prism");
             if (rift != null) return new DraftPick(rift, empty[0]);
             var heavy = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "heavy_cannon");
@@ -1148,6 +1172,25 @@ public class BotPlayer
             .Distinct()
             .ToHashSet(StringComparer.Ordinal);
 
+        // EW top priority until first copy if marker is placed
+        if (eligible.Count > 0)
+        {
+            bool hasMarkerSS = s.Slots.Any(sl => sl.Tower?.TowerId == "marker_tower");
+            bool hasEWSS     = s.Slots.Any(sl => sl.Tower?.Modifiers.Any(m => m.ModifierId == "exploit_weakness") == true);
+            if (hasMarkerSS && !hasEWSS)
+            {
+                var ewPick = FindModOption(opts, "exploit_weakness");
+                if (ewPick != null)
+                {
+                    int ewSlot = eligible
+                        .Where(i => s.Slots[i].Tower?.TowerId != "marker_tower")
+                        .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                        .FirstOrDefault(-1);
+                    if (ewSlot >= 0) return new DraftPick(ewPick, ewSlot);
+                }
+            }
+        }
+
         if (_spectacleSingleTargetMod == null)
         {
             _spectacleSingleTargetMod = SpectacleModPriority.FirstOrDefault(offeredSpectacleMods.Contains);
@@ -1200,6 +1243,25 @@ public class BotPlayer
             .Select(o => NormalizeSpectacleMod(o.Id))
             .Distinct()
             .ToHashSet(StringComparer.Ordinal);
+
+        // EW top priority until first copy if marker is placed
+        if (eligible.Count > 0)
+        {
+            bool hasMarkerCP = s.Slots.Any(sl => sl.Tower?.TowerId == "marker_tower");
+            bool hasEWCP     = s.Slots.Any(sl => sl.Tower?.Modifiers.Any(m => m.ModifierId == "exploit_weakness") == true);
+            if (hasMarkerCP && !hasEWCP)
+            {
+                var ewPick = FindModOption(opts, "exploit_weakness");
+                if (ewPick != null)
+                {
+                    int ewSlot = eligible
+                        .Where(i => s.Slots[i].Tower?.TowerId != "marker_tower")
+                        .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                        .FirstOrDefault(-1);
+                    if (ewSlot >= 0) return new DraftPick(ewPick, ewSlot);
+                }
+            }
+        }
 
         if (_spectacleComboModA == null)
             _spectacleComboModA = SpectacleModPriority.FirstOrDefault(offeredNormalized.Contains);
@@ -1276,6 +1338,25 @@ public class BotPlayer
         var eligible = ModSlots(s);
         var offeredSpectacle = SpectacleModsOffered(opts).ToList();
 
+        // EW top priority until first copy if marker is placed
+        if (eligible.Count > 0)
+        {
+            bool hasMarkerTD = s.Slots.Any(sl => sl.Tower?.TowerId == "marker_tower");
+            bool hasEWTD     = s.Slots.Any(sl => sl.Tower?.Modifiers.Any(m => m.ModifierId == "exploit_weakness") == true);
+            if (hasMarkerTD && !hasEWTD)
+            {
+                var ewPick = FindModOption(opts, "exploit_weakness");
+                if (ewPick != null)
+                {
+                    int ewSlot = eligible
+                        .Where(i => s.Slots[i].Tower?.TowerId != "marker_tower")
+                        .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                        .FirstOrDefault(-1);
+                    if (ewSlot >= 0) return new DraftPick(ewPick, ewSlot);
+                }
+            }
+        }
+
         foreach (string mod in SpectacleModPriority)
         {
             if (_spectacleTriadTargets.Count >= 3) break;
@@ -1351,8 +1432,26 @@ public class BotPlayer
         var eligible = ModSlots(s);
         int heavyCount = s.Slots.Count(sl => sl.Tower?.TowerId == "heavy_cannon");
 
+        bool hasMarkerHS = s.Slots.Any(sl => sl.Tower?.TowerId == "marker_tower");
+        bool hasEWHS     = s.Slots.Any(sl => sl.Tower?.Modifiers.Any(m => m.ModifierId == "exploit_weakness") == true);
+
         if (eligible.Count > 0)
         {
+            // 0. EW top priority until first copy — only pays off once marker is placed
+            if (hasMarkerHS && !hasEWHS)
+            {
+                var ew = FindModOption(opts, "exploit_weakness");
+                if (ew != null)
+                {
+                    int slot = eligible
+                        .Where(i => s.Slots[i].Tower?.TowerId != "marker_tower")
+                        .OrderByDescending(i => s.Slots[i].Tower?.TowerId == "heavy_cannon" ? 1 : 0)
+                        .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                        .FirstOrDefault(-1);
+                    if (slot >= 0) return new DraftPick(ew, slot);
+                }
+            }
+
                         // 1. Focus Lens on heavy_cannon: x2.40 damage, x1.85 interval for burst-heavy scaling
             var fl = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "focus_lens");
             if (fl != null)
@@ -1425,6 +1524,12 @@ public class BotPlayer
             {
                 var heavy = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "heavy_cannon");
                 if (heavy != null) return new DraftPick(heavy, empty[0]);
+            }
+            // Grab marker for EW synergy once heavies are established
+            if (!hasMarkerHS)
+            {
+                var marker = FindTowerOption(opts, "marker_tower");
+                if (marker != null) return new DraftPick(marker, empty[0]);
             }
             var rapid = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rapid_shooter");
             if (rapid != null) return new DraftPick(rapid, empty[0]);

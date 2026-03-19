@@ -59,6 +59,35 @@
       ]
     },
     {
+      "id": "ridgeback",
+      "name": "Ridgeback",
+      "description": "Two ridge crossings with a mid-level dip between them. The high ground changes hands three times before the final descent.",
+      "displayOrder": 3,
+      "isFullGame": true,
+      "path": [
+        { "x": 80,   "y": 96  },
+        { "x": 80,   "y": 656 },
+        { "x": 320,  "y": 656 },
+        { "x": 320,  "y": 144 },
+        { "x": 560,  "y": 144 },
+        { "x": 560,  "y": 528 },
+        { "x": 720,  "y": 528 },
+        { "x": 720,  "y": 144 },
+        { "x": 880,  "y": 144 },
+        { "x": 880,  "y": 656 },
+        { "x": 1200, "y": 656 },
+        { "x": 1200, "y": 96  }
+      ],
+      "slots": [
+        { "id": 0, "x": 640,  "y": 240 },
+        { "id": 1, "x": 400,  "y": 400 },
+        { "id": 2, "x": 480,  "y": 336 },
+        { "id": 3, "x": 800,  "y": 336 },
+        { "id": 4, "x": 1040, "y": 400 },
+        { "id": 5, "x": 200,  "y": 400 }
+      ]
+    },
+    {
       "id": "sprawl",
       "name": "Orbit",
       "description": "Spiral-in then slingshot-out. One interior slot gets multi-pass value; edge slots are early bait.",

@@ -5,10 +5,10 @@ using SlotTheory.Data;
 namespace SlotTheory.Modifiers;
 
 /// <summary>
-/// Killing an enemy reduces the tower's current cooldown by 50% (Balance.FeedbackLoopCooldownReduction).
+/// Killing an enemy fully resets the tower's current cooldown to 0 (Balance.FeedbackLoopCooldownReduction = 1.0).
 /// Only Cooldown (the live timer) is touched - AttackInterval (base period) is never changed,
-/// so there is no permanent acceleration. Each copy fires independently on kill,
-/// giving multiplicative diminishing returns per copy, never below 0.
+/// so there is no permanent acceleration. Multiple copies all fire on kill but have no additional
+/// effect since the first copy already zeroes the cooldown.
 /// </summary>
 public class FeedbackLoop : Modifier
 {

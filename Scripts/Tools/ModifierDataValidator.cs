@@ -147,7 +147,7 @@ public static class ModifierDataValidator
             ["feedback_loop"] = new ModifierExpectation
             {
                 Name = "Feedback Loop",
-                RequiredTokens = new() { $"{FormatInt(Balance.FeedbackLoopCooldownReduction * 100f)}%" }
+                RequiredTokens = new() { "reset" }
             },
             ["chain_reaction"] = new ModifierExpectation
             {

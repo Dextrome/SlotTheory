@@ -43,5 +43,6 @@ public record MapDef(
     bool IsRandom = false,
     int DisplayOrder = 999,
     bool IsTutorial = false,
+    bool IsFullGame = false,
     WaveConfig[]? TutorialWaves = null
 );

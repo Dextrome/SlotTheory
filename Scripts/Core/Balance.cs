@@ -11,6 +11,10 @@ public enum DifficultyMode
 /// <summary>All tunables in one place. Change values here, nowhere else.</summary>
 public static class Balance
 {
+    // Build type — set via export preset custom_features="demo".
+    // Use this to gate all full-game-only content. Never hardcode true/false here.
+    public static bool IsDemo => Godot.OS.HasFeature("demo");
+
     // Steam - demo wishlist CTA
     // Set to the full game's Steam App ID (different from the demo's App ID).
     // When non-zero and Steam is running, a "Wishlist" button appears on EndScreen and MainMenu.
@@ -82,7 +86,7 @@ public static class Balance
     public const float SplitShotRange       = 280f;  // search radius from impact point for split targets
 
     // Feedback Loop modifier
-    public const float FeedbackLoopCooldownReduction = 0.65f; // 65% of remaining cooldown removed on kill
+    public const float FeedbackLoopCooldownReduction = 1.00f; // 100% of remaining cooldown removed on kill (full reset)
 
     // Hair Trigger modifier
     public const float HairTriggerAttackSpeed = 1.30f; // +30% attack speed
