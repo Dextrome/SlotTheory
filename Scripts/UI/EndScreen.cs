@@ -190,7 +190,7 @@ public partial class EndScreen : CanvasLayer
 			Text = "\u2665  Wishlist Full Game",
 			CustomMinimumSize = new Vector2(0f, 42f),
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-			Visible = Balance.IsDemo && SteamAchievements.IsSteamInitialized && Balance.FullGameSteamAppId != 0u,
+			Visible = Balance.IsDemo && Balance.FullGameSteamAppId != 0u,
 		};
 		_wishlistButton.AddThemeFontSizeOverride("font_size", 15);
 		UITheme.ApplyMutedStyle(_wishlistButton);

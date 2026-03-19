@@ -278,17 +278,13 @@ public partial class MainMenu : Node
 		playBtn.Pressed += OnPlay;
 		cardVbox.AddChild(playBtn);
 
-		AddSpacer(cardVbox, 4);
-		AddSeparator(cardVbox);
-		AddSpacer(cardVbox, 4);
-
 		AddNavButton(cardVbox, "Leaderboards", OnLeaderboards);
 		AddNavButton(cardVbox, "Achievements", OnAchievements);
 		AddNavButton(cardVbox, "Slot Codex", OnSlotCodex);
 		AddNavButton(cardVbox, "How to Play", OnHowToPlay);
 		AddNavButton(cardVbox, "Settings", OnSettings);
 
-		if (Balance.IsDemo && SteamAchievements.IsSteamInitialized && Balance.FullGameSteamAppId != 0u)
+		if (Balance.IsDemo && Balance.FullGameSteamAppId != 0u)
 		{
 			var wishBtn = MakeMenuButton("Wishlist on Steam", 260, 40, 17);
 			UITheme.ApplyMutedStyle(wishBtn);
@@ -302,16 +298,12 @@ public partial class MainMenu : Node
 			cardVbox.AddChild(wishBtn);
 		}
 
-		AddSpacer(cardVbox, 4);
-		AddSeparator(cardVbox);
-		AddSpacer(cardVbox, 4);
-
 		var quitBtn = MakeMenuButton("Quit", 260, 36, 18);
 		UITheme.ApplyMutedStyle(quitBtn);
 		AddButtonSurface(quitBtn, UITheme.Magenta, 0.10f, 0.16f);
 		quitBtn.Pressed += OnQuit;
 		cardVbox.AddChild(quitBtn);
-		AddSpacer(cardVbox, 10); // keep Quit inside the lower frame edge
+		AddSpacer(cardVbox, 6); // keep Quit inside the lower frame edge
 
 		bool allUnlocked = AchievementManager.Instance?.IsUnlocked(Unlocks.RiftPrismAchievementId) == true;
 		bool alreadyNotified = SettingsManager.Instance?.DemoCompleteNotified == true;
@@ -597,7 +589,7 @@ public partial class MainMenu : Node
 		btnRow.AddThemeConstantOverride("separation", 8);
 		inner.AddChild(btnRow);
 
-		if (Balance.IsDemo && SteamAchievements.IsSteamInitialized && Balance.FullGameSteamAppId != 0u)
+		if (Balance.IsDemo && Balance.FullGameSteamAppId != 0u)
 		{
 			var wishBtn = new Button
 			{

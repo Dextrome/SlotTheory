@@ -72,11 +72,12 @@ public class BotPlayer
     // â"€â"€ Helpers â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
     private List<int> EmptySlots(RunState s) =>
-        Enumerable.Range(0, s.Slots.Length).Where(i => s.Slots[i].Tower == null).ToList();
+        Enumerable.Range(0, s.Slots.Length).Where(i => s.Slots[i].Tower == null && !s.Slots[i].IsLocked).ToList();
 
     private List<int> ModSlots(RunState s) =>
         Enumerable.Range(0, s.Slots.Length)
             .Where(i => s.Slots[i].Tower?.CanAddModifier == true).ToList();
+
 
     private static List<DraftOption> Towers(List<DraftOption> opts) =>
         opts.Where(o => o.Type == DraftOptionType.Tower).ToList();
