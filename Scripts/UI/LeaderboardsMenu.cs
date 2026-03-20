@@ -456,7 +456,15 @@ public partial class LeaderboardsMenu : Node
             var compactLoadout = BuildLoadoutStrip(row.Build, compact: true);
             compactLoadout.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
             compactLoadout.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
-            headerRow.AddChild(compactLoadout);
+
+            var compactLoadoutWrap = new MarginContainer
+            {
+                SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd,
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+            };
+            compactLoadoutWrap.AddThemeConstantOverride("margin_top", 2);
+            compactLoadoutWrap.AddChild(compactLoadout);
+            headerRow.AddChild(compactLoadoutWrap);
         }
         else
         {
@@ -674,6 +682,10 @@ public partial class LeaderboardsMenu : Node
             var slot = i < build.Slots.Length
                 ? build.Slots[i]
                 : new RunSlotBuild("", []);
+
+            // Skip unused tower slots in both compact and expanded layouts.
+            if (string.IsNullOrWhiteSpace(slot.TowerId))
+                continue;
 
             var slotBox = new VBoxContainer();
             slotBox.AddThemeConstantOverride("separation", slotSeparation);

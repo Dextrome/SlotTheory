@@ -90,6 +90,7 @@ uniform float bloom_strength   : hint_range(0.0, 1.0)    = 0.22;
 uniform float bloom_threshold  : hint_range(0.0, 1.0)    = 0.30;
 uniform float scanline_opacity : hint_range(0.0, 0.5)    = 0.15;
 uniform float saturation       : hint_range(0.5, 2.0)    = 1.18;
+uniform float brightness       : hint_range(0.8, 1.3)    = 1.03;
 uniform float u_time           : hint_range(0.0, 1000.0) = 0.0;
 void fragment() {
     vec2 uv = SCREEN_UV;
@@ -102,6 +103,7 @@ void fragment() {
     color *= 1.0 - scanline_opacity * line;
     float lum = dot(color, vec3(0.299, 0.587, 0.114));
     color = mix(vec3(lum), color, saturation);
+    color *= brightness;
     float shimmer = 1.0 + sin(u_time * 0.7 + uv.y * 220.0) * 0.002;
     color *= shimmer;
     COLOR = vec4(color, 1.0);

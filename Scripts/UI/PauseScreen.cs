@@ -231,11 +231,11 @@ public partial class PauseScreen : CanvasLayer
         AddSpacer(vbox, 4);
         AddPauseSectionHeader(vbox, "SCREEN EFFECTS");
 
-        bool isSf = sm?.ScreenFilterEnabled ?? false;
+        bool isSf = sm?.ScreenFilterEnabled ?? true;
         _pauseScreenFilterBtn = AddPauseSettingRow(vbox, "Screen Filter",
             OnOffText(isSf), isOn: isSf, () =>
             {
-                bool next = !(SettingsManager.Instance?.ScreenFilterEnabled ?? false);
+                bool next = !(SettingsManager.Instance?.ScreenFilterEnabled ?? true);
                 SettingsManager.Instance?.SetScreenFilterEnabled(next);
                 SettingsManager.Instance?.SetPhosphorGridEnabled(next);
                 UpdatePauseValueBtn(_pauseScreenFilterBtn, OnOffText(next), next);

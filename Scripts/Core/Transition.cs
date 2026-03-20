@@ -11,6 +11,7 @@ public partial class Transition : CanvasLayer
     public static Transition Instance { get; private set; } = null!;
 
     private ColorRect _overlay = null!;
+    private ColorRect _gradeOverlay = null!;
     private ColorRect _tintOverlay = null!;
     private ColorRect _scanline = null!;
     private ColorRect _sweep = null!;
@@ -25,6 +26,7 @@ public partial class Transition : CanvasLayer
     private const float FadeInSeconds  = 0.40f;
 
     private static readonly Color TintColor     = new Color(0.15f, 0.05f, 0.26f, 0f);
+    private static readonly Color GradeColor    = new Color(0.20f, 0.08f, 0.30f, 0f);
     private static readonly Color ScanlineColor = new Color(0.65f, 0.95f, 1.00f, 0f);
     private static readonly Color SweepColor    = new Color(0.35f, 1.00f, 0.92f, 0f);
 
@@ -56,7 +58,8 @@ public partial class Transition : CanvasLayer
 
         bool reducedMotion = IsReducedMotionEnabled();
         bool postFxEnabled = IsPostFxEnabled();
-        if (reducedMotion == _postFxReducedMotion && postFxEnabled == _postFxEnabled)
+        if (reducedMotion == _postFxReducedMotion &&
+            postFxEnabled == _postFxEnabled)
             return;
 
         _postFxReducedMotion = reducedMotion;
@@ -119,6 +122,14 @@ public partial class Transition : CanvasLayer
 
     private void SetupTransitionLayers()
     {
+        _gradeOverlay = new ColorRect
+        {
+            Color = GradeColor,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        _gradeOverlay.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        AddChild(_gradeOverlay);
+
         _overlay = new ColorRect
         {
             Color = Colors.Black,
@@ -159,23 +170,34 @@ public partial class Transition : CanvasLayer
         var env = new Environment();
 
         // Bloom / glow
+        float glowIntensity = reducedMotion ? 0.58f : 0.78f;
+        float glowStrength = reducedMotion ? 0.68f : 1.02f;
+        float glowBloom = reducedMotion ? 0.04f : 0.15f;
+        float glowThreshold = 0.62f;
+        float glowLvl1 = 0.90f;
+        float glowLvl2 = 0.65f;
+        float glowLvl3 = 0.40f;
+        float gradeBrightness = 1.01f;
+        float gradeContrast = 1.06f;
+        float gradeSaturation = 1.05f;
+
         env.Set("glow_enabled", true);
         env.Set("glow_normalized", true);
-        env.Set("glow_intensity", reducedMotion ? 0.58f : 0.78f);
-        env.Set("glow_strength", reducedMotion ? 0.68f : 1.02f);
-        env.Set("glow_bloom", reducedMotion ? 0.04f : 0.15f);
-        env.Set("glow_hdr_threshold", 0.62f);
+        env.Set("glow_intensity", glowIntensity);
+        env.Set("glow_strength", glowStrength);
+        env.Set("glow_bloom", glowBloom);
+        env.Set("glow_hdr_threshold", glowThreshold);
         env.Set("glow_hdr_scale", 1.0f);
         env.Set("glow_blend_mode", 0); // additive
-        env.Set("glow_levels/1", 0.90f);
-        env.Set("glow_levels/2", 0.65f);
-        env.Set("glow_levels/3", 0.40f);
+        env.Set("glow_levels/1", glowLvl1);
+        env.Set("glow_levels/2", glowLvl2);
+        env.Set("glow_levels/3", glowLvl3);
 
         // Mild global grade to unify neon palette
         env.Set("adjustment_enabled", true);
-        env.Set("adjustment_brightness", 1.01f);
-        env.Set("adjustment_contrast", 1.06f);
-        env.Set("adjustment_saturation", 1.05f);
+        env.Set("adjustment_brightness", gradeBrightness);
+        env.Set("adjustment_contrast", gradeContrast);
+        env.Set("adjustment_saturation", gradeSaturation);
 
         return env;
     }
@@ -268,9 +290,21 @@ public partial class Transition : CanvasLayer
     private void ApplyPostFxState()
     {
         _worldEnvironment.Environment = BuildEnvironment(_postFxReducedMotion, _postFxEnabled);
+        float gradeAlpha = _postFxEnabled
+            ? (_postFxReducedMotion ? 0.028f : 0.04f)
+            : 0f;
+        _gradeOverlay.Color = GradeColor with { A = gradeAlpha };
+        _gradeOverlay.Visible = _postFxEnabled;
         _tintOverlay.Visible = _postFxEnabled;
         _scanline.Visible = _postFxEnabled;
         _sweep.Visible = _postFxEnabled;
+    }
+
+    public void RefreshPostFxFromSettings()
+    {
+        _postFxReducedMotion = IsReducedMotionEnabled();
+        _postFxEnabled = IsPostFxEnabled();
+        ApplyPostFxState();
     }
 
     private static bool IsReducedMotionEnabled()

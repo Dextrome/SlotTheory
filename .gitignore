@@ -95,3 +95,4 @@ bot_results5/
 CAMPAIGN.MD
 .codex/environments/environment.toml
 .CREATOR_LIST.MD
+balance_*.json

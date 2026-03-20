@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Godot;
 using SlotTheory.Core;
 using SlotTheory.Entities;
@@ -55,7 +56,15 @@ public partial class HudPanel : CanvasLayer
     private string _lastBuildName = "";
     private Button _speedBtn = null!;
     private Button _pausePlayBtn = null!;
+    private Panel _topBarPanel = null!;
+    private PanelContainer _rightControlCluster = null!;
+    private Panel _waveReadoutChip = null!;
+    private Panel _timeReadoutChip = null!;
+    private Panel _enemyReadoutChip = null!;
+    private Panel _livesReadoutChip = null!;
     private bool _lastPausedState;
+    private float _hudAnimTime = 0f;
+    private readonly List<Control> _animatedSurfaces = new();
     private int _speedIdx = 0;
     private static readonly double[] SpeedStepsNormal = { 1.0, 2.0, 3.0 };
     private static readonly double[] SpeedStepsDev    = { 1.0, 2.0, 3.0, 5.0, 10.0 };
@@ -65,6 +74,7 @@ public partial class HudPanel : CanvasLayer
     private const float ZoomMax = 2.6f;
     private const float HudPunchExpandSecs = 0.07f;
     private const float HudPunchSettleSecs = 0.22f;
+    private const float TopBarHeight = 50f;
     public float CurrentSpeed => (float)SpeedSteps[_speedIdx];
 
     public override void _Ready()
@@ -74,9 +84,11 @@ public partial class HudPanel : CanvasLayer
 
         var bar = new Panel();
         bar.SetAnchorsPreset(Control.LayoutPreset.TopWide);
-        bar.CustomMinimumSize = new Vector2(0, 44);
+        bar.CustomMinimumSize = new Vector2(0, TopBarHeight);
         bar.Theme = SlotTheory.Core.UITheme.Build();
         AddChild(bar);
+        _topBarPanel = bar;
+        ApplyTopHudBarStyle(bar);
 
         var hbox = new HBoxContainer();
         hbox.SetAnchorsPreset(Control.LayoutPreset.FullRect);
@@ -91,10 +103,12 @@ public partial class HudPanel : CanvasLayer
         {
             BbcodeEnabled = true,
             ScrollActive = false,
-            FitContent = true,
+            FitContent = false,
             Visible = false,
             AutowrapMode = TextServer.AutowrapMode.Off,
-            CustomMinimumSize = new Vector2(340f, 0f),
+            ClipContents = true,
+            CustomMinimumSize = new Vector2(MobileOptimization.IsMobile() ? 280f : 420f, 40f),
+            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
             Modulate = new Color(0.74f, 0.88f, 1.00f, 0.96f),
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
@@ -113,16 +127,36 @@ public partial class HudPanel : CanvasLayer
         right.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         hbox.AddChild(right);
 
+        var rightAnchor = new HBoxContainer();
+        rightAnchor.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        rightAnchor.Alignment = BoxContainer.AlignmentMode.End;
+        right.AddChild(rightAnchor);
+
+        var rightCluster = new PanelContainer();
+        rightCluster.CustomMinimumSize = Vector2.Zero;
+        rightCluster.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
+        rightCluster.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
+        rightAnchor.AddChild(rightCluster);
+        _rightControlCluster = rightCluster;
+        ApplyTopHudControlClusterStyle(rightCluster);
+
         var rightHbox = new HBoxContainer();
-        rightHbox.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        rightHbox.SizeFlagsHorizontal = Control.SizeFlags.ShrinkEnd;
+        rightHbox.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
         rightHbox.Alignment = BoxContainer.AlignmentMode.End;
-        rightHbox.AddThemeConstantOverride("separation", 8);
-        right.AddChild(rightHbox);
+        rightHbox.AddThemeConstantOverride("separation", 6);
+        rightCluster.AddChild(rightHbox);
+
+        // Keep equal visual breathing room on both sides of the control cluster.
+        var leftInnerPad = new Control();
+        leftInnerPad.CustomMinimumSize = new Vector2(8f, 0f);
+        rightHbox.AddChild(leftInnerPad);
 
         _pausePlayBtn = new Button();
         _pausePlayBtn.Text = PauseIcon;
         _pausePlayBtn.CustomMinimumSize = new Vector2(44, 30);
         _pausePlayBtn.AddThemeFontSizeOverride("font_size", 18);
+        ApplyTopHudButtonStyle(_pausePlayBtn, UITheme.Cyan);
         _pausePlayBtn.Pressed += ToggleGameplayPause;
         rightHbox.AddChild(_pausePlayBtn);
 
@@ -130,6 +164,7 @@ public partial class HudPanel : CanvasLayer
         _speedBtn.Text = $"1\u00D7";
         _speedBtn.CustomMinimumSize = new Vector2(56, 30);
         _speedBtn.AddThemeFontSizeOverride("font_size", 18);
+        ApplyTopHudButtonStyle(_speedBtn, UITheme.Lime);
         _speedBtn.Pressed += OnSpeedToggle;
         rightHbox.AddChild(_speedBtn);
 
@@ -139,6 +174,7 @@ public partial class HudPanel : CanvasLayer
             VerticalAlignment = VerticalAlignment.Center,
         };
         _difficultyLabel.AddThemeFontSizeOverride("font_size", 15);
+        UITheme.ApplyFont(_difficultyLabel, semiBold: true, size: 15);
         _difficultyLabel.Modulate = new Color(0.55f, 0.65f, 0.75f);
         rightHbox.AddChild(_difficultyLabel);
 
@@ -149,12 +185,10 @@ public partial class HudPanel : CanvasLayer
         _mandateBanner.AnchorTop    = 0f;
         _mandateBanner.AnchorRight  = 1f;
         _mandateBanner.AnchorBottom = 0f;
-        _mandateBanner.OffsetTop    = 44f;
-        _mandateBanner.OffsetBottom = 66f;
+        _mandateBanner.OffsetTop    = TopBarHeight;
+        _mandateBanner.OffsetBottom = TopBarHeight + 22f;
         _mandateBanner.Visible = false;
-        var bannerStyle = new StyleBoxFlat();
-        bannerStyle.BgColor = new Color(0.12f, 0.07f, 0.01f, 0.88f);
-        _mandateBanner.AddThemeStyleboxOverride("panel", bannerStyle);
+        ApplyMandateBannerStyle(_mandateBanner);
         AddChild(_mandateBanner);
 
         _mandateLabel = new Label
@@ -165,6 +199,7 @@ public partial class HudPanel : CanvasLayer
         };
         _mandateLabel.SetAnchorsPreset(Control.LayoutPreset.FullRect);
         _mandateLabel.AddThemeFontSizeOverride("font_size", 13);
+        UITheme.ApplyFont(_mandateLabel, semiBold: true, size: 13);
         _mandateLabel.Modulate = new Color(1.0f, 0.70f, 0.20f, 0.96f);
         _mandateBanner.AddChild(_mandateLabel);
 
@@ -179,6 +214,7 @@ public partial class HudPanel : CanvasLayer
             menuBtn.Text = "Menu";
             menuBtn.AddThemeFontSizeOverride("font_size", 16);
             menuBtn.CustomMinimumSize = new Vector2(84, 30);
+            ApplyTopHudButtonStyle(menuBtn, UITheme.Cyan);
             menuBtn.Pressed += OnMenuButtonPressed;
             rightHbox.AddChild(menuBtn);
         }
@@ -188,8 +224,9 @@ public partial class HudPanel : CanvasLayer
         {
             var mobileMenuBtn = new Button();
             mobileMenuBtn.Text = "\u2630";
-            mobileMenuBtn.CustomMinimumSize = new Vector2(50, 0);
+            mobileMenuBtn.CustomMinimumSize = new Vector2(50, 30);
             mobileMenuBtn.AddThemeFontSizeOverride("font_size", 20);
+            ApplyTopHudButtonStyle(mobileMenuBtn, UITheme.Cyan);
             mobileMenuBtn.Pressed += OnMobileMenuPressed;
             rightHbox.AddChild(mobileMenuBtn);
         }
@@ -213,16 +250,21 @@ public partial class HudPanel : CanvasLayer
             OffsetLeft   = waveCenterShiftX,
             OffsetRight  = waveCenterShiftX,
             OffsetTop    = 0f,
-            OffsetBottom = 44f,
+            OffsetBottom = TopBarHeight,
             MouseFilter  = Control.MouseFilterEnum.Ignore,
         };
         _waveLabel.AddThemeFontSizeOverride("font_size", 22);
+        UITheme.ApplyFont(_waveLabel, semiBold: true, size: 22);
         _waveLabel.Modulate = new Color(0.78f, 0.96f, 1.00f);
         bar.AddChild(_waveLabel);
 
         float uiScale = MobileOptimization.GetUIScale();
         float enemyOffsetX = MobileOptimization.IsMobile() ? 120f * uiScale : 130f;
         float livesOffsetX = MobileOptimization.IsMobile() ? 240f * uiScale : 270f;
+        _waveReadoutChip = CreateTopHudReadoutChip(bar, 0.5f, 0.5f, waveCenterShiftX - 132f, waveCenterShiftX + 132f, 5f, TopBarHeight - 4f, UITheme.Cyan);
+        _timeReadoutChip = CreateTopHudReadoutChip(bar, 0.33f, 0.33f, -66f, 66f, 7f, TopBarHeight - 6f, UITheme.Cyan, alphaScale: 0.76f);
+        _enemyReadoutChip = CreateTopHudReadoutChip(bar, 0.5f, 0.5f, enemyOffsetX - 96f, enemyOffsetX + 96f, 7f, TopBarHeight - 6f, UITheme.Cyan, alphaScale: 0.70f);
+        _livesReadoutChip = CreateTopHudReadoutChip(bar, 0.5f, 0.5f, livesOffsetX - 84f, livesOffsetX + 84f, 7f, TopBarHeight - 6f, UITheme.Lime, alphaScale: 0.74f);
 
         _enemyLabel = new Label
         {
@@ -236,12 +278,14 @@ public partial class HudPanel : CanvasLayer
             OffsetLeft   = enemyOffsetX - 90f,
             OffsetRight  = enemyOffsetX + 90f,
             OffsetTop    = 0f,
-            OffsetBottom = 44f,
+            OffsetBottom = TopBarHeight,
             MouseFilter  = Control.MouseFilterEnum.Ignore,
-            Modulate     = new Color(1f, 1f, 1f, 0.62f),
+            Modulate     = new Color(0.86f, 0.94f, 1f, 0.78f),
         };
-        _enemyLabel.AddThemeFontSizeOverride("font_size", 16);
+        _enemyLabel.AddThemeFontSizeOverride("font_size", 18);
+        UITheme.ApplyFont(_enemyLabel, semiBold: true, size: 18);
         bar.AddChild(_enemyLabel);
+        _enemyLabel.Visible = false;
 
         _livesLabel = new Label
         {
@@ -255,10 +299,11 @@ public partial class HudPanel : CanvasLayer
             OffsetLeft = livesOffsetX - 76f,
             OffsetRight = livesOffsetX + 76f,
             OffsetTop = 0f,
-            OffsetBottom = 44f,
+            OffsetBottom = TopBarHeight,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         _livesLabel.AddThemeFontSizeOverride("font_size", 22);
+        UITheme.ApplyFont(_livesLabel, semiBold: true, size: 22);
         bar.AddChild(_livesLabel);
 
         // Timer - centered between build-name right edge (~370px) and screen center (50%).
@@ -275,11 +320,12 @@ public partial class HudPanel : CanvasLayer
             OffsetLeft   = -60f,
             OffsetRight  =  60f,
             OffsetTop    = 0f,
-            OffsetBottom = 44f,
+            OffsetBottom = TopBarHeight,
             MouseFilter  = Control.MouseFilterEnum.Ignore,
-            Modulate     = new Color(1f, 1f, 1f, 0.55f),
+            Modulate     = new Color(0.94f, 0.98f, 1f, 0.58f),
         };
         _timeLabel.AddThemeFontSizeOverride("font_size", 18);
+        UITheme.ApplyFont(_timeLabel, semiBold: true, size: 18);
         bar.AddChild(_timeLabel);
 
         _devStatsLabel = new Label
@@ -353,6 +399,19 @@ public partial class HudPanel : CanvasLayer
 
     public override void _Process(double delta)
     {
+        _hudAnimTime += (float)delta;
+        LayoutTopReadouts();
+        for (int i = _animatedSurfaces.Count - 1; i >= 0; i--)
+        {
+            var surface = _animatedSurfaces[i];
+            if (!GodotObject.IsInstanceValid(surface) || !surface.IsInsideTree())
+            {
+                _animatedSurfaces.RemoveAt(i);
+                continue;
+            }
+            surface.QueueRedraw();
+        }
+
         UpdateSurgeMeterHintPresentation();
         UpdateTeachingHintPresentation();
 
@@ -438,11 +497,13 @@ public partial class HudPanel : CanvasLayer
         _livesLabel.Text = $"Lives: {lives}";
         _livesLabel.Modulate = lives <= 3 ? new Color(1f, 0.35f, 0.35f) : Colors.White;
         _livesLabel.PivotOffset = _livesLabel.Size / 2f;
+        LayoutTopReadouts();
     }
 
     public void RefreshTime(float totalSeconds)
     {
         _timeLabel.Text = FormatTime(totalSeconds);
+        LayoutTopReadouts();
     }
 
     private static string FormatTime(float seconds)
@@ -500,6 +561,7 @@ public partial class HudPanel : CanvasLayer
             tw.TweenProperty(_buildLabel, "scale", Vector2.One, 0.16f)
               .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
         }
+        LayoutTopReadouts();
     }
 
     private static string BuildGradientBbCode(string text, Color start, Color end)
@@ -525,6 +587,10 @@ public partial class HudPanel : CanvasLayer
     public void RefreshEnemies(int alive, int total)
     {
         _enemyLabel.Text = alive > 0 ? $"Enemies: {alive} / {total}" : "";
+        _enemyLabel.Visible = alive > 0;
+        if (GodotObject.IsInstanceValid(_enemyReadoutChip))
+            _enemyReadoutChip.Visible = alive > 0;
+        LayoutTopReadouts();
     }
 
     /// <summary>
@@ -1026,6 +1092,441 @@ public partial class HudPanel : CanvasLayer
         _enemyLabel.AddThemeFontSizeOverride("font_size", enemySize);
         _speedBtn.AddThemeFontSizeOverride("font_size", speedBtnSize);
         _pausePlayBtn.AddThemeFontSizeOverride("font_size", pauseBtnSize);
+        LayoutTopReadouts();
+    }
+
+    private void LayoutTopReadouts()
+    {
+        if (!GodotObject.IsInstanceValid(_topBarPanel)
+            || !GodotObject.IsInstanceValid(_waveLabel)
+            || !GodotObject.IsInstanceValid(_livesLabel)
+            || !GodotObject.IsInstanceValid(_timeLabel)
+            || !GodotObject.IsInstanceValid(_enemyLabel))
+            return;
+
+        float barW = _topBarPanel.Size.X;
+        if (barW < 220f)
+            return;
+
+        float barLeft = _topBarPanel.GetGlobalRect().Position.X;
+        float clusterLeft = barW - 10f;
+        if (GodotObject.IsInstanceValid(_rightControlCluster))
+        {
+            float candidate = _rightControlCluster.GetGlobalRect().Position.X - barLeft;
+            if (candidate > 40f)
+                clusterLeft = candidate;
+            else
+                clusterLeft = barW - Mathf.Max(120f, _rightControlCluster.Size.X) - 8f;
+        }
+
+        float buildRight = 16f;
+        if (GodotObject.IsInstanceValid(_buildLabel) && _buildLabel.Visible)
+        {
+            var buildRect = _buildLabel.GetGlobalRect();
+            if (buildRect.Size.X > 1f)
+                buildRight = Mathf.Max(buildRight, buildRect.End.X - barLeft + 12f);
+        }
+        buildRight = Mathf.Min(buildRight, barW * 0.40f);
+
+        // Keep a safety gutter between readouts and right controls.
+        // Use both cluster-left and actual pause-button-left so the strip cannot drift under controls.
+        float controlGutter = MobileOptimization.IsMobile() ? 14f : 26f;
+        float rightAnchor = clusterLeft - controlGutter;
+        if (GodotObject.IsInstanceValid(_pausePlayBtn))
+        {
+            float pauseLeft = _pausePlayBtn.GetGlobalRect().Position.X - barLeft;
+            if (pauseLeft > 40f)
+            {
+                float pauseGutter = MobileOptimization.IsMobile() ? 8f : 18f;
+                rightAnchor = Mathf.Min(rightAnchor, pauseLeft - pauseGutter);
+            }
+        }
+        float rightEdge = Mathf.Min(rightAnchor, barW - 10f);
+        float leftEdge = Mathf.Max(buildRight, 10f);
+        rightEdge = Mathf.Clamp(rightEdge, 20f, barW - 10f);
+        leftEdge = Mathf.Clamp(leftEdge, 10f, barW - 20f);
+        if (rightEdge - leftEdge < 180f)
+            return;
+
+        float waveW = Mathf.Clamp(_waveLabel.GetCombinedMinimumSize().X + 36f, 200f, 350f);
+        float timeW = Mathf.Clamp(_timeLabel.GetCombinedMinimumSize().X + 26f, 82f, 140f);
+        bool enemyHasText = !string.IsNullOrWhiteSpace(_enemyLabel.Text);
+        float enemyW = enemyHasText
+            ? Mathf.Clamp(Mathf.Max(1f, _enemyLabel.GetCombinedMinimumSize().X) + 30f, 124f, 210f)
+            : 0f;
+        float livesW = Mathf.Clamp(_livesLabel.GetCombinedMinimumSize().X + 30f, 128f, 220f);
+
+        const float gap = 8f;
+        const float livesMinW = 96f;
+        const float enemyMinW = 108f;
+        const float timeMinW = 70f;
+        const float waveMinW = 156f;
+
+        // Wave is always hard-centered in the viewport.
+        float waveCenter = barW * 0.5f;
+
+        // Shrink wave (if needed) so both sides can still fit key chips.
+        float minRightNeed = enemyHasText
+            ? (gap * 2f + enemyMinW + timeMinW)
+            : (gap + timeMinW);
+        float maxWaveFromLeft = (waveCenter - leftEdge - gap - livesMinW) * 2f;
+        float maxWaveFromRight = (rightEdge - waveCenter - minRightNeed) * 2f;
+        float maxWaveW = Mathf.Min(maxWaveFromLeft, maxWaveFromRight);
+        if (maxWaveW < waveMinW)
+            waveW = Mathf.Clamp(maxWaveW, 96f, waveW);
+        else
+            waveW = Mathf.Min(waveW, maxWaveW);
+
+        float waveLeft = waveCenter - waveW * 0.5f;
+        float waveRight = waveCenter + waveW * 0.5f;
+
+        // Left lane: Lives
+        float leftSpace = waveLeft - gap - leftEdge;
+        leftSpace = Mathf.Max(0f, leftSpace);
+        livesW = Mathf.Min(livesW, leftSpace);
+        livesW = Mathf.Max(livesMinW, livesW);
+        if (livesW > leftSpace)
+            livesW = leftSpace;
+        float livesRight = waveLeft - gap;
+        float livesCenter = livesRight - livesW * 0.5f;
+
+        // Right lanes: Enemies then Time
+        float rightSpace = rightEdge - waveRight;
+        float enemyCenter = 0f;
+        float timeCenter;
+
+        if (enemyHasText)
+        {
+            float availBoxes = Mathf.Max(40f, rightSpace - gap * 2f);
+            float boxTotal = enemyW + timeW;
+            float minTotal = enemyMinW + timeMinW;
+            if (boxTotal > availBoxes)
+            {
+                float overflow = boxTotal - availBoxes;
+                float enemyTake = Mathf.Min(overflow, Mathf.Max(0f, enemyW - enemyMinW));
+                enemyW -= enemyTake;
+                overflow -= enemyTake;
+                if (overflow > 0f)
+                {
+                    float timeTake = Mathf.Min(overflow, Mathf.Max(0f, timeW - timeMinW));
+                    timeW -= timeTake;
+                }
+            }
+
+            if (enemyW + timeW > availBoxes)
+            {
+                float scale = availBoxes / Mathf.Max(1f, enemyW + timeW);
+                enemyW = Mathf.Max(60f, enemyW * scale);
+                timeW = Mathf.Max(52f, timeW * scale);
+            }
+            else if (enemyW + timeW < minTotal && availBoxes >= minTotal)
+            {
+                enemyW = Mathf.Max(enemyW, enemyMinW);
+                timeW = Mathf.Max(timeW, timeMinW);
+            }
+
+            float enemyLeft = waveRight + gap;
+            float enemyRight = enemyLeft + enemyW;
+            enemyCenter = enemyLeft + enemyW * 0.5f;
+            float timeLeft = enemyRight + gap;
+            timeCenter = timeLeft + timeW * 0.5f;
+        }
+        else
+        {
+            float availTime = Mathf.Max(52f, rightSpace - gap);
+            timeW = Mathf.Min(timeW, availTime);
+            timeW = Mathf.Max(52f, timeW);
+            float timeLeft = waveRight + gap;
+            timeCenter = timeLeft + timeW * 0.5f;
+        }
+
+        ApplyTopReadoutRect(_waveLabel, waveCenter, waveW);
+        ApplyTopReadoutRect(_livesLabel, livesCenter, livesW);
+
+        _timeLabel.Visible = true;
+        ApplyTopReadoutRect(_timeLabel, timeCenter, timeW);
+
+        _enemyLabel.Visible = enemyHasText;
+        if (enemyHasText)
+            ApplyTopReadoutRect(_enemyLabel, enemyCenter, enemyW);
+
+        if (GodotObject.IsInstanceValid(_waveReadoutChip))
+            ApplyTopReadoutRect(_waveReadoutChip, waveCenter, waveW);
+        if (GodotObject.IsInstanceValid(_livesReadoutChip))
+            ApplyTopReadoutRect(_livesReadoutChip, livesCenter, livesW);
+
+        if (GodotObject.IsInstanceValid(_timeReadoutChip))
+        {
+            _timeReadoutChip.Visible = true;
+            ApplyTopReadoutRect(_timeReadoutChip, timeCenter, timeW);
+        }
+
+        if (GodotObject.IsInstanceValid(_enemyReadoutChip))
+        {
+            _enemyReadoutChip.Visible = enemyHasText;
+            if (enemyHasText)
+                ApplyTopReadoutRect(_enemyReadoutChip, enemyCenter, enemyW);
+        }
+    }
+
+    private static void ApplyTopReadoutRect(Control control, float centerX, float width)
+    {
+        float clampedW = Mathf.Max(40f, width);
+        control.AnchorLeft = 0f;
+        control.AnchorRight = 0f;
+        control.AnchorTop = 0f;
+        control.AnchorBottom = 0f;
+        control.OffsetLeft = centerX - clampedW * 0.5f;
+        control.OffsetRight = centerX + clampedW * 0.5f;
+        control.OffsetTop = 6f;
+        control.OffsetBottom = TopBarHeight - 4f;
+    }
+
+    private void ApplyTopHudBarStyle(Panel bar)
+    {
+        var barStyle = UITheme.MakePanel(
+            bg: new Color(0.012f, 0.020f, 0.060f, 0.96f),
+            border: new Color(0.24f, 0.56f, 0.68f, 0.78f),
+            corners: 0,
+            borderWidth: 1,
+            padH: 0,
+            padV: 0);
+        barStyle.ShadowColor = new Color(0.16f, 0.46f, 0.62f, 0.14f);
+        barStyle.ShadowSize = 6;
+        barStyle.ShadowOffset = new Vector2(0f, 1f);
+        bar.AddThemeStyleboxOverride("panel", barStyle);
+
+        bar.Draw += () =>
+        {
+            float w = bar.Size.X;
+            float h = bar.Size.Y;
+            if (w < 20f || h < 8f)
+                return;
+
+            float pulse = 0.5f + 0.5f * Mathf.Sin(_hudAnimTime * 0.62f);
+            bar.DrawRect(new Rect2(0f, 0f, w, h * 0.54f), new Color(0.12f, 0.30f, 0.40f, 0.14f));
+            bar.DrawRect(new Rect2(0f, h * 0.54f, w, h * 0.46f), new Color(0f, 0f, 0f, 0.18f));
+            bar.DrawRect(new Rect2(3f, 3f, w - 6f, h - 6f), new Color(0.82f, 0.96f, 1.00f, 0.07f), false, 1f);
+
+            bar.DrawLine(new Vector2(0f, 1f), new Vector2(w, 1f), new Color(0.90f, 0.98f, 1.00f, 0.25f), 1f);
+            bar.DrawLine(new Vector2(0f, 2f), new Vector2(w, 2f), new Color(UITheme.Cyan.R, UITheme.Cyan.G, UITheme.Cyan.B, 0.17f), 1f);
+            bar.DrawLine(new Vector2(0f, h - 2f), new Vector2(w, h - 2f),
+                new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.21f + pulse * 0.06f), 1f);
+            bar.DrawLine(new Vector2(0f, h - 1f), new Vector2(w, h - 1f), new Color(0f, 0f, 0f, 0.44f), 1f);
+
+            float capW = Mathf.Clamp(w * 0.08f, 48f, 108f);
+            float capX = (w - capW) * 0.5f;
+            bar.DrawRect(new Rect2(capX, 1f, capW, 2f), new Color(0.86f, 0.97f, 1.00f, 0.18f + pulse * 0.04f));
+            bar.DrawRect(new Rect2(capX + 6f, h - 3f, capW - 12f, 2f),
+                new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.24f + pulse * 0.05f));
+        };
+
+        RegisterAnimatedSurface(bar);
+    }
+
+    private void ApplyTopHudControlClusterStyle(PanelContainer rightCluster)
+    {
+        var clusterStyle = UITheme.MakePanel(
+            bg: new Color(0.012f, 0.028f, 0.074f, 0.86f),
+            border: new Color(0.24f, 0.62f, 0.76f, 0.68f),
+            corners: 7,
+            borderWidth: 1,
+            padH: 5,
+            padV: 2);
+        clusterStyle.ShadowColor = new Color(0.22f, 0.66f, 0.82f, 0.12f);
+        clusterStyle.ShadowSize = 6;
+        clusterStyle.ShadowOffset = new Vector2(0f, 1f);
+        rightCluster.AddThemeStyleboxOverride("panel", clusterStyle);
+
+        rightCluster.Draw += () =>
+        {
+            float w = rightCluster.Size.X;
+            float h = rightCluster.Size.Y;
+            if (w < 40f || h < 10f)
+                return;
+
+            float pulse = 0.5f + 0.5f * Mathf.Sin(_hudAnimTime * 0.75f + 0.5f);
+
+            rightCluster.DrawRect(new Rect2(1f, 1f, w - 2f, h - 2f), new Color(0.22f, 0.46f, 0.58f, 0.16f), false, 1f);
+            rightCluster.DrawRect(new Rect2(2f, 2f, w - 4f, h * 0.46f), new Color(0.22f, 0.44f, 0.54f, 0.10f));
+            rightCluster.DrawRect(new Rect2(5f, 3f, w - 10f, h - 6f), new Color(0.84f, 0.97f, 1.00f, 0.08f), false, 1f);
+            rightCluster.DrawLine(new Vector2(7f, 3f), new Vector2(w - 7f, 3f), new Color(0.92f, 0.99f, 1.00f, 0.24f), 1f);
+            rightCluster.DrawLine(new Vector2(7f, h - 3f), new Vector2(w - 7f, h - 3f), new Color(0f, 0f, 0f, 0.40f), 1f);
+
+            float capW = Mathf.Clamp(w * 0.20f, 24f, 62f);
+            float capX = (w - capW) * 0.5f;
+            rightCluster.DrawRect(new Rect2(capX, 2f, capW, 2f), new Color(0.90f, 0.98f, 1.00f, 0.18f + pulse * 0.05f));
+            rightCluster.DrawRect(new Rect2(capX + 2f, h - 4f, capW - 4f, 2f),
+                new Color(UITheme.Cyan.R, UITheme.Cyan.G, UITheme.Cyan.B, 0.22f + pulse * 0.07f));
+
+            float emitH = Mathf.Clamp(h * 0.50f, 12f, 20f);
+            float emitY = h * 0.5f - emitH * 0.5f;
+            rightCluster.DrawRect(new Rect2(2f, emitY, 2f, emitH), new Color(0.52f, 0.94f, 1.00f, 0.30f + pulse * 0.08f));
+            rightCluster.DrawRect(new Rect2(w - 4f, emitY, 2f, emitH), new Color(0.60f, 0.58f, 1.00f, 0.28f + pulse * 0.08f));
+        };
+
+        RegisterAnimatedSurface(rightCluster);
+    }
+
+    private Panel CreateTopHudReadoutChip(
+        Panel parent,
+        float anchorLeft,
+        float anchorRight,
+        float offsetLeft,
+        float offsetRight,
+        float offsetTop,
+        float offsetBottom,
+        Color accent,
+        float alphaScale = 1f)
+    {
+        var chip = new Panel
+        {
+            AnchorLeft = anchorLeft,
+            AnchorRight = anchorRight,
+            AnchorTop = 0f,
+            AnchorBottom = 0f,
+            OffsetLeft = offsetLeft,
+            OffsetRight = offsetRight,
+            OffsetTop = offsetTop,
+            OffsetBottom = offsetBottom,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+
+        var chipStyle = UITheme.MakePanel(
+            bg: new Color(0.010f, 0.028f, 0.070f, 0.72f * alphaScale),
+            border: new Color(accent.R, accent.G, accent.B, 0.54f * alphaScale),
+            corners: 6,
+            borderWidth: 1,
+            padH: 0,
+            padV: 0);
+        chipStyle.ShadowColor = new Color(accent.R, accent.G, accent.B, 0.08f * alphaScale);
+        chipStyle.ShadowSize = 4;
+        chipStyle.ShadowOffset = new Vector2(0f, 1f);
+        chip.AddThemeStyleboxOverride("panel", chipStyle);
+
+        chip.Draw += () =>
+        {
+            float w = chip.Size.X;
+            float h = chip.Size.Y;
+            if (w < 20f || h < 8f)
+                return;
+
+            float pulse = 0.5f + 0.5f * Mathf.Sin(_hudAnimTime * 0.70f + w * 0.01f);
+            chip.DrawRect(new Rect2(2f, 2f, w - 4f, h * 0.48f), new Color(accent.R, accent.G, accent.B, 0.10f * alphaScale));
+            chip.DrawRect(new Rect2(2f, h * 0.50f, w - 4f, h * 0.46f), new Color(0f, 0f, 0f, 0.14f * alphaScale));
+            chip.DrawRect(new Rect2(3f, 3f, w - 6f, h - 6f), new Color(0.88f, 0.98f, 1.00f, 0.05f * alphaScale), false, 1f);
+            chip.DrawLine(new Vector2(5f, 3f), new Vector2(w - 5f, 3f), new Color(0.92f, 0.99f, 1.00f, 0.18f * alphaScale), 1f);
+            chip.DrawLine(new Vector2(5f, h - 3f), new Vector2(w - 5f, h - 3f), new Color(0f, 0f, 0f, 0.26f * alphaScale), 1f);
+            chip.DrawRect(new Rect2((w - 26f) * 0.5f, 2f, 26f, 2f), new Color(0.90f, 0.98f, 1.00f, (0.14f + pulse * 0.05f) * alphaScale));
+            chip.DrawRect(new Rect2((w - 22f) * 0.5f, h - 4f, 22f, 2f), new Color(accent.R, accent.G, accent.B, (0.18f + pulse * 0.06f) * alphaScale));
+        };
+
+        parent.AddChild(chip);
+        parent.MoveChild(chip, 0);
+        RegisterAnimatedSurface(chip);
+        return chip;
+    }
+
+    private void ApplyMandateBannerStyle(Panel banner)
+    {
+        var style = UITheme.MakePanel(
+            bg: new Color(0.10f, 0.06f, 0.01f, 0.90f),
+            border: new Color(1.00f, 0.74f, 0.30f, 0.74f),
+            corners: 0,
+            borderWidth: 1,
+            padH: 0,
+            padV: 0);
+        banner.AddThemeStyleboxOverride("panel", style);
+
+        banner.Draw += () =>
+        {
+            float w = banner.Size.X;
+            float h = banner.Size.Y;
+            if (w < 20f || h < 6f)
+                return;
+
+            banner.DrawRect(new Rect2(0f, 0f, w, h * 0.48f), new Color(1.00f, 0.72f, 0.24f, 0.11f));
+            banner.DrawRect(new Rect2(0f, h * 0.52f, w, h * 0.48f), new Color(0f, 0f, 0f, 0.18f));
+            banner.DrawLine(new Vector2(0f, 1f), new Vector2(w, 1f), new Color(1.00f, 0.88f, 0.60f, 0.36f), 1f);
+            banner.DrawLine(new Vector2(0f, h - 1f), new Vector2(w, h - 1f), new Color(0f, 0f, 0f, 0.36f), 1f);
+        };
+    }
+
+    private void ApplyTopHudButtonStyle(Button btn, Color accent)
+    {
+        bool limeAccent = accent == UITheme.Lime;
+        Color normalBg = limeAccent ? new Color(0.036f, 0.092f, 0.034f) : new Color(0.020f, 0.040f, 0.090f);
+        Color hoverBg  = limeAccent ? new Color(0.060f, 0.145f, 0.048f) : new Color(0.038f, 0.068f, 0.125f);
+        Color pressBg  = limeAccent ? new Color(0.024f, 0.064f, 0.024f) : new Color(0.018f, 0.030f, 0.078f);
+
+        btn.AddThemeStyleboxOverride("normal", MakeTopHudButtonStyle(
+            normalBg,
+            new Color(accent.R, accent.G, accent.B, 0.74f),
+            borderWidth: 1));
+        btn.AddThemeStyleboxOverride("hover", MakeTopHudButtonStyle(hoverBg, accent, borderWidth: 2, glowAlpha: 0.19f, glowSize: 6, glowColor: accent));
+        btn.AddThemeStyleboxOverride("focus", MakeTopHudButtonStyle(hoverBg, accent, borderWidth: 2, glowAlpha: 0.15f, glowSize: 5, glowColor: accent));
+        btn.AddThemeStyleboxOverride("pressed", MakeTopHudButtonStyle(
+            pressBg,
+            new Color(accent.R, accent.G, accent.B, 0.75f),
+            borderWidth: 2,
+            glowAlpha: 0.10f,
+            glowSize: 3,
+            glowColor: accent));
+        btn.AddThemeFontOverride("font", UITheme.SemiBold);
+        btn.AddThemeColorOverride("font_color", limeAccent ? new Color(0.92f, 0.98f, 0.86f) : new Color(0.84f, 0.96f, 1.00f));
+        btn.AddThemeColorOverride("font_hover_color", Colors.White);
+        btn.AddThemeColorOverride("font_pressed_color", limeAccent ? new Color(0.84f, 0.94f, 0.72f) : new Color(0.72f, 0.90f, 0.96f));
+        btn.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.58f));
+        btn.AddThemeConstantOverride("outline_size", 1);
+        UITheme.ApplyMenuButtonFinish(btn, accent, 0.10f, 0.13f);
+        btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+
+        btn.Draw += () =>
+        {
+            float w = btn.Size.X;
+            float h = btn.Size.Y;
+            if (w < 10f || h < 8f)
+                return;
+
+            float sweepW = Mathf.Clamp(w * 0.28f, 12f, 28f);
+            float sweepSpan = Mathf.Max(1f, w - 12f - sweepW);
+            float sweepX = 6f + ((_hudAnimTime * (limeAccent ? 0.24f : 0.18f)) % 1f) * sweepSpan;
+            btn.DrawRect(new Rect2(sweepX, 4f, sweepW, 2f), new Color(0.88f, 0.98f, 1.00f, 0.10f));
+            btn.DrawRect(new Rect2(4f, 4f, w - 8f, h - 8f), new Color(0.88f, 0.96f, 1.00f, 0.08f), false, 1f);
+            btn.DrawLine(new Vector2(6f, 3f), new Vector2(w - 6f, 3f), new Color(accent.R, accent.G, accent.B, 0.23f), 1f);
+            btn.DrawLine(new Vector2(6f, h - 3f), new Vector2(w - 6f, h - 3f), new Color(0f, 0f, 0f, 0.34f), 1f);
+        };
+
+        RegisterAnimatedSurface(btn);
+    }
+
+    private static StyleBoxFlat MakeTopHudButtonStyle(
+        Color bg,
+        Color border,
+        int borderWidth,
+        float glowAlpha = 0f,
+        int glowSize = 0,
+        Color? glowColor = null)
+    {
+        var style = UITheme.MakeBtn(
+            bg,
+            border,
+            border: borderWidth,
+            corners: 7,
+            glowAlpha: glowAlpha,
+            glowSize: glowSize,
+            glowColor: glowColor);
+        style.ContentMarginLeft = 10;
+        style.ContentMarginRight = 10;
+        style.ContentMarginTop = 4;
+        style.ContentMarginBottom = 4;
+        return style;
+    }
+
+    private void RegisterAnimatedSurface(Control control)
+    {
+        if (!_animatedSurfaces.Contains(control))
+            _animatedSurfaces.Add(control);
     }
 
     private void OnMobileMenuPressed()

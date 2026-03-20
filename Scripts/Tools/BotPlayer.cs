@@ -177,6 +177,26 @@ public class BotPlayer
         "rift_prism",
     };
 
+    private static readonly string[] SurvivalStabilityModPriority =
+    {
+        "hair_trigger",
+        "momentum",
+        "feedback_loop",
+        "slow",
+        "focus_lens",
+        "overreach",
+    };
+
+    private static readonly string[] HardPanicModPriority =
+    {
+        "slow",
+        "focus_lens",
+        "hair_trigger",
+        "feedback_loop",
+        "overreach",
+        "momentum",
+    };
+
     private static readonly int[] CenterSlotPreference = { 2, 3, 1, 4, 0, 5 };
 
     private static string NormalizeSpectacleMod(string modId) =>
@@ -201,6 +221,218 @@ public class BotPlayer
         return slot.Tower.Modifiers
             .Select(m => NormalizeSpectacleMod(m.ModifierId))
             .Count(id => SpectacleDefinitions.IsSupported(id) && !allowed.Contains(id));
+    }
+
+    private static DifficultyMode ResolveDifficultyMode() =>
+        SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy;
+
+    private static bool IsPressureMap(string? mapId) =>
+        string.Equals(mapId, "gauntlet", StringComparison.Ordinal) ||
+        string.Equals(mapId, "arena_classic", StringComparison.Ordinal);
+
+    private static WaveConfig? TryGetWaveConfig(RunState s, DifficultyMode difficulty)
+    {
+        try
+        {
+            int clampedWave = Math.Clamp(s.WaveIndex, 0, Balance.TotalWaves - 1);
+            return DataLoader.GetWaveConfig(clampedWave, difficulty, s.SelectedMapId);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static bool SlotHasModifier(SlotInstance slot, string modId) =>
+        slot.Tower?.Modifiers.Any(m => m.ModifierId == modId) == true;
+
+    private static int CountTowerModifiers(RunState s, params string[] modIds)
+    {
+        if (modIds.Length == 0) return 0;
+        var wanted = new HashSet<string>(modIds, StringComparer.Ordinal);
+        return s.Slots.Sum(sl =>
+            sl.Tower?.Modifiers.Count(m => wanted.Contains(m.ModifierId)) ?? 0);
+    }
+
+    private static int ScoreFastTowerForCadence(string? towerId) => towerId switch
+    {
+        "rapid_shooter" => 4,
+        "chain_tower"   => 3,
+        "rift_prism"    => 2,
+        "heavy_cannon"  => 1,
+        _               => 0
+    };
+
+    private static int ScoreBurstTowerForSnap(string? towerId) => towerId switch
+    {
+        "heavy_cannon"  => 4,
+        "rapid_shooter" => 3,
+        "chain_tower"   => 2,
+        "rift_prism"    => 1,
+        _               => 0
+    };
+
+    private int CountStabilityMods(RunState s) =>
+        CountTowerModifiers(s,
+            "hair_trigger",
+            "momentum",
+            "feedback_loop",
+            "slow",
+            "focus_lens",
+            "overreach");
+
+    private bool IsHardPanicState(RunState s, DifficultyMode difficulty, int picksSoFar)
+    {
+        if (difficulty != DifficultyMode.Hard)
+            return false;
+
+        if (s.Lives <= 4)
+            return true;
+
+        var wave = TryGetWaveConfig(s, difficulty);
+        if (wave == null)
+            return s.Lives <= 6 && (s.WaveIndex < 9 || picksSoFar < 9);
+
+        int speedThreat = wave.SwiftCount + wave.ReverseCount * 2;
+        bool hasSpeedPressure = wave.ReverseCount > 0 || wave.SwiftCount >= 2 || speedThreat >= 3;
+        if (!hasSpeedPressure)
+            return false;
+
+        bool stillScaling = s.WaveIndex < 10 || picksSoFar < 10;
+        return stillScaling || s.Lives <= 7;
+    }
+
+    private bool ShouldApplySpectacleSurvivalGate(RunState s, DifficultyMode difficulty, int picksSoFar)
+    {
+        int towerCount = s.Slots.Count(sl => sl.Tower != null);
+        int modCount = s.Slots.Sum(sl => sl.Tower?.Modifiers.Count ?? 0);
+        bool early = s.WaveIndex < 6 || picksSoFar < 6;
+
+        if (s.Lives <= 6)
+            return true;
+
+        if (towerCount == 0)
+            return true;
+
+        if (towerCount == 1 && modCount == 0)
+            return true;
+
+        if (difficulty == DifficultyMode.Hard && s.WaveIndex < 9 && (towerCount < 2 || modCount < 2))
+            return true;
+
+        return early && towerCount < 2;
+    }
+
+    private DraftPick? TryPickPriorityMod(List<DraftOption> opts, RunState s, List<int> eligible, string[] priority)
+    {
+        if (eligible.Count == 0) return null;
+
+        foreach (string modId in priority)
+        {
+            var mod = FindModOption(opts, modId);
+            if (mod == null) continue;
+
+            int slot = modId switch
+            {
+                "hair_trigger" => eligible
+                    .Where(i => IsFastTower(s.Slots[i].Tower?.TowerId) && !SlotHasModifier(s.Slots[i], "hair_trigger"))
+                    .OrderByDescending(i => ScoreFastTowerForCadence(s.Slots[i].Tower?.TowerId))
+                    .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .FirstOrDefault(-1),
+
+                "momentum" => eligible
+                    .Where(i => IsFastTower(s.Slots[i].Tower?.TowerId) && !SlotHasModifier(s.Slots[i], "momentum"))
+                    .OrderByDescending(i => ScoreFastTowerForCadence(s.Slots[i].Tower?.TowerId))
+                    .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .FirstOrDefault(-1),
+
+                "feedback_loop" => eligible
+                    .Where(i => IsFastTower(s.Slots[i].Tower?.TowerId) && !SlotHasModifier(s.Slots[i], "feedback_loop"))
+                    .OrderByDescending(i => ScoreFastTowerForCadence(s.Slots[i].Tower?.TowerId))
+                    .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .FirstOrDefault(-1),
+
+                "focus_lens" => eligible
+                    .Where(i => s.Slots[i].Tower?.TowerId != "marker_tower" && !SlotHasModifier(s.Slots[i], "focus_lens"))
+                    .OrderByDescending(i => ScoreBurstTowerForSnap(s.Slots[i].Tower?.TowerId))
+                    .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .FirstOrDefault(-1),
+
+                "slow" => eligible
+                    .Where(i => s.Slots[i].Tower?.TowerId != "marker_tower" && !SlotHasModifier(s.Slots[i], "slow"))
+                    .OrderByDescending(i => ScoreFastTowerForCadence(s.Slots[i].Tower?.TowerId))
+                    .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .FirstOrDefault(-1),
+
+                "overreach" => eligible
+                    .Where(i => s.Slots[i].Tower?.TowerId != "marker_tower" && !SlotHasModifier(s.Slots[i], "overreach"))
+                    .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .FirstOrDefault(-1),
+
+                _ => -1
+            };
+
+            if (slot >= 0)
+                return new DraftPick(mod, slot);
+        }
+
+        return null;
+    }
+
+    private DraftPick? TryPickPriorityTower(List<DraftOption> opts, List<int> empty, params string[] towerIds)
+    {
+        if (empty.Count == 0) return null;
+        var tower = FindTowerOption(opts, towerIds);
+        return tower == null ? null : new DraftPick(tower, empty[0]);
+    }
+
+    private DraftPick? TryPickHardPanicOverride(
+        List<DraftOption> opts,
+        RunState s,
+        List<int> empty,
+        List<int> eligible,
+        DifficultyMode difficulty,
+        int picksSoFar,
+        bool allowRiftTower)
+    {
+        if (!IsHardPanicState(s, difficulty, picksSoFar))
+            return null;
+
+        var panicMod = TryPickPriorityMod(opts, s, eligible, HardPanicModPriority);
+        if (panicMod != null)
+            return panicMod;
+
+        return allowRiftTower
+            ? TryPickPriorityTower(opts, empty, "rapid_shooter", "chain_tower", "heavy_cannon", "marker_tower", "rift_prism")
+            : TryPickPriorityTower(opts, empty, "rapid_shooter", "chain_tower", "heavy_cannon", "marker_tower");
+    }
+
+    private DraftPick? TryPickSpectacleSurvivalGate(
+        List<DraftOption> opts,
+        RunState s,
+        List<int> empty,
+        List<int> eligible,
+        DifficultyMode difficulty,
+        int picksSoFar)
+    {
+        if (!ShouldApplySpectacleSurvivalGate(s, difficulty, picksSoFar))
+            return null;
+
+        int towerCount = s.Slots.Count(sl => sl.Tower != null);
+        if (towerCount < 2)
+        {
+            var tower = TryPickPriorityTower(opts, empty, "rapid_shooter", "chain_tower", "marker_tower", "heavy_cannon", "rift_prism");
+            if (tower != null) return tower;
+        }
+
+        var modPick = TryPickPriorityMod(
+            opts,
+            s,
+            eligible,
+            IsHardPanicState(s, difficulty, picksSoFar) ? HardPanicModPriority : SurvivalStabilityModPriority);
+        if (modPick != null) return modPick;
+
+        return TryPickPriorityTower(opts, empty, "rapid_shooter", "chain_tower", "marker_tower", "heavy_cannon", "rift_prism");
     }
 
     private int PickMostCenteredEmptySlot(RunState s)
@@ -893,8 +1125,9 @@ public class BotPlayer
     {
         var empty    = EmptySlots(s);
         var eligible = ModSlots(s);
+        DifficultyMode difficulty = ResolveDifficultyMode();
         bool hasMarker = s.Slots.Any(sl => sl.Tower?.TowerId == "marker_tower");
-        bool isHard = SettingsManager.Instance?.Difficulty == DifficultyMode.Hard;
+        bool isHard = difficulty == DifficultyMode.Hard;
         int riftCount = s.Slots.Count(sl => sl.Tower?.TowerId == "rift_prism");
         int rapidCount = s.Slots.Count(sl => sl.Tower?.TowerId == "rapid_shooter");
         int chainCount = s.Slots.Count(sl => sl.Tower?.TowerId == "chain_tower");
@@ -904,6 +1137,15 @@ public class BotPlayer
         int picksSoFar = towerCount + totalModCount;
         bool earlyGame = s.WaveIndex < 6 || picksSoFar < 6;
         bool needsStability = isHard || earlyGame || s.Lives <= 6;
+        bool pressureMap = IsPressureMap(s.SelectedMapId);
+        int stabilityModCount = CountStabilityMods(s);
+        bool mapFallbackActive = pressureMap &&
+                                 ((difficulty == DifficultyMode.Hard && (s.WaveIndex < 7 || picksSoFar < 7)) ||
+                                  s.Lives <= 5);
+        bool readyForFirstRift = !mapFallbackActive ||
+                                 towerCount >= 2 ||
+                                 stabilityModCount >= 1 ||
+                                 ((rapidCount + chainCount) >= 1 && picksSoFar >= 4);
         int chainReactionOnRift = s.Slots.Sum(sl =>
             sl.Tower?.TowerId == "rift_prism"
                 ? sl.Tower.Modifiers.Count(m => m.ModifierId == "chain_reaction")
@@ -911,6 +1153,18 @@ public class BotPlayer
 
         if (eligible.Count > 0)
         {
+            var hardPanicPick = TryPickHardPanicOverride(
+                opts, s, empty, eligible, difficulty, picksSoFar, allowRiftTower: readyForFirstRift || riftCount > 0);
+            if (hardPanicPick != null)
+                return hardPanicPick;
+
+            if (mapFallbackActive && riftCount == 0)
+            {
+                var stabilityPick = TryPickPriorityMod(opts, s, eligible, SurvivalStabilityModPriority);
+                if (stabilityPick != null)
+                    return stabilityPick;
+            }
+
             if (hasMarker)
             {
                 var ew = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "exploit_weakness");
@@ -979,7 +1233,7 @@ public class BotPlayer
             }
 
             var split = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "split_shot");
-            if (split != null)
+            if (split != null && (readyForFirstRift || riftCount > 0))
             {
                 int slot = eligible
                     .Where(i => s.Slots[i].Tower?.TowerId == "rift_prism" &&
@@ -1005,7 +1259,7 @@ public class BotPlayer
             }
 
             var chainReaction = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "chain_reaction");
-            if (chainReaction != null && chainReactionOnRift < Math.Max(1, riftCount))
+            if (chainReaction != null && (readyForFirstRift || riftCount > 0) && chainReactionOnRift < Math.Max(1, riftCount))
             {
                 int slot = eligible
                     .Where(i => s.Slots[i].Tower?.TowerId == "rift_prism" &&
@@ -1046,7 +1300,7 @@ public class BotPlayer
             }
 
             var feedback = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "feedback_loop");
-            if (feedback != null)
+            if (feedback != null && (readyForFirstRift || riftCount > 0))
             {
                 int slot = eligible
                     .Where(i => s.Slots[i].Tower?.TowerId == "rift_prism")
@@ -1141,6 +1395,11 @@ public class BotPlayer
 
         if (empty.Count > 0)
         {
+            var hardPanicTower = TryPickHardPanicOverride(
+                opts, s, empty, eligible, difficulty, picksSoFar, allowRiftTower: readyForFirstRift || riftCount > 0);
+            if (hardPanicTower != null)
+                return hardPanicTower;
+
             // Open with a DPS tower first - Rift Sapper is a setup tower, not an opener.
             if (towerCount == 0)
             {
@@ -1150,8 +1409,14 @@ public class BotPlayer
                 if (opener != null) return new DraftPick(opener, empty[0]);
             }
 
+            if (mapFallbackActive && !readyForFirstRift && riftCount == 0)
+            {
+                var safetyOpener = FindTowerOption(opts, "rapid_shooter", "chain_tower", "heavy_cannon", "marker_tower");
+                if (safetyOpener != null) return new DraftPick(safetyOpener, empty[0]);
+            }
+
             // Anchor with Rift once DPS is established, then scale to extra Rifts.
-            if (riftCount == 0 && towerCount >= 1)
+            if (riftCount == 0 && towerCount >= 1 && readyForFirstRift)
             {
                 var rift = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rift_prism");
                 if (rift != null) return new DraftPick(rift, empty[0]);
@@ -1177,7 +1442,7 @@ public class BotPlayer
                 if (chainPreferred != null) return new DraftPick(chainPreferred, empty[0]);
             }
 
-            if (riftCount < 2 && (hasMarker || towerCount >= 3))
+            if (riftCount < 2 && (hasMarker || towerCount >= 3) && (readyForFirstRift || riftCount > 0))
             {
                 var rift = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rift_prism");
                 if (rift != null) return new DraftPick(rift, empty[0]);
@@ -1198,7 +1463,8 @@ public class BotPlayer
             var heavyFallback = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "heavy_cannon");
             if (heavyFallback != null) return new DraftPick(heavyFallback, empty[0]);
             var riftExtra = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rift_prism");
-            if (riftExtra != null) return new DraftPick(riftExtra, empty[0]);
+            if (riftExtra != null && (readyForFirstRift || riftCount > 0 || towerCount >= 4))
+                return new DraftPick(riftExtra, empty[0]);
         }
 
         return PickGreedyDps(opts, s);
@@ -1209,10 +1475,22 @@ public class BotPlayer
     {
         var empty = EmptySlots(s);
         var eligible = ModSlots(s);
+        DifficultyMode difficulty = ResolveDifficultyMode();
+        int towerCount = s.Slots.Count(sl => sl.Tower != null);
+        int totalModCount = s.Slots.Sum(sl => sl.Tower?.Modifiers.Count ?? 0);
+        int picksSoFar = towerCount + totalModCount;
         var offeredSpectacleMods = SpectacleModsOffered(opts)
             .Select(o => NormalizeSpectacleMod(o.Id))
             .Distinct()
             .ToHashSet(StringComparer.Ordinal);
+
+        var survivalGatePick = TryPickSpectacleSurvivalGate(opts, s, empty, eligible, difficulty, picksSoFar);
+        if (survivalGatePick != null)
+            return survivalGatePick;
+
+        var hardPanicPick = TryPickHardPanicOverride(opts, s, empty, eligible, difficulty, picksSoFar, allowRiftTower: true);
+        if (hardPanicPick != null)
+            return hardPanicPick;
 
         // EW top priority until first copy if marker is placed
         if (eligible.Count > 0)
@@ -1281,10 +1559,22 @@ public class BotPlayer
     {
         var empty = EmptySlots(s);
         var eligible = ModSlots(s);
+        DifficultyMode difficulty = ResolveDifficultyMode();
+        int towerCount = s.Slots.Count(sl => sl.Tower != null);
+        int totalModCount = s.Slots.Sum(sl => sl.Tower?.Modifiers.Count ?? 0);
+        int picksSoFar = towerCount + totalModCount;
         var offeredNormalized = SpectacleModsOffered(opts)
             .Select(o => NormalizeSpectacleMod(o.Id))
             .Distinct()
             .ToHashSet(StringComparer.Ordinal);
+
+        var survivalGatePick = TryPickSpectacleSurvivalGate(opts, s, empty, eligible, difficulty, picksSoFar);
+        if (survivalGatePick != null)
+            return survivalGatePick;
+
+        var hardPanicPick = TryPickHardPanicOverride(opts, s, empty, eligible, difficulty, picksSoFar, allowRiftTower: true);
+        if (hardPanicPick != null)
+            return hardPanicPick;
 
         // EW top priority until first copy if marker is placed
         if (eligible.Count > 0)
@@ -1378,7 +1668,19 @@ public class BotPlayer
     {
         var empty = EmptySlots(s);
         var eligible = ModSlots(s);
+        DifficultyMode difficulty = ResolveDifficultyMode();
+        int towerCount = s.Slots.Count(sl => sl.Tower != null);
+        int totalModCount = s.Slots.Sum(sl => sl.Tower?.Modifiers.Count ?? 0);
+        int picksSoFar = towerCount + totalModCount;
         var offeredSpectacle = SpectacleModsOffered(opts).ToList();
+
+        var survivalGatePick = TryPickSpectacleSurvivalGate(opts, s, empty, eligible, difficulty, picksSoFar);
+        if (survivalGatePick != null)
+            return survivalGatePick;
+
+        var hardPanicPick = TryPickHardPanicOverride(opts, s, empty, eligible, difficulty, picksSoFar, allowRiftTower: true);
+        if (hardPanicPick != null)
+            return hardPanicPick;
 
         // EW top priority until first copy if marker is placed
         if (eligible.Count > 0)

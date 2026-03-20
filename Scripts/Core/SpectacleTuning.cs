@@ -139,12 +139,14 @@ public sealed class SpectacleTuningProfile
     {
         ["overkill"]   = 0.879f,
         ["split_shot"] = 0.8719f,
+        // Chain-specific meter pacing trim to avoid reducing overall surge power globally.
+        ["chain_reaction"] = 0.94f,
     };
 
     [JsonPropertyName("event_scalar_multipliers")]
     public Dictionary<string, float> EventScalarMultipliers { get; set; } = new(StringComparer.Ordinal)
     {
-        ["chain_reaction"] = 0.7224f,
+        ["chain_reaction"] = 0.68f,
         ["split_shot"]     = 1.2471f,
         ["feedback_loop"]  = 0.9835f,
         ["hair_trigger"]   = 0.7396f,
@@ -153,7 +155,7 @@ public sealed class SpectacleTuningProfile
     [JsonPropertyName("token_cap_multipliers")]
     public Dictionary<string, float> TokenCapMultipliers { get; set; } = new(StringComparer.Ordinal)
     {
-        ["chain_reaction"] = 1.0174f,
+        ["chain_reaction"] = 0.92f,
         ["split_shot"]     = 0.9327f,
     };
 

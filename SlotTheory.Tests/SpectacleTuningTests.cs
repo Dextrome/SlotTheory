@@ -178,4 +178,20 @@ public class SpectacleTuningTests
         Assert.Equal(1.28f, profile.NormalEnemyHpMultiplier, 3);
         Assert.Equal(1.3f, profile.ResolveGainMultiplier("overkill"), 3);
     }
+
+    [Fact]
+    public void BaselineProfile_HasChainSpecificSurgeTrimOverrides()
+    {
+        var profile = new SpectacleTuningProfile();
+
+        Assert.Equal(0.94f, profile.ResolveGainMultiplier(SpectacleDefinitions.ChainReaction), 3);
+        Assert.Equal(
+            profile.EventScalarMultiplier * 0.68f,
+            profile.ResolveEventScalarMultiplier(SpectacleDefinitions.ChainReaction),
+            3);
+        Assert.Equal(
+            profile.TokenCapMultiplier * 0.92f,
+            profile.ResolveTokenCapMultiplier(SpectacleDefinitions.ChainReaction),
+            3);
+    }
 }

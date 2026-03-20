@@ -324,7 +324,7 @@ public partial class Settings : Node
 
     private void OnToggleScreenFilter()
     {
-        bool next = !(SettingsManager.Instance?.ScreenFilterEnabled ?? false);
+        bool next = !(SettingsManager.Instance?.ScreenFilterEnabled ?? true);
         SettingsManager.Instance?.SetScreenFilterEnabled(next);
         SettingsManager.Instance?.SetPhosphorGridEnabled(next);
         UpdateValueButton(_screenFilterBtn, OnOffText(next), next);
