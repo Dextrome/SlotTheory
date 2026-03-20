@@ -23,6 +23,7 @@ public partial class SettingsManager : Node
     private const string SecAudio    = "audio";
     private const string SecDisp     = "display";
     private const string SecIdentity = "identity";
+    private const string SecSurgeHinting = "surge_hinting";
     private const string SecProfileFlags = "profile_flags";
     private const string LegacyDevModeKey = "dev_mode";
 
@@ -44,6 +45,7 @@ public partial class SettingsManager : Node
     public bool   BuildNameTutorialSeen { get; private set; } = false;
     public bool   DemoCompleteNotified { get; private set; } = false;
     public bool   TutorialCompleted    { get; private set; } = false;
+    public SurgeHintProfileState SurgeHintProfile { get; } = new();
     /// <summary>Transient flag - set by MainMenu before loading Main.tscn to request a tutorial run. Not persisted.</summary>
     public bool   PendingTutorialRun   { get; set; } = false;
 
@@ -170,8 +172,16 @@ public partial class SettingsManager : Node
         RunsStarted = 0;
         SurgeTutorialSeen = false;
         BuildNameTutorialSeen = false;
+        ResetSurgeHintingProgress();
+    }
+
+    public void ResetSurgeHintingProgress()
+    {
+        SurgeHintProfile.Reset();
         SaveAccount();
     }
+
+    public void SaveSurgeHintingProgress() => SaveAccount();
 
     // ── Public API - display setters ─────────────────────────────────────
 
@@ -319,6 +329,7 @@ public partial class SettingsManager : Node
             SurgeTutorialSeen     = (bool)cfg.GetValue(SecIdentity, "surge_tutorial_seen",      false);
             BuildNameTutorialSeen = (bool)cfg.GetValue(SecIdentity, "build_name_tutorial_seen", false);
             TutorialCompleted     = (bool)cfg.GetValue(SecIdentity, "tutorial_completed",        false);
+            LoadSurgeHintProfile(cfg);
             DevMode = ReadHiddenDevModeForProfile(cfg, PlayerId, out bool migratedFromLegacy);
             if (migratedFromLegacy)
                 SaveAccount();
@@ -369,6 +380,7 @@ public partial class SettingsManager : Node
         cfg.SetValue(SecIdentity, "surge_tutorial_seen",      SurgeTutorialSeen);
         cfg.SetValue(SecIdentity, "build_name_tutorial_seen", BuildNameTutorialSeen);
         cfg.SetValue(SecIdentity, "tutorial_completed",        TutorialCompleted);
+        SaveSurgeHintProfile(cfg);
         if (cfg.Save(SavePath) == Error.Ok)
             SteamCloudSync.Push(ProjectSettings.GlobalizePath(SavePath), "settings.cfg");
     }
@@ -409,4 +421,52 @@ public partial class SettingsManager : Node
 
     private static string BuildHiddenDevModeProfileKey(string playerId)
         => string.IsNullOrWhiteSpace(playerId) ? "dev_mode_default" : $"dev_mode_{playerId}";
+
+    private void LoadSurgeHintProfile(ConfigFile cfg)
+    {
+        SurgeHintProfile.CombatFillsLifetimeShows = (int)cfg.GetValue(SecSurgeHinting, "combat_fills_shown", 0);
+        SurgeHintProfile.TowerReadyLifetimeShows = (int)cfg.GetValue(SecSurgeHinting, "tower_ready_shown", 0);
+        SurgeHintProfile.GlobalContributionLifetimeShows = (int)cfg.GetValue(SecSurgeHinting, "global_contrib_shown", 0);
+        SurgeHintProfile.GlobalActivateLifetimeShows = (int)cfg.GetValue(SecSurgeHinting, "global_activate_shown", 0);
+        SurgeHintProfile.ComboUnlockLifetimeShows = (int)cfg.GetValue(SecSurgeHinting, "combo_unlock_shown", 0);
+
+        SurgeHintProfile.CombatFillsRetired = (bool)cfg.GetValue(SecSurgeHinting, "combat_fills_retired", false);
+        SurgeHintProfile.TowerReadyRetired = (bool)cfg.GetValue(SecSurgeHinting, "tower_ready_retired", false);
+        SurgeHintProfile.GlobalContributionRetired = (bool)cfg.GetValue(SecSurgeHinting, "global_contrib_retired", false);
+        SurgeHintProfile.GlobalActivateRetired = (bool)cfg.GetValue(SecSurgeHinting, "global_activate_retired", false);
+        SurgeHintProfile.ComboUnlockRetired = (bool)cfg.GetValue(SecSurgeHinting, "combo_unlock_retired", false);
+
+        SurgeHintProfile.GlobalActivationsTotal = (int)cfg.GetValue(SecSurgeHinting, "global_activations_total", 0);
+        SurgeHintProfile.GlobalActivationRuns = (int)cfg.GetValue(SecSurgeHinting, "global_activation_runs", 0);
+        SurgeHintProfile.WinsWithGlobalActivation = (int)cfg.GetValue(SecSurgeHinting, "wins_with_global_activation", 0);
+        SurgeHintProfile.ComboTowersBuiltTotal = (int)cfg.GetValue(SecSurgeHinting, "combo_towers_built_total", 0);
+        SurgeHintProfile.QuickGlobalActivationsTotal = (int)cfg.GetValue(SecSurgeHinting, "quick_global_activations_total", 0);
+
+        SurgeHintProfile.LastPostLossTipId = (string)cfg.GetValue(SecSurgeHinting, "last_post_loss_tip_id", "");
+        SurgeHintProfile.LastPostLossTipRepeatCount = (int)cfg.GetValue(SecSurgeHinting, "last_post_loss_tip_repeat_count", 0);
+    }
+
+    private void SaveSurgeHintProfile(ConfigFile cfg)
+    {
+        cfg.SetValue(SecSurgeHinting, "combat_fills_shown", SurgeHintProfile.CombatFillsLifetimeShows);
+        cfg.SetValue(SecSurgeHinting, "tower_ready_shown", SurgeHintProfile.TowerReadyLifetimeShows);
+        cfg.SetValue(SecSurgeHinting, "global_contrib_shown", SurgeHintProfile.GlobalContributionLifetimeShows);
+        cfg.SetValue(SecSurgeHinting, "global_activate_shown", SurgeHintProfile.GlobalActivateLifetimeShows);
+        cfg.SetValue(SecSurgeHinting, "combo_unlock_shown", SurgeHintProfile.ComboUnlockLifetimeShows);
+
+        cfg.SetValue(SecSurgeHinting, "combat_fills_retired", SurgeHintProfile.CombatFillsRetired);
+        cfg.SetValue(SecSurgeHinting, "tower_ready_retired", SurgeHintProfile.TowerReadyRetired);
+        cfg.SetValue(SecSurgeHinting, "global_contrib_retired", SurgeHintProfile.GlobalContributionRetired);
+        cfg.SetValue(SecSurgeHinting, "global_activate_retired", SurgeHintProfile.GlobalActivateRetired);
+        cfg.SetValue(SecSurgeHinting, "combo_unlock_retired", SurgeHintProfile.ComboUnlockRetired);
+
+        cfg.SetValue(SecSurgeHinting, "global_activations_total", SurgeHintProfile.GlobalActivationsTotal);
+        cfg.SetValue(SecSurgeHinting, "global_activation_runs", SurgeHintProfile.GlobalActivationRuns);
+        cfg.SetValue(SecSurgeHinting, "wins_with_global_activation", SurgeHintProfile.WinsWithGlobalActivation);
+        cfg.SetValue(SecSurgeHinting, "combo_towers_built_total", SurgeHintProfile.ComboTowersBuiltTotal);
+        cfg.SetValue(SecSurgeHinting, "quick_global_activations_total", SurgeHintProfile.QuickGlobalActivationsTotal);
+
+        cfg.SetValue(SecSurgeHinting, "last_post_loss_tip_id", SurgeHintProfile.LastPostLossTipId ?? "");
+        cfg.SetValue(SecSurgeHinting, "last_post_loss_tip_repeat_count", SurgeHintProfile.LastPostLossTipRepeatCount);
+    }
 }

@@ -93,3 +93,5 @@ bot_results3/
 bot_results4/
 bot_results5/
 CAMPAIGN.MD
+.codex/environments/environment.toml
+.CREATOR_LIST.MD

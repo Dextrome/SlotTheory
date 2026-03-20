@@ -121,6 +121,13 @@ public partial class GameController : Node
 	private readonly System.Collections.Generic.Dictionary<SlotTheory.Entities.ITowerView, (ulong firstMs, int count)> _feedbackLoopBurst = new();
 	private readonly System.Collections.Generic.Dictionary<string, int> _modifierProcCounts = new();
 	private readonly System.Collections.Generic.Dictionary<string, int> _surgeArchetypeCounts = new();
+	private readonly HashSet<ITowerView> _comboTowersSeenThisRun = new();
+	private readonly SurgeHintRuntimeState _surgeHintRuntime = new();
+	private readonly Dictionary<ITowerView, float> _surgeHintLastMeterByTower = new();
+	private bool _globalReadyWindowOpen = false;
+	private float _globalReadySincePlayTime = 0f;
+	private ulong _globalActivateHintToken = 0;
+	private bool _initialDraftMusicPrimed = false;
 	private readonly Queue<UnlockRevealRequest> _pendingUnlockReveals = new();
 	private bool _undoPlacementActive = false;
 	private bool _cancelBtnShown = false;
@@ -189,6 +196,7 @@ public partial class GameController : Node
 	public override void _Ready()
 	{
 		Instance = this;
+		SoundManager.Instance?.SetMenuAmbientEnabled(false);
 		_isMobilePlatform = MobileOptimization.IsMobile();
 		EnemyInstance.SetSpectacleSpeedMultiplier(1f);
 		DataLoader.LoadAll();
@@ -339,6 +347,7 @@ public partial class GameController : Node
 		}
 
 		_runState = new RunState();
+		_initialDraftMusicPrimed = false;
 		if (_botRunner == null)
 			SettingsManager.Instance?.IncrementRunsStarted();
 		if (_botRunner != null)
@@ -426,7 +435,11 @@ public partial class GameController : Node
 		_hudPanel.ResetSpeed();   // Engine.TimeScale persists across scene loads; always reset on fresh run
 		GetViewport().SizeChanged += () => CallDeferred(MethodName.CenterWorldNode);
 		if (!TryRestoreMobileSnapshot())
-			AnimateTileDropIn(() => AnimateMapReveal(() => AnimateSlotDropIn(() => ShowStageIntroThenContinue(StartDraftPhase))));
+			AnimateTileDropIn(() => AnimateMapReveal(() => AnimateSlotDropIn(() =>
+			{
+				SoundManager.Instance?.EnsureBackgroundMusicStarted();
+				ShowStageIntroThenContinue(StartDraftPhase);
+			})));
 	}
 
 	public override void _Process(double delta)
@@ -480,6 +493,8 @@ public partial class GameController : Node
 		{
 			_spectacleSystem.Update((float)delta);
 			UpdateExplosionResidues((float)delta);
+			if (_globalReadyWindowOpen && _spectacleSystem.IsGlobalSurgeReady && !GetTree().Paused)
+				_runState.SurgeHintTelemetry.GlobalReadyUnusedSeconds += (float)delta;
 		}
 
 		// Surge chain reset timer
@@ -552,9 +567,9 @@ public partial class GameController : Node
 		// Show/hide cancel button when player is in tower/modifier placement step
 		if (_botRunner == null)
 		{
-			bool inPlacement = draftPanelReady
-				&& CurrentPhase == GamePhase.Draft
-				&& (draftPanel!.IsAwaitingSlot || draftPanel.IsAwaitingTower);
+			bool inPlacement = IsDraftPlacementActive();
+			if (hudPanelReady)
+				hudPanel!.SetGlobalSurgeInteractionEnabled(!inPlacement);
 			if (draftPanelReady && inPlacement && !_cancelBtnShown)
 			{
 				_cancelBtnShown = true;
@@ -628,8 +643,10 @@ public partial class GameController : Node
 			if (_tutorialManager != null) _endScreen.SetTutorialMode(true);
 			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), _runState, runName, mvpLine, modLine, runColors.start, runColors.end, _mapTotalWaves);
 			_endScreen.SetLeaderboardStatus(leaderboardLine);
+			string? surgeLossHint = FinalizeSurgeHintingRun(won: false);
 			var lossGoalHint = AchievementManager.Instance?.GetGoalHint(_runState, scorePayload.Difficulty, won: false);
-			if (!string.IsNullOrEmpty(lossGoalHint)) _endScreen.SetGoalHint(lossGoalHint);
+			string? mergedLossHint = MergeEndScreenHints(surgeLossHint, lossGoalHint);
+			if (!string.IsNullOrEmpty(mergedLossHint)) _endScreen.SetGoalHint(mergedLossHint);
 			if (CampaignManager.IsCampaignRun) _endScreen.SetCampaignMode(null);
 			QueueGlobalSubmit(scorePayload, leaderboardLine);
 			EnqueueUnlockReveals(newlyUnlocked);
@@ -671,6 +688,7 @@ public partial class GameController : Node
 				if (_tutorialManager != null) _endScreen.SetTutorialMode(true);
 			_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end, _runState.Lives, _mapTotalWaves);
 				if (_tutorialManager == null) _endScreen.SetLeaderboardStatus(leaderboardLine);
+				FinalizeSurgeHintingRun(won: true);
 				var winGoalHint = AchievementManager.Instance?.GetGoalHint(_runState, scorePayload.Difficulty, won: true);
 				if (!string.IsNullOrEmpty(winGoalHint)) _endScreen.SetGoalHint(winGoalHint);
 				HandleCampaignStageWin(SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal);
@@ -910,6 +928,12 @@ public partial class GameController : Node
 
 	public void StartDraftPhase()
 	{
+		SoundManager.Instance?.EnsureBackgroundMusicStarted();
+		if (!_initialDraftMusicPrimed && _runState.WaveIndex == 0)
+		{
+			MusicDirector.Instance?.OnInitialDraftStart(_runState.Lives);
+			_initialDraftMusicPrimed = true;
+		}
 		_tutorialManager?.DismissCallouts();
 		ClearUndoPlacementState();
 		CurrentPhase = GamePhase.Draft;
@@ -1026,6 +1050,13 @@ public partial class GameController : Node
 		_feedbackLoopBurst.Clear();
 		_modifierProcCounts.Clear();
 		_surgeArchetypeCounts.Clear();
+		_comboTowersSeenThisRun.Clear();
+		_surgeHintRuntime.Reset();
+		_surgeHintLastMeterByTower.Clear();
+		_globalReadyWindowOpen = false;
+		_globalReadySincePlayTime = 0f;
+		_globalActivateHintToken++;
+		_initialDraftMusicPrimed = false;
 		_spectacleSystem.Reset();
 		if (_botRunner != null)
 			ResetBotTraceBuffer();
@@ -1034,6 +1065,7 @@ public partial class GameController : Node
 		_hudPanel.SetBuildName("", visible: false);
 		_hudPanel.ResetSpeed();
 		_hudPanel.SetGlobalSurgeReady(false);
+		_hudPanel.SetPersistentSurgeHint(null);
 
 			// In bot mode BotRunner.StartNextRun() already called SetPendingMapSelection
 			// before RestartRun() - pick it up here since _Ready() only runs once.
@@ -1186,7 +1218,22 @@ public partial class GameController : Node
 				if (tower != null)
 				{
 					_draftSystem.ApplyModifier(option.Id, tower);
-					if (_botRunner == null) RefreshModPips(targetSlotIndex);
+					if (_botRunner == null)
+					{
+						RefreshModPips(targetSlotIndex);
+						if (tower.Modifiers.Count >= 2 && _comboTowersSeenThisRun.Add(tower))
+						{
+							_runState.SurgeHintTelemetry.ComboTowersBuiltThisRun++;
+							if (tower is TowerInstance comboTower)
+							{
+								TryShowSurgeMicroHint(
+									SurgeHintId.ComboUnlock,
+									"2+ mods unlock combo Surge",
+									worldPos: comboTower.GlobalPosition,
+									towerForHighlight: comboTower);
+							}
+						}
+					}
 					MobileOptimization.HapticLight(); // modifier equipped
 					if (_tutorialManager != null && !_tutorialManager.BuildNamePanelShown)
 					{
@@ -2673,9 +2720,11 @@ public partial class GameController : Node
 				foreach (var mod in tower.Modifiers)
 				{
 					var mdef = DataLoader.GetModifierDef(mod.ModifierId);
-				text += "* " + mdef.Name + " " + mdef.Description + "\n";
+					text += "* " + mdef.Name + " " + mdef.Description + "\n";
 				}
-			text += "\n\n" + BuildSpectacleTooltipSection(tower);
+			if (!text.EndsWith('\n'))
+				text += "\n";
+			text += BuildSpectacleTooltipSection(tower);
 			_tooltipLabel.Text = text.TrimEnd();
 			// Size panel to fit label
 			var labelSize = _tooltipLabel.GetMinimumSize();
@@ -3310,13 +3359,28 @@ void fragment() {
 		return true;
 	}
 
-	private void SpawnCombatCallout(string text, Vector2 worldPos, Color color, float durationScale = 1f)
+	private CombatCallout? SpawnCombatCallout(
+		string text,
+		Vector2 worldPos,
+		Color color,
+		float durationScale = 1f,
+		float yOffset = -16f,
+		bool drift = true,
+		float holdPortion = 0.42f,
+		int sizeOverride = 0)
 	{
-		if (_botRunner != null) return;
+		if (_botRunner != null) return null;
 		var callout = new CombatCallout();
 		_worldNode.AddChild(callout);
-		callout.GlobalPosition = worldPos + new Vector2(0f, -16f);
-		callout.Initialize(text, color, duration: 0.96f * Mathf.Max(0.1f, durationScale));
+		callout.GlobalPosition = worldPos + new Vector2(0f, yOffset);
+		callout.Initialize(
+			text,
+			color,
+			duration: 1.35f * Mathf.Max(0.1f, durationScale),
+			sizeOverride: sizeOverride,
+			driftEnabled: drift,
+			holdPortion: holdPortion);
+		return callout;
 	}
 
 	// ── Surge differentiation helpers ──────────────────────────────────────────
@@ -3475,6 +3539,17 @@ void fragment() {
 			_tutorialManager.MarkSurgePanelShown();
 			ShowTutorialSurgePanel();
 		}
+		if (_botRunner == null && _runState != null)
+		{
+			_runState.SurgeHintTelemetry.TowersSurged++;
+			int uniqueSupportedMods = info.Tower?.Modifiers
+				.Select(m => SpectacleDefinitions.NormalizeModId(m.ModifierId))
+				.Where(SpectacleDefinitions.IsSupported)
+				.Distinct()
+				.Count() ?? 0;
+			if (uniqueSupportedMods >= 2)
+				_runState.SurgeHintTelemetry.ComboTowerSurgesThisRun++;
+		}
 		_runState?.TrackSpectacleSurge(info.Signature.EffectId, info.Tower?.TowerId);
 		ComboExplosionSkin comboSkin = ResolveComboExplosionSkin(info.Signature);
 		string traceId = NextSurgeTraceId(global: false);
@@ -3503,6 +3578,23 @@ void fragment() {
 		ITowerView? sourceTower = info.Tower;
 		if (sourceTower == null)
 			return;
+		if (_botRunner == null)
+		{
+			TryShowSurgeMicroHint(
+				SurgeHintId.TowerReady,
+				"Full ring auto-triggers Tower Surge",
+				worldPos: sourceTower.GlobalPosition,
+				holdSeconds: 2.4f,
+				towerForHighlight: sourceTower);
+			if (!_spectacleSystem.IsGlobalSurgeReady)
+				_hudPanel.PulseGlobalSurgeMeter(0.85f);
+			TryShowSurgeMicroHint(
+				SurgeHintId.GlobalContribution,
+				"Tower surges fill this bar",
+				anchorToGlobalBar: true,
+				holdSeconds: 2.2f,
+				barPulseStrength: 1.0f);
+		}
 		bool mobileLite = IsMobileSpectacleLite();
 
 		Color accent = ResolveSpectacleColor(info.Signature.PrimaryModId);
@@ -3562,22 +3654,45 @@ void fragment() {
 			&& !string.IsNullOrEmpty(info.Signature.ComboEffectName)
 			? info.Signature.ComboEffectName
 			: info.Signature.EffectName;
-		SpawnCombatCallout(
-			surgeCalloutText.ToUpperInvariant(),
-			sourceTower.GlobalPosition,
+		string surgeCalloutUpper = surgeCalloutText.ToUpperInvariant();
+		float surgeCalloutDurationScale = SurgeUxTiming.ResolveSurgeCalloutDurationScale(2.8f);
+		float surgeCalloutHoldPortion = SurgeUxTiming.ResolveSurgeCalloutHoldPortion(0.68f);
+		bool hasSurgeAugment = info.Signature.Mode == SpectacleMode.Triad
+			&& !string.IsNullOrEmpty(info.Signature.AugmentName);
+		float surgePrimaryYOffset = hasSurgeAugment ? -44f : -34f;
+		Vector2 surgeCalloutOrigin = sourceTower.GlobalPosition + new Vector2(6f, 0f);
+		CombatCallout? surgeCallout = SpawnCombatCallout(
+			surgeCalloutUpper,
+			surgeCalloutOrigin,
 			accent,
-			durationScale: 4f);
+			durationScale: surgeCalloutDurationScale,
+			yOffset: surgePrimaryYOffset,
+			drift: false,
+			holdPortion: surgeCalloutHoldPortion,
+			sizeOverride: 19);
 
 		// Phase 5: Triad Factorio moment - augment name callout + second flash pulse
-		if (info.Signature.Mode == SpectacleMode.Triad && !string.IsNullOrEmpty(info.Signature.AugmentName))
+		if (hasSurgeAugment)
 		{
-			var capturedOrigin = sourceTower.GlobalPosition;
+			var capturedOrigin = surgeCalloutOrigin;
 			Color augAccent = ResolveSpectacleColor(info.Signature.AugmentEffectId);
 			string augName = info.Signature.AugmentName;
-			GetTree().CreateTimer(0.28f, true, false, true).Timeout += () =>
+			GetTree().CreateTimer(0.24f, true, false, true).Timeout += () =>
 			{
 				if (!GodotObject.IsInstanceValid(this)) return;
-				SpawnCombatCallout($"+ {augName.ToUpperInvariant()}", capturedOrigin + new Vector2(0f, +14f), augAccent, durationScale: 3f);
+				string augmentLine = $"+ {augName.ToUpperInvariant()}";
+				if (surgeCallout != null && GodotObject.IsInstanceValid(surgeCallout))
+					surgeCallout.EnsureRemaining(SurgeUxTiming.ResolveTriadAugmentRemaining(3.4f));
+
+				SpawnCombatCallout(
+					augmentLine,
+					capturedOrigin,
+					augAccent,
+					durationScale: SurgeUxTiming.ResolveSurgeCalloutDurationScale(3.0f),
+					yOffset: -30f,
+					drift: false,
+					holdPortion: surgeCalloutHoldPortion,
+					sizeOverride: 16);
 				FlashSpectacleScreen(augAccent, peakAlpha: 0.10f, rampSec: 0.04f, fadeSec: 0.20f);
 			};
 		}
@@ -3599,6 +3714,12 @@ void fragment() {
 	private void OnGlobalSurgeReadyHandler(string archetypeName)
 	{
 		if (CurrentPhase != GamePhase.Wave) return;
+		if (_botRunner == null && _runState != null)
+		{
+			_runState.SurgeHintTelemetry.GlobalsBecameReady++;
+			_globalReadyWindowOpen = true;
+			_globalReadySincePlayTime = _runState.TotalPlayTime;
+		}
 
 		if (_botRunner != null)
 		{
@@ -3608,16 +3729,106 @@ void fragment() {
 		}
 
 		_hudPanel.SetGlobalSurgeReady(true, archetypeName);
+		if (_tutorialManager == null)
+			_hudPanel.SetPersistentSurgeHint("Global ready: click this bar");
+		TryShowSurgeMicroHint(
+			SurgeHintId.GlobalActivate,
+			"Global ready: click this bar",
+			anchorToGlobalBar: true,
+			holdSeconds: 2.4f,
+			barPulseStrength: 1.05f);
+		QueueGlobalActivateHintPrompt();
 
 		// In tutorial, always pause and guide the player to activate the surge bar.
 		if (_tutorialManager != null)
 			ShowTutorialGlobalSurgeActivatePanel();
 	}
 
+	private bool TryShowSurgeMicroHint(
+		SurgeHintId id,
+		string text,
+		Vector2? worldPos = null,
+		bool anchorToGlobalBar = false,
+		float holdSeconds = 2.2f,
+		float barPulseStrength = 0.9f,
+		ITowerView? towerForHighlight = null)
+	{
+		if (_botRunner != null || _runState == null || _tutorialManager != null || SettingsManager.Instance == null)
+			return false;
+		if (anchorToGlobalBar && !GodotObject.IsInstanceValid(_hudPanel))
+			return false;
+		if (!anchorToGlobalBar && worldPos.HasValue && !GodotObject.IsInstanceValid(_worldNode))
+			return false;
+
+		var profile = SettingsManager.Instance.SurgeHintProfile;
+		if (!SurgeHintAdvisor.ShouldShowMicroHint(id, profile, _surgeHintRuntime, _runState.TotalPlayTime))
+			return false;
+
+		if (anchorToGlobalBar)
+		{
+			_hudPanel.ShowSurgeMicroHint(text, holdSeconds);
+			_hudPanel.PulseGlobalSurgeMeter(barPulseStrength);
+		}
+		else if (worldPos.HasValue)
+		{
+			float visibleSeconds = SurgeUxTiming.ResolveWorldTeachingHintHold(holdSeconds);
+			_hudPanel.ShowTeachingHintAtScreen(
+				$"Tip: {text}",
+				WorldToScreen(worldPos.Value),
+				holdSeconds: visibleSeconds);
+			if (towerForHighlight is TowerInstance highlightedTower && GodotObject.IsInstanceValid(highlightedTower))
+				highlightedTower.TriggerTeachingHighlight(visibleSeconds + 0.25f);
+		}
+		else
+		{
+			return false;
+		}
+
+		SurgeHintAdvisor.RecordMicroHintShown(id, profile, _surgeHintRuntime, _runState.TotalPlayTime);
+		SettingsManager.Instance.SaveSurgeHintingProgress();
+		return true;
+	}
+
+	private void QueueGlobalActivateHintPrompt()
+	{
+		if (_botRunner != null || _tutorialManager != null || _runState == null || SettingsManager.Instance == null)
+			return;
+
+		ulong token = ++_globalActivateHintToken;
+		GetTree().CreateTimer(2.4f, true, false, true).Timeout += () =>
+		{
+			if (token != _globalActivateHintToken || !GodotObject.IsInstanceValid(this))
+				return;
+			if (CurrentPhase != GamePhase.Wave || _runState == null || !_spectacleSystem.IsGlobalSurgeReady)
+				return;
+			if (_runState.SurgeHintTelemetry.GlobalsActivated > 0)
+				return;
+
+			TryShowSurgeMicroHint(
+				SurgeHintId.GlobalActivate,
+				"Click to trigger Global Surge",
+				anchorToGlobalBar: true,
+				holdSeconds: 2.5f,
+				barPulseStrength: 1.15f);
+		};
+	}
+
 	private void OnHudGlobalSurgeActivate()
 	{
+		if (IsDraftPlacementActive())
+			return;
+		_globalActivateHintToken++;
 		_hudPanel.SetGlobalSurgeReady(false);
+		_hudPanel.SetPersistentSurgeHint(null);
 		_spectacleSystem.ActivateGlobalSurge();
+	}
+
+	private bool IsDraftPlacementActive()
+	{
+		return CurrentPhase == GamePhase.Draft
+			&& _draftPanel != null
+			&& GodotObject.IsInstanceValid(_draftPanel)
+			&& (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower);
 	}
 
 	private void OnGlobalSurgeTriggered(GlobalSurgeTriggerInfo info)
@@ -3626,6 +3837,19 @@ void fragment() {
 			return;
 		if (_runState == null)
 			return;
+		if (_botRunner == null)
+		{
+			_runState.SurgeHintTelemetry.GlobalsActivated++;
+			if (_globalReadyWindowOpen)
+			{
+				float activationDelay = Mathf.Max(0f, _runState.TotalPlayTime - _globalReadySincePlayTime);
+				if (activationDelay <= 10f)
+					_runState.SurgeHintTelemetry.QuickGlobalActivationsWithin10s++;
+			}
+		}
+		_globalReadyWindowOpen = false;
+		_globalActivateHintToken++;
+		_hudPanel.SetPersistentSurgeHint(null);
 		_runState.TrackSpectacleGlobal(info.EffectId);
 		MusicDirector.Instance?.OnGlobalSurge();
 		string traceId = NextSurgeTraceId(global: true);
@@ -6744,6 +6968,57 @@ void fragment() {
 		_endScreen.SetSurgeProfile(best.Key, best.Value);
 	}
 
+	private string? FinalizeSurgeHintingRun(bool won)
+	{
+		if (_botRunner != null || _runState == null || SettingsManager.Instance == null)
+			return null;
+
+		if (!won)
+		{
+			_runState.SurgeHintTelemetry.LostWithGlobalReadyUnused =
+				_runState.SurgeHintTelemetry.GlobalsBecameReady > _runState.SurgeHintTelemetry.GlobalsActivated
+				|| (_globalReadyWindowOpen && _spectacleSystem.IsGlobalSurgeReady);
+		}
+
+		_globalReadyWindowOpen = false;
+		_globalReadySincePlayTime = 0f;
+		_globalActivateHintToken++;
+		if (GodotObject.IsInstanceValid(_hudPanel))
+			_hudPanel.SetPersistentSurgeHint(null);
+
+		var profile = SettingsManager.Instance.SurgeHintProfile;
+		string? surgeTipText = null;
+		if (!won)
+		{
+			var tip = SurgeHintAdvisor.SelectPostLossTip(_runState.SurgeHintTelemetry, profile);
+			if (tip.HasValue)
+			{
+				surgeTipText = tip.Value.Text;
+				SurgeHintAdvisor.RecordPostLossTipDisplayed(profile, tip.Value.Id);
+			}
+		}
+
+		SurgeHintAdvisor.ApplyRunOutcome(profile, _runState.SurgeHintTelemetry, won);
+		SettingsManager.Instance.SaveSurgeHintingProgress();
+		return surgeTipText;
+	}
+
+	private static string? MergeEndScreenHints(string? surgeHint, string? goalHint)
+	{
+		bool hasSurge = !string.IsNullOrWhiteSpace(surgeHint);
+		bool hasGoal = !string.IsNullOrWhiteSpace(goalHint);
+		if (hasSurge && hasGoal)
+		{
+			if (string.Equals(surgeHint, goalHint, System.StringComparison.Ordinal))
+				return surgeHint;
+			return $"{surgeHint}\n{goalHint}";
+		}
+
+		if (hasSurge) return surgeHint;
+		if (hasGoal) return goalHint;
+		return null;
+	}
+
 	private string BuildRunName(bool registerInHistory = false, bool? wonOverride = null, int? waveReachedOverride = null)
 	{
 		var profile = BuildRunNameProfile(wonOverride, waveReachedOverride);
@@ -7277,7 +7552,7 @@ void fragment() {
 
 		var body = new Label
 		{
-			Text = "Modifiers generate charge as they activate (hits, kills, procs). When a tower's meter fills, it triggers a Surge: a powerful mid-wave effect.\nEach Surge adds to the global meter below. Fill it and you can activate a Global Surge, reducing tower cooldowns and hitting every enemy on the lane.",
+			Text = "Combat fills Tower Surge.\nWhen a tower ring is full, it triggers a Surge.\nFull towers charge the Global Surge bar.\nWhen that bar is full, click it to trigger Global Surge.",
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 			CustomMinimumSize = new Vector2(520f, 0f),
 		};
@@ -7404,7 +7679,7 @@ void fragment() {
 
 		var body = new Label
 		{
-			Text = "The global meter is full. Click the glowing bar below to release a Global Surge - it hits every enemy on the lane and refunds all tower cooldowns.\nYou control when it fires. Click it now to continue tutorial.",
+			Text = "Global Surge is ready.\nClick the glowing bar below to trigger it.\nIt refunds all tower cooldowns and hits every enemy on the lane.\nClick it now to continue tutorial.",
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 			CustomMinimumSize = new Vector2(520f, 0f),
 		};
@@ -7716,6 +7991,8 @@ void fragment() {
 		if (_runState?.Slots == null || _spectacleSystem == null)
 			return;
 
+		HashSet<ITowerView>? activeHintTowers = _botRunner == null ? new HashSet<ITowerView>() : null;
+
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
 			var tower = _runState.Slots[i].TowerNode;
@@ -7726,6 +8003,37 @@ void fragment() {
 			tower.SpectacleMeterNormalized = visual.MeterNormalized;
 			tower.SpectaclePulse = visual.Pulse;
 			tower.SpectacleAccent = visual.PrimaryModId;
+
+			if (activeHintTowers != null)
+			{
+				activeHintTowers.Add(tower);
+				float previousMeter = _surgeHintLastMeterByTower.TryGetValue(tower, out float previous) ? previous : 0f;
+				_surgeHintLastMeterByTower[tower] = visual.MeterNormalized;
+
+				if (_tutorialManager == null
+					&& tower.Modifiers.Count >= 1
+					&& visual.MeterNormalized >= 0.12f
+					&& visual.MeterNormalized > previousMeter + 0.04f
+					&& _runState.SurgeHintTelemetry.GlobalsActivated <= 0
+					&& (SettingsManager.Instance?.SurgeHintProfile.GlobalActivationsTotal ?? 0) <= 0)
+				{
+					TryShowSurgeMicroHint(
+						SurgeHintId.CombatFills,
+						"Combat fills this ring",
+						worldPos: tower.GlobalPosition,
+						holdSeconds: 2.4f,
+						towerForHighlight: tower);
+				}
+			}
+		}
+
+		if (activeHintTowers != null && _surgeHintLastMeterByTower.Count > 0)
+		{
+			foreach (var trackedTower in _surgeHintLastMeterByTower.Keys.ToArray())
+			{
+				if (!activeHintTowers.Contains(trackedTower))
+					_surgeHintLastMeterByTower.Remove(trackedTower);
+			}
 		}
 	}
 

@@ -105,6 +105,32 @@ public class RunStateTests
         Assert.Equal(1, state.SpectacleGlobalByEffect["G_SPECTACLE_CATHARSIS"]);
     }
 
+    [Fact]
+    public void SurgeHintTelemetry_TracksAndResets()
+    {
+        var state = new RunState();
+
+        state.SurgeHintTelemetry.TowersSurged = 3;
+        state.SurgeHintTelemetry.GlobalsBecameReady = 2;
+        state.SurgeHintTelemetry.GlobalsActivated = 1;
+        state.SurgeHintTelemetry.GlobalReadyUnusedSeconds = 7.5f;
+        state.SurgeHintTelemetry.LostWithGlobalReadyUnused = true;
+        state.SurgeHintTelemetry.ComboTowersBuiltThisRun = 2;
+        state.SurgeHintTelemetry.ComboTowerSurgesThisRun = 1;
+        state.SurgeHintTelemetry.QuickGlobalActivationsWithin10s = 1;
+
+        state.Reset();
+
+        Assert.Equal(0, state.SurgeHintTelemetry.TowersSurged);
+        Assert.Equal(0, state.SurgeHintTelemetry.GlobalsBecameReady);
+        Assert.Equal(0, state.SurgeHintTelemetry.GlobalsActivated);
+        Assert.Equal(0f, state.SurgeHintTelemetry.GlobalReadyUnusedSeconds);
+        Assert.False(state.SurgeHintTelemetry.LostWithGlobalReadyUnused);
+        Assert.Equal(0, state.SurgeHintTelemetry.ComboTowersBuiltThisRun);
+        Assert.Equal(0, state.SurgeHintTelemetry.ComboTowerSurgesThisRun);
+        Assert.Equal(0, state.SurgeHintTelemetry.QuickGlobalActivationsWithin10s);
+    }
+
     // ── Reset ─────────────────────────────────────────────────────────────
 
     [Fact]

@@ -50,6 +50,10 @@ public partial class TowerInstance : Node2D, ITowerView
     private float _lockLineRemaining = 0f;
     private Vector2 _lockLineTargetGlobal = Vector2.Zero;
     private float _shotElapsed = 99f;
+    private float _spectacleChargePulse = 0f;
+    private float _lastSpectacleMeter = 0f;
+    private float _teachingHighlightRemaining = 0f;
+    private float _teachingHighlightDuration = 0f;
     private const float ShotAttackSeconds = 0.030f;
     private const float ShotDecaySeconds = 0.18f;
 
@@ -78,6 +82,17 @@ public partial class TowerInstance : Node2D, ITowerView
             _shotElapsed += dt;
         if (_lockLineRemaining > 0f)
             _lockLineRemaining = Mathf.Max(0f, _lockLineRemaining - dt);
+        if (_spectacleChargePulse > 0f)
+            _spectacleChargePulse = Mathf.Max(0f, _spectacleChargePulse - dt * 1.8f);
+        if (_teachingHighlightRemaining > 0f)
+            _teachingHighlightRemaining = Mathf.Max(0f, _teachingHighlightRemaining - dt);
+
+        float spectacleMeter = Mathf.Clamp(SpectacleMeterNormalized, 0f, 1f);
+        if (spectacleMeter > _lastSpectacleMeter + 0.03f)
+            _spectacleChargePulse = Mathf.Clamp(_spectacleChargePulse + 0.42f, 0f, 1f);
+        if (spectacleMeter < 0.05f && _lastSpectacleMeter > 0.85f)
+            _spectacleChargePulse = Mathf.Max(_spectacleChargePulse, 0.24f);
+        _lastSpectacleMeter = spectacleMeter;
 
         // Smoothly rotate barrel toward last known target
         if (LastTargetPosition.HasValue)
@@ -90,7 +105,15 @@ public partial class TowerInstance : Node2D, ITowerView
                 Rotation = Mathf.LerpAngle(Rotation, targetAngle, turnLerp);
             }
         }
-        if (AttackInterval > 0f) QueueRedraw();
+        if (AttackInterval > 0f || spectacleMeter > 0f || _spectacleChargePulse > 0f || _teachingHighlightRemaining > 0f)
+            QueueRedraw();
+    }
+
+    public void TriggerTeachingHighlight(float duration = 4.6f)
+    {
+        float d = Mathf.Max(0.5f, duration);
+        _teachingHighlightDuration = Mathf.Max(_teachingHighlightDuration, d);
+        _teachingHighlightRemaining = Mathf.Max(_teachingHighlightRemaining, d);
     }
 
     public void FlashAttack()
@@ -226,6 +249,7 @@ public partial class TowerInstance : Node2D, ITowerView
         // Draw cooldown ring first so tower/barrel geometry sits on top.
         DrawChargeArc();
         DrawSpectacleArc();
+        DrawTeachingHighlight();
 
         switch (TowerId)
         {
@@ -273,24 +297,51 @@ public partial class TowerInstance : Node2D, ITowerView
     {
         float meter = Mathf.Clamp(SpectacleMeterNormalized, 0f, 1f);
         float pulse = Mathf.Clamp(SpectaclePulse, 0f, 1f);
-        if (meter <= 0.001f && pulse <= 0.001f)
+        float chargePulse = Mathf.Clamp(_spectacleChargePulse, 0f, 1f);
+        if (meter <= 0.001f && pulse <= 0.001f && chargePulse <= 0.001f)
             return;
 
         Color accent = string.IsNullOrEmpty(SpectacleAccent)
             ? BodyColor
             : ModifierVisuals.GetAccent(SpectacleAccent);
-        float glow = 0.08f + meter * 0.26f + pulse * 0.42f;
-        DrawCircle(Vector2.Zero, 28f + pulse * 3.0f, new Color(accent.R, accent.G, accent.B, glow * 0.62f));
+        float nearFull = Mathf.InverseLerp(0.72f, 1f, meter);
+        float readyPulse = meter >= 0.98f ? (0.5f + 0.5f * Mathf.Sin(_idleTime * 8.5f)) : 0f;
+        float glow = 0.08f + meter * 0.26f + pulse * 0.42f + chargePulse * 0.22f + nearFull * 0.10f + readyPulse * 0.20f;
+        float glowRadius = 28f + pulse * 3.0f + nearFull * 1.6f + readyPulse * 2.0f;
+        DrawCircle(Vector2.Zero, glowRadius, new Color(accent.R, accent.G, accent.B, glow * 0.62f));
 
-        float ringAlpha = 0.24f + meter * 0.42f + pulse * 0.40f;
-        DrawArc(Vector2.Zero, 24f, 0f, Mathf.Tau, 48, new Color(accent.R, accent.G, accent.B, ringAlpha * 0.40f), 2.1f);
+        float ringAlpha = 0.24f + meter * 0.42f + pulse * 0.40f + chargePulse * 0.12f;
+        float baseRingWidth = 2.1f + nearFull * 0.8f;
+        DrawArc(Vector2.Zero, 24f, 0f, Mathf.Tau, 48, new Color(accent.R, accent.G, accent.B, ringAlpha * (0.40f + nearFull * 0.24f)), baseRingWidth);
 
         if (meter > 0.01f)
         {
             float start = -Mathf.Pi / 2f;
             float end = start + meter * Mathf.Tau;
-            DrawArc(Vector2.Zero, 24f, start, end, 48, new Color(accent.R, accent.G, accent.B, ringAlpha), 3.0f);
+            DrawArc(Vector2.Zero, 24f, start, end, 48, new Color(accent.R, accent.G, accent.B, ringAlpha), 3.0f + nearFull * 1.2f + chargePulse * 0.6f);
         }
+
+        if (nearFull > 0.001f)
+        {
+            float shimmer = 0.40f + 0.60f * (0.5f + 0.5f * Mathf.Sin(_idleTime * 10f));
+            float alpha = nearFull * (0.12f + 0.16f * shimmer);
+            DrawArc(Vector2.Zero, 27.5f, 0f, Mathf.Tau, 48, new Color(accent.R, accent.G, accent.B, alpha), 1.6f);
+        }
+    }
+
+    private void DrawTeachingHighlight()
+    {
+        if (_teachingHighlightRemaining <= 0f)
+            return;
+
+        float life = _teachingHighlightDuration > 0.001f
+            ? Mathf.Clamp(_teachingHighlightRemaining / _teachingHighlightDuration, 0f, 1f)
+            : 1f;
+        float pulse = 0.5f + 0.5f * Mathf.Sin(_idleTime * 10f);
+        float alpha = (0.22f + 0.38f * pulse) * Mathf.Clamp(life * 1.25f, 0.30f, 1f);
+        var color = new Color(1.00f, 0.94f, 0.58f, alpha);
+        DrawCircle(Vector2.Zero, 34.5f + pulse * 1.5f, new Color(color.R, color.G, color.B, alpha * 0.18f));
+        DrawArc(Vector2.Zero, 31.5f + pulse * 0.8f, 0f, Mathf.Tau, 56, color, 3.1f);
     }
 
     private float ShotKick()

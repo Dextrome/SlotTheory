@@ -75,6 +75,7 @@ public class RunState
     public Dictionary<string, int> SpectacleSurgeByEffect { get; } = new();
     public Dictionary<string, int> SpectacleGlobalByEffect { get; } = new();
     public Dictionary<string, int> SpectacleSurgeByTower { get; } = new();
+    public SurgeHintRunTelemetry SurgeHintTelemetry { get; } = new();
 
     // Map selection
     public string? SelectedMapId { get; set; } = null;  // null = random
@@ -317,6 +318,7 @@ public class RunState
         SpectacleSurgeByEffect.Clear();
         SpectacleGlobalByEffect.Clear();
         SpectacleSurgeByTower.Clear();
+        SurgeHintTelemetry.Reset();
         IsEndlessMode    = false;
         EndlessWaveDepth = 0;
         ActiveMandate    = null;

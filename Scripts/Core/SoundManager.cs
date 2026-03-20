@@ -349,6 +349,36 @@ public partial class SoundManager : Node
         _musicPlayback = (AudioStreamGeneratorPlayback)_musicPlayer.GetStreamPlayback();
     }
 
+    /// <summary>
+    /// Starts the ambient background loop once. Safe to call repeatedly.
+    /// </summary>
+    public void EnsureBackgroundMusicStarted()
+    {
+        if (_headless || _musicPlayer != null)
+            return;
+        StartMusic();
+        UpdateMusicPitch();
+    }
+
+    /// <summary>
+    /// Menu ambient loop should be audible only outside maps.
+    /// Maps use MusicDirector layers instead.
+    /// </summary>
+    public void SetMenuAmbientEnabled(bool enabled)
+    {
+        if (_headless)
+            return;
+
+        if (enabled)
+            EnsureBackgroundMusicStarted();
+        if (_musicPlayer == null)
+            return;
+
+        // _musicPlayer volume lerps in _Process, so this snaps target while still sounding smooth.
+        _padFadeRate = 0f;
+        _padFadeDb = enabled ? 0f : 60f;
+    }
+
     public override void _Process(double delta)
     {
         if (_headless) return;

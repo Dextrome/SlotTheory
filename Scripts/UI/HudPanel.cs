@@ -28,10 +28,22 @@ public partial class HudPanel : CanvasLayer
     private ColorRect[] _surgePips = System.Array.Empty<ColorRect>();
     private Label _surgeNameLabel = null!;  // shows "GLOBAL SURGE" normally, archetype name when building
     private Label _surgeMeterHint = null!;
-    private bool _surgeMeterHintShown = false;
+    private Tween? _surgeMeterPulseTween;
+    private PanelContainer _teachingHintPanel = null!;
+    private Label _teachingHintLabel = null!;
+    private Line2D _teachingHintConnector = null!;
+    private ulong _surgeMeterHintStartUsec = 0;
+    private float _surgeMeterHintHoldSeconds = 0f;
+    private bool _surgeMeterHintTransientActive = false;
+    private ulong _teachingHintStartUsec = 0;
+    private float _teachingHintHoldSeconds = 0f;
+    private bool _teachingHintActive = false;
+    private bool _persistentSurgeHintActive = false;
+    private bool _surgeMeterIntroShown = false;
     private bool _surgeMeterForcedVisible = false;
     private bool _buildLabelForcedVisible = false;
     private bool _isGlobalSurgeReady = false;
+    private bool _globalSurgeInteractionEnabled = true;
     private Tween? _surgeReadyTween;
     private string _lockedSurgeName = "";
 
@@ -341,6 +353,9 @@ public partial class HudPanel : CanvasLayer
 
     public override void _Process(double delta)
     {
+        UpdateSurgeMeterHintPresentation();
+        UpdateTeachingHintPresentation();
+
         bool isPaused = GetTree().Paused;
         if (isPaused == _lastPausedState)
             return;
@@ -525,6 +540,294 @@ public partial class HudPanel : CanvasLayer
         return new Rect2(vp.X * 0.5f - 211f, vp.Y - 36f, 422f, 22f);
     }
 
+    public void ShowSurgeMicroHint(string text, float holdSeconds = 1.7f)
+    {
+        if (!GodotObject.IsInstanceValid(_surgeMeterHint))
+            return;
+        if (_persistentSurgeHintActive)
+            return;
+
+        _surgeMeterHintTransientActive = true;
+        _surgeMeterHintStartUsec = Time.GetTicksUsec();
+        _surgeMeterHintHoldSeconds = SurgeUxTiming.ResolveSurgeMeterHintHold(holdSeconds);
+        _surgeMeterHint.Text = text;
+        _surgeMeterHint.Visible = true;
+        _surgeMeterHint.Modulate = new Color(1f, 1f, 1f, 0f);
+    }
+
+    public void ShowTeachingHint(string text, float holdSeconds = 3.4f)
+    {
+        Vector2 vp = GetViewport().GetVisibleRect().Size;
+        ShowTeachingHintAtScreen(text, new Vector2(vp.X * 0.5f, 170f), holdSeconds);
+    }
+
+    public void ShowTeachingHintAtScreen(string text, Vector2 screenPos, float holdSeconds = 3.4f)
+    {
+        if (!GodotObject.IsInstanceValid(_teachingHintPanel) || !GodotObject.IsInstanceValid(_teachingHintLabel))
+            return;
+
+        var panelSize = ResolveTeachingHintPanelSize(text);
+        float panelW = panelSize.X;
+        float panelH = panelSize.Y;
+        Vector2 vp = GetViewport().GetVisibleRect().Size;
+        float preferredBottomY = screenPos.Y + 34f;
+        bool placeLeft = preferredBottomY > vp.Y - panelH - 46f;
+        float x;
+        float y;
+        if (placeLeft)
+        {
+            x = Mathf.Clamp(screenPos.X - panelW - 28f, 12f, vp.X - panelW - 12f);
+            y = Mathf.Clamp(screenPos.Y - panelH * 0.5f, 56f, vp.Y - panelH - 20f);
+        }
+        else
+        {
+            x = Mathf.Clamp(screenPos.X - panelW * 0.5f, 12f, vp.X - panelW - 12f);
+            y = Mathf.Clamp(preferredBottomY, 56f, vp.Y - panelH - 46f);
+        }
+
+        _teachingHintPanel.AnchorLeft = 0f;
+        _teachingHintPanel.AnchorRight = 0f;
+        _teachingHintPanel.AnchorTop = 0f;
+        _teachingHintPanel.AnchorBottom = 0f;
+        _teachingHintPanel.OffsetLeft = x;
+        _teachingHintPanel.OffsetRight = x + panelW;
+        _teachingHintPanel.OffsetTop = y;
+        _teachingHintPanel.OffsetBottom = y + panelH;
+
+        if (GodotObject.IsInstanceValid(_teachingHintConnector))
+        {
+            Vector2 from = placeLeft
+                ? new Vector2(x + panelW, y + panelH * 0.5f)
+                : new Vector2(x + panelW * 0.5f, y);
+            _teachingHintConnector.Points = new[] { from, screenPos };
+            _teachingHintConnector.Visible = true;
+            _teachingHintConnector.Modulate = new Color(1f, 1f, 1f, 0f);
+        }
+
+        _teachingHintActive = true;
+        _teachingHintStartUsec = Time.GetTicksUsec();
+        _teachingHintHoldSeconds = SurgeUxTiming.ResolveWorldTeachingHintHold(holdSeconds);
+        _teachingHintLabel.CustomMinimumSize = new Vector2(Mathf.Max(120f, panelW - 24f), 0f);
+        _teachingHintLabel.Text = text;
+        _teachingHintPanel.Visible = true;
+        _teachingHintPanel.Modulate = new Color(1f, 1f, 1f, 0f);
+    }
+
+    public void SetPersistentSurgeHint(string? text)
+    {
+        if (!GodotObject.IsInstanceValid(_surgeMeterHint))
+            return;
+
+        _surgeMeterHintTransientActive = false;
+        _surgeMeterHintStartUsec = 0;
+        _surgeMeterHintHoldSeconds = 0f;
+
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            _persistentSurgeHintActive = false;
+            _surgeMeterHint.Visible = false;
+            return;
+        }
+
+        _persistentSurgeHintActive = true;
+        _surgeMeterHint.Text = text;
+        _surgeMeterHint.Visible = true;
+        _surgeMeterHint.Modulate = new Color(1f, 1f, 1f, 0.95f);
+    }
+
+    private void UpdateSurgeMeterHintPresentation()
+    {
+        if (!GodotObject.IsInstanceValid(_surgeMeterHint))
+            return;
+        if (_persistentSurgeHintActive)
+            return;
+        if (!_surgeMeterHintTransientActive || _surgeMeterHintStartUsec == 0)
+            return;
+
+        const float fadeInSeconds = 0.14f;
+        const float peakAlpha = 0.92f;
+        float fadeOutSeconds = SurgeUxTiming.SurgeMeterHintFadeOutSeconds;
+        float holdSeconds = Mathf.Max(0.2f, _surgeMeterHintHoldSeconds);
+        float elapsed = (Time.GetTicksUsec() - _surgeMeterHintStartUsec) / 1_000_000f;
+        float total = fadeInSeconds + holdSeconds + fadeOutSeconds;
+        if (elapsed >= total)
+        {
+            _surgeMeterHintTransientActive = false;
+            _surgeMeterHint.Visible = false;
+            return;
+        }
+
+        float alpha;
+        if (elapsed < fadeInSeconds)
+        {
+            float t = Mathf.Clamp(elapsed / fadeInSeconds, 0f, 1f);
+            alpha = peakAlpha * t;
+        }
+        else if (elapsed < fadeInSeconds + holdSeconds)
+        {
+            alpha = peakAlpha;
+        }
+        else
+        {
+            float t = Mathf.Clamp((elapsed - fadeInSeconds - holdSeconds) / fadeOutSeconds, 0f, 1f);
+            alpha = peakAlpha * (1f - t * t * t);
+        }
+
+        _surgeMeterHint.Visible = true;
+        _surgeMeterHint.Modulate = new Color(1f, 1f, 1f, alpha);
+    }
+
+    private void UpdateTeachingHintPresentation()
+    {
+        if (!_teachingHintActive || _teachingHintStartUsec == 0)
+            return;
+        if (!GodotObject.IsInstanceValid(_teachingHintPanel))
+            return;
+
+        const float fadeInSeconds = 0.14f;
+        const float panelPeakAlpha = 0.98f;
+        const float connectorPeakAlpha = 0.85f;
+        float fadeOutSeconds = SurgeUxTiming.WorldTeachingHintFadeOutSeconds;
+        float holdSeconds = Mathf.Max(0.2f, _teachingHintHoldSeconds);
+        float elapsed = (Time.GetTicksUsec() - _teachingHintStartUsec) / 1_000_000f;
+        float total = fadeInSeconds + holdSeconds + fadeOutSeconds;
+        if (elapsed >= total)
+        {
+            _teachingHintActive = false;
+            _teachingHintPanel.Visible = false;
+            if (GodotObject.IsInstanceValid(_teachingHintConnector))
+                _teachingHintConnector.Visible = false;
+            return;
+        }
+
+        float alpha;
+        if (elapsed < fadeInSeconds)
+        {
+            float t = Mathf.Clamp(elapsed / fadeInSeconds, 0f, 1f);
+            alpha = t;
+        }
+        else if (elapsed < fadeInSeconds + holdSeconds)
+        {
+            alpha = 1f;
+        }
+        else
+        {
+            float t = Mathf.Clamp((elapsed - fadeInSeconds - holdSeconds) / fadeOutSeconds, 0f, 1f);
+            alpha = 1f - t * t * t;
+        }
+
+        _teachingHintPanel.Visible = true;
+        _teachingHintPanel.Modulate = new Color(1f, 1f, 1f, panelPeakAlpha * alpha);
+        if (GodotObject.IsInstanceValid(_teachingHintConnector))
+        {
+            _teachingHintConnector.Visible = true;
+            _teachingHintConnector.Modulate = new Color(1f, 1f, 1f, connectorPeakAlpha * alpha);
+        }
+    }
+
+    private Vector2 ResolveTeachingHintPanelSize(string text)
+    {
+        const float minPanelW = 250f;
+        const float maxPanelW = 680f;
+        const float minPanelH = 38f;
+        const float maxPanelH = 150f;
+        const float contentPadX = 24f;
+        const float contentPadY = 14f;
+
+        Font font = _teachingHintLabel.GetThemeFont("font") ?? UITheme.SemiBold;
+        int fontSize = _teachingHintLabel.GetThemeFontSize("font_size");
+        if (fontSize <= 0)
+            fontSize = 17;
+
+        string safeText = string.IsNullOrWhiteSpace(text) ? " " : text.Trim();
+        float rawTextW = font.GetStringSize(safeText, HorizontalAlignment.Left, -1, fontSize).X;
+        float panelW = Mathf.Clamp(rawTextW + contentPadX, minPanelW, maxPanelW);
+        float maxTextW = Mathf.Max(90f, panelW - contentPadX);
+        int lineCount = EstimateWrappedLineCount(font, fontSize, safeText, maxTextW);
+        float lineHeight = font.GetAscent(fontSize) + font.GetDescent(fontSize) + 2f;
+        float panelH = Mathf.Clamp(contentPadY + lineHeight * lineCount, minPanelH, maxPanelH);
+
+        return new Vector2(panelW, panelH);
+    }
+
+    private static int EstimateWrappedLineCount(Font font, int fontSize, string text, float maxLineWidth)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return 1;
+
+        int lines = 0;
+        string[] hardLines = text.Split('\n');
+        for (int i = 0; i < hardLines.Length; i++)
+        {
+            string segment = hardLines[i].Trim();
+            if (segment.Length == 0)
+            {
+                lines += 1;
+                continue;
+            }
+
+            lines += EstimateWrappedLineCountForSegment(font, fontSize, segment, maxLineWidth);
+        }
+        return Mathf.Max(1, lines);
+    }
+
+    private static int EstimateWrappedLineCountForSegment(Font font, int fontSize, string segment, float maxLineWidth)
+    {
+        if (font.GetStringSize(segment, HorizontalAlignment.Left, -1, fontSize).X <= maxLineWidth)
+            return 1;
+
+        int lines = 1;
+        string[] words = segment.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        string current = "";
+        for (int i = 0; i < words.Length; i++)
+        {
+            string word = words[i];
+            string candidate = current.Length == 0 ? word : $"{current} {word}";
+            float candidateWidth = font.GetStringSize(candidate, HorizontalAlignment.Left, -1, fontSize).X;
+            if (candidateWidth <= maxLineWidth)
+            {
+                current = candidate;
+                continue;
+            }
+
+            if (current.Length > 0)
+                lines++;
+
+            float wordWidth = font.GetStringSize(word, HorizontalAlignment.Left, -1, fontSize).X;
+            if (wordWidth > maxLineWidth)
+            {
+                int wrappedWordLines = Mathf.Max(1, Mathf.CeilToInt(wordWidth / Mathf.Max(1f, maxLineWidth)));
+                lines += wrappedWordLines - 1;
+                current = "";
+            }
+            else
+            {
+                current = word;
+            }
+        }
+
+        return Mathf.Max(1, lines);
+    }
+
+    public void PulseGlobalSurgeMeter(float strength = 1f)
+    {
+        if (!GodotObject.IsInstanceValid(_globalSpectaclePanel) || _isGlobalSurgeReady)
+            return;
+
+        if (_surgeMeterPulseTween != null && GodotObject.IsInstanceValid(_surgeMeterPulseTween))
+            _surgeMeterPulseTween.Kill();
+
+        float pulseStrength = Mathf.Clamp(strength, 0.25f, 1.4f);
+        float peak = 1f + 0.24f * pulseStrength;
+        _surgeMeterPulseTween = CreateTween();
+        _surgeMeterPulseTween.SetIgnoreTimeScale(true);
+        _surgeMeterPulseTween.TweenProperty(_globalSpectaclePanel, "modulate:v", peak, 0.12f)
+            .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+        _surgeMeterPulseTween.TweenProperty(_globalSpectaclePanel, "modulate:v", 1f, 0.25f)
+            .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+        _surgeMeterPulseTween.TweenCallback(Callable.From(() => _surgeMeterPulseTween = null));
+    }
+
     public void RefreshGlobalSurgeMeter(float meter, float threshold, bool visible,
         string archetypePreview = "", float previewAlpha = 0f)
     {
@@ -532,37 +835,41 @@ public partial class HudPanel : CanvasLayer
             || !GodotObject.IsInstanceValid(_surgeNameLabel))
             return;
 
-        bool canShow = (visible && threshold > 0.001f) || _surgeMeterForcedVisible;
         bool wasHidden = !_globalSpectaclePanel.Visible;
+        bool canShow = (visible && threshold > 0.001f) || _surgeMeterForcedVisible;
         _globalSpectaclePanel.Visible = canShow;
         if (!canShow)
             return;
 
-        if (wasHidden && !_surgeMeterHintShown && GodotObject.IsInstanceValid(_surgeMeterHint))
+        if (wasHidden && !_surgeMeterIntroShown)
         {
-            _surgeMeterHintShown = true;
-            _surgeMeterHint.Visible = true;
-            var htw = _surgeMeterHint.CreateTween();
-            htw.TweenProperty(_surgeMeterHint, "modulate:a", 0.88f, 0.30f)
-               .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
-            htw.TweenInterval(3.5f);
-            htw.TweenProperty(_surgeMeterHint, "modulate:a", 0f, 0.60f)
-               .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
-            htw.TweenCallback(Callable.From(() =>
-            {
-                if (GodotObject.IsInstanceValid(_surgeMeterHint))
-                    _surgeMeterHint.Visible = false;
-            }));
+            _surgeMeterIntroShown = true;
+            ShowSurgeMicroHint("Tower surges fill this bar", holdSeconds: 2.6f);
         }
 
         float fill = Mathf.Clamp(meter / Mathf.Max(1f, threshold), 0f, 1f);
         float pipsToFill = fill * SurgePipCount;
+        float nearReady = Mathf.InverseLerp(0.72f, 1f, fill);
+        Color pipReadyColor = PipFilled.Lerp(new Color(1.00f, 0.97f, 0.76f, 0.98f), nearReady);
+        bool pulseTweenActive = _surgeMeterPulseTween != null && GodotObject.IsInstanceValid(_surgeMeterPulseTween);
+        if (!_isGlobalSurgeReady && !pulseTweenActive)
+            _globalSpectaclePanel.Modulate = new Color(1.00f + nearReady * 0.06f, 1.00f + nearReady * 0.05f, 1.00f, 0.97f);
 
         for (int i = 0; i < _surgePips.Length; i++)
         {
             if (!GodotObject.IsInstanceValid(_surgePips[i])) continue;
             float pipFill = Mathf.Clamp(pipsToFill - i, 0f, 1f);
-            _surgePips[i].Color = PipEmpty.Lerp(PipFilled, pipFill);
+            Color color = PipEmpty.Lerp(pipReadyColor, pipFill);
+            if (nearReady > 0.001f)
+            {
+                float shimmer = (0.5f + 0.5f * Mathf.Sin((float)Time.GetTicksMsec() * 0.010f + i * 0.32f)) * nearReady * 0.12f;
+                color = new Color(
+                    Mathf.Clamp(color.R + shimmer, 0f, 1f),
+                    Mathf.Clamp(color.G + shimmer, 0f, 1f),
+                    Mathf.Clamp(color.B + shimmer * 0.7f, 0f, 1f),
+                    color.A);
+            }
+            _surgePips[i].Color = color;
         }
 
         if (!string.IsNullOrEmpty(_lockedSurgeName))
@@ -617,10 +924,12 @@ public partial class HudPanel : CanvasLayer
         if (_surgeReadyTween != null && GodotObject.IsInstanceValid(_surgeReadyTween))
             _surgeReadyTween.Kill();
         _surgeReadyTween = null;
+        if (_surgeMeterPulseTween != null && GodotObject.IsInstanceValid(_surgeMeterPulseTween))
+            _surgeMeterPulseTween.Kill();
+        _surgeMeterPulseTween = null;
 
         if (ready)
         {
-            _globalSpectaclePanel.MouseFilter = Control.MouseFilterEnum.Stop;
             // Label is now driven by _lockedSurgeName in RefreshGlobalSurgeMeter; nothing to set here.
             // Override border to bright gold to make it obviously interactive
             _globalSpectaclePanel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
@@ -637,7 +946,6 @@ public partial class HudPanel : CanvasLayer
         }
         else
         {
-            _globalSpectaclePanel.MouseFilter = Control.MouseFilterEnum.Ignore;
             // Restore default style
             _globalSpectaclePanel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
                 bg:     new Color(0.04f, 0.09f, 0.15f, 0.88f),
@@ -646,6 +954,24 @@ public partial class HudPanel : CanvasLayer
             _globalSpectaclePanel.Modulate = new Color(1f, 1f, 1f, 0.97f);
             // Label text/colour will be reset to "GLOBAL SURGE" on the next RefreshGlobalSurgeMeter tick.
         }
+
+        RefreshGlobalSurgeInteractionState();
+    }
+
+    public void SetGlobalSurgeInteractionEnabled(bool enabled)
+    {
+        _globalSurgeInteractionEnabled = enabled;
+        RefreshGlobalSurgeInteractionState();
+    }
+
+    private void RefreshGlobalSurgeInteractionState()
+    {
+        if (!GodotObject.IsInstanceValid(_globalSpectaclePanel))
+            return;
+        bool clickable = _isGlobalSurgeReady && _globalSurgeInteractionEnabled;
+        _globalSpectaclePanel.MouseFilter = clickable
+            ? Control.MouseFilterEnum.Stop
+            : Control.MouseFilterEnum.Ignore;
     }
 
     /// <summary>
@@ -802,7 +1128,11 @@ public partial class HudPanel : CanvasLayer
         };
         _globalSpectaclePanel.GuiInput += (@event) =>
         {
-            if (_isGlobalSurgeReady && @event is InputEventMouseButton mb && mb.Pressed && mb.ButtonIndex == MouseButton.Left)
+            if (_isGlobalSurgeReady
+                && _globalSurgeInteractionEnabled
+                && @event is InputEventMouseButton mb
+                && mb.Pressed
+                && mb.ButtonIndex == MouseButton.Left)
                 GlobalSurgeActivateRequested?.Invoke();
         };
         _globalSpectaclePanel.AddThemeStyleboxOverride(
@@ -876,7 +1206,7 @@ public partial class HudPanel : CanvasLayer
 
         _surgeMeterHint = new Label
         {
-            Text = "Surge Meter - fills as towers fire. Full = global surge.",
+            Text = "Full towers power this",
             HorizontalAlignment = HorizontalAlignment.Center,
             AnchorLeft = 0.5f,
             AnchorRight = 0.5f,
@@ -890,10 +1220,56 @@ public partial class HudPanel : CanvasLayer
             MouseFilter = Control.MouseFilterEnum.Ignore,
             Modulate = new Color(1f, 1f, 1f, 0f),
         };
-        UITheme.ApplyFont(_surgeMeterHint, size: 13);
+        UITheme.ApplyFont(_surgeMeterHint, size: 16);
         _surgeMeterHint.AddThemeColorOverride("font_color", new Color(1.00f, 0.95f, 0.76f));
         _surgeMeterHint.AddThemeConstantOverride("outline_size", 2);
         _surgeMeterHint.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.88f));
         AddChild(_surgeMeterHint);
+
+        _teachingHintPanel = new PanelContainer
+        {
+            AnchorLeft = 0.5f,
+            AnchorRight = 0.5f,
+            AnchorTop = 0f,
+            AnchorBottom = 0f,
+            OffsetLeft = -255f,
+            OffsetRight = 255f,
+            OffsetTop = 58f,
+            OffsetBottom = 96f,
+            Visible = false,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Modulate = new Color(1f, 1f, 1f, 0f),
+        };
+        _teachingHintPanel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.05f, 0.12f, 0.20f, 0.94f),
+            border: new Color(1.00f, 0.90f, 0.42f, 0.95f),
+            corners: 10,
+            borderWidth: 2,
+            padH: 12,
+            padV: 7));
+        AddChild(_teachingHintPanel);
+
+        _teachingHintConnector = new Line2D
+        {
+            Width = 2.2f,
+            Antialiased = true,
+            DefaultColor = new Color(1.00f, 0.92f, 0.54f, 0.92f),
+            Visible = false,
+        };
+        AddChild(_teachingHintConnector);
+
+        _teachingHintLabel = new Label
+        {
+            Text = "",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        UITheme.ApplyFont(_teachingHintLabel, semiBold: true, size: 17);
+        _teachingHintLabel.AddThemeColorOverride("font_color", new Color(1.00f, 0.98f, 0.84f));
+        _teachingHintLabel.AddThemeConstantOverride("outline_size", 2);
+        _teachingHintLabel.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.82f));
+        _teachingHintPanel.AddChild(_teachingHintLabel);
     }
 }

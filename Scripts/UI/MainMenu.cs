@@ -17,6 +17,8 @@ public partial class MainMenu : Node
 
 	public override void _Ready()
 	{
+		SoundManager.Instance?.SetMenuAmbientEnabled(true);
+
 		if (OS.GetCmdlineUserArgs().Contains("--bot"))
 		{
 			CallDeferred(nameof(AutoStartBotRun));

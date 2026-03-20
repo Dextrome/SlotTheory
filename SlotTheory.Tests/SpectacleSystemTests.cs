@@ -565,6 +565,69 @@ public class SpectacleSystemTests
     }
 
     [Fact]
+    public void GlobalSurge_BecomesReadyBeforeActivation()
+    {
+        var system = new SpectacleSystem();
+        var tower = TowerWithMods("split_shot");
+        int readyCount = 0;
+        int globalCount = 0;
+        float scalarForSingleProcSurge = ScalarToGuaranteeSingleProcSurge("split_shot");
+        int requiredSurges = (int)Math.Ceiling(
+            SpectacleDefinitions.ResolveGlobalThreshold() /
+            Math.Max(0.0001f, SpectacleDefinitions.ResolveGlobalMeterPerSurge()));
+
+        system.OnGlobalSurgeReady += _ => readyCount++;
+        system.OnGlobalTriggered += _ => globalCount++;
+
+        for (int i = 0; i < requiredSurges; i++)
+        {
+            system.RegisterProc(tower, "split_shot", scalarForSingleProcSurge);
+            if (i < requiredSurges - 1)
+                system.Update(SpectacleDefinitions.SurgeCooldownSeconds + 0.25f);
+        }
+
+        Assert.Equal(1, readyCount);
+        Assert.Equal(0, globalCount);
+        Assert.True(system.IsGlobalSurgeReady);
+
+        system.ActivateGlobalSurge();
+
+        Assert.Equal(1, globalCount);
+        Assert.False(system.IsGlobalSurgeReady);
+    }
+
+    [Fact]
+    public void GlobalSurgeReady_DoesNotRefireWhilePendingActivation()
+    {
+        var system = new SpectacleSystem();
+        var tower = TowerWithMods("split_shot");
+        int readyCount = 0;
+        int globalCount = 0;
+        float scalarForSingleProcSurge = ScalarToGuaranteeSingleProcSurge("split_shot");
+        int requiredSurges = (int)Math.Ceiling(
+            SpectacleDefinitions.ResolveGlobalThreshold() /
+            Math.Max(0.0001f, SpectacleDefinitions.ResolveGlobalMeterPerSurge()));
+
+        system.OnGlobalSurgeReady += _ => readyCount++;
+        system.OnGlobalTriggered += _ => globalCount++;
+
+        for (int i = 0; i < requiredSurges + 3; i++)
+        {
+            system.RegisterProc(tower, "split_shot", scalarForSingleProcSurge);
+            system.Update(SpectacleDefinitions.SurgeCooldownSeconds + 0.25f);
+        }
+
+        Assert.Equal(1, readyCount);
+        Assert.Equal(0, globalCount);
+        Assert.True(system.IsGlobalSurgeReady);
+
+        system.ActivateGlobalSurge();
+
+        Assert.Equal(1, globalCount);
+        Assert.False(system.IsGlobalSurgeReady);
+    }
+
+    [Fact]
     public void GlobalTrigger_FiresAfterRequiredSurgesFromTwoTowers()
     {
         var system = new SpectacleSystem();

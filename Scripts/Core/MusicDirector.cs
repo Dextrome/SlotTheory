@@ -207,6 +207,21 @@ public partial class MusicDirector : Node
     }
 
     /// <summary>
+    /// Starts map music for the very first draft screen so the run does not begin in silence.
+    /// Keeps percussion muted until wave combat actually starts.
+    /// </summary>
+    public void OnInitialDraftStart(int lives)
+    {
+        if (BassLayer is null) return;
+
+        var introTension = MusicHarmony.ComputeTension(waveIndex: 1, lives);
+        ApplyTension(introTension);
+        PercLayer.Active = true;
+        PercLayer.Density = 0;
+        PercLayer.WaveIntroBarsLeft = 0;
+    }
+
+    /// <summary>
     /// Call when the run ends. Stops the procedural layers; the ambient pad continues.
     /// </summary>
     public void OnRunEnd(bool won)

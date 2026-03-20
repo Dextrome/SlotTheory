@@ -298,7 +298,11 @@ public partial class HowToPlay : Node
     private static void BuildSurgesSection(VBoxContainer vbox)
     {
         AddHeader(vbox, "SURGES OVERVIEW");
-        AddLine(vbox, "Each tower builds spectacle charge from supported modifier events.");
+        AddLine(vbox, "Combat fills Tower Surge.");
+        AddLine(vbox, "A full tower ring means Surge Ready.");
+        AddLine(vbox, "Full towers charge the Global Surge bar.");
+        AddLine(vbox, "Click Global Surge when the bar is full.");
+        AddLine(vbox, "2+ mods unlock Combo Surge. 3 mods add a Triad augment.");
         AddLine(vbox, $"Tower surge triggers at {SpectacleDefinitions.SurgeThreshold:0} meter, then resets to {SpectacleDefinitions.SurgeMeterAfterTrigger:0}.");
         AddLine(vbox, $"Each tower surge adds +{SpectacleDefinitions.GlobalMeterPerSurge:0} to the global meter. Global surge triggers at {SpectacleDefinitions.GlobalThreshold:0}, then resets to {SpectacleDefinitions.GlobalMeterAfterTrigger:0}.");
         AddLine(vbox, "A tower with 1 surge-capable mod fires a Single Surge. Two mods: Combo Surge. Three mods: Triad (Combo payload + Augment bonus).");

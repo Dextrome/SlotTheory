@@ -174,7 +174,7 @@ public partial class Settings : Node
         AddSpacer(vbox, 4);
         AddSectionHeader(vbox, "PROFILE");
 
-        _resetTutorialBtn = AddSettingRow(vbox, "Reset Tutorial",
+        _resetTutorialBtn = AddSettingRow(vbox, "Reset Hints",
             "Reset", isOn: false, OnResetTutorialPressed);
         UITheme.ApplyMutedStyle(_resetTutorialBtn);
         UITheme.ApplyMenuButtonFinish(_resetTutorialBtn, UITheme.Magenta, 0.09f, 0.14f);
@@ -193,7 +193,7 @@ public partial class Settings : Node
 
         var confirmLabel = new Label
         {
-            Text = "Show tutorial on next run?",
+            Text = "Reset surge hints on next run?",
             VerticalAlignment = VerticalAlignment.Center,
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
         };
@@ -379,7 +379,7 @@ public partial class Settings : Node
         if (_resetTutorialConfirmRow != null)
             _resetTutorialConfirmRow.Visible = false;
         if (_resetTutorialStatus != null)
-            _resetTutorialStatus.Text = "Tutorial will show on your next run.";
+            _resetTutorialStatus.Text = "Surge hints will show again on your next run.";
     }
 
     private void OnResetTutorialCancelled()
