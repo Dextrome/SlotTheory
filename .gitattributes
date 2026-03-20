@@ -1,0 +1,28 @@
+# Normalize line endings in Git for text files.
+* text=auto
+
+# Explicit text file groups we care about for source/config quality.
+*.cs text
+*.csproj text
+*.sln text
+*.json text
+*.md text
+*.yml text
+*.yaml text
+*.editorconfig text
+*.gitattributes text
+*.uid text
+
+# Common binary assets.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.gif binary
+*.wav binary
+*.ogg binary
+*.mp3 binary
+*.ttf binary
+*.otf binary
+*.dll binary
+*.exe binary

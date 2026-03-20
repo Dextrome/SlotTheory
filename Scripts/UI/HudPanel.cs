@@ -373,6 +373,7 @@ public partial class HudPanel : CanvasLayer
         Engine.TimeScale = steps[_speedIdx];
         RefreshSpeedLabelFromActual((float)Engine.TimeScale);
         ShowSpeedToast();
+        MusicDirector.Instance?.SetGameSpeedScale((float)steps[_speedIdx]);
         SoundManager.Instance?.SetSpeedFeel((float)steps[_speedIdx]);
         SoundManager.Instance?.Play("ui_speed_shift");
     }
@@ -383,6 +384,7 @@ public partial class HudPanel : CanvasLayer
         _speedIdx = 0;
         Engine.TimeScale = 1.0;
         RefreshSpeedLabelFromActual((float)Engine.TimeScale);
+        MusicDirector.Instance?.SetGameSpeedScale(1.0f);
         SoundManager.Instance?.SetSpeedFeel(1.0f);
     }
 

@@ -23,9 +23,13 @@ public partial class MusicBassLayer : Node
     private int           _currentChordOffset; // semitones from _rootMidi for the current bar
     private System.Random _rng = new();
 
-    private const float PassNoteChance = 0.30f;
+    private const float PassNoteChance = 0.42f;
+    private const float OffbeatStabChance = 0.40f;
+    private const float HeavyAccentChance = 0.75f;
 
     public int Density { get; set; } = 1;
+    public MusicTension Tension { get; set; } = MusicTension.Intro;
+    public bool SurgeAccentPending { get; set; } = false;
 
     // Pending mode/progression change - applied at the next phrase boundary.
     private bool      _pendingChange;
@@ -48,6 +52,7 @@ public partial class MusicBassLayer : Node
         _clock.PhraseFired += OnPhrase;
         _clock.BarFired    += OnBar;
         _clock.BeatFired   += OnBeat;
+        _clock.SubBeatFired += OnSubBeat;
 
         // Prime the first chord before the clock fires its first bar event.
         _currentChordOffset = MusicHarmony.BassNormalize(
@@ -83,7 +88,16 @@ public partial class MusicBassLayer : Node
         _currentChordOffset = MusicHarmony.BassNormalize(
             MusicHarmony.GetChordRootOffset(_mode, _progressionIdx, barIndex));
         if (Density > 0)
+        {
             PlayRoot();
+            if (ShouldPlayHeavyAccent(barIndex))
+                PlayHeavyAccent();
+            if (SurgeAccentPending)
+            {
+                PlaySurgeAccent();
+                SurgeAccentPending = false;
+            }
+        }
     }
 
     private void OnBeat(int beatIndex)
@@ -97,9 +111,63 @@ public partial class MusicBassLayer : Node
         }
     }
 
+    private void OnSubBeat(int subBeatIndex)
+    {
+        if (Density < 1) return;
+        if (subBeatIndex != 1 && subBeatIndex != 5) return; // 1-and / 3-and
+
+        float stabChance = OffbeatStabChance;
+        if (Tension >= MusicTension.LateGame) stabChance += 0.18f;
+        if (_mode == MusicMode.Phrygian) stabChance += 0.08f;
+        if (_rng.NextDouble() >= stabChance) return;
+
+        bool favorFifth = subBeatIndex == 5 && _rng.NextDouble() < 0.65;
+        int step = 0;
+        if (subBeatIndex == 1 && Tension >= MusicTension.LateGame && _rng.NextDouble() < 0.30)
+            step = 1; // b2 push for a doomier bite in dark tiers
+
+        int midi = Clamp(_rootMidi + _currentChordOffset + (favorFifth ? 7 : step));
+        SoundManager.Instance?.PlayNote(midi, BassVolDb - 4.5f);
+    }
+
+    private bool ShouldPlayHeavyAccent(int barIndex)
+    {
+        if (Tension < MusicTension.MidGame) return false;
+        if (_mode != MusicMode.Dorian && _mode != MusicMode.Phrygian) return false;
+
+        if (barIndex == 0 || barIndex == 2)
+            return _rng.NextDouble() < HeavyAccentChance;
+        if (Tension >= MusicTension.LateGame && barIndex == 3)
+            return _rng.NextDouble() < 0.55;
+        return false;
+    }
+
+    private void PlayHeavyAccent()
+    {
+        int lowRoot = Clamp(_rootMidi + _currentChordOffset - 12);
+        int lowFifth = Clamp(lowRoot + 7);
+        int octave = Clamp(lowRoot + 12);
+
+        SoundManager.Instance?.PlayNote(lowRoot, BassVolDb - 1.0f);
+        SoundManager.Instance?.PlayNote(lowFifth, BassVolDb - 6.0f);
+        if (Tension >= MusicTension.LateGame)
+            SoundManager.Instance?.PlayNote(octave, BassVolDb - 8.0f);
+    }
+
+    private void PlaySurgeAccent()
+    {
+        int lowRoot = Clamp(_rootMidi + _currentChordOffset - 12);
+        int flatTwo = Clamp(lowRoot + 1);
+        int lowFifth = Clamp(lowRoot + 7);
+
+        SoundManager.Instance?.PlayNote(lowRoot, BassVolDb - 0.5f);
+        SoundManager.Instance?.PlayNote(flatTwo, BassVolDb - 5.5f);
+        SoundManager.Instance?.PlayNote(lowFifth, BassVolDb - 6.5f);
+    }
+
     // ── Note helpers ──────────────────────────────────────────────────────
 
-    private const float BassVolDb = -17f;
+    private const float BassVolDb = -15f;
 
     private void PlayRoot()
     {

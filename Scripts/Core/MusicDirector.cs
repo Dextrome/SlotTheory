@@ -30,6 +30,7 @@ public partial class MusicDirector : Node
 
     private MusicTension  _tension = MusicTension.Intro;
     private System.Random _rng     = new();
+    private float _gameSpeedScale = 1f;
 
     // Active profile (set in _Ready based on selected map)
     private MapMusicProfile _profile;
@@ -38,6 +39,8 @@ public partial class MusicDirector : Node
     private int _breathBarsLeft;
     private int _breathPrevBassDensity;
     private int _breathPrevPercDensity;
+    private bool _startupPercRampActive;
+    private int _startupPercRampBarIndex;
 
     // ── Per-map music profiles ─────────────────────────────────────────────
     //
@@ -56,15 +59,15 @@ public partial class MusicDirector : Node
 
     private static MapMusicProfile GetProfileForMap(string? mapId) => mapId switch
     {
-        // arena_classic - balanced reference: A Dorian, standard groove
-        "arena_classic" => new MapMusicProfile(0, MusicMode.Dorian,      0f,  0.20f, MusicPercLayer.DrumStyle.Standard),
-        // gauntlet - aggressive drive: D Mixolydian, +24 BPM, 4-on-the-floor kick, no hat variation
-        "gauntlet"      => new MapMusicProfile(5, MusicMode.Mixolydian, +24f, 0.00f, MusicPercLayer.DrumStyle.FourOnFloor),
-        // sprawl - spacious and chill: B Dorian, -24 BPM, half-time snare, frequent quarter-hat bars
-        "sprawl"        => new MapMusicProfile(2, MusicMode.Dorian,    -24f,  0.50f, MusicPercLayer.DrumStyle.HalfTime),
-        // random_map - unpredictable edge: C Phrygian, +10 BPM, off-beat kick, high hat variation
-        "random_map"    => new MapMusicProfile(3, MusicMode.Phrygian,  +10f,  0.40f, MusicPercLayer.DrumStyle.Syncopated),
-        _               => new MapMusicProfile(0, MusicMode.Dorian,      0f,  0.20f, MusicPercLayer.DrumStyle.Standard),
+        // arena_classic - more drive up-front without losing readability
+        "arena_classic" => new MapMusicProfile(0, MusicMode.Dorian, +12f, 0.10f, MusicPercLayer.DrumStyle.Funk),
+        // gauntlet - max aggression: darker color + faster pace + relentless kick
+        "gauntlet"      => new MapMusicProfile(5, MusicMode.Phrygian,   +30f, 0.00f, MusicPercLayer.DrumStyle.FourOnFloor),
+        // sprawl - keep space but keep a dark/funky pocket
+        "sprawl"        => new MapMusicProfile(2, MusicMode.Dorian,      +8f, 0.14f, MusicPercLayer.DrumStyle.Funk),
+        // random_map - tense and energetic by default
+        "random_map"    => new MapMusicProfile(3, MusicMode.Phrygian,   +18f, 0.12f, MusicPercLayer.DrumStyle.Funk),
+        _               => new MapMusicProfile(0, MusicMode.Dorian,     +10f, 0.12f, MusicPercLayer.DrumStyle.Funk),
     };
 
 
@@ -84,6 +87,7 @@ public partial class MusicDirector : Node
         // Pick the per-map profile before anything else.
         string? mapId = GameController.Instance?.GetRunState()?.SelectedMapId;
         _profile = GetProfileForMap(mapId);
+        _gameSpeedScale = Mathf.Max(1f, (float)Engine.TimeScale);
 
         int rootMidi = BaseRootMidi + _profile.RootOffset;
         var mode     = _profile.IntroMode;
@@ -111,22 +115,49 @@ public partial class MusicDirector : Node
         PercLayer.HatQuarterChance = _profile.HatQuarterChance;
         PercLayer.Style            = _profile.DrumStyle;
 
-        float startBpm = MusicHarmony.TensionToBpm(_tension) + _profile.BpmOffset;
+        float startBpm = TargetBpmFor(_tension);
         Clock.Start(startBpm);
 
-        // Start fading the ambient pad immediately - procedural layers take over from wave 1.
-        SoundManager.Instance?.FadePad(5f);
+        // Fade ambient pad quickly so map combat layers dominate sooner.
+        SoundManager.Instance?.FadePad(2.5f);
     }
 
     // ── Bar handler (for breath management) ──────────────────────────────
 
     private void OnBar(int _)
     {
-        if (_breathBarsLeft <= 0) return;
-        if (--_breathBarsLeft == 0)
+        if (_breathBarsLeft > 0)
         {
-            BassLayer.Density = _breathPrevBassDensity;
-            PercLayer.Density = _breathPrevPercDensity;
+            if (--_breathBarsLeft == 0)
+            {
+                BassLayer.Density = _breathPrevBassDensity;
+                PercLayer.Density = _breathPrevPercDensity;
+            }
+            return;
+        }
+
+        if (!_startupPercRampActive || PercLayer is null)
+            return;
+
+        _startupPercRampBarIndex++;
+        if (_startupPercRampBarIndex == 1)
+        {
+            // Bar 1: no drums at all.
+            PercLayer.Density = 0;
+            PercLayer.WaveIntroBarsLeft = Mathf.Max(PercLayer.WaveIntroBarsLeft, 2);
+        }
+        else if (_startupPercRampBarIndex == 2)
+        {
+            // Bar 2: bring rhythm back but keep hats restrained.
+            PercLayer.Density = 1;
+            PercLayer.HatQuarterChance = Mathf.Clamp(_profile.HatQuarterChance + 0.45f, 0f, 1f);
+            PercLayer.WaveIntroBarsLeft = Mathf.Max(PercLayer.WaveIntroBarsLeft, 1);
+        }
+        else
+        {
+            // Bar 3+: fully unlocked profile groove.
+            PercLayer.HatQuarterChance = _profile.HatQuarterChance;
+            _startupPercRampActive = false;
         }
     }
 
@@ -140,9 +171,9 @@ public partial class MusicDirector : Node
     {
         if (BassLayer is null) return;
         var newTension = MusicHarmony.ComputeTension(waveIndex, lives);
-        // Density arc: suppress hats for the first 2 bars so they fill in gradually
+        // Keep the ramp, but shorten it so combat energy ramps in faster.
         if (newTension != MusicTension.NearDeath)
-            PercLayer.WaveIntroBarsLeft = 2;
+            PercLayer.WaveIntroBarsLeft = 1;
         ApplyTension(newTension);
     }
 
@@ -151,9 +182,11 @@ public partial class MusicDirector : Node
     /// </summary>
     public void OnGlobalSurge()
     {
-        if (PercLayer is null) return;
+        if (PercLayer is null || BassLayer is null) return;
         if (PercLayer.Active && PercLayer.Density > 0)
             PercLayer.SurgeFillPending = true;
+        if (BassLayer.Density > 0)
+            BassLayer.SurgeAccentPending = true;
     }
 
     /// <summary>
@@ -163,13 +196,8 @@ public partial class MusicDirector : Node
     public void OnWaveClear()
     {
         if (BassLayer is null) return;
-        _breathPrevBassDensity = BassLayer.Density;
-        _breathPrevPercDensity = PercLayer.Density;
-        BassLayer.Density      = 0;
-        PercLayer.Density      = 0;
-        // 2 bars: MusicDirector.OnBar fires first (restores density), then
-        // MusicBassLayer.OnBar fires - extra bar ensures bar N is truly silent.
-        _breathBarsLeft        = 2;
+        // Keep map music continuous into draft; no wave-clear breath mute.
+        _breathBarsLeft = 0;
     }
 
     /// <summary>
@@ -199,11 +227,18 @@ public partial class MusicDirector : Node
     public void OnDraftPhaseStart()
     {
         if (BassLayer is null) return;
-        _breathBarsLeft    = 0;  // cancel any pending breath restore
-        BassLayer.Density  = 0;
-        MelodyLayer.Active = false;
-        PercLayer.Active   = false;
-        PercLayer.Density  = 0;
+        _startupPercRampActive = false;
+        _startupPercRampBarIndex = 0;
+        _breathBarsLeft = 0;  // ensure no pending mute behavior from prior logic
+        // Keep all layers running through draft panels.
+        MelodyLayer.Active = true;
+        PercLayer.Active   = true;
+        if (_tension != MusicTension.NearDeath)
+        {
+            BassLayer.Density = 1;
+            PercLayer.Density = 1;
+        }
+        PercLayer.HatQuarterChance = _profile.HatQuarterChance;
     }
 
     /// <summary>
@@ -216,9 +251,7 @@ public partial class MusicDirector : Node
 
         var introTension = MusicHarmony.ComputeTension(waveIndex: 1, lives);
         ApplyTension(introTension);
-        PercLayer.Active = true;
-        PercLayer.Density = 0;
-        PercLayer.WaveIntroBarsLeft = 0;
+        BeginStartupPercussionRamp();
     }
 
     /// <summary>
@@ -227,6 +260,8 @@ public partial class MusicDirector : Node
     public void OnRunEnd(bool won)
     {
         if (BassLayer is null) return;
+        _startupPercRampActive = false;
+        _startupPercRampBarIndex = 0;
         Clock.Stop();
         PercLayer.Active  = false;
         MelodyLayer.Active = false;
@@ -240,11 +275,31 @@ public partial class MusicDirector : Node
     {
         if (BassLayer is null) return;
         _tension = MusicHarmony.ComputeTension(waveIndex, lives);
-        float bpm = MusicHarmony.TensionToBpm(_tension) + _profile.BpmOffset;
+        float bpm = TargetBpmFor(_tension);
         Clock.Start(bpm);
-        PercLayer.Active  = true;
+        BeginStartupPercussionRamp();
         MelodyLayer.Active = true;
         OnWaveStart(waveIndex, lives);
+    }
+
+    /// <summary>
+    /// Called by HUD speed controls so map music pace tracks gameplay speed.
+    /// </summary>
+    public void SetGameSpeedScale(float speedScale)
+    {
+        if (Clock is null) return;
+
+        float clamped = Mathf.Max(1f, speedScale);
+        if (Mathf.IsEqualApprox(_gameSpeedScale, clamped))
+            return;
+
+        _gameSpeedScale = clamped;
+        if (!Clock.IsRunning)
+            return;
+
+        float targetBpm = TargetBpmFor(_tension);
+        if (System.MathF.Abs(Clock.Bpm - targetBpm) > 0.5f)
+            Clock.SetBpm(targetBpm, rampBars: 1.25f);
     }
 
     // ── Internal ──────────────────────────────────────────────────────────
@@ -254,10 +309,10 @@ public partial class MusicDirector : Node
         bool changed = newTension != _tension;
         _tension     = newTension;
 
-        // Near-death: BPM stays at whatever it currently is (doc spec).
+        // Near-death: tension shifts do not retarget BPM (speed scaling may still retarget).
         if (newTension != MusicTension.NearDeath)
         {
-            float bpm = MusicHarmony.TensionToBpm(newTension) + _profile.BpmOffset;
+            float bpm = TargetBpmFor(newTension);
             if (System.MathF.Abs(Clock.Bpm - bpm) > 1f)
                 Clock.SetBpm(bpm, rampBars: 4);
         }
@@ -277,6 +332,7 @@ public partial class MusicDirector : Node
         }
 
         // Update melody + perc tension for phrase/pattern selection.
+        BassLayer.Tension   = newTension;
         MelodyLayer.Tension = newTension;
         PercLayer.Tension   = newTension;
 
@@ -295,5 +351,29 @@ public partial class MusicDirector : Node
             BassLayer.Density = 1;
             PercLayer.Density = 1;
         }
+    }
+
+    private float TargetBpmFor(MusicTension tension)
+    {
+        float baseBpm = MusicHarmony.TensionToBpm(tension) + _profile.BpmOffset;
+        return baseBpm * SpeedToTempoScale(_gameSpeedScale);
+    }
+
+    private static float SpeedToTempoScale(float speedScale)
+    {
+        // Keep pitch identity while making speed changes clearly audible:
+        // 1x -> 1.00, 2x -> 1.25, 3x -> 1.50. Clamp higher dev speeds.
+        float t = Mathf.Clamp(speedScale, 1f, 3f) - 1f;
+        return 1f + t * 0.25f;
+    }
+
+    private void BeginStartupPercussionRamp()
+    {
+        _startupPercRampActive = true;
+        _startupPercRampBarIndex = 0;
+        PercLayer.Active = true;
+        PercLayer.Density = 0;
+        PercLayer.HatQuarterChance = Mathf.Clamp(_profile.HatQuarterChance + 0.55f, 0f, 1f);
+        PercLayer.WaveIntroBarsLeft = Mathf.Max(PercLayer.WaveIntroBarsLeft, 2);
     }
 }

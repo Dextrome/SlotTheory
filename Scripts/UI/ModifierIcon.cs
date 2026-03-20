@@ -45,10 +45,13 @@ public partial class ModifierIcon : Control
     {
         var c = new Vector2(Size.X * 0.5f, Size.Y * 0.5f);
         float r = Mathf.Min(Size.X, Size.Y) * 0.35f;
+        float glowPad = Mathf.Clamp(r * 0.90f, 1.1f, 4.0f);
+        float ringPad = Mathf.Clamp(r * 0.45f, 0.8f, 2.0f);
+        float ringWidth = Mathf.Clamp(r * 0.35f, 0.9f, 1.2f);
         var glow = new Color(_iconColor.R, _iconColor.G, _iconColor.B, 0.20f);
 
-        DrawCircle(c, r + 4f, glow);
-        DrawArc(c, r + 2f, 0f, Mathf.Tau, 28, new Color(_iconColor.R, _iconColor.G, _iconColor.B, 0.55f), 1.2f);
+        DrawCircle(c, r + glowPad, glow);
+        DrawArc(c, r + ringPad, 0f, Mathf.Tau, 28, new Color(_iconColor.R, _iconColor.G, _iconColor.B, 0.55f), ringWidth);
 
         switch (_modifierId)
         {

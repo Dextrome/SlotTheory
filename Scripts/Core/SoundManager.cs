@@ -1036,11 +1036,16 @@ public partial class SoundManager : Node
             float s;
             if (isBass)
             {
-                // Fundamental + octave harmonic + warm detuned pair
-                s = MathF.Sin(t * MathF.Tau * freq) * 0.55f
-                  + MathF.Sin(t * MathF.Tau * freq * 2f) * 0.18f
-                  + MathF.Sin(t * MathF.Tau * (freq + detune)) * 0.09f
-                  + MathF.Sin(t * MathF.Tau * (freq - detune)) * 0.09f;
+                // Doom-leaning bass tone: strong sub/fundamental, odd harmonics,
+                // then soft saturation for a gritty, amp-like edge.
+                float raw =
+                    MathF.Sin(t * MathF.Tau * freq * 0.5f) * 0.22f +
+                    MathF.Sin(t * MathF.Tau * freq) * 0.46f +
+                    MathF.Sin(t * MathF.Tau * freq * 2f) * 0.15f +
+                    MathF.Sin(t * MathF.Tau * freq * 3f) * 0.09f +
+                    MathF.Sin(t * MathF.Tau * (freq + detune)) * 0.07f +
+                    MathF.Sin(t * MathF.Tau * (freq - detune)) * 0.07f;
+                s = MathF.Tanh(raw * 1.90f) * 0.90f;
             }
             else
             {

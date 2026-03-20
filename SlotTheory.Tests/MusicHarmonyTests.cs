@@ -120,7 +120,7 @@ public class MusicHarmonyTests
     [Theory]
     [InlineData(MusicTension.Intro,     MusicMode.Dorian)]
     [InlineData(MusicTension.Building,  MusicMode.Dorian)]
-    [InlineData(MusicTension.MidGame,   MusicMode.Mixolydian)]
+    [InlineData(MusicTension.MidGame,   MusicMode.Dorian)]
     [InlineData(MusicTension.LateGame,  MusicMode.Phrygian)]
     [InlineData(MusicTension.NearDeath, MusicMode.Phrygian)]
     public void TensionToMode_maps_correctly(MusicTension tension, MusicMode expected)

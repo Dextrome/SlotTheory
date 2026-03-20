@@ -8,7 +8,7 @@ public enum MusicTension
 {
     Intro      = 0,  // waves 1–7:  bass only or bass+perc, melody sparse
     Building   = 1,  // waves 1–7 full: all layers, moderate density, Dorian
-    MidGame    = 2,  // waves 8–14:  full texture, Mixolydian, BPM ramp
+    MidGame    = 2,  // waves 8-14:  full texture, Dorian, BPM ramp
     LateGame   = 3,  // waves 15–20: full texture + syncopation, Phrygian
     NearDeath  = 4,  // ≤ 3 lives:   perc out, long tones, bass root only
 }
@@ -98,11 +98,10 @@ public static class MusicHarmony
 
     /// <summary>
     /// Maps a MusicTension level to a musical mode.
-    /// Intro/Building → Dorian, MidGame → Mixolydian, LateGame/NearDeath → Phrygian.
+    /// Intro/Building/MidGame -> Dorian, LateGame/NearDeath -> Phrygian.
     /// </summary>
     public static MusicMode TensionToMode(MusicTension tension) => tension switch
     {
-        MusicTension.MidGame               => MusicMode.Mixolydian,
         MusicTension.LateGame
             or MusicTension.NearDeath      => MusicMode.Phrygian,
         _                                  => MusicMode.Dorian,
@@ -153,3 +152,4 @@ public static class MusicHarmony
         return rootMidi + offsets[idx] + octave * 12;
     }
 }
+

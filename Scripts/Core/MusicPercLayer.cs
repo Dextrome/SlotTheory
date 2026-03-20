@@ -47,7 +47,7 @@ public partial class MusicPercLayer : Node
     public float      HatQuarterChance { get; set; } = 0.20f;
     public DrumStyle  Style            { get; set; } = DrumStyle.Standard;
 
-    public enum DrumStyle { Standard, HalfTime, FourOnFloor, Syncopated }
+    public enum DrumStyle { Standard, HalfTime, FourOnFloor, Syncopated, Funk }
 
     public int  Density { get; set; } = 0;
     public bool Active  { get; set; } = false;
@@ -126,6 +126,22 @@ public partial class MusicPercLayer : Node
         new[] { false, true,  false, true,  false, true,  true,  false },  // LateGame: 1-and + 2-and + 3-and + 4
     };
 
+    // ── Funk (global default) - syncopated pocket with off-beat pushes ──
+    private static readonly bool[][] KickFunk =
+    {
+        new[] { true,  false, false, true,  true,  false, false, true  },  // Intro:    1 + 2-and + 3 + 4-and
+        new[] { true,  true,  false, true,  true,  false, false, true  },  // Building: + 1-and pickup
+        new[] { true,  true,  false, true,  true,  true,  false, true  },  // MidGame:  + 3-and
+        new[] { true,  true,  true,  true,  true,  true,  false, true  },  // LateGame: dense but keeps beat-4 space
+    };
+    private static readonly bool[][] SnareFunk =
+    {
+        new[] { false, false, true,  false, false, false, true,  false },  // Intro:    2 + 4
+        new[] { false, false, true,  false, false, false, true,  false },  // Building
+        new[] { false, false, true,  true,  false, false, true,  false },  // MidGame:  + 2-and ghost
+        new[] { false, false, true,  true,  false, true,  true,  false },  // LateGame: + 2-and + 3-and ghosts
+    };
+
     // ── Hat patterns (shared across styles) ─────────────────────────────────
     private static readonly bool[][] HatCPatterns =
     {
@@ -157,10 +173,10 @@ public partial class MusicPercLayer : Node
     private static readonly bool[] SurgeFillSnare = { false, false, false, false, true, true, true, true  };
 
     // Volume constants (absolute dB passed to PlayPerc)
-    private const float KickVol  = -15f;
-    private const float SnareVol = -17f;
-    private const float HatCVol  = -17f;  // hats sit further back in the mix
-    private const float HatOVol  = -15f;
+    private const float KickVol  = -13.5f;
+    private const float SnareVol = -14.5f;
+    private const float HatCVol  = -15.5f;  // hats stay behind kick/snare but with more energy
+    private const float HatOVol  = -13.5f;
 
     // ── Configuration ──────────────────────────────────────────────────────
 
@@ -210,6 +226,7 @@ public partial class MusicPercLayer : Node
             DrumStyle.HalfTime    => (KickHalfTime,    SnareHalfTime),
             DrumStyle.FourOnFloor => (KickFourOnFloor, SnareFourOnFloor),
             DrumStyle.Syncopated  => (KickSyncopated,  SnareSyncopated),
+            DrumStyle.Funk        => (KickFunk,        SnareFunk),
             _                     => (KickStandard,    SnareStandard),
         };
         var kick  = kickTable[patternIdx];
@@ -244,16 +261,26 @@ public partial class MusicPercLayer : Node
         if (playKick)  SoundManager.Instance?.PlayPerc("perc_kick",  KickVol);
 
         // Fill snare hits (non-backbeat) play quieter like ghost notes
+        bool isFunkGhost = Style == DrumStyle.Funk && (i == 3 || i == 5);
         if (playSnare)
         {
-            bool isBackbeat = snare[i];
+            bool isBackbeat = snare[i] && !isFunkGhost;
             float vol = isBackbeat ? SnareVol : SnareVol - 4f;
             SoundManager.Instance?.PlayPerc("perc_snare", vol);
         }
 
         if (!suppressHat)
         {
-            if (hatO[i])  SoundManager.Instance?.PlayPerc("perc_hat_o", HatOVol);
+            bool funkOpenAccent = Style == DrumStyle.Funk
+                && (i == 1 || i == 5)
+                && !_useQuarterHats
+                && _rng.NextDouble() < 0.28;
+
+            if (hatO[i] || funkOpenAccent)
+            {
+                float openVol = funkOpenAccent ? HatOVol - 1.2f : HatOVol;
+                SoundManager.Instance?.PlayPerc("perc_hat_o", openVol);
+            }
             else if (hatC[i])
             {
                 // Random hat velocity variation (±2 dB) for a more human feel
