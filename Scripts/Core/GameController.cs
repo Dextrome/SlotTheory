@@ -85,6 +85,10 @@ public partial class GameController : Node
 	private int   _botWaveSteps;
 	private int   _botStepExplosionBursts;
 	private int   _botStepHitStopRequests;
+	private bool  _botFastMetrics = false;
+	private bool  _botTraceCaptureEnabled = false;
+	private bool  _botGlobalSurgePending = false;
+	private float _botGlobalSurgeReadyAtPlayTime = -1f;
 	private readonly List<CombatLabTraceEvent> _botRunTraceEvents = new();
 	private int _botSurgeTraceCounter = 0;
 	private int _botGlobalTraceCounter = 0;
@@ -330,6 +334,9 @@ public partial class GameController : Node
 			if (rio >= 0 && rio + 1 < userArgs.Length)
 				int.TryParse(userArgs[rio + 1], out runIndexOffset);
 
+			bool botFastMetrics = userArgs.Contains("--bot_fast_metrics");
+			bool botQuiet = userArgs.Contains("--bot_quiet");
+
 			_botRunner = new BotRunner(
 				runs,
 				targetDifficulty,
@@ -341,15 +348,23 @@ public partial class GameController : Node
 				traceOutputPath,
 				SpectacleTuning.ActiveLabel,
 				strategySet,
-				runIndexOffset);
+				runIndexOffset,
+				botFastMetrics,
+				botQuiet);
+			_botFastMetrics = _botRunner.FastMetrics;
+			_botTraceCaptureEnabled = _botRunner.TraceCaptureEnabled;
 			Engine.MaxFps = 0;
-			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}{(targetMap != null ? $" on {targetMap}" : "")}{(targetStrategy.HasValue ? $" strategy={targetStrategy.Value}" : "")}{(strategySet != null ? $" strategy_set={strategySet}" : "")}{(forcedTower != null ? $" tower={forcedTower}" : "")}{(forcedMod != null ? $" mod={forcedMod}" : "")}{(runIndexOffset > 0 ? $" run_offset={runIndexOffset}" : "")}{(string.IsNullOrWhiteSpace(metricsOutputPath) ? "" : $" metrics={metricsOutputPath}")}{(string.IsNullOrWhiteSpace(traceOutputPath) ? "" : $" trace={traceOutputPath}")}");
+			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}{(targetMap != null ? $" on {targetMap}" : "")}{(targetStrategy.HasValue ? $" strategy={targetStrategy.Value}" : "")}{(strategySet != null ? $" strategy_set={strategySet}" : "")}{(forcedTower != null ? $" tower={forcedTower}" : "")}{(forcedMod != null ? $" mod={forcedMod}" : "")}{(runIndexOffset > 0 ? $" run_offset={runIndexOffset}" : "")}{(botFastMetrics ? " fast_metrics=on" : "")}{(botQuiet ? " quiet=on" : "")}{(string.IsNullOrWhiteSpace(metricsOutputPath) ? "" : $" metrics={metricsOutputPath}")}{(string.IsNullOrWhiteSpace(traceOutputPath) ? "" : $" trace={traceOutputPath}")}");
 		}
 
 		_runState = new RunState();
+		_botGlobalSurgePending = false;
+		_botGlobalSurgeReadyAtPlayTime = -1f;
 		_initialDraftMusicPrimed = false;
 		if (_botRunner == null)
 			SettingsManager.Instance?.IncrementRunsStarted();
+		if (_botRunner == null)
+			_botTraceCaptureEnabled = false;
 		if (_botRunner != null)
 			ResetBotTraceBuffer();
 		
@@ -464,6 +479,20 @@ public partial class GameController : Node
 		if (_runState == null || _combatSim == null || _waveSystem == null)
 		{
 			_cancelBtnShown = false;
+			return;
+		}
+
+		// Fast bot path: skip HUD/tooltips/visual updates and only advance simulation.
+		if (_botRunner != null)
+		{
+			if (CurrentPhase != GamePhase.Wave)
+			{
+				_lowLivesHeartbeatTimer = 0f;
+				ClearExplosionResidues();
+				return;
+			}
+
+			BotTick();
 			return;
 		}
 
@@ -592,8 +621,6 @@ public partial class GameController : Node
 			ClearExplosionResidues();
 			return;
 		}
-
-		if (_botRunner != null) { BotTick(); return; }
 
 		int livesBefore = _runState.Lives;
 		var result = _combatSim.Step((float)delta, _runState, _waveSystem);
@@ -1099,7 +1126,8 @@ public partial class GameController : Node
 		if (_botRunner != null)
 		{
 			int completedRuns = _botRunner.CompletedRuns;
-			if (completedRuns % 25 == 0 && completedRuns > 0)
+			int gcInterval = _botFastMetrics ? 100 : 25;
+			if (completedRuns % gcInterval == 0 && completedRuns > 0)
 			{
 				GD.Print($"[MEMORY] Forcing GC after {completedRuns} completed runs");
 				System.GC.Collect();
@@ -1146,7 +1174,7 @@ public partial class GameController : Node
 		string comboSkin = "",
 		float? timestampOverride = null)
 	{
-		if (_botRunner == null)
+		if (_botRunner == null || !_botTraceCaptureEnabled)
 			return;
 
 		float timestamp = timestampOverride ?? (_runState?.TotalPlayTime ?? 0f);
@@ -2179,6 +2207,8 @@ public partial class GameController : Node
 
 	private void GenerateMap()
 	{
+		bool suppressBotLogs = _botRunner?.QuietMode == true;
+
 		// Generate seed if not set
 		if (_runState.RngSeed == 0)
 			_runState.RngSeed = System.Environment.TickCount;
@@ -2191,7 +2221,8 @@ public partial class GameController : Node
 			{
 				var mapDef = DataLoader.GetMapDef(_runState.SelectedMapId);
 				_currentMap = HandCraftedMap.LoadFromDef(mapDef);
-				GD.Print($"[GameController] Loaded hand-crafted map: {_runState.SelectedMapId}");
+				if (!suppressBotLogs)
+					GD.Print($"[GameController] Loaded hand-crafted map: {_runState.SelectedMapId}");
 			}
 			catch (System.Exception ex)
 			{
@@ -2203,7 +2234,8 @@ public partial class GameController : Node
 		{
 			// Generate procedural map
 			_currentMap = ProceduralMap.Generate((ulong)_runState.RngSeed);
-			GD.Print("[GameController] Generated procedural map");
+			if (!suppressBotLogs)
+				GD.Print("[GameController] Generated procedural map");
 		}
 
 		RenderMap();
@@ -2878,10 +2910,13 @@ public partial class GameController : Node
 
 	private const float BOT_DT    = 0.05f;
 	private const int   BOT_STEPS = 100;
+	private const int   BOT_STEPS_FAST = 200;
+	private const int   BOT_IN_RANGE_SAMPLE_INTERVAL = 2;
 
 	private void BotTick()
 	{
-		for (int i = 0; i < BOT_STEPS && CurrentPhase == GamePhase.Wave; i++)
+		int stepsPerTick = _botFastMetrics ? BOT_STEPS_FAST : BOT_STEPS;
+		for (int i = 0; i < stepsPerTick && CurrentPhase == GamePhase.Wave; i++)
 		{
 			_botStepExplosionBursts = 0;
 			_botStepHitStopRequests = 0;
@@ -2898,23 +2933,28 @@ public partial class GameController : Node
 			_spectacleSystem.Update(BOT_DT);
 			UpdateExplosionResidues(BOT_DT);
 			var result = _combatSim.Step(BOT_DT, _runState, _waveSystem);
+			TryBotActivateGlobalSurge();
 			_botWaveSteps++;
 
-			// Sample how many enemies are currently in range of at least one tower
-			int inRange = 0;
-			foreach (var e in _runState.EnemiesAlive)
-				foreach (var sl in _runState.Slots)
-					if (sl.Tower != null && sl.Tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= sl.Tower.Range)
-					{ inRange++; break; }
-			_botWaveInRangeSum     += inRange;
-			_botWaveInRangeSamples += 1;
+			if (!_botFastMetrics && (i % BOT_IN_RANGE_SAMPLE_INTERVAL) == 0)
+			{
+				// Lightweight diagnostics: sample every N bot-steps instead of every step.
+				int inRange = 0;
+				foreach (var e in _runState.EnemiesAlive)
+					foreach (var sl in _runState.Slots)
+						if (sl.Tower != null && sl.Tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= sl.Tower.Range)
+						{ inRange++; break; }
+				_botWaveInRangeSum     += inRange;
+				_botWaveInRangeSamples += 1;
+			}
 			_runState.TrackFrameStressProxies(_botStepExplosionBursts, _explosionResidues.Count, _botStepHitStopRequests);
 
 			if (result == WaveResult.Loss)
 			{
 				CurrentPhase = GamePhase.Loss;
 				_runState.CompleteWave();
-				_botRunner!.RecordRunTrace(_botRunTraceEvents);
+				if (_botTraceCaptureEnabled)
+					_botRunner!.RecordRunTrace(_botRunTraceEvents);
 				_botRunner!.RecordResult(false, _runState.WaveIndex + 1, _runState);
 				if (_botRunner.HasMoreRuns) { RestartRun(); return; }
 				_botRunner.PrintSummary();
@@ -2933,7 +2973,8 @@ public partial class GameController : Node
 				if (_runState.WaveIndex >= Balance.TotalWaves && !_runState.IsEndlessMode)
 				{
 					CurrentPhase = GamePhase.Win;
-					_botRunner.RecordRunTrace(_botRunTraceEvents);
+					if (_botTraceCaptureEnabled)
+						_botRunner.RecordRunTrace(_botRunTraceEvents);
 					_botRunner.RecordResult(true, _runState.WaveIndex, _runState);
 					if (_botRunner.HasMoreRuns) { RestartRun(); return; }
 					_botRunner.PrintSummary();
@@ -2945,6 +2986,34 @@ public partial class GameController : Node
 				return;
 			}
 		}
+	}
+
+	private void TryBotActivateGlobalSurge()
+	{
+		if (_botRunner == null || _runState == null || CurrentPhase != GamePhase.Wave)
+			return;
+		if (!_botGlobalSurgePending || !_spectacleSystem.IsGlobalSurgeReady)
+			return;
+
+		float readyAgeSeconds = 0f;
+		if (_botGlobalSurgeReadyAtPlayTime >= 0f)
+			readyAgeSeconds = Mathf.Max(0f, _runState.TotalPlayTime - _botGlobalSurgeReadyAtPlayTime);
+
+		var snapshot = new BotGlobalSurgeSnapshot(
+			IsGlobalSurgeReady: _spectacleSystem.IsGlobalSurgeReady,
+			HasPendingGlobalSurge: _botGlobalSurgePending,
+			Lives: _runState.Lives,
+			EnemiesAlive: _runState.EnemiesAlive.Count,
+			EnemiesSpawnedThisWave: _runState.EnemiesSpawnedThisWave,
+			TotalEnemiesThisWave: Mathf.Max(1, _waveSystem.GetTotalCount()),
+			ReadyAgeSeconds: readyAgeSeconds);
+
+		if (!BotGlobalSurgeAdvisor.ShouldActivate(snapshot))
+			return;
+
+		_botGlobalSurgePending = false;
+		_botGlobalSurgeReadyAtPlayTime = -1f;
+		_spectacleSystem.ActivateGlobalSurge();
 	}
 
 	// -- Wave announcement + build summary ----------------------------------------
@@ -3550,7 +3619,8 @@ void fragment() {
 			if (uniqueSupportedMods >= 2)
 				_runState.SurgeHintTelemetry.ComboTowerSurgesThisRun++;
 		}
-		_runState?.TrackSpectacleSurge(info.Signature.EffectId, info.Tower?.TowerId);
+		if (_runState != null)
+			_runState.TrackSpectacleSurge(info.Signature.EffectId, info.Tower?.TowerId, _runState.TotalPlayTime);
 		ComboExplosionSkin comboSkin = ResolveComboExplosionSkin(info.Signature);
 		string traceId = NextSurgeTraceId(global: false);
 		_botLastTraceTriggerId = traceId;
@@ -3723,8 +3793,9 @@ void fragment() {
 
 		if (_botRunner != null)
 		{
-			// Bot mode: activate immediately (no UI interaction).
-			_spectacleSystem.ActivateGlobalSurge();
+			// Bot mode: queue activation and trigger when wave state is favorable.
+			_botGlobalSurgePending = true;
+			_botGlobalSurgeReadyAtPlayTime = _runState?.TotalPlayTime ?? 0f;
 			return;
 		}
 
@@ -3837,6 +3908,8 @@ void fragment() {
 			return;
 		if (_runState == null)
 			return;
+		_botGlobalSurgePending = false;
+		_botGlobalSurgeReadyAtPlayTime = -1f;
 		if (_botRunner == null)
 		{
 			_runState.SurgeHintTelemetry.GlobalsActivated++;

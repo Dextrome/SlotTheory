@@ -737,4 +737,72 @@ public class SpectacleSystemTests
             SpectacleTuning.Reset();
         }
     }
+
+    [Fact]
+    public void TowerSpecificMeterGainMultiplier_ChangesMeterFillRate()
+    {
+        SpectacleTuning.Reset();
+        try
+        {
+            SpectacleTuning.Apply(new SpectacleTuningProfile
+            {
+                TowerMeterGainMultipliers =
+                {
+                    ["rapid_shooter"] = 1.6f,
+                    ["heavy_cannon"] = 0.6f,
+                },
+            }, "test");
+
+            var system = new SpectacleSystem();
+            var fastTower = TowerWithMods(SpectacleDefinitions.SplitShot);
+            fastTower.TowerId = "rapid_shooter";
+            var slowTower = TowerWithMods(SpectacleDefinitions.SplitShot);
+            slowTower.TowerId = "heavy_cannon";
+
+            system.RegisterProc(fastTower, SpectacleDefinitions.SplitShot, 20f);
+            system.RegisterProc(slowTower, SpectacleDefinitions.SplitShot, 20f);
+
+            SpectacleVisualState fastVisual = system.GetVisualState(fastTower);
+            SpectacleVisualState slowVisual = system.GetVisualState(slowTower);
+            Assert.True(fastVisual.MeterNormalized > slowVisual.MeterNormalized);
+        }
+        finally
+        {
+            SpectacleTuning.Reset();
+        }
+    }
+
+    [Fact]
+    public void TowerSpecificSurgeThresholdMultiplier_ChangesMeterNormalization()
+    {
+        SpectacleTuning.Reset();
+        try
+        {
+            SpectacleTuning.Apply(new SpectacleTuningProfile
+            {
+                TowerSurgeThresholdMultipliers =
+                {
+                    ["rapid_shooter"] = 0.8f,
+                    ["heavy_cannon"] = 1.3f,
+                },
+            }, "test");
+
+            var system = new SpectacleSystem();
+            var lowThresholdTower = TowerWithMods(SpectacleDefinitions.SplitShot);
+            lowThresholdTower.TowerId = "rapid_shooter";
+            var highThresholdTower = TowerWithMods(SpectacleDefinitions.SplitShot);
+            highThresholdTower.TowerId = "heavy_cannon";
+
+            system.RegisterProc(lowThresholdTower, SpectacleDefinitions.SplitShot, 20f);
+            system.RegisterProc(highThresholdTower, SpectacleDefinitions.SplitShot, 20f);
+
+            SpectacleVisualState lowThresholdVisual = system.GetVisualState(lowThresholdTower);
+            SpectacleVisualState highThresholdVisual = system.GetVisualState(highThresholdTower);
+            Assert.True(lowThresholdVisual.MeterNormalized > highThresholdVisual.MeterNormalized);
+        }
+        finally
+        {
+            SpectacleTuning.Reset();
+        }
+    }
 }

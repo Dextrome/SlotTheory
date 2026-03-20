@@ -96,3 +96,5 @@ CAMPAIGN.MD
 .codex/environments/environment.toml
 .CREATOR_LIST.MD
 balance_*.json
+followup_*.json
+tmp_bot_metrics_*.json

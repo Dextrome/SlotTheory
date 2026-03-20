@@ -117,6 +117,26 @@ public class SpectacleTuningTests
     }
 
     [Fact]
+    public void TowerSpecificSurgeThresholdMultiplier_AffectsResolvedThreshold()
+    {
+        SpectacleTuning.Reset();
+        float baselineHeavy = SpectacleDefinitions.ResolveSurgeThreshold("heavy_cannon");
+        float baselineRapid = SpectacleDefinitions.ResolveSurgeThreshold("rapid_shooter");
+
+        SpectacleTuning.Apply(new SpectacleTuningProfile
+        {
+            TowerSurgeThresholdMultipliers = { ["heavy_cannon"] = 1.25f },
+        }, "test");
+
+        float tunedHeavy = SpectacleDefinitions.ResolveSurgeThreshold("heavy_cannon");
+        float tunedRapid = SpectacleDefinitions.ResolveSurgeThreshold("rapid_shooter");
+
+        Assert.True(tunedHeavy > baselineHeavy);
+        Assert.Equal(baselineRapid, tunedRapid, 3);
+        SpectacleTuning.Reset();
+    }
+
+    [Fact]
     public void TokenMultipliers_AffectResolvedTokenConfig()
     {
         SpectacleTuning.Reset();
@@ -165,6 +185,9 @@ public class SpectacleTuningTests
           "overkill_bloom_damage_scale_multiplier": 1.2,
           "detonation_max_targets_multiplier": 0.8,
           "normal_enemy_hp_multiplier": 1.28,
+          "tower_meter_gain_multipliers": {
+            "heavy_cannon": 1.2
+          },
           "gain_multipliers": {
             "overkill": 1.3
           }
@@ -177,6 +200,7 @@ public class SpectacleTuningTests
         Assert.Equal(0.8f, profile.DetonationMaxTargetsMultiplier, 3);
         Assert.Equal(1.28f, profile.NormalEnemyHpMultiplier, 3);
         Assert.Equal(1.3f, profile.ResolveGainMultiplier("overkill"), 3);
+        Assert.Equal(1.2f, profile.ResolveTowerMeterGainMultiplier("heavy_cannon"), 3);
     }
 
     [Fact]

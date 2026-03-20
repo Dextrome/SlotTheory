@@ -559,7 +559,7 @@ public partial class LeaderboardsMenu : Node
         string key = BuildRowExpansionKey(row);
         if (_rowExpansionOverrides.TryGetValue(key, out bool expanded))
             return expanded;
-        return row.Rank <= 3;
+        return false;
     }
 
     private void ToggleRowExpanded(LeaderboardEntryView row)

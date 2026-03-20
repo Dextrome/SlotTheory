@@ -16,5 +16,7 @@
   <ItemGroup>
     <!-- Exclude test project from game build -->
     <Compile Remove="SlotTheory.Tests/**" />
+    <!-- Exclude generated Android export artifacts; they mirror Scripts/ and can go stale. -->
+    <Compile Remove="android/**" />
   </ItemGroup>
 </Project>

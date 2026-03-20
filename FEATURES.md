@@ -117,6 +117,16 @@ Platforms: Windows Desktop, Android (phone and tablet)
 
 ---
 
+## Demo / Full-Game Separation
+
+`Balance.IsDemo` is evaluated at runtime via `OS.HasFeature("demo")`. Demo export presets are tagged with `custom_features="demo"` in `export_presets.cfg`; full-game presets are not.
+
+- **Map gating:** `MapDef.IsFullGame` flag marks full-game-only maps (e.g. Ridgeback). `MapSelectPanel` hides these in demo builds and shows locked placeholder rows with stub names instead.
+- **Content gating:** all other full-game content (enemies, wave compositions, etc.) that appears only in full-game maps is naturally excluded by the map gate.
+- Bot always uses full unlock access regardless of `IsDemo` for deterministic balance testing.
+
+---
+
 ## Platform Support
 
 - Windows desktop:
@@ -375,6 +385,28 @@ Accessible via the "▶  Tutorial" button on the main menu (above PLAY).
 
 ---
 
+## Surge Hinting System
+
+Adaptive in-game teaching hints that guide players toward the surge mechanic. Implemented in `SurgeHinting.cs` + `SurgeUxTiming.cs`.
+
+**Five hint IDs**, shown at contextually appropriate moments:
+- `CombatFills` — appears early in a run when surge meters are filling, pointing players to notice their tower bars
+- `TowerReady` — fires when a tower surge becomes ready but isn't used quickly, nudging the player to activate
+- `GlobalContribution` — shown when global meter is actively climbing, explaining how tower surges contribute
+- `GlobalActivate` — fires when the global surge bar becomes full but the player hasn't clicked it
+- `ComboUnlock` — shown when a player builds a multi-tower setup eligible for a combo surge
+
+**Behavior:**
+- Hints auto-size to content and appear below the relevant tower or near the surge bar
+- Timing (linger, fade) is real-time, not frame-based (`SurgeUxTiming`)
+- Each hint tracks a **lifetime show count** and a **retired** flag — once a hint has been shown enough times it retires and never shows again
+- Profile state persisted to settings via `SettingsManager`; reset by **Reset Hints** in Settings → PROFILE
+- Hints are suppressed in bot mode and tutorial map
+
+**Tests:** 235 xUnit tests in `SurgeHintAdvisorTests.cs`.
+
+---
+
 ## Map Selection
 
 Before a run:
@@ -427,12 +459,13 @@ Top bar includes:
   - Desktop: ESC button/hint
   - Mobile: hamburger button
 - Build name shown in the top bar (left side) during waves
-- **Global surge bar (bottom center):** 20 pip meter. When full, switches to gold pulsing "▶  ACTIVATE" state - player must click to fire. Click triggers all surge effects and resets meter.
+- **Global surge bar (bottom center):** 20 pip meter. When full, switches to gold pulsing "▶  ACTIVATE" state - player must click to fire. Click triggers all surge effects and resets meter. Activation is blocked while a tower or modifier card is in draft placement mode (UI + controller guard).
 - **Mandate banner (campaign only):** Full-width dark-orange strip directly below the HUD bar showing the active stage mandate (e.g. "MANDATE: Rift Sapper locked · Momentum · Exploit Weakness · Split Shot banned"). Hidden in skirmish/free play.
 
 Speed polish:
 - Center toast: `SPEED Xx` with streak FX.
 - Subtle audio speed feel at 2x/3x.
+- Speed toggle retargets the procedural music BPM via `MusicDirector` so the music tempo scales with game speed.
 
 Current behavior decision:
 - Speed resets to 1x on run restart (not on every wave clear).
@@ -527,6 +560,13 @@ On wave start (not in bot mode):
 - `MusicHarmony`: base BPM tiers raised to 112 / 128 / 140 (previously 72 / 88 / 96) for a more energetic feel.
 - `MusicDirector`: per-map BPM spread widened - Gauntlet +24, Sprawl −24, Random +10 - so map identity is reflected in pacing.
 - `MusicDirector.OnEndlessContinue()`: restarts clock and reactivates all layers after `OnRunEnd` stops them, fixing music going silent when the player continues to Endless mode.
+
+**Phase 9 - Darker groove + startup ramp:**
+- Harmony/mode profiles shifted darker: Dorian and Phrygian are weighted more heavily relative to Mixolydian.
+- Startup percussion ramp: bar 1 of each new run has muted drums, then kick/snare/hat gradually re-enter over the following bars for a natural build-in feel.
+- `MusicBassLayer` heavier character: offbeat stabs, heavy beat accents, per-global-surge bass accent, and grittier oscillator synthesis.
+- Map BGM now starts at the **first draft open** rather than the first wave start — music begins as soon as the player is in the game scene.
+- Menu ambient stays on the main menu screen and only transitions to map BGM when a run begins.
 
 ---
 
@@ -689,10 +729,11 @@ Settings:
 - Display: Windowed/Fullscreen toggle
 - Colorblind mode toggle (high-contrast modifier accent palette)
 - Reduced motion toggle (skip draft card flip animations)
-- Screen Filter / VHS Glitch toggles
+- Screen Filter toggle (enabled by default) + brightness slider; VHS Glitch toggle
+- Grade overlay: a `Transition`-driven color-grade overlay that refreshes immediately when settings change
 - Enemy FX toggles: Layered Rendering, Emissive Lines, Damage Material, Bloom Highlights
 - **PROFILE section** (visible to all users):
-  - **Reset Tutorial** button: shows inline Yes/No confirmation; on Yes, resets `RunsStarted = 0` so the first-run guidance banner appears again on the next run
+  - **Reset Hints** button: shows inline Yes/No confirmation; on Yes, resets `RunsStarted = 0` so the first-run guidance banner appears again on the next run, and clears all `SurgeHintProfileState` lifetime counters so surge teaching hints re-show
 - DEVELOPER section (DevMode only): Reset All Achievements
 - Saved to `user://settings.cfg` (account/preferences, cloud-synced) and `user://display.cfg` (device-specific, not synced)
 - Music and FX buses are created if missing
@@ -712,6 +753,7 @@ Behavior:
 - Strategies rotate across map/difficulty combinations.
 - Spectacle gameplay payloads are applied in bot mode for surge/global surge triggers (matching live gameplay logic).
 - Minor spectacle trigger tier no longer exists in runtime or bot reporting.
+- **`BotGlobalSurgeAdvisor`**: pure-logic policy for bot global surge activation timing. Prefers mid-wave activation when enemy density is high (spawn progress 38–92%, crowd ratio ≥18% or ≥4 enemies alive). Falls back to activating after 12 s if the optimal window never arrives. Replaces the previous immediate auto-activate behavior.
 - Current strategy set has 12 entries:
   - Random
   - TowerFirst

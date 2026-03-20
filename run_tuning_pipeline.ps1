@@ -46,18 +46,30 @@ param(
     [double]$MutationStrength = 1.0,
     [double]$TargetExplosionShare = 0.02,
     [double]$TargetExplosionShareTolerance = 0.05,
-    [double]$TargetWinRateEasy = 0.95,
-    [double]$TargetWinRateNormal = 0.75,
-    [double]$TargetWinRateHard = 0.45,
-    [bool]$UseBaselineRelativeWinTargets = $true,
+    [double]$TargetWinRateEasy = 0.90,
+    [double]$TargetWinRateNormal = 0.70,
+    [double]$TargetWinRateHard = 0.40,
+    [bool]$UseBaselineRelativeWinTargets = $false,
     [double]$RelativeWinTargetEasyUplift = 0.05,
     [double]$RelativeWinTargetNormalUplift = 0.08,
     [double]$RelativeWinTargetHardUplift = 0.06,
     [double]$TargetWinRateTolerance = 0.06,
+    [double]$TargetSurgesPerRun = 36.0,
+    [double]$TargetSurgesPerRunTolerance = 8.0,
+    [double]$MaxKillsPerSurge = 0.70,
+    [double]$MinGlobalSurgesPerRun = 1.20,
     [double]$DifficultyRegressionTolerance = 0.01,
     [double]$NormalRegressionPenaltyWeight = 260.0,
     [double]$HardRegressionPenaltyWeight = 320.0,
     [double]$TargetMaxTowerSurgeRatio = 2.0,
+    [double]$TargetMaxModifierSurgeRatio = 2.2,
+    [double]$TargetTowerWinRateGap = 0.18,
+    [double]$TargetModifierWinRateGap = 0.20,
+    [double]$HardGuardMaxTowerSurgeRatio = 2.8,
+    [double]$HardGuardMaxTowerWinRateGap = 0.28,
+    [int]$MinTowerRunsForFairness = 40,
+    [int]$MinModifierRunsForFairness = 50,
+    [int]$MinModifierRunsForSurgeParity = 40,
     [double]$MinSweepScoreRatioVsBaseline = 1.0,
     [int]$MinTowerPlacementsForParity = 6,
     [double]$MaxChainDepth = 4.0,
@@ -66,6 +78,8 @@ param(
     [int]$MaxSimultaneousHitStops = 4,
     [double]$MinRunDurationSeconds = 900.0,
     [int]$TopCandidateReevalCount = 3,
+    [bool]$UseFastBotMetrics = $true,
+    [bool]$UseBotQuiet = $true,
     [string]$StrategySet = "optimization",
     [string]$GodotPath = "",
     [string]$TuningFile = "",
@@ -89,7 +103,17 @@ param(
     # Restrict mutation to spectacle params only (overkill bloom, residue, detonation, explosion).
     # Use with -StrategySet spectacle so the scorer actually sees explosion/residue signal.
     # Difficulty params are frozen; win-rate targets are treated as guardrails only.
-    [switch]$SpectacleOnlyMode
+    [switch]$SpectacleOnlyMode,
+    # Enables two-pass search:
+    # pass 1 prioritizes surge parity/fairness, pass 2 re-optimizes difficulty and win-rate targets.
+    [switch]$TwoPassMode,
+    # Percentage of iterations allocated to pass 1 when -TwoPassMode is enabled.
+    [int]$TwoPassPhaseSplitPercent = 50,
+    # Multiplies run count during pass 2 only when -TwoPassMode is enabled.
+    # Example: Runs=420 and TwoPassPass2RunsMultiplier=1.5 -> pass 2 uses 630 runs.
+    [double]$TwoPassPass2RunsMultiplier = 1.5,
+    # Skip final all-strategy validation pass (strategy_set=all) if you only need optimization-set results.
+    [switch]$SkipAllStrategyValidation
 )
 
 $ErrorActionPreference = "Stop"
@@ -246,6 +270,20 @@ function New-NeutralTuningProfile {
             momentum = 1.0
             overreach = 1.0
         }
+        tower_meter_gain_multipliers = [PSCustomObject]@{
+            rapid_shooter = 1.0
+            heavy_cannon = 1.0
+            marker_tower = 1.0
+            chain_tower = 1.0
+            rift_prism = 1.0
+        }
+        tower_surge_threshold_multipliers = [PSCustomObject]@{
+            rapid_shooter = 1.0
+            heavy_cannon = 1.0
+            marker_tower = 1.0
+            chain_tower = 1.0
+            rift_prism = 1.0
+        }
     }
 }
 
@@ -339,6 +377,18 @@ function Normalize-TuningProfile {
             $p.token_regen_multipliers.$name = [double]$InputProfile.token_regen_multipliers.$name
         }
     }
+    if ($props -contains "tower_meter_gain_multipliers" -and $InputProfile.tower_meter_gain_multipliers -ne $null) {
+        $tmgm = $InputProfile.tower_meter_gain_multipliers.PSObject.Properties.Name
+        foreach ($name in $tmgm) {
+            $p.tower_meter_gain_multipliers.$name = [double]$InputProfile.tower_meter_gain_multipliers.$name
+        }
+    }
+    if ($props -contains "tower_surge_threshold_multipliers" -and $InputProfile.tower_surge_threshold_multipliers -ne $null) {
+        $tstm = $InputProfile.tower_surge_threshold_multipliers.PSObject.Properties.Name
+        foreach ($name in $tstm) {
+            $p.tower_surge_threshold_multipliers.$name = [double]$InputProfile.tower_surge_threshold_multipliers.$name
+        }
+    }
 
     $p.overkill_bloom_damage_scale_multiplier = [Math]::Round((Clamp-Double -Value $p.overkill_bloom_damage_scale_multiplier -Min 0.0 -Max 4.0), 4)
     $p.overkill_bloom_radius_multiplier = [Math]::Round((Clamp-Double -Value $p.overkill_bloom_radius_multiplier -Min 0.1 -Max 4.0), 4)
@@ -404,6 +454,12 @@ function Normalize-TuningProfile {
     foreach ($name in $p.token_regen_multipliers.PSObject.Properties.Name) {
         $p.token_regen_multipliers.$name = [Math]::Round((Clamp-Double -Value $p.token_regen_multipliers.$name -Min 0.0 -Max 4.0), 4)
     }
+    foreach ($name in $p.tower_meter_gain_multipliers.PSObject.Properties.Name) {
+        $p.tower_meter_gain_multipliers.$name = [Math]::Round((Clamp-Double -Value $p.tower_meter_gain_multipliers.$name -Min 0.3 -Max 2.5), 4)
+    }
+    foreach ($name in $p.tower_surge_threshold_multipliers.PSObject.Properties.Name) {
+        $p.tower_surge_threshold_multipliers.$name = [Math]::Round((Clamp-Double -Value $p.tower_surge_threshold_multipliers.$name -Min 0.6 -Max 1.8), 4)
+    }
 
     # Guardrail: keep core spectacle systems enabled.
     $p.enable_overkill_bloom = $true
@@ -461,6 +517,30 @@ function Get-DifficultyWinRate {
     return [double]$wins / [double]$runsForDifficulty.Count
 }
 
+function Get-DifficultyWinRateFromSummary {
+    param(
+        [object]$Summary,
+        [string]$Difficulty
+    )
+
+    if ($null -eq $Summary) { return $null }
+    if (-not $Summary.PSObject.Properties["difficulty_win_rates"]) { return $null }
+
+    $rows = @($Summary.difficulty_win_rates)
+    if ($rows.Count -eq 0) { return $null }
+    $match = $rows | Where-Object { [string]$_.difficulty -ieq $Difficulty } | Select-Object -First 1
+    if ($null -eq $match) { return $null }
+
+    if ($match.PSObject.Properties["win_rate"] -and $null -ne $match.win_rate) {
+        return [double]$match.win_rate
+    }
+
+    $runs = [double](Get-NumberValue -Obj $match -Property "runs")
+    if ($runs -le 0.000001) { return $null }
+    $wins = [double](Get-NumberValue -Obj $match -Property "wins")
+    return $wins / $runs
+}
+
 function Get-SweepVariantScore {
     param(
         [Parameter(Mandatory = $true)][string]$SweepReportPath,
@@ -480,6 +560,161 @@ function Get-SweepVariantScore {
     return [double](Get-NumberValue -Obj $match -Property "score")
 }
 
+function Get-RunItemWinRateGap {
+    param(
+        [object[]]$Runs,
+        [string]$ItemProperty,
+        [int]$MinRuns
+    )
+
+    if ($null -eq $Runs -or $Runs.Count -eq 0) {
+        return [PSCustomObject]@{
+            gap = 0.0
+            eligible_count = 0
+        }
+    }
+
+    $stats = @{}
+    foreach ($run in $Runs) {
+        if ($null -eq $run) { continue }
+        $prop = $run.PSObject.Properties[$ItemProperty]
+        if ($null -eq $prop -or $null -eq $prop.Value) { continue }
+
+        $seen = New-Object System.Collections.Generic.HashSet[string]
+        foreach ($raw in @($prop.Value)) {
+            $item = [string]$raw
+            if ([string]::IsNullOrWhiteSpace($item)) { continue }
+            if (-not $seen.Add($item)) { continue }
+
+            if (-not $stats.ContainsKey($item)) {
+                $stats[$item] = [PSCustomObject]@{
+                    runs = 0
+                    wins = 0
+                }
+            }
+
+            $stats[$item].runs += 1
+            if ($run.won -eq $true) {
+                $stats[$item].wins += 1
+            }
+        }
+    }
+
+    $rates = @()
+    foreach ($item in $stats.Keys) {
+        $entry = $stats[$item]
+        if ($entry.runs -lt $MinRuns) { continue }
+        $rates += [double]$entry.wins / [double]$entry.runs
+    }
+
+    if ($rates.Count -lt 2) {
+        return [PSCustomObject]@{
+            gap = 0.0
+            eligible_count = $rates.Count
+        }
+    }
+
+    $minRate = ($rates | Measure-Object -Minimum).Minimum
+    $maxRate = ($rates | Measure-Object -Maximum).Maximum
+
+    return [PSCustomObject]@{
+        gap = [double]$maxRate - [double]$minRate
+        eligible_count = $rates.Count
+    }
+}
+
+function Get-ItemWinRateGapFromSummary {
+    param(
+        [object]$Summary,
+        [string]$SummaryProperty,
+        [int]$MinRuns
+    )
+
+    if ($null -eq $Summary -or -not $Summary.PSObject.Properties[$SummaryProperty]) {
+        return $null
+    }
+
+    $rows = @($Summary.$SummaryProperty)
+    if ($rows.Count -lt 1) { return $null }
+
+    $rates = @()
+    foreach ($row in $rows) {
+        if ($null -eq $row) { continue }
+        $runs = [int](Get-NumberValue -Obj $row -Property "runs")
+        if ($runs -lt $MinRuns) { continue }
+        $rate = Get-NumberValue -Obj $row -Property "win_rate"
+        if ($rate -le 0 -and $runs -gt 0) {
+            $wins = Get-NumberValue -Obj $row -Property "wins"
+            $rate = $wins / [double]$runs
+        }
+        $rates += [double]$rate
+    }
+
+    if ($rates.Count -lt 2) {
+        return [PSCustomObject]@{
+            gap = 0.0
+            eligible_count = $rates.Count
+        }
+    }
+
+    $minRate = ($rates | Measure-Object -Minimum).Minimum
+    $maxRate = ($rates | Measure-Object -Maximum).Maximum
+    return [PSCustomObject]@{
+        gap = [double]$maxRate - [double]$minRate
+        eligible_count = $rates.Count
+    }
+}
+
+function Get-ModifierSurgeParityFromSummary {
+    param(
+        [object]$Summary,
+        [int]$MinRuns
+    )
+
+    if ($null -eq $Summary -or -not $Summary.PSObject.Properties["surges_by_modifier"]) {
+        return [PSCustomObject]@{
+            ratio = 1.0
+            eligible_count = 0
+        }
+    }
+
+    $rows = @($Summary.surges_by_modifier)
+    if ($rows.Count -eq 0) {
+        return [PSCustomObject]@{
+            ratio = 1.0
+            eligible_count = 0
+        }
+    }
+
+    $rates = @()
+    foreach ($row in $rows) {
+        $runs = [int](Get-NumberValue -Obj $row -Property "runs")
+        if ($runs -lt $MinRuns) { continue }
+        $rate = Get-NumberValue -Obj $row -Property "surges_per_run"
+        if ($rate -le 0.000001) {
+            $surges = Get-NumberValue -Obj $row -Property "surges"
+            if ($runs -gt 0) { $rate = $surges / [double]$runs }
+        }
+        if ($rate -le 0.000001) { continue }
+        $rates += [double]$rate
+    }
+
+    if ($rates.Count -lt 2) {
+        return [PSCustomObject]@{
+            ratio = 1.0
+            eligible_count = $rates.Count
+        }
+    }
+
+    $minRate = ($rates | Measure-Object -Minimum).Minimum
+    $maxRate = ($rates | Measure-Object -Maximum).Maximum
+    $ratio = if ($minRate -gt 0.000001) { [double]$maxRate / [double]$minRate } else { 9999.0 }
+    return [PSCustomObject]@{
+        ratio = $ratio
+        eligible_count = $rates.Count
+    }
+}
+
 function Get-MetricsScore {
     param(
         [Parameter(Mandatory = $true)][object]$Summary,
@@ -490,12 +725,24 @@ function Get-MetricsScore {
         [double]$TargetNormalWinRate,
         [double]$TargetHardWinRate,
         [double]$WinRateTolerance,
+        [double]$TargetSurgesPerRun,
+        [double]$TargetSurgesPerRunTolerance,
+        [double]$MaxKillsPerSurge,
+        [double]$MinGlobalSurgesPerRun,
         [double]$TargetMaxTowerSurgeRatio,
+        [double]$TargetMaxModifierSurgeRatio = 2.2,
+        [double]$TargetTowerWinRateGap,
+        [double]$TargetModifierWinRateGap,
+        [double]$HardGuardMaxTowerSurgeRatio = 9999.0,
+        [double]$HardGuardMaxTowerWinRateGap = 1.0,
         [double]$MinNormalWinRate = -1.0,
         [double]$MinHardWinRate = -1.0,
         [double]$NormalRegressionPenaltyWeight = 0.0,
         [double]$HardRegressionPenaltyWeight = 0.0,
         [int]$MinTowerPlacementsForParity,
+        [int]$MinTowerRunsForFairness,
+        [int]$MinModifierRunsForFairness,
+        [int]$MinModifierRunsForSurgeParity = 40,
         [double]$ChainDepthCap,
         [int]$ExplosionCap,
         [int]$HazardCap,
@@ -510,6 +757,10 @@ function Get-MetricsScore {
     if ($surgesPerRun -le 0.000001) {
         # Backward compatibility with older metrics payloads.
         $surgesPerRun = Get-NumberValue -Obj $Summary -Property "avg_major_surges_per_run"
+    }
+    $globalSurgesPerRun = Get-NumberValue -Obj $Summary -Property "avg_global_surges_per_run"
+    if ($globalSurgesPerRun -le 0.000001 -and $null -ne $Runs -and $Runs.Count -gt 0) {
+        $globalSurgesPerRun = (@($Runs | Measure-Object -Property global_surges -Average).Average)
     }
     $killsPerSurge = Get-NumberValue -Obj $Summary -Property "avg_kills_per_surge"
     $chainDepth = Get-NumberValue -Obj $Summary -Property "avg_max_chain_depth"
@@ -548,20 +799,73 @@ function Get-MetricsScore {
             $towerSurgeRatio = 9999.0
         }
     }
+    $towerRechargeRates = @()
+    foreach ($row in $surgesByTowerRows) {
+        $placements = [int](Get-NumberValue -Obj $row -Property "placements")
+        if ($placements -lt $MinTowerPlacementsForParity) { continue }
+        $samples = [int](Get-NumberValue -Obj $row -Property "recharge_samples")
+        if ($samples -lt 1) { continue }
+        $avgRecharge = Get-NumberValue -Obj $row -Property "avg_recharge_seconds"
+        if ($avgRecharge -le 0.000001) { continue }
+        $towerRechargeRates += [double]$avgRecharge
+    }
+    $towerRechargeRatio = 1.0
+    if ($towerRechargeRates.Count -ge 2) {
+        $towerRechargeMin = ($towerRechargeRates | Measure-Object -Minimum).Minimum
+        $towerRechargeMax = ($towerRechargeRates | Measure-Object -Maximum).Maximum
+        if ($towerRechargeMin -gt 0.000001) {
+            $towerRechargeRatio = [double]$towerRechargeMax / [double]$towerRechargeMin
+        } else {
+            $towerRechargeRatio = 9999.0
+        }
+    }
+
+    $modifierSurgeParityInfo = Get-ModifierSurgeParityFromSummary -Summary $Summary -MinRuns $MinModifierRunsForSurgeParity
+    $modifierSurgeRatio = [double]$modifierSurgeParityInfo.ratio
+    $modifierSurgeParityEligible = [int]$modifierSurgeParityInfo.eligible_count
 
     $frameStress = $Summary.frame_stress_peaks
     $peakExplosions = [int](Get-NumberValue -Obj $frameStress -Property "simultaneous_explosions")
     $peakHazards = [int](Get-NumberValue -Obj $frameStress -Property "simultaneous_active_hazards")
     $peakHitStops = [int](Get-NumberValue -Obj $frameStress -Property "simultaneous_hitstops_requested")
 
-    $easyWinRate = Get-DifficultyWinRate -Runs $Runs -Difficulty "Easy"
-    $normalWinRate = Get-DifficultyWinRate -Runs $Runs -Difficulty "Normal"
-    $hardWinRate = Get-DifficultyWinRate -Runs $Runs -Difficulty "Hard"
+    $easyWinRateFromSummary = Get-DifficultyWinRateFromSummary -Summary $Summary -Difficulty "Easy"
+    $normalWinRateFromSummary = Get-DifficultyWinRateFromSummary -Summary $Summary -Difficulty "Normal"
+    $hardWinRateFromSummary = Get-DifficultyWinRateFromSummary -Summary $Summary -Difficulty "Hard"
+    $easyWinRate = if ($null -ne $easyWinRateFromSummary) { [double]$easyWinRateFromSummary } else { Get-DifficultyWinRate -Runs $Runs -Difficulty "Easy" }
+    $normalWinRate = if ($null -ne $normalWinRateFromSummary) { [double]$normalWinRateFromSummary } else { Get-DifficultyWinRate -Runs $Runs -Difficulty "Normal" }
+    $hardWinRate = if ($null -ne $hardWinRateFromSummary) { [double]$hardWinRateFromSummary } else { Get-DifficultyWinRate -Runs $Runs -Difficulty "Hard" }
     $winTol = [Math]::Max(0.0001, $WinRateTolerance)
+    $surgeTol = [Math]::Max(0.0001, $TargetSurgesPerRunTolerance)
+
+    $towerWinRateGapInfo = Get-ItemWinRateGapFromSummary -Summary $Summary -SummaryProperty "tower_win_rates" -MinRuns $MinTowerRunsForFairness
+    if ($null -eq $towerWinRateGapInfo) {
+        $towerWinRateGapInfo = Get-RunItemWinRateGap -Runs $Runs -ItemProperty "towers" -MinRuns $MinTowerRunsForFairness
+    }
+    $towerWinRateGap = [double]$towerWinRateGapInfo.gap
+    $towerWinRateEligible = [int]$towerWinRateGapInfo.eligible_count
+    $modifierWinRateGapInfo = Get-ItemWinRateGapFromSummary -Summary $Summary -SummaryProperty "modifier_win_rates" -MinRuns $MinModifierRunsForFairness
+    if ($null -eq $modifierWinRateGapInfo) {
+        $modifierWinRateGapInfo = Get-RunItemWinRateGap -Runs $Runs -ItemProperty "mods" -MinRuns $MinModifierRunsForFairness
+    }
+    $modifierWinRateGap = [double]$modifierWinRateGapInfo.gap
+    $modifierWinRateEligible = [int]$modifierWinRateGapInfo.eligible_count
+
+    $hardRejected = $false
+    $hardRejectReason = ""
+    if ($towerSurgeRates.Count -ge 2 -and $towerSurgeRatio -gt $HardGuardMaxTowerSurgeRatio) {
+        $hardRejected = $true
+        $hardRejectReason = "tower_surge_ratio_exceeded"
+    }
+    if (-not $hardRejected -and $towerWinRateEligible -ge 2 -and $towerWinRateGap -gt $HardGuardMaxTowerWinRateGap) {
+        $hardRejected = $true
+        $hardRejectReason = "tower_win_rate_gap_exceeded"
+    }
 
     $easyError = [Math]::Abs($easyWinRate - $TargetEasyWinRate)
     $normalError = [Math]::Abs($normalWinRate - $TargetNormalWinRate)
     $hardError = [Math]::Abs($hardWinRate - $TargetHardWinRate)
+    $surgeCadenceError = [Math]::Abs($surgesPerRun - $TargetSurgesPerRun)
 
     $easyFit = [Math]::Max(0.0, 1.0 - ($easyError / $winTol))
     $normalFit = [Math]::Max(0.0, 1.0 - ($normalError / $winTol))
@@ -588,6 +892,25 @@ function Get-MetricsScore {
         $score -= ($MinHardWinRate - $hardWinRate) * [Math]::Max(0.0, $HardRegressionPenaltyWeight)
     }
 
+    # Surge cadence objective: avoid over-frequent tower surges.
+    $surgeCadenceFit = [Math]::Max(0.0, 1.0 - ($surgeCadenceError / $surgeTol))
+    $score += $surgeCadenceFit * 24.0
+    if ($surgesPerRun -gt ($TargetSurgesPerRun + $surgeTol)) {
+        $score -= ($surgesPerRun - ($TargetSurgesPerRun + $surgeTol)) * 7.0
+    }
+
+    # Keep tower surges from becoming too individually powerful.
+    if ($killsPerSurge -gt $MaxKillsPerSurge) {
+        $score -= ($killsPerSurge - $MaxKillsPerSurge) * 80.0
+    }
+
+    # Reward meaningful global-surge participation.
+    if ($globalSurgesPerRun -ge $MinGlobalSurgesPerRun) {
+        $score += [Math]::Min(16.0, ($globalSurgesPerRun / [Math]::Max(0.01, $MinGlobalSurgesPerRun)) * 10.0)
+    } else {
+        $score -= ($MinGlobalSurgesPerRun - $globalSurgesPerRun) * 26.0
+    }
+
     # Secondary quality signals.
     $score += $winRate * 15.0
     $score += $avgWave * 1.0
@@ -608,6 +931,45 @@ function Get-MetricsScore {
             $score -= ($towerSurgeRatio - $TargetMaxTowerSurgeRatio) * 45.0
         }
     }
+    if ($towerRechargeRates.Count -ge 2) {
+        if ($towerRechargeRatio -le $TargetMaxTowerSurgeRatio) {
+            $rechargeRatioDenom = [Math]::Max(0.0001, $TargetMaxTowerSurgeRatio - 1.0)
+            $rechargeRatioFit = [Math]::Max(0.0, 1.0 - (($towerRechargeRatio - 1.0) / $rechargeRatioDenom))
+            $score += $rechargeRatioFit * 10.0
+        } else {
+            $score -= ($towerRechargeRatio - $TargetMaxTowerSurgeRatio) * 16.0
+        }
+    }
+    if ($modifierSurgeParityEligible -ge 2) {
+        if ($modifierSurgeRatio -le $TargetMaxModifierSurgeRatio) {
+            $modRatioDenom = [Math]::Max(0.0001, $TargetMaxModifierSurgeRatio - 1.0)
+            $modRatioFit = [Math]::Max(0.0, 1.0 - (($modifierSurgeRatio - 1.0) / $modRatioDenom))
+            $score += $modRatioFit * 20.0
+        } else {
+            $score -= ($modifierSurgeRatio - $TargetMaxModifierSurgeRatio) * 34.0
+        }
+    }
+
+    # Fairness objective: avoid towers/mods with extreme win-rate spread.
+    if ($towerWinRateEligible -ge 2) {
+        if ($towerWinRateGap -le $TargetTowerWinRateGap) {
+            $towerGapDenom = [Math]::Max(0.0001, $TargetTowerWinRateGap)
+            $towerGapFit = [Math]::Max(0.0, 1.0 - ($towerWinRateGap / $towerGapDenom))
+            $score += $towerGapFit * 18.0
+        } else {
+            $score -= ($towerWinRateGap - $TargetTowerWinRateGap) * 85.0
+        }
+    }
+
+    if ($modifierWinRateEligible -ge 2) {
+        if ($modifierWinRateGap -le $TargetModifierWinRateGap) {
+            $modGapDenom = [Math]::Max(0.0001, $TargetModifierWinRateGap)
+            $modGapFit = [Math]::Max(0.0, 1.0 - ($modifierWinRateGap / $modGapDenom))
+            $score += $modGapFit * 16.0
+        } else {
+            $score -= ($modifierWinRateGap - $TargetModifierWinRateGap) * 70.0
+        }
+    }
 
     if ($chainDepth -gt $ChainDepthCap) {
         $score -= ($chainDepth - $ChainDepthCap) * 10.0
@@ -625,6 +987,10 @@ function Get-MetricsScore {
         $score -= ($DurationFloor - $runDuration) / 10.0
     }
 
+    if ($hardRejected) {
+        $score = -1000000.0 - ($towerSurgeRatio * 100.0) - ($towerWinRateGap * 1000.0)
+    }
+
     return [PSCustomObject]@{
         Score = [Math]::Round($score, 4)
         WinRate = [Math]::Round($winRate, 6)
@@ -634,16 +1000,27 @@ function Get-MetricsScore {
         AvgWave = [Math]::Round($avgWave, 6)
         RunDurationSeconds = [Math]::Round($runDuration, 4)
         SurgesPerRun = [Math]::Round($surgesPerRun, 6)
+        GlobalSurgesPerRun = [Math]::Round($globalSurgesPerRun, 6)
         KillsPerSurge = [Math]::Round($killsPerSurge, 6)
         ExplosionShare = [Math]::Round($explosionShare, 6)
         TowerSurgeParityRatio = [Math]::Round($towerSurgeRatio, 6)
         TowerSurgeRateMin = [Math]::Round($towerSurgeRateMin, 6)
         TowerSurgeRateMax = [Math]::Round($towerSurgeRateMax, 6)
         TowerSurgeParityEligibleTowers = $towerSurgeRates.Count
+        TowerRechargeParityRatio = [Math]::Round($towerRechargeRatio, 6)
+        TowerRechargeParityEligibleTowers = $towerRechargeRates.Count
+        ModifierSurgeParityRatio = [Math]::Round($modifierSurgeRatio, 6)
+        ModifierSurgeParityEligible = $modifierSurgeParityEligible
+        TowerWinRateGap = [Math]::Round($towerWinRateGap, 6)
+        TowerWinRateEligible = $towerWinRateEligible
+        ModifierWinRateGap = [Math]::Round($modifierWinRateGap, 6)
+        ModifierWinRateEligible = $modifierWinRateEligible
         AvgMaxChainDepth = [Math]::Round($chainDepth, 6)
         PeakExplosions = $peakExplosions
         PeakHazards = $peakHazards
         PeakHitStops = $peakHitStops
+        HardRejected = $hardRejected
+        HardRejectReason = $hardRejectReason
     }
 }
 
@@ -660,21 +1037,80 @@ function Merge-SurgesByTower {
         if ($null -eq $row) { continue }
         $id = [string]$row.tower_id
         if (-not $map.ContainsKey($id)) {
-            $map[$id] = [PSCustomObject]@{ tower_id = $id; placements = 0.0; surges = 0.0 }
+            $map[$id] = [PSCustomObject]@{
+                tower_id = $id
+                placements = 0.0
+                surges = 0.0
+                first_surge_total_seconds = 0.0
+                first_surge_samples = 0.0
+                recharge_total_seconds = 0.0
+                recharge_samples = 0.0
+            }
         }
         $map[$id].placements += [double](Get-NumberValue -Obj $row -Property "placements")
         $map[$id].surges     += [double](Get-NumberValue -Obj $row -Property "surges")
+        $firstSamples = [double](Get-NumberValue -Obj $row -Property "first_surge_samples")
+        $firstAvg = [double](Get-NumberValue -Obj $row -Property "avg_time_to_first_surge_seconds")
+        if ($firstSamples -gt 0.000001) {
+            $map[$id].first_surge_samples += $firstSamples
+            $map[$id].first_surge_total_seconds += ($firstAvg * $firstSamples)
+        }
+
+        $rechargeSamples = [double](Get-NumberValue -Obj $row -Property "recharge_samples")
+        $rechargeAvg = [double](Get-NumberValue -Obj $row -Property "avg_recharge_seconds")
+        if ($rechargeSamples -gt 0.000001) {
+            $map[$id].recharge_samples += $rechargeSamples
+            $map[$id].recharge_total_seconds += ($rechargeAvg * $rechargeSamples)
+        }
     }
 
     $result = @()
     foreach ($key in $map.Keys) {
         $e = $map[$key]
         $rate = if ($e.placements -gt 0.000001) { $e.surges / $e.placements } else { 0.0 }
+        $avgFirst = if ($e.first_surge_samples -gt 0.000001) { $e.first_surge_total_seconds / $e.first_surge_samples } else { 0.0 }
+        $avgRecharge = if ($e.recharge_samples -gt 0.000001) { $e.recharge_total_seconds / $e.recharge_samples } else { 0.0 }
         $result += [PSCustomObject]@{
             tower_id                 = $e.tower_id
             placements               = [int]$e.placements
             surges                   = [int]$e.surges
             surges_per_placed_tower  = [Math]::Round($rate, 6)
+            avg_time_to_first_surge_seconds = [Math]::Round($avgFirst, 6)
+            first_surge_samples = [int]$e.first_surge_samples
+            avg_recharge_seconds = [Math]::Round($avgRecharge, 6)
+            recharge_samples = [int]$e.recharge_samples
+        }
+    }
+    return $result
+}
+
+function Merge-SurgesByModifier {
+    param(
+        [object[]]$Rows1,
+        [object[]]$Rows2
+    )
+
+    $map = @{}
+    foreach ($row in @($Rows1) + @($Rows2)) {
+        if ($null -eq $row) { continue }
+        $id = [string]$row.modifier_id
+        if ([string]::IsNullOrWhiteSpace($id)) { continue }
+        if (-not $map.ContainsKey($id)) {
+            $map[$id] = [PSCustomObject]@{ modifier_id = $id; runs = 0.0; surges = 0.0 }
+        }
+        $map[$id].runs += [double](Get-NumberValue -Obj $row -Property "runs")
+        $map[$id].surges += [double](Get-NumberValue -Obj $row -Property "surges")
+    }
+
+    $result = @()
+    foreach ($key in $map.Keys) {
+        $e = $map[$key]
+        $rate = if ($e.runs -gt 0.000001) { $e.surges / $e.runs } else { 0.0 }
+        $result += [PSCustomObject]@{
+            modifier_id = $e.modifier_id
+            runs = [int]$e.runs
+            surges = [int]$e.surges
+            surges_per_run = [Math]::Round($rate, 6)
         }
     }
     return $result
@@ -733,17 +1169,22 @@ function Merge-MetricsPayloads {
     $rows1 = if ($null -ne $s1 -and $s1.PSObject.Properties["surges_by_tower"]) { @($s1.surges_by_tower) } else { @() }
     $rows2 = if ($null -ne $s2 -and $s2.PSObject.Properties["surges_by_tower"]) { @($s2.surges_by_tower) } else { @() }
     $mergedSurgesByTower = Merge-SurgesByTower -Rows1 $rows1 -Rows2 $rows2
+    $modRows1 = if ($null -ne $s1 -and $s1.PSObject.Properties["surges_by_modifier"]) { @($s1.surges_by_modifier) } else { @() }
+    $modRows2 = if ($null -ne $s2 -and $s2.PSObject.Properties["surges_by_modifier"]) { @($s2.surges_by_modifier) } else { @() }
+    $mergedSurgesByModifier = Merge-SurgesByModifier -Rows1 $modRows1 -Rows2 $modRows2
 
     $mergedSummary = [PSCustomObject]@{
         win_rate                  = [Math]::Round($mergedWinRate, 6)
         avg_wave_reached          = WAvgField $s1 $s2 "avg_wave_reached"
         avg_run_duration_seconds  = WAvgField $s1 $s2 "avg_run_duration_seconds"
         avg_surges_per_run        = WAvgField $s1 $s2 "avg_surges_per_run"
+        avg_global_surges_per_run = WAvgField $s1 $s2 "avg_global_surges_per_run"
         avg_kills_per_surge       = WAvgField $s1 $s2 "avg_kills_per_surge"
         avg_max_chain_depth       = WAvgField $s1 $s2 "avg_max_chain_depth"
         dps_split                 = $mergedDps
         frame_stress_peaks        = $mergedFrameStress
         surges_by_tower           = $mergedSurgesByTower
+        surges_by_modifier        = $mergedSurgesByModifier
     }
 
     return [PSCustomObject]@{
@@ -829,6 +1270,15 @@ function New-MutatedTuningProfile {
             $changed += Apply-Mutation -Obj $candidate -Name "hard_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
             $changed += Apply-Mutation -Obj $candidate -Name "hard_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
             $changed += Apply-Mutation -Obj $candidate -Name "hard_splitter_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+        }
+    }
+
+    $towerIds = @("rapid_shooter", "heavy_cannon", "marker_tower", "chain_tower", "rift_prism")
+    $mutateTowerSurgeLevers = $SpectacleOnlyMode -or (-not $FreezeSpectacleParams)
+    if ($mutateTowerSurgeLevers) {
+        foreach ($towerId in $towerIds) {
+            $changed += Apply-Mutation -Obj $candidate.tower_meter_gain_multipliers -Name $towerId -Step (0.12 * $scale) -Min 0.3 -Max 2.5 -Chance 0.55
+            $changed += Apply-Mutation -Obj $candidate.tower_surge_threshold_multipliers -Name $towerId -Step (0.08 * $scale) -Min 0.6 -Max 1.8 -Chance 0.55
         }
     }
 
@@ -925,6 +1375,12 @@ function New-BotMetricsArgs {
     }
     $args += "--bot_metrics_out"
     $args += $MetricsOut
+    if ($script:UseFastBotMetrics) {
+        $args += "--bot_fast_metrics"
+    }
+    if ($script:UseBotQuiet) {
+        $args += "--bot_quiet"
+    }
     return $args
 }
 
@@ -1210,10 +1666,8 @@ function Merge-BotMetricsShards {
         $payloads += Read-MetricsPayload -MetricsPath $path
     }
 
-    # Strip heavy per-run arrays that are only used for wave-difficulty display inside
-    # each shard's own output - they are not needed for scoring (which only reads
-    # `difficulty` and `won` from each run record).  Keeping them bloats the merged
-    # file to 10+ MB and causes ConvertTo-Json to hang for minutes in PowerShell.
+    # Strip only the very heavy per-run arrays (kill-depth and chain-size samples).
+    # Keep compact scalar signals needed by scoring (including fairness on towers/mods).
     $allRuns = [System.Collections.Generic.List[object]]::new()
     foreach ($payload in $payloads) {
         if ($null -ne $payload -and $null -ne $payload.runs) {
@@ -1227,7 +1681,13 @@ function Merge-BotMetricsShards {
                     run_duration_seconds = $run.run_duration_seconds
                     surges             = $run.surges
                     global_surges      = $run.global_surges
+                    surge_interval_seconds = $run.surge_interval_seconds
+                    status_detonations = $run.status_detonations
+                    residue_uptime_seconds = $run.residue_uptime_seconds
                     max_chain_depth    = $run.max_chain_depth
+                    top_tower_damage_share = $run.top_tower_damage_share
+                    towers             = $run.towers
+                    mods               = $run.mods
                     damage_split       = $run.damage_split
                     frame_stress       = $run.frame_stress
                 }
@@ -1269,6 +1729,7 @@ function Merge-BotMetricsShards {
     $waveSum = 0.0
     $durationSum = 0.0
     $surgesSum = 0.0
+    $globalSurgesSum = 0.0
     $statusDetSum = 0.0
     $residueUptimeSum = 0.0
     $chainDepthSum = 0.0
@@ -1316,6 +1777,7 @@ function Merge-BotMetricsShards {
         $waveSum += $waveReached
         $durationSum += $runDuration
         $surgesSum += $surges
+        $globalSurgesSum += [int](Get-NumberValue -Obj $run -Property "global_surges")
         $statusDetSum += $statusDet
         $residueUptimeSum += $residueUptime
         $chainDepthSum += $chainDepth
@@ -1392,6 +1854,42 @@ function Merge-BotMetricsShards {
         }
     }
 
+    $modifierAggregate = @{}
+    foreach ($payload in $payloads) {
+        $rows = @()
+        if ($null -ne $payload.summary -and $null -ne $payload.summary.surges_by_modifier) {
+            $rows = @($payload.summary.surges_by_modifier)
+        }
+
+        foreach ($row in $rows) {
+            $modifierId = [string]$row.modifier_id
+            if ([string]::IsNullOrWhiteSpace($modifierId)) { continue }
+            $runs = [int](Get-NumberValue -Obj $row -Property "runs")
+            $surges = [int](Get-NumberValue -Obj $row -Property "surges")
+            if (-not $modifierAggregate.ContainsKey($modifierId)) {
+                $modifierAggregate[$modifierId] = [PSCustomObject]@{
+                    runs = 0
+                    surges = 0
+                }
+            }
+            $modifierAggregate[$modifierId].runs = [int]$modifierAggregate[$modifierId].runs + $runs
+            $modifierAggregate[$modifierId].surges = [int]$modifierAggregate[$modifierId].surges + $surges
+        }
+    }
+
+    $surgesByModifierRows = @()
+    foreach ($modifierId in ($modifierAggregate.Keys | Sort-Object)) {
+        $runsForModifier = [int]$modifierAggregate[$modifierId].runs
+        $surgesForModifier = [int]$modifierAggregate[$modifierId].surges
+        $surgesPerRun = if ($runsForModifier -gt 0) { [double]$surgesForModifier / [double]$runsForModifier } else { 0.0 }
+        $surgesByModifierRows += [PSCustomObject]@{
+            modifier_id = $modifierId
+            runs = $runsForModifier
+            surges = $surgesForModifier
+            surges_per_run = [Math]::Round($surgesPerRun, 6)
+        }
+    }
+
     $estimatedExplosionTriggers = 0.0
     foreach ($payload in $payloads) {
         $payloadRunCount = [int](Get-NumberValue -Obj $payload -Property "run_count")
@@ -1440,6 +1938,7 @@ function Merge-BotMetricsShards {
             avg_wave_reached = [Math]::Round(($waveSum / [double]$runCount), 6)
             avg_run_duration_seconds = [Math]::Round(($durationSum / [double]$runCount), 6)
             avg_surges_per_run = [Math]::Round(($surgesSum / [double]$runCount), 6)
+            avg_global_surges_per_run = [Math]::Round(($globalSurgesSum / [double]$runCount), 6)
             avg_surge_interval_seconds = [Math]::Round($avgSurgeIntervalSeconds, 6)
             avg_kills_per_surge = [Math]::Round((Get-WeightedSummaryAverage -PropertyName "avg_kills_per_surge"), 6)
             avg_explosion_damage_per_run = [Math]::Round(($totalExplosionDamage / [double]$runCount), 6)
@@ -1489,6 +1988,7 @@ function Merge-BotMetricsShards {
                 simultaneous_hitstops_requested = $peakHitStops
             }
             surges_by_tower = $surgesByTowerRows
+            surges_by_modifier = $surgesByModifierRows
             distributions = [ordered]@{
                 surges_per_run = (Build-DiscreteDistribution -Values $surgesPerRunValues)
                 chain_depth_per_run = (Build-DiscreteDistribution -Values $chainDepthValues)
@@ -1689,6 +2189,9 @@ if ($SweepRunsPerVariant -lt 1) { throw "SweepRunsPerVariant must be >= 1." }
 if ($MutationStrength -le 0) { throw "MutationStrength must be > 0." }
 if ($TargetExplosionShareTolerance -le 0) { throw "TargetExplosionShareTolerance must be > 0." }
 if ($TargetWinRateTolerance -le 0) { throw "TargetWinRateTolerance must be > 0." }
+if ($TargetSurgesPerRunTolerance -le 0) { throw "TargetSurgesPerRunTolerance must be > 0." }
+if ($MaxKillsPerSurge -lt 0) { throw "MaxKillsPerSurge must be >= 0." }
+if ($MinGlobalSurgesPerRun -lt 0) { throw "MinGlobalSurgesPerRun must be >= 0." }
 if ($RelativeWinTargetEasyUplift -lt 0) { throw "RelativeWinTargetEasyUplift must be >= 0." }
 if ($RelativeWinTargetNormalUplift -lt 0) { throw "RelativeWinTargetNormalUplift must be >= 0." }
 if ($RelativeWinTargetHardUplift -lt 0) { throw "RelativeWinTargetHardUplift must be >= 0." }
@@ -1697,11 +2200,21 @@ if ($NormalRegressionPenaltyWeight -lt 0) { throw "NormalRegressionPenaltyWeight
 if ($HardRegressionPenaltyWeight -lt 0) { throw "HardRegressionPenaltyWeight must be >= 0." }
 if ($MinSweepScoreRatioVsBaseline -lt 0) { throw "MinSweepScoreRatioVsBaseline must be >= 0." }
 if ($TargetMaxTowerSurgeRatio -lt 1.0) { throw "TargetMaxTowerSurgeRatio must be >= 1.0." }
+if ($TargetMaxModifierSurgeRatio -lt 1.0) { throw "TargetMaxModifierSurgeRatio must be >= 1.0." }
+if ($TargetTowerWinRateGap -lt 0) { throw "TargetTowerWinRateGap must be >= 0." }
+if ($TargetModifierWinRateGap -lt 0) { throw "TargetModifierWinRateGap must be >= 0." }
+if ($HardGuardMaxTowerSurgeRatio -lt 1.0) { throw "HardGuardMaxTowerSurgeRatio must be >= 1.0." }
+if ($HardGuardMaxTowerWinRateGap -lt 0) { throw "HardGuardMaxTowerWinRateGap must be >= 0." }
 if ($TopCandidateReevalCount -lt 0) { throw "TopCandidateReevalCount must be >= 0." }
 if ($MinTowerPlacementsForParity -lt 1) { throw "MinTowerPlacementsForParity must be >= 1." }
+if ($MinTowerRunsForFairness -lt 1) { throw "MinTowerRunsForFairness must be >= 1." }
+if ($MinModifierRunsForFairness -lt 1) { throw "MinModifierRunsForFairness must be >= 1." }
+if ($MinModifierRunsForSurgeParity -lt 1) { throw "MinModifierRunsForSurgeParity must be >= 1." }
 if ($TargetWinRateEasy -lt 0 -or $TargetWinRateEasy -gt 1) { throw "TargetWinRateEasy must be between 0 and 1." }
 if ($TargetWinRateNormal -lt 0 -or $TargetWinRateNormal -gt 1) { throw "TargetWinRateNormal must be between 0 and 1." }
 if ($TargetWinRateHard -lt 0 -or $TargetWinRateHard -gt 1) { throw "TargetWinRateHard must be between 0 and 1." }
+if ($TwoPassPhaseSplitPercent -lt 10 -or $TwoPassPhaseSplitPercent -gt 90) { throw "TwoPassPhaseSplitPercent must be between 10 and 90." }
+if ($TwoPassPass2RunsMultiplier -lt 1.0) { throw "TwoPassPass2RunsMultiplier must be >= 1.0." }
 if ($CandidateParallelism -gt 1 -and $null -eq (Get-Command Start-Job -ErrorAction SilentlyContinue)) {
     throw "CandidateParallelism > 1 requires Start-Job support in this PowerShell host."
 }
@@ -1713,6 +2226,8 @@ if ([string]::IsNullOrWhiteSpace($strategySetNormalized)) {
 if ($strategySetNormalized -notin @("all", "optimization", "edge", "spectacle")) {
     throw "StrategySet must be one of: all, optimization, edge, spectacle."
 }
+
+$script:UseFastBotMetrics = [bool]$UseFastBotMetrics
 
 $effectiveCandidateParallelism = [Math]::Max(1, [Math]::Min($CandidateParallelism, $CandidatesPerIteration))
 # EvalShardParallelism=0 inherits from CandidateParallelism (legacy behaviour).
@@ -1736,6 +2251,10 @@ Write-Host "Candidates:   $CandidatesPerIteration per iteration"
 Write-Host "Parallelism:  candidates=$effectiveCandidateParallelism, eval_shards=$effectiveEvalShardParallelism (total per iter up to $($effectiveCandidateParallelism * $effectiveEvalShardParallelism))"
 Write-Host "Top re-eval:  $TopCandidateReevalCount candidate(s) per iteration"
 Write-Host "Strategy set: $strategySetNormalized"
+Write-Host "Fast metrics: $script:UseFastBotMetrics"
+Write-Host "Two-pass:     $TwoPassMode (split=$TwoPassPhaseSplitPercent%)"
+Write-Host "Pass2 runs x: $TwoPassPass2RunsMultiplier"
+Write-Host "All-set val:  $(-not $SkipAllStrategyValidation)"
 Write-Host "Seed:         $Seed"
 Write-Host "Output dir:   $runDir"
 
@@ -1783,6 +2302,7 @@ $traceOut = Join-Path $runDir "bot_trace.json"
 $deltaOut = Join-Path $runDir "bot_metrics_delta.txt"
 $bestTuningOut = Join-Path $runDir "best_tuning.json"
 $autoTuneReportOut = Join-Path $runDir "autotune_report.json"
+$allStrategyMetricsOut = Join-Path $runDir "bot_metrics_tuned_all_strategies.json"
 
 Invoke-BotMetricsRunSharded -GodotExe $godotExe -CommonPrefix $commonPrefix -RunsPerEval $Runs -StrategySet $strategySetNormalized -MetricsOut $baselineMetricsOut -Label "[1/8] Baseline bot metrics" -Parallelism $effectiveRunParallelism
 # TODO(perf-step-5): Add metrics cache lookup before each expensive bot eval call and reuse cached payloads when keys match.
@@ -1816,8 +2336,19 @@ $baselineScore = Get-MetricsScore `
     -TargetNormalWinRate $effectiveTargetWinRateNormal `
     -TargetHardWinRate $effectiveTargetWinRateHard `
     -WinRateTolerance $TargetWinRateTolerance `
+    -TargetSurgesPerRun $TargetSurgesPerRun `
+    -TargetSurgesPerRunTolerance $TargetSurgesPerRunTolerance `
+    -MaxKillsPerSurge $MaxKillsPerSurge `
+    -MinGlobalSurgesPerRun $MinGlobalSurgesPerRun `
     -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
+    -TargetMaxModifierSurgeRatio $TargetMaxModifierSurgeRatio `
+    -TargetTowerWinRateGap $TargetTowerWinRateGap `
+    -TargetModifierWinRateGap $TargetModifierWinRateGap `
+    -HardGuardMaxTowerSurgeRatio $HardGuardMaxTowerSurgeRatio `
+    -HardGuardMaxTowerWinRateGap $HardGuardMaxTowerWinRateGap `
     -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
+    -MinTowerRunsForFairness $MinTowerRunsForFairness `
+    -MinModifierRunsForFairness $MinModifierRunsForFairness `
     -ChainDepthCap $MaxChainDepth `
     -ExplosionCap $MaxSimultaneousExplosions `
     -HazardCap $MaxSimultaneousHazards `
@@ -1845,12 +2376,23 @@ $seedScore = Get-MetricsScore `
     -TargetNormalWinRate $effectiveTargetWinRateNormal `
     -TargetHardWinRate $effectiveTargetWinRateHard `
     -WinRateTolerance $TargetWinRateTolerance `
+    -TargetSurgesPerRun $TargetSurgesPerRun `
+    -TargetSurgesPerRunTolerance $TargetSurgesPerRunTolerance `
+    -MaxKillsPerSurge $MaxKillsPerSurge `
+    -MinGlobalSurgesPerRun $MinGlobalSurgesPerRun `
     -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
+    -TargetMaxModifierSurgeRatio $TargetMaxModifierSurgeRatio `
+    -TargetTowerWinRateGap $TargetTowerWinRateGap `
+    -TargetModifierWinRateGap $TargetModifierWinRateGap `
+    -HardGuardMaxTowerSurgeRatio $HardGuardMaxTowerSurgeRatio `
+    -HardGuardMaxTowerWinRateGap $HardGuardMaxTowerWinRateGap `
     -MinNormalWinRate $guardMinNormalWinRate `
     -MinHardWinRate $guardMinHardWinRate `
     -NormalRegressionPenaltyWeight $NormalRegressionPenaltyWeight `
     -HardRegressionPenaltyWeight $HardRegressionPenaltyWeight `
     -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
+    -MinTowerRunsForFairness $MinTowerRunsForFairness `
+    -MinModifierRunsForFairness $MinModifierRunsForFairness `
     -ChainDepthCap $MaxChainDepth `
     -ExplosionCap $MaxSimultaneousExplosions `
     -HazardCap $MaxSimultaneousHazards `
@@ -1878,8 +2420,18 @@ $history += [PSCustomObject]@{
     explosion_share = $seedScore.ExplosionShare
     run_duration_seconds = $seedScore.RunDurationSeconds
     surges_per_run = $seedScore.SurgesPerRun
+    global_surges_per_run = $seedScore.GlobalSurgesPerRun
+    kills_per_surge = $seedScore.KillsPerSurge
     tower_surge_parity_ratio = $seedScore.TowerSurgeParityRatio
     tower_surge_parity_eligible_towers = $seedScore.TowerSurgeParityEligibleTowers
+    tower_recharge_parity_ratio = $seedScore.TowerRechargeParityRatio
+    tower_recharge_parity_eligible_towers = $seedScore.TowerRechargeParityEligibleTowers
+    modifier_surge_parity_ratio = $seedScore.ModifierSurgeParityRatio
+    modifier_surge_parity_eligible = $seedScore.ModifierSurgeParityEligible
+    tower_win_rate_gap = $seedScore.TowerWinRateGap
+    tower_win_rate_eligible = $seedScore.TowerWinRateEligible
+    modifier_win_rate_gap = $seedScore.ModifierWinRateGap
+    modifier_win_rate_eligible = $seedScore.ModifierWinRateEligible
     avg_max_chain_depth = $seedScore.AvgMaxChainDepth
     frame_stress_peaks = [PSCustomObject]@{
         explosions = $seedScore.PeakExplosions
@@ -1888,6 +2440,17 @@ $history += [PSCustomObject]@{
     }
     tuning_file = $seedTuningPath
     metrics_file = $seedMetricsPath
+}
+
+$twoPassSplitIterations = 0
+if ($TwoPassMode) {
+    if ($Iterations -le 1) {
+        $twoPassSplitIterations = 1
+    } else {
+        $split = [int][Math]::Round($Iterations * ([double]$TwoPassPhaseSplitPercent / 100.0))
+        $twoPassSplitIterations = [Math]::Min([Math]::Max(1, $split), $Iterations - 1)
+    }
+    Write-Host ("Two-pass split: pass1 iterations={0}, pass2 iterations={1}" -f $twoPassSplitIterations, [Math]::Max(0, $Iterations - $twoPassSplitIterations))
 }
 
 for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
@@ -1901,8 +2464,36 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         1.0
     }
 
+    $passPhase = "single"
+    $iterationMutationStrength = [double]$MutationStrength
+    $iterationRuns = [int]$Runs
+    $iterTargetMaxTowerSurgeRatio = [double]$TargetMaxTowerSurgeRatio
+    $iterTargetMaxModifierSurgeRatio = [double]$TargetMaxModifierSurgeRatio
+    $iterTargetTowerWinRateGap = [double]$TargetTowerWinRateGap
+    $iterTargetModifierWinRateGap = [double]$TargetModifierWinRateGap
+    $iterHardGuardMaxTowerSurgeRatio = [double]$HardGuardMaxTowerSurgeRatio
+    $iterHardGuardMaxTowerWinRateGap = [double]$HardGuardMaxTowerWinRateGap
+
+    if ($TwoPassMode) {
+        $isPass1Parity = $iteration -le $twoPassSplitIterations
+        if ($isPass1Parity) {
+            $passPhase = "pass1_parity"
+            $iterationMutationStrength = [double]$MutationStrength * 1.10
+            $iterTargetMaxTowerSurgeRatio = [Math]::Min([double]$TargetMaxTowerSurgeRatio, 1.95)
+            $iterTargetMaxModifierSurgeRatio = [Math]::Min([double]$TargetMaxModifierSurgeRatio, 2.15)
+            $iterTargetTowerWinRateGap = [Math]::Min([double]$TargetTowerWinRateGap, 0.17)
+            $iterTargetModifierWinRateGap = [Math]::Min([double]$TargetModifierWinRateGap, 0.20)
+            $iterHardGuardMaxTowerSurgeRatio = [Math]::Min([double]$HardGuardMaxTowerSurgeRatio, $iterTargetMaxTowerSurgeRatio + 0.55)
+            $iterHardGuardMaxTowerWinRateGap = [Math]::Min([double]$HardGuardMaxTowerWinRateGap, $iterTargetTowerWinRateGap + 0.10)
+        } else {
+            $passPhase = "pass2_difficulty"
+            $iterationMutationStrength = [double]$MutationStrength * 0.90
+            $iterationRuns = [Math]::Max(1, [int][Math]::Ceiling([double]$Runs * [double]$TwoPassPass2RunsMultiplier))
+        }
+    }
+
     Write-Host ""
-    Write-Host "=== [3/8] Auto-tune iteration $iteration/$Iterations (anneal=$([Math]::Round($anneal,3))) ==="
+    Write-Host "=== [3/8] Auto-tune iteration $iteration/$Iterations (anneal=$([Math]::Round($anneal,3)), phase=$passPhase, runs=$iterationRuns) ==="
 
     $iterCandidates = @()
     $candidateSpecsToEvaluate = @()
@@ -1914,7 +2505,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         $candidateProfile = if ($candidateIndex -eq 1) {
             Clone-TuningProfile -Profile $globalBestProfile
         } else {
-            New-MutatedTuningProfile -BaseProfile $globalBestProfile -Anneal $anneal -Strength $MutationStrength -FreezeSpectacleParams:($FreezeSpectacleParams -or $DifficultyOnlyMode -or $NormalOnlyMode) -SpectacleOnlyMode:$SpectacleOnlyMode -FreezeHardParams:($NormalOnlyMode)
+            New-MutatedTuningProfile -BaseProfile $globalBestProfile -Anneal $anneal -Strength $iterationMutationStrength -FreezeSpectacleParams:($FreezeSpectacleParams -or $DifficultyOnlyMode -or $NormalOnlyMode) -SpectacleOnlyMode:$SpectacleOnlyMode -FreezeHardParams:($NormalOnlyMode)
         }
 
         $candidateTuningPath = Join-Path $iterDir "$candidateId.tuning.json"
@@ -1947,7 +2538,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         Invoke-BotMetricsRunBatchSharded `
             -GodotExe $godotExe `
             -CommonPrefix $commonPrefix `
-            -RunsPerEval $Runs `
+            -RunsPerEval $iterationRuns `
             -StrategySet $strategySetNormalized `
             -CandidateSpecs $candidateSpecsToEvaluate `
             -CandidateParallelism $effectiveCandidateParallelism `
@@ -1971,12 +2562,23 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             -TargetNormalWinRate $effectiveTargetWinRateNormal `
             -TargetHardWinRate $effectiveTargetWinRateHard `
             -WinRateTolerance $TargetWinRateTolerance `
-            -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
+            -TargetSurgesPerRun $TargetSurgesPerRun `
+            -TargetSurgesPerRunTolerance $TargetSurgesPerRunTolerance `
+            -MaxKillsPerSurge $MaxKillsPerSurge `
+            -MinGlobalSurgesPerRun $MinGlobalSurgesPerRun `
+            -TargetMaxTowerSurgeRatio $iterTargetMaxTowerSurgeRatio `
+            -TargetMaxModifierSurgeRatio $iterTargetMaxModifierSurgeRatio `
+            -TargetTowerWinRateGap $iterTargetTowerWinRateGap `
+            -TargetModifierWinRateGap $iterTargetModifierWinRateGap `
+            -HardGuardMaxTowerSurgeRatio $iterHardGuardMaxTowerSurgeRatio `
+            -HardGuardMaxTowerWinRateGap $iterHardGuardMaxTowerWinRateGap `
             -MinNormalWinRate $guardMinNormalWinRate `
             -MinHardWinRate $guardMinHardWinRate `
             -NormalRegressionPenaltyWeight $NormalRegressionPenaltyWeight `
             -HardRegressionPenaltyWeight $HardRegressionPenaltyWeight `
             -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
+            -MinTowerRunsForFairness $MinTowerRunsForFairness `
+            -MinModifierRunsForFairness $MinModifierRunsForFairness `
             -ChainDepthCap $MaxChainDepth `
             -ExplosionCap $MaxSimultaneousExplosions `
             -HazardCap $MaxSimultaneousHazards `
@@ -1985,6 +2587,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
 
         $candidateResult = [PSCustomObject]@{
             iteration = $iteration
+            pass_phase = $passPhase
             candidate = $candidateId
             candidate_type = $candidateType
             anneal = [Math]::Round($anneal, 4)
@@ -1998,8 +2601,20 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             explosion_share = $candidateScore.ExplosionShare
             run_duration_seconds = $candidateScore.RunDurationSeconds
             surges_per_run = $candidateScore.SurgesPerRun
+            global_surges_per_run = $candidateScore.GlobalSurgesPerRun
+            kills_per_surge = $candidateScore.KillsPerSurge
             tower_surge_parity_ratio = $candidateScore.TowerSurgeParityRatio
             tower_surge_parity_eligible_towers = $candidateScore.TowerSurgeParityEligibleTowers
+            tower_recharge_parity_ratio = $candidateScore.TowerRechargeParityRatio
+            tower_recharge_parity_eligible_towers = $candidateScore.TowerRechargeParityEligibleTowers
+            modifier_surge_parity_ratio = $candidateScore.ModifierSurgeParityRatio
+            modifier_surge_parity_eligible = $candidateScore.ModifierSurgeParityEligible
+            tower_win_rate_gap = $candidateScore.TowerWinRateGap
+            tower_win_rate_eligible = $candidateScore.TowerWinRateEligible
+            modifier_win_rate_gap = $candidateScore.ModifierWinRateGap
+            modifier_win_rate_eligible = $candidateScore.ModifierWinRateEligible
+            hard_rejected = $candidateScore.HardRejected
+            hard_reject_reason = $candidateScore.HardRejectReason
             avg_max_chain_depth = $candidateScore.AvgMaxChainDepth
             frame_stress_peaks = [PSCustomObject]@{
                 explosions = $candidateScore.PeakExplosions
@@ -2016,7 +2631,8 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
 
         $iterCandidates += $candidateResult
         $history += $candidateResult
-        Write-Host ("Candidate {0}: score={1:0.0000}, win(E/N/H)={2:P1}/{3:P1}/{4:P1}, wave={5:0.00}, surges/run={6:0.00}, explosion_share={7:P2}, surge_parity_ratio={8:0.00}" -f $candidateId, $candidateScore.Score, $candidateScore.EasyWinRate, $candidateScore.NormalWinRate, $candidateScore.HardWinRate, $candidateScore.AvgWave, $candidateScore.SurgesPerRun, $candidateScore.ExplosionShare, $candidateScore.TowerSurgeParityRatio)
+        $hardRejectSuffix = if ($candidateScore.HardRejected) { " HARD_REJECT($($candidateScore.HardRejectReason))" } else { "" }
+        Write-Host (("Candidate {0}: score={1:0.0000}, win(E/N/H)={2:P1}/{3:P1}/{4:P1}, wave={5:0.00}, surges/global={6:0.00}/{7:0.00}, kps={8:0.00}, explosion={9:P2}, towerSurgeParity={10:0.00}, towerRechargeParity={11:0.00}, modSurgeParity={12:0.00}, towerGap={13:P1}, modGap={14:P1}" -f $candidateId, $candidateScore.Score, $candidateScore.EasyWinRate, $candidateScore.NormalWinRate, $candidateScore.HardWinRate, $candidateScore.AvgWave, $candidateScore.SurgesPerRun, $candidateScore.GlobalSurgesPerRun, $candidateScore.KillsPerSurge, $candidateScore.ExplosionShare, $candidateScore.TowerSurgeParityRatio, $candidateScore.TowerRechargeParityRatio, $candidateScore.ModifierSurgeParityRatio, $candidateScore.TowerWinRateGap, $candidateScore.ModifierWinRateGap) + $hardRejectSuffix)
     }
 
     $reevalCount = [Math]::Min([Math]::Max(0, $TopCandidateReevalCount), $iterCandidates.Count)
@@ -2039,7 +2655,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         Invoke-BotMetricsRunBatchSharded `
             -GodotExe $godotExe `
             -CommonPrefix $commonPrefix `
-            -RunsPerEval $Runs `
+            -RunsPerEval $iterationRuns `
             -StrategySet $strategySetNormalized `
             -CandidateSpecs $reevalSpecs `
             -CandidateParallelism $effectiveCandidateParallelism `
@@ -2061,12 +2677,23 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
                 -TargetNormalWinRate $effectiveTargetWinRateNormal `
                 -TargetHardWinRate $effectiveTargetWinRateHard `
                 -WinRateTolerance $TargetWinRateTolerance `
-                -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
+                -TargetSurgesPerRun $TargetSurgesPerRun `
+                -TargetSurgesPerRunTolerance $TargetSurgesPerRunTolerance `
+                -MaxKillsPerSurge $MaxKillsPerSurge `
+                -MinGlobalSurgesPerRun $MinGlobalSurgesPerRun `
+                -TargetMaxTowerSurgeRatio $iterTargetMaxTowerSurgeRatio `
+                -TargetMaxModifierSurgeRatio $iterTargetMaxModifierSurgeRatio `
+                -TargetTowerWinRateGap $iterTargetTowerWinRateGap `
+                -TargetModifierWinRateGap $iterTargetModifierWinRateGap `
+                -HardGuardMaxTowerSurgeRatio $iterHardGuardMaxTowerSurgeRatio `
+                -HardGuardMaxTowerWinRateGap $iterHardGuardMaxTowerWinRateGap `
                 -MinNormalWinRate $guardMinNormalWinRate `
                 -MinHardWinRate $guardMinHardWinRate `
                 -NormalRegressionPenaltyWeight $NormalRegressionPenaltyWeight `
                 -HardRegressionPenaltyWeight $HardRegressionPenaltyWeight `
                 -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
+                -MinTowerRunsForFairness $MinTowerRunsForFairness `
+                -MinModifierRunsForFairness $MinModifierRunsForFairness `
                 -ChainDepthCap $MaxChainDepth `
                 -ExplosionCap $MaxSimultaneousExplosions `
                 -HazardCap $MaxSimultaneousHazards `
@@ -2086,12 +2713,23 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
                 -TargetNormalWinRate $effectiveTargetWinRateNormal `
                 -TargetHardWinRate $effectiveTargetWinRateHard `
                 -WinRateTolerance $TargetWinRateTolerance `
-                -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
+                -TargetSurgesPerRun $TargetSurgesPerRun `
+                -TargetSurgesPerRunTolerance $TargetSurgesPerRunTolerance `
+                -MaxKillsPerSurge $MaxKillsPerSurge `
+                -MinGlobalSurgesPerRun $MinGlobalSurgesPerRun `
+                -TargetMaxTowerSurgeRatio $iterTargetMaxTowerSurgeRatio `
+                -TargetMaxModifierSurgeRatio $iterTargetMaxModifierSurgeRatio `
+                -TargetTowerWinRateGap $iterTargetTowerWinRateGap `
+                -TargetModifierWinRateGap $iterTargetModifierWinRateGap `
+                -HardGuardMaxTowerSurgeRatio $iterHardGuardMaxTowerSurgeRatio `
+                -HardGuardMaxTowerWinRateGap $iterHardGuardMaxTowerWinRateGap `
                 -MinNormalWinRate $guardMinNormalWinRate `
                 -MinHardWinRate $guardMinHardWinRate `
                 -NormalRegressionPenaltyWeight $NormalRegressionPenaltyWeight `
                 -HardRegressionPenaltyWeight $HardRegressionPenaltyWeight `
                 -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
+                -MinTowerRunsForFairness $MinTowerRunsForFairness `
+                -MinModifierRunsForFairness $MinModifierRunsForFairness `
                 -ChainDepthCap $MaxChainDepth `
                 -ExplosionCap $MaxSimultaneousExplosions `
                 -HazardCap $MaxSimultaneousHazards `
@@ -2198,6 +2836,17 @@ Invoke-GodotCommand -GodotExe $godotExe -Label "[7/8] Final sweep comparison (ba
 
 Invoke-BotMetricsRunSharded -GodotExe $godotExe -CommonPrefix $commonPrefix -RunsPerEval $Runs -StrategySet $strategySetNormalized -TuningPath $bestTuningOut -MetricsOut $tunedMetricsOut -Label "[8/8] Final tuned bot metrics (global best)" -Parallelism $effectiveRunParallelism
 
+$allStrategyMetricsPath = $null
+if (-not $SkipAllStrategyValidation) {
+    if ($strategySetNormalized -eq "all") {
+        $allStrategyMetricsPath = $tunedMetricsOut
+        Write-Host "[8/8] All-strategy validation reuses final tuned metrics (strategy_set=all)."
+    } else {
+        $allStrategyMetricsPath = $allStrategyMetricsOut
+        Invoke-BotMetricsRunSharded -GodotExe $godotExe -CommonPrefix $commonPrefix -RunsPerEval $Runs -StrategySet "all" -TuningPath $bestTuningOut -MetricsOut $allStrategyMetricsOut -Label "[8/8] Validation bot metrics (all strategies)" -Parallelism $effectiveRunParallelism
+    }
+}
+
 if (-not $SkipTrace) {
     Invoke-GodotCommand -GodotExe $godotExe -Label "[8/8] Live bot trace capture (global best)" -Args (
         $commonPrefix + @("--bot", "--runs", "$Runs", "--strategy_set", $strategySetNormalized, "--tuning_file", $bestTuningOut, "--bot_trace_out", $traceOut)
@@ -2221,17 +2870,85 @@ $tunedScore = Get-MetricsScore `
     -TargetNormalWinRate $effectiveTargetWinRateNormal `
     -TargetHardWinRate $effectiveTargetWinRateHard `
     -WinRateTolerance $TargetWinRateTolerance `
+    -TargetSurgesPerRun $TargetSurgesPerRun `
+    -TargetSurgesPerRunTolerance $TargetSurgesPerRunTolerance `
+    -MaxKillsPerSurge $MaxKillsPerSurge `
+    -MinGlobalSurgesPerRun $MinGlobalSurgesPerRun `
     -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
+    -TargetMaxModifierSurgeRatio $TargetMaxModifierSurgeRatio `
+    -TargetTowerWinRateGap $TargetTowerWinRateGap `
+    -TargetModifierWinRateGap $TargetModifierWinRateGap `
+    -HardGuardMaxTowerSurgeRatio $HardGuardMaxTowerSurgeRatio `
+    -HardGuardMaxTowerWinRateGap $HardGuardMaxTowerWinRateGap `
     -MinNormalWinRate $guardMinNormalWinRate `
     -MinHardWinRate $guardMinHardWinRate `
     -NormalRegressionPenaltyWeight $NormalRegressionPenaltyWeight `
     -HardRegressionPenaltyWeight $HardRegressionPenaltyWeight `
     -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
+    -MinTowerRunsForFairness $MinTowerRunsForFairness `
+    -MinModifierRunsForFairness $MinModifierRunsForFairness `
     -ChainDepthCap $MaxChainDepth `
     -ExplosionCap $MaxSimultaneousExplosions `
     -HazardCap $MaxSimultaneousHazards `
     -HitStopCap $MaxSimultaneousHitStops `
     -DurationFloor $MinRunDurationSeconds
+
+$allStrategyValidation = $null
+if (-not $SkipAllStrategyValidation -and -not [string]::IsNullOrWhiteSpace($allStrategyMetricsPath)) {
+    $allPayload = if ($allStrategyMetricsPath -eq $tunedMetricsOut) { $tunedPayload } else { Read-MetricsPayload -MetricsPath $allStrategyMetricsPath }
+    $allScore = if ($allStrategyMetricsPath -eq $tunedMetricsOut) {
+        $tunedScore
+    } else {
+        Get-MetricsScore `
+            -Summary $allPayload.summary `
+            -Runs $allPayload.runs `
+            -TargetShare $TargetExplosionShare `
+            -TargetShareTolerance $TargetExplosionShareTolerance `
+            -TargetEasyWinRate $effectiveTargetWinRateEasy `
+            -TargetNormalWinRate $effectiveTargetWinRateNormal `
+            -TargetHardWinRate $effectiveTargetWinRateHard `
+            -WinRateTolerance $TargetWinRateTolerance `
+            -TargetSurgesPerRun $TargetSurgesPerRun `
+            -TargetSurgesPerRunTolerance $TargetSurgesPerRunTolerance `
+            -MaxKillsPerSurge $MaxKillsPerSurge `
+            -MinGlobalSurgesPerRun $MinGlobalSurgesPerRun `
+            -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
+            -TargetMaxModifierSurgeRatio $TargetMaxModifierSurgeRatio `
+            -TargetTowerWinRateGap $TargetTowerWinRateGap `
+            -TargetModifierWinRateGap $TargetModifierWinRateGap `
+            -HardGuardMaxTowerSurgeRatio $HardGuardMaxTowerSurgeRatio `
+            -HardGuardMaxTowerWinRateGap $HardGuardMaxTowerWinRateGap `
+            -MinNormalWinRate $guardMinNormalWinRate `
+            -MinHardWinRate $guardMinHardWinRate `
+            -NormalRegressionPenaltyWeight $NormalRegressionPenaltyWeight `
+            -HardRegressionPenaltyWeight $HardRegressionPenaltyWeight `
+            -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
+            -MinTowerRunsForFairness $MinTowerRunsForFairness `
+            -MinModifierRunsForFairness $MinModifierRunsForFairness `
+            -ChainDepthCap $MaxChainDepth `
+            -ExplosionCap $MaxSimultaneousExplosions `
+            -HazardCap $MaxSimultaneousHazards `
+            -HitStopCap $MaxSimultaneousHitStops `
+            -DurationFloor $MinRunDurationSeconds
+    }
+
+    $allStrategyValidation = [ordered]@{
+        metrics_file = $allStrategyMetricsPath
+        score = $allScore.Score
+        win_rate = $allScore.WinRate
+        easy_win_rate = $allScore.EasyWinRate
+        normal_win_rate = $allScore.NormalWinRate
+        hard_win_rate = $allScore.HardWinRate
+        surges_per_run = $allScore.SurgesPerRun
+        global_surges_per_run = $allScore.GlobalSurgesPerRun
+        tower_surge_parity_ratio = $allScore.TowerSurgeParityRatio
+        tower_recharge_parity_ratio = $allScore.TowerRechargeParityRatio
+        tower_win_rate_gap = $allScore.TowerWinRateGap
+        modifier_win_rate_gap = $allScore.ModifierWinRateGap
+        hard_rejected = $allScore.HardRejected
+        hard_reject_reason = $allScore.HardRejectReason
+    }
+}
 
 $reportPayload = [ordered]@{
     generated_utc = (Get-Date).ToUniversalTime().ToString("o")
@@ -2256,18 +2973,34 @@ $reportPayload = [ordered]@{
         relative_win_target_normal_uplift = $RelativeWinTargetNormalUplift
         relative_win_target_hard_uplift = $RelativeWinTargetHardUplift
         target_win_rate_tolerance = $TargetWinRateTolerance
+        target_surges_per_run = $TargetSurgesPerRun
+        target_surges_per_run_tolerance = $TargetSurgesPerRunTolerance
+        max_kills_per_surge = $MaxKillsPerSurge
+        min_global_surges_per_run = $MinGlobalSurgesPerRun
         difficulty_regression_tolerance = $DifficultyRegressionTolerance
         normal_regression_penalty_weight = $NormalRegressionPenaltyWeight
         hard_regression_penalty_weight = $HardRegressionPenaltyWeight
         min_sweep_score_ratio_vs_baseline = $MinSweepScoreRatioVsBaseline
         target_max_tower_surge_ratio = $TargetMaxTowerSurgeRatio
+        target_max_modifier_surge_ratio = $TargetMaxModifierSurgeRatio
+        hard_guard_max_tower_surge_ratio = $HardGuardMaxTowerSurgeRatio
+        hard_guard_max_tower_win_rate_gap = $HardGuardMaxTowerWinRateGap
         min_tower_placements_for_parity = $MinTowerPlacementsForParity
+        target_tower_win_rate_gap = $TargetTowerWinRateGap
+        target_modifier_win_rate_gap = $TargetModifierWinRateGap
+        min_tower_runs_for_fairness = $MinTowerRunsForFairness
+        min_modifier_runs_for_fairness = $MinModifierRunsForFairness
+        min_modifier_runs_for_surge_parity = $MinModifierRunsForSurgeParity
         max_chain_depth = $MaxChainDepth
         max_simultaneous_explosions = $MaxSimultaneousExplosions
         max_simultaneous_hazards = $MaxSimultaneousHazards
         max_simultaneous_hitstops = $MaxSimultaneousHitStops
         min_run_duration_seconds = $MinRunDurationSeconds
         top_candidate_reeval_count = $TopCandidateReevalCount
+        two_pass_mode = $TwoPassMode
+        two_pass_phase_split_percent = $TwoPassPhaseSplitPercent
+        two_pass_phase1_iterations = $twoPassSplitIterations
+        skip_all_strategy_validation = $SkipAllStrategyValidation
     }
     baseline = [ordered]@{
         metrics_file = $baselineMetricsOut
@@ -2278,9 +3011,21 @@ $reportPayload = [ordered]@{
         normal_win_rate = $baselineScore.NormalWinRate
         hard_win_rate = $baselineScore.HardWinRate
         surges_per_run = $baselineScore.SurgesPerRun
+        global_surges_per_run = $baselineScore.GlobalSurgesPerRun
+        kills_per_surge = $baselineScore.KillsPerSurge
         explosion_share = $baselineScore.ExplosionShare
         tower_surge_parity_ratio = $baselineScore.TowerSurgeParityRatio
         tower_surge_parity_eligible_towers = $baselineScore.TowerSurgeParityEligibleTowers
+        tower_recharge_parity_ratio = $baselineScore.TowerRechargeParityRatio
+        tower_recharge_parity_eligible_towers = $baselineScore.TowerRechargeParityEligibleTowers
+        modifier_surge_parity_ratio = $baselineScore.ModifierSurgeParityRatio
+        modifier_surge_parity_eligible = $baselineScore.ModifierSurgeParityEligible
+        tower_win_rate_gap = $baselineScore.TowerWinRateGap
+        tower_win_rate_eligible = $baselineScore.TowerWinRateEligible
+        modifier_win_rate_gap = $baselineScore.ModifierWinRateGap
+        modifier_win_rate_eligible = $baselineScore.ModifierWinRateEligible
+        hard_rejected = $baselineScore.HardRejected
+        hard_reject_reason = $baselineScore.HardRejectReason
     }
     best = [ordered]@{
         source_candidate = $globalBestSource
@@ -2294,10 +3039,23 @@ $reportPayload = [ordered]@{
         final_normal_win_rate = $tunedScore.NormalWinRate
         final_hard_win_rate = $tunedScore.HardWinRate
         final_surges_per_run = $tunedScore.SurgesPerRun
+        final_global_surges_per_run = $tunedScore.GlobalSurgesPerRun
+        final_kills_per_surge = $tunedScore.KillsPerSurge
         final_explosion_share = $tunedScore.ExplosionShare
         final_tower_surge_parity_ratio = $tunedScore.TowerSurgeParityRatio
         final_tower_surge_parity_eligible_towers = $tunedScore.TowerSurgeParityEligibleTowers
+        final_tower_recharge_parity_ratio = $tunedScore.TowerRechargeParityRatio
+        final_tower_recharge_parity_eligible_towers = $tunedScore.TowerRechargeParityEligibleTowers
+        final_modifier_surge_parity_ratio = $tunedScore.ModifierSurgeParityRatio
+        final_modifier_surge_parity_eligible = $tunedScore.ModifierSurgeParityEligible
+        final_tower_win_rate_gap = $tunedScore.TowerWinRateGap
+        final_tower_win_rate_eligible = $tunedScore.TowerWinRateEligible
+        final_modifier_win_rate_gap = $tunedScore.ModifierWinRateGap
+        final_modifier_win_rate_eligible = $tunedScore.ModifierWinRateEligible
+        final_hard_rejected = $tunedScore.HardRejected
+        final_hard_reject_reason = $tunedScore.HardRejectReason
     }
+    validation_all_strategies = $allStrategyValidation
     history = $history
 }
 
@@ -2311,8 +3069,13 @@ Write-Host "Best tuning file : $bestTuningOut"
 Write-Host "Scenario report  : $scenarioReportOut"
 Write-Host "Sweep report     : $sweepReportOut"
 Write-Host "Tuned metrics    : $tunedMetricsOut"
+if (-not $SkipAllStrategyValidation -and -not [string]::IsNullOrWhiteSpace($allStrategyMetricsPath) -and $allStrategyMetricsPath -ne $tunedMetricsOut) {
+    Write-Host "All-set metrics  : $allStrategyMetricsPath"
+}
 if (-not $SkipTrace) {
     Write-Host "Trace file       : $traceOut"
 }
 Write-Host "Delta report     : $deltaOut"
 Write-Host "Auto-tune report : $autoTuneReportOut"
+
+

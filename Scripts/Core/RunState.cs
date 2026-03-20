@@ -75,6 +75,10 @@ public class RunState
     public Dictionary<string, int> SpectacleSurgeByEffect { get; } = new();
     public Dictionary<string, int> SpectacleGlobalByEffect { get; } = new();
     public Dictionary<string, int> SpectacleSurgeByTower { get; } = new();
+    public Dictionary<string, float> SpectacleFirstSurgeTimeByTower { get; } = new();
+    public Dictionary<string, float> SpectacleRechargeSecondsTotalByTower { get; } = new();
+    public Dictionary<string, int> SpectacleRechargeCountByTower { get; } = new();
+    private Dictionary<string, float> SpectacleLastSurgeTimeByTower { get; } = new();
     public SurgeHintRunTelemetry SurgeHintTelemetry { get; } = new();
 
     // Map selection
@@ -163,12 +167,31 @@ public class RunState
         TotalLeakHpByType[enemyType] = current + remainingHp;
     }
 
-    public void TrackSpectacleSurge(string effectId, string? towerId = null)
+    public void TrackSpectacleSurge(string effectId, string? towerId = null, float playTimeSeconds = -1f)
     {
         SpectacleSurgeTriggers++;
         IncrementSpectacleCounter(SpectacleSurgeByEffect, effectId);
         if (!string.IsNullOrWhiteSpace(towerId))
+        {
             IncrementSpectacleCounter(SpectacleSurgeByTower, towerId!);
+            if (float.IsFinite(playTimeSeconds) && playTimeSeconds >= 0f)
+            {
+                if (!SpectacleFirstSurgeTimeByTower.ContainsKey(towerId!))
+                    SpectacleFirstSurgeTimeByTower[towerId!] = playTimeSeconds;
+
+                if (SpectacleLastSurgeTimeByTower.TryGetValue(towerId!, out float lastSurgeTime))
+                {
+                    float rechargeSeconds = System.MathF.Max(0f, playTimeSeconds - lastSurgeTime);
+                    SpectacleRechargeSecondsTotalByTower.TryGetValue(towerId!, out float totalRecharge);
+                    SpectacleRechargeSecondsTotalByTower[towerId!] = totalRecharge + rechargeSeconds;
+
+                    SpectacleRechargeCountByTower.TryGetValue(towerId!, out int rechargeCount);
+                    SpectacleRechargeCountByTower[towerId!] = rechargeCount + 1;
+                }
+
+                SpectacleLastSurgeTimeByTower[towerId!] = playTimeSeconds;
+            }
+        }
     }
 
     public void TrackSpectacleGlobal(string effectId)
@@ -318,6 +341,10 @@ public class RunState
         SpectacleSurgeByEffect.Clear();
         SpectacleGlobalByEffect.Clear();
         SpectacleSurgeByTower.Clear();
+        SpectacleFirstSurgeTimeByTower.Clear();
+        SpectacleRechargeSecondsTotalByTower.Clear();
+        SpectacleRechargeCountByTower.Clear();
+        SpectacleLastSurgeTimeByTower.Clear();
         SurgeHintTelemetry.Reset();
         IsEndlessMode    = false;
         EndlessWaveDepth = 0;

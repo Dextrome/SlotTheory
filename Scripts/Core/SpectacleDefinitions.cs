@@ -92,6 +92,15 @@ public static class SpectacleDefinitions
         ChainReaction,
     };
 
+    private static readonly HashSet<string> SupportedTowers = new(StringComparer.Ordinal)
+    {
+        "rapid_shooter",
+        "heavy_cannon",
+        "marker_tower",
+        "chain_tower",
+        "rift_prism",
+    };
+
     // Compressed gain spread to keep triad charge pacing more consistent across modifier groups.
     private static readonly Dictionary<string, float> BaseGain = new(StringComparer.Ordinal)
     {
@@ -166,6 +175,7 @@ public static class SpectacleDefinitions
     };
 
     public static IReadOnlyCollection<string> SupportedModIds => Supported;
+    public static IReadOnlyCollection<string> SupportedTowerIds => SupportedTowers;
 
     public static string NormalizeModId(string modifierId)
     {
@@ -174,7 +184,11 @@ public static class SpectacleDefinitions
         return modifierId;
     }
 
+    public static string NormalizeTowerId(string towerId)
+        => (towerId ?? string.Empty).Trim().ToLowerInvariant();
+
     public static bool IsSupported(string modifierId) => Supported.Contains(NormalizeModId(modifierId));
+    public static bool IsSupportedTowerId(string towerId) => SupportedTowers.Contains(NormalizeTowerId(towerId));
 
     public static float GetBaseGain(string modifierId)
     {
@@ -187,8 +201,13 @@ public static class SpectacleDefinitions
         return baseGain * MathF.Max(0f, perModMultiplier);
     }
 
-    public static float ResolveSurgeThreshold()
-        => MathF.Max(0.05f, SurgeThreshold * MathF.Max(0.05f, SpectacleTuning.Current.SurgeThresholdMultiplier));
+    public static float ResolveSurgeThreshold(string? towerId = null)
+    {
+        float global = MathF.Max(0.05f, SurgeThreshold * MathF.Max(0.05f, SpectacleTuning.Current.SurgeThresholdMultiplier));
+        if (string.IsNullOrWhiteSpace(towerId))
+            return global;
+        return MathF.Max(0.05f, global * SpectacleTuning.Current.ResolveTowerSurgeThresholdMultiplier(towerId));
+    }
 
     public static float ResolveSurgeCooldownSeconds()
         => MathF.Max(0f, SurgeCooldownSeconds * MathF.Max(0f, SpectacleTuning.Current.SurgeCooldownMultiplier));
@@ -222,6 +241,13 @@ public static class SpectacleDefinitions
 
     public static float ResolveMeterGainScale()
         => MeterGainScale * MathF.Max(0f, SpectacleTuning.Current.MeterGainMultiplier);
+
+    public static float ResolveTowerMeterGainMultiplier(string? towerId)
+    {
+        if (string.IsNullOrWhiteSpace(towerId))
+            return 1f;
+        return MathF.Max(0f, SpectacleTuning.Current.ResolveTowerMeterGainMultiplier(towerId));
+    }
 
     public static float ResolveDamageMeterMultiplier(float eventDamage)
     {

@@ -77,6 +77,9 @@ public class BotRunner
         Dictionary<string, int> SpectacleSurgeByEffect,
         Dictionary<string, int> SpectacleGlobalByEffect,
         Dictionary<string, int> SpectacleSurgeByTower,
+        Dictionary<string, float> SpectacleFirstSurgeTimeByTower,
+        Dictionary<string, float> SpectacleRechargeSecondsTotalByTower,
+        Dictionary<string, int> SpectacleRechargeCountByTower,
         float RunDurationSeconds,
         int BaseAttackDamage,
         int SurgeCoreDamage,
@@ -115,9 +118,12 @@ public class BotRunner
     private readonly string?          _forcedModifierId;
     private readonly string?          _metricsOutputPath;
     private readonly string?          _traceOutputPath;
+    private readonly bool             _traceCaptureEnabled;
     private readonly string           _tuningLabel;
     private readonly string           _strategySetLabel = StrategySetAll;
     private readonly int              _runIndexOffset;
+    private readonly bool             _fastMetrics;
+    private readonly bool             _quiet;
 	private DifficultyMode[] _difficulties = { DifficultyMode.Easy, DifficultyMode.Normal, DifficultyMode.Hard };
     private readonly List<RunResult>  _results = new();
     private readonly List<RunTrace>   _runTraces = new();
@@ -133,6 +139,9 @@ public class BotRunner
     public BotPlayer CurrentBot  { get; private set; } = null!;
     public bool      HasMoreRuns => _results.Count < _totalRuns;
     public int       CompletedRuns => _results.Count;
+    public bool      FastMetrics => _fastMetrics;
+    public bool      TraceCaptureEnabled => _traceCaptureEnabled;
+    public bool      QuietMode => _quiet;
 
 public BotRunner(
     int totalRuns,
@@ -145,7 +154,9 @@ public BotRunner(
     string? traceOutputPath = null,
     string? tuningLabel = null,
     string? strategySet = null,
-    int runIndexOffset = 0)
+    int runIndexOffset = 0,
+    bool fastMetrics = false,
+    bool quiet = false)
 	{
 		_totalRuns  = totalRuns;
 		_strategies = targetStrategy.HasValue
@@ -158,8 +169,11 @@ public BotRunner(
         _forcedModifierId = string.IsNullOrWhiteSpace(forcedModifierId) ? null : forcedModifierId;
         _metricsOutputPath = string.IsNullOrWhiteSpace(metricsOutputPath) ? null : metricsOutputPath;
         _traceOutputPath = string.IsNullOrWhiteSpace(traceOutputPath) ? null : traceOutputPath;
+        _traceCaptureEnabled = !string.IsNullOrWhiteSpace(_traceOutputPath);
         _tuningLabel = string.IsNullOrWhiteSpace(tuningLabel) ? "baseline" : tuningLabel.Trim();
         _runIndexOffset = Math.Max(0, runIndexOffset);
+        _fastMetrics = fastMetrics;
+        _quiet = quiet;
 		_maps = targetMap != null
 			? new[] { targetMap }
 			: new[] { "arena_classic", "gauntlet", "sprawl", "ridgeback" };
@@ -224,7 +238,13 @@ public BotRunner(
             : "";
         int localRunNumber = _results.Count + 1;
         int globalRunNumber = idx + 1;
-        GD.Print($"[BOT] Run {localRunNumber}/{_totalRuns} (global #{globalRunNumber}) - {_curStrategy} on {_curMap} ({_curDifficulty}){forcedLabel}");
+        bool shouldLog =
+            !_quiet
+            || localRunNumber == 1
+            || localRunNumber == _totalRuns
+            || (localRunNumber % 100) == 0;
+        if (shouldLog)
+            GD.Print($"[BOT] Run {localRunNumber}/{_totalRuns} (global #{globalRunNumber}) - {_curStrategy} on {_curMap} ({_curDifficulty}){forcedLabel}");
     }
 
     /// <summary>Call after each wave completes, before WaveIndex increments.</summary>
@@ -252,7 +272,7 @@ public BotRunner(
 
     public void RecordRunTrace(IReadOnlyList<CombatLabTraceEvent> events)
     {
-        if (events == null || events.Count == 0)
+        if (!_traceCaptureEnabled || events == null || events.Count == 0)
             return;
 
         var copied = events.Select(CloneTraceEvent).ToList();
@@ -297,6 +317,9 @@ public BotRunner(
             new Dictionary<string, int>(state.SpectacleSurgeByEffect),
             new Dictionary<string, int>(state.SpectacleGlobalByEffect),
             new Dictionary<string, int>(state.SpectacleSurgeByTower),
+            new Dictionary<string, float>(state.SpectacleFirstSurgeTimeByTower),
+            new Dictionary<string, float>(state.SpectacleRechargeSecondsTotalByTower),
+            new Dictionary<string, int>(state.SpectacleRechargeCountByTower),
             state.TotalPlayTime,
             state.BaseAttackDamage,
             state.SurgeCoreDamage,
@@ -320,6 +343,16 @@ public BotRunner(
     public void PrintSummary()
     {
         int total = _results.Count;
+        if (_quiet)
+        {
+            int wins = _results.Count(r => r.Won);
+            float winRate = total > 0 ? wins * 100f / total : 0f;
+            GD.Print($"[BOT] Completed {total} runs. Wins={wins} ({winRate:0.0}%).");
+            WriteMetricsSummaryJson();
+            WriteTraceJson();
+            return;
+        }
+
         var allMaps = _results.Select(r => r.Map).Distinct().OrderBy(m => m).ToList();
 
         GD.Print("");
@@ -663,21 +696,16 @@ public BotRunner(
                 .Select(ResolveTopTowerDamageShare)
                 .ToList();
             PercentileStats damageConcentration = BuildPercentileStats(topTowerDamageSharePerRun);
-            var allKillDepthSamples = _results
-                .SelectMany(r => r.KillDepthSamples)
-                .ToList();
-            PercentileStats killDepthDistribution = BuildPercentileStats(allKillDepthSamples);
-            var allChainReactionSizes = _results
-                .SelectMany(r => r.SpectacleChainSizeSamples)
-                .Select(v => (float)v)
-                .ToList();
-            PercentileStats chainReactionSizeDistribution = BuildPercentileStats(allChainReactionSizes);
             int healthyDamageConcentrationRuns = topTowerDamageSharePerRun.Count(v => v < DamageConcentrationWarningThreshold);
             int warningDamageConcentrationRuns = topTowerDamageSharePerRun.Count(v => v >= DamageConcentrationWarningThreshold && v < DamageConcentrationProblemThreshold);
             int problemDamageConcentrationRuns = topTowerDamageSharePerRun.Count(v => v >= DamageConcentrationProblemThreshold);
             float avgSurgeIntervalSeconds = ResolveAverageSurgeIntervalSeconds(_results);
             var placementsByTower = new Dictionary<string, int>(StringComparer.Ordinal);
             var surgesByTower = new Dictionary<string, int>(StringComparer.Ordinal);
+            var firstSurgeSecondsTotalByTower = new Dictionary<string, float>(StringComparer.Ordinal);
+            var firstSurgeSamplesByTower = new Dictionary<string, int>(StringComparer.Ordinal);
+            var rechargeSecondsTotalByTower = new Dictionary<string, float>(StringComparer.Ordinal);
+            var rechargeSamplesByTower = new Dictionary<string, int>(StringComparer.Ordinal);
             foreach (RunResult run in _results)
             {
                 foreach (string towerId in run.Towers)
@@ -690,14 +718,37 @@ public BotRunner(
                     surgesByTower.TryGetValue(kv.Key, out int current);
                     surgesByTower[kv.Key] = current + kv.Value;
                 }
+                foreach (var kv in run.SpectacleFirstSurgeTimeByTower)
+                {
+                    firstSurgeSecondsTotalByTower.TryGetValue(kv.Key, out float totalSeconds);
+                    firstSurgeSecondsTotalByTower[kv.Key] = totalSeconds + kv.Value;
+                    firstSurgeSamplesByTower.TryGetValue(kv.Key, out int sampleCount);
+                    firstSurgeSamplesByTower[kv.Key] = sampleCount + 1;
+                }
+                foreach (var kv in run.SpectacleRechargeSecondsTotalByTower)
+                {
+                    rechargeSecondsTotalByTower.TryGetValue(kv.Key, out float totalSeconds);
+                    rechargeSecondsTotalByTower[kv.Key] = totalSeconds + kv.Value;
+                }
+                foreach (var kv in run.SpectacleRechargeCountByTower)
+                {
+                    rechargeSamplesByTower.TryGetValue(kv.Key, out int sampleCount);
+                    rechargeSamplesByTower[kv.Key] = sampleCount + kv.Value;
+                }
             }
             var towerSurgeRows = placementsByTower.Keys
                 .Union(surgesByTower.Keys, StringComparer.Ordinal)
+                .Union(firstSurgeSamplesByTower.Keys, StringComparer.Ordinal)
+                .Union(rechargeSamplesByTower.Keys, StringComparer.Ordinal)
                 .OrderBy(id => id, StringComparer.Ordinal)
                 .Select(id =>
                 {
                     placementsByTower.TryGetValue(id, out int placements);
                     surgesByTower.TryGetValue(id, out int surges);
+                    firstSurgeSecondsTotalByTower.TryGetValue(id, out float firstSurgeTotalSeconds);
+                    firstSurgeSamplesByTower.TryGetValue(id, out int firstSurgeSamples);
+                    rechargeSecondsTotalByTower.TryGetValue(id, out float rechargeTotalSeconds);
+                    rechargeSamplesByTower.TryGetValue(id, out int rechargeSamples);
                     float surgesPerPlacedTower = placements > 0 ? (float)surges / placements : 0f;
                     return new
                     {
@@ -705,105 +756,203 @@ public BotRunner(
                         placements,
                         surges,
                         surges_per_placed_tower = surgesPerPlacedTower,
+                        avg_time_to_first_surge_seconds = firstSurgeSamples > 0 ? firstSurgeTotalSeconds / firstSurgeSamples : 0f,
+                        first_surge_samples = firstSurgeSamples,
+                        avg_recharge_seconds = rechargeSamples > 0 ? rechargeTotalSeconds / rechargeSamples : 0f,
+                        recharge_samples = rechargeSamples,
                     };
                 })
                 .ToList();
-            const float explosionShareBinSize = 0.001f; // 0.10% bins
 
-            var payload = new
+            var modifierSurgeStats = new Dictionary<string, (int Runs, int Surges)>(StringComparer.Ordinal);
+            foreach (RunResult run in _results)
             {
-                generated_utc = DateTime.UtcNow,
-                tuning_profile = _tuningLabel,
-                run_count = _results.Count,
-                summary = new
+                var seen = new HashSet<string>(StringComparer.Ordinal);
+                foreach (string modifierId in run.Mods)
                 {
-                    win_rate = _results.Count > 0 ? (float)_results.Count(r => r.Won) / _results.Count : 0f,
-                    avg_wave_reached = _results.Count > 0 ? (float)_results.Average(r => r.WaveReached) : 0f,
-                    avg_run_duration_seconds = _results.Count > 0 ? (float)_results.Average(r => r.RunDurationSeconds) : 0f,
-                    avg_surges_per_run = _results.Count > 0 ? (float)_results.Average(r => r.SpectacleSurgeTriggers) : 0f,
-                    avg_surge_interval_seconds = avgSurgeIntervalSeconds,
-                    avg_kills_per_surge = _results.Count > 0
-                        ? (float)_results.Average(r => r.SpectacleSurgeTriggers > 0 ? (float)r.SpectacleKills / r.SpectacleSurgeTriggers : 0f)
-                        : 0f,
-                    avg_explosion_damage_per_run = _results.Count > 0 ? (float)totalExplosionDamage / _results.Count : 0f,
-                    avg_explosion_damage_per_trigger = totalExplosionTriggers > 0 ? (float)totalExplosionDamage / totalExplosionTriggers : 0f,
-                    avg_status_detonation_count = _results.Count > 0 ? (float)_results.Average(r => r.StatusDetonationCount) : 0f,
-                    avg_residue_uptime_seconds = _results.Count > 0 ? (float)_results.Average(r => r.ResidueUptimeSeconds) : 0f,
-                    avg_max_chain_depth = _results.Count > 0 ? (float)_results.Average(r => r.SpectacleMaxChainDepth) : 0f,
-                    damage_concentration = new
+                    if (string.IsNullOrWhiteSpace(modifierId) || !seen.Add(modifierId))
+                        continue;
+                    modifierSurgeStats.TryGetValue(modifierId, out var row);
+                    row.Runs += 1;
+                    row.Surges += run.SpectacleSurgeTriggers;
+                    modifierSurgeStats[modifierId] = row;
+                }
+            }
+            var modifierSurgeRows = modifierSurgeStats
+                .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+                .Select(kv =>
+                {
+                    int runCount = kv.Value.Runs;
+                    int surgeCount = kv.Value.Surges;
+                    return new
                     {
-                        thresholds = new
-                        {
-                            warning_min = DamageConcentrationWarningThreshold,
-                            problem_min = DamageConcentrationProblemThreshold,
-                        },
-                        avg_top_tower_share = damageConcentration.Average,
-                        p25_top_tower_share = damageConcentration.P25,
-                        p50_top_tower_share = damageConcentration.P50,
-                        p75_top_tower_share = damageConcentration.P75,
-                        p90_top_tower_share = damageConcentration.P90,
-                        p99_top_tower_share = damageConcentration.P99,
-                        healthy_runs = healthyDamageConcentrationRuns,
-                        warning_runs = warningDamageConcentrationRuns,
-                        problem_runs = problemDamageConcentrationRuns,
-                    },
-                    kill_depth_distribution = new
+                        modifier_id = kv.Key,
+                        runs = runCount,
+                        surges = surgeCount,
+                        surges_per_run = runCount > 0 ? (float)surgeCount / runCount : 0f,
+                    };
+                })
+                .ToList();
+            var difficultyWinRates = Enum.GetValues<DifficultyMode>()
+                .Select(difficulty =>
+                {
+                    var difficultyRuns = _results.Where(r => r.Difficulty == difficulty).ToList();
+                    int runCount = difficultyRuns.Count;
+                    int wins = difficultyRuns.Count(r => r.Won);
+                    return new
                     {
-                        sample_count = killDepthDistribution.SampleCount,
-                        avg = killDepthDistribution.Average,
-                        p25 = killDepthDistribution.P25,
-                        p50 = killDepthDistribution.P50,
-                        p75 = killDepthDistribution.P75,
-                        p90 = killDepthDistribution.P90,
-                        p99 = killDepthDistribution.P99,
-                    },
-                    chain_reaction_size_distribution = new
-                    {
-                        sample_count = chainReactionSizeDistribution.SampleCount,
-                        median = chainReactionSizeDistribution.P50,
-                        p90 = chainReactionSizeDistribution.P90,
-                        p99 = chainReactionSizeDistribution.P99,
-                    },
-                    dps_split = new
-                    {
-                        base_attacks = _results.Count > 0 ? (float)_results.Average(r => SafeDps(r.BaseAttackDamage, r.RunDurationSeconds)) : 0f,
-                        surge_core = _results.Count > 0 ? (float)_results.Average(r => SafeDps(r.SurgeCoreDamage, r.RunDurationSeconds)) : 0f,
-                        explosion_follow_ups = _results.Count > 0 ? (float)_results.Average(r => SafeDps(r.ExplosionFollowUpDamage, r.RunDurationSeconds)) : 0f,
-                        residue = _results.Count > 0 ? (float)_results.Average(r => SafeDps(r.ResidueDamage, r.RunDurationSeconds)) : 0f,
-                    },
-                    frame_stress_peaks = new
-                    {
-                        simultaneous_explosions = _results.Max(r => r.PeakSimultaneousExplosions),
-                        simultaneous_active_hazards = _results.Max(r => r.PeakSimultaneousActiveHazards),
-                        simultaneous_hitstops_requested = _results.Max(r => r.PeakSimultaneousHitStopsRequested),
-                    },
-                    surges_by_tower = towerSurgeRows,
-                    distributions = new
-                    {
-                        surges_per_run = BuildDiscreteDistribution(surgesPerRun),
-                        chain_depth_per_run = BuildDiscreteDistribution(chainDepthPerRun),
-                        wave_reached_per_run = BuildDiscreteDistribution(waveReachedPerRun),
-                        explosion_damage_share_per_run = new
-                        {
-                            bin_size_fraction = explosionShareBinSize,
-                            bin_size_percent = explosionShareBinSize * 100f,
-                            bins = BuildSparseBinnedDistribution(explosionSharePerRun, explosionShareBinSize),
-                        },
-                        top_tower_damage_share_per_run = new
-                        {
-                            bin_size_fraction = explosionShareBinSize,
-                            bin_size_percent = explosionShareBinSize * 100f,
-                            bins = BuildSparseBinnedDistribution(topTowerDamageSharePerRun, explosionShareBinSize),
-                        },
-                        kill_depth = new
-                        {
-                            bin_size_fraction = 0.01f,
-                            bins = BuildSparseBinnedDistribution(allKillDepthSamples, 0.01f),
-                        },
-                        chain_reaction_size = BuildDiscreteDistribution(allChainReactionSizes.Select(v => (int)MathF.Round(v))),
-                    },
+                        difficulty = difficulty.ToString(),
+                        runs = runCount,
+                        wins,
+                        win_rate = runCount > 0 ? (float)wins / runCount : 0f,
+                    };
+                })
+                .Where(row => row.runs > 0)
+                .ToList();
+
+            var towerWinRates = BuildRunItemWinRateRows(_results, r => r.Towers);
+            var modifierWinRates = BuildRunItemWinRateRows(_results, r => r.Mods);
+
+            var summary = new Dictionary<string, object?>
+            {
+                ["win_rate"] = _results.Count > 0 ? (float)_results.Count(r => r.Won) / _results.Count : 0f,
+                ["avg_wave_reached"] = _results.Count > 0 ? (float)_results.Average(r => r.WaveReached) : 0f,
+                ["avg_run_duration_seconds"] = _results.Count > 0 ? (float)_results.Average(r => r.RunDurationSeconds) : 0f,
+                ["avg_surges_per_run"] = _results.Count > 0 ? (float)_results.Average(r => r.SpectacleSurgeTriggers) : 0f,
+                ["avg_global_surges_per_run"] = _results.Count > 0 ? (float)_results.Average(r => r.SpectacleGlobalTriggers) : 0f,
+                ["avg_surge_interval_seconds"] = avgSurgeIntervalSeconds,
+                ["avg_kills_per_surge"] = _results.Count > 0
+                    ? (float)_results.Average(r => r.SpectacleSurgeTriggers > 0 ? (float)r.SpectacleKills / r.SpectacleSurgeTriggers : 0f)
+                    : 0f,
+                ["avg_explosion_damage_per_run"] = _results.Count > 0 ? (float)totalExplosionDamage / _results.Count : 0f,
+                ["avg_explosion_damage_per_trigger"] = totalExplosionTriggers > 0 ? (float)totalExplosionDamage / totalExplosionTriggers : 0f,
+                ["avg_status_detonation_count"] = _results.Count > 0 ? (float)_results.Average(r => r.StatusDetonationCount) : 0f,
+                ["avg_residue_uptime_seconds"] = _results.Count > 0 ? (float)_results.Average(r => r.ResidueUptimeSeconds) : 0f,
+                ["avg_max_chain_depth"] = _results.Count > 0 ? (float)_results.Average(r => r.SpectacleMaxChainDepth) : 0f,
+                ["dps_split"] = new
+                {
+                    base_attacks = _results.Count > 0 ? (float)_results.Average(r => SafeDps(r.BaseAttackDamage, r.RunDurationSeconds)) : 0f,
+                    surge_core = _results.Count > 0 ? (float)_results.Average(r => SafeDps(r.SurgeCoreDamage, r.RunDurationSeconds)) : 0f,
+                    explosion_follow_ups = _results.Count > 0 ? (float)_results.Average(r => SafeDps(r.ExplosionFollowUpDamage, r.RunDurationSeconds)) : 0f,
+                    residue = _results.Count > 0 ? (float)_results.Average(r => SafeDps(r.ResidueDamage, r.RunDurationSeconds)) : 0f,
                 },
-                runs = _results.Select(r => new
+                ["frame_stress_peaks"] = new
+                {
+                    simultaneous_explosions = _results.Max(r => r.PeakSimultaneousExplosions),
+                    simultaneous_active_hazards = _results.Max(r => r.PeakSimultaneousActiveHazards),
+                    simultaneous_hitstops_requested = _results.Max(r => r.PeakSimultaneousHitStopsRequested),
+                },
+                ["surges_by_tower"] = towerSurgeRows,
+                ["surges_by_modifier"] = modifierSurgeRows,
+                ["difficulty_win_rates"] = difficultyWinRates,
+                ["tower_win_rates"] = towerWinRates,
+                ["modifier_win_rates"] = modifierWinRates,
+            };
+
+            if (!_fastMetrics)
+            {
+                var allKillDepthSamples = _results
+                    .SelectMany(r => r.KillDepthSamples)
+                    .ToList();
+                PercentileStats killDepthDistribution = BuildPercentileStats(allKillDepthSamples);
+                var allChainReactionSizes = _results
+                    .SelectMany(r => r.SpectacleChainSizeSamples)
+                    .Select(v => (float)v)
+                    .ToList();
+                PercentileStats chainReactionSizeDistribution = BuildPercentileStats(allChainReactionSizes);
+                const float explosionShareBinSize = 0.001f; // 0.10% bins
+
+                summary["damage_concentration"] = new
+                {
+                    thresholds = new
+                    {
+                        warning_min = DamageConcentrationWarningThreshold,
+                        problem_min = DamageConcentrationProblemThreshold,
+                    },
+                    avg_top_tower_share = damageConcentration.Average,
+                    p25_top_tower_share = damageConcentration.P25,
+                    p50_top_tower_share = damageConcentration.P50,
+                    p75_top_tower_share = damageConcentration.P75,
+                    p90_top_tower_share = damageConcentration.P90,
+                    p99_top_tower_share = damageConcentration.P99,
+                    healthy_runs = healthyDamageConcentrationRuns,
+                    warning_runs = warningDamageConcentrationRuns,
+                    problem_runs = problemDamageConcentrationRuns,
+                };
+                summary["kill_depth_distribution"] = new
+                {
+                    sample_count = killDepthDistribution.SampleCount,
+                    avg = killDepthDistribution.Average,
+                    p25 = killDepthDistribution.P25,
+                    p50 = killDepthDistribution.P50,
+                    p75 = killDepthDistribution.P75,
+                    p90 = killDepthDistribution.P90,
+                    p99 = killDepthDistribution.P99,
+                };
+                summary["chain_reaction_size_distribution"] = new
+                {
+                    sample_count = chainReactionSizeDistribution.SampleCount,
+                    median = chainReactionSizeDistribution.P50,
+                    p90 = chainReactionSizeDistribution.P90,
+                    p99 = chainReactionSizeDistribution.P99,
+                };
+                summary["distributions"] = new
+                {
+                    surges_per_run = BuildDiscreteDistribution(surgesPerRun),
+                    chain_depth_per_run = BuildDiscreteDistribution(chainDepthPerRun),
+                    wave_reached_per_run = BuildDiscreteDistribution(waveReachedPerRun),
+                    explosion_damage_share_per_run = new
+                    {
+                        bin_size_fraction = explosionShareBinSize,
+                        bin_size_percent = explosionShareBinSize * 100f,
+                        bins = BuildSparseBinnedDistribution(explosionSharePerRun, explosionShareBinSize),
+                    },
+                    top_tower_damage_share_per_run = new
+                    {
+                        bin_size_fraction = explosionShareBinSize,
+                        bin_size_percent = explosionShareBinSize * 100f,
+                        bins = BuildSparseBinnedDistribution(topTowerDamageSharePerRun, explosionShareBinSize),
+                    },
+                    kill_depth = new
+                    {
+                        bin_size_fraction = 0.01f,
+                        bins = BuildSparseBinnedDistribution(allKillDepthSamples, 0.01f),
+                    },
+                    chain_reaction_size = BuildDiscreteDistribution(allChainReactionSizes.Select(v => (int)MathF.Round(v))),
+                };
+            }
+
+            object runsPayload = _fastMetrics
+                ? _results.Select(r => new
+                {
+                    difficulty = r.Difficulty.ToString(),
+                    won = r.Won,
+                    towers = r.Towers,
+                    mods = r.Mods,
+                    wave_reached = r.WaveReached,
+                    run_duration_seconds = r.RunDurationSeconds,
+                    surges = r.SpectacleSurgeTriggers,
+                    global_surges = r.SpectacleGlobalTriggers,
+                    surge_interval_seconds = ResolveSurgeIntervalSeconds(r),
+                    status_detonations = r.StatusDetonationCount,
+                    residue_uptime_seconds = r.ResidueUptimeSeconds,
+                    max_chain_depth = r.SpectacleMaxChainDepth,
+                    top_tower_damage_share = ResolveTopTowerDamageShare(r),
+                    damage_split = new
+                    {
+                        base_attacks = r.BaseAttackDamage,
+                        surge_core = r.SurgeCoreDamage,
+                        explosion_follow_ups = r.ExplosionFollowUpDamage,
+                        residue = r.ResidueDamage,
+                    },
+                    frame_stress = new
+                    {
+                        simultaneous_explosions = r.PeakSimultaneousExplosions,
+                        simultaneous_active_hazards = r.PeakSimultaneousActiveHazards,
+                        simultaneous_hitstops_requested = r.PeakSimultaneousHitStopsRequested,
+                    },
+                }).ToList()
+                : _results.Select(r => new
                 {
                     strategy = r.Strategy.ToString(),
                     map = r.Map,
@@ -813,8 +962,15 @@ public BotRunner(
                     run_duration_seconds = r.RunDurationSeconds,
                     surges = r.SpectacleSurgeTriggers,
                     global_surges = r.SpectacleGlobalTriggers,
+                    towers = r.Towers,
+                    mods = r.Mods,
                     surge_interval_seconds = ResolveSurgeIntervalSeconds(r),
                     surges_by_tower = r.SpectacleSurgeByTower,
+                    first_surge_seconds_by_tower = r.SpectacleFirstSurgeTimeByTower,
+                    recharge_seconds_total_by_tower = r.SpectacleRechargeSecondsTotalByTower,
+                    recharge_count_by_tower = r.SpectacleRechargeCountByTower,
+                    surges_by_effect = r.SpectacleSurgeByEffect,
+                    global_surges_by_effect = r.SpectacleGlobalByEffect,
                     status_detonations = r.StatusDetonationCount,
                     residue_uptime_seconds = r.ResidueUptimeSeconds,
                     max_chain_depth = r.SpectacleMaxChainDepth,
@@ -834,10 +990,18 @@ public BotRunner(
                         simultaneous_active_hazards = r.PeakSimultaneousActiveHazards,
                         simultaneous_hitstops_requested = r.PeakSimultaneousHitStopsRequested,
                     },
-                }).ToList(),
+                }).ToList();
+
+            var payload = new Dictionary<string, object?>
+            {
+                ["generated_utc"] = DateTime.UtcNow,
+                ["tuning_profile"] = _tuningLabel,
+                ["run_count"] = _results.Count,
+                ["summary"] = summary,
+                ["runs"] = runsPayload,
             };
 
-            var options = new JsonSerializerOptions { WriteIndented = true };
+            var options = new JsonSerializerOptions { WriteIndented = !_fastMetrics };
             File.WriteAllText(outputPath, JsonSerializer.Serialize(payload, options));
             GD.Print($"[BOT] Metrics JSON written: {outputPath}");
         }
@@ -845,6 +1009,42 @@ public BotRunner(
         {
             GD.PrintErr($"[BOT] Failed to write metrics JSON: {ex.Message}");
         }
+    }
+
+    private static List<object> BuildRunItemWinRateRows(IEnumerable<RunResult> runs, Func<RunResult, IEnumerable<string>> selector)
+    {
+        var stats = new Dictionary<string, (int Runs, int Wins)>(StringComparer.Ordinal);
+
+        foreach (RunResult run in runs)
+        {
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (string id in selector(run))
+            {
+                if (string.IsNullOrWhiteSpace(id) || !seen.Add(id))
+                    continue;
+                stats.TryGetValue(id, out var row);
+                row.Runs += 1;
+                if (run.Won)
+                    row.Wins += 1;
+                stats[id] = row;
+            }
+        }
+
+        return stats
+            .OrderBy(kv => kv.Key, StringComparer.Ordinal)
+            .Select(kv =>
+            {
+                int runsForItem = kv.Value.Runs;
+                int winsForItem = kv.Value.Wins;
+                return (object)new
+                {
+                    item_id = kv.Key,
+                    runs = runsForItem,
+                    wins = winsForItem,
+                    win_rate = runsForItem > 0 ? (float)winsForItem / runsForItem : 0f,
+                };
+            })
+            .ToList();
     }
 
     private static float ResolveExplosionSharePerRun(RunResult run)

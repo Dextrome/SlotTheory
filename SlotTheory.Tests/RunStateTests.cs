@@ -106,6 +106,20 @@ public class RunStateTests
     }
 
     [Fact]
+    public void TrackSpectacleSurge_TracksFirstAndRechargeTiming_PerTower()
+    {
+        var state = new RunState();
+
+        state.TrackSpectacleSurge("C_MOMENTUM_SPLIT", "rapid_shooter", 5f);
+        state.TrackSpectacleSurge("C_MOMENTUM_SPLIT", "rapid_shooter", 9f);
+        state.TrackSpectacleSurge("C_MOMENTUM_SPLIT", "rapid_shooter", 12.5f);
+
+        Assert.Equal(5f, state.SpectacleFirstSurgeTimeByTower["rapid_shooter"], 3);
+        Assert.Equal(7.5f, state.SpectacleRechargeSecondsTotalByTower["rapid_shooter"], 3);
+        Assert.Equal(2, state.SpectacleRechargeCountByTower["rapid_shooter"]);
+    }
+
+    [Fact]
     public void SurgeHintTelemetry_TracksAndResets()
     {
         var state = new RunState();

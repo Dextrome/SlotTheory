@@ -6,7 +6,7 @@ namespace SlotTheory.Core;
 
 /// <summary>
 /// Runtime tuning overrides used by automation, sweeps, and combat lab scenarios.
-/// Defaults reflect the tuned best_tuning profile (iter01_cand03, 20260318_194733 pipeline run).
+/// Defaults reflect the tuned best_tuning profile (20260320_183646 pipeline run).
 /// All multipliers are applied on top of Balance.cs constants - Reset() returns to these same defaults.
 /// </summary>
 public sealed class SpectacleTuningProfile
@@ -19,7 +19,7 @@ public sealed class SpectacleTuningProfile
     public bool EnableResidue { get; set; } = true;
 
     [JsonPropertyName("overkill_bloom_damage_scale_multiplier")]
-    public float OverkillBloomDamageScaleMultiplier { get; set; } = 0.975f;
+    public float OverkillBloomDamageScaleMultiplier { get; set; } = 0.8638f;
     [JsonPropertyName("overkill_bloom_radius_multiplier")]
     public float OverkillBloomRadiusMultiplier { get; set; } = 1.0171f;
     [JsonPropertyName("overkill_bloom_threshold_multiplier")]
@@ -35,7 +35,7 @@ public sealed class SpectacleTuningProfile
     public float StatusDetonationDamageMultiplier { get; set; } = 1.2879f;
 
     [JsonPropertyName("residue_duration_multiplier")]
-    public float ResidueDurationMultiplier { get; set; } = 1.2448f;
+    public float ResidueDurationMultiplier { get; set; } = 1.1254f;
     [JsonPropertyName("residue_potency_multiplier")]
     public float ResiduePotencyMultiplier { get; set; } = 1.1722f;
     [JsonPropertyName("residue_damage_multiplier")]
@@ -95,15 +95,15 @@ public sealed class SpectacleTuningProfile
     [JsonPropertyName("normal_enemy_hp_multiplier")]
     public float NormalEnemyHpMultiplier { get; set; } = 1f;
     [JsonPropertyName("normal_enemy_count_multiplier")]
-    public float NormalEnemyCountMultiplier { get; set; } = 1.1949f;
+    public float NormalEnemyCountMultiplier { get; set; } = 1.136f;
     [JsonPropertyName("normal_spawn_interval_multiplier")]
-    public float NormalSpawnIntervalMultiplier { get; set; } = 0.9149f;
+    public float NormalSpawnIntervalMultiplier { get; set; } = 0.9166f;
     [JsonPropertyName("hard_enemy_hp_multiplier")]
-    public float HardEnemyHpMultiplier { get; set; } = 1.2609f;
+    public float HardEnemyHpMultiplier { get; set; } = 1.2479f;
     [JsonPropertyName("hard_enemy_count_multiplier")]
     public float HardEnemyCountMultiplier { get; set; } = 1.05f;
     [JsonPropertyName("hard_spawn_interval_multiplier")]
-    public float HardSpawnIntervalMultiplier { get; set; } = 0.9725f;
+    public float HardSpawnIntervalMultiplier { get; set; } = 0.98f;
 
     // Separate multipliers for armored (tanky) and swift enemy counts.
     // The base enemy_count_multiplier scales all types uniformly - these let the
@@ -118,19 +118,19 @@ public sealed class SpectacleTuningProfile
     [JsonPropertyName("easy_reverse_count_multiplier")]
     public float EasyReverseCountMultiplier { get; set; } = 1f;
     [JsonPropertyName("normal_tanky_count_multiplier")]
-    public float NormalTankyCountMultiplier { get; set; } = 0.9522f;
+    public float NormalTankyCountMultiplier { get; set; } = 0.9681f;
     [JsonPropertyName("normal_swift_count_multiplier")]
-    public float NormalSwiftCountMultiplier { get; set; } = 1.0863f;
+    public float NormalSwiftCountMultiplier { get; set; } = 1.1648f;
     [JsonPropertyName("normal_splitter_count_multiplier")]
     public float NormalSplitterCountMultiplier { get; set; } = 1.055f;
     [JsonPropertyName("normal_reverse_count_multiplier")]
     public float NormalReverseCountMultiplier { get; set; } = 1f;
     [JsonPropertyName("hard_tanky_count_multiplier")]
-    public float HardTankyCountMultiplier { get; set; } = 0.9586f;
+    public float HardTankyCountMultiplier { get; set; } = 0.8838f;
     [JsonPropertyName("hard_swift_count_multiplier")]
-    public float HardSwiftCountMultiplier { get; set; } = 1.1471f;
+    public float HardSwiftCountMultiplier { get; set; } = 1.1063f;
     [JsonPropertyName("hard_splitter_count_multiplier")]
-    public float HardSplitterCountMultiplier { get; set; } = 1f;
+    public float HardSplitterCountMultiplier { get; set; } = 0.942f;
     [JsonPropertyName("hard_reverse_count_multiplier")]
     public float HardReverseCountMultiplier { get; set; } = 1f;
 
@@ -164,6 +164,26 @@ public sealed class SpectacleTuningProfile
     {
         ["overkill"]   = 1.1516f,
         ["split_shot"] = 0.8316f,
+    };
+
+    [JsonPropertyName("tower_meter_gain_multipliers")]
+    public Dictionary<string, float> TowerMeterGainMultipliers { get; set; } = new(StringComparer.Ordinal)
+    {
+        ["rapid_shooter"] = 1f,
+        ["heavy_cannon"] = 1f,
+        ["marker_tower"] = 1f,
+        ["chain_tower"] = 1f,
+        ["rift_prism"] = 1f,
+    };
+
+    [JsonPropertyName("tower_surge_threshold_multipliers")]
+    public Dictionary<string, float> TowerSurgeThresholdMultipliers { get; set; } = new(StringComparer.Ordinal)
+    {
+        ["rapid_shooter"] = 1f,
+        ["heavy_cannon"] = 1f,
+        ["marker_tower"] = 1f,
+        ["chain_tower"] = 1f,
+        ["rift_prism"] = 1f,
     };
 
     /// <summary>
@@ -226,6 +246,8 @@ public sealed class SpectacleTuningProfile
         EventScalarMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
         TokenCapMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
         TokenRegenMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
+        TowerMeterGainMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
+        TowerSurgeThresholdMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
     };
 
     [JsonIgnore]
@@ -264,6 +286,22 @@ public sealed class SpectacleTuningProfile
         if (TokenRegenMultipliers.TryGetValue(normalized, out float specific))
             return global * MathF.Max(0f, specific);
         return global;
+    }
+
+    public float ResolveTowerMeterGainMultiplier(string towerId)
+    {
+        string normalized = NormalizeTowerId(towerId);
+        if (TowerMeterGainMultipliers.TryGetValue(normalized, out float specific))
+            return MathF.Max(0f, specific);
+        return 1f;
+    }
+
+    public float ResolveTowerSurgeThresholdMultiplier(string towerId)
+    {
+        string normalized = NormalizeTowerId(towerId);
+        if (TowerSurgeThresholdMultipliers.TryGetValue(normalized, out float specific))
+            return MathF.Max(0.05f, specific);
+        return 1f;
     }
 
     public SpectacleTuningProfile CloneNormalized()
@@ -330,6 +368,8 @@ public sealed class SpectacleTuningProfile
             EventScalarMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
             TokenCapMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
             TokenRegenMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
+            TowerMeterGainMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
+            TowerSurgeThresholdMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
         };
 
         foreach (var kv in GainMultipliers)
@@ -352,9 +392,22 @@ public sealed class SpectacleTuningProfile
             string normalized = SpectacleDefinitions.NormalizeModId(kv.Key);
             clone.TokenRegenMultipliers[normalized] = MathF.Max(0f, kv.Value);
         }
+        foreach (var kv in TowerMeterGainMultipliers)
+        {
+            string normalized = NormalizeTowerId(kv.Key);
+            clone.TowerMeterGainMultipliers[normalized] = MathF.Max(0f, kv.Value);
+        }
+        foreach (var kv in TowerSurgeThresholdMultipliers)
+        {
+            string normalized = NormalizeTowerId(kv.Key);
+            clone.TowerSurgeThresholdMultipliers[normalized] = MathF.Max(0.05f, kv.Value);
+        }
 
         return clone;
     }
+
+    private static string NormalizeTowerId(string towerId)
+        => (towerId ?? string.Empty).Trim().ToLowerInvariant();
 }
 
 public static class SpectacleTuning

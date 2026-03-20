@@ -219,7 +219,7 @@ public sealed class SpectacleSystem
 
         var signature = ResolveSignature(state, tower, useLockedRoles: true);
         return new SpectacleVisualState(
-            MeterNormalized: Clamp(state.Meter / SpectacleDefinitions.ResolveSurgeThreshold(), 0f, 1f),
+            MeterNormalized: Clamp(state.Meter / SpectacleDefinitions.ResolveSurgeThreshold(tower.TowerId), 0f, 1f),
             Pulse: state.Pulse,
             PrimaryModId: signature.PrimaryModId);
     }
@@ -302,6 +302,7 @@ public sealed class SpectacleSystem
             * gate
             * SpectacleDefinitions.GetDiversityMultiplier(uniqueCount)
             * SpectacleDefinitions.ResolveMeterGainScale()
+            * SpectacleDefinitions.ResolveTowerMeterGainMultiplier(tower.TowerId)
             * SpectacleDefinitions.ResolveDamageMeterMultiplier(eventDamage)
             * intervalScale;
 
@@ -309,7 +310,8 @@ public sealed class SpectacleSystem
             return;
 
         state.InactivityTime = 0f;
-        state.Meter = Clamp(state.Meter + gain, 0f, SpectacleDefinitions.ResolveSurgeThreshold());
+        float surgeThreshold = SpectacleDefinitions.ResolveSurgeThreshold(tower.TowerId);
+        state.Meter = Clamp(state.Meter + gain, 0f, surgeThreshold);
         AddContribution(state, modId, gain);
 
         if (!state.RolesLocked && state.Meter >= SpectacleDefinitions.ResolveRoleLockMeterThreshold())
@@ -320,7 +322,7 @@ public sealed class SpectacleSystem
 
     private void TryTriggerEvents(ITowerView tower, TowerState state)
     {
-        float surgeThreshold = SpectacleDefinitions.ResolveSurgeThreshold();
+        float surgeThreshold = SpectacleDefinitions.ResolveSurgeThreshold(tower.TowerId);
         float globalThreshold = SpectacleDefinitions.ResolveGlobalThreshold();
         if (state.Meter >= surgeThreshold && state.SurgeCooldown <= 0f)
         {

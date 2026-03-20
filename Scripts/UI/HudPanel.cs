@@ -1129,16 +1129,17 @@ public partial class HudPanel : CanvasLayer
         buildRight = Mathf.Min(buildRight, barW * 0.40f);
 
         // Keep a safety gutter between readouts and right controls.
-        // Use both cluster-left and actual pause-button-left so the strip cannot drift under controls.
-        float controlGutter = MobileOptimization.IsMobile() ? 14f : 26f;
+        // Anchor against the first interactive control (pause) so we can safely use the
+        // empty decorative area inside the cluster without overlapping buttons.
+        float controlGutter = MobileOptimization.IsMobile() ? 8f : 12f;
         float rightAnchor = clusterLeft - controlGutter;
         if (GodotObject.IsInstanceValid(_pausePlayBtn))
         {
             float pauseLeft = _pausePlayBtn.GetGlobalRect().Position.X - barLeft;
             if (pauseLeft > 40f)
             {
-                float pauseGutter = MobileOptimization.IsMobile() ? 8f : 18f;
-                rightAnchor = Mathf.Min(rightAnchor, pauseLeft - pauseGutter);
+                float pauseGutter = MobileOptimization.IsMobile() ? 8f : 10f;
+                rightAnchor = pauseLeft - pauseGutter;
             }
         }
         float rightEdge = Mathf.Min(rightAnchor, barW - 10f);
@@ -1149,17 +1150,17 @@ public partial class HudPanel : CanvasLayer
             return;
 
         float waveW = Mathf.Clamp(_waveLabel.GetCombinedMinimumSize().X + 36f, 200f, 350f);
-        float timeW = Mathf.Clamp(_timeLabel.GetCombinedMinimumSize().X + 26f, 82f, 140f);
+        float fixedTimeW = MobileOptimization.IsMobile() ? 80f : 84f;
+        float timeW = fixedTimeW;
         bool enemyHasText = !string.IsNullOrWhiteSpace(_enemyLabel.Text);
-        float enemyW = enemyHasText
-            ? Mathf.Clamp(Mathf.Max(1f, _enemyLabel.GetCombinedMinimumSize().X) + 30f, 124f, 210f)
-            : 0f;
+        float fixedEnemyW = MobileOptimization.IsMobile() ? 152f : 160f;
+        float enemyW = enemyHasText ? fixedEnemyW : 0f;
         float livesW = Mathf.Clamp(_livesLabel.GetCombinedMinimumSize().X + 30f, 128f, 220f);
 
-        const float gap = 8f;
+        const float gap = 6f;
         const float livesMinW = 96f;
-        const float enemyMinW = 108f;
-        const float timeMinW = 70f;
+        const float enemyMinW = 156f;
+        const float timeMinW = 62f;
         const float waveMinW = 156f;
 
         // Wave is always hard-centered in the viewport.
@@ -1203,13 +1204,14 @@ public partial class HudPanel : CanvasLayer
             if (boxTotal > availBoxes)
             {
                 float overflow = boxTotal - availBoxes;
-                float enemyTake = Mathf.Min(overflow, Mathf.Max(0f, enemyW - enemyMinW));
-                enemyW -= enemyTake;
-                overflow -= enemyTake;
+                // Keep enemy width stable first; let time absorb squeeze.
+                float timeTake = Mathf.Min(overflow, Mathf.Max(0f, timeW - timeMinW));
+                timeW -= timeTake;
+                overflow -= timeTake;
                 if (overflow > 0f)
                 {
-                    float timeTake = Mathf.Min(overflow, Mathf.Max(0f, timeW - timeMinW));
-                    timeW -= timeTake;
+                    float enemyTake = Mathf.Min(overflow, Mathf.Max(0f, enemyW - enemyMinW));
+                    enemyW -= enemyTake;
                 }
             }
 
