@@ -5348,6 +5348,22 @@ void fragment() {
 		}
 	}
 
+	/// <summary>
+	/// Spawns a BlastCoreRing at the given world position. Ring is a short-lived expanding
+	/// circle outline -- compact, distinct from chain arcs and spectacle burst effects.
+	/// power [0..1] scales the maximum radius and brightness.
+	/// </summary>
+	private void SpawnBlastCoreRing(Vector2 origin, Color accent, float power = 0.5f)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+
+		var ring = new BlastCoreRing();
+		ring.GlobalPosition = Vector2.Zero;
+		_worldNode.AddChild(ring);
+		ring.Initialize(origin, accent, power);
+	}
+
 	private void PrimeExplosionCompression(Vector2 origin, float radius, Color accent, int maxTargets)
 	{
 		if (_botRunner != null || _runState == null || radius <= 0f || maxTargets <= 0)
@@ -6816,6 +6832,55 @@ void fragment() {
 		if (bounceCount < 2) return;
 		if (!TryCombatCallout("chain_reaction", 7.0f)) return;
 		SpawnCombatCallout("CHAIN REACTION", worldPos, new Color(0.56f, 0.95f, 1.00f));
+	}
+
+	/// <summary>
+	/// Called by BlastCore.OnHit after splash damage has been applied to splashTargets.
+	/// Handles visual feedback (expanding ring + impact sparks) and spectacle damage tracking.
+	/// No-op in bot/headless mode -- damage is already applied, only visuals are skipped.
+	/// </summary>
+	public void NotifyBlastCoreSplash(
+		ITowerView sourceTower,
+		Vector2 origin,
+		float splashDamage,
+		System.Collections.Generic.IReadOnlyList<IEnemyView> splashTargets)
+	{
+		if (CurrentPhase != GamePhase.Wave) return;
+
+		// Warm amber -- distinct from chain cyan (0.56,0.95,1) and overkill orange (1,0.56,0.25).
+		Color blastColor = new Color(1.00f, 0.72f, 0.22f);
+		float power = Mathf.Clamp(splashDamage / 60f, 0f, 1f);
+
+		if (_botRunner == null && GodotObject.IsInstanceValid(_worldNode))
+		{
+			// Detonation ring always fires -- gives the player feedback that Blast Core is active
+			// even when no enemies are in splash range (common early-wave when enemies are spread out).
+			SpawnBlastCoreRing(origin, blastColor, power);
+		}
+
+		// Everything below requires actual splash targets.
+		if (splashTargets == null || splashTargets.Count == 0) return;
+
+		// Attribute splash damage to the source tower for spectacle/tuning stat tracking.
+		float totalSplash = splashDamage * splashTargets.Count;
+		TrackSpectacleDamage(sourceTower, totalSplash, isKill: false, SpectacleDamageSource.ExplosionFollowUp);
+
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+
+		// Central impact flash at the detonation origin.
+		SpawnSpectacleImpactSparks(origin, blastColor, heavy: splashDamage >= 40f);
+
+		// Smaller hit sparks at each affected enemy position.
+		foreach (var target in splashTargets)
+		{
+			if (target is EnemyInstance enemy && IsEnemyUsable(enemy))
+				SpawnSpectacleImpactSparks(enemy.GlobalPosition, blastColor, heavy: false);
+		}
+
+		// Combat callout when blast catches 2+ enemies.
+		if (splashTargets.Count >= 2 && TryCombatCallout("blast_core", 5.5f))
+			SpawnCombatCallout("BLAST CORE", origin, blastColor);
 	}
 
 	public void PlayModifierLockInFx(int slotIndex, string modifierId, System.Action? onComplete = null)

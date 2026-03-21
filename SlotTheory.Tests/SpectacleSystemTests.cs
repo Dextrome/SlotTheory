@@ -365,14 +365,15 @@ public class SpectacleSystemTests
         IDictionary combos = ReadPrivateStaticDictionary("ComboDefs");
         IDictionary augments = ReadPrivateStaticDictionary("TriadAugments");
 
-        Assert.Equal(45, combos.Count);
-        Assert.Equal(10, augments.Count);
+        // N*(N-1)/2 combos where N = number of supported modifiers (11 as of Blast Core addition).
+        Assert.Equal(55, combos.Count);
+        Assert.Equal(11, augments.Count);
 
         var comboIds = combos.Values.Cast<SpectacleComboDef>().Select(def => def.EffectId).ToArray();
         var augmentIds = augments.Values.Cast<SpectacleTriadAugmentDef>().Select(def => def.EffectId).ToArray();
 
-        Assert.Equal(45, comboIds.Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(10, augmentIds.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(55, comboIds.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(11, augmentIds.Distinct(StringComparer.Ordinal).Count());
     }
 
     [Theory]

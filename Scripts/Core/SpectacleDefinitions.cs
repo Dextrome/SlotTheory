@@ -48,6 +48,7 @@ public static class SpectacleDefinitions
     public const string SplitShot = "split_shot";
     public const string FeedbackLoop = "feedback_loop";
     public const string ChainReaction = "chain_reaction";
+    public const string BlastCore = "blast_core";
 
     public const float SurgeThreshold = 150f;
     public const float SurgeCooldownSeconds = 6.0f;
@@ -90,6 +91,7 @@ public static class SpectacleDefinitions
         SplitShot,
         FeedbackLoop,
         ChainReaction,
+        BlastCore,
     };
 
     private static readonly HashSet<string> SupportedTowers = new(StringComparer.Ordinal)
@@ -114,6 +116,7 @@ public static class SpectacleDefinitions
         [SplitShot] = 2.1f,
         [FeedbackLoop] = 3.1f,
         [ChainReaction] = 2.2f,
+        [BlastCore] = 2.3f,
     };
 
     private static readonly Dictionary<string, SpectacleTokenConfig> TokenConfig = new(StringComparer.Ordinal)
@@ -128,6 +131,7 @@ public static class SpectacleDefinitions
         [SplitShot] = new SpectacleTokenConfig(3f, 4.0f),
         [FeedbackLoop] = new SpectacleTokenConfig(2f, 2.0f),
         [ChainReaction] = new SpectacleTokenConfig(3f, 4.0f),
+        [BlastCore] = new SpectacleTokenConfig(3f, 4.0f),
     };
 
     private static readonly Dictionary<string, string> DisplayNames = new(StringComparer.Ordinal)
@@ -142,6 +146,7 @@ public static class SpectacleDefinitions
         [SplitShot] = "Split Shot",
         [FeedbackLoop] = "Feedback Loop",
         [ChainReaction] = "Chain Reaction",
+        [BlastCore] = "Blast Core",
     };
 
     private static readonly Dictionary<string, SpectacleSingleDef> SingleDefs = new(StringComparer.Ordinal)
@@ -156,6 +161,7 @@ public static class SpectacleDefinitions
         [SplitShot] = new SpectacleSingleDef("S_SPLIT_FRACTAL_BLOOM", "Fractal Bloom"),
         [FeedbackLoop] = new SpectacleSingleDef("S_FEEDBACK_REBOOT_STORM", "Reboot Storm"),
         [ChainReaction] = new SpectacleSingleDef("S_CHAIN_GRID_OVERLOAD", "Grid Overload"),
+        [BlastCore] = new SpectacleSingleDef("S_BLAST_DETONATION_ZONE", "Detonation Zone"),
     };
 
     private static readonly Dictionary<string, SpectacleComboDef> ComboDefs = BuildComboDefs();
@@ -172,6 +178,7 @@ public static class SpectacleDefinitions
         [SplitShot] = new SpectacleTriadAugmentDef("T_AUG_SPLIT", "Split Volley", 0.30f, 0.0f, SpectacleAugmentKind.SplitVolley),
         [FeedbackLoop] = new SpectacleTriadAugmentDef("T_AUG_FEEDBACK", "Cooldown Reclaim", 0.35f, 0.0f, SpectacleAugmentKind.CooldownRefund),
         [ChainReaction] = new SpectacleTriadAugmentDef("T_AUG_CHAIN", "Chain Charge", 0.28f, 1.8f, SpectacleAugmentKind.ChainBounces),
+        [BlastCore] = new SpectacleTriadAugmentDef("T_AUG_BLAST", "Blast Radius", 0.22f, 1.8f, SpectacleAugmentKind.RangePulse),
     };
 
     public static IReadOnlyCollection<string> SupportedModIds => Supported;
@@ -353,6 +360,10 @@ public static class SpectacleDefinitions
     public static float ChainReactionEventScalar(int bounces)
         => Clamp(0.75f + 0.18f * bounces, 0.75f, 1.85f) * ResolveEventScalarMultiplier(ChainReaction);
 
+    /// <summary>Scales with enemies hit by splash (more clustered enemies = higher spectacle payout).</summary>
+    public static float BlastCoreEventScalar(int splashHits)
+        => Clamp(0.70f + 0.22f * splashHits, 0.70f, 1.60f) * ResolveEventScalarMultiplier(BlastCore);
+
     private static float ResolveEventScalarMultiplier(string modifierId)
         => MathF.Max(0f, SpectacleTuning.Current.ResolveEventScalarMultiplier(modifierId));
 
@@ -421,6 +432,18 @@ public static class SpectacleDefinitions
         Add(map, SplitShot, FeedbackLoop, "C_SPLIT_FEEDBACK", "Recursive Bloom");
         Add(map, SplitShot, ChainReaction, "C_SPLIT_CHAIN", "Fractal Overload");
         Add(map, FeedbackLoop, ChainReaction, "C_FEEDBACK_CHAIN", "Reactor Grid");
+
+        // Blast Core combos
+        Add(map, BlastCore, Momentum,        "C_BLAST_MOMENTUM",  "Impact Escalation");
+        Add(map, BlastCore, Overkill,        "C_BLAST_OVERKILL",  "Explosive Overflow");
+        Add(map, BlastCore, ExploitWeakness, "C_BLAST_EXPLOIT",   "Mark Detonation");
+        Add(map, BlastCore, FocusLens,       "C_BLAST_FOCUS",     "Siege Detonation");
+        Add(map, BlastCore, ChillShot,       "C_BLAST_CHILL",     "Cryo Blast");
+        Add(map, BlastCore, Overreach,       "C_BLAST_OVERREACH", "Wide Detonation");
+        Add(map, BlastCore, HairTrigger,     "C_BLAST_HAIR",      "Rapid Detonation");
+        Add(map, BlastCore, SplitShot,       "C_BLAST_SPLIT",     "Shrapnel Burst");
+        Add(map, BlastCore, FeedbackLoop,    "C_BLAST_FEEDBACK",  "Detonation Loop");
+        Add(map, BlastCore, ChainReaction,   "C_BLAST_CHAIN",     "Shockwave Propagation");
 
         return map;
     }

@@ -147,12 +147,22 @@ public static class ModifierDataValidator
             ["feedback_loop"] = new ModifierExpectation
             {
                 Name = "Feedback Loop",
-                RequiredTokens = new() { "reset" }
+                RequiredTokens = new() { "reset", "+20%", $"{FormatInt(Balance.FeedbackLoopStimDuration)}s" }
             },
             ["chain_reaction"] = new ModifierExpectation
             {
                 Name = "Chain Reaction",
                 RequiredTokens = new() { $"{FormatInt(Balance.ChainReactionDamageDecay * 100f)}%" }
+            },
+            ["blast_core"] = new ModifierExpectation
+            {
+                Name = "Blast Core",
+                RequiredTokens = new()
+                {
+                    $"{FormatInt(Balance.BlastCoreDamageRatio * 100f)}%",
+                    $"{FormatInt(Balance.BlastCoreRadius)}px",
+                    $"+{FormatInt(Balance.BlastCoreRadiusPerCopy)}px"
+                }
             }
         };
     }

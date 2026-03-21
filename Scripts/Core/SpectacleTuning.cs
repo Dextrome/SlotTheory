@@ -166,6 +166,8 @@ public sealed class SpectacleTuningProfile
         ["split_shot"] = 0.8719f,
         // Chain-specific meter pacing trim to avoid reducing overall surge power globally.
         ["chain_reaction"] = 0.94f,
+        // Blast core: each splash hit generates meter - trim to prevent over-filling on dense waves.
+        ["blast_core"] = 0.88f,
     };
 
     [JsonPropertyName("event_scalar_multipliers")]
@@ -175,6 +177,8 @@ public sealed class SpectacleTuningProfile
         ["split_shot"]     = 1.2471f,
         ["feedback_loop"]  = 0.9835f,
         ["hair_trigger"]   = 0.7396f,
+        // Blast core: AoE kills amplify event intensity.
+        ["blast_core"]     = 1.15f,
     };
 
     [JsonPropertyName("token_cap_multipliers")]

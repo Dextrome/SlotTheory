@@ -1,18 +1,33 @@
 using SlotTheory.Combat;
 using SlotTheory.Core;
 using SlotTheory.Data;
+using SlotTheory.Entities;
 
 namespace SlotTheory.Modifiers;
 
 /// <summary>
-/// Killing an enemy fully resets the tower's current cooldown to 0 (Balance.FeedbackLoopCooldownReduction = 1.0).
-/// Only Cooldown (the live timer) is touched - AttackInterval (base period) is never changed,
-/// so there is no permanent acceleration. Multiple copies all fire on kill but have no additional
-/// effect since the first copy already zeroes the cooldown.
+/// Kill: instantly resets cooldown to 0 AND grants a +20% attack speed stim for
+/// Balance.FeedbackLoopStimDuration seconds (stim refreshes on each kill).
+/// Multiple copies all fire OnKill but the stim timer is per-instance, so stacking
+/// extends nothing beyond refreshing the same 4s window.
 /// </summary>
 public class FeedbackLoop : Modifier
 {
+    private float _stimRemaining = 0f;
+
     public FeedbackLoop(ModifierDef def) { ModifierId = def.Id; }
+
+    public override void Update(float dt, ITowerView tower)
+    {
+        if (_stimRemaining > 0f)
+            _stimRemaining = System.MathF.Max(0f, _stimRemaining - dt);
+    }
+
+    public override void ModifyAttackInterval(ref float interval, ITowerView tower)
+    {
+        if (_stimRemaining > 0f)
+            interval *= Balance.FeedbackLoopStimFactor;
+    }
 
     public override bool OnKill(DamageContext ctx)
     {
@@ -21,6 +36,9 @@ public class FeedbackLoop : Modifier
             0f,
             ctx.Attacker.Cooldown * (1f - Balance.FeedbackLoopCooldownReduction)
         );
+
+        _stimRemaining = Balance.FeedbackLoopStimDuration;
+
         if (preCooldown > 0.001f)
         {
             float refunded = preCooldown - ctx.Attacker.Cooldown;

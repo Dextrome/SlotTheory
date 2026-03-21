@@ -20,35 +20,70 @@
       "context_id": "rapid_baseline",
       "modifier_a": "split_shot",
       "modifier_b": "overkill",
-      "scenario_ids": ["small_clustered_wave", "large_swarm_wave", "dense_choke_hold"]
+      "scenario_ids": ["early_basic_wave", "mid_dense_wave", "armored_cluster"]
     },
     {
       "id": "focus_overkill_heavy",
       "context_id": "heavy_baseline",
       "modifier_a": "focus_lens",
       "modifier_b": "overkill",
-      "scenario_ids": ["single_tank_target", "slow_tanky_enemies", "long_path_grind"]
+      "scenario_ids": ["single_tank", "armored_column", "long_path_grind", "pre_weakened_heavy"]
     },
     {
       "id": "chain_feedback_chain",
       "context_id": "chain_baseline",
       "modifier_a": "chain_reaction",
       "modifier_b": "feedback_loop",
-      "scenario_ids": ["small_clustered_wave", "large_swarm_wave", "short_path_pressure"]
+      "scenario_ids": ["early_basic_wave", "mid_dense_wave", "short_path_pressure", "pre_weakened_light"]
+    },
+    {
+      "id": "feedback_loop_hair_rapid",
+      "context_id": "rapid_baseline",
+      "modifier_a": "feedback_loop",
+      "modifier_b": "hair_trigger",
+      "scenario_ids": ["pre_weakened_light", "pre_weakened_heavy", "early_basic_wave"]
+    },
+    {
+      "id": "overkill_momentum_heavy",
+      "context_id": "heavy_baseline",
+      "modifier_a": "overkill",
+      "modifier_b": "momentum",
+      "scenario_ids": ["pre_weakened_heavy", "pre_weakened_light", "mid_dense_wave"]
     },
     {
       "id": "exploit_slow_marker",
       "context_id": "marker_baseline",
       "modifier_a": "exploit_weakness",
       "modifier_b": "slow",
-      "scenario_ids": ["slow_tanky_enemies", "long_path_grind", "open_lane_spread"]
+      "scenario_ids": ["armored_column", "long_path_grind", "late_mixed"]
     },
     {
       "id": "overreach_split_rift",
       "context_id": "rift_baseline",
       "modifier_a": "overreach",
       "modifier_b": "split_shot",
-      "scenario_ids": ["open_lane_spread", "short_path_pressure", "large_swarm_wave"]
+      "scenario_ids": ["late_mixed", "short_path_pressure", "mid_dense_wave"]
+    },
+    {
+      "id": "blast_core_overkill_heavy",
+      "context_id": "heavy_baseline",
+      "modifier_a": "blast_core",
+      "modifier_b": "overkill",
+      "scenario_ids": ["early_basic_wave", "mid_dense_wave", "armored_cluster"]
+    },
+    {
+      "id": "blast_core_split_rapid",
+      "context_id": "rapid_baseline",
+      "modifier_a": "blast_core",
+      "modifier_b": "split_shot",
+      "scenario_ids": ["mid_dense_wave", "swift_mixed_wave", "late_mixed"]
+    },
+    {
+      "id": "blast_core_chain_chain",
+      "context_id": "chain_baseline",
+      "modifier_a": "blast_core",
+      "modifier_b": "chain_reaction",
+      "scenario_ids": ["early_basic_wave", "armored_cluster", "short_path_pressure"]
     }
   ],
   "cost_by_tower": {
@@ -87,141 +122,164 @@
   },
   "scenarios": [
     {
-      "id": "single_tank_target",
-      "name": "Single Tank Target",
-      "tags": ["anti_tank", "long_path"],
-      "duration_seconds": 50,
+      "id": "single_tank",
+      "name": "Single Tank",
+      "tags": ["anti_tank", "single_target"],
+      "duration_seconds": 60,
       "path_type": "long_path",
       "path_length": 2600,
-      "lane_width": 100,
+      "lane_width": 60,
       "tower_position": [920, 0],
       "stop_when_resolved": true,
       "max_leaks": 20,
       "enemy_groups": [
-        { "id": "tank_anchor", "count": 1, "hp": 2200, "speed": 52, "spawn_interval": 0.0, "start_time": 0.0, "start_progress": 0.03 }
+        { "id": "tank", "count": 1, "hp": 2200, "speed": 52, "spawn_interval": 0.0, "start_time": 0.0, "start_progress": 0.03 }
       ]
     },
     {
-      "id": "small_clustered_wave",
-      "name": "Small Clustered Wave",
-      "tags": ["anti_swarm", "dense_choke"],
-      "duration_seconds": 35,
-      "path_type": "dense_choke",
-      "path_length": 1750,
-      "lane_width": 64,
-      "tower_position": [620, 0],
+      "id": "early_basic_wave",
+      "name": "Early Basic Wave",
+      "tags": ["early_game", "anti_swarm"],
+      "duration_seconds": 50,
+      "path_type": "long_path",
+      "path_length": 2800,
+      "lane_width": 70,
       "stop_when_resolved": true,
       "max_leaks": 20,
       "enemy_groups": [
-        { "id": "cluster_swarm", "count": 12, "hp": 95, "speed": 126, "spawn_interval": 0.16, "start_time": 0.0, "start_progress": 0.0 }
+        { "id": "basic", "count": 12, "hp": 86, "speed": 120, "spawn_interval": 1.75, "start_time": 0.0, "start_progress": 0.0 }
       ]
     },
     {
-      "id": "large_swarm_wave",
-      "name": "Large Swarm Wave",
-      "tags": ["anti_swarm", "open_lane"],
-      "duration_seconds": 40,
-      "path_type": "open_lane",
-      "path_length": 1850,
-      "lane_width": 190,
-      "tower_position": [700, 0],
-      "stop_when_resolved": true,
-      "max_leaks": 40,
-      "enemy_groups": [
-        { "id": "swarm_bulk", "count": 48, "hp": 52, "speed": 140, "spawn_interval": 0.09, "start_time": 0.0, "start_progress": 0.0, "lane_spread": 180 }
-      ]
-    },
-    {
-      "id": "fast_fragile_enemies",
-      "name": "Fast Fragile Enemies",
-      "tags": ["anti_swarm", "open_lane", "burst_sensitive"],
-      "duration_seconds": 36,
-      "path_type": "open_lane",
-      "path_length": 1680,
-      "lane_width": 170,
-      "tower_position": [640, 0],
-      "stop_when_resolved": true,
-      "max_leaks": 40,
-      "enemy_groups": [
-        { "id": "swift_fragile", "count": 30, "hp": 40, "speed": 262, "spawn_interval": 0.13, "start_time": 0.0, "start_progress": 0.0, "lane_spread": 150 }
-      ]
-    },
-    {
-      "id": "slow_tanky_enemies",
-      "name": "Slow Tanky Enemies",
-      "tags": ["anti_tank", "long_path", "sustained_uptime"],
-      "duration_seconds": 48,
+      "id": "mid_dense_wave",
+      "name": "Mid-Game Dense Wave",
+      "tags": ["mid_game", "anti_swarm", "high_count"],
+      "duration_seconds": 80,
       "path_type": "long_path",
-      "path_length": 2800,
-      "lane_width": 120,
-      "tower_position": [980, 0],
+      "path_length": 2600,
+      "lane_width": 80,
+      "stop_when_resolved": true,
+      "max_leaks": 40,
+      "enemy_groups": [
+        { "id": "basic", "count": 34, "hp": 200, "speed": 120, "spawn_interval": 1.15, "start_time": 0.0, "start_progress": 0.0 }
+      ]
+    },
+    {
+      "id": "swift_mixed_wave",
+      "name": "Swift Mixed Wave",
+      "tags": ["mid_game", "burst_sensitive"],
+      "duration_seconds": 65,
+      "path_type": "long_path",
+      "path_length": 2400,
+      "lane_width": 80,
+      "stop_when_resolved": true,
+      "max_leaks": 40,
+      "enemy_groups": [
+        { "id": "basic", "count": 22, "hp": 160, "speed": 120, "spawn_interval": 1.35, "start_time": 0.0, "start_progress": 0.0 },
+        { "id": "swift", "count": 5, "hp": 240, "speed": 240, "spawn_interval": 1.35, "start_time": 2.0, "start_progress": 0.0 }
+      ]
+    },
+    {
+      "id": "armored_column",
+      "name": "Armored Column",
+      "tags": ["anti_tank", "long_path", "sustained_uptime"],
+      "duration_seconds": 80,
+      "path_type": "long_path",
+      "path_length": 3200,
+      "lane_width": 60,
+      "stop_when_resolved": true,
+      "max_leaks": 15,
+      "enemy_groups": [
+        { "id": "armored", "count": 8, "hp": 540, "speed": 60, "spawn_interval": 1.3, "start_time": 0.0, "start_progress": 0.0 }
+      ]
+    },
+    {
+      "id": "armored_cluster",
+      "name": "Armored Cluster",
+      "tags": ["anti_tank", "mixed_types"],
+      "duration_seconds": 65,
+      "path_type": "long_path",
+      "path_length": 2400,
+      "lane_width": 70,
       "stop_when_resolved": true,
       "max_leaks": 25,
       "enemy_groups": [
-        { "id": "tanky_column", "count": 8, "hp": 680, "speed": 62, "spawn_interval": 0.85, "start_time": 0.0, "start_progress": 0.0 }
+        { "id": "basic", "count": 16, "hp": 140, "speed": 120, "spawn_interval": 1.4, "start_time": 0.0, "start_progress": 0.0 },
+        { "id": "armored", "count": 3, "hp": 490, "speed": 60, "spawn_interval": 0.9, "start_time": 3.0, "start_progress": 0.0 }
       ]
     },
     {
       "id": "short_path_pressure",
       "name": "Short Path Pressure",
       "tags": ["short_path", "map_sensitivity", "burst_sensitive"],
-      "duration_seconds": 32,
+      "duration_seconds": 50,
       "path_type": "short_path",
-      "path_length": 1080,
-      "lane_width": 120,
-      "tower_position": [430, 0],
+      "path_length": 1200,
+      "lane_width": 70,
       "stop_when_resolved": true,
       "max_leaks": 40,
       "enemy_groups": [
-        { "id": "short_mix_basic", "count": 18, "hp": 78, "speed": 145, "spawn_interval": 0.18, "start_time": 0.0, "start_progress": 0.0 },
-        { "id": "short_mix_tank", "count": 4, "hp": 380, "speed": 85, "spawn_interval": 0.55, "start_time": 1.0, "start_progress": 0.0 }
+        { "id": "basic", "count": 16, "hp": 130, "speed": 120, "spawn_interval": 1.4, "start_time": 0.0, "start_progress": 0.0 },
+        { "id": "armored", "count": 3, "hp": 455, "speed": 60, "spawn_interval": 1.5, "start_time": 2.0, "start_progress": 0.0 }
       ]
     },
     {
       "id": "long_path_grind",
       "name": "Long Path Grind",
       "tags": ["long_path", "map_sensitivity", "anti_tank", "sustained_uptime"],
-      "duration_seconds": 58,
+      "duration_seconds": 90,
       "path_type": "long_path",
-      "path_length": 3200,
-      "lane_width": 130,
-      "tower_position": [1140, 0],
+      "path_length": 3400,
+      "lane_width": 80,
       "stop_when_resolved": true,
       "max_leaks": 35,
       "enemy_groups": [
-        { "id": "grind_basic", "count": 24, "hp": 90, "speed": 118, "spawn_interval": 0.24, "start_time": 0.0, "start_progress": 0.0 },
-        { "id": "grind_tank", "count": 6, "hp": 540, "speed": 72, "spawn_interval": 0.72, "start_time": 2.0, "start_progress": 0.0 }
+        { "id": "basic", "count": 26, "hp": 200, "speed": 120, "spawn_interval": 1.25, "start_time": 0.0, "start_progress": 0.0 },
+        { "id": "armored", "count": 4, "hp": 700, "speed": 60, "spawn_interval": 1.5, "start_time": 4.0, "start_progress": 0.0 }
       ]
     },
     {
-      "id": "dense_choke_hold",
-      "name": "Dense Choke Hold",
-      "tags": ["dense_choke", "control", "map_sensitivity"],
-      "duration_seconds": 38,
-      "path_type": "dense_choke",
-      "path_length": 1620,
-      "lane_width": 58,
-      "tower_position": [560, 0],
+      "id": "late_mixed",
+      "name": "Late Game Mixed",
+      "tags": ["late_game", "mixed_types"],
+      "duration_seconds": 90,
+      "path_type": "long_path",
+      "path_length": 2800,
+      "lane_width": 90,
       "stop_when_resolved": true,
       "max_leaks": 40,
       "enemy_groups": [
-        { "id": "choke_mainline", "count": 26, "hp": 86, "speed": 136, "spawn_interval": 0.12, "start_time": 0.0, "start_progress": 0.0 }
+        { "id": "basic", "count": 28, "hp": 280, "speed": 120, "spawn_interval": 1.2, "start_time": 0.0, "start_progress": 0.0 },
+        { "id": "armored", "count": 3, "hp": 980, "speed": 60, "spawn_interval": 1.5, "start_time": 5.0, "start_progress": 0.0 },
+        { "id": "swift", "count": 3, "hp": 420, "speed": 240, "spawn_interval": 1.25, "start_time": 10.0, "start_progress": 0.0 }
       ]
     },
     {
-      "id": "open_lane_spread",
-      "name": "Open Lane Spread",
-      "tags": ["open_lane", "map_sensitivity", "swarm_clear"],
-      "duration_seconds": 40,
-      "path_type": "open_lane",
-      "path_length": 1840,
-      "lane_width": 220,
-      "tower_position": [700, 0],
+      "id": "pre_weakened_light",
+      "name": "Pre-Weakened Light (multi-tower sim)",
+      "tags": ["kill_confirmation", "multi_tower_sim"],
+      "duration_seconds": 60,
+      "path_type": "long_path",
+      "path_length": 2600,
+      "lane_width": 70,
       "stop_when_resolved": true,
-      "max_leaks": 40,
+      "max_leaks": 25,
       "enemy_groups": [
-        { "id": "open_mix_fast", "count": 16, "hp": 64, "speed": 182, "spawn_interval": 0.17, "start_time": 0.0, "start_progress": 0.0, "lane_spread": 200 },
-        { "id": "open_mix_tank", "count": 5, "hp": 460, "speed": 78, "spawn_interval": 0.62, "start_time": 1.2, "start_progress": 0.0, "lane_spread": 120 }
+        { "id": "basic", "count": 20, "hp": 200, "speed": 120, "spawn_interval": 1.15, "start_time": 0.0, "start_progress": 0.0, "start_hp_ratio": 0.25 }
+      ]
+    },
+    {
+      "id": "pre_weakened_heavy",
+      "name": "Pre-Weakened Heavy (nearly-dead enemies)",
+      "tags": ["kill_confirmation", "overkill_chains", "multi_tower_sim"],
+      "duration_seconds": 60,
+      "path_type": "long_path",
+      "path_length": 2600,
+      "lane_width": 70,
+      "stop_when_resolved": true,
+      "max_leaks": 25,
+      "enemy_groups": [
+        { "id": "basic", "count": 20, "hp": 200, "speed": 120, "spawn_interval": 1.15, "start_time": 0.0, "start_progress": 0.0, "start_hp_ratio": 0.12 }
       ]
     }
   ]

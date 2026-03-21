@@ -247,6 +247,8 @@ public class CombatSim
             var towerNode = slot.TowerNode;
 
             tower.Cooldown -= delta;
+            foreach (var mod in tower.Modifiers)
+                mod.Update(delta, tower);
             if (tower.Cooldown > 0f) continue;
 
             if (BotMode) state.SlotEligibleSteps[si]++;

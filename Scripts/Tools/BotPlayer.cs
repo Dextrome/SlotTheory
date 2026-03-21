@@ -157,6 +157,7 @@ public class BotPlayer
     private static readonly string[] SpectacleModPriority =
     {
         "overkill",         // bloom from kills; spill now tracked as explosion damage
+        "blast_core",       // splash AoE drives multi-kill chains; strong spectacle meter generator
         "chain_reaction",   // chain bounces → more kills → more overkill spills
         "split_shot",       // BurnPatch residue (only damage-dealing residue type)
         "hair_trigger",     // attack speed → more kills → more overkill spills
@@ -742,6 +743,7 @@ public class BotPlayer
                     "hair_trigger"     => 10f,
                     "momentum"         =>  9f,
                     "split_shot"       =>  8f,
+                    "blast_core"       =>  8f,
                     "exploit_weakness" => hasMarker ? 20f : 2f,
                     "feedback_loop"    =>  8f,
                     "overkill"         =>  7f,
@@ -760,7 +762,7 @@ public class BotPlayer
                             IsFastTower(s.Slots[i].Tower?.TowerId) ? 1 : 0)
                         .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count).First(),
                     // Heavy-synergy mods: prefer heavy_cannon (big base damage)
-                    "focus_lens" or "split_shot" or "overkill" =>
+                    "focus_lens" or "split_shot" or "overkill" or "blast_core" =>
                         eligible.OrderByDescending(i =>
                             s.Slots[i].Tower?.TowerId == "heavy_cannon" ? 1 : 0)
                         .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count).First(),
@@ -886,6 +888,7 @@ public class BotPlayer
                     "feedback_loop"    => 6f,
                     "overkill"         => 5f,
                     "split_shot"       => 5f,
+                    "blast_core"       => 5f,
                     "chain_reaction"   => 4f,
                     "focus_lens"       => 5f,
                     "overreach"        => 5f,
@@ -994,6 +997,7 @@ public class BotPlayer
                     "momentum"         =>  9f,
                     "feedback_loop"    =>  8f,
                     "split_shot"       =>  7f,
+                    "blast_core"       =>  7f,
                     "overkill"         =>  6f,
                     "focus_lens"       =>  6f,
                     "chain_reaction"   =>  3f,  // low fallback priority - step 1 handles active placement
@@ -1373,6 +1377,7 @@ public class BotPlayer
                     "momentum"         => needsStability ? 10f : 7f,
                     "feedback_loop"    => needsStability ? 9f : 7f,
                     "split_shot"       => needsStability ? 8f : 11f,
+                    "blast_core"       => needsStability ? 5f : 9f,
                     "chain_reaction"   => needsStability ? 6f : 9f,
                     "overkill"         => needsStability ? 4f : 8f,
                     "focus_lens"       => needsStability ? 3f : 5f,

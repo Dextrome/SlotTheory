@@ -391,6 +391,9 @@ public sealed class CombatLabTowerBenchmarkRunner
             if (tower.Cooldown > 0f)
                 tower.Cooldown = Math.Max(0f, tower.Cooldown - dt);
 
+            foreach (Modifier mod in tower.Modifiers)
+                mod.Update(dt, tower);
+
             if (spectacle != null)
                 spectacle.Update(dt);
 
@@ -779,13 +782,16 @@ public sealed class CombatLabTowerBenchmarkRunner
     private static void ApplyContextToMetrics(DamageContext ctx, TrialMetrics metrics)
     {
         metrics.Hits++;
-        metrics.TotalDamage += Math.Max(0f, ctx.DamageDealt);
+        float primaryDealt = Math.Max(0f, ctx.DamageDealt);
+        float splashDealt  = Math.Max(0f, ctx.SplashDamageDealt);
+        float spillDealt   = Math.Max(0f, ctx.OverkillSpillDealt);
+        metrics.TotalDamage += primaryDealt + splashDealt + spillDealt;
         metrics.RawDamage += Math.Max(0f, ctx.FinalDamage);
         metrics.OverkillWaste += Math.Max(0f, ctx.FinalDamage - ctx.DamageDealt);
         if (ctx.Target is BenchmarkEnemy enemy)
         {
-            if (enemy.IsTank) metrics.TankDamage += Math.Max(0f, ctx.DamageDealt);
-            if (enemy.IsSwarm) metrics.SwarmDamage += Math.Max(0f, ctx.DamageDealt);
+            if (enemy.IsTank) metrics.TankDamage += primaryDealt + splashDealt + spillDealt;
+            if (enemy.IsSwarm) metrics.SwarmDamage += primaryDealt + splashDealt + spillDealt;
         }
     }
 
@@ -1088,7 +1094,7 @@ public sealed class CombatLabTowerBenchmarkRunner
                     IsTank = tankGroup,
                     IsSwarm = swarmGroup,
                     MaxHp = Math.Max(1f, group.Hp),
-                    Hp = Math.Max(1f, group.Hp),
+                    Hp = Math.Max(1f, group.Hp * Math.Clamp(group.StartHpRatio, 0.01f, 1f)),
                     BaseSpeed = Math.Max(1f, group.Speed),
                     PathLength = Math.Max(200f, scenario.PathLength),
                     LaneOffsetY = offsetY,

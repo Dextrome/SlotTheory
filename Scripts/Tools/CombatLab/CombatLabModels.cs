@@ -265,6 +265,13 @@ public sealed class CombatLabTowerBenchmarkEnemyGroup
     public float StartProgress { get; set; } = 0f;
     [JsonPropertyName("lane_spread")]
     public float LaneSpread { get; set; } = 0f;
+    /// <summary>
+    /// Fraction of max HP enemies start with (0.0–1.0). Default 1.0 = full health.
+    /// Use values less than 1.0 to simulate enemies that have already been hit by earlier towers,
+    /// which is the realistic condition for kill-confirmation modifiers (feedback_loop, overkill).
+    /// </summary>
+    [JsonPropertyName("start_hp_ratio")]
+    public float StartHpRatio { get; set; } = 1f;
 }
 
 public sealed class CombatLabCostBand

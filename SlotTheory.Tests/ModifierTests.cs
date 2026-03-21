@@ -93,7 +93,8 @@ public class ModifierTests
     {
         var tower = new FakeTower { ChainRange = 100f };
         new ChainReaction(Def("chain_reaction")).OnEquip(tower);
-        Assert.True(tower.ChainRange >= 400f);
+        // ChainReactionRange was reduced from 400 to 320 in the chain_reaction nerf pass.
+        Assert.True(tower.ChainRange >= Balance.ChainReactionRange);
     }
 
     [Fact]

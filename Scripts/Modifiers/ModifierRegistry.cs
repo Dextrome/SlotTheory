@@ -19,6 +19,7 @@ public static class ModifierRegistry
         ["split_shot"]       = def => new SplitShot(def),
         ["feedback_loop"]    = def => new FeedbackLoop(def),
         ["chain_reaction"]   = def => new ChainReaction(def),
+        ["blast_core"]       = def => new BlastCore(def),
     };
 
     public static Modifier Create(string modifierId)

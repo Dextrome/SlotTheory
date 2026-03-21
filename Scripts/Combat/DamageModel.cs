@@ -17,6 +17,13 @@ public class DamageContext
 
     public bool IsChain { get; }
     public float DamageDealt { get; set; }
+    // Populated by modifiers that deal secondary area damage outside the normal damage pipeline (e.g. Blast Core splash).
+    // Tracked separately so benchmark runners can include it in total damage metrics.
+    public float SplashDamageDealt { get; set; }
+    // Populated by Overkill when excess damage is spilled to the next enemy.
+    // Tracked separately so the benchmark counts spill kills -- otherwise overkill looks negative
+    // (chain-kills reduce shot count → less tracked direct damage, masking the spill benefit).
+    public float OverkillSpillDealt { get; set; }
 
     public DamageContext(ITowerView attacker, IEnemyView target, int waveIndex,
                          IEnumerable<IEnemyView> enemies, RunState? state = null,

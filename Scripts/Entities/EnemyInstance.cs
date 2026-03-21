@@ -561,11 +561,12 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
             DrawCircle(nodePos, 1.3f * widthScale, nodeColor);
         }
 
-        // Pulsing aura field - communicates "active protection zone"
+        // Pulsing aura field - gold to match the gold shield overlay on protected allies
+        var auraColor = new Color(1.0f, 0.78f, 0.2f); // gold
         float auraPulse = 0.5f + Mathf.Sin(_visualTime * 1.8f) * 0.5f;
         float auraR = 30f + auraPulse * 5f;
-        DrawCircle(Vector2.Zero, auraR, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, (0.05f + auraPulse * 0.05f) * e));
-        DrawArc(Vector2.Zero, auraR, 0f, Mathf.Tau, 40, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, (0.22f + auraPulse * 0.16f) * e), 1.4f * widthScale);
+        DrawCircle(Vector2.Zero, auraR, new Color(auraColor.R, auraColor.G, auraColor.B, (0.05f + auraPulse * 0.05f) * e));
+        DrawArc(Vector2.Zero, auraR, 0f, Mathf.Tau, 40, new Color(auraColor.R, auraColor.G, auraColor.B, (0.22f + auraPulse * 0.16f) * e), 1.4f * widthScale);
     }
 
     private void DrawBloomPassShieldDrone(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)

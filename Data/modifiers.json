@@ -7,7 +7,7 @@
   "overkill": {
     "Id": "overkill",
     "Name": "Overkill",
-    "Description": "60% overkill dmg to next enemy in lane."
+    "Description": "100% overkill dmg to next enemy in lane."
   },
   "exploit_weakness": {
     "Id": "exploit_weakness",
@@ -42,11 +42,16 @@
   "feedback_loop": {
     "Id": "feedback_loop",
     "Name": "Feedback Loop",
-    "Description": "Kill: reset cooldown instantly."
+    "Description": "Kill: reset cooldown, +20% atk spd 4s."
   },
   "chain_reaction": {
     "Id": "chain_reaction",
     "Name": "Chain Reaction",
     "Description": "Hit: +1 bounce @50%. +1 bounce/copy."
+  },
+  "blast_core": {
+    "Id": "blast_core",
+    "Name": "Blast Core",
+    "Description": "Hit: 45% splash in 140px. +25px radius/copy."
   }
 }

@@ -12,6 +12,8 @@ public abstract class Modifier
 
     /// <summary>Called once when the modifier is equipped to a tower. Use for permanent stat changes.</summary>
     public virtual void OnEquip(ITowerView tower) { }
+    /// <summary>Called every simulation frame. Use for time-based effects (e.g. timed buffs).</summary>
+    public virtual void Update(float dt, ITowerView tower) { }
     public virtual void ModifyAttackInterval(ref float interval, ITowerView tower) { }
     public virtual void ModifyDamage(ref float damage, DamageContext ctx) { }
     /// <summary>Called on every hit. Return true if the modifier did something (triggers proc visual).</summary>

@@ -427,6 +427,12 @@ If an idea requires a new system â†’ defer to "Project 2."
   - Split Shot: fires 2 projectiles at nearby enemies for 35% damage each (search radius 280px); **unlockable** via campaign map clear
   - Feedback Loop: kill instantly resets cooldown to zero
   - Chain Reaction: adds 1 bounce (60% decay/bounce); stacks add more bounces
+  - Blast Core: hit creates a 110px splash explosion for 45% of hit damage to all enemies in radius; stacks add +25px radius per copy (110 / 135 / 160px)
+    - Fires on: primary hits, split-projectile hits (isChain=false contexts only)
+    - Does NOT fire on: chain bounces, overkill spill (all isChain=true)
+    - Splash is raw HP damage -- no modifier hooks, no status application, no recursive blast
+    - Splash respects Shield Drone protection; does NOT re-apply Marked/DamageAmp bonuses
+    - VFX: `BlastCoreRing.cs` expanding amber ring at impact point; impact sparks at each hit enemy
 - **7 enemy types** (5 in demo; Shield Drone and Reverse Walker are full-game only):
   - Basic Walker: 65 HP wave 1, Ã-1.10/wave, 120px/s
   - Armored Walker: 3.5Ã- HP, 60px/s, first appears wave 6 (index 5)

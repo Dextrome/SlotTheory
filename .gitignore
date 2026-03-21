@@ -98,3 +98,4 @@ CAMPAIGN.MD
 balance_*.json
 followup_*.json
 tmp_bot_metrics_*.json
+Data/combat_lab/modifier_benchmark_core.json

@@ -16,6 +16,7 @@ public static class Unlocks
     public const string SplitShotAchievementId = "SPLIT_UNSEALED";
     public const string RiftPrismTowerId = "rift_prism";
     public const string RiftPrismAchievementId = "RIFT_UNSEALED";
+    public const string BlastCoreModifierId = "blast_core";
     private const string ArcEmitterFallbackMapId = "sprawl";
     private const string SplitShotFallbackMapId = "arena_classic";
     private const string RiftPrismFallbackMapId = "gauntlet";
@@ -100,8 +101,14 @@ public static class Unlocks
     public static bool IsModifierUnlocked(string modifierId)
     {
         // Keep bots fully unlocked for deterministic balance tests.
+        // This intentionally runs before the demo check so --demo tuning runs still
+        // evaluate Blast Core for balance data (enemy composition is demo-gated separately).
         if (OS.GetCmdlineUserArgs().Contains("--bot"))
             return true;
+
+        // Blast Core is full-game only -- excluded from the demo draft pool and codex.
+        if (Balance.IsDemo && string.Equals(modifierId, BlastCoreModifierId, StringComparison.OrdinalIgnoreCase))
+            return false;
 
         if (string.Equals(modifierId, SplitShotModifierId, StringComparison.OrdinalIgnoreCase))
             return AchievementManager.Instance?.IsUnlocked(SplitShotAchievementId) == true;

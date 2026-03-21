@@ -283,7 +283,6 @@ public partial class SlotCodexPanel : Node
             bool unlocked = Unlocks.IsTowerUnlocked(id);
             _towerGrid.AddChild(BuildTowerCard(id, def, unlocked));
         }
-        _towerGrid.AddChild(BuildFullGameCard("More in the full release."));
     }
 
     private void PopulateModifierCards()
@@ -294,8 +293,6 @@ public partial class SlotCodexPanel : Node
             bool unlocked = Unlocks.IsModifierUnlocked(id);
             _modGrid.AddChild(BuildModifierCard(id, def, unlocked));
         }
-        _modGrid.AddChild(BuildFullGameCard("More in the full release."));
-        _modGrid.AddChild(BuildFullGameCard("More in the full release."));
     }
 
     private Control BuildTowerCard(string towerId, TowerDef def, bool unlocked)
@@ -581,13 +578,13 @@ public partial class SlotCodexPanel : Node
         int towerUnlocked = DataLoader.GetAllTowerIds(includeLocked: true).Count(Unlocks.IsTowerUnlocked);
         int modTotal = DataLoader.GetAllModifierIds(includeLocked: true).Count();
         int modUnlocked = DataLoader.GetAllModifierIds(includeLocked: true).Count(Unlocks.IsModifierUnlocked);
-        int enemyTotal = Balance.IsDemo ? 5 : 7;
+        string enemyCountText = Balance.IsDemo ? "5 playable  •  2 full game" : "7 enemy types";
 
         _progressLabel.Text = tab switch
         {
-            CodexTab.Towers  => $"Demo: {towerUnlocked}/{towerTotal} towers   •   Mods: {modUnlocked}/{modTotal}   •   More in full game",
-            CodexTab.Mods    => $"Demo: {modUnlocked}/{modTotal} mods   •   Towers: {towerUnlocked}/{towerTotal}   •   More in full game",
-            CodexTab.Enemies => $"{enemyTotal} enemy types   •   Towers: {towerUnlocked}/{towerTotal}   •   Mods: {modUnlocked}/{modTotal}",
+            CodexTab.Towers  => $"{towerUnlocked}/{towerTotal} towers   •   Mods: {modUnlocked}/{modTotal}" + (Balance.IsDemo ? "   •   Full game has more" : ""),
+            CodexTab.Mods    => $"{modUnlocked}/{modTotal} mods   •   Towers: {towerUnlocked}/{towerTotal}" + (Balance.IsDemo ? "   •   Full game has more" : ""),
+            CodexTab.Enemies => $"{enemyCountText}   •   Towers: {towerUnlocked}/{towerTotal}   •   Mods: {modUnlocked}/{modTotal}",
             _                => ""
         };
     }
@@ -679,7 +676,10 @@ public partial class SlotCodexPanel : Node
             _enemyGrid.AddChild(BuildEnemyCard("reverse_walker"));
         }
         if (Balance.IsDemo)
-            _enemyGrid.AddChild(BuildFullGameCard("More enemy types in the full release."));
+        {
+            _enemyGrid.AddChild(BuildFullGameLockedEnemyCard("shield_drone"));
+            _enemyGrid.AddChild(BuildFullGameLockedEnemyCard("reverse_walker"));
+        }
     }
 
     private Control BuildEnemyCard(string enemyId)
@@ -731,6 +731,89 @@ public partial class SlotCodexPanel : Node
         desc.AddThemeFontSizeOverride("font_size", 13);
         desc.Modulate = new Color(0.76f, 0.80f, 0.88f);
         body.AddChild(desc);
+
+        return panel;
+    }
+
+    private Control BuildFullGameLockedEnemyCard(string enemyId)
+    {
+        Color accent = GetEnemyAccent(enemyId);
+        Color dimAccent = new Color(accent.R * 0.40f, accent.G * 0.40f, accent.B * 0.40f, 0.55f);
+
+        var panel = new PanelContainer
+        {
+            CustomMinimumSize = new Vector2(290f, 0f),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+        };
+        if (MobileOptimization.IsMobile())
+            panel.MouseFilter = Control.MouseFilterEnum.Ignore;
+
+        panel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.05f, 0.06f, 0.10f),
+            border: new Color(0.20f, 0.22f, 0.35f, 0.50f),
+            corners: 10,
+            borderWidth: 1,
+            padH: 12,
+            padV: 10));
+
+        var body = new VBoxContainer();
+        body.AddThemeConstantOverride("separation", 8);
+        panel.AddChild(body);
+
+        var top = new HBoxContainer();
+        top.AddThemeConstantOverride("separation", 10);
+        body.AddChild(top);
+
+        var icon = new EnemyIcon
+        {
+            EnemyId = enemyId,
+            CustomMinimumSize = new Vector2(52f, 52f),
+            Size = new Vector2(52f, 52f),
+            Modulate = new Color(0.32f, 0.32f, 0.38f, 0.50f)
+        };
+        top.AddChild(icon);
+
+        var titleCol = new VBoxContainer();
+        titleCol.AddThemeConstantOverride("separation", 2);
+        titleCol.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        top.AddChild(titleCol);
+
+        var nameLabel = new Label { Text = GetEnemyDisplayName(enemyId) };
+        UITheme.ApplyFont(nameLabel, semiBold: true, size: 18);
+        nameLabel.Modulate = new Color(0.40f, 0.42f, 0.54f);
+        titleCol.AddChild(nameLabel);
+
+        var typeLabel = new Label { Text = "ENEMY" };
+        typeLabel.AddThemeFontSizeOverride("font_size", 12);
+        typeLabel.Modulate = dimAccent;
+        titleCol.AddChild(typeLabel);
+
+        var sep = new ColorRect
+        {
+            CustomMinimumSize = new Vector2(0f, 1f),
+            Color = new Color(0.25f, 0.28f, 0.42f, 0.35f),
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        body.AddChild(sep);
+
+        var fullGameLabel = new Label
+        {
+            Text = "FULL GAME",
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        UITheme.ApplyFont(fullGameLabel, semiBold: true, size: 17);
+        fullGameLabel.Modulate = new Color(0.60f, 0.68f, 0.90f, 0.88f);
+        body.AddChild(fullGameLabel);
+
+        var noteLabel = new Label
+        {
+            Text = "Available in the full release.",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart
+        };
+        noteLabel.AddThemeFontSizeOverride("font_size", 13);
+        noteLabel.Modulate = new Color(0.40f, 0.46f, 0.60f, 0.70f);
+        body.AddChild(noteLabel);
 
         return panel;
     }

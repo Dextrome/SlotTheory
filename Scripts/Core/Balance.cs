@@ -120,6 +120,8 @@ public static class Balance
 
     // Feedback Loop modifier
     public const float FeedbackLoopCooldownReduction = 1.00f; // 100% of remaining cooldown removed on kill (full reset)
+    public const float FeedbackLoopStimDuration      = 4.00f; // seconds the attack speed stim lasts after a kill
+    public const float FeedbackLoopStimFactor        = 5f / 6f; // ×(5/6) attack interval on kill = +20% attack speed
 
     // Hair Trigger modifier
     public const float HairTriggerAttackSpeed = 1.30f; // +30% attack speed
@@ -133,7 +135,7 @@ public static class Balance
     public const float ExploitWeaknessDamageBonus = 1.45f; // ×1.45 damage to Marked enemies (+45%)
 
     // Overkill modifier
-    public const float OverkillSpillEfficiency = 0.60f; // 60% excess damage spill
+    public const float OverkillSpillEfficiency = 1.00f; // 100% excess damage spill
 
     // Chain decay
     public const float ChainDamageDecay = 0.50f;           // damage multiplier per bounce (Arc Emitter base + ChainReaction modifier)
@@ -158,6 +160,14 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
     public const float RiftMineBurstWindow       = 2.4f;  // wave-start rapid seeding window
     public const float RiftMineBurstIntervalMultiplier = 0.55f; // attack interval multiplier during burst
     public const int   RiftMineBurstFastPlantsPerTower  = 3;    // cap of burst-boosted plants per tower per wave
+
+    // Blast Core modifier
+    // Adjacent parallel path legs are 128px apart (CELL_H). Base radius must exceed 128px
+    // for Blast Core to hit cross-leg targets -- the primary cluster scenario on snake paths.
+    // At 110px it would almost never trigger against basic walkers (153px same-leg spacing).
+    public const float BlastCoreRadius        = 140f;  // base splash radius in pixels (1 copy); exceeds 128px leg gap
+    public const float BlastCoreRadiusPerCopy = 25f;   // radius per additional copy: 140 / 165 / 190px at 1/2/3 copies
+    public const float BlastCoreDamageRatio   = 0.45f; // splash damage as fraction of primary hit's FinalDamage
 
     // Focus Lens modifier
     public const float FocusLensDamageBonus = 2.40f; // +140% damage
