@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://mapeditor_slot_theory"]
+
+[ext_resource type="Script" path="res://Scripts/UI/MapEditorPanel.cs" id="1_mapeditor"]
+
+[node name="MapEditor" type="Node"]
+script = ExtResource("1_mapeditor")

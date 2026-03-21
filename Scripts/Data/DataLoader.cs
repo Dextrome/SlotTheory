@@ -14,6 +14,8 @@ public static class DataLoader
     private static WaveConfig[] _waves = System.Array.Empty<WaveConfig>();
     private static Dictionary<string, MapDef> _maps = new();
     private static List<CampaignStageDef> _campaignStages = new();
+    // Custom maps are stored separately so they survive repeated LoadAll() calls.
+    private static readonly Dictionary<string, MapDef> _customMaps = new();
     private static string _campaignFinalCompletionText = "";
 
     private static readonly JsonSerializerOptions _opts = new()
@@ -29,10 +31,47 @@ public static class DataLoader
         _waves = Load<WaveConfig[]>("res://Data/waves.json");
         LoadMaps();
         LoadCampaignStages();
+        // Re-merge custom maps so GetMapDef works for playtests after a scene reload.
+        foreach (var kv in _customMaps)
+            _maps[kv.Key] = kv.Value;
 
         // Validate modifier descriptions match implementation (debug check)
         Tools.ModifierDataValidator.ValidateModifierData(_modifiers);
     }
+
+    /// <summary>
+    /// Registers custom maps so they can be retrieved by GetMapDef.
+    /// Called by CustomMapManager after load/save. Survives repeated LoadAll() calls
+    /// because _customMaps is a separate persistent dictionary.
+    /// </summary>
+    public static void RegisterCustomMaps(System.Collections.Generic.IEnumerable<MapDef> defs)
+    {
+        foreach (var def in defs)
+        {
+            var tagged = def.IsCustom ? def : def with { IsCustom = true };
+            _customMaps[tagged.Id] = tagged;
+            _maps[tagged.Id] = tagged;
+        }
+    }
+
+    /// <summary>Registers a single custom map (e.g. after a save).</summary>
+    public static void RegisterCustomMap(MapDef def)
+    {
+        var tagged = def.IsCustom ? def : def with { IsCustom = true };
+        _customMaps[tagged.Id] = tagged;
+        _maps[tagged.Id] = tagged;
+    }
+
+    /// <summary>Removes a custom map from the runtime registry (e.g. after delete).</summary>
+    public static void UnregisterCustomMap(string id)
+    {
+        _customMaps.Remove(id);
+        _maps.Remove(id);
+    }
+
+    /// <summary>Returns all custom maps in alphabetical order by name.</summary>
+    public static System.Collections.Generic.IEnumerable<MapDef> GetCustomMapDefs()
+        => _customMaps.Values.OrderBy(m => m.Name);
 
     public static TowerDef GetTowerDef(string id) => _towers[id];
     public static ModifierDef GetModifierDef(string id) => _modifiers[id];
@@ -96,7 +135,7 @@ public static class DataLoader
     public static IEnumerable<string> GetAllModifierIds(bool includeLocked = false)
         => includeLocked ? _modifiers.Keys : _modifiers.Keys.Where(Core.Unlocks.IsModifierUnlocked);
     public static IEnumerable<MapDef> GetAllMapDefs(bool includeTutorial = false)
-        => _maps.Values.Where(m => includeTutorial || !m.IsTutorial).OrderBy(m => m.DisplayOrder);
+        => _maps.Values.Where(m => (includeTutorial || !m.IsTutorial) && !m.IsCustom).OrderBy(m => m.DisplayOrder);
 
     private static void LoadMaps()
     {

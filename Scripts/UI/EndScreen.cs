@@ -33,6 +33,7 @@ public partial class EndScreen : CanvasLayer
 	private MarginContainer _campaignFooter = null!;
 	private MarginContainer _buttonBlock = null!;
 	private bool _isCampaignRun;
+	private bool _isPlaytestRun;
 	private CampaignStageDefinition? _nextCampaignStage;
 	public event System.Action? ContinueEndlessPressed;
 	public event System.Action? WinExited;  // fires when leaving win screen via Play Again or Main Menu
@@ -383,7 +384,7 @@ public partial class EndScreen : CanvasLayer
 	public void ShowWin(int kills, int damageDealt, float totalPlayTime, string buildSummary, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor, int livesRemaining = Balance.StartingLives, int totalWaves = Balance.TotalWaves, int maxLives = Balance.StartingLives)
 	{
 		_continuingEndless = false;
-		_titleLabel.Text = "VICTORY";
+		_titleLabel.Text = _isPlaytestRun ? "VICTORY  [PLAYTEST]" : "VICTORY";
 		bool isHardWin = _leaderboardDifficulty == DifficultyMode.Hard;
 		_titleLabel.Modulate = isHardWin ? new Color(1.0f, 0.85f, 0.2f) : new Color(0.3f, 1.0f, 0.5f);
 		_subtitleLabel.Text = $"All {totalWaves} waves survived  ·  {livesRemaining} {(livesRemaining == 1 ? "life" : "lives")} remaining";
@@ -420,7 +421,7 @@ public partial class EndScreen : CanvasLayer
 	public void ShowLoss(int waveReached, int livesLost, int kills, int damageDealt, float totalPlayTime, string buildSummary, RunState runState, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor, int totalWaves = Balance.TotalWaves)
 	{
 		_continuingEndless = false;
-		_titleLabel.Text = "GAME OVER";
+		_titleLabel.Text = _isPlaytestRun ? "GAME OVER  [PLAYTEST]" : "GAME OVER";
 		_titleLabel.Modulate = new Color(1.0f, 0.35f, 0.35f);
 		int wavesLeft = totalWaves - waveReached;
 		string wavesFromVictory = wavesLeft > 0 ? $"  -  {wavesLeft} wave{(wavesLeft == 1 ? "" : "s")} from victory" : "";
@@ -564,7 +565,10 @@ public partial class EndScreen : CanvasLayer
 	{
 		_leaderboardMapId = string.IsNullOrEmpty(mapId) ? LeaderboardKey.RandomMapId : mapId;
 		_leaderboardDifficulty = difficulty;
-		bool eligible = LeaderboardKey.IsGlobalEligibleMap(_leaderboardMapId);
+
+		_isPlaytestRun = MapEditorState.IsPlaytesting;
+
+		bool eligible = !_isPlaytestRun && LeaderboardKey.IsGlobalEligibleMap(_leaderboardMapId);
 		if (GodotObject.IsInstanceValid(_viewLeaderboardButton))
 		{
 			_viewLeaderboardButton.Visible = eligible;
@@ -572,11 +576,13 @@ public partial class EndScreen : CanvasLayer
 		}
 		if (GodotObject.IsInstanceValid(_mainMenuButton))
 		{
+			_mainMenuButton.Text    = _isPlaytestRun ? "Back to Editor" : "Main Menu";
 			_mainMenuButton.Visible = true;
 			_mainMenuButton.Disabled = false;
 		}
 		if (GodotObject.IsInstanceValid(_playAgainButton))
 		{
+			_playAgainButton.Text    = _isPlaytestRun ? "Retest Map" : "Play Again";
 			_playAgainButton.Visible = true;
 			_playAgainButton.Disabled = false;
 		}
@@ -793,6 +799,14 @@ public partial class EndScreen : CanvasLayer
 	{
 		OnScreenExit();
 		SoundManager.Instance?.Play("ui_select");
+		if (_isPlaytestRun)
+		{
+			// Re-run the same custom map playtest
+			MapSelectPanel.SetPendingMapSelection(MapEditorState.PlaytestMapId ?? _leaderboardMapId);
+			SettingsManager.Instance?.SetDifficulty(DifficultyMode.Easy);
+			Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
+			return;
+		}
 		if (_isTutorialRun)
 		{
 			// Tutorial "Play Again" goes to map select so the player picks a real run
@@ -809,6 +823,12 @@ public partial class EndScreen : CanvasLayer
 	private void OnMainMenuPressed()
 	{
 		OnScreenExit();
+		if (_isPlaytestRun)
+		{
+			MapEditorState.ClearPlaytest();
+			Transition.Instance?.FadeToScene("res://Scenes/MapEditor.tscn");
+			return;
+		}
 		string dest = _isCampaignRun ? "res://Scenes/CampaignSelect.tscn" : "res://Scenes/MainMenu.tscn";
 		Transition.Instance?.FadeToScene(dest);
 	}

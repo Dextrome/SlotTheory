@@ -47,7 +47,8 @@ public record MapDef(
     int DisplayOrder = 999,
     bool IsTutorial = false,
     bool IsFullGame = false,
-    WaveConfig[]? TutorialWaves = null
+    WaveConfig[]? TutorialWaves = null,
+    bool IsCustom = false
 );
 
 [JsonConverter(typeof(JsonStringEnumConverter))]
