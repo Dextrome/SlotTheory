@@ -22,6 +22,8 @@
 #   powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -Runs 60 -Iterations 6 -CandidatesPerIteration 4
 #   powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -StrategySet optimization
 #   powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -SkipBuild -SkipTrace
+#   powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -SkipTowerBenchmark
+#   powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -SkipModifierBenchmark
 #
 # TODO(perf-step-3): Add multi-fidelity candidate evaluation (coarse runs for all candidates, full runs for shortlisted candidates).
 # DONE(perf-step-4): -EvalShardParallelism decouples per-eval shard count from candidate-level parallelism.
@@ -84,9 +86,13 @@ param(
     [string]$GodotPath = "",
     [string]$TuningFile = "",
     [string]$ScenarioFile = "Data/combat_lab/core_scenarios.json",
+    [string]$TowerBenchmarkFile = "Data/combat_lab/tower_benchmark_core.json",
+    [string]$ModifierBenchmarkFile = "Data/combat_lab/modifier_benchmark_core.json",
     [string]$OutputRoot = "release/tuning_pipeline",
     [switch]$SkipBuild,
     [switch]$SkipTrace,
+    [switch]$SkipTowerBenchmark,
+    [switch]$SkipModifierBenchmark,
     # Freeze spectacle params (overkill bloom, residue, detonation) during mutation so the search
     # only moves difficulty levers. Useful when the strategy set doesn't trigger spectacle systems
     # and those params produce no signal (just noise). DifficultyOnlyMode implies this.
@@ -113,7 +119,12 @@ param(
     # Example: Runs=420 and TwoPassPass2RunsMultiplier=1.5 -> pass 2 uses 630 runs.
     [double]$TwoPassPass2RunsMultiplier = 1.5,
     # Skip final all-strategy validation pass (strategy_set=all) if you only need optimization-set results.
-    [switch]$SkipAllStrategyValidation
+    [switch]$SkipAllStrategyValidation,
+    # Run bot sims in demo mode: passes --demo to all Godot invocations so Shield Drone and
+    # Reverse Walker are zeroed out. Final best_tuning.json is also written to
+    # Data/best_tuning_demo.json for use by demo builds at startup.
+    # Without this flag, the result is written to Data/best_tuning_full.json.
+    [switch]$Demo
 )
 
 $ErrorActionPreference = "Stop"
@@ -223,12 +234,18 @@ function New-NeutralTuningProfile {
         easy_tanky_count_multiplier = 1.0
         easy_swift_count_multiplier = 1.0
         easy_splitter_count_multiplier = 1.0
+        easy_reverse_count_multiplier = 1.0
+        easy_shield_drone_count_multiplier = 1.0
         normal_tanky_count_multiplier = 1.0
         normal_swift_count_multiplier = 1.0
         normal_splitter_count_multiplier = 1.0
+        normal_reverse_count_multiplier = 1.0
+        normal_shield_drone_count_multiplier = 1.0
         hard_tanky_count_multiplier = 1.0
         hard_swift_count_multiplier = 1.0
         hard_splitter_count_multiplier = 1.0
+        hard_reverse_count_multiplier = 1.0
+        hard_shield_drone_count_multiplier = 1.0
         gain_multipliers = [PSCustomObject]@{
             overkill = 1.0
             chain_reaction = 1.0
@@ -346,12 +363,18 @@ function Normalize-TuningProfile {
     if ($props -contains "easy_tanky_count_multiplier") { $p.easy_tanky_count_multiplier = [double]$InputProfile.easy_tanky_count_multiplier }
     if ($props -contains "easy_swift_count_multiplier") { $p.easy_swift_count_multiplier = [double]$InputProfile.easy_swift_count_multiplier }
     if ($props -contains "easy_splitter_count_multiplier") { $p.easy_splitter_count_multiplier = [double]$InputProfile.easy_splitter_count_multiplier }
+    if ($props -contains "easy_reverse_count_multiplier") { $p.easy_reverse_count_multiplier = [double]$InputProfile.easy_reverse_count_multiplier }
+    if ($props -contains "easy_shield_drone_count_multiplier") { $p.easy_shield_drone_count_multiplier = [double]$InputProfile.easy_shield_drone_count_multiplier }
     if ($props -contains "normal_tanky_count_multiplier") { $p.normal_tanky_count_multiplier = [double]$InputProfile.normal_tanky_count_multiplier }
     if ($props -contains "normal_swift_count_multiplier") { $p.normal_swift_count_multiplier = [double]$InputProfile.normal_swift_count_multiplier }
     if ($props -contains "normal_splitter_count_multiplier") { $p.normal_splitter_count_multiplier = [double]$InputProfile.normal_splitter_count_multiplier }
+    if ($props -contains "normal_reverse_count_multiplier") { $p.normal_reverse_count_multiplier = [double]$InputProfile.normal_reverse_count_multiplier }
+    if ($props -contains "normal_shield_drone_count_multiplier") { $p.normal_shield_drone_count_multiplier = [double]$InputProfile.normal_shield_drone_count_multiplier }
     if ($props -contains "hard_tanky_count_multiplier") { $p.hard_tanky_count_multiplier = [double]$InputProfile.hard_tanky_count_multiplier }
     if ($props -contains "hard_swift_count_multiplier") { $p.hard_swift_count_multiplier = [double]$InputProfile.hard_swift_count_multiplier }
     if ($props -contains "hard_splitter_count_multiplier") { $p.hard_splitter_count_multiplier = [double]$InputProfile.hard_splitter_count_multiplier }
+    if ($props -contains "hard_reverse_count_multiplier") { $p.hard_reverse_count_multiplier = [double]$InputProfile.hard_reverse_count_multiplier }
+    if ($props -contains "hard_shield_drone_count_multiplier") { $p.hard_shield_drone_count_multiplier = [double]$InputProfile.hard_shield_drone_count_multiplier }
 
     if ($props -contains "gain_multipliers" -and $InputProfile.gain_multipliers -ne $null) {
         $gm = $InputProfile.gain_multipliers.PSObject.Properties.Name
@@ -436,12 +459,18 @@ function Normalize-TuningProfile {
     $p.easy_tanky_count_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_tanky_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.easy_swift_count_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_swift_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.easy_splitter_count_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_splitter_count_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.easy_reverse_count_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_reverse_count_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.easy_shield_drone_count_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_shield_drone_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.normal_tanky_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_tanky_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.normal_swift_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_swift_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.normal_splitter_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_splitter_count_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.normal_reverse_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_reverse_count_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.normal_shield_drone_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_shield_drone_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.hard_tanky_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_tanky_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.hard_swift_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_swift_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.hard_splitter_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_splitter_count_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.hard_reverse_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_reverse_count_multiplier -Min 0.1 -Max 5.0), 4)
+    $p.hard_shield_drone_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_shield_drone_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.gain_multipliers.overkill = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.overkill -Min 0.0 -Max 4.0), 4)
     $p.gain_multipliers.chain_reaction = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.chain_reaction -Min 0.0 -Max 4.0), 4)
     $p.gain_multipliers.split_shot = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.split_shot -Min 0.0 -Max 4.0), 4)
@@ -1255,6 +1284,8 @@ function New-MutatedTuningProfile {
         $changed += Apply-Mutation -Obj $candidate -Name "easy_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
         $changed += Apply-Mutation -Obj $candidate -Name "easy_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
         $changed += Apply-Mutation -Obj $candidate -Name "easy_splitter_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+        $changed += Apply-Mutation -Obj $candidate -Name "easy_reverse_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.35
+        $changed += Apply-Mutation -Obj $candidate -Name "easy_shield_drone_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.35
         $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
         $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
         $changed += Apply-Mutation -Obj $candidate -Name "normal_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.99 -Chance 0.80
@@ -1266,10 +1297,14 @@ function New-MutatedTuningProfile {
         $changed += Apply-Mutation -Obj $candidate -Name "normal_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
         $changed += Apply-Mutation -Obj $candidate -Name "normal_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
         $changed += Apply-Mutation -Obj $candidate -Name "normal_splitter_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+        $changed += Apply-Mutation -Obj $candidate -Name "normal_reverse_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.35
+        $changed += Apply-Mutation -Obj $candidate -Name "normal_shield_drone_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.35
         if (-not $FreezeHardParams) {
             $changed += Apply-Mutation -Obj $candidate -Name "hard_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
             $changed += Apply-Mutation -Obj $candidate -Name "hard_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
             $changed += Apply-Mutation -Obj $candidate -Name "hard_splitter_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
+            $changed += Apply-Mutation -Obj $candidate -Name "hard_reverse_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.35
+            $changed += Apply-Mutation -Obj $candidate -Name "hard_shield_drone_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.35
         }
     }
 
@@ -2172,10 +2207,28 @@ if ([string]::IsNullOrWhiteSpace($GodotPath)) {
 $godotExe = Resolve-PathFromProject -ProjectRoot $projectRoot -PathValue $GodotPath
 $tuningFileResolved = ""
 $scenarioFileResolved = Resolve-PathFromProject -ProjectRoot $projectRoot -PathValue $ScenarioFile
+$towerBenchmarkFileResolved = ""
+$modifierBenchmarkFileResolved = ""
+$runTowerBenchmark = $false
+$runModifierBenchmark = $false
+if (-not $SkipTowerBenchmark -and -not [string]::IsNullOrWhiteSpace($TowerBenchmarkFile)) {
+    $towerBenchmarkFileResolved = Resolve-PathFromProject -ProjectRoot $projectRoot -PathValue $TowerBenchmarkFile
+    $runTowerBenchmark = $true
+}
+if (-not $SkipModifierBenchmark -and -not [string]::IsNullOrWhiteSpace($ModifierBenchmarkFile)) {
+    $modifierBenchmarkFileResolved = Resolve-PathFromProject -ProjectRoot $projectRoot -PathValue $ModifierBenchmarkFile
+    $runModifierBenchmark = $true
+}
 $outputRootResolved = Resolve-PathFromProject -ProjectRoot $projectRoot -PathValue $OutputRoot
 
 Assert-FileExists -PathValue $godotExe -Label "Godot executable"
 Assert-FileExists -PathValue $scenarioFileResolved -Label "Scenario suite file"
+if ($runTowerBenchmark) {
+    Assert-FileExists -PathValue $towerBenchmarkFileResolved -Label "Tower benchmark suite file"
+}
+if ($runModifierBenchmark) {
+    Assert-FileExists -PathValue $modifierBenchmarkFileResolved -Label "Modifier benchmark suite file"
+}
 if (-not [string]::IsNullOrWhiteSpace($TuningFile)) {
     $tuningFileResolved = Resolve-PathFromProject -ProjectRoot $projectRoot -PathValue $TuningFile
     Assert-FileExists -PathValue $tuningFileResolved -Label "Starting tuning profile"
@@ -2279,6 +2332,10 @@ $commonPrefix = @(
     "--scene", "res://Scenes/Main.tscn",
     "--"
 )
+if ($Demo) {
+    $commonPrefix += "--demo"
+    Write-Host "[pipeline] Demo mode enabled — bot runs will use demo enemy composition."
+}
 if ([string]::IsNullOrWhiteSpace($tuningFileResolved)) {
     $generatedSeedPath = Join-Path $runDir "seed_current.json"
     Invoke-GodotCommand -GodotExe $godotExe -Label "[seed] Generate current tuning seed" -Args @(
@@ -2289,10 +2346,28 @@ if ([string]::IsNullOrWhiteSpace($tuningFileResolved)) {
         "--dump_seed_tuning_json", $generatedSeedPath
     )
     Assert-FileExists -PathValue $generatedSeedPath -Label "Generated seed tuning profile"
-    $tuningFileResolved = $generatedSeedPath
+$tuningFileResolved = $generatedSeedPath
 }
 
 Write-Host "Seed profile: $tuningFileResolved"
+$towerBenchmarkOut = Join-Path $runDir "combat_lab_tower_benchmark.json"
+$modifierBenchmarkOut = Join-Path $runDir "combat_lab_modifier_benchmark.json"
+
+if ($runTowerBenchmark) {
+    Invoke-GodotCommand -GodotExe $godotExe -Label "[prescreen] Tower benchmark suite" -Args (
+        $commonPrefix + @("--tuning_file", $tuningFileResolved, "--lab_tower_benchmark", $towerBenchmarkFileResolved, "--lab_out", $towerBenchmarkOut)
+    )
+} else {
+    Write-Host "Tower benchmark prescreen skipped."
+}
+
+if ($runModifierBenchmark) {
+    Invoke-GodotCommand -GodotExe $godotExe -Label "[prescreen] Modifier benchmark suite" -Args (
+        $commonPrefix + @("--tuning_file", $tuningFileResolved, "--lab_modifier_benchmark", $modifierBenchmarkFileResolved, "--lab_out", $modifierBenchmarkOut)
+    )
+} else {
+    Write-Host "Modifier benchmark prescreen skipped."
+}
 
 $baselineMetricsOut = Join-Path $runDir "bot_metrics_baseline.json"
 $scenarioReportOut = Join-Path $runDir "combat_lab_report.json"
@@ -2818,6 +2893,13 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
 
 Copy-Item -Path $globalBestTuningPath -Destination $bestTuningOut -Force
 
+# Write best tuning to Data/ so the game auto-loads the correct profile at startup.
+$dataDir = Join-Path $projectRoot "Data"
+$dataTargetFile = if ($Demo) { "best_tuning_demo.json" } else { "best_tuning_full.json" }
+$dataTargetPath = Join-Path $dataDir $dataTargetFile
+Copy-Item -Path $bestTuningOut -Destination $dataTargetPath -Force
+Write-Host "[pipeline] Updated $dataTargetPath"
+
 Invoke-GodotCommand -GodotExe $godotExe -Label "[7/8] Final scenario suite (global best)" -Args (
     $commonPrefix + @("--tuning_file", $bestTuningOut, "--lab_scenario", $scenarioFileResolved, "--lab_out", $scenarioReportOut)
 )
@@ -3066,8 +3148,15 @@ Write-Host ""
 Write-Host "=== Pipeline complete ==="
 Write-Host "Baseline metrics : $baselineMetricsOut"
 Write-Host "Best tuning file : $bestTuningOut"
+Write-Host "Data tuning file : $dataTargetPath"
 Write-Host "Scenario report  : $scenarioReportOut"
 Write-Host "Sweep report     : $sweepReportOut"
+if ($runTowerBenchmark) {
+    Write-Host "Tower benchmark  : $towerBenchmarkOut"
+}
+if ($runModifierBenchmark) {
+    Write-Host "Modifier bench   : $modifierBenchmarkOut"
+}
 Write-Host "Tuned metrics    : $tunedMetricsOut"
 if (-not $SkipAllStrategyValidation -and -not [string]::IsNullOrWhiteSpace($allStrategyMetricsPath) -and $allStrategyMetricsPath -ne $tunedMetricsOut) {
     Write-Host "All-set metrics  : $allStrategyMetricsPath"

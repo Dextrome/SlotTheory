@@ -67,6 +67,13 @@ public readonly struct EnemyRenderStyle
             emissiveHot: new Color(1.00f, 0.96f, 0.78f),
             damageTint: new Color(1.00f, 0.50f, 0.10f),
             bloomTint: new Color(1.00f, 0.85f, 0.40f)),
+        "shield_drone" => new EnemyRenderStyle(
+            bodyPrimary:   new Color(0.28f, 0.74f, 1.00f),
+            bodySecondary: new Color(0.02f, 0.10f, 0.22f),
+            emissive:      new Color(0.56f, 0.92f, 1.00f),
+            emissiveHot:   new Color(0.90f, 1.00f, 1.00f),
+            damageTint:    new Color(0.40f, 0.86f, 1.00f),
+            bloomTint:     new Color(0.36f, 0.80f, 1.00f)),
         _ => new EnemyRenderStyle(
             bodyPrimary: new Color(0.20f, 0.98f, 0.86f),
             bodySecondary: new Color(0.02f, 0.17f, 0.18f),

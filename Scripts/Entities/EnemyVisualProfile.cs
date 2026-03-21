@@ -59,6 +59,7 @@ public static class EnemyVisualProfile
             "reverse_walker" => EvaluateReverse(elapsed, speedNorm),
             "armored_walker" => EvaluateArmored(elapsed, speedNorm),
             "splitter_shard" => EvaluateSwift(elapsed, speedNorm),
+            "shield_drone"   => EvaluateShieldDrone(elapsed, speedNorm),
             _                => EvaluateBasic(elapsed, speedNorm),
         };
 
@@ -111,5 +112,16 @@ public static class EnemyVisualProfile
         float thrust = 0.30f + speedNorm * 0.34f + 0.12f * Mathf.Sin(elapsed * 7.7f);
         float tilt = 0.05f * Mathf.Sin(elapsed * 7.2f) + 0.03f * Mathf.Sin(elapsed * 3.8f);
         return new Sample(bob, jitterX, jitterY, Mathf.Max(0f, thrust), tilt, 0f, 0f);
+    }
+
+    // Gentle hover — implies a hovering relay rather than ground contact
+    private static Sample EvaluateShieldDrone(float elapsed, float speedNorm)
+    {
+        float bob = Mathf.Sin(elapsed * (1.3f + speedNorm * 0.18f)) * 1.35f;
+        float driftX = Mathf.Sin(elapsed * 1.6f) * 0.22f;
+        float driftY = Mathf.Sin(elapsed * 2.1f) * 0.14f;
+        float thrust = 0.18f + speedNorm * 0.20f + 0.06f * Mathf.Sin(elapsed * 4.8f);
+        float tilt = 0.016f * Mathf.Sin(elapsed * 2.0f);
+        return new Sample(bob, driftX, driftY, Mathf.Max(0f, thrust), tilt, 0f, 0f);
     }
 }

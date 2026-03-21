@@ -51,6 +51,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
     public float DamageAmpRemaining { get; set; } = 0f;
     public float DamageAmpMultiplier { get; set; } = 0f;
     public bool IsDamageAmped => DamageAmpRemaining > 0f && DamageAmpMultiplier > 0f;
+    public bool IsShieldProtected { get; set; } = false;
 
     private ColorRect? _hpFill;
     private float _hpBarWidth;
@@ -98,19 +99,23 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         Speed = speed;
         _archetype = EnemyVisualArchetype.ForType(typeId);
 
-        bool isArmored  = typeId == "armored_walker";
-        bool isSwift    = typeId == "swift_walker";
-        bool isReverse  = typeId == "reverse_walker";
-        bool isShard    = typeId == "splitter_shard";
-        _baseScale = isArmored  ? new Vector2(1.5f, 1.5f)
-            : isSwift           ? new Vector2(0.8f, 0.8f)
-            : isReverse         ? new Vector2(0.96f, 0.96f)
-            : isShard           ? new Vector2(0.7f, 0.7f)
+        bool isArmored      = typeId == "armored_walker";
+        bool isSwift        = typeId == "swift_walker";
+        bool isReverse      = typeId == "reverse_walker";
+        bool isShard        = typeId == "splitter_shard";
+        bool isShieldDrone  = typeId == "shield_drone";
+        _baseScale = isArmored      ? new Vector2(1.5f, 1.5f)
+            : isSwift               ? new Vector2(0.8f, 0.8f)
+            : isReverse             ? new Vector2(0.96f, 0.96f)
+            : isShard               ? new Vector2(0.7f, 0.7f)
+            : isShieldDrone         ? new Vector2(1.05f, 1.05f)
             : Vector2.One;
         Scale = _baseScale;
 
-        _hpBarWidth = isArmored ? 34f : isSwift ? 20f : isReverse ? 24f : isShard ? 16f : 24f;
-        float barY = isArmored ? -26f : isSwift ? -17f : isReverse ? -21f : isShard ? -15f : -20f;
+        IsShieldProtected = false;
+
+        _hpBarWidth = isArmored ? 34f : isSwift ? 20f : isReverse ? 24f : isShard ? 16f : isShieldDrone ? 26f : 24f;
+        float barY = isArmored ? -26f : isSwift ? -17f : isReverse ? -21f : isShard ? -15f : isShieldDrone ? -22f : -20f;
         float barX = -_hpBarWidth / 2f;
 
         AddChild(new ColorRect
@@ -297,6 +302,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
                 case "reverse_walker":   DrawReverseWalker(); break;
                 case "splitter_walker":  DrawSplitterWalker(); break;
                 case "splitter_shard":   DrawSplitterShard(); break;
+                case "shield_drone":     DrawShieldDroneLegacy(); break;
                 default:                 DrawBasicWalker(); break;
             }
         }
@@ -349,6 +355,12 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
                 if (layerSettings.RenderDamage) DrawDamagePassShard(style, rs);
                 if (layerSettings.RenderEmissive) DrawEmissivePassShard(style, rs, emissiveWidthScale);
                 DrawBloomOrFallbackShard(style, rs, layerSettings);
+                break;
+            case "shield_drone":
+                DrawBodyPassShieldDrone(style, rs);
+                if (layerSettings.RenderDamage) DrawDamagePassShieldDrone(style, rs);
+                if (layerSettings.RenderEmissive) DrawEmissivePassShieldDrone(style, rs, emissiveWidthScale);
+                DrawBloomOrFallbackShieldDrone(style, rs, layerSettings);
                 break;
             default:
                 DrawBodyPassBasic(style, rs);
@@ -457,8 +469,133 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
             DrawBloomFallbackShard(style, rs, layerSettings.BloomFallbackAlphaScale);
     }
 
+    private void DrawBloomOrFallbackShieldDrone(in EnemyRenderStyle style, in EnemyRenderState rs, in EnemyRenderLayerSettings layerSettings)
+    {
+        const int bloomPrimitives = 2;
+        if (layerSettings.RenderBloom &&
+            EnemyRenderDebugCounters.TryReserveBloom(bloomPrimitives, layerSettings.BloomPrimitiveBudget))
+        {
+            DrawBloomPassShieldDrone(style, rs, layerSettings.BloomAlphaScale);
+            return;
+        }
+
+        if (ShouldRenderBloomFallback(layerSettings))
+            DrawBloomFallbackShieldDrone(style, rs, layerSettings.BloomFallbackAlphaScale);
+    }
+
     private static bool ShouldRenderBloomFallback(in EnemyRenderLayerSettings layerSettings)
         => layerSettings.RenderBloomFallback || (layerSettings.RenderBloom && layerSettings.RenderEmissive);
+
+    // ── Shield Drone layered rendering ───────────────────────────────────────
+
+    private void DrawBodyPassShieldDrone(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        EnemyRenderDebugCounters.RegisterBodyPass();
+
+        // Diamond silhouette — distinct from all walker shapes
+        const float w = 8.0f; // half-width
+        const float h = 10.5f; // half-height
+        DrawPolygon(new Vector2[]
+        {
+            new Vector2(0f,  -h),
+            new Vector2( w,  0f),
+            new Vector2(0f,   h),
+            new Vector2(-w,  0f),
+        }, new[] { style.BodyPrimary });
+
+        // Inner darker core
+        const float iw = 5.0f;
+        const float ih = 6.8f;
+        DrawPolygon(new Vector2[]
+        {
+            new Vector2(0f,  -ih),
+            new Vector2( iw,   0f),
+            new Vector2(0f,   ih),
+            new Vector2(-iw,   0f),
+        }, new[] { style.BodySecondary });
+
+        // Central projector core
+        DrawCircle(Vector2.Zero, 3.0f, new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.88f));
+    }
+
+    private void DrawDamagePassShieldDrone(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        if (rs.DamageBand == EnemyDamageBand.Healthy) return;
+
+        EnemyRenderDebugCounters.RegisterDamagePass();
+        float visibility = ResolveCrackVisibilityScale(rs.HpRatio);
+        float wear = (0.50f + rs.DamageIntensity * 0.40f + rs.HitFlash * 0.22f) * visibility;
+        float widthScale = Mathf.Lerp(0.44f, 1f, visibility);
+        var fissureDark = new Color(0.02f, 0.04f, 0.12f, Mathf.Clamp(wear * 0.88f, 0f, 0.95f));
+        Color hpBandTint = ResolveHpBandColor(rs.HpRatio);
+        Color crackRgb = style.DamageTint.Lerp(hpBandTint, 0.52f).Lerp(Colors.White, 0.22f * visibility);
+        var crack = new Color(crackRgb.R, crackRgb.G, crackRgb.B, Mathf.Clamp(wear * 0.92f, 0f, 0.98f));
+
+        DrawLine(new Vector2(-3.8f, -6.4f), new Vector2(3.4f, 1.8f), fissureDark, 2.6f * widthScale);
+        DrawLine(new Vector2( 4.2f, -3.5f), new Vector2(-3.0f, 5.0f), fissureDark, 2.2f * widthScale);
+        DrawLine(new Vector2(-3.8f, -6.4f), new Vector2(3.4f, 1.8f), crack, 1.4f * widthScale);
+        DrawLine(new Vector2( 4.2f, -3.5f), new Vector2(-3.0f, 5.0f), crack, 1.1f * widthScale);
+        if (rs.DamageBand == EnemyDamageBand.Critical)
+            DrawArc(Vector2.Zero, 5.5f, Mathf.Pi * 0.05f, Mathf.Pi * 0.70f, 10, crack, 2.0f * widthScale);
+    }
+
+    private void DrawEmissivePassShieldDrone(in EnemyRenderStyle style, in EnemyRenderState rs, float widthScale)
+    {
+        EnemyRenderDebugCounters.RegisterEmissivePass();
+        float e = Mathf.Clamp(0.42f + rs.EmissivePulse * 0.32f, 0f, 1f);
+
+        // Rotating arc pair — the "shield projector" signature
+        float orbitAngle = _visualTime * 1.4f;
+        const float arcRadius = 13.5f;
+        Color arcColor = new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.72f * e);
+        DrawArc(Vector2.Zero, arcRadius, orbitAngle,            orbitAngle + Mathf.Pi * 0.65f, 16, arcColor, 1.7f * widthScale);
+        DrawArc(Vector2.Zero, arcRadius, orbitAngle + Mathf.Pi, orbitAngle + Mathf.Pi * 1.65f, 16, arcColor, 1.7f * widthScale);
+
+        // Four emitter nodes that orbit the body
+        float nodeOrbit = orbitAngle + Mathf.Pi * 0.25f;
+        Color nodeColor = new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.58f * e);
+        for (int c = 0; c < 4; c++)
+        {
+            float a = nodeOrbit + c * Mathf.Pi * 0.5f;
+            var nodePos = new Vector2(Mathf.Cos(a) * 9.2f, Mathf.Sin(a) * 9.2f);
+            DrawCircle(nodePos, 1.3f * widthScale, nodeColor);
+        }
+    }
+
+    private void DrawBloomPassShieldDrone(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        float bloomAlpha = (0.12f + rs.EmissivePulse * 0.07f + rs.HitFlash * 0.18f) * alphaScale;
+        DrawCircle(Vector2.Zero, 21f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.38f));
+        DrawCircle(Vector2.Zero,  8f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha));
+        EnemyRenderDebugCounters.RegisterBloomPass(2);
+    }
+
+    private void DrawBloomFallbackShieldDrone(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        float fallbackAlpha = (0.10f + rs.EmissivePulse * 0.06f + rs.HitFlash * 0.06f) * alphaScale;
+        DrawCircle(Vector2.Zero, 13f, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, fallbackAlpha * 0.55f));
+        EnemyRenderDebugCounters.RegisterBloomFallback(1);
+    }
+
+    // Legacy (non-layered) draw for Shield Drone
+    private void DrawShieldDroneLegacy()
+    {
+        const float w = 8.0f;
+        const float h = 10.5f;
+        DrawPolygon(new Vector2[]
+        {
+            new Vector2(0f,  -h),
+            new Vector2( w,   0f),
+            new Vector2(0f,   h),
+            new Vector2(-w,   0f),
+        }, new[] { new Color(0.28f, 0.74f, 1.00f) });
+
+        float orbitAngle = _visualTime * 1.4f;
+        var arcColor = new Color(0.56f, 0.92f, 1.00f, 0.80f);
+        DrawArc(Vector2.Zero, 13.5f, orbitAngle,            orbitAngle + Mathf.Pi * 0.65f, 12, arcColor, 1.6f);
+        DrawArc(Vector2.Zero, 13.5f, orbitAngle + Mathf.Pi, orbitAngle + Mathf.Pi * 1.65f, 12, arcColor, 1.6f);
+        DrawCircle(Vector2.Zero, 3.0f, new Color(0.90f, 1.00f, 1.00f, 0.95f));
+    }
 
     private void DrawLayeredStatusOverlays()
     {
@@ -468,28 +605,62 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
                 DrawMarkedOverlay(19f);
                 DrawSlowOverlay(21.5f, 17f);
                 DrawNearDeathOverlay(16f);
+                DrawShieldProtectionOverlay(22f);
                 break;
             case "splitter_walker":
                 DrawMarkedOverlay(14f);
                 DrawSlowOverlay(16f, 12f);
                 DrawNearDeathOverlay(12f);
+                DrawShieldProtectionOverlay(16f);
                 break;
             case "reverse_walker":
                 DrawMarkedOverlay(14f);
                 DrawSlowOverlay(16.5f, 12f);
                 DrawNearDeathOverlay(12f);
+                DrawShieldProtectionOverlay(16f);
                 break;
             case "swift_walker":
             case "splitter_shard":
                 DrawMarkedOverlay(13f);
                 DrawSlowOverlay(14.5f, 11f);
                 DrawNearDeathOverlay(10f);
+                DrawShieldProtectionOverlay(14f);
+                break;
+            case "shield_drone":
+                DrawMarkedOverlay(14f);
+                DrawSlowOverlay(16f, 11f);
+                DrawNearDeathOverlay(12f);
+                // Shield Drone does not get the protection ring (it projects, not receives)
                 break;
             default:
                 DrawMarkedOverlay(13f);
                 DrawSlowOverlay(15.5f, 11f);
                 DrawNearDeathOverlay(11f);
+                DrawShieldProtectionOverlay(15f);
                 break;
+        }
+    }
+
+    private void DrawShieldProtectionOverlay(float radius)
+    {
+        if (!IsShieldProtected) return;
+
+        float phase = _visualTime * 1.4f;
+        float alpha = 0.28f + Mathf.Sin(phase) * 0.10f;
+        Color ringColor = new Color(0.28f, 0.74f, 1.00f, alpha);
+        Color dotColor  = new Color(0.52f, 0.88f, 1.00f, alpha * 1.4f);
+
+        // Hexagonal shield ring
+        for (int i = 0; i < 6; i++)
+        {
+            float a0 = i * Mathf.Tau / 6f;
+            float a1 = (i + 1) * Mathf.Tau / 6f;
+            DrawLine(
+                new Vector2(Mathf.Cos(a0) * radius, Mathf.Sin(a0) * radius),
+                new Vector2(Mathf.Cos(a1) * radius, Mathf.Sin(a1) * radius),
+                ringColor, 1.8f);
+            // Small pip at each vertex
+            DrawCircle(new Vector2(Mathf.Cos(a0) * radius, Mathf.Sin(a0) * radius), 1.5f, dotColor);
         }
     }
 
@@ -547,6 +718,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
             "reverse_walker" => 5.7f,
             "splitter_shard" => 5.8f,
             "armored_walker" => 3.8f,
+            "shield_drone"   => 4.2f,
             _                => 4.9f,
         };
         float lerp = Mathf.Clamp(response * speedNorm * dt, 0.02f, 0.42f);

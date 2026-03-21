@@ -7,6 +7,26 @@ namespace SlotTheory.Tools;
 
 public static class SpectacleTuningLoader
 {
+    /// <summary>
+    /// Load a tuning profile from a Godot resource path (res://...).
+    /// Uses FileAccess so it works in both editor and exported builds.
+    /// Returns false silently if the file doesn't exist (no custom tuning applied).
+    /// </summary>
+    public static bool TryLoadFromGodotResource(string resPath, out SpectacleTuningProfile profile, out string error)
+    {
+        profile = new SpectacleTuningProfile();
+        error = string.Empty;
+
+        using var file = Godot.FileAccess.Open(resPath, Godot.FileAccess.ModeFlags.Read);
+        if (file == null)
+        {
+            error = $"Tuning resource not found: {resPath}";
+            return false;
+        }
+
+        return TryLoadFromJson(file.GetAsText(), out profile, out error);
+    }
+
     public static bool TryLoadFromFile(string path, out SpectacleTuningProfile profile, out string error)
     {
         profile = new SpectacleTuningProfile();

@@ -48,11 +48,15 @@ public static class DamageModel
                 GameController.Instance?.NotifyModifierProc(ctx.Attacker, mod.ModifierId);
         }
 
-        // 2. Global Marked bonus - all towers deal +20% to Marked enemies
+        // 2. Global Marked bonus - all towers deal +40% to Marked enemies
         if (ctx.Target.IsMarked)
             damage *= (1f + Balance.MarkedDamageBonus);
         if (ctx.Target.DamageAmpRemaining > 0f && ctx.Target.DamageAmpMultiplier > 0f)
             damage *= (1f + ctx.Target.DamageAmpMultiplier);
+
+        // Shield Drone protection — 35% damage reduction for allies within aura radius
+        if (ctx.Target.IsShieldProtected)
+            damage *= (1f - Balance.ShieldDroneProtectionReduction);
 
         ctx.FinalDamage = damage;
 

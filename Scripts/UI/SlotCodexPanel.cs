@@ -581,7 +581,7 @@ public partial class SlotCodexPanel : Node
         int towerUnlocked = DataLoader.GetAllTowerIds(includeLocked: true).Count(Unlocks.IsTowerUnlocked);
         int modTotal = DataLoader.GetAllModifierIds(includeLocked: true).Count();
         int modUnlocked = DataLoader.GetAllModifierIds(includeLocked: true).Count(Unlocks.IsModifierUnlocked);
-        int enemyTotal = Balance.IsDemo ? 5 : 6;
+        int enemyTotal = Balance.IsDemo ? 5 : 7;
 
         _progressLabel.Text = tab switch
         {
@@ -674,7 +674,10 @@ public partial class SlotCodexPanel : Node
         _enemyGrid.AddChild(BuildEnemyCard("splitter_shard"));
         _enemyGrid.AddChild(BuildEnemyCard("swift_walker"));
         if (!Balance.IsDemo)
+        {
+            _enemyGrid.AddChild(BuildEnemyCard("shield_drone"));
             _enemyGrid.AddChild(BuildEnemyCard("reverse_walker"));
+        }
         if (Balance.IsDemo)
             _enemyGrid.AddChild(BuildFullGameCard("More enemy types in the full release."));
     }
@@ -739,6 +742,7 @@ public partial class SlotCodexPanel : Node
         "reverse_walker"  => new Color(0.48f, 0.96f, 1.00f),
         "splitter_walker" => new Color(1.00f, 0.72f, 0.15f),
         "splitter_shard"  => new Color(1.00f, 0.88f, 0.45f),
+        "shield_drone"    => new Color(0.30f, 0.76f, 1.00f),
         _                 => new Color(0.55f, 0.95f, 0.25f),
     };
 
@@ -749,6 +753,7 @@ public partial class SlotCodexPanel : Node
         "reverse_walker"  => "Reverse Walker",
         "splitter_walker" => "Splitter Walker",
         "splitter_shard"  => "Splitter Shard",
+        "shield_drone"    => "Shield Drone",
         _                 => "Basic Walker",
     };
 
@@ -823,6 +828,13 @@ public partial class SlotCodexPanel : Node
             (StatIconNode.IconType.Skull, "Leak: 1 life"),
             (StatIconNode.IconType.Split, "On Splitter death"),
         },
+        "shield_drone" => new (StatIconNode.IconType, string)[]
+        {
+            (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp * Balance.ShieldDroneHpMultiplier:0} HP"),
+            (StatIconNode.IconType.Arrow, $"{Balance.ShieldDroneSpeed:0} px/s"),
+            (StatIconNode.IconType.Skull, "Leak: 1 life"),
+            (StatIconNode.IconType.Wave,  "From wave 9"),
+        },
         _ => new (StatIconNode.IconType, string)[]
         {
             (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp:0} HP"),
@@ -839,6 +851,7 @@ public partial class SlotCodexPanel : Node
         "reverse_walker"  => $"Trickster unit. If one hit chunks at least {Balance.ReverseWalkerTriggerDamageRatio * 100f:0}% of its max HP, it rewinds a short distance. Cooldown-gated and capped at {Balance.ReverseWalkerMaxTriggersPerLife} rewinds per life.",
         "splitter_walker" => $"Splits into {Balance.SplitterShardCount} fast shards on death. Burst damage that kills it cleanly does not reach the shards - sustained DPS or AoE builds must deal with both. A leaked Splitter risks 3 lives total.",
         "splitter_shard"  => $"A fragment of a destroyed Splitter. Faster than its parent and harder to catch mid-lane. {Balance.SplitterShardCount} spawn per kill - if your DPS cannot clean them up quickly they will slip through.",
+        "shield_drone"    => $"Support unit. Projects a {Balance.ShieldDroneProtectionReduction * 100f:0}% damage reduction field to nearby allies within {Balance.ShieldDroneAuraRadius:0}px. Eliminate it first — shielded groups absorb far more punishment before breaking.",
         _                 => "Standard threat. Low bulk, steady pace. Pressure escalates each wave via HP scaling.",
     };
 }

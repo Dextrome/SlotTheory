@@ -13,7 +13,11 @@ public static class Balance
 {
     // Build type — set via export preset custom_features="demo".
     // Use this to gate all full-game-only content. Never hardcode true/false here.
-    public static bool IsDemo => Godot.OS.HasFeature("demo");
+    // _isDemoOverride allows headless bot runs to pass --demo and simulate demo conditions.
+    private static bool? _isDemoOverride;
+    public static bool IsDemo => _isDemoOverride ?? Godot.OS.HasFeature("demo");
+    /// <summary>Called by GameController when --demo arg is detected. Survives scene reloads.</summary>
+    public static void SetDemoOverride(bool isDemo) => _isDemoOverride = isDemo;
 
     // Steam - demo wishlist CTA
     // Set to the full game's Steam App ID (different from the demo's App ID).
@@ -69,6 +73,15 @@ public static class Balance
     // Enemies - Splitter Shard (spawned when a Splitter dies)
     public const float SplitterShardHpMultiplier = 0.55f;  // 55% of basic walker HP
     public const float SplitterShardSpeed = 165f;           // pixels per second (faster than basic)
+
+    // Enemies - Shield Drone
+    public const float ShieldDroneHpMultiplier        = 1.8f;   // 1.8× basic walker HP
+    public const float ShieldDroneSpeed               = 85f;    // pixels per second (slow-moderate)
+    public const float ShieldDroneAuraRadius          = 140f;   // protection field radius in pixels
+    public const float ShieldDroneProtectionReduction = 0.35f;  // 35% damage reduction for shielded allies
+
+    // Endless mode - Shield Drone scaling
+    public const int   EndlessShieldDroneBonusInterval = 8;     // every N endless waves: +1 Shield Drone
 
     // Enemies - Reverse Walker (full game)
     public const float ReverseWalkerHpMultiplier = 1.35f;
@@ -221,6 +234,14 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
         DifficultyMode.Easy => ClampDifficultyMultiplier(SpectacleTuning.Current.EasyReverseCountMultiplier, 0.1f, 5f),
         DifficultyMode.Normal => ClampDifficultyMultiplier(SpectacleTuning.Current.NormalReverseCountMultiplier, 0.1f, 5f),
         DifficultyMode.Hard => ClampDifficultyMultiplier(SpectacleTuning.Current.HardReverseCountMultiplier, 0.1f, 5f),
+        _ => 1f
+    };
+
+    public static float GetShieldDroneCountMultiplier(DifficultyMode difficulty) => difficulty switch
+    {
+        DifficultyMode.Easy => ClampDifficultyMultiplier(SpectacleTuning.Current.EasyShieldDroneCountMultiplier, 0.1f, 5f),
+        DifficultyMode.Normal => ClampDifficultyMultiplier(SpectacleTuning.Current.NormalShieldDroneCountMultiplier, 0.1f, 5f),
+        DifficultyMode.Hard => ClampDifficultyMultiplier(SpectacleTuning.Current.HardShieldDroneCountMultiplier, 0.1f, 5f),
         _ => 1f
     };
 

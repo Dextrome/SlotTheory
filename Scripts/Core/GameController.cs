@@ -203,8 +203,23 @@ public partial class GameController : Node
 		SoundManager.Instance?.SetMenuAmbientEnabled(false);
 		_isMobilePlatform = MobileOptimization.IsMobile();
 		EnemyInstance.SetSpectacleSpeedMultiplier(1f);
+
+		// Apply --demo override before DataLoader.LoadAll() so demo-gating is correct.
+		if (OS.GetCmdlineUserArgs().Contains("--demo"))
+			Balance.SetDemoOverride(true);
+
 		DataLoader.LoadAll();
 		SpectacleTuning.Reset();
+
+		// Auto-load the per-build tuning profile from Data/ if present.
+		// --tuning_file (parsed below) overrides this when explicitly provided.
+		{
+			string autoTuningPath = Balance.IsDemo
+				? "res://Data/best_tuning_demo.json"
+				: "res://Data/best_tuning_full.json";
+			if (SpectacleTuningLoader.TryLoadFromGodotResource(autoTuningPath, out var autoProfile, out _))
+				SpectacleTuning.Apply(autoProfile, Balance.IsDemo ? "auto_demo" : "auto_full");
+		}
 
 		var userArgs = OS.GetCmdlineUserArgs();
 		int dumpSeedIndex = System.Array.IndexOf(userArgs, "--dump_seed_tuning_json");
@@ -244,11 +259,11 @@ public partial class GameController : Node
 			GetTree().Quit();
 			return;
 		}
-		if (userArgs.Contains("--lab_scenario") || userArgs.Contains("--lab_sweep"))
-		{
-			bool success = CombatLabCli.Run(userArgs);
-			if (!success)
-				GD.PrintErr("[LAB] Failed to run combat lab automation.");
+        if (userArgs.Contains("--lab_scenario") || userArgs.Contains("--lab_sweep") || userArgs.Contains("--lab_tower_benchmark") || userArgs.Contains("--lab_modifier_benchmark"))
+        {
+            bool success = CombatLabCli.Run(userArgs);
+            if (!success)
+                GD.PrintErr("[LAB] Failed to run combat lab automation.");
 			GetTree().Quit();
 			return;
 		}
@@ -2842,6 +2857,7 @@ public partial class GameController : Node
 			"reverse_walker"  => "Reverse Walker",
 			"splitter_walker" => "Splitter",
 			"splitter_shard"  => "Splitter Shard",
+			"shield_drone"    => "Shield Drone",
 			_                 => "Basic Walker",
 		};
 		int leakCost = enemy.EnemyTypeId switch
@@ -2857,7 +2873,10 @@ public partial class GameController : Node
 		string reverseSuffix = enemy.EnemyTypeId == "reverse_walker"
 			? $"\nSingle hit >= {Balance.ReverseWalkerTriggerDamageRatio * 100f:0}% max HP can rewind ({Balance.ReverseWalkerMaxTriggersPerLife}x max)"
 			: "";
-		return $"{typeName}\nHP  {enemy.Hp:0}/{enemy.MaxHp:0}  |  Speed  {displaySpeed:0} px/s{speedSuffix}\nLeak cost  {leakCost} life{(leakCost > 1 ? "s" : "")}{splitSuffix}{reverseSuffix}{statusSuffix}";
+		string shieldSuffix = enemy.EnemyTypeId == "shield_drone"
+			? $"\nShields nearby allies  ({Balance.ShieldDroneAuraRadius:0}px, {Balance.ShieldDroneProtectionReduction * 100f:0}% dmg reduction)"
+			: "";
+		return $"{typeName}\nHP  {enemy.Hp:0}/{enemy.MaxHp:0}  |  Speed  {displaySpeed:0} px/s{speedSuffix}\nLeak cost  {leakCost} life{(leakCost > 1 ? "s" : "")}{splitSuffix}{reverseSuffix}{shieldSuffix}{statusSuffix}";
 	}
 
 	private string BuildSpectacleTooltipSection(ITowerView tower)
@@ -3438,7 +3457,11 @@ void fragment() {
 		float holdPortion = 0.42f,
 		int sizeOverride = 0)
 	{
-		if (_botRunner != null) return null;
+		if (_botRunner != null
+			|| OS.HasFeature("headless")
+			|| _worldNode == null
+			|| !GodotObject.IsInstanceValid(_worldNode))
+			return null;
 		var callout = new CombatCallout();
 		_worldNode.AddChild(callout);
 		callout.GlobalPosition = worldPos + new Vector2(0f, yOffset);
@@ -7898,10 +7921,18 @@ void fragment() {
 
 	public void NotifyModifierProc(SlotTheory.Entities.ITowerView tower, string modifierId)
 	{
+		if (tower == null || string.IsNullOrEmpty(modifierId))
+			return;
+
 		if (_modifierProcCounts.TryGetValue(modifierId, out int n))
 			_modifierProcCounts[modifierId] = n + 1;
 		else
 			_modifierProcCounts[modifierId] = 1;
+
+		// CombatLab/headless runs can invoke modifier logic without full view-state setup.
+		// In those contexts we still track proc counts, but skip visual pulse side effects.
+		if (_runState == null || _runState.Slots == null)
+			return;
 
 		int slot = -1;
 		for (int i = 0; i < _runState.Slots.Length; i++)
@@ -7909,6 +7940,10 @@ void fragment() {
 			if (ReferenceEquals(_runState.Slots[i].Tower, tower)) { slot = i; break; }
 		}
 		if (slot < 0) return;
+		if (slot >= _slotProcHaloRemaining.Length || slot >= _slotProcHaloColor.Length)
+			return;
+		if (slot >= _slotModIconPulseRemaining.GetLength(0))
+			return;
 
 		_slotProcHaloRemaining[slot] = Mathf.Max(_slotProcHaloRemaining[slot], 0.20f);
 		_slotProcHaloColor[slot] = ModifierVisuals.GetAccent(modifierId);

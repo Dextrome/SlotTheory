@@ -62,6 +62,11 @@ public static class DataLoader
             // but force this lane type to zero so composition stays demo-safe.
             baseWave = baseWave with { ReverseCount = 0 };
         }
+        if (Balance.IsDemo && baseWave.ShieldDroneCount > 0)
+        {
+            // Shield Drone is a full-game enemy. Zero it out in demo builds.
+            baseWave = baseWave with { ShieldDroneCount = 0 };
+        }
         if (difficulty == DifficultyMode.Easy)
             return ApplyMapDifficultyTuning(index, baseWave, mapId, difficulty);
 
@@ -76,7 +81,8 @@ public static class DataLoader
             ClumpArmored: baseWave.ClumpArmored,
             SwiftCount: Mathf.CeilToInt(baseWave.SwiftCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetSwiftCountMultiplier(difficulty)),
             SplitterCount: Mathf.CeilToInt(baseWave.SplitterCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetSplitterCountMultiplier(difficulty)),
-            ReverseCount: Mathf.CeilToInt(baseWave.ReverseCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetReverseCountMultiplier(difficulty))
+            ReverseCount: Mathf.CeilToInt(baseWave.ReverseCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetReverseCountMultiplier(difficulty)),
+            ShieldDroneCount: Mathf.CeilToInt(baseWave.ShieldDroneCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetShieldDroneCountMultiplier(difficulty))
         );
 
         return ApplyMapDifficultyTuning(index, scaled, mapId, difficulty);
@@ -186,7 +192,8 @@ public static class DataLoader
             ClumpArmored: wave.ClumpArmored,
             SwiftCount: swiftCount,
             SplitterCount: wave.SplitterCount,
-            ReverseCount: reverseCount
+            ReverseCount: reverseCount,
+            ShieldDroneCount: wave.ShieldDroneCount
         );
     }
 }

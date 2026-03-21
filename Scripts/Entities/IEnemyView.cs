@@ -17,4 +17,5 @@ public interface IEnemyView
     float SlowRemaining { get; set; }
     float DamageAmpRemaining { get; set; }
     float DamageAmpMultiplier { get; set; }
+    bool IsShieldProtected { get; set; }
 }

@@ -91,6 +91,15 @@ public readonly struct EnemyVisualArchetype
             turnTiltScale: 2.00f,
             turnTiltMaxRad: 0.30f,
             trailColor: new Color(1.00f, 0.82f, 0.40f, 0.52f)),
+        "shield_drone" => new EnemyVisualArchetype(
+            name: "Shield Drone",
+            trailShape: EnemyTrailShape.SoftRibbon,
+            trailLifetime: 0.22f,
+            trailSpacing: 0.028f,
+            trailWidth: 1.9f,
+            turnTiltScale: 1.20f,
+            turnTiltMaxRad: 0.18f,
+            trailColor: new Color(0.30f, 0.76f, 1.00f, 0.44f)),
         _ => new EnemyVisualArchetype(
             name: "Neon Beetle Drone",
             trailShape: EnemyTrailShape.SoftRibbon,

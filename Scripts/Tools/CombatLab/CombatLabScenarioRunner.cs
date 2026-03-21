@@ -43,6 +43,7 @@ public sealed class CombatLabScenarioRunner
         public float SlowRemaining { get; set; }
         public float DamageAmpRemaining { get; set; }
         public float DamageAmpMultiplier { get; set; }
+        public bool IsShieldProtected { get; set; }
 
         public string StatusTags()
         {

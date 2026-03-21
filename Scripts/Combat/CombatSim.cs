@@ -102,7 +102,8 @@ public class CombatSim
         int swifties  = ws.GetSwiftCount();
         int splitters = ws.GetSplitterCount();
         int reversers = ws.GetReverseCount();
-        int total     = walkers + tankies + swifties + splitters + reversers;
+        int drones    = ws.GetShieldDroneCount();
+        int total     = walkers + tankies + swifties + splitters + reversers + drones;
 
         // Build a per-slot type array; fill with basics then overlay other types
         var slots = new string[total];
@@ -172,6 +173,21 @@ public class CombatSim
             }
         }
 
+        if (drones > 0)
+        {
+            // Spread shield drones evenly, skipping already-assigned slots.
+            // Placed toward the middle of the pack so they arrive with a group to protect.
+            for (int dr = 0; dr < drones; dr++)
+            {
+                int ideal = (int)Math.Round((dr + 0.5) * total / drones);
+                for (int d = 0; d < total; d++)
+                {
+                    int s = (ideal + d) % total;
+                    if (slots[s] == "basic_walker") { slots[s] = "shield_drone"; break; }
+                }
+            }
+        }
+
         foreach (string t in slots) _spawnQueue.Enqueue(t);
     }
 
@@ -217,6 +233,9 @@ public class CombatSim
         }
 
         ResolveMineTriggers(delta, state.WaveIndex, state.EnemiesAlive);
+
+        // 3a. Update Shield Drone protection auras (must run before tower attacks so damage reduction is current)
+        UpdateShieldDroneAuras(state.EnemiesAlive);
 
         // 3. Tower attacks (hitscan - no projectiles)
         for (int si = 0; si < state.Slots.Length; si++)
@@ -317,6 +336,7 @@ public class CombatSim
                 "swift_walker"    => "die_swift",
                 "reverse_walker"  => "die_reverse",
                 "splitter_walker" => "die_basic",
+                "shield_drone"    => "die_swift",  // light drone collapse sound
                 _                 => "die_basic",
             };
             if (_killComboTimer <= 0f) _killComboCount = 0;
@@ -1005,32 +1025,7 @@ public class CombatSim
     private void ApplyChainBotMode(ITowerView tower, EnemyInstance primary,
                                    int waveIndex, List<EnemyInstance> enemies)
     {
-        var alreadyHit = new HashSet<EnemyInstance> { primary };
-        float damage = tower.BaseDamage * tower.ChainDamageDecay;
-        int bounces = 0;
-        var currentTarget = primary;
-
-        while (bounces < tower.ChainCount)
-        {
-            EnemyInstance? nextTarget = null;
-            float bestDist = tower.ChainRange;
-
-            foreach (var e in enemies)
-            {
-                if (alreadyHit.Contains(e) || e.Hp <= 0) continue;
-                float d = currentTarget.GlobalPosition.DistanceTo(e.GlobalPosition);
-                if (d < bestDist) { bestDist = d; nextTarget = e; }
-            }
-
-            if (nextTarget == null) break;
-
-            DamageModel.Apply(new DamageContext(tower, nextTarget, waveIndex, enemies, _state,
-                                                isChain: true, damageOverride: damage));
-            alreadyHit.Add(nextTarget);
-            currentTarget = nextTarget;
-            damage *= tower.ChainDamageDecay;
-            bounces++;
-        }
+        int bounces = CombatResolution.ApplyChainHits(tower, primary, waveIndex, enemies, _state);
 
         _state.TrackSpectacleChainDepth(bounces);
 
@@ -1045,26 +1040,11 @@ public class CombatSim
     private void ApplySplitBotMode(ITowerView tower, EnemyInstance primary,
                                     int waveIndex, List<EnemyInstance> enemies)
     {
-        float splitDamage = tower.BaseDamage * Balance.SplitShotDamageRatio;
-        Vector2 impactPos = primary.GlobalPosition;
-
-        // Mirror ProjectileVisual.SpawnSplitProjectiles: nearest enemies within SplitShotRange, up to SplitCount+1
-        var candidates = enemies
-            .Where(e => e != primary && e.Hp > 0)
-            .OrderBy(e => e.GlobalPosition.DistanceTo(impactPos));
-
-        int spawned = 0;
-        foreach (var candidate in candidates)
-        {
-            if (spawned >= tower.SplitCount + 1) break;
-            if (candidate.GlobalPosition.DistanceTo(impactPos) > Balance.SplitShotRange) break;
-            DamageModel.Apply(new DamageContext(tower, candidate, waveIndex, enemies, _state,
-                                                isChain: true, damageOverride: splitDamage));
-            spawned++;
-        }
+        int spawned = CombatResolution.ApplySplitHits(tower, primary, waveIndex, enemies, _state);
 
         if (spawned > 0)
         {
+            float splitDamage = tower.BaseDamage * Balance.SplitShotDamageRatio;
             float splitScalar = SpectacleDefinitions.SplitShotEventScalar(spawned);
             GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.SplitShot, splitScalar, splitDamage);
         }
@@ -1083,9 +1063,41 @@ public class CombatSim
             "reverse_walker"  => (new Color(0.36f, 0.92f, 1.00f), 0.96f, DeathBurstStyle.Swift),
             "splitter_walker" => (new Color(0.96f, 0.65f, 0.10f), 1.2f, DeathBurstStyle.Basic),
             "splitter_shard"  => (new Color(0.96f, 0.65f, 0.10f), 0.55f, DeathBurstStyle.Swift),
+            "shield_drone"    => (new Color(0.30f, 0.76f, 1.00f), 0.90f, DeathBurstStyle.Swift),
             _                 => (new Color(0.95f, 0.22f, 0.12f), 1.0f, DeathBurstStyle.Basic),
         };
         burst.Initialize(color, scale, style);
+    }
+
+    /// <summary>
+    /// Resets IsShieldProtected on all enemies, then marks any enemy within a live
+    /// Shield Drone's aura radius as protected. Called once per Step(), before tower
+    /// attacks, so damage reduction is correctly applied this frame.
+    /// </summary>
+    private static void UpdateShieldDroneAuras(List<EnemyInstance> enemies)
+    {
+        // Reset all protection flags first
+        foreach (var e in enemies)
+            e.IsShieldProtected = false;
+
+        float radiusSq = Balance.ShieldDroneAuraRadius * Balance.ShieldDroneAuraRadius;
+
+        foreach (var drone in enemies)
+        {
+            if (!GodotObject.IsInstanceValid(drone)) continue;
+            if (drone.EnemyTypeId != "shield_drone" || drone.Hp <= 0f) continue;
+
+            Vector2 dronePos = drone.GlobalPosition;
+            foreach (var ally in enemies)
+            {
+                if (!GodotObject.IsInstanceValid(ally) || ally.Hp <= 0f) continue;
+                if (ReferenceEquals(ally, drone)) continue;
+                if (ally.EnemyTypeId == "shield_drone") continue; // drones don't shield each other
+
+                if (dronePos.DistanceSquaredTo(ally.GlobalPosition) <= radiusSq)
+                    ally.IsShieldProtected = true;
+            }
+        }
     }
 
     /// <summary>
@@ -1143,6 +1155,7 @@ public class CombatSim
             "splitter_walker" => Balance.SplitterSpeed,
             "splitter_shard"  => Balance.SplitterShardSpeed,
             "reverse_walker"  => Balance.ReverseWalkerSpeed,
+            "shield_drone"    => Balance.ShieldDroneSpeed,
             _                 => Balance.BaseEnemySpeed,
         };
 

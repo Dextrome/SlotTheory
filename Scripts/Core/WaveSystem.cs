@@ -40,6 +40,12 @@ public class WaveSystem
                 / MathF.Pow(1f + Balance.EndlessEnemyCountScalePerWave * 0.5f, depth),
             Balance.EndlessSpawnIntervalFloor);
 
+        // Shield Drones appear from endless depth 4 onward, scaling with depth
+        int shieldDroneCount = depth < 4
+            ? 0
+            : (int)MathF.Ceiling((1f + (depth - 4) / (float)Balance.EndlessShieldDroneBonusInterval)
+                * Balance.GetEnemyCountMultiplier(difficulty));
+
         return new WaveConfig(
             EnemyCount: enemyCount,
             SpawnInterval: spawnInterval,
@@ -47,15 +53,17 @@ public class WaveSystem
             ClumpArmored: false,
             SwiftCount: swiftBonus,
             SplitterCount: 0,
-            ReverseCount: reverseCount);
+            ReverseCount: reverseCount,
+            ShieldDroneCount: shieldDroneCount);
     }
 
-    public int GetWalkerCount()    => _current?.EnemyCount    ?? Balance.DefaultEnemyCount;
-    public int GetTankyCount()     => _current?.TankyCount    ?? 0;
-    public int GetSwiftCount()     => _current?.SwiftCount    ?? 0;
-    public int GetSplitterCount()  => _current?.SplitterCount ?? 0;
-    public int GetReverseCount()   => _current?.ReverseCount  ?? 0;
-    public int GetTotalCount()     => GetWalkerCount() + GetTankyCount() + GetSwiftCount() + GetSplitterCount() + GetReverseCount();
+    public int GetWalkerCount()      => _current?.EnemyCount      ?? Balance.DefaultEnemyCount;
+    public int GetTankyCount()       => _current?.TankyCount      ?? 0;
+    public int GetSwiftCount()       => _current?.SwiftCount      ?? 0;
+    public int GetSplitterCount()    => _current?.SplitterCount   ?? 0;
+    public int GetReverseCount()     => _current?.ReverseCount    ?? 0;
+    public int GetShieldDroneCount() => _current?.ShieldDroneCount ?? 0;
+    public int GetTotalCount()       => GetWalkerCount() + GetTankyCount() + GetSwiftCount() + GetSplitterCount() + GetReverseCount() + GetShieldDroneCount();
     public float GetSpawnInterval()  => _current?.SpawnInterval ?? Balance.DefaultSpawnInterval;
     public bool GetClumpArmored()    => _current?.ClumpArmored  ?? false;
 
@@ -76,6 +84,7 @@ public class WaveSystem
             "splitter_walker" => Balance.BaseEnemyHp * Balance.SplitterHpMultiplier,
             "splitter_shard"  => Balance.BaseEnemyHp * Balance.SplitterShardHpMultiplier,
             "reverse_walker"  => Balance.BaseEnemyHp * Balance.ReverseWalkerHpMultiplier,
+            "shield_drone"    => Balance.BaseEnemyHp * Balance.ShieldDroneHpMultiplier,
             _                 => Balance.BaseEnemyHp,
         };
         float scaledHp = baseHp * MathF.Pow(Balance.HpGrowthPerWave, waveIndex);

@@ -51,4 +51,5 @@ public class FakeEnemy : IEnemyView
     public float SlowRemaining { get; set; } = 0f;
     public float DamageAmpRemaining { get; set; } = 0f;
     public float DamageAmpMultiplier { get; set; } = 0f;
+    public bool IsShieldProtected { get; set; } = false;
 }

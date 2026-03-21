@@ -40,6 +40,7 @@ public partial class EnemyIcon : Control
         {
             "armored_walker" => 18.8f,
             "reverse_walker" => 15.8f,
+            "shield_drone"   => 14.8f,
             _ => 14.5f,
         };
         float available = Mathf.Min(Size.X, Size.Y) * 0.46f;
@@ -49,12 +50,13 @@ public partial class EnemyIcon : Control
 
         switch (_enemyId)
         {
-            case "armored_walker":  DrawArmored(style);  break;
-            case "swift_walker":    DrawSwift(style);    break;
-            case "reverse_walker":  DrawReverse(style);  break;
-            case "splitter_walker": DrawSplitter(style); break;
-            case "splitter_shard":  DrawShard(style);    break;
-            default:                 DrawBasic(style);     break;
+            case "armored_walker":  DrawArmored(style);      break;
+            case "swift_walker":    DrawSwift(style);        break;
+            case "reverse_walker":  DrawReverse(style);      break;
+            case "splitter_walker": DrawSplitter(style);     break;
+            case "splitter_shard":  DrawShard(style);        break;
+            case "shield_drone":    DrawShieldDrone(style);  break;
+            default:                DrawBasic(style);        break;
         }
     }
 
@@ -241,6 +243,42 @@ public partial class EnemyIcon : Control
 
         DrawCircle(new Vector2(1.5f, 0f), 1.8f,
             new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.90f));
+    }
+
+    private void DrawShieldDrone(in EnemyRenderStyle style)
+    {
+        // Outer glow
+        DrawCircle(Vector2.Zero, 15f, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.18f));
+
+        // Diamond body
+        const float w = 8.0f;
+        const float h = 10.5f;
+        DrawPolygon(new Vector2[]
+        {
+            new Vector2(0f, -h),
+            new Vector2( w,  0f),
+            new Vector2(0f,  h),
+            new Vector2(-w,  0f),
+        }, new[] { style.BodyPrimary });
+
+        // Inner core
+        const float iw = 5.0f;
+        const float ih = 6.8f;
+        DrawPolygon(new Vector2[]
+        {
+            new Vector2(0f, -ih),
+            new Vector2( iw,  0f),
+            new Vector2(0f,  ih),
+            new Vector2(-iw,  0f),
+        }, new[] { style.BodySecondary });
+
+        // Orbiting arc pair (static in icon, at a fixed angle to show the signature look)
+        Color arcColor = new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.80f);
+        DrawArc(Vector2.Zero, 13.5f, Mathf.Pi * 0.10f, Mathf.Pi * 0.75f, 14, arcColor, 1.5f);
+        DrawArc(Vector2.Zero, 13.5f, Mathf.Pi * 1.10f, Mathf.Pi * 1.75f, 14, arcColor, 1.5f);
+
+        // Central projector core
+        DrawCircle(Vector2.Zero, 3.0f, new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.94f));
     }
 
     private static Vector2[] RegularPoly(int sides, float radius, float angleOffset)

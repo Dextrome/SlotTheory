@@ -29,7 +29,8 @@ public record WaveConfig(
     bool ClumpArmored = false,  // group all armored enemies into one block instead of spreading evenly
     int SwiftCount = 0,         // fast enemies (240px/s, 1.5x HP)
     int SplitterCount = 0,      // splitter enemies (1.8x HP, 90px/s) - split into shards on death
-    int ReverseCount = 0        // reverse walkers (full game): jump backward when hit hard
+    int ReverseCount = 0,       // reverse walkers (full game): jump backward when hit hard
+    int ShieldDroneCount = 0    // support drones: project 35% damage reduction aura to nearby allies
 );
 
 public record Vector2Def(float X, float Y);

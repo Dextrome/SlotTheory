@@ -39,14 +39,16 @@
     "EnemyCount": 24,
     "SpawnInterval": 1.4,
     "TankyCount": 2,
-    "SplitterCount": 1
+    "SplitterCount": 1,
+    "ShieldDroneCount": 1
   },
   {
     "EnemyCount": 26,
     "SpawnInterval": 1.35,
     "TankyCount": 2,
     "SwiftCount": 2,
-    "SplitterCount": 1
+    "SplitterCount": 1,
+    "ShieldDroneCount": 1
   },
   {
     "EnemyCount": 28,
@@ -54,7 +56,8 @@
     "TankyCount": 2,
     "SwiftCount": 2,
     "SplitterCount": 1,
-    "ReverseCount": 1
+    "ReverseCount": 1,
+    "ShieldDroneCount": 1
   },
   {
     "EnemyCount": 34,
@@ -67,7 +70,8 @@
     "TankyCount": 2,
     "SwiftCount": 2,
     "SplitterCount": 2,
-    "ReverseCount": 1
+    "ReverseCount": 1,
+    "ShieldDroneCount": 1
   },
   {
     "EnemyCount": 28,
@@ -75,7 +79,8 @@
     "TankyCount": 1,
     "SwiftCount": 5,
     "SplitterCount": 2,
-    "ReverseCount": 1
+    "ReverseCount": 1,
+    "ShieldDroneCount": 1
   },
   {
     "EnemyCount": 30,
@@ -83,37 +88,43 @@
     "TankyCount": 2,
     "SwiftCount": 2,
     "SplitterCount": 2,
-    "ReverseCount": 2
+    "ReverseCount": 2,
+    "ShieldDroneCount": 1
   },
   {
     "EnemyCount": 32,
     "SpawnInterval": 1.2,
     "TankyCount": 2,
-    "SwiftCount": 3
+    "SwiftCount": 3,
+    "ShieldDroneCount": 1
   },
   {
     "EnemyCount": 32,
     "SpawnInterval": 1.2,
     "TankyCount": 3,
-    "SwiftCount": 2
+    "SwiftCount": 2,
+    "ShieldDroneCount": 2
   },
   {
     "EnemyCount": 34,
     "SpawnInterval": 1.25,
     "TankyCount": 2,
     "SwiftCount": 3,
-    "ReverseCount": 1
+    "ReverseCount": 1,
+    "ShieldDroneCount": 1
   },
   {
     "EnemyCount": 36,
     "SpawnInterval": 1.25,
     "SwiftCount": 4,
-    "ReverseCount": 2
+    "ReverseCount": 2,
+    "ShieldDroneCount": 1
   },
   {
-    "EnemyCount": 36,
+    "EnemyCount": 38,
     "SpawnInterval": 1.25,
     "TankyCount": 4,
-    "ReverseCount": 2
+    "ReverseCount": 2,
+    "ShieldDroneCount": 2
   }
 ]
