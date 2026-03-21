@@ -1,4 +1,4 @@
-# run_tuning_pipeline.ps1
+﻿# run_tuning_pipeline.ps1
 #
 # Automated tuning pipeline with true iterative optimization:
 # 1) Baseline bot metrics (once)
@@ -2334,7 +2334,7 @@ $commonPrefix = @(
 )
 if ($Demo) {
     $commonPrefix += "--demo"
-    Write-Host "[pipeline] Demo mode enabled — bot runs will use demo enemy composition."
+    Write-Host "[pipeline] Demo mode enabled  -  bot runs will use demo enemy composition."
 }
 if ([string]::IsNullOrWhiteSpace($tuningFileResolved)) {
     $generatedSeedPath = Join-Path $runDir "seed_current.json"

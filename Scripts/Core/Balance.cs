@@ -108,8 +108,8 @@ public static class Balance
     public const float MomentumBonusPerStack = 0.16f;
 
     // Split Shot modifier
-    public const float SplitShotDamageRatio = 0.35f; // 35% of base damage per split projectile
-    public const float SplitShotRange       = 280f;  // search radius from impact point for split targets
+    public const float SplitShotDamageRatio = 0.28f; // 28% of base damage per split projectile
+    public const float SplitShotRange       = 220f;  // search radius from impact point for split targets
 
     // Feedback Loop modifier
     public const float FeedbackLoopCooldownReduction = 1.00f; // 100% of remaining cooldown removed on kill (full reset)
@@ -128,8 +128,10 @@ public static class Balance
     // Overkill modifier
     public const float OverkillSpillEfficiency = 0.60f; // 60% excess damage spill
 
-    // Chain decay (shared by Arc Emitter base and ChainReaction modifier)
-    public const float ChainDamageDecay = 0.60f; // damage multiplier per bounce
+    // Chain decay
+    public const float ChainDamageDecay = 0.50f;           // damage multiplier per bounce (Arc Emitter base + ChainReaction modifier)
+    public const float ChainReactionDamageDecay = 0.50f;   // kept in sync with ChainDamageDecay for consistent player-facing rule
+    public const float ChainReactionRange = 320f;           // ChainReaction modifier: chain search radius
 
     // Rift Sapper mines
     public const int   RiftMineMaxActivePerTower = 7;

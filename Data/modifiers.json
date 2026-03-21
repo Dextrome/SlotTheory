@@ -37,7 +37,7 @@
   "split_shot": {
     "Id": "split_shot",
     "Name": "Split Shot",
-    "Description": "Hit: +2 nearby shots @35%. +1 shot/copy."
+    "Description": "Hit: +2 nearby shots @28%. +1 shot/copy."
   },
   "feedback_loop": {
     "Id": "feedback_loop",
@@ -47,6 +47,6 @@
   "chain_reaction": {
     "Id": "chain_reaction",
     "Name": "Chain Reaction",
-    "Description": "Hit: +1 bounce @60%. +1 bounce/copy."
+    "Description": "Hit: +1 bounce @50%. +1 bounce/copy."
   }
 }

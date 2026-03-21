@@ -16,9 +16,13 @@ public class ChainReaction : Modifier
 
     public override void OnEquip(ITowerView tower)
     {
+        bool hadChain = tower.ChainCount > 0;
         tower.ChainCount += 1;
-        tower.ChainDamageDecay = Core.Balance.ChainDamageDecay;
-        if (tower.ChainRange < 400f)
-            tower.ChainRange = 400f;
+        // Only set decay for towers that didn't already chain. Arc Emitter retains its native
+        // decay so equipping chain_reaction doesn't regress its existing bounces.
+        if (!hadChain)
+            tower.ChainDamageDecay = Core.Balance.ChainReactionDamageDecay;
+        if (tower.ChainRange < Core.Balance.ChainReactionRange)
+            tower.ChainRange = Core.Balance.ChainReactionRange;
     }
 }

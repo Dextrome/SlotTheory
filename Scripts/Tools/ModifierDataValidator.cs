@@ -152,7 +152,7 @@ public static class ModifierDataValidator
             ["chain_reaction"] = new ModifierExpectation
             {
                 Name = "Chain Reaction",
-                RequiredTokens = new() { $"{FormatInt(Balance.ChainDamageDecay * 100f)}%" }
+                RequiredTokens = new() { $"{FormatInt(Balance.ChainReactionDamageDecay * 100f)}%" }
             }
         };
     }
