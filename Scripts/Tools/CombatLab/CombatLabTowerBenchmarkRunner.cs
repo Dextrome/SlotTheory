@@ -1,0 +1,1353 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
+using Godot;
+using SlotTheory.Combat;
+using SlotTheory.Core;
+using SlotTheory.Data;
+using SlotTheory.Entities;
+using SlotTheory.Modifiers;
+
+namespace SlotTheory.Tools;
+
+public sealed class CombatLabTowerBenchmarkRunner
+{
+    private sealed class BenchmarkTower : ITowerView
+    {
+        public string TowerId { get; set; } = string.Empty;
+        public bool AppliesMark { get; set; }
+        public float BaseDamage { get; set; }
+        public float AttackInterval { get; set; }
+        public float Range { get; set; }
+        public int SplitCount { get; set; }
+        public int ChainCount { get; set; }
+        public float ChainRange { get; set; } = 400f;
+        public float ChainDamageDecay { get; set; } = Balance.ChainDamageDecay;
+        public bool IsChainTower => ChainCount > 0;
+        public TargetingMode TargetingMode { get; set; } = TargetingMode.First;
+        public List<Modifier> Modifiers { get; } = new();
+        public bool CanAddModifier => true;
+        public float Cooldown { get; set; }
+        public Vector2 GlobalPosition { get; set; }
+
+        public void RefreshRangeCircle() { }
+        public float GetEffectiveDamageForPreview() => BaseDamage;
+    }
+
+    private sealed class BenchmarkEnemy : IEnemyView
+    {
+        public int Id { get; init; }
+        public string GroupId { get; init; } = string.Empty;
+        public bool IsTank { get; init; }
+        public bool IsSwarm { get; init; }
+        public float MaxHp { get; init; }
+        public float BaseSpeed { get; init; }
+        public float PathLength { get; init; }
+        public float LaneOffsetY { get; init; }
+        public float SpawnTime { get; init; }
+        public bool Spawned { get; set; }
+        public bool Resolved { get; set; }
+        public bool Killed { get; set; }
+        public float PathDistance { get; set; }
+        public float Hp { get; set; }
+        public float ProgressRatio => PathLength <= 0.0001f ? 0f : Mathf.Clamp(PathDistance / PathLength, 0f, 1f);
+        public Vector2 GlobalPosition => new(PathDistance, LaneOffsetY);
+        public bool IsMarked => MarkedRemaining > 0f;
+        public float MarkedRemaining { get; set; }
+        public float SlowSpeedFactor { get; set; } = 1f;
+        public float SlowRemaining { get; set; }
+        public float DamageAmpRemaining { get; set; }
+        public float DamageAmpMultiplier { get; set; }
+        public bool IsShieldProtected { get; set; }
+    }
+
+    private sealed class ResidueZone
+    {
+        public ExplosionResidueKind Kind { get; init; }
+        public Vector2 Origin { get; init; }
+        public float Radius { get; init; }
+        public float RemainingSeconds { get; set; }
+        public float TickIntervalSeconds { get; init; }
+        public float TickRemainingSeconds { get; set; }
+        public float Potency { get; init; }
+    }
+
+    private sealed class TrialMetrics
+    {
+        public float TotalDamage;
+        public float RawDamage;
+        public float OverkillWaste;
+        public float TankDamage;
+        public float SwarmDamage;
+        public float TankHpTotal;
+        public float SwarmHpTotal;
+        public float LeakedHp;
+        public float TotalHp;
+        public int Hits;
+        public int Shots;
+        public int TargetsHitTotal;
+        public int EligibleSteps;
+        public int FiredSteps;
+        public int IdleSteps;
+        public int Leaks;
+        public int Kills;
+        public float WaveClearSeconds;
+        public bool Cleared;
+        public float SimulatedSeconds;
+        public int SurgesTriggered;
+        public int GlobalSurgesTriggered;
+        public bool EdgeSpike;
+    }
+
+    private sealed class TowerCase
+    {
+        public string CaseId { get; init; } = string.Empty;
+        public string TowerId { get; init; } = string.Empty;
+        public string[] Mods { get; init; } = Array.Empty<string>();
+        public TargetingMode TargetingMode { get; init; } = TargetingMode.First;
+        public float? BaseDamageOverride { get; init; }
+        public float? AttackIntervalOverride { get; init; }
+        public float? RangeOverride { get; init; }
+        public int? SplitCountOverride { get; init; }
+        public int? ChainCountOverride { get; init; }
+        public float Cost { get; init; } = 1f;
+    }
+
+    private readonly IReadOnlyDictionary<string, TowerDef>? _towerDefsOverride;
+    private readonly Func<string, Modifier>? _modifierFactoryOverride;
+
+    public CombatLabTowerBenchmarkRunner(
+        IReadOnlyDictionary<string, TowerDef>? towerDefsOverride = null,
+        Func<string, Modifier>? modifierFactoryOverride = null)
+    {
+        _towerDefsOverride = towerDefsOverride;
+        _modifierFactoryOverride = modifierFactoryOverride;
+    }
+
+    public CombatLabTowerBenchmarkReport RunSuite(CombatLabTowerBenchmarkSuite suite)
+    {
+        if (suite.Scenarios.Count == 0)
+            throw new InvalidOperationException("Tower benchmark suite has no scenarios.");
+
+        Dictionary<string, TowerDef> towerDefs = ResolveTowerDefinitions();
+        List<TowerCase> towerCases = ResolveTowerCases(suite, towerDefs);
+        if (towerCases.Count == 0)
+            throw new InvalidOperationException("Tower benchmark suite resolved zero towers to evaluate.");
+
+        List<CombatLabTowerBenchmarkScenarioResult> scenarioResults = new();
+        foreach (CombatLabTowerBenchmarkScenario scenario in suite.Scenarios)
+        {
+            var scenarioResult = new CombatLabTowerBenchmarkScenarioResult
+            {
+                ScenarioId = scenario.Id,
+                ScenarioName = scenario.Name,
+                PathType = scenario.PathType,
+                Tags = scenario.Tags ?? Array.Empty<string>(),
+            };
+
+            foreach (TowerCase towerCase in towerCases)
+            {
+                CombatLabTowerBenchmarkTowerResult towerResult = RunTowerScenario(
+                    suite,
+                    scenario,
+                    towerCase,
+                    towerDefs[towerCase.TowerId]);
+                scenarioResult.Results.Add(towerResult);
+            }
+
+            ApplyScenarioNormalization(scenarioResult, suite, towerCases);
+            scenarioResults.Add(scenarioResult);
+        }
+
+        List<CombatLabTowerBenchmarkProfile> towerProfiles = BuildTowerProfiles(suite, towerCases, scenarioResults);
+        List<CombatLabTowerBenchmarkSuggestion> suggestions = BuildSuggestions(suite, towerProfiles);
+
+        return new CombatLabTowerBenchmarkReport
+        {
+            Suite = suite.Name,
+            Mode = suite.Mode,
+            GeneratedUtc = DateTime.UtcNow,
+            ScenarioResults = scenarioResults,
+            TowerProfiles = towerProfiles,
+            TuningSuggestions = suggestions,
+        };
+    }
+
+    public static string BuildScenarioCsv(CombatLabTowerBenchmarkReport report)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(
+            "scenario_id,scenario_name,path_type,case_id,tower_id,cost,total_damage,effective_dps,cost_efficiency,leak_prevention_value,anti_swarm_performance,anti_tank_performance,reliability_variance,overkill_waste,average_targets_hit,uptime,idle_time_seconds,kill_count,leak_count,wave_clear_seconds,clear_rate,surges_triggered,global_surges_triggered,edge_spike_rate,normalized_global,normalized_cost_band,normalized_role");
+        foreach (CombatLabTowerBenchmarkScenarioResult scenario in report.ScenarioResults)
+        {
+            foreach (CombatLabTowerBenchmarkTowerResult row in scenario.Results.OrderBy(r => r.CaseId, StringComparer.Ordinal))
+            {
+                sb.AppendLine(string.Join(",",
+                    Csv(scenario.ScenarioId),
+                    Csv(scenario.ScenarioName),
+                    Csv(scenario.PathType),
+                    Csv(row.CaseId),
+                    Csv(row.TowerId),
+                    Csv(row.Cost),
+                    Csv(row.TotalDamage),
+                    Csv(row.EffectiveDps),
+                    Csv(row.CostEfficiency),
+                    Csv(row.LeakPreventionValue),
+                    Csv(row.AntiSwarmPerformance),
+                    Csv(row.AntiTankPerformance),
+                    Csv(row.ReliabilityVariance),
+                    Csv(row.OverkillWaste),
+                    Csv(row.AverageTargetsHit),
+                    Csv(row.Uptime),
+                    Csv(row.IdleTimeSeconds),
+                    Csv(row.KillCount),
+                    Csv(row.LeakCount),
+                    Csv(row.WaveClearSeconds),
+                    Csv(row.ClearRate),
+                    Csv(row.SurgesTriggered),
+                    Csv(row.GlobalSurgesTriggered),
+                    Csv(row.EdgeSpikeRate),
+                    Csv(row.NormalizedGlobal),
+                    Csv(row.NormalizedCostBand),
+                    Csv(row.NormalizedRole)));
+            }
+        }
+
+        return sb.ToString();
+    }
+
+    public static string BuildTowerProfileCsv(CombatLabTowerBenchmarkReport report)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(
+            "case_id,tower_id,cost,cost_band,roles,scenario_count,avg_normalized_global,avg_normalized_cost_band,avg_normalized_role,map_path_sensitivity,aggregate_reliability_variance,flags");
+        foreach (CombatLabTowerBenchmarkProfile profile in report.TowerProfiles.OrderBy(p => p.CaseId, StringComparer.Ordinal))
+        {
+            sb.AppendLine(string.Join(",",
+                Csv(profile.CaseId),
+                Csv(profile.TowerId),
+                Csv(profile.Cost),
+                Csv(profile.CostBand),
+                Csv(string.Join("|", profile.Roles ?? Array.Empty<string>())),
+                Csv(profile.ScenarioCount),
+                Csv(profile.AvgNormalizedGlobal),
+                Csv(profile.AvgNormalizedCostBand),
+                Csv(profile.AvgNormalizedRole),
+                Csv(profile.MapPathSensitivity),
+                Csv(profile.AggregateReliabilityVariance),
+                Csv(string.Join("|", profile.Flags))));
+        }
+
+        return sb.ToString();
+    }
+
+    private CombatLabTowerBenchmarkTowerResult RunTowerScenario(
+        CombatLabTowerBenchmarkSuite suite,
+        CombatLabTowerBenchmarkScenario scenario,
+        TowerCase towerCase,
+        TowerDef towerDef)
+    {
+        int trials = Math.Max(1, suite.TrialsPerScenario);
+        float dt = Mathf.Clamp(suite.TimestepSeconds <= 0f ? 0.05f : suite.TimestepSeconds, 0.01f, 0.20f);
+        var trialMetrics = new List<TrialMetrics>(trials);
+
+        for (int trial = 0; trial < trials; trial++)
+        {
+            int seed = ComposeSeed(suite.Seed, scenario.Id, towerCase.CaseId, trial);
+            TrialMetrics result = RunTrial(suite, scenario, towerCase, towerDef, dt, seed);
+            trialMetrics.Add(result);
+        }
+
+        float avgTotalDamage = (float)trialMetrics.Average(t => t.TotalDamage);
+        float avgDps = (float)trialMetrics.Average(t => t.SimulatedSeconds > 0.0001f ? t.TotalDamage / t.SimulatedSeconds : 0f);
+        float avgLeakPrevention = (float)trialMetrics.Average(t => t.TotalHp > 0.0001f ? Mathf.Clamp(1f - (t.LeakedHp / t.TotalHp), 0f, 1f) : 1f);
+        float avgSwarm = (float)trialMetrics.Average(t => t.SwarmHpTotal > 0.0001f ? t.SwarmDamage / t.SwarmHpTotal : 0f);
+        float avgTank = (float)trialMetrics.Average(t => t.TankHpTotal > 0.0001f ? t.TankDamage / t.TankHpTotal : 0f);
+        float avgWaste = (float)trialMetrics.Average(t => t.OverkillWaste);
+        float avgTargetsHit = (float)trialMetrics.Average(t => t.Shots > 0 ? (float)t.TargetsHitTotal / t.Shots : 0f);
+        float avgUptime = (float)trialMetrics.Average(t => t.EligibleSteps > 0 ? (float)t.FiredSteps / t.EligibleSteps : 0f);
+        float avgIdleSeconds = (float)trialMetrics.Average(t => t.IdleSteps * dt);
+        float avgKills = (float)trialMetrics.Average(t => t.Kills);
+        float avgLeaks = (float)trialMetrics.Average(t => t.Leaks);
+        float avgWaveClearSeconds = (float)trialMetrics.Average(t => t.WaveClearSeconds);
+        float clearRate = (float)trialMetrics.Average(t => t.Cleared ? 1f : 0f);
+        float avgSurges = (float)trialMetrics.Average(t => t.SurgesTriggered);
+        float avgGlobalSurges = (float)trialMetrics.Average(t => t.GlobalSurgesTriggered);
+        float edgeSpikeRate = (float)trialMetrics.Average(t => t.EdgeSpike ? 1f : 0f);
+        float avgCostEfficiency = towerCase.Cost > 0.0001f ? avgTotalDamage / towerCase.Cost : avgTotalDamage;
+        float reliabilityVariance = ComputeCoefficientOfVariation(trialMetrics.Select(t => t.TotalDamage).ToList());
+
+        return new CombatLabTowerBenchmarkTowerResult
+        {
+            CaseId = towerCase.CaseId,
+            TowerId = towerCase.TowerId,
+            ScenarioId = scenario.Id,
+            Cost = towerCase.Cost,
+            TotalDamage = avgTotalDamage,
+            EffectiveDps = avgDps,
+            CostEfficiency = avgCostEfficiency,
+            LeakPreventionValue = avgLeakPrevention,
+            AntiSwarmPerformance = avgSwarm,
+            AntiTankPerformance = avgTank,
+            ReliabilityVariance = reliabilityVariance,
+            OverkillWaste = avgWaste,
+            AverageTargetsHit = avgTargetsHit,
+            Uptime = avgUptime,
+            IdleTimeSeconds = avgIdleSeconds,
+            KillCount = avgKills,
+            LeakCount = avgLeaks,
+            WaveClearSeconds = avgWaveClearSeconds,
+            ClearRate = clearRate,
+            SurgesTriggered = avgSurges,
+            GlobalSurgesTriggered = avgGlobalSurges,
+            EdgeSpikeRate = edgeSpikeRate,
+        };
+    }
+
+    private TrialMetrics RunTrial(
+        CombatLabTowerBenchmarkSuite suite,
+        CombatLabTowerBenchmarkScenario scenario,
+        TowerCase towerCase,
+        TowerDef towerDef,
+        float dt,
+        int seed)
+    {
+        var rng = new Random(seed);
+        var metrics = new TrialMetrics();
+        BenchmarkTower tower = BuildTower(scenario, towerCase, towerDef);
+        List<BenchmarkEnemy> enemies = BuildEnemies(scenario, rng);
+        foreach (BenchmarkEnemy enemy in enemies)
+        {
+            metrics.TotalHp += enemy.MaxHp;
+            if (enemy.IsTank)
+                metrics.TankHpTotal += enemy.MaxHp;
+            if (enemy.IsSwarm)
+                metrics.SwarmHpTotal += enemy.MaxHp;
+        }
+
+        bool liveRules = string.Equals((suite.Mode ?? string.Empty).Trim(), "live_rules", StringComparison.OrdinalIgnoreCase);
+        SpectacleSystem? spectacle = liveRules ? new SpectacleSystem() : null;
+        var residues = new List<ResidueZone>();
+        bool pendingGlobal = false;
+        float globalReadyAt = -1f;
+        float simTime = 0f;
+        int spawnedCount = 0;
+        int maxLeaks = Math.Max(0, scenario.MaxLeaks);
+        int totalEnemies = Math.Max(1, enemies.Count);
+
+        if (spectacle != null)
+        {
+            spectacle.OnSurgeTriggered += info =>
+            {
+                metrics.SurgesTriggered++;
+                ApplyLiveSurgeGameplay(tower, enemies, residues, info.Signature.SurgePower, globalSurge: false, metrics);
+            };
+
+            spectacle.OnGlobalSurgeReady += _ =>
+            {
+                pendingGlobal = true;
+                globalReadyAt = simTime;
+            };
+
+            spectacle.OnGlobalTriggered += info =>
+            {
+                metrics.GlobalSurgesTriggered++;
+                pendingGlobal = false;
+                globalReadyAt = -1f;
+                ApplyLiveGlobalGameplay(tower, enemies, residues, info.UniqueContributors, metrics);
+            };
+        }
+
+        float duration = Math.Max(1f, scenario.DurationSeconds);
+        while (simTime < duration)
+        {
+            simTime += dt;
+            metrics.SimulatedSeconds += dt;
+
+            foreach (BenchmarkEnemy enemy in enemies)
+            {
+                if (!enemy.Spawned && simTime + 0.0001f >= enemy.SpawnTime)
+                {
+                    enemy.Spawned = true;
+                    spawnedCount++;
+                }
+            }
+
+            UpdateEnemyStatuses(enemies, dt);
+            UpdateResidues(residues, enemies, tower, dt, metrics);
+            MoveEnemies(enemies, dt, metrics);
+            MarkNewDeaths(enemies, metrics);
+
+            List<BenchmarkEnemy> activeEnemies = enemies
+                .Where(e => e.Spawned && !e.Resolved && e.Hp > 0f)
+                .ToList();
+
+            bool hasInRangeEnemy = activeEnemies.Any(e => e.GlobalPosition.DistanceTo(tower.GlobalPosition) <= tower.Range);
+            if (hasInRangeEnemy)
+                metrics.EligibleSteps++;
+
+            if (tower.Cooldown > 0f)
+                tower.Cooldown = Math.Max(0f, tower.Cooldown - dt);
+
+            if (spectacle != null)
+                spectacle.Update(dt);
+
+            if (spectacle != null && pendingGlobal && spectacle.IsGlobalSurgeReady)
+            {
+                float readyAge = globalReadyAt >= 0f ? Mathf.Max(0f, simTime - globalReadyAt) : 0f;
+                var snapshot = new BotGlobalSurgeSnapshot(
+                    IsGlobalSurgeReady: spectacle.IsGlobalSurgeReady,
+                    HasPendingGlobalSurge: pendingGlobal,
+                    Lives: Math.Max(1, Balance.StartingLives - metrics.Leaks),
+                    EnemiesAlive: activeEnemies.Count,
+                    EnemiesSpawnedThisWave: spawnedCount,
+                    TotalEnemiesThisWave: totalEnemies,
+                    ReadyAgeSeconds: readyAge);
+                if (BotGlobalSurgeAdvisor.ShouldActivate(snapshot))
+                    spectacle.ActivateGlobalSurge();
+            }
+
+            bool firedThisStep = false;
+            if (tower.Cooldown <= 0f)
+            {
+                BenchmarkEnemy? target = Targeting.SelectTarget(tower, activeEnemies, ignoreRange: false);
+                if (target != null)
+                {
+                    firedThisStep = true;
+                    metrics.Shots++;
+                    metrics.FiredSteps++;
+
+                    float effectiveInterval = tower.AttackInterval;
+                    foreach (Modifier mod in tower.Modifiers)
+                        mod.ModifyAttackInterval(ref effectiveInterval, tower);
+                    tower.Cooldown = Math.Max(0.01f, effectiveInterval);
+
+                    if (spectacle != null)
+                        spectacle.RegisterShotFired(tower);
+
+                    bool targetMarkedBefore = target.IsMarked;
+                    DamageContext primaryCtx = ApplyHitAndCollect(tower, target, activeEnemies, metrics, state: null, isChain: false);
+                    RegisterLiveProcForHit(spectacle, tower, targetMarkedBefore, target, primaryCtx.DamageDealt);
+
+                    int chainHits = CombatResolution.ApplyChainHits(
+                        tower,
+                        target,
+                        waveIndex: 0,
+                        activeEnemies,
+                        state: null,
+                        onHit: ctx =>
+                        {
+                            ApplyContextToMetrics(ctx, metrics);
+                            RegisterLiveProcForHit(spectacle, tower, ctx.Target.IsMarked, ctx.Target, ctx.DamageDealt);
+                        });
+                    if (chainHits > 0 && spectacle != null)
+                    {
+                        float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(chainHits);
+                        float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
+                        spectacle.RegisterProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, chainEventDamage);
+                    }
+
+                    int splitHits = CombatResolution.ApplySplitHits(
+                        tower,
+                        target,
+                        waveIndex: 0,
+                        activeEnemies,
+                        state: null,
+                        onHit: ctx =>
+                        {
+                            ApplyContextToMetrics(ctx, metrics);
+                            RegisterLiveProcForHit(spectacle, tower, ctx.Target.IsMarked, ctx.Target, ctx.DamageDealt);
+                        });
+                    if (splitHits > 0 && spectacle != null)
+                    {
+                        float splitDamage = tower.BaseDamage * Balance.SplitShotDamageRatio;
+                        float splitScalar = SpectacleDefinitions.SplitShotEventScalar(splitHits);
+                        spectacle.RegisterProc(tower, SpectacleDefinitions.SplitShot, splitScalar, splitDamage);
+                    }
+
+                    metrics.TargetsHitTotal += 1 + chainHits + splitHits;
+                    MarkNewDeaths(enemies, metrics);
+                }
+            }
+
+            if (!firedThisStep && tower.Cooldown <= 0f)
+                metrics.IdleSteps++;
+
+            if (metrics.Leaks > maxLeaks)
+                break;
+
+            if (scenario.StopWhenResolved)
+            {
+                bool allResolved = enemies.All(e => !e.Spawned || e.Resolved || e.Hp <= 0f);
+                bool allSpawned = enemies.All(e => e.Spawned || simTime + 0.0001f < e.SpawnTime);
+                if (allResolved && allSpawned)
+                {
+                    metrics.Cleared = true;
+                    metrics.WaveClearSeconds = simTime;
+                    break;
+                }
+            }
+        }
+
+        if (!metrics.Cleared)
+        {
+            bool allResolved = enemies.All(e => !e.Spawned || e.Resolved || e.Hp <= 0f);
+            bool allSpawned = enemies.All(e => e.Spawned || simTime + 0.0001f < e.SpawnTime);
+            metrics.Cleared = allResolved && allSpawned;
+        }
+        if (metrics.WaveClearSeconds <= 0.0001f)
+            metrics.WaveClearSeconds = simTime;
+        metrics.Kills = enemies.Count(e => e.Killed);
+
+        return metrics;
+    }
+
+    private static void UpdateEnemyStatuses(List<BenchmarkEnemy> enemies, float dt)
+    {
+        foreach (BenchmarkEnemy enemy in enemies)
+        {
+            if (!enemy.Spawned || enemy.Resolved)
+                continue;
+
+            if (enemy.MarkedRemaining > 0f)
+                enemy.MarkedRemaining = Math.Max(0f, enemy.MarkedRemaining - dt);
+
+            if (enemy.SlowRemaining > 0f)
+            {
+                enemy.SlowRemaining = Math.Max(0f, enemy.SlowRemaining - dt);
+                if (enemy.SlowRemaining <= 0f)
+                    enemy.SlowSpeedFactor = 1f;
+            }
+
+            if (enemy.DamageAmpRemaining > 0f)
+            {
+                enemy.DamageAmpRemaining = Math.Max(0f, enemy.DamageAmpRemaining - dt);
+                if (enemy.DamageAmpRemaining <= 0f)
+                    enemy.DamageAmpMultiplier = 0f;
+            }
+        }
+    }
+
+    private static void UpdateResidues(
+        List<ResidueZone> residues,
+        List<BenchmarkEnemy> enemies,
+        BenchmarkTower tower,
+        float dt,
+        TrialMetrics metrics)
+    {
+        for (int i = residues.Count - 1; i >= 0; i--)
+        {
+            ResidueZone zone = residues[i];
+            zone.RemainingSeconds = Math.Max(0f, zone.RemainingSeconds - dt);
+            zone.TickRemainingSeconds -= dt;
+
+            while (zone.TickRemainingSeconds <= 0f)
+            {
+                zone.TickRemainingSeconds += Math.Max(0.05f, zone.TickIntervalSeconds);
+                foreach (BenchmarkEnemy enemy in enemies)
+                {
+                    if (!enemy.Spawned || enemy.Resolved || enemy.Hp <= 0f)
+                        continue;
+                    if (enemy.GlobalPosition.DistanceTo(zone.Origin) > zone.Radius)
+                        continue;
+
+                    switch (zone.Kind)
+                    {
+                        case ExplosionResidueKind.FrostSlow:
+                            Statuses.ApplySlow(enemy, Balance.SlowDuration * 0.35f, Mathf.Clamp(0.95f - 0.35f * zone.Potency, 0.55f, 0.95f));
+                            break;
+                        case ExplosionResidueKind.VulnerabilityZone:
+                            Statuses.ApplyDamageAmp(enemy, 0.42f * zone.Potency, 0.06f * zone.Potency);
+                            break;
+                        case ExplosionResidueKind.BurnPatch:
+                        {
+                            float burnBase = tower.BaseDamage * 0.08f * zone.Potency;
+                            float burnDamage = burnBase * MathF.Max(0f, SpectacleTuning.Current.ResidueDamageMultiplier);
+                            float before = enemy.Hp;
+                            float dealt = SpectacleDamageCore.ApplyRawDamage(enemy, burnDamage);
+                            metrics.Hits++;
+                            metrics.TotalDamage += dealt;
+                            metrics.RawDamage += burnDamage;
+                            metrics.OverkillWaste += Math.Max(0f, burnDamage - dealt);
+                            if (enemy.IsTank) metrics.TankDamage += dealt;
+                            if (enemy.IsSwarm) metrics.SwarmDamage += dealt;
+                            if (before > 0f && enemy.Hp <= 0f)
+                                enemy.Killed = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (zone.RemainingSeconds <= 0f)
+                residues.RemoveAt(i);
+        }
+    }
+
+    private static void MoveEnemies(List<BenchmarkEnemy> enemies, float dt, TrialMetrics metrics)
+    {
+        foreach (BenchmarkEnemy enemy in enemies)
+        {
+            if (!enemy.Spawned || enemy.Resolved || enemy.Hp <= 0f)
+                continue;
+
+            float speed = enemy.BaseSpeed * (enemy.SlowRemaining > 0f ? enemy.SlowSpeedFactor : 1f);
+            enemy.PathDistance += speed * dt;
+            if (enemy.PathDistance >= enemy.PathLength)
+            {
+                enemy.Resolved = true;
+                metrics.Leaks++;
+                metrics.LeakedHp += Math.Max(0f, enemy.Hp);
+            }
+        }
+    }
+
+    private static void MarkNewDeaths(List<BenchmarkEnemy> enemies, TrialMetrics metrics)
+    {
+        foreach (BenchmarkEnemy enemy in enemies)
+        {
+            if (!enemy.Spawned || enemy.Resolved)
+                continue;
+            if (enemy.Hp > 0f)
+                continue;
+
+            enemy.Resolved = true;
+            enemy.Killed = true;
+            if (enemy.IsTank && enemy.ProgressRatio > 0.65f)
+                metrics.EdgeSpike = true;
+        }
+    }
+
+    private static void ApplyLiveSurgeGameplay(
+        BenchmarkTower tower,
+        List<BenchmarkEnemy> enemies,
+        List<ResidueZone> residues,
+        float surgePower,
+        bool globalSurge,
+        TrialMetrics metrics)
+    {
+        List<BenchmarkEnemy> activeEnemies = enemies
+            .Where(e => e.Spawned && !e.Resolved && e.Hp > 0f)
+            .ToList();
+        if (activeEnemies.Count == 0)
+            return;
+
+        bool reducedMotion = false;
+        int maxTargets = SpectacleExplosionCore.ResolveStatusDetonationMaxTargets(globalSurge, reducedMotion);
+        if (maxTargets <= 0)
+            return;
+
+        List<BenchmarkEnemy> statusTargets = activeEnemies
+            .Where(e => e.IsMarked || e.SlowRemaining > 0f || e.DamageAmpRemaining > 0f)
+            .OrderBy(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
+            .ThenByDescending(e => e.ProgressRatio)
+            .Take(maxTargets)
+            .ToList();
+        if (statusTargets.Count == 0)
+            statusTargets = activeEnemies
+                .OrderBy(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
+                .Take(Math.Min(maxTargets, 3))
+                .ToList();
+
+        ComboExplosionSkin skin = ResolveSkinFromMods(tower.Modifiers);
+        for (int i = 0; i < statusTargets.Count; i++)
+        {
+            BenchmarkEnemy enemy = statusTargets[i];
+            float damage = tower.BaseDamage
+                * (globalSurge ? 0.22f : 0.16f)
+                * Mathf.Clamp(surgePower, 0.6f, 2.2f)
+                * MathF.Max(0.52f, 1f - i * 0.04f)
+                * MathF.Max(0f, SpectacleTuning.Current.StatusDetonationDamageMultiplier);
+            float before = enemy.Hp;
+            float dealt = SpectacleDamageCore.ApplyRawDamage(enemy, damage);
+            metrics.Hits++;
+            metrics.TotalDamage += dealt;
+            metrics.RawDamage += damage;
+            metrics.OverkillWaste += Math.Max(0f, damage - dealt);
+            if (enemy.IsTank) metrics.TankDamage += dealt;
+            if (enemy.IsSwarm) metrics.SwarmDamage += dealt;
+            if (before > 0f && enemy.Hp <= 0f)
+                enemy.Killed = true;
+
+            ExplosionResidueProfile residue = SpectacleExplosionCore.ResolveResidueProfile(
+                skin,
+                globalSurge,
+                surgePower,
+                i);
+            if (residue.ShouldSpawn)
+            {
+                residues.Add(new ResidueZone
+                {
+                    Kind = residue.Kind,
+                    Origin = enemy.GlobalPosition,
+                    Radius = residue.Radius,
+                    RemainingSeconds = residue.DurationSeconds,
+                    TickIntervalSeconds = residue.TickIntervalSeconds,
+                    TickRemainingSeconds = residue.TickIntervalSeconds,
+                    Potency = residue.Potency,
+                });
+            }
+        }
+    }
+
+    private static void ApplyLiveGlobalGameplay(
+        BenchmarkTower tower,
+        List<BenchmarkEnemy> enemies,
+        List<ResidueZone> residues,
+        int contributors,
+        TrialMetrics metrics)
+    {
+        int c = Math.Max(2, contributors);
+        float markDuration = 2.2f + 0.28f * c;
+        float slowDuration = 1.8f + 0.24f * c;
+        float slowFactor = Mathf.Clamp(0.88f - 0.06f * c, 0.58f, 0.90f);
+        foreach (BenchmarkEnemy enemy in enemies.Where(e => e.Spawned && !e.Resolved && e.Hp > 0f))
+        {
+            Statuses.ApplyMarked(enemy, markDuration);
+            Statuses.ApplySlow(enemy, slowDuration, slowFactor);
+        }
+
+        float cooldownRefund = Mathf.Clamp(0.24f + 0.04f * c, 0.24f, 0.46f);
+        tower.Cooldown = Math.Max(0f, tower.Cooldown * (1f - cooldownRefund));
+
+        ApplyLiveSurgeGameplay(tower, enemies, residues, surgePower: 1.45f, globalSurge: true, metrics);
+    }
+
+    private static void RegisterLiveProcForHit(
+        SpectacleSystem? spectacle,
+        BenchmarkTower tower,
+        bool targetWasMarkedBeforeHit,
+        IEnemyView target,
+        float hitDamage)
+    {
+        if (spectacle == null)
+            return;
+
+        float dealt = Math.Max(0f, hitDamage);
+        if (CountMod(tower, SpectacleDefinitions.ExploitWeakness) > 0 && targetWasMarkedBeforeHit)
+        {
+            float scalar = SpectacleDefinitions.ExploitWeaknessEventScalar(targetWasMarkedBeforeHit, target.Hp <= 0f);
+            spectacle.RegisterProc(tower, SpectacleDefinitions.ExploitWeakness, scalar, dealt);
+        }
+
+        if (CountMod(tower, SpectacleDefinitions.FocusLens) > 0)
+        {
+            float damageNorm = dealt / Math.Max(1f, tower.BaseDamage);
+            float scalar = SpectacleDefinitions.FocusLensEventScalar(damageNorm);
+            spectacle.RegisterProc(tower, SpectacleDefinitions.FocusLens, scalar, dealt);
+        }
+
+        int overreachCopies = CountMod(tower, SpectacleDefinitions.Overreach);
+        if (overreachCopies > 0)
+        {
+            float overreachFactor = MathF.Pow(Balance.OverreachRangeFactor, overreachCopies);
+            float baseRange = tower.Range / MathF.Max(0.001f, overreachFactor);
+            float rangeNorm = (tower.Range / MathF.Max(1f, baseRange)) - 1f;
+            float scalar = SpectacleDefinitions.OverreachEventScalar(rangeNorm);
+            spectacle.RegisterProc(tower, SpectacleDefinitions.Overreach, scalar, dealt);
+        }
+
+        if (CountMod(tower, SpectacleDefinitions.ChillShot) > 0)
+        {
+            float scalar = SpectacleDefinitions.ChillEventScalar(1);
+            spectacle.RegisterProc(tower, SpectacleDefinitions.ChillShot, scalar, dealt);
+        }
+    }
+
+    private static DamageContext ApplyHitAndCollect(
+        BenchmarkTower tower,
+        BenchmarkEnemy target,
+        List<BenchmarkEnemy> activeEnemies,
+        TrialMetrics metrics,
+        RunState? state,
+        bool isChain)
+    {
+        var ctx = new DamageContext(
+            tower,
+            target,
+            waveIndex: 0,
+            activeEnemies,
+            state,
+            isChain: isChain);
+        DamageModel.Apply(ctx);
+        ApplyContextToMetrics(ctx, metrics);
+        return ctx;
+    }
+
+    private static void ApplyContextToMetrics(DamageContext ctx, TrialMetrics metrics)
+    {
+        metrics.Hits++;
+        metrics.TotalDamage += Math.Max(0f, ctx.DamageDealt);
+        metrics.RawDamage += Math.Max(0f, ctx.FinalDamage);
+        metrics.OverkillWaste += Math.Max(0f, ctx.FinalDamage - ctx.DamageDealt);
+        if (ctx.Target is BenchmarkEnemy enemy)
+        {
+            if (enemy.IsTank) metrics.TankDamage += Math.Max(0f, ctx.DamageDealt);
+            if (enemy.IsSwarm) metrics.SwarmDamage += Math.Max(0f, ctx.DamageDealt);
+        }
+    }
+
+    private static void ApplyScenarioNormalization(
+        CombatLabTowerBenchmarkScenarioResult scenarioResult,
+        CombatLabTowerBenchmarkSuite suite,
+        List<TowerCase> towerCases)
+    {
+        List<(CombatLabTowerBenchmarkTowerResult Result, float Score)> scored = scenarioResult.Results
+            .Select(result => (result, Score: ResolveScenarioPerformanceScore(result)))
+            .ToList();
+        float globalMedian = ResolveMedian(scored.Select(row => row.Score).ToList());
+        if (globalMedian <= 0.0001f)
+            globalMedian = 1f;
+
+        Dictionary<string, float> towerCost = towerCases.ToDictionary(t => t.CaseId, t => t.Cost, StringComparer.Ordinal);
+        List<CombatLabCostBand> costBands = ResolveCostBands(suite, towerCases);
+
+        foreach (CombatLabTowerBenchmarkTowerResult row in scenarioResult.Results)
+        {
+            float score = scored.First(s => s.Result == row).Score;
+            row.NormalizedGlobal = score / globalMedian;
+
+            string bandId = ResolveCostBandId(row.Cost, costBands);
+            List<float> sameBandScores = scored
+                .Where(s =>
+                {
+                    towerCost.TryGetValue(s.Result.CaseId, out float c);
+                    return ResolveCostBandId(c, costBands) == bandId;
+                })
+                .Select(s => s.Score)
+                .ToList();
+            float bandMedian = ResolveMedian(sameBandScores);
+            if (bandMedian <= 0.0001f) bandMedian = globalMedian;
+            row.NormalizedCostBand = score / bandMedian;
+
+            string[] towerRoles = ResolveRolesForTower(suite, row.TowerId);
+            List<float> rolePeerScores = scored
+                .Where(s => SharesRole(towerRoles, ResolveRolesForTower(suite, s.Result.TowerId)))
+                .Select(s => s.Score)
+                .ToList();
+            float roleMedian = ResolveMedian(rolePeerScores);
+            if (roleMedian <= 0.0001f) roleMedian = globalMedian;
+            row.NormalizedRole = score / roleMedian;
+        }
+    }
+
+    private static List<CombatLabTowerBenchmarkProfile> BuildTowerProfiles(
+        CombatLabTowerBenchmarkSuite suite,
+        List<TowerCase> towerCases,
+        List<CombatLabTowerBenchmarkScenarioResult> scenarioResults)
+    {
+        List<CombatLabCostBand> bands = ResolveCostBands(suite, towerCases);
+        var profiles = new List<CombatLabTowerBenchmarkProfile>();
+
+        foreach (TowerCase towerCase in towerCases.OrderBy(t => t.CaseId, StringComparer.Ordinal))
+        {
+            List<CombatLabTowerBenchmarkTowerResult> rows = scenarioResults
+                .SelectMany(s => s.Results)
+                .Where(r => r.CaseId == towerCase.CaseId)
+                .ToList();
+            if (rows.Count == 0)
+                continue;
+
+            float avgGlobal = (float)rows.Average(r => r.NormalizedGlobal);
+            float avgCostBand = (float)rows.Average(r => r.NormalizedCostBand);
+            float avgRole = (float)rows.Average(r => r.NormalizedRole);
+            float avgVariance = (float)rows.Average(r => r.ReliabilityVariance);
+            float pathSensitivity = ResolvePathSensitivity(towerCase.CaseId, scenarioResults);
+            var profile = new CombatLabTowerBenchmarkProfile
+            {
+                CaseId = towerCase.CaseId,
+                TowerId = towerCase.TowerId,
+                Cost = towerCase.Cost,
+                CostBand = ResolveCostBandId(towerCase.Cost, bands),
+                Roles = ResolveRolesForTower(suite, towerCase.TowerId),
+                ScenarioCount = rows.Count,
+                AvgNormalizedGlobal = avgGlobal,
+                AvgNormalizedCostBand = avgCostBand,
+                AvgNormalizedRole = avgRole,
+                MapPathSensitivity = pathSensitivity,
+                AggregateReliabilityVariance = avgVariance,
+            };
+
+            int dominantScenarios = rows.Count(r => r.NormalizedGlobal >= 1.20f);
+            if (avgGlobal < 0.88f && avgCostBand < 0.88f)
+                profile.Flags.Add("likely underpowered");
+            if (avgGlobal > 1.15f && avgCostBand > 1.15f)
+                profile.Flags.Add("likely overpowered");
+            if (dominantScenarios >= Math.Max(2, (int)MathF.Ceiling(rows.Count * 0.70f)))
+                profile.Flags.Add("suspiciously dominant across too many scenarios");
+            if (avgVariance > 0.22f || pathSensitivity > 0.48f)
+                profile.Flags.Add("inconsistent / unstable");
+
+            float maxRole = ResolveMaxRolePerformance(rows, profile.Roles, scenarioResults);
+            if (maxRole >= 1.20f && avgGlobal >= 0.85f && avgGlobal <= 1.08f)
+                profile.Flags.Add("highly niche but acceptable");
+
+            float topScenario = rows.Max(r => r.NormalizedGlobal);
+            float medianScenario = ResolveMedian(rows.Select(r => r.NormalizedGlobal).ToList());
+            if (topScenario >= 1.65f && medianScenario <= 1.02f)
+                profile.Flags.Add("warning: balanced by one abusive edge case");
+
+            profiles.Add(profile);
+        }
+
+        return profiles.OrderBy(p => p.CaseId, StringComparer.Ordinal).ToList();
+    }
+
+    private static float ResolveMaxRolePerformance(
+        List<CombatLabTowerBenchmarkTowerResult> rows,
+        string[] roles,
+        List<CombatLabTowerBenchmarkScenarioResult> scenarioResults)
+    {
+        if (roles == null || roles.Length == 0)
+            return rows.Count > 0 ? rows.Max(r => r.NormalizedRole) : 0f;
+
+        float best = 0f;
+        foreach (string role in roles)
+        {
+            var roleRows = scenarioResults
+                .Where(s => (s.Tags ?? Array.Empty<string>()).Any(tag => string.Equals(tag, role, StringComparison.OrdinalIgnoreCase)))
+                .SelectMany(s => s.Results)
+                .Where(r => rows.Contains(r))
+                .ToList();
+            if (roleRows.Count == 0)
+                continue;
+            best = MathF.Max(best, (float)roleRows.Average(r => r.NormalizedRole));
+        }
+        return best;
+    }
+
+    private static List<CombatLabTowerBenchmarkSuggestion> BuildSuggestions(
+        CombatLabTowerBenchmarkSuite suite,
+        List<CombatLabTowerBenchmarkProfile> profiles)
+    {
+        var autotune = suite.Autotune;
+        if (autotune == null || !autotune.Enabled)
+            return new List<CombatLabTowerBenchmarkSuggestion>();
+
+        float maxDelta = Mathf.Clamp(autotune.MaxPercentDelta, 0.01f, 0.30f);
+        float targetMin = MathF.Max(0.5f, autotune.TargetRoleScoreMin);
+        float targetMax = MathF.Max(targetMin, autotune.TargetRoleScoreMax);
+        float targetMid = (targetMin + targetMax) * 0.5f;
+        var suggestions = new List<CombatLabTowerBenchmarkSuggestion>();
+
+        foreach (CombatLabTowerBenchmarkProfile profile in profiles)
+        {
+            if (profile.Flags.Contains("highly niche but acceptable"))
+                continue;
+
+            float roleScore = profile.AvgNormalizedRole;
+            bool buff = roleScore < targetMin;
+            bool nerf = roleScore > targetMax && profile.AvgNormalizedGlobal > targetMax;
+            if (!buff && !nerf)
+                continue;
+
+            float error = MathF.Abs(roleScore - targetMid) / MathF.Max(0.0001f, targetMid);
+            float magnitude = Mathf.Clamp(error * 0.6f, 0.01f, maxDelta);
+            float direction = buff ? 1f : -1f;
+            CombatLabTowerAutotuneBounds? bounds = ResolveAutotuneBoundsForTower(autotune, profile.TowerId);
+            var deltas = new Dictionary<string, float>(StringComparer.Ordinal)
+            {
+                ["damage"] = ClampDelta(direction * magnitude, maxDelta, bounds?.Damage),
+                ["attack_interval"] = ClampDelta(-direction * magnitude * 0.55f, maxDelta, bounds?.AttackInterval),
+                ["range"] = ClampDelta(direction * magnitude * 0.35f, maxDelta, bounds?.Range),
+                ["cost"] = ClampDelta(-direction * magnitude * 0.50f, maxDelta, bounds?.Cost),
+            };
+
+            suggestions.Add(new CombatLabTowerBenchmarkSuggestion
+            {
+                TowerId = profile.CaseId,
+                Reason = buff ? "role score below target band" : "role score above target band",
+                SuggestedDeltas = deltas,
+                Notes = buff
+                    ? "Prioritize role recovery over global dominance. Keep mechanic identity unchanged."
+                    : "Reduce broad dominance while preserving specialty role."
+            });
+        }
+
+        return suggestions;
+    }
+
+    private Dictionary<string, TowerDef> ResolveTowerDefinitions()
+    {
+        if (_towerDefsOverride != null)
+            return new Dictionary<string, TowerDef>(_towerDefsOverride, StringComparer.Ordinal);
+
+        return DataLoader
+            .GetAllTowerIds(includeLocked: true)
+            .ToDictionary(id => id, DataLoader.GetTowerDef, StringComparer.Ordinal);
+    }
+
+    private List<TowerCase> ResolveTowerCases(CombatLabTowerBenchmarkSuite suite, Dictionary<string, TowerDef> towerDefs)
+    {
+        var cases = new Dictionary<string, TowerCase>(StringComparer.Ordinal);
+
+        if (suite.IncludeAllTowers)
+        {
+            foreach ((string towerId, _) in towerDefs.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+            {
+                float cost = ResolveCostForTower(suite, towerId);
+                cases[towerId] = new TowerCase
+                {
+                    CaseId = towerId,
+                    TowerId = towerId,
+                    Mods = Array.Empty<string>(),
+                    Cost = cost,
+                };
+            }
+        }
+
+        foreach (CombatLabTowerBenchmarkTowerSetup setup in suite.Towers)
+        {
+            if (string.IsNullOrWhiteSpace(setup.Tower))
+                continue;
+            if (!towerDefs.ContainsKey(setup.Tower))
+                continue;
+
+            string caseId = string.IsNullOrWhiteSpace(setup.CaseId)
+                ? setup.Tower
+                : setup.CaseId.Trim();
+            float cost = setup.Cost ?? ResolveCostForTower(suite, setup.Tower);
+            cases[caseId] = new TowerCase
+            {
+                CaseId = caseId,
+                TowerId = setup.Tower,
+                Mods = (setup.Mods ?? Array.Empty<string>()).Take(Balance.MaxModifiersPerTower).ToArray(),
+                TargetingMode = ResolveTargetingMode(setup.Targeting),
+                BaseDamageOverride = setup.BaseDamageOverride,
+                AttackIntervalOverride = setup.AttackIntervalOverride,
+                RangeOverride = setup.RangeOverride,
+                SplitCountOverride = setup.SplitCountOverride,
+                ChainCountOverride = setup.ChainCountOverride,
+                Cost = Math.Max(0.01f, cost),
+            };
+        }
+
+        return cases.Values.OrderBy(c => c.CaseId, StringComparer.Ordinal).ToList();
+    }
+
+    private BenchmarkTower BuildTower(CombatLabTowerBenchmarkScenario scenario, TowerCase towerCase, TowerDef def)
+    {
+        Vector2 position = scenario.TowerPosition != null && scenario.TowerPosition.Length >= 2
+            ? new Vector2(scenario.TowerPosition[0], scenario.TowerPosition[1])
+            : new Vector2(MathF.Max(420f, scenario.PathLength * 0.38f), 0f);
+
+        var tower = new BenchmarkTower
+        {
+            TowerId = towerCase.TowerId,
+            BaseDamage = towerCase.BaseDamageOverride ?? def.BaseDamage,
+            AttackInterval = towerCase.AttackIntervalOverride ?? def.AttackInterval,
+            Range = towerCase.RangeOverride ?? def.Range,
+            AppliesMark = def.AppliesMark,
+            SplitCount = towerCase.SplitCountOverride ?? def.SplitCount,
+            ChainCount = towerCase.ChainCountOverride ?? def.ChainCount,
+            ChainRange = def.ChainRange,
+            ChainDamageDecay = def.ChainDamageDecay,
+            TargetingMode = towerCase.TargetingMode,
+            GlobalPosition = position,
+        };
+
+        foreach (string modId in towerCase.Mods)
+        {
+            if (string.IsNullOrWhiteSpace(modId))
+                continue;
+            Modifier mod = _modifierFactoryOverride?.Invoke(modId) ?? ModifierRegistry.Create(modId);
+            tower.Modifiers.Add(mod);
+            mod.OnEquip(tower);
+        }
+
+        return tower;
+    }
+
+    private static List<BenchmarkEnemy> BuildEnemies(CombatLabTowerBenchmarkScenario scenario, Random rng)
+    {
+        var groups = scenario.EnemyGroups ?? new List<CombatLabTowerBenchmarkEnemyGroup>();
+        float medianHp = ResolveMedian(groups.Select(g => g.Hp).ToList());
+        if (medianHp <= 0f)
+            medianHp = Balance.BaseEnemyHp;
+
+        int nextId = 1;
+        var enemies = new List<BenchmarkEnemy>();
+        foreach (CombatLabTowerBenchmarkEnemyGroup group in groups)
+        {
+            int count = Math.Max(0, group.Count);
+            float interval = Math.Max(0f, group.SpawnInterval);
+            float laneSpread = Math.Max(0f, group.LaneSpread);
+            bool tankGroup = (group.Id ?? string.Empty).Contains("tank", StringComparison.OrdinalIgnoreCase)
+                || group.Hp >= medianHp * 1.35f;
+            bool swarmGroup = (group.Id ?? string.Empty).Contains("swarm", StringComparison.OrdinalIgnoreCase)
+                || group.Hp <= medianHp * 0.85f;
+            for (int i = 0; i < count; i++)
+            {
+                float offsetY = ResolveLaneOffset(scenario, laneSpread, rng);
+                enemies.Add(new BenchmarkEnemy
+                {
+                    Id = nextId++,
+                    GroupId = group.Id ?? string.Empty,
+                    IsTank = tankGroup,
+                    IsSwarm = swarmGroup,
+                    MaxHp = Math.Max(1f, group.Hp),
+                    Hp = Math.Max(1f, group.Hp),
+                    BaseSpeed = Math.Max(1f, group.Speed),
+                    PathLength = Math.Max(200f, scenario.PathLength),
+                    LaneOffsetY = offsetY,
+                    SpawnTime = Math.Max(0f, group.StartTime) + interval * i,
+                    PathDistance = Mathf.Clamp(group.StartProgress, 0f, 1f) * Math.Max(200f, scenario.PathLength),
+                    SlowSpeedFactor = 1f,
+                });
+            }
+        }
+
+        return enemies;
+    }
+
+    private static float ResolveLaneOffset(CombatLabTowerBenchmarkScenario scenario, float groupSpread, Random rng)
+    {
+        string pathType = (scenario.PathType ?? string.Empty).Trim().ToLowerInvariant();
+        float laneWidth = Math.Max(20f, scenario.LaneWidth);
+        float half = laneWidth * 0.5f;
+        float noise = (float)(rng.NextDouble() * 2.0 - 1.0);
+        float spread = groupSpread > 0f ? groupSpread : pathType switch
+        {
+            "dense_choke" => laneWidth * 0.12f,
+            "open_lane" => laneWidth * 0.95f,
+            _ => laneWidth * 0.32f,
+        };
+        return Mathf.Clamp(noise * spread * 0.5f, -half, half);
+    }
+
+    private static float ResolveScenarioPerformanceScore(CombatLabTowerBenchmarkTowerResult result)
+    {
+        float dpsComponent = MathF.Max(0f, result.EffectiveDps);
+        float leakComponent = Mathf.Clamp(result.LeakPreventionValue, 0f, 1f);
+        float roleComponent = MathF.Max(0f, result.AntiTankPerformance + result.AntiSwarmPerformance) * 0.5f;
+        return dpsComponent * (0.52f + leakComponent * 0.48f) * (0.72f + MathF.Min(1f, roleComponent) * 0.28f);
+    }
+
+    private static float ResolvePathSensitivity(string caseId, List<CombatLabTowerBenchmarkScenarioResult> scenarios)
+    {
+        var byPath = scenarios
+            .GroupBy(s => (s.PathType ?? "unknown").Trim().ToLowerInvariant())
+            .Select(g =>
+            {
+                var rows = g.SelectMany(s => s.Results).Where(r => r.CaseId == caseId).ToList();
+                return rows.Count == 0 ? 0f : (float)rows.Average(r => r.NormalizedGlobal);
+            })
+            .Where(v => v > 0f)
+            .ToList();
+
+        if (byPath.Count <= 1)
+            return 0f;
+        float max = byPath.Max();
+        float min = byPath.Min();
+        float median = ResolveMedian(byPath);
+        return median <= 0.0001f ? 0f : (max - min) / median;
+    }
+
+    private static List<CombatLabCostBand> ResolveCostBands(CombatLabTowerBenchmarkSuite suite, List<TowerCase> cases)
+    {
+        if (suite.CostBands != null && suite.CostBands.Count > 0)
+            return suite.CostBands.OrderBy(b => b.MinCost).ToList();
+
+        List<float> costs = cases.Select(c => c.Cost).OrderBy(v => v).ToList();
+        float p33 = ResolveQuantile(costs, 0.33f);
+        float p66 = ResolveQuantile(costs, 0.66f);
+        return new List<CombatLabCostBand>
+        {
+            new() { Id = "low", MinCost = 0f, MaxCost = p33 },
+            new() { Id = "mid", MinCost = p33, MaxCost = p66 },
+            new() { Id = "high", MinCost = p66, MaxCost = float.MaxValue },
+        };
+    }
+
+    private static string ResolveCostBandId(float cost, List<CombatLabCostBand> bands)
+    {
+        foreach (CombatLabCostBand band in bands)
+        {
+            if (cost >= band.MinCost && cost <= band.MaxCost)
+                return band.Id;
+        }
+        return bands.Count > 0 ? bands[^1].Id : "default";
+    }
+
+    private static float ResolveCostForTower(CombatLabTowerBenchmarkSuite suite, string towerId)
+    {
+        if (suite.CostByTower != null && suite.CostByTower.TryGetValue(towerId, out float configured))
+            return Math.Max(0.01f, configured);
+
+        return towerId switch
+        {
+            "rapid_shooter" => 95f,
+            "heavy_cannon" => 130f,
+            "marker_tower" => 90f,
+            "chain_tower" => 115f,
+            "rift_prism" => 120f,
+            _ => 100f
+        };
+    }
+
+    private static string[] ResolveRolesForTower(CombatLabTowerBenchmarkSuite suite, string towerId)
+    {
+        if (suite.RoleAssignments != null && suite.RoleAssignments.TryGetValue(towerId, out string[]? roles) && roles != null)
+            return roles;
+
+        return towerId switch
+        {
+            "rapid_shooter" => new[] { "anti_swarm", "generalist" },
+            "heavy_cannon" => new[] { "anti_tank", "burst" },
+            "marker_tower" => new[] { "support", "control" },
+            "chain_tower" => new[] { "anti_swarm", "control" },
+            "rift_prism" => new[] { "area_denial", "anti_tank" },
+            _ => Array.Empty<string>()
+        };
+    }
+
+    private static bool SharesRole(string[] lhs, string[] rhs)
+    {
+        if (lhs.Length == 0 || rhs.Length == 0)
+            return false;
+        var right = new HashSet<string>(rhs, StringComparer.OrdinalIgnoreCase);
+        return lhs.Any(role => right.Contains(role));
+    }
+
+    private static ComboExplosionSkin ResolveSkinFromMods(List<Modifier> mods)
+    {
+        if (mods.Count < 2)
+            return ComboExplosionSkin.ChainArc;
+        return SpectacleExplosionCore.ResolveComboExplosionSkin(mods[0].ModifierId, mods[1].ModifierId);
+    }
+
+    private static TargetingMode ResolveTargetingMode(string? value)
+    {
+        string normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized switch
+        {
+            "strongest" => TargetingMode.Strongest,
+            "lowest_hp" => TargetingMode.LowestHp,
+            _ => TargetingMode.First,
+        };
+    }
+
+    private static int ComposeSeed(int suiteSeed, string scenarioId, string towerId, int trial)
+    {
+        unchecked
+        {
+            int hash = suiteSeed;
+            hash = (hash * 397) ^ StableHash(scenarioId);
+            hash = (hash * 397) ^ StableHash(towerId);
+            hash = (hash * 397) ^ trial;
+            return hash == 0 ? 1 : hash;
+        }
+    }
+
+    private static int StableHash(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return 0;
+
+        unchecked
+        {
+            // FNV-1a 32-bit over UTF-16 chars for cross-process deterministic seeding.
+            int hash = unchecked((int)2166136261);
+            for (int i = 0; i < value.Length; i++)
+                hash = (hash ^ value[i]) * 16777619;
+            return hash;
+        }
+    }
+
+    private static int CountMod(ITowerView tower, string modId)
+    {
+        string normalized = SpectacleDefinitions.NormalizeModId(modId);
+        int count = 0;
+        foreach (Modifier mod in tower.Modifiers)
+        {
+            if (SpectacleDefinitions.NormalizeModId(mod.ModifierId) == normalized)
+                count++;
+        }
+        return count;
+    }
+
+    private static CombatLabTowerAutotuneBounds? ResolveAutotuneBoundsForTower(
+        CombatLabTowerBenchmarkAutotuneConfig autotune,
+        string towerId)
+    {
+        if (autotune.PerTowerBounds != null && autotune.PerTowerBounds.TryGetValue(towerId, out CombatLabTowerAutotuneBounds? perTower))
+            return perTower ?? autotune.GlobalBounds;
+        return autotune.GlobalBounds;
+    }
+
+    private static float ClampDelta(float value, float maxAbs, CombatLabNumericBounds? bounds)
+    {
+        float min = -Math.Abs(maxAbs);
+        float max = Math.Abs(maxAbs);
+        if (bounds != null)
+        {
+            min = Math.Max(min, Math.Min(bounds.Min, bounds.Max));
+            max = Math.Min(max, Math.Max(bounds.Min, bounds.Max));
+        }
+        if (min > max)
+        {
+            float mid = (min + max) * 0.5f;
+            min = mid;
+            max = mid;
+        }
+
+        return Mathf.Clamp(value, min, max);
+    }
+
+    private static float ComputeCoefficientOfVariation(List<float> values)
+    {
+        if (values.Count <= 1)
+            return 0f;
+        float mean = values.Average();
+        if (mean <= 0.0001f)
+            return 0f;
+        float variance = values.Sum(v =>
+        {
+            float d = v - mean;
+            return d * d;
+        }) / values.Count;
+        float std = MathF.Sqrt(MathF.Max(0f, variance));
+        return std / mean;
+    }
+
+    private static float ResolveMedian(List<float> values)
+    {
+        if (values.Count == 0)
+            return 0f;
+        values.Sort();
+        int mid = values.Count / 2;
+        if ((values.Count % 2) == 0)
+            return (values[mid - 1] + values[mid]) * 0.5f;
+        return values[mid];
+    }
+
+    private static float ResolveQuantile(List<float> values, float quantile)
+    {
+        if (values.Count == 0)
+            return 0f;
+        if (values.Count == 1)
+            return values[0];
+        float q = Mathf.Clamp(quantile, 0f, 1f);
+        float index = q * (values.Count - 1);
+        int lo = (int)MathF.Floor(index);
+        int hi = (int)MathF.Ceiling(index);
+        if (lo == hi)
+            return values[lo];
+        float t = index - lo;
+        return Mathf.Lerp(values[lo], values[hi], t);
+    }
+
+    private static string Csv(string? value)
+    {
+        string s = value ?? string.Empty;
+        bool quote = s.Contains(',') || s.Contains('"') || s.Contains('\n') || s.Contains('\r');
+        if (!quote)
+            return s;
+        return "\"" + s.Replace("\"", "\"\"") + "\"";
+    }
+
+    private static string Csv(float value) => value.ToString("0.####", CultureInfo.InvariantCulture);
+    private static string Csv(int value) => value.ToString(CultureInfo.InvariantCulture);
+}

@@ -14,14 +14,20 @@ public static class CombatLabCli
     {
         string? scenarioFile = GetArgValue(userArgs, "--lab_scenario");
         string? sweepFile = GetArgValue(userArgs, "--lab_sweep");
+        string? towerBenchmarkFile = GetArgValue(userArgs, "--lab_tower_benchmark");
+        string? modifierBenchmarkFile = GetArgValue(userArgs, "--lab_modifier_benchmark");
         string? outputFile = GetArgValue(userArgs, "--lab_out");
 
+        if (!string.IsNullOrWhiteSpace(modifierBenchmarkFile))
+            return RunModifierBenchmarkFile(modifierBenchmarkFile!, outputFile);
+        if (!string.IsNullOrWhiteSpace(towerBenchmarkFile))
+            return RunTowerBenchmarkFile(towerBenchmarkFile!, outputFile);
         if (!string.IsNullOrWhiteSpace(scenarioFile))
             return RunScenarioFile(scenarioFile!, outputFile);
         if (!string.IsNullOrWhiteSpace(sweepFile))
             return RunSweepFile(sweepFile!, outputFile);
 
-        GD.PrintErr("[LAB] Missing --lab_scenario <path> or --lab_sweep <path>.");
+        GD.PrintErr("[LAB] Missing --lab_scenario <path>, --lab_sweep <path>, --lab_tower_benchmark <path>, or --lab_modifier_benchmark <path>.");
         return false;
     }
 
@@ -172,6 +178,141 @@ public static class CombatLabCli
         return true;
     }
 
+    private static bool RunTowerBenchmarkFile(string benchmarkFile, string? outputFile)
+    {
+        if (!TryLoadTowerBenchmarkSuite(benchmarkFile, out CombatLabTowerBenchmarkSuite suite, out string error))
+        {
+            GD.PrintErr($"[LAB] Failed to load tower benchmark file: {error}");
+            return false;
+        }
+
+        CombatLabTowerBenchmarkReport report;
+        try
+        {
+            var runner = new CombatLabTowerBenchmarkRunner();
+            report = runner.RunSuite(suite);
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"[LAB] Tower benchmark run failed: {ex.Message}");
+            return false;
+        }
+
+        GD.Print($"[LAB] Tower benchmark '{suite.Name}' mode={suite.Mode} scenarios={suite.Scenarios.Count} towers={report.TowerProfiles.Count}");
+        foreach (CombatLabTowerBenchmarkProfile profile in report.TowerProfiles.OrderByDescending(p => p.AvgNormalizedGlobal))
+        {
+            string flags = profile.Flags.Count > 0 ? string.Join("; ", profile.Flags) : "ok";
+            string label = string.Equals(profile.CaseId, profile.TowerId, StringComparison.Ordinal)
+                ? profile.TowerId
+                : $"{profile.CaseId} ({profile.TowerId})";
+            GD.Print(
+                $"[LAB] Tower {label}: global={profile.AvgNormalizedGlobal:0.00} role={profile.AvgNormalizedRole:0.00} cost_band={profile.CostBand} sensitivity={profile.MapPathSensitivity:0.00} flags={flags}");
+        }
+
+        if (report.TuningSuggestions.Count > 0)
+        {
+            GD.Print("[LAB] Suggested tuning deltas:");
+            foreach (CombatLabTowerBenchmarkSuggestion suggestion in report.TuningSuggestions)
+            {
+                string deltaText = string.Join(", ", suggestion.SuggestedDeltas.Select(kv => $"{kv.Key}:{kv.Value:+0.###;-0.###;0}"));
+                GD.Print($"[LAB]   {suggestion.TowerId}: {deltaText} ({suggestion.Reason})");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(outputFile))
+        {
+            string resolved = ResolvePath(outputFile!);
+            WriteJson(resolved, report);
+
+            string baseNoExt = Path.Combine(
+                Path.GetDirectoryName(resolved) ?? string.Empty,
+                Path.GetFileNameWithoutExtension(resolved));
+            string scenarioCsvPath = baseNoExt + ".scenarios.csv";
+            string towerCsvPath = baseNoExt + ".towers.csv";
+            WriteText(scenarioCsvPath, CombatLabTowerBenchmarkRunner.BuildScenarioCsv(report));
+            WriteText(towerCsvPath, CombatLabTowerBenchmarkRunner.BuildTowerProfileCsv(report));
+            GD.Print($"[LAB] Wrote benchmark CSV: {scenarioCsvPath}");
+            GD.Print($"[LAB] Wrote benchmark CSV: {towerCsvPath}");
+        }
+
+        return true;
+    }
+
+    private static bool RunModifierBenchmarkFile(string benchmarkFile, string? outputFile)
+    {
+        if (!TryLoadModifierBenchmarkSuite(benchmarkFile, out CombatLabModifierBenchmarkSuite suite, out string error))
+        {
+            GD.PrintErr($"[LAB] Failed to load modifier benchmark file: {error}");
+            return false;
+        }
+
+        CombatLabModifierBenchmarkReport report;
+        try
+        {
+            var runner = new CombatLabModifierBenchmarkRunner();
+            report = runner.RunSuite(suite);
+        }
+        catch (Exception ex)
+        {
+            GD.PrintErr($"[LAB] Modifier benchmark run failed: {ex}");
+            return false;
+        }
+
+        GD.Print(
+            $"[LAB] Modifier benchmark '{suite.Name}' mode={suite.Mode} scenarios={suite.Scenarios.Count} modifiers={report.ModifierProfiles.Count} rows={report.DeltaRows.Count}");
+        foreach (CombatLabModifierBenchmarkProfile profile in report.ModifierProfiles.OrderByDescending(p => p.AvgGainPct))
+        {
+            string flags = profile.Flags.Count > 0 ? string.Join("; ", profile.Flags) : "ok";
+            GD.Print(
+                $"[LAB] Modifier {profile.ModifierId}: class={profile.Classification} avg={profile.AvgGainPct:+0.00%;-0.00%;0.00%} best={profile.BestCaseGainPct:+0.00%;-0.00%;0.00%} spread={profile.CompatibilitySpread:0.00} useless={profile.UselessnessRate:0.00} abuse={profile.AbusePotential:0.00} flags={flags}");
+        }
+
+        if (report.PairRows.Count > 0)
+        {
+            int abusePairs = report.PairRows.Count(r => string.Equals(r.Classification, "suspected abuse combo", StringComparison.Ordinal));
+            int deadPairs = report.PairRows.Count(r => string.Equals(r.Classification, "suspected dead combo", StringComparison.Ordinal));
+            GD.Print($"[LAB] Pair probes: total={report.PairRows.Count} abuse={abusePairs} dead={deadPairs}");
+        }
+
+        if (report.Warnings.Count > 0)
+        {
+            GD.Print("[LAB] Warnings:");
+            foreach (string warning in report.Warnings)
+                GD.PrintErr($"[LAB]   {warning}");
+        }
+
+        if (report.TuningSuggestions.Count > 0)
+        {
+            GD.Print("[LAB] Suggested modifier tuning deltas:");
+            foreach (CombatLabModifierBenchmarkSuggestion suggestion in report.TuningSuggestions)
+            {
+                string deltaText = string.Join(", ", suggestion.SuggestedDeltas.Select(kv => $"{kv.Key}:{kv.Value:+0.###;-0.###;0}"));
+                GD.Print($"[LAB]   {suggestion.ModifierId}: {deltaText} ({suggestion.Reason})");
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(outputFile))
+        {
+            string resolved = ResolvePath(outputFile!);
+            WriteJson(resolved, report);
+
+            string baseNoExt = Path.Combine(
+                Path.GetDirectoryName(resolved) ?? string.Empty,
+                Path.GetFileNameWithoutExtension(resolved));
+            string deltaCsvPath = baseNoExt + ".deltas.csv";
+            string profileCsvPath = baseNoExt + ".profiles.csv";
+            string pairCsvPath = baseNoExt + ".pairs.csv";
+            WriteText(deltaCsvPath, CombatLabModifierBenchmarkRunner.BuildDeltaCsv(report));
+            WriteText(profileCsvPath, CombatLabModifierBenchmarkRunner.BuildProfileCsv(report));
+            WriteText(pairCsvPath, CombatLabModifierBenchmarkRunner.BuildPairCsv(report));
+            GD.Print($"[LAB] Wrote benchmark CSV: {deltaCsvPath}");
+            GD.Print($"[LAB] Wrote benchmark CSV: {profileCsvPath}");
+            GD.Print($"[LAB] Wrote benchmark CSV: {pairCsvPath}");
+        }
+
+        return true;
+    }
+
     private static CombatLabScenario CloneScenarioWithSeedOffset(CombatLabScenario source, int seedOffset)
     {
         return new CombatLabScenario
@@ -240,6 +381,72 @@ public static class CombatLabCli
         }
     }
 
+    private static bool TryLoadTowerBenchmarkSuite(string benchmarkFile, out CombatLabTowerBenchmarkSuite suite, out string error)
+    {
+        suite = new CombatLabTowerBenchmarkSuite();
+        error = string.Empty;
+
+        string fullPath = ResolvePath(benchmarkFile);
+        if (!File.Exists(fullPath))
+        {
+            error = $"File not found: {fullPath}";
+            return false;
+        }
+
+        try
+        {
+            string json = File.ReadAllText(fullPath);
+            var opts = JsonOptions();
+            CombatLabTowerBenchmarkSuite? parsed = JsonSerializer.Deserialize<CombatLabTowerBenchmarkSuite>(json, opts);
+            if (parsed == null)
+            {
+                error = "Tower benchmark JSON deserialized to null.";
+                return false;
+            }
+
+            suite = parsed;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    private static bool TryLoadModifierBenchmarkSuite(string benchmarkFile, out CombatLabModifierBenchmarkSuite suite, out string error)
+    {
+        suite = new CombatLabModifierBenchmarkSuite();
+        error = string.Empty;
+
+        string fullPath = ResolvePath(benchmarkFile);
+        if (!File.Exists(fullPath))
+        {
+            error = $"File not found: {fullPath}";
+            return false;
+        }
+
+        try
+        {
+            string json = File.ReadAllText(fullPath);
+            var opts = JsonOptions();
+            CombatLabModifierBenchmarkSuite? parsed = JsonSerializer.Deserialize<CombatLabModifierBenchmarkSuite>(json, opts);
+            if (parsed == null)
+            {
+                error = "Modifier benchmark JSON deserialized to null.";
+                return false;
+            }
+
+            suite = parsed;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
     private static JsonSerializerOptions JsonOptions() => new()
     {
         PropertyNameCaseInsensitive = true,
@@ -267,6 +474,15 @@ public static class CombatLabCli
         string json = JsonSerializer.Serialize(payload, JsonOptions());
         File.WriteAllText(resolved, json);
         GD.Print($"[LAB] Wrote report: {resolved}");
+    }
+
+    private static void WriteText(string path, string payload)
+    {
+        string resolved = ResolvePath(path);
+        string? dir = Path.GetDirectoryName(resolved);
+        if (!string.IsNullOrWhiteSpace(dir))
+            Directory.CreateDirectory(dir);
+        File.WriteAllText(resolved, payload);
     }
 
     private static string? GetArgValue(string[] args, string key)

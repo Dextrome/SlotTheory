@@ -359,7 +359,33 @@ Run a tuning sweep:
 --scene res://Scenes/Main.tscn -- --lab_sweep Data/combat_lab/sample_sweep.json --lab_out release/combat_lab_sweep.json
 ```
 
+Run tower benchmark prescreen (scenario-based per-tower profiling, JSON + CSV):
+
+```text
+--scene res://Scenes/Main.tscn -- --lab_tower_benchmark Data/combat_lab/tower_benchmark_core.json --lab_out release/combat_lab_tower_benchmark.json
+```
+
+Run modifier benchmark prescreen (baseline vs modified delta analysis, JSON + CSV):
+
+```text
+--scene res://Scenes/Main.tscn -- --lab_modifier_benchmark Data/combat_lab/modifier_benchmark_core.json --lab_out release/combat_lab_modifier_benchmark.json
+```
+
+`Data/combat_lab/tower_benchmark_core.json` is the starter suite for:
+- single tank target
+- small clustered wave
+- large swarm wave
+- fast fragile enemies
+- slow tanky enemies
+- short path
+- long path
+- dense choke
+- open lane
+
+`Data/combat_lab/modifier_benchmark_core.json` extends those scenarios with modifier delta contexts and selected pair probes.
+
 The automated tuning pipeline (`run_tuning_pipeline.ps1`) combines bot eval + scenario suite to iteratively optimize difficulty multipliers against win-rate targets.
+It can also run tower/modifier benchmark prescreens before full bot metrics (`-SkipTowerBenchmark` / `-SkipModifierBenchmark` to disable).
 
 ---
 

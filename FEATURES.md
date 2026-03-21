@@ -63,7 +63,11 @@ Platforms: Windows Desktop, Android (phone and tablet)
   - `SpectacleTriadDiversity`
 - Added surge differentiation: 10 named global surge archetypes, feel-keyed visual treatment (Detonation/Pressure/Neutral), multi-color ripples, and per-tower identity FX.
 - HowToPlay screens polished with procedural icons throughout (TowerIcon, ModifierIcon with accent tinting, dual icons for combo surges, feel-bar + icon for global surge archetypes).
-- **Automated tuning pipeline:** `run_tuning_pipeline.ps1` + `Scripts/Tools/CombatLab/` drive iterative difficulty optimization against bot win-rate targets. `SpectacleTuning.Current` overrides difficulty multipliers at runtime without recompiling.
+- **Automated tuning pipeline:** `run_tuning_pipeline.ps1` + `Scripts/Tools/CombatLab/` drive iterative difficulty optimization against bot win-rate targets. `SpectacleTuning.Current` overrides difficulty multipliers at runtime without recompiling. Demo and full-game builds are tuned independently via `-Demo` flag (see Demo / Full-Game Separation).
+- **CombatLab benchmark runners:** Two JSON-driven offline profiling tools for balance validation:
+  - `CombatLabTowerBenchmarkRunner` — scenario-based per-tower DPS profiling; invoke via `--lab_tower_benchmark <suite.json>`. Outputs JSON + CSV report comparing towers across wave counts, HP budgets, and modifier loadouts.
+  - `CombatLabModifierBenchmarkRunner` — baseline vs loadout damage delta analysis; invoke via `--lab_modifier_benchmark <suite.json>`. Measures individual modifier contributions and synergy pairs across shared scenarios.
+  - `CombatResolution.cs` extracted from `CombatSim` as a reusable chain-resolution helper used by both runners.
 - **Achievement system:** 13 achievements tracked via `AchievementManager` (autoload, persistent to `user://achievements.cfg`). Unlock toasts, dedicated achievements screen, and Steam forwarding via `SteamAchievements`. Gates content unlocks.
 - **Unlockable content:** Arc Emitter, Split Shot, and Rift Prism are gated behind campaign map clears (`Unlocks.cs`). Bots always have full unlock access for deterministic balance testing.
 - **Three difficulty modes:** Easy (no scaling), Normal (~75% bot win target), Hard (~50% bot win target). Multipliers live in `Balance.DifficultyMultipliers` and are overridable at runtime via `SpectacleTuning.Current`.
@@ -122,8 +126,27 @@ Platforms: Windows Desktop, Android (phone and tablet)
 `Balance.IsDemo` is evaluated at runtime via `OS.HasFeature("demo")`. Demo export presets are tagged with `custom_features="demo"` in `export_presets.cfg`; full-game presets are not.
 
 - **Map gating:** `MapDef.IsFullGame` flag marks full-game-only maps (e.g. Ridgeback). `MapSelectPanel` hides these in demo builds and shows locked placeholder rows with stub names instead.
-- **Content gating:** all other full-game content (enemies, wave compositions, etc.) that appears only in full-game maps is naturally excluded by the map gate.
+- **Enemy gating:** Shield Drone and Reverse Walker are full-game only. `DataLoader.GetWaveConfig()` zeroes their counts in demo builds. `SlotCodexPanel` hides their codex cards. `WaveSystem.BuildEndlessWaveConfig()` also suppresses them in demo.
+- **Content gating:** all other full-game content that appears only in full-game maps is naturally excluded by the map gate.
 - Bot always uses full unlock access regardless of `IsDemo` for deterministic balance testing.
+- **`--demo` CLI arg:** passes `Balance.SetDemoOverride(true)` so headless bot runs can simulate demo enemy composition without a demo export build. Used by the tuning pipeline's `-Demo` mode.
+
+### Separate Tuning Profiles
+
+Demo and full-game builds use separate tuning profiles because their enemy compositions differ (Shield Drone and Reverse Walker are absent from demo):
+
+```powershell
+# Tune demo build (no Shield Drone / Reverse Walker in bot sims):
+powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -Demo
+
+# Tune full game build:
+powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1
+```
+
+- `-Demo` run writes result to `Data/best_tuning_demo.json`.
+- Default run writes result to `Data/best_tuning_full.json`.
+- At startup, `GameController._Ready()` auto-loads the appropriate file via `SpectacleTuningLoader.TryLoadFromGodotResource`. If the file is absent, the hardcoded defaults in `SpectacleTuningProfile` are used as fallback.
+- An explicit `--tuning_file` arg (used by the pipeline during evaluation runs) always overrides the auto-load.
 
 ---
 

@@ -1,40 +1,40 @@
 {
-  "rapid_shooter": {
-    "Name": "Rapid Shooter",
-    "BaseDamage": 10.0,
-    "AttackInterval": 0.45,
-    "Range": 285.0,
-    "AppliesMark": false
-  },
-  "heavy_cannon": {
-    "Name": "Heavy Cannon",
-    "BaseDamage": 56.0,
-    "AttackInterval": 2.0,
-    "Range": 238.0,
-    "AppliesMark": false
-  },
-  "marker_tower": {
-    "Name": "Marker Tower",
-    "BaseDamage": 7.0,
-    "AttackInterval": 1.0,
-    "Range": 333.0,
-    "AppliesMark": true
-  },
-  "chain_tower": {
-    "Name": "Arc Emitter",
-    "BaseDamage": 18.0,
-    "AttackInterval": 1.2,
-    "Range": 257.0,
-    "AppliesMark": false,
-    "ChainCount": 2,
-    "ChainRange": 400.0,
-    "ChainDamageDecay": 0.6
-  },
-  "rift_prism": {
-    "Name": "Rift Sapper",
-    "BaseDamage": 22.0,
-    "AttackInterval": 0.98,
-    "Range": 230.0,
-    "AppliesMark": false
-  }
+    "rapid_shooter":  {
+                          "Name":  "Rapid Shooter",
+                          "BaseDamage":  10.0,
+                          "AttackInterval":  0.45,
+                          "Range":  285.0,
+                          "AppliesMark":  false
+                      },
+    "heavy_cannon":  {
+                         "Name":  "Heavy Cannon",
+                         "BaseDamage":  56.0,
+                         "AttackInterval":  2.0,
+                         "Range":  238.0,
+                         "AppliesMark":  false
+                     },
+    "marker_tower":  {
+                         "Name":  "Marker Tower",
+                         "BaseDamage":  7.0,
+                         "AttackInterval":  1.0,
+                         "Range":  333.0,
+                         "AppliesMark":  true
+                     },
+    "chain_tower":  {
+                        "Name":  "Arc Emitter",
+                        "BaseDamage":  17.25,
+                        "AttackInterval":  1.26,
+                        "Range":  257,
+                        "AppliesMark":  false,
+                        "ChainCount":  2,
+                        "ChainRange":  400.0,
+                        "ChainDamageDecay":  0.6
+                    },
+    "rift_prism":  {
+                       "Name":  "Rift Sapper",
+                       "BaseDamage":  22.0,
+                       "AttackInterval":  0.98,
+                       "Range":  230.0,
+                       "AppliesMark":  false
+                   }
 }

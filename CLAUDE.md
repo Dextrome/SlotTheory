@@ -98,7 +98,27 @@ dotnet build SlotTheory.sln
 - Minor spectacle trigger tier no longer exists, so surge/global surge metrics are the primary balancing signal.
 - 12 strategies cycle round-robin: `Random`, `TowerFirst`, `GreedyDps`, `MarkerSynergy`, `ChainFocus`, `SplitFocus`, `HeavyStack`, `RiftPrismFocus`, `SpectacleSingleStack`, `SpectacleComboPairing`, `SpectacleTriadDiversity`, `PlayerStyleKenny`.
 - Bot strategy sets: pass `--strategy-set optimization` (8 strategies focused on win-rate) or `--strategy-set edge` (3 edge-case strategies) to scope runs. Default (`all`) cycles all 12.
+- Pass `--demo` to any bot run to simulate demo build conditions: Shield Drone and Reverse Walker counts are zeroed via `Balance.SetDemoOverride(true)` (same gating as a real demo export).
 - Run `run_tuning_pipeline.ps1` for automated iterative tuning (generates seed from current `SpectacleTuning`, runs bot eval + scenario suite, outputs best profile).
+
+## Tuning Pipeline — Demo vs Full Game
+
+Demo and full game have different enemy compositions (Shield Drone and Reverse Walker are full-game only), so they require **separate tuning profiles**:
+
+```powershell
+# Tune for demo build (no Shield Drone / Reverse Walker):
+powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -Demo
+
+# Tune for full game build:
+powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1
+```
+
+- `-Demo` adds `--demo` to all Godot bot invocations and writes the result to `Data/best_tuning_demo.json`.
+- Without `-Demo`, result is written to `Data/best_tuning_full.json`.
+- Both files are tracked in git and shipped with the game.
+- At startup, `GameController._Ready()` auto-loads the appropriate file (`res://Data/best_tuning_demo.json` if `Balance.IsDemo`, else `res://Data/best_tuning_full.json`). If the file doesn't exist, the hardcoded defaults in `SpectacleTuningProfile` are used.
+- An explicit `--tuning_file` arg always overrides the auto-load (used by the pipeline itself during evaluation runs).
+- `Balance.IsDemo` is normally `OS.HasFeature("demo")` (set by export preset). The `--demo` CLI arg sets `Balance._isDemoOverride` to simulate this in headless runs without a demo export.
 
 ## Testing
 
@@ -407,10 +427,14 @@ If an idea requires a new system â†’ defer to "Project 2."
   - Split Shot: fires 2 projectiles at nearby enemies for 35% damage each (search radius 280px); **unlockable** via campaign map clear
   - Feedback Loop: kill instantly resets cooldown to zero
   - Chain Reaction: adds 1 bounce (60% decay/bounce); stacks add more bounces
-- **3 enemy types**:
+- **7 enemy types** (5 in demo; Shield Drone and Reverse Walker are full-game only):
   - Basic Walker: 65 HP wave 1, Ã-1.10/wave, 120px/s
   - Armored Walker: 3.5Ã- HP, 60px/s, first appears wave 6 (index 5)
-  - Swift Walker: 1.5Ã- HP, 240px/s, appears waves 10â€“19 (skips wave 12 and 20)
+  - Swift Walker: 1.5Ã- HP, 240px/s, appears waves 10â€”19 (skips wave 12 and 20)
+  - Splitter Walker: 1.8Ã- HP, 90px/s, splits into 2 fast shards on death; waves 9â€”15
+  - Splitter Shard: 0.55Ã- HP, 165px/s, spawns from Splitter death
+  - Shield Drone (**full game**): 1.8Ã- HP, 85px/s, projects 35% damage reduction aura to allies within 140px; waves 9â€”20
+  - Reverse Walker (**full game**): 1.35Ã- HP, 108px/s, jumps backward when hit hard; first appears wave 11
 - **10 player lives** â€” each leaked enemy costs 1 life; Armored Walker costs 2 lives (`Balance.StartingLives = 10`)
 - **20 waves**, 6 tower slots, max 3 modifiers per tower
 - **Extra draft picks**: `Balance.Wave1ExtraPicks` and `Balance.Wave15ExtraPicks` are both currently 0 (temporarily disabled)

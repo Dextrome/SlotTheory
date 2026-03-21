@@ -6690,7 +6690,7 @@ void fragment() {
 
 	public void NotifyOverkillSpill(ITowerView sourceTower, Vector2 worldPos, float spillDamage, float dealtDamage)
 	{
-		if (spillDamage <= 0f)
+		if (CurrentPhase != GamePhase.Wave || spillDamage <= 0f)
 			return;
 
 		// Track actual damage dealt (capped by target HP), not the attempted spill amount.
