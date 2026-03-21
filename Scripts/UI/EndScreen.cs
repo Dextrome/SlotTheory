@@ -380,7 +380,7 @@ public partial class EndScreen : CanvasLayer
 		Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
 	}
 
-	public void ShowWin(int kills, int damageDealt, float totalPlayTime, string buildSummary, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor, int livesRemaining = Balance.StartingLives, int totalWaves = Balance.TotalWaves)
+	public void ShowWin(int kills, int damageDealt, float totalPlayTime, string buildSummary, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor, int livesRemaining = Balance.StartingLives, int totalWaves = Balance.TotalWaves, int maxLives = Balance.StartingLives)
 	{
 		_continuingEndless = false;
 		_titleLabel.Text = "VICTORY";
@@ -388,7 +388,7 @@ public partial class EndScreen : CanvasLayer
 		_titleLabel.Modulate = isHardWin ? new Color(1.0f, 0.85f, 0.2f) : new Color(0.3f, 1.0f, 0.5f);
 		_subtitleLabel.Text = $"All {totalWaves} waves survived  ·  {livesRemaining} {(livesRemaining == 1 ? "life" : "lives")} remaining";
 		ShowDifficultyLabel();
-		_statsLabel.Text = $"Enemies killed: {kills}  ·  Damage: {damageDealt:N0}  ·  Lives: {livesRemaining}/{Balance.StartingLives}  ·  Time: {FormatTime(totalPlayTime)}";
+		_statsLabel.Text = $"Enemies killed: {kills}  ·  Damage: {damageDealt:N0}  ·  Lives: {livesRemaining}/{maxLives}  ·  Time: {FormatTime(totalPlayTime)}";
 		_statsLabel.Visible = true;
 		SetRunNameGradient(runName, runStartColor, runEndColor);
 		_runNameLabel.Visible = runName.Length > 0;

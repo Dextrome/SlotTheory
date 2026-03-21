@@ -92,6 +92,24 @@ public sealed class SpectacleTuningProfile
     public float EventScalarMultiplier { get; set; } = 1.0115f;
     [JsonPropertyName("second_stage_power_threshold")]
     public float SecondStagePowerThreshold { get; set; } = 0.95f;
+    // Easy mode base difficulty (was hardcoded 1.0x; now tunable so optimizer can hit ~90% win target).
+    [JsonPropertyName("easy_enemy_hp_multiplier")]
+    public float EasyEnemyHpMultiplier { get; set; } = 1f;
+    [JsonPropertyName("easy_enemy_count_multiplier")]
+    public float EasyEnemyCountMultiplier { get; set; } = 1f;
+    [JsonPropertyName("easy_spawn_interval_multiplier")]
+    public float EasySpawnIntervalMultiplier { get; set; } = 1f;
+
+    // Per-difficulty multiplier on the HpGrowthPerWave exponent base.
+    // Scales the 1.10^waveIndex curve - the dominant factor in late-wave (14-20) HP spikes.
+    // Values below 1.0 flatten the curve (less HP growth per wave = easier late game).
+    [JsonPropertyName("easy_hp_growth_multiplier")]
+    public float EasyHpGrowthMultiplier { get; set; } = 1f;
+    [JsonPropertyName("normal_hp_growth_multiplier")]
+    public float NormalHpGrowthMultiplier { get; set; } = 1f;
+    [JsonPropertyName("hard_hp_growth_multiplier")]
+    public float HardHpGrowthMultiplier { get; set; } = 1f;
+
     [JsonPropertyName("normal_enemy_hp_multiplier")]
     public float NormalEnemyHpMultiplier { get; set; } = 1f;
     [JsonPropertyName("normal_enemy_count_multiplier")]
@@ -356,6 +374,12 @@ public sealed class SpectacleTuningProfile
             DiversityMultiplierScale = MathF.Max(0f, DiversityMultiplierScale),
             EventScalarMultiplier = MathF.Max(0f, EventScalarMultiplier),
             SecondStagePowerThreshold = Math.Clamp(SecondStagePowerThreshold, 0.05f, 3f),
+            EasyEnemyHpMultiplier = Math.Clamp(EasyEnemyHpMultiplier, 0.1f, 5f),
+            EasyEnemyCountMultiplier = Math.Clamp(EasyEnemyCountMultiplier, 0.1f, 5f),
+            EasySpawnIntervalMultiplier = Math.Clamp(EasySpawnIntervalMultiplier, 0.2f, 3f),
+            EasyHpGrowthMultiplier = Math.Clamp(EasyHpGrowthMultiplier, 0.5f, 2f),
+            NormalHpGrowthMultiplier = Math.Clamp(NormalHpGrowthMultiplier, 0.5f, 2f),
+            HardHpGrowthMultiplier = Math.Clamp(HardHpGrowthMultiplier, 0.5f, 2f),
             NormalEnemyHpMultiplier = Math.Clamp(NormalEnemyHpMultiplier, 0.1f, 5f),
             NormalEnemyCountMultiplier = Math.Clamp(NormalEnemyCountMultiplier, 0.1f, 5f),
             NormalSpawnIntervalMultiplier = Math.Clamp(NormalSpawnIntervalMultiplier, 0.2f, 3f),

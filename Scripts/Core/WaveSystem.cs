@@ -87,7 +87,7 @@ public class WaveSystem
             "shield_drone"    => Balance.BaseEnemyHp * Balance.ShieldDroneHpMultiplier,
             _                 => Balance.BaseEnemyHp,
         };
-        float scaledHp = baseHp * MathF.Pow(Balance.HpGrowthPerWave, waveIndex);
+        float scaledHp = baseHp * MathF.Pow(Balance.HpGrowthPerWave * Balance.GetHpGrowthMultiplier(difficulty), waveIndex);
         float hp = scaledHp * Balance.GetEnemyHpMultiplier(difficulty);
         if (endlessDepth > 0)
             hp *= MathF.Pow(1f + Balance.EndlessEnemyHpScalePerWave, endlessDepth);

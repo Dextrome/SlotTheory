@@ -225,6 +225,12 @@ function New-NeutralTuningProfile {
         diversity_multiplier_scale = 1.0
         event_scalar_multiplier = 1.0
         second_stage_power_threshold = 0.95
+        easy_enemy_hp_multiplier = 1.0
+        easy_enemy_count_multiplier = 1.0
+        easy_spawn_interval_multiplier = 1.0
+        easy_hp_growth_multiplier = 1.0
+        normal_hp_growth_multiplier = 1.0
+        hard_hp_growth_multiplier = 1.0
         normal_enemy_hp_multiplier = 1.24
         normal_enemy_count_multiplier = 1.1
         normal_spawn_interval_multiplier = 0.95
@@ -354,6 +360,12 @@ function Normalize-TuningProfile {
     if ($props -contains "diversity_multiplier_scale") { $p.diversity_multiplier_scale = [double]$InputProfile.diversity_multiplier_scale }
     if ($props -contains "event_scalar_multiplier") { $p.event_scalar_multiplier = [double]$InputProfile.event_scalar_multiplier }
     if ($props -contains "second_stage_power_threshold") { $p.second_stage_power_threshold = [double]$InputProfile.second_stage_power_threshold }
+    if ($props -contains "easy_enemy_hp_multiplier") { $p.easy_enemy_hp_multiplier = [double]$InputProfile.easy_enemy_hp_multiplier }
+    if ($props -contains "easy_enemy_count_multiplier") { $p.easy_enemy_count_multiplier = [double]$InputProfile.easy_enemy_count_multiplier }
+    if ($props -contains "easy_spawn_interval_multiplier") { $p.easy_spawn_interval_multiplier = [double]$InputProfile.easy_spawn_interval_multiplier }
+    if ($props -contains "easy_hp_growth_multiplier") { $p.easy_hp_growth_multiplier = [double]$InputProfile.easy_hp_growth_multiplier }
+    if ($props -contains "normal_hp_growth_multiplier") { $p.normal_hp_growth_multiplier = [double]$InputProfile.normal_hp_growth_multiplier }
+    if ($props -contains "hard_hp_growth_multiplier") { $p.hard_hp_growth_multiplier = [double]$InputProfile.hard_hp_growth_multiplier }
     if ($props -contains "normal_enemy_hp_multiplier") { $p.normal_enemy_hp_multiplier = [double]$InputProfile.normal_enemy_hp_multiplier }
     if ($props -contains "normal_enemy_count_multiplier") { $p.normal_enemy_count_multiplier = [double]$InputProfile.normal_enemy_count_multiplier }
     if ($props -contains "normal_spawn_interval_multiplier") { $p.normal_spawn_interval_multiplier = [double]$InputProfile.normal_spawn_interval_multiplier }
@@ -449,13 +461,20 @@ function Normalize-TuningProfile {
     $p.diversity_multiplier_scale = [Math]::Round((Clamp-Double -Value $p.diversity_multiplier_scale -Min 0.0 -Max 4.0), 4)
     $p.event_scalar_multiplier = [Math]::Round((Clamp-Double -Value $p.event_scalar_multiplier -Min 0.0 -Max 4.0), 4)
     $p.second_stage_power_threshold = [Math]::Round((Clamp-Double -Value $p.second_stage_power_threshold -Min 0.05 -Max 3.0), 4)
-    # Requested lower bounds for enemy toughness/count scaling.
-    $p.normal_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_enemy_hp_multiplier -Min 1.0 -Max 5.0), 4)
-    $p.normal_enemy_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_enemy_count_multiplier -Min 1.0 -Max 5.0), 4)
-    $p.normal_spawn_interval_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_spawn_interval_multiplier -Min 0.2 -Max 0.99), 4)
-    $p.hard_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_enemy_hp_multiplier -Min 1.05 -Max 5.0), 4)
-    $p.hard_enemy_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_enemy_count_multiplier -Min 1.05 -Max 5.0), 4)
-    $p.hard_spawn_interval_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_spawn_interval_multiplier -Min 0.2 -Max 0.98), 4)
+    $p.easy_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_enemy_hp_multiplier -Min 0.3 -Max 2.0), 4)
+    $p.easy_enemy_count_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_enemy_count_multiplier -Min 0.3 -Max 2.0), 4)
+    $p.easy_spawn_interval_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_spawn_interval_multiplier -Min 0.5 -Max 2.0), 4)
+    $p.easy_hp_growth_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_hp_growth_multiplier -Min 0.5 -Max 1.5), 4)
+    $p.normal_hp_growth_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_hp_growth_multiplier -Min 0.5 -Max 1.5), 4)
+    $p.hard_hp_growth_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_hp_growth_multiplier -Min 0.5 -Max 1.5), 4)
+    # Removed min=1.0 floor - optimizer needs to be able to make Normal/Hard easier than base waves.json
+    # (prior floor prevented convergence toward 70%/40% win targets when base waves were already too hard).
+    $p.normal_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_enemy_hp_multiplier -Min 0.5 -Max 5.0), 4)
+    $p.normal_enemy_count_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_enemy_count_multiplier -Min 0.5 -Max 5.0), 4)
+    $p.normal_spawn_interval_multiplier = [Math]::Round((Clamp-Double -Value $p.normal_spawn_interval_multiplier -Min 0.3 -Max 2.0), 4)
+    $p.hard_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_enemy_hp_multiplier -Min 0.6 -Max 5.0), 4)
+    $p.hard_enemy_count_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_enemy_count_multiplier -Min 0.6 -Max 5.0), 4)
+    $p.hard_spawn_interval_multiplier = [Math]::Round((Clamp-Double -Value $p.hard_spawn_interval_multiplier -Min 0.3 -Max 2.0), 4)
     $p.easy_tanky_count_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_tanky_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.easy_swift_count_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_swift_count_multiplier -Min 0.1 -Max 5.0), 4)
     $p.easy_splitter_count_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_splitter_count_multiplier -Min 0.1 -Max 5.0), 4)
@@ -1281,18 +1300,24 @@ function New-MutatedTuningProfile {
     # Difficulty multipliers: primary win-rate levers. Skipped in SpectacleOnlyMode since
     # difficulty curve is already set and we don't want those params drifting during spectacle tuning.
     if (-not $SpectacleOnlyMode) {
+        $changed += Apply-Mutation -Obj $candidate -Name "easy_enemy_hp_multiplier" -Step (0.08 * $scale) -Min 0.3 -Max 2.0 -Chance 0.70
+        $changed += Apply-Mutation -Obj $candidate -Name "easy_enemy_count_multiplier" -Step (0.08 * $scale) -Min 0.3 -Max 2.0 -Chance 0.70
+        $changed += Apply-Mutation -Obj $candidate -Name "easy_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.5 -Max 2.0 -Chance 0.70
+        $changed += Apply-Mutation -Obj $candidate -Name "easy_hp_growth_multiplier" -Step (0.05 * $scale) -Min 0.5 -Max 1.5 -Chance 0.65
+        $changed += Apply-Mutation -Obj $candidate -Name "normal_hp_growth_multiplier" -Step (0.05 * $scale) -Min 0.5 -Max 1.5 -Chance 0.80
         $changed += Apply-Mutation -Obj $candidate -Name "easy_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
         $changed += Apply-Mutation -Obj $candidate -Name "easy_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
         $changed += Apply-Mutation -Obj $candidate -Name "easy_splitter_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
         $changed += Apply-Mutation -Obj $candidate -Name "easy_reverse_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.35
         $changed += Apply-Mutation -Obj $candidate -Name "easy_shield_drone_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.35
-        $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
-        $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.0 -Max 5.0 -Chance 0.80
-        $changed += Apply-Mutation -Obj $candidate -Name "normal_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.99 -Chance 0.80
+        $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 0.5 -Max 5.0 -Chance 0.80
+        $changed += Apply-Mutation -Obj $candidate -Name "normal_enemy_count_multiplier" -Step (0.08 * $scale) -Min 0.5 -Max 5.0 -Chance 0.80
+        $changed += Apply-Mutation -Obj $candidate -Name "normal_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.3 -Max 2.0 -Chance 0.80
         if (-not $FreezeHardParams) {
-            $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
-            $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_count_multiplier" -Step (0.08 * $scale) -Min 1.05 -Max 5.0 -Chance 0.80
-            $changed += Apply-Mutation -Obj $candidate -Name "hard_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.2 -Max 0.98 -Chance 0.80
+            $changed += Apply-Mutation -Obj $candidate -Name "hard_hp_growth_multiplier" -Step (0.05 * $scale) -Min 0.5 -Max 1.5 -Chance 0.80
+            $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_hp_multiplier" -Step (0.10 * $scale) -Min 0.6 -Max 5.0 -Chance 0.80
+            $changed += Apply-Mutation -Obj $candidate -Name "hard_enemy_count_multiplier" -Step (0.08 * $scale) -Min 0.6 -Max 5.0 -Chance 0.80
+            $changed += Apply-Mutation -Obj $candidate -Name "hard_spawn_interval_multiplier" -Step (0.06 * $scale) -Min 0.3 -Max 2.0 -Chance 0.80
         }
         $changed += Apply-Mutation -Obj $candidate -Name "normal_tanky_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50
         $changed += Apply-Mutation -Obj $candidate -Name "normal_swift_count_multiplier" -Step (0.08 * $scale) -Min 0.1 -Max 5.0 -Chance 0.50

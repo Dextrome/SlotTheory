@@ -191,7 +191,7 @@ public partial class AchievementManager : Node
             if (Unlocks.ShouldUnlockRiftPrism(state, difficulty))
                 TryUnlock(Unlocks.RiftPrismAchievementId);
 
-            if (state.Lives == Balance.StartingLives)
+            if (state.Lives == state.MaxLives)
                 TryUnlock("FLAWLESS");
 
             if (state.Lives == 1)
@@ -323,7 +323,7 @@ public partial class AchievementManager : Node
         // ── Near-misses: things that almost happened this run ─────────────
         if (won)
         {
-            int livesLost = Balance.StartingLives - state.Lives;
+            int livesLost = state.MaxLives - state.Lives;
             if (!IsUnlocked("FLAWLESS") && livesLost > 0 && livesLost <= 3)
                 hints.Add($"Almost FLAWLESS - lost {livesLost} {(livesLost == 1 ? "life" : "lives")}");
 

@@ -15,7 +15,7 @@ public static class Balance
     // Use this to gate all full-game-only content. Never hardcode true/false here.
     // _isDemoOverride allows headless bot runs to pass --demo and simulate demo conditions.
     private static bool? _isDemoOverride;
-    public static bool IsDemo => _isDemoOverride ?? Godot.OS.HasFeature("demo");
+    public static bool IsDemo => _isDemoOverride ?? (Godot.OS.HasFeature("demo") || System.Array.IndexOf(Godot.OS.GetCmdlineUserArgs(), "--demo") >= 0);
     /// <summary>Called by GameController when --demo arg is detected. Survives scene reloads.</summary>
     public static void SetDemoOverride(bool isDemo) => _isDemoOverride = isDemo;
 
@@ -49,7 +49,14 @@ public static class Balance
         14 => Wave15ExtraPicks,
         _  => 0
     };
-    public const int StartingLives = 10;
+    public const int StartingLives = 10; // fallback / default param sentinel -- prefer GetStartingLives(difficulty)
+    public static int GetStartingLives(DifficultyMode difficulty) => difficulty switch
+    {
+        DifficultyMode.Easy   => 25,
+        DifficultyMode.Normal => 20,
+        DifficultyMode.Hard   => 15,
+        _                     => StartingLives,
+    };
     public const int MaxModifiersPerTower = 3;
     public const int DraftOptionsCount = 5;
     public const int DraftTowerOptions = 2;             // when free slots exist
@@ -185,7 +192,7 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
 
     public static float GetEnemyHpMultiplier(DifficultyMode difficulty) => difficulty switch
     {
-        DifficultyMode.Easy => DifficultyMultipliers.EasyEnemyHpMultiplier,
+        DifficultyMode.Easy => ClampDifficultyMultiplier(SpectacleTuning.Current.EasyEnemyHpMultiplier, 0.1f, 5f),
         DifficultyMode.Normal => ClampDifficultyMultiplier(SpectacleTuning.Current.NormalEnemyHpMultiplier, 0.1f, 5f),
         DifficultyMode.Hard => ClampDifficultyMultiplier(SpectacleTuning.Current.HardEnemyHpMultiplier, 0.1f, 5f),
         _ => 1.0f
@@ -193,7 +200,7 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
 
     public static float GetEnemyCountMultiplier(DifficultyMode difficulty) => difficulty switch
     {
-        DifficultyMode.Easy => DifficultyMultipliers.EasyEnemyCountMultiplier,
+        DifficultyMode.Easy => ClampDifficultyMultiplier(SpectacleTuning.Current.EasyEnemyCountMultiplier, 0.1f, 5f),
         DifficultyMode.Normal => ClampDifficultyMultiplier(SpectacleTuning.Current.NormalEnemyCountMultiplier, 0.1f, 5f),
         DifficultyMode.Hard => ClampDifficultyMultiplier(SpectacleTuning.Current.HardEnemyCountMultiplier, 0.1f, 5f),
         _ => 1.0f
@@ -201,9 +208,17 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
 
     public static float GetSpawnIntervalMultiplier(DifficultyMode difficulty) => difficulty switch
     {
-        DifficultyMode.Easy => DifficultyMultipliers.EasySpawnIntervalMultiplier,
+        DifficultyMode.Easy => ClampDifficultyMultiplier(SpectacleTuning.Current.EasySpawnIntervalMultiplier, 0.2f, 3f),
         DifficultyMode.Normal => ClampDifficultyMultiplier(SpectacleTuning.Current.NormalSpawnIntervalMultiplier, 0.2f, 3f),
         DifficultyMode.Hard => ClampDifficultyMultiplier(SpectacleTuning.Current.HardSpawnIntervalMultiplier, 0.2f, 3f),
+        _ => 1.0f
+    };
+
+    public static float GetHpGrowthMultiplier(DifficultyMode difficulty) => difficulty switch
+    {
+        DifficultyMode.Easy => ClampDifficultyMultiplier(SpectacleTuning.Current.EasyHpGrowthMultiplier, 0.5f, 2f),
+        DifficultyMode.Normal => ClampDifficultyMultiplier(SpectacleTuning.Current.NormalHpGrowthMultiplier, 0.5f, 2f),
+        DifficultyMode.Hard => ClampDifficultyMultiplier(SpectacleTuning.Current.HardHpGrowthMultiplier, 0.5f, 2f),
         _ => 1.0f
     };
 

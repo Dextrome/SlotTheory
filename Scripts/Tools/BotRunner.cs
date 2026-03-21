@@ -1252,8 +1252,8 @@ public BotRunner(
                 .Where(r => r.WaveLives.Length > w)
                 .Select(r => r.WaveLives[w])
                 .ToList();
-            float avgLives = livesAfterWave.Count > 0 ? (float)livesAfterWave.Average() : Balance.StartingLives;
-            float livesLost = Balance.StartingLives - avgLives;
+            float avgLives = livesAfterWave.Count > 0 ? (float)livesAfterWave.Average() : Balance.GetStartingLives(difficultyForConfig);
+            float livesLost = Balance.GetStartingLives(difficultyForConfig) - avgLives;
             
             GD.Print($"Wave {waveNum,2}: {lossRate,5:0.0%} loss rate, {livesLost,4:0.1} avg lives lost | " +
                     $"Config: {waveConfig.EnemyCount} basic, {waveConfig.TankyCount} tanky, {waveConfig.SwiftCount} swift, {waveConfig.SplitterCount} splitter, {waveConfig.ReverseCount} reverse, " +

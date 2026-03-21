@@ -669,7 +669,7 @@ public partial class GameController : Node
 				SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy,
 				won: false,
 				isTutorialRun: _tutorialManager != null) ?? System.Array.Empty<string>();
-			int livesLost = Balance.StartingLives - _runState.Lives;
+			int livesLost = _runState.MaxLives - _runState.Lives;
 			SoundManager.Instance?.Play("game_over");
 				string runName = BuildRunName(registerInHistory: true, wonOverride: false, waveReachedOverride: _runState.WaveIndex + 1);
 			var runColors = BuildRunNameColors();
@@ -728,7 +728,7 @@ public partial class GameController : Node
 				_endScreen.SetLeaderboardContext(scorePayload.MapId, scorePayload.Difficulty);
 				ApplySurgeProfileToEndScreen();
 				if (_tutorialManager != null) _endScreen.SetTutorialMode(true);
-			_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end, _runState.Lives, _mapTotalWaves);
+			_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end, _runState.Lives, _mapTotalWaves, _runState.MaxLives);
 				if (_tutorialManager == null) _endScreen.SetLeaderboardStatus(leaderboardLine);
 				FinalizeSurgeHintingRun(won: true);
 				var winGoalHint = AchievementManager.Instance?.GetGoalHint(_runState, scorePayload.Difficulty, won: true);
@@ -876,7 +876,8 @@ public partial class GameController : Node
 			: snapshot.MapId;
 		_runState.RngSeed = snapshot.RngSeed;
 		_runState.WaveIndex = Mathf.Clamp(snapshot.WaveIndex, 0, Balance.TotalWaves - 1);
-		_runState.Lives = Mathf.Clamp(snapshot.Lives, 0, Balance.StartingLives);
+		_runState.MaxLives = Balance.GetStartingLives(SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal);
+		_runState.Lives = Mathf.Clamp(snapshot.Lives, 0, _runState.MaxLives);
 		_runState.TotalKills = Mathf.Max(0, snapshot.TotalKills);
 		_runState.TotalDamageDealt = Mathf.Max(0, snapshot.TotalDamageDealt);
 		_runState.TotalPlayTime = Mathf.Max(0f, snapshot.TotalPlayTime);
@@ -1068,6 +1069,7 @@ public partial class GameController : Node
 		
 		_runAbandoned = false;
 		_currentDraftOptions = null;
+		_runState.MaxLives = Balance.GetStartingLives(SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal);
 		_runState.Reset();
 		_combatSim.ResetForWave();
 		_endScreen.Visible = false;
@@ -1103,7 +1105,7 @@ public partial class GameController : Node
 		if (_botRunner != null)
 			ResetBotTraceBuffer();
 		ClearUndoPlacementState();
-		_hudPanel.Refresh(1, Balance.StartingLives);
+		_hudPanel.Refresh(1, _runState.MaxLives);
 		_hudPanel.SetBuildName("", visible: false);
 		_hudPanel.ResetSpeed();
 		_hudPanel.SetGlobalSurgeReady(false);

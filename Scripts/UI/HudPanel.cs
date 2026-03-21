@@ -289,7 +289,7 @@ public partial class HudPanel : CanvasLayer
 
         _livesLabel = new Label
         {
-            Text = $"Lives: {Balance.StartingLives}",
+            Text = $"Lives: --",
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment = VerticalAlignment.Center,
             AnchorLeft = 0.5f,

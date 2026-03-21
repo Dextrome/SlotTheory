@@ -27,7 +27,8 @@ public class WaveReport
 public class RunState
 {
     public int WaveIndex { get; set; } = 0;
-    public int Lives { get; set; } = Balance.StartingLives;
+    public int Lives    { get; set; } = Balance.StartingLives;
+    public int MaxLives { get; set; } = Balance.StartingLives;
     public SlotInstance[] Slots { get; } = new SlotInstance[Balance.SlotCount];
     public List<EnemyInstance> EnemiesAlive { get; } = new();
     public int EnemiesSpawnedThisWave { get; set; } = 0;
@@ -303,7 +304,7 @@ public class RunState
     public void Reset()
     {
         WaveIndex = 0;
-        Lives = Balance.StartingLives;
+        Lives = MaxLives; // MaxLives set by GameController after Reset() based on difficulty
         EnemiesAlive.Clear();
         EnemiesSpawnedThisWave = 0;
         WaveTime = 0f;
