@@ -279,12 +279,15 @@ public partial class TowerInstance : Node2D, ITowerView
         float fill   = Mathf.Clamp(1f - Cooldown / AttackInterval, 0f, 1f);
         const float r = 21f;
 
-        // Dim background ring
+        // When full (mine cap reached or pre-fire), draw the background ring brighter
+        // and skip the charge arc: drawing from -π/2 to -π/2+2π causes a seam artifact
+        // at the top where the arc start and end points coincide.
+        bool atFull = fill >= 0.999f;
         DrawArc(Vector2.Zero, r, 0f, Mathf.Tau, 48,
-            new Color(BodyColor.R, BodyColor.G, BodyColor.B, 0.16f), 2f);
+            new Color(BodyColor.R, BodyColor.G, BodyColor.B, atFull ? 0.50f : 0.16f), 2f);
 
-        // Filled charge arc - clockwise from top
-        if (fill > 0.01f)
+        // Filled charge arc - clockwise from top (only when not fully charged)
+        if (fill > 0.01f && !atFull)
         {
             float start = -Mathf.Pi / 2f;
             float end   = start + fill * Mathf.Tau;

@@ -255,7 +255,7 @@ public partial class SlotCodexPanel : Node
         parent.AddChild(scroll);
 
         var inner = new MarginContainer();
-        inner.AddThemeConstantOverride("margin_left", 2);
+        inner.AddThemeConstantOverride("margin_left", 10);  // ≥ ShadowSize (8) so hover glow isn't clipped
         inner.AddThemeConstantOverride("margin_right", 2);
         inner.AddThemeConstantOverride("margin_top", 4);
         inner.AddThemeConstantOverride("margin_bottom", 8);

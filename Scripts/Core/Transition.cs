@@ -22,8 +22,8 @@ public partial class Transition : CanvasLayer
     private bool _postFxEnabled;
     private Vector2 _cachedViewportSize = Vector2.Zero;
 
-    private const float FadeOutSeconds = 0.34f;
-    private const float FadeInSeconds  = 0.40f;
+    private const float FadeOutSeconds = 0.20f;
+    private const float FadeInSeconds  = 0.26f;
 
     private static readonly Color TintColor     = new Color(0.15f, 0.05f, 0.26f, 0f);
     private static readonly Color GradeColor    = new Color(0.20f, 0.08f, 0.30f, 0f);
@@ -235,15 +235,15 @@ public partial class Transition : CanvasLayer
             fx.SetParallel(true);
             fx.TweenProperty(_scanline, "color:a", 0.30f, 0.12f)
               .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
-            fx.TweenProperty(_scanline, "position:y", -10f, FadeInSeconds * 1.10f)
+            fx.TweenProperty(_scanline, "position:y", -10f, FadeInSeconds * 0.85f)
               .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
             fx.TweenProperty(_sweep, "color:a", 0.16f, 0.14f)
               .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
-            fx.TweenProperty(_sweep, "position:x", -_sweep.Size.X, FadeInSeconds * 1.15f)
+            fx.TweenProperty(_sweep, "position:x", -_sweep.Size.X, FadeInSeconds * 0.85f)
               .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
             fx.Chain();
-            fx.TweenProperty(_scanline, "color:a", 0f, 0.18f);
-            fx.TweenProperty(_sweep, "color:a", 0f, 0.18f);
+            fx.TweenProperty(_scanline, "color:a", 0f, 0.14f);
+            fx.TweenProperty(_sweep, "color:a", 0f, 0.14f);
         }
     }
 

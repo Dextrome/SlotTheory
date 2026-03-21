@@ -119,10 +119,12 @@ public partial class MapEditorPanel : Node
         _undoStack.Push(before);
         if (_undoStack.Count > MaxUndoDepth)
         {
-            // Trim oldest by rebuilding (Stack doesn't support RemoveAt)
+            // Trim oldest by rebuilding (Stack doesn't support RemoveAt).
+            // ToArray() returns LIFO order: arr[0]=newest, arr[N]=oldest.
+            // Push in reverse so newest ends up on top.
             var arr = _undoStack.ToArray();
             _undoStack.Clear();
-            for (int i = 0; i < MaxUndoDepth - 1; i++)
+            for (int i = MaxUndoDepth - 1; i >= 0; i--)
                 _undoStack.Push(arr[i]);
         }
         _redoStack.Clear();
@@ -210,42 +212,46 @@ public partial class MapEditorPanel : Node
             ShowValidationPanel(errors);
             return;
         }
-        SaveDef(def);
-        NavigateBack();
+        if (SaveDef(def)) NavigateBack();
     }
 
-    private void SaveDef(MapDef def)
+    private bool SaveDef(MapDef def)
     {
         if (!CustomMapManager.Save(def))
         {
             ShowMessage("Save failed -- check app user data permissions.");
-            return;
+            return false;
         }
+        _editingMapId = def.Id;   // commit ID only on successful save
         DataLoader.RegisterCustomMap(def);
         _hasUnsavedChanges = false;
         MapEditorState.LastEditedMapId = def.Id;
         UpdateHeaderName();
         RefreshMapList();
         SoundManager.Instance?.Play("ui_select");
+        return true;
     }
 
     private void OnDuplicateMap(string sourceId)
     {
-        try
+        ConfirmDiscardIfNeeded(() =>
         {
-            var src = DataLoader.GetMapDef(sourceId);
-            string newId = CustomMapManager.GenerateNewId();
-            var dup = src with { Id = newId, Name = src.Name + " (copy)", IsCustom = true };
-            if (!CustomMapManager.Save(dup)) return;
-            DataLoader.RegisterCustomMap(dup);
-            LoadMap(newId);
-            RefreshMapList();
-            MarkDirty();
-        }
-        catch (System.Exception ex)
-        {
-            GD.PrintErr($"[MapEditor] Duplicate failed: {ex.Message}");
-        }
+            try
+            {
+                var src = DataLoader.GetMapDef(sourceId);
+                string newId = CustomMapManager.GenerateNewId();
+                var dup = src with { Id = newId, Name = src.Name + " (copy)", IsCustom = true };
+                if (!CustomMapManager.Save(dup)) return;
+                DataLoader.RegisterCustomMap(dup);
+                LoadMap(newId);
+                RefreshMapList();
+                MarkDirty();
+            }
+            catch (System.Exception ex)
+            {
+                GD.PrintErr($"[MapEditor] Duplicate failed: {ex.Message}");
+            }
+        });
     }
 
     private void OnDeleteMap(string id)
@@ -269,7 +275,7 @@ public partial class MapEditorPanel : Node
             return;
         }
         // Save first so GameController can load it
-        SaveDef(def);
+        if (!SaveDef(def)) return;
 
         MapEditorState.IsPlaytesting = true;
         MapEditorState.PlaytestMapId = def.Id;
@@ -341,17 +347,13 @@ public partial class MapEditorPanel : Node
                 errors.Add($"Path is too short ({totalLen:F0} px) -- enemies need at least 600 px to traverse.");
         }
 
-        // Path routing: self-intersections make gameplay impossible
-        for (int a = 0; a < waypoints.Count - 1; a++)
-            for (int b = a + 2; b < waypoints.Count - 1; b++)
-                if (PathSegmentsIntersect(waypoints[a], waypoints[a + 1], waypoints[b], waypoints[b + 1]))
-                    errors.Add($"Path self-intersects between segments {a + 1}–{a + 2} and {b + 1}–{b + 2}.");
 
         if (errors.Count > 0) return false;
 
-        string desc    = (_descField?.Text ?? "").Trim();
-        string mapId   = _editingMapId.Length > 0 ? _editingMapId : CustomMapManager.GenerateNewId();
-        _editingMapId  = mapId;
+        string desc  = (_descField?.Text ?? "").Trim();
+        // Resolve ID without side effects: callers that need a persistent ID
+        // (OnSave, OnPlaytest) will call EnsureMapId() before using the result.
+        string mapId = _editingMapId.Length > 0 ? _editingMapId : CustomMapManager.GenerateNewId();
 
         def = new MapDef(
             Id:          mapId,
@@ -365,25 +367,6 @@ public partial class MapEditorPanel : Node
         return true;
     }
 
-    /// <summary>
-    /// Returns true if the open segment (p1,p2) properly crosses (p3,p4).
-    /// Endpoints touching (t or u ≈ 0 or 1) are not counted as intersections
-    /// so that a chain of connected waypoints doesn't self-report.
-    /// </summary>
-    private static bool PathSegmentsIntersect(Vector2 p1, Vector2 p2, Vector2 p3, Vector2 p4)
-    {
-        static float Cross2D(Vector2 a, Vector2 b) => a.X * b.Y - a.Y * b.X;
-        Vector2 d1 = p2 - p1;
-        Vector2 d2 = p4 - p3;
-        float denom = Cross2D(d1, d2);
-        if (MathF.Abs(denom) < 1e-6f) return false; // parallel / collinear
-        Vector2 d3 = p3 - p1;
-        float t = Cross2D(d3, d2) / denom;
-        float u = Cross2D(d3, d1) / denom;
-        // Use a small epsilon at endpoints so adjacent segments don't false-positive
-        const float eps = 0.001f;
-        return t > eps && t < 1f - eps && u > eps && u < 1f - eps;
-    }
 
     // ── UI helpers ────────────────────────────────────────────────────────────
 
@@ -958,7 +941,7 @@ public partial class MapEditorPanel : Node
     private Control BuildLeftPanel()
     {
         var panel = new PanelContainer();
-        panel.CustomMinimumSize = new Vector2(154, 0);
+        panel.CustomMinimumSize = new Vector2(175, 0);
         panel.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
         UITheme.ApplyGlassChassisPanel(panel,
             bg: new Color(0.022f, 0.030f, 0.084f, 0.97f),
@@ -969,7 +952,10 @@ public partial class MapEditorPanel : Node
         var scroll = new ScrollContainer();
         scroll.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
         scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
-        scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
+        // ShowNever (not Disabled) so the scroll container doesn't propagate
+        // content minimum width up the layout tree -- lets CustomMinimumSize
+        // on the panel actually control the width.
+        scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.ShowNever;
         panel.AddChild(scroll);
 
         var vbox = new VBoxContainer();
@@ -1026,14 +1012,14 @@ public partial class MapEditorPanel : Node
         undoRow.AddThemeConstantOverride("separation", 3);
         vbox.AddChild(undoRow);
 
-        _undoBtn = MakeBtn("Undo  [Ctrl+Z]");
+        _undoBtn = MakeBtn("Undo [Z]");
         UITheme.ApplyMutedStyle(_undoBtn);
         _undoBtn.Disabled = true;
         _undoBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         _undoBtn.Pressed += () => { Undo(); SoundManager.Instance?.Play("ui_hover"); };
         undoRow.AddChild(_undoBtn);
 
-        _redoBtn = MakeBtn("Redo  [Ctrl+Y]");
+        _redoBtn = MakeBtn("Redo [Y]");
         UITheme.ApplyMutedStyle(_redoBtn);
         _redoBtn.Disabled = true;
         _redoBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;

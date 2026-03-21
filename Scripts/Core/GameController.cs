@@ -104,7 +104,8 @@ public partial class GameController : Node
 	private float _previewTowerGhostPhase = 0f;
 	private string _previewTowerGhostId = "";
 	private TowerInstance? _previewTowerGhost;
-	private bool _runAbandoned = false;  // set on intentional exit to suppress _ExitTree re-save
+	private bool _runAbandoned      = false;  // set on intentional exit to suppress _ExitTree re-save
+	private bool _restartInProgress = false;  // guard against re-entrant RestartRun() calls
 	private TutorialManager? _tutorialManager;
 	private SlotTheory.UI.TutorialCallout? _tutorialCallout;
 	private CanvasLayer? _tutorialTargetingOverlay;
@@ -971,6 +972,7 @@ public partial class GameController : Node
 
 	public void StartDraftPhase()
 	{
+		if (_restartInProgress) return;  // stale timer/deferred call during restart animation
 		SoundManager.Instance?.EnsureBackgroundMusicStarted();
 		if (!_initialDraftMusicPrimed && _runState.WaveIndex == 0)
 		{
@@ -1045,6 +1047,9 @@ public partial class GameController : Node
 
 	public void RestartRun()
 	{
+		if (_restartInProgress) return;
+		_restartInProgress = true;
+
 		_pendingWinScorePayload    = null;
 		_pendingWinLeaderboardLine = "";
 		MobileRunSession.Clear();
@@ -1153,7 +1158,11 @@ public partial class GameController : Node
 			}
 		}
 
-		AnimateTileDropIn(() => AnimateMapReveal(() => AnimateSlotDropIn(StartDraftPhase)));
+		AnimateTileDropIn(() => AnimateMapReveal(() => AnimateSlotDropIn(() =>
+		{
+			_restartInProgress = false;
+			StartDraftPhase();
+		})));
 	}
 
 	private int ResolveBotProceduralSeed()

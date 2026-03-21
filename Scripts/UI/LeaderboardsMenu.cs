@@ -697,14 +697,18 @@ public partial class LeaderboardsMenu : Node
                 TowerId = slot.TowerId,
                 CustomMinimumSize = new Vector2(towerSize, towerSize),
                 Size = new Vector2(towerSize, towerSize),
+                SizeFlagsHorizontal = compact ? Control.SizeFlags.Fill : Control.SizeFlags.ShrinkCenter,
             };
             slotBox.AddChild(towerIcon);
 
             var modsRow = new HBoxContainer();
             modsRow.AddThemeConstantOverride("separation", modSeparation);
+            modsRow.SizeFlagsHorizontal = compact ? Control.SizeFlags.Fill : Control.SizeFlags.ShrinkCenter;
             slotBox.AddChild(modsRow);
 
-            modsRow.AddChild(new Control { CustomMinimumSize = new Vector2(modsLeftPad, 0f) });
+            // Compact uses a small left-pad spacer; expanded centers via ShrinkCenter layout.
+            if (compact)
+                modsRow.AddChild(new Control { CustomMinimumSize = new Vector2(modsLeftPad, 0f) });
 
             if (slot.ModifierIds.Length == 0)
             {

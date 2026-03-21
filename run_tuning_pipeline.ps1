@@ -926,12 +926,18 @@ function Get-MetricsScore {
     $score += $hardFit * 60.0
     if ($easyWinRate -lt $TargetEasyWinRate) {
         $score -= ($TargetEasyWinRate - $easyWinRate) * 140.0
+    } elseif ($easyWinRate -gt $TargetEasyWinRate) {
+        $score -= ($easyWinRate - $TargetEasyWinRate) * 140.0
     }
     if ($normalWinRate -lt $TargetNormalWinRate) {
         $score -= ($TargetNormalWinRate - $normalWinRate) * 120.0
+    } elseif ($normalWinRate -gt $TargetNormalWinRate) {
+        $score -= ($normalWinRate - $TargetNormalWinRate) * 120.0
     }
     if ($hardWinRate -lt $TargetHardWinRate) {
         $score -= ($TargetHardWinRate - $hardWinRate) * 100.0
+    } elseif ($hardWinRate -gt $TargetHardWinRate) {
+        $score -= ($hardWinRate - $TargetHardWinRate) * 100.0
     }
     if ($MinNormalWinRate -ge 0.0 -and $normalWinRate -lt $MinNormalWinRate) {
         $score -= ($MinNormalWinRate - $normalWinRate) * [Math]::Max(0.0, $NormalRegressionPenaltyWeight)

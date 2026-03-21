@@ -99,3 +99,6 @@ balance_*.json
 followup_*.json
 tmp_bot_metrics_*.json
 Data/combat_lab/*_results.*
+videoplayback.mp4
+videoplayback2.mp4
+Map5.json

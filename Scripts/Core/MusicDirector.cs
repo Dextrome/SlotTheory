@@ -262,9 +262,13 @@ public partial class MusicDirector : Node
         if (BassLayer is null) return;
         _startupPercRampActive = false;
         _startupPercRampBarIndex = 0;
-        Clock.Stop();
-        PercLayer.Active  = false;
+        // Deactivate layers before stopping the clock so no new notes fire on
+        // any remaining beat callbacks, then reset pad tension to ambient.
+        BassLayer.Density  = 0;  // MusicBassLayer has no Active flag; zero density silences it
+        PercLayer.Active   = false;
         MelodyLayer.Active = false;
+        Clock.Stop();
+        SoundManager.Instance?.SetMusicTension(0f);
     }
 
     /// <summary>

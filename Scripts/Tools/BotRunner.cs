@@ -175,7 +175,7 @@ public BotRunner(
 			? new[] { targetMap }
 			: Balance.IsDemo
 				? new[] { "arena_classic", "gauntlet", "sprawl" }
-				: new[] { "arena_classic", "gauntlet", "sprawl", "ridgeback" };
+				: new[] { "arena_classic", "gauntlet", "sprawl", "ridgeback", "double_back" };
 		// Filter difficulties if specific one requested
 		if (targetDifficulty.HasValue)
 			_difficulties = new[] { targetDifficulty.Value };
@@ -408,6 +408,7 @@ public BotRunner(
                 "gauntlet" => "Pinch & Bleed",
                 "sprawl" => "Orbit",
                 "ridgeback" => "Ridgeback",
+                "double_back" => "Double Back",
                 _ => mapId
             };
 

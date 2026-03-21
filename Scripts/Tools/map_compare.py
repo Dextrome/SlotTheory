@@ -73,7 +73,7 @@ def fmt(r):
 
 if __name__ == "__main__":
     maps = load_maps()
-    order = ["sprawl", "arena_classic", "gauntlet", "trench_line"]
+    order = ["arena_classic", "gauntlet", "ridgeback", "double_back", "sprawl"]
     results = []
     for mid in order:
         if mid not in maps:
