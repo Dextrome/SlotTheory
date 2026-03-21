@@ -361,7 +361,11 @@ public partial class SlotCodexPanel : Node
 
         if (!unlocked)
         {
-            BuildCardBack(body, "UNREVEALED MOD", GetUnlockGateNote(modifierId));
+            bool isFullGameOnly = Balance.IsDemo &&
+                string.Equals(modifierId, Unlocks.BlastCoreModifierId, StringComparison.OrdinalIgnoreCase);
+            BuildCardBack(body,
+                isFullGameOnly ? "FULL GAME"        : "UNREVEALED MOD",
+                isFullGameOnly ? "Available in full release." : GetUnlockGateNote(modifierId));
             return panel;
         }
 
