@@ -5351,9 +5351,10 @@ void fragment() {
 	/// <summary>
 	/// Spawns a BlastCoreRing at the given world position. Ring is a short-lived expanding
 	/// circle outline -- compact, distinct from chain arcs and spectacle burst effects.
-	/// power [0..1] scales the maximum radius and brightness.
+	/// mechanicalRadius matches the actual damage area so the ring correctly represents reach.
+	/// power [0..1] scales brightness and line weight only.
 	/// </summary>
-	private void SpawnBlastCoreRing(Vector2 origin, Color accent, float power = 0.5f)
+	private void SpawnBlastCoreRing(Vector2 origin, Color accent, float mechanicalRadius, float power = 0.5f)
 	{
 		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
 			return;
@@ -5361,7 +5362,7 @@ void fragment() {
 		var ring = new BlastCoreRing();
 		ring.GlobalPosition = Vector2.Zero;
 		_worldNode.AddChild(ring);
-		ring.Initialize(origin, accent, power);
+		ring.Initialize(origin, accent, mechanicalRadius, power);
 	}
 
 	private void PrimeExplosionCompression(Vector2 origin, float radius, Color accent, int maxTargets)
@@ -6843,7 +6844,8 @@ void fragment() {
 		ITowerView sourceTower,
 		Vector2 origin,
 		float splashDamage,
-		System.Collections.Generic.IReadOnlyList<IEnemyView> splashTargets)
+		System.Collections.Generic.IReadOnlyList<IEnemyView> splashTargets,
+		float mechanicalRadius = SlotTheory.Core.Balance.BlastCoreRadius)
 	{
 		if (CurrentPhase != GamePhase.Wave) return;
 
@@ -6855,7 +6857,7 @@ void fragment() {
 		{
 			// Detonation ring always fires -- gives the player feedback that Blast Core is active
 			// even when no enemies are in splash range (common early-wave when enemies are spread out).
-			SpawnBlastCoreRing(origin, blastColor, power);
+			SpawnBlastCoreRing(origin, blastColor, mechanicalRadius, power);
 		}
 
 		// Everything below requires actual splash targets.

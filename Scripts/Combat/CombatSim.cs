@@ -234,7 +234,11 @@ public class CombatSim
 
         ResolveMineTriggers(delta, state.WaveIndex, state.EnemiesAlive);
 
-        // 3a. Update Shield Drone protection auras (must run before tower attacks so damage reduction is current)
+        // 3a. Update Shield Drone protection auras (must run before tower attacks so damage reduction is current).
+        // Known ordering constraint: if a Shield Drone is killed mid-frame by an earlier tower slot,
+        // enemies it was shielding retain IsShieldProtected=true for the rest of that frame.
+        // The flag is cleared correctly at the start of the next Step(). One frame of ghost shielding
+        // (~16ms at 60fps) is imperceptible and not worth re-running the O(n²) aura pass after each kill.
         UpdateShieldDroneAuras(state.EnemiesAlive);
 
         // 3. Tower attacks (hitscan - no projectiles)
@@ -798,7 +802,9 @@ public class CombatSim
         if (target != null)
         {
             float hpBefore = target.Hp;
-            var ctx = new DamageContext(owner, target, waveIndex, enemies, _state, isChain: chainSource, damageOverride: damage);
+            // isChain: true on non-final pops so Blast Core only fires on final-charge detonations,
+            // not on charge-tick damage. Chain-source pops are always treated as chain regardless.
+            var ctx = new DamageContext(owner, target, waveIndex, enemies, _state, isChain: chainSource || !finalPop, damageOverride: damage);
             DamageModel.Apply(ctx);
             float dealt = hpBefore - target.Hp;
             if (dealt > 0.01f)

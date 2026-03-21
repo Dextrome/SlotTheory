@@ -91,7 +91,7 @@ public partial class ProjectileVisual : Node2D
                 float hpBefore = _target.Hp;
                 var ctx = _damageOverride >= 0f
                     ? new DamageContext(_tower, _target, _waveIndex, _enemies, _runState,
-                                        isChain: true, damageOverride: _damageOverride)
+                                        isChain: false, damageOverride: _damageOverride)
                     : new DamageContext(_tower, _target, _waveIndex, _enemies, _runState);
                 DamageModel.Apply(ctx);
                 SlotTheory.Core.SoundManager.Instance?.Play("hit");

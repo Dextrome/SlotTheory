@@ -16,7 +16,7 @@ Platforms: Windows (Steam), Android (phone and tablet)
 4. Run the wave (auto-combat - no direct input during waves).
 5. Repeat until wave 20 clear (win) or lives reach 0 (loss).
 
-Starting lives: 10
+Starting lives: Easy 25 · Normal 20 · Hard 15
 
 ---
 
@@ -75,7 +75,7 @@ Modifier assignment uses `Preview -> Confirm`:
 | Rapid Shooter | 10 | 0.45 s | 285 px | Fast single-target fire |
 | Heavy Cannon | 56 | 2.0 s | 238 px | Heavy burst hits |
 | Marker Tower | 7 | 1.0 s | 333 px | Applies Marked on hit |
-| Arc Emitter | 18 | 1.2 s | 257 px | Chains to 2 extra enemies, 400 px chain range, 60% damage decay per bounce |
+| Arc Emitter | 18 | 1.2 s | 257 px | Chains to 2 extra enemies, 400 px chain range, 50% damage decay per bounce |
 | Rift Sapper | 22 | 0.98 s | 230 px | Charged lane-mine trap tower with wave-start rapid seeding |
 
 Unlock flow (via Campaign mode):
@@ -110,15 +110,16 @@ Unlock flow (via Campaign mode):
 | Modifier | Effect |
 |---|---|
 | Momentum | +16% damage per consecutive hit on same target, up to ×1.80. Resets on target switch. |
-| Overkill | 60% of excess kill damage spills to next enemy in lane |
+| Overkill | 100% of excess kill damage spills to next enemy in lane |
 | Exploit Weakness | +45% damage vs Marked enemies |
 | Focus Lens | +140% damage, ×1.85 attack interval |
 | Chill Shot | On hit: 0.70× enemy speed for 6 s; stacks multiplicatively per tower |
 | Overreach | +45% range, -10% damage |
 | Hair Trigger | +30% attack speed, -18% range |
-| Split Shot | Fires 2 split projectiles at 35% damage each; each extra copy adds +1 projectile |
-| Feedback Loop | On kill, instantly resets cooldown to zero |
-| Chain Reaction | +1 chain bounce per copy, 60% damage carry per bounce |
+| Split Shot | Fires 2 split projectiles at 28% damage each; each extra copy adds +1 projectile |
+| Feedback Loop | On kill: instantly reset cooldown + 20% attack speed for 4 s |
+| Chain Reaction | +1 chain bounce per copy, 50% damage carry per bounce |
+| Blast Core | On hit: 45% splash in 140 px radius; each extra copy adds +25 px radius |
 
 Max modifiers per tower: 3
 
@@ -136,6 +137,7 @@ Split Shot is unlockable - beat the second campaign map on Normal or Hard.
 | Reverse Walker | 1.35× Basic HP | 108 px/s | 1 | full game: appears from wave 11 |
 | Splitter Walker | 1.8× Basic HP | 90 px/s | 3 | waves 9-15, splits on death |
 | Splitter Shard | 0.55× Basic HP | 165 px/s | 1 | spawned by Splitter death |
+| Shield Drone | 1.8× Basic HP | 85 px/s | 1 | full game: waves 9-20; projects 35% damage reduction aura to allies within 140 px |
 
 - Reverse Walker rewinds on heavy single-hit bursts (`>=10%` max HP in one hit); rewinds are cooldown-gated and capped per enemy.
 

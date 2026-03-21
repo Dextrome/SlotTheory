@@ -16,18 +16,19 @@ public partial class BlastCoreRing : Node2D
 {
     private const float Duration  = 0.24f;
     private const float MinRadius = 14f;
-    private const float MaxRadius = 112f;
 
     private float   _life;
     private Color   _color;
     private Vector2 _origin;
-    private float   _power; // 0..1, scales ring size and brightness
+    private float   _power;      // 0..1, scales brightness and line weight
+    private float   _maxRadius;  // mechanical blast radius -- ring expands to match actual damage area
 
-    public void Initialize(Vector2 worldOrigin, Color color, float power = 0.5f)
+    public void Initialize(Vector2 worldOrigin, Color color, float mechanicalRadius, float power = 0.5f)
     {
-        _origin = worldOrigin;
-        _color  = color;
-        _power  = Mathf.Clamp(power, 0f, 1f);
+        _origin    = worldOrigin;
+        _color     = color;
+        _maxRadius = mechanicalRadius;
+        _power     = Mathf.Clamp(power, 0f, 1f);
     }
 
     public override void _Process(double delta)
@@ -47,8 +48,7 @@ public partial class BlastCoreRing : Node2D
 
         // Quad ease-out expansion: fast initial pop, slows at edge.
         float expandT  = 1f - (1f - t) * (1f - t);
-        float maxR     = Mathf.Lerp(MaxRadius * 0.82f, MaxRadius, _power);
-        float radius   = Mathf.Lerp(MinRadius, maxR, expandT);
+        float radius   = Mathf.Lerp(MinRadius, _maxRadius, expandT);
 
         // Alpha: sharp rise in first 12%, then linear fade.
         float alpha = t < 0.12f

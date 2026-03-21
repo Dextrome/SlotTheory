@@ -75,7 +75,7 @@ public class BlastCore : Modifier
         // can see Blast Core is active. Splash sparks and spectacle tracking require targets.
         if (candidates.Count == 0)
         {
-            GameController.Instance?.NotifyBlastCoreSplash(ctx.Attacker, origin, splashDamage, candidates);
+            GameController.Instance?.NotifyBlastCoreSplash(ctx.Attacker, origin, splashDamage, candidates, radius);
             return false; // no damage dealt, no proc halo
         }
 
@@ -116,7 +116,7 @@ public class BlastCore : Modifier
         GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId, scalar, totalDealt);
 
         // Notify GameController for visuals, stats, and callout. No-op in bot/headless mode.
-        GameController.Instance?.NotifyBlastCoreSplash(ctx.Attacker, origin, splashDamage, candidates);
+        GameController.Instance?.NotifyBlastCoreSplash(ctx.Attacker, origin, splashDamage, candidates, radius);
 
         return true; // trigger tower proc halo
     }
