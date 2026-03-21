@@ -1,5 +1,5 @@
 """
-gen_first_steps_icon.py — generates TUTORIAL_COMPLETE.png achievement icon
+gen_first_steps_icon.py - generates TUTORIAL_COMPLETE.png achievement icon
 Motif: ascending 3-step staircase in lime-green, medal-on-stem style.
 Run from project root: python Scripts/Tools/gen_first_steps_icon.py
 """
@@ -90,7 +90,7 @@ def make_icon():
     gap      = 4     # gap between steps for definition
     bottom_y = 390
 
-    # Step coords (left x, top y) — step 1 lowest, step 3 highest
+    # Step coords (left x, top y) - step 1 lowest, step 3 highest
     steps_geom = [
         (cx - step_w * 3 // 2 - gap,  bottom_y - step_h),          # step 1 (left, lowest)
         (cx - step_w // 2,             bottom_y - step_h * 2 - gap),# step 2 (mid)

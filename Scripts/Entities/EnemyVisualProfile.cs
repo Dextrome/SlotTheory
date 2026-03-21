@@ -114,7 +114,7 @@ public static class EnemyVisualProfile
         return new Sample(bob, jitterX, jitterY, Mathf.Max(0f, thrust), tilt, 0f, 0f);
     }
 
-    // Gentle hover — implies a hovering relay rather than ground contact
+    // Gentle hover - implies a hovering relay rather than ground contact
     private static Sample EvaluateShieldDrone(float elapsed, float speedNorm)
     {
         float bob = Mathf.Sin(elapsed * (1.3f + speedNorm * 0.18f)) * 1.35f;

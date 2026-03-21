@@ -1,5 +1,5 @@
 """
-map_compare.py — path length + avg tower coverage comparison across campaign maps.
+map_compare.py - path length + avg tower coverage comparison across campaign maps.
 Uses the same scoring logic as MapGenerator.ScoreCell (340px range, 30px sample spacing, bends ×5).
 Run from project root: python Scripts/Tools/map_compare.py
 """

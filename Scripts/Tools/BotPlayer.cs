@@ -923,7 +923,7 @@ public class BotPlayer
 
         if (eligible.Count > 0)
         {
-            // 0. EW top priority until first copy — only pays off once marker is placed
+            // 0. EW top priority until first copy - only pays off once marker is placed
             if (hasMarker && !hasEW)
             {
                 var ew = FindModOption(opts, "exploit_weakness");
@@ -937,7 +937,7 @@ public class BotPlayer
                 }
             }
 
-            // 1. chain_reaction up to 2 per tower — prefer chain_tower, then any fast tower with headroom
+            // 1. chain_reaction up to 2 per tower - prefer chain_tower, then any fast tower with headroom
             {
                 var cr = opts.FirstOrDefault(o => o.Type == DraftOptionType.Modifier && o.Id == "chain_reaction");
                 if (cr != null)
@@ -996,7 +996,7 @@ public class BotPlayer
                     "split_shot"       =>  7f,
                     "overkill"         =>  6f,
                     "focus_lens"       =>  6f,
-                    "chain_reaction"   =>  3f,  // low fallback priority — step 1 handles active placement
+                    "chain_reaction"   =>  3f,  // low fallback priority - step 1 handles active placement
                     "overreach"        =>  5f,
                     "slow"             =>  6f,
                     "exploit_weakness" => hasMarker ? 15f : 2f,
@@ -1781,7 +1781,7 @@ public class BotPlayer
 
         if (eligible.Count > 0)
         {
-            // 0. EW top priority until first copy — only pays off once marker is placed
+            // 0. EW top priority until first copy - only pays off once marker is placed
             if (hasMarkerHS && !hasEWHS)
             {
                 var ew = FindModOption(opts, "exploit_weakness");

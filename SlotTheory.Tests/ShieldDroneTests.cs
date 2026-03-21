@@ -50,7 +50,7 @@ public class ShieldDroneTests
 
         DamageModel.Apply(ctx);
 
-        // Marked adds bonus, then shield reduces — both are multiplicative
+        // Marked adds bonus, then shield reduces - both are multiplicative
         float damage = 100f * (1f + Balance.MarkedDamageBonus) * (1f - Balance.ShieldDroneProtectionReduction);
         Assert.Equal(500f - damage, enemy.Hp, precision: 3);
     }

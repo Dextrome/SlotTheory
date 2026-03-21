@@ -101,7 +101,7 @@ dotnet build SlotTheory.sln
 - Pass `--demo` to any bot run to simulate demo build conditions: Shield Drone and Reverse Walker counts are zeroed via `Balance.SetDemoOverride(true)` (same gating as a real demo export).
 - Run `run_tuning_pipeline.ps1` for automated iterative tuning (generates seed from current `SpectacleTuning`, runs bot eval + scenario suite, outputs best profile).
 
-## Tuning Pipeline — Demo vs Full Game
+## Tuning Pipeline - Demo vs Full Game
 
 Demo and full game have different enemy compositions (Shield Drone and Reverse Walker are full-game only), so they require **separate tuning profiles**:
 

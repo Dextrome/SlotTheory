@@ -4,7 +4,7 @@ using Godot;
 namespace SlotTheory.UI;
 
 /// <summary>
-/// Minimal circuit-bus above the title — two power rails converging to a central
+/// Minimal circuit-bus above the title - two power rails converging to a central
 /// hub node. Animation is slow and standby-level (not surging/charging).
 /// The title reads as a component mounted on the hub, powered by the rails.
 /// </summary>
@@ -46,7 +46,7 @@ internal partial class TitleArmDecor : Control
         DrawRect(new Rect2(mid - 4.5f, y - 4.5f, 9f, 9f), new Color(Lime, 0.50f));
         DrawRect(new Rect2(mid - 2f,   y - 2f,   4f, 4f), new Color(Cyan, 0.72f));
 
-        // Very slow standby pulse — not "charging toward activation," just alive
+        // Very slow standby pulse - not "charging toward activation," just alive
         // Traversal period ≈ 8 seconds
         float phase = (_t * 0.40f) % 1.0f;
         float pa    = 0.28f + 0.22f * MathF.Sin(_t * 1.5f);
@@ -61,7 +61,7 @@ internal partial class TitleArmDecor : Control
 /// <summary>
 /// Structural interface between the title zone and the reactor core (menu card).
 /// Visualizes the 6 tower slots as a power-feed bus bar with downward feeder lines
-/// — implying the card below receives charge through these connections.
+/// - implying the card below receives charge through these connections.
 ///
 /// Animation: slow standby breath on each slot (not a cascading surge fill),
 /// plus a single charge sweep along the bus rail.
@@ -104,14 +104,14 @@ internal partial class ReactorFeedBar : Control
         float railL  = startX - 16f;
         float railR  = startX + totalW + 16f;
 
-        // Horizontal bus rail — the spine feeding into the card below
+        // Horizontal bus rail - the spine feeding into the card below
         DrawLine(new Vector2(railL, busY), new Vector2(railR, busY), new Color(Lime, 0.26f), 1.5f);
 
         // Rail end caps (port terminals)
         DrawRect(new Rect2(railL - 3.5f, busY - 3.5f, 7f, 7f), new Color(Lime, 0.42f));
         DrawRect(new Rect2(railR - 3.5f, busY - 3.5f, 7f, 7f), new Color(Lime, 0.42f));
 
-        // Single slow charge sweep along the bus — left → right, period ≈ 2.5s
+        // Single slow charge sweep along the bus - left → right, period ≈ 2.5s
         float busPhase = (_t * 0.40f) % 1.0f;
         float bpa = 0.24f + 0.18f * MathF.Sin(_t * 1.8f);
         float bpx = railL + busPhase * (railR - railL);
@@ -121,7 +121,7 @@ internal partial class ReactorFeedBar : Control
         {
             float sx = startX + i * (SlotW + Gap);
 
-            // Slow individual standby breath — period ≈ 9.7 seconds per slot,
+            // Slow individual standby breath - period ≈ 9.7 seconds per slot,
             // offset so they're not in sync, but NOT a cascade surge ripple.
             float pulse = 0.5f + 0.5f * MathF.Sin(_t * 0.65f + i * 0.40f);
 
@@ -132,7 +132,7 @@ internal partial class ReactorFeedBar : Control
             DrawRect(new Rect2(sx, slotY, SlotW, SlotH), new Color(Lime, fillA));
             DrawRect(new Rect2(sx, slotY, SlotW, SlotH), new Color(Lime, borderA), false, 1f);
 
-            // Downward feeder line — visible routing into the card below
+            // Downward feeder line - visible routing into the card below
             float feedX = sx + SlotW * 0.5f;
             float feedA = 0.10f + 0.13f * pulse;
             DrawLine(new Vector2(feedX, busY),

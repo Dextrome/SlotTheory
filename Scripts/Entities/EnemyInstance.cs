@@ -492,7 +492,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
     {
         EnemyRenderDebugCounters.RegisterBodyPass();
 
-        // Diamond silhouette — distinct from all walker shapes
+        // Diamond silhouette - distinct from all walker shapes
         const float w = 8.0f; // half-width
         const float h = 10.5f; // half-height
         DrawPolygon(new Vector2[]
@@ -544,7 +544,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         EnemyRenderDebugCounters.RegisterEmissivePass();
         float e = Mathf.Clamp(0.42f + rs.EmissivePulse * 0.32f, 0f, 1f);
 
-        // Rotating arc pair — the "shield projector" signature
+        // Rotating arc pair - the "shield projector" signature
         float orbitAngle = _visualTime * 1.4f;
         const float arcRadius = 13.5f;
         Color arcColor = new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.72f * e);
@@ -560,6 +560,12 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
             var nodePos = new Vector2(Mathf.Cos(a) * 9.2f, Mathf.Sin(a) * 9.2f);
             DrawCircle(nodePos, 1.3f * widthScale, nodeColor);
         }
+
+        // Pulsing aura field - communicates "active protection zone"
+        float auraPulse = 0.5f + Mathf.Sin(_visualTime * 1.8f) * 0.5f;
+        float auraR = 30f + auraPulse * 5f;
+        DrawCircle(Vector2.Zero, auraR, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, (0.05f + auraPulse * 0.05f) * e));
+        DrawArc(Vector2.Zero, auraR, 0f, Mathf.Tau, 40, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, (0.22f + auraPulse * 0.16f) * e), 1.4f * widthScale);
     }
 
     private void DrawBloomPassShieldDrone(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
@@ -645,12 +651,18 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
     {
         if (!IsShieldProtected) return;
 
-        float phase = _visualTime * 1.4f;
-        float alpha = 0.28f + Mathf.Sin(phase) * 0.10f;
-        Color ringColor = new Color(0.28f, 0.74f, 1.00f, alpha);
-        Color dotColor  = new Color(0.52f, 0.88f, 1.00f, alpha * 1.4f);
+        float phase = _visualTime * 2.2f;
+        float pulse = 0.5f + Mathf.Sin(phase) * 0.5f;
+        float alpha = 0.55f + pulse * 0.20f;
+        // Gold - clearly distinct from the blue chill-shot ring
+        Color ringColor = new Color(1.00f, 0.86f, 0.18f, alpha);
+        Color dotColor  = new Color(1.00f, 0.96f, 0.55f, alpha);
+        Color fillColor = new Color(0.92f, 0.74f, 0.08f, 0.06f + pulse * 0.06f);
 
-        // Hexagonal shield ring
+        // Soft fill so the whole enemy area glows gold when shielded
+        DrawCircle(Vector2.Zero, radius, fillColor);
+
+        // Hexagonal shield ring - thicker and brighter than before
         for (int i = 0; i < 6; i++)
         {
             float a0 = i * Mathf.Tau / 6f;
@@ -658,9 +670,9 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
             DrawLine(
                 new Vector2(Mathf.Cos(a0) * radius, Mathf.Sin(a0) * radius),
                 new Vector2(Mathf.Cos(a1) * radius, Mathf.Sin(a1) * radius),
-                ringColor, 1.8f);
-            // Small pip at each vertex
-            DrawCircle(new Vector2(Mathf.Cos(a0) * radius, Mathf.Sin(a0) * radius), 1.5f, dotColor);
+                ringColor, 2.8f);
+            // Corner pip
+            DrawCircle(new Vector2(Mathf.Cos(a0) * radius, Mathf.Sin(a0) * radius), 2.2f, dotColor);
         }
     }
 

@@ -1,4 +1,4 @@
-# Slot Theory — Public Features
+# Slot Theory - Public Features
 
 Slot Theory is a fast, neon-soaked auto-battler / tower-defense hybrid where you draft one card at a time, build a filthy synergy engine, and watch your setup tear through 20 escalating waves.
 
@@ -40,7 +40,7 @@ Mix damage scaling, chain effects, status synergy, split fire, range changes, co
 
 ## Modes
 
-### Campaign Mode — The Fracture Circuit
+### Campaign Mode - The Fracture Circuit
 Push through a 4-stage campaign with escalating battlefield mandates. Each stage introduces a new constraint or pressure layer, forcing you to adapt instead of sleepwalking through the same build every time.
 
 ### Skirmish Mode

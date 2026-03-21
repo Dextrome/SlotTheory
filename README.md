@@ -249,7 +249,7 @@ The banner label and visual treatment are driven by which mods contributed most 
 
 ---
 
-## Campaign Mode — The Fracture Circuit
+## Campaign Mode - The Fracture Circuit
 
 4-stage linear campaign accessible from Play → Mode Select → Campaign.
 

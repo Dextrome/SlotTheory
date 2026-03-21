@@ -271,7 +271,7 @@ public partial class CampaignSelectPanel : Node
         {
             Text = available
                 ? $"0{stage.StageIndex + 1}"
-                : "—",
+                : "-",
             HorizontalAlignment = HorizontalAlignment.Center,
             VerticalAlignment   = VerticalAlignment.Center,
             CustomMinimumSize   = new Vector2(44f, 52f),

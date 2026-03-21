@@ -39,7 +39,7 @@ This document reflects the current implementation in code/data.
 - **Tutorial map:** Dedicated scripted tutorial run accessible from a "▶  Tutorial" button in the main menu (above PLAY). 8 waves on fixed Easy difficulty. Curated draft options per wave (waves 0–5 scripted, 6–7 random). Contextual blocking panels at key moments: draft explanation each pick, build name highlight after first modifier placed, targeting mode panel at wave 3 (pauses game, explains First/Strongest/Lowest HP, unpauses when player clicks a tower to cycle mode), per-tower surge explanation (pauses game, highlights surge bar), global surge activation explanation (pauses game, gold highlight, "Activate →" button). Global surge meter pre-filled to 95% at wave 6 start so it fires naturally during combat. All wave callouts are click-to-dismiss; cleared on draft start. Completion flagged to `SettingsManager.TutorialCompleted` (persisted). Tutorial button becomes muted after completion. Tutorial map excluded from map select and leaderboards. End screen shows "How to Play →" button and re-labels play-again as "Play Again · Real Run →". Earns TUTORIAL_COMPLETE achievement.
 - **Global surge - player-activated:** The global surge meter no longer auto-fires when full. When filled, `SpectacleSystem.IsGlobalSurgeReady` becomes true and `OnGlobalSurgeReady` fires (passing the resolved archetype label). The HUD surge bar switches to a gold pulsing clickable state with label "▶  ACTIVATE"; the label is locked to the archetype name until activation. The player clicks it to fire. `SpectacleSystem.ActivateGlobalSurge()` then fires `OnGlobalTriggered` and plays all existing effects. Bot mode auto-activates immediately to preserve simulation behavior. First-time in tutorial: game pauses, gold-bordered panel appears explaining the mechanic with an "Activate →" button that fires the surge and unpauses.
 - **Difficulty label in HUD and end screen:** HudPanel shows the current difficulty mode (EASY / NORMAL / HARD) color-coded in the top-right bar during gameplay. EndScreen shows the difficulty label between the title and subtitle on both win and loss screens.
-- **Music plays uninterrupted through draft:** Music no longer restarts at draft phase start — it flows continuously from wave to draft to wave for a seamless adaptive score.
+- **Music plays uninterrupted through draft:** Music no longer restarts at draft phase start - it flows continuously from wave to draft to wave for a seamless adaptive score.
 - **Map intro animations:** On run start, the neon path draws from start to finish before the draft panel opens (grid background hidden during reveal). Tower slots then drop in from off-screen with a bounce and landing sound; slots start 900 px above their final position so bottom-row slots are fully hidden before the drop.
 - **Endless mode music fix:** `MusicDirector.OnEndlessContinue()` restarts the clock and reactivates all layers after `OnRunEnd` stopped them, fixing music going silent when continuing to Endless.
 - **Splitter Walker enemy:** New enemy type appearing in waves 9–15. HP is 1.8× basic, speed 90 px/s, leak cost 3 lives. On death, spawns 2 Splitter Shards (0.55× basic HP, 165 px/s, 1 life each) offset behind the death position. Both types have unique layered procedural visuals (amber hex + bisecting crack for Splitter; irregular crystal fragment polygon for Shard) and full Slot Codex cards with icon-per-stat rows.
@@ -65,8 +65,8 @@ Platforms: Windows Desktop, Android (phone and tablet)
 - HowToPlay screens polished with procedural icons throughout (TowerIcon, ModifierIcon with accent tinting, dual icons for combo surges, feel-bar + icon for global surge archetypes).
 - **Automated tuning pipeline:** `run_tuning_pipeline.ps1` + `Scripts/Tools/CombatLab/` drive iterative difficulty optimization against bot win-rate targets. `SpectacleTuning.Current` overrides difficulty multipliers at runtime without recompiling. Demo and full-game builds are tuned independently via `-Demo` flag (see Demo / Full-Game Separation).
 - **CombatLab benchmark runners:** Two JSON-driven offline profiling tools for balance validation:
-  - `CombatLabTowerBenchmarkRunner` — scenario-based per-tower DPS profiling; invoke via `--lab_tower_benchmark <suite.json>`. Outputs JSON + CSV report comparing towers across wave counts, HP budgets, and modifier loadouts.
-  - `CombatLabModifierBenchmarkRunner` — baseline vs loadout damage delta analysis; invoke via `--lab_modifier_benchmark <suite.json>`. Measures individual modifier contributions and synergy pairs across shared scenarios.
+  - `CombatLabTowerBenchmarkRunner` - scenario-based per-tower DPS profiling; invoke via `--lab_tower_benchmark <suite.json>`. Outputs JSON + CSV report comparing towers across wave counts, HP budgets, and modifier loadouts.
+  - `CombatLabModifierBenchmarkRunner` - baseline vs loadout damage delta analysis; invoke via `--lab_modifier_benchmark <suite.json>`. Measures individual modifier contributions and synergy pairs across shared scenarios.
   - `CombatResolution.cs` extracted from `CombatSim` as a reusable chain-resolution helper used by both runners.
 - **Achievement system:** 13 achievements tracked via `AchievementManager` (autoload, persistent to `user://achievements.cfg`). Unlock toasts, dedicated achievements screen, and Steam forwarding via `SteamAchievements`. Gates content unlocks.
 - **Unlockable content:** Arc Emitter, Split Shot, and Rift Prism are gated behind campaign map clears (`Unlocks.cs`). Bots always have full unlock access for deterministic balance testing.
@@ -396,10 +396,10 @@ Accessible via the "▶  Tutorial" button on the main menu (above PLAY).
   - Each draft wave 0–5: callout explaining the card being offered
   - Wave 0 wave start: auto-dismiss callout explaining the path/lives
   - Wave 4 wave start: auto-dismiss callout on Armored Walker appearance
-  - First modifier placed: "BUILD NAME" panel — pauses, highlights build label with cyan rect, explains the naming system
-  - Wave 3 draft: "TARGETING" panel — pauses game, explains First/Strongest/Lowest HP modes, unpauses when player clicks any tower to cycle mode
-  - First tower surge: "SURGE" panel — pauses wave, highlights global surge bar with cyan rect, explains surge/global surge; persisted via `SurgeTutorialSeen` flag (shows once)
-  - First global surge ready: "GLOBAL SURGE READY" panel — pauses wave, gold highlight on surge bar, "Activate →" button fires the surge; global surge meter pre-filled to 95% at wave 6 start to ensure it fires naturally during combat
+  - First modifier placed: "BUILD NAME" panel - pauses, highlights build label with cyan rect, explains the naming system
+  - Wave 3 draft: "TARGETING" panel - pauses game, explains First/Strongest/Lowest HP modes, unpauses when player clicks any tower to cycle mode
+  - First tower surge: "SURGE" panel - pauses wave, highlights global surge bar with cyan rect, explains surge/global surge; persisted via `SurgeTutorialSeen` flag (shows once)
+  - First global surge ready: "GLOBAL SURGE READY" panel - pauses wave, gold highlight on surge bar, "Activate →" button fires the surge; global surge meter pre-filled to 95% at wave 6 start to ensure it fires naturally during combat
 - **Persistence:** completion stored in `SettingsManager.TutorialCompleted`. Button on main menu becomes muted after first completion.
 - **Isolation:** tutorial map excluded from map select, leaderboards, and score submission. `DataLoader.GetAllMapDefs()` filters it by default (`includeTutorial = false`).
 - **End screen:** shows "How to Play →" button; hides leaderboard/endless buttons; labels play-again "Play Again · Real Run →" (goes to map select).
@@ -413,16 +413,16 @@ Accessible via the "▶  Tutorial" button on the main menu (above PLAY).
 Adaptive in-game teaching hints that guide players toward the surge mechanic. Implemented in `SurgeHinting.cs` + `SurgeUxTiming.cs`.
 
 **Five hint IDs**, shown at contextually appropriate moments:
-- `CombatFills` — appears early in a run when surge meters are filling, pointing players to notice their tower bars
-- `TowerReady` — fires when a tower surge becomes ready but isn't used quickly, nudging the player to activate
-- `GlobalContribution` — shown when global meter is actively climbing, explaining how tower surges contribute
-- `GlobalActivate` — fires when the global surge bar becomes full but the player hasn't clicked it
-- `ComboUnlock` — shown when a player builds a multi-tower setup eligible for a combo surge
+- `CombatFills` - appears early in a run when surge meters are filling, pointing players to notice their tower bars
+- `TowerReady` - fires when a tower surge becomes ready but isn't used quickly, nudging the player to activate
+- `GlobalContribution` - shown when global meter is actively climbing, explaining how tower surges contribute
+- `GlobalActivate` - fires when the global surge bar becomes full but the player hasn't clicked it
+- `ComboUnlock` - shown when a player builds a multi-tower setup eligible for a combo surge
 
 **Behavior:**
 - Hints auto-size to content and appear below the relevant tower or near the surge bar
 - Timing (linger, fade) is real-time, not frame-based (`SurgeUxTiming`)
-- Each hint tracks a **lifetime show count** and a **retired** flag — once a hint has been shown enough times it retires and never shows again
+- Each hint tracks a **lifetime show count** and a **retired** flag - once a hint has been shown enough times it retires and never shows again
 - Profile state persisted to settings via `SettingsManager`; reset by **Reset Hints** in Settings → PROFILE
 - Hints are suppressed in bot mode and tutorial map
 
@@ -588,7 +588,7 @@ On wave start (not in bot mode):
 - Harmony/mode profiles shifted darker: Dorian and Phrygian are weighted more heavily relative to Mixolydian.
 - Startup percussion ramp: bar 1 of each new run has muted drums, then kick/snare/hat gradually re-enter over the following bars for a natural build-in feel.
 - `MusicBassLayer` heavier character: offbeat stabs, heavy beat accents, per-global-surge bass accent, and grittier oscillator synthesis.
-- Map BGM now starts at the **first draft open** rather than the first wave start — music begins as soon as the player is in the game scene.
+- Map BGM now starts at the **first draft open** rather than the first wave start - music begins as soon as the player is in the game scene.
 - Menu ambient stays on the main menu screen and only transitions to map BGM when a run begins.
 
 ---
@@ -830,7 +830,7 @@ Behavior:
 ---
 
 
-## Campaign Mode — The Fracture Circuit
+## Campaign Mode - The Fracture Circuit
 
 Linear 4-stage campaign with escalating mandates. Accessible from Play → Mode Select → Campaign.
 
@@ -853,30 +853,30 @@ Linear 4-stage campaign with escalating mandates. Accessible from Play → Mode 
 ### Mandate system
 
 `MandateDefinition` wraps `MandateDef` from `campaign_stages.json` and exposes:
-- `IsTowerBanned(id)` — checked in `DraftSystem` to filter tower options
-- `IsModifierBanned(id)` — checked in `DraftSystem` to filter modifier options
-- `LockedSlotCount` — last N slots marked `IsLocked` by `GameController.ApplyCampaignMandate()`; locked slots are excluded from `HasFreeSlots()` / `FreeSlotCount()` and never receive towers
-- `EnemyHpMultiplier` — applied as a final multiplier in `WaveSystem.GetScaledHp()`
-- `IsActive` — true if any field is set (drives HUD banner visibility)
+- `IsTowerBanned(id)` - checked in `DraftSystem` to filter tower options
+- `IsModifierBanned(id)` - checked in `DraftSystem` to filter modifier options
+- `LockedSlotCount` - last N slots marked `IsLocked` by `GameController.ApplyCampaignMandate()`; locked slots are excluded from `HasFreeSlots()` / `FreeSlotCount()` and never receive towers
+- `EnemyHpMultiplier` - applied as a final multiplier in `WaveSystem.GetScaledHp()`
+- `IsActive` - true if any field is set (drives HUD banner visibility)
 
 Mandate is stored on `RunState.ActiveMandate`. All mandate logic is a no-op when `CampaignManager.ActiveStage == null` so skirmish is completely unaffected.
 
 ### CampaignSelect screen
 
 - Stage cards showing: number badge, name, subtitle, mandate badge (color-coded by type), difficulty checkmarks (E✓ N✓ H✓)
-- Locked stages show "—" badge and "Clear previous stage to unlock"
+- Locked stages show "-" badge and "Clear previous stage to unlock"
 - Right panel: difficulty selector, intro flavor text, Begin / Back buttons
 - `OnBegin()`: sets `CampaignManager.ActiveStage`, calls `MapSelectPanel.SetPendingMapSelection`, fades to `Main.tscn`
 
 ### Key files
 
-- `Data/campaign_stages.json` — stage definitions and mandate data
-- `Scripts/Core/CampaignManager.cs` — static context holder (ActiveStage, IsCampaignRun)
-- `Scripts/Core/CampaignProgress.cs` — ConfigFile-backed save
-- `Scripts/Core/MandateDefinition.cs` — runtime mandate logic
-- `Scripts/Core/CampaignStageDefinition.cs` — typed wrapper around CampaignStageDef
-- `Scripts/UI/ModeSelectPanel.cs` — Campaign / Skirmish card screen
-- `Scripts/UI/CampaignSelectPanel.cs` — Stage ladder UI
+- `Data/campaign_stages.json` - stage definitions and mandate data
+- `Scripts/Core/CampaignManager.cs` - static context holder (ActiveStage, IsCampaignRun)
+- `Scripts/Core/CampaignProgress.cs` - ConfigFile-backed save
+- `Scripts/Core/MandateDefinition.cs` - runtime mandate logic
+- `Scripts/Core/CampaignStageDefinition.cs` - typed wrapper around CampaignStageDef
+- `Scripts/UI/ModeSelectPanel.cs` - Campaign / Skirmish card screen
+- `Scripts/UI/CampaignSelectPanel.cs` - Stage ladder UI
 
 ---
 

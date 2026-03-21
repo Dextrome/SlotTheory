@@ -2479,7 +2479,7 @@ public partial class GameController : Node
 		var overlayLayer = new CanvasLayer { Layer = 20 };
 		AddChild(overlayLayer);
 
-		// CanvasLayer has no Modulate — use an inner Control as the fade target
+		// CanvasLayer has no Modulate - use an inner Control as the fade target
 		var overlay = new Control();
 		overlay.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		overlayLayer.AddChild(overlay);

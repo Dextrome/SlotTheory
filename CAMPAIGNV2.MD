@@ -1,4 +1,4 @@
-# Campaign Mode — The Fracture Circuit
+# Campaign Mode - The Fracture Circuit
 
 ---
 
@@ -14,13 +14,13 @@ Campaign mode is a linear descent through four linked combat zones, each one for
 This is not just a sequence of maps.
 It is the world noticing you.
 
-Progress persists across sessions. Clearing a stage unlocks the next sector and grants the same content unlocks already tied to those maps. Difficulty does not gate progress — any difficulty clears a stage — but each difficulty is marked separately so players can return to perfect the run. The campaign stays readable and mechanically clean while feeling like a deliberate escalation in pressure and tone.
+Progress persists across sessions. Clearing a stage unlocks the next sector and grants the same content unlocks already tied to those maps. Difficulty does not gate progress - any difficulty clears a stage - but each difficulty is marked separately so players can return to perfect the run. The campaign stays readable and mechanically clean while feeling like a deliberate escalation in pressure and tone.
 
 ---
 
 ## Stage Ladder
 
-### Stage 1 — Orbit Breach
+### Stage 1 - Orbit Breach
 
 | | |
 |---|---|
@@ -33,19 +33,19 @@ Progress persists across sessions. Clearing a stage unlocks the next sector and 
 
 The outer shell. The first fracture.
 
-This is the only part of the campaign where the world still pretends to play fair. Orbit Breach serves as the entry point: standard rules, no restrictions, just enough breathing room to establish rhythm and confidence. Narratively, this is the incursion point — the first successful breach of the old defense lattice. Mechanically, it gives the player a clean baseline before the campaign starts tightening the screws.
+This is the only part of the campaign where the world still pretends to play fair. Orbit Breach serves as the entry point: standard rules, no restrictions, just enough breathing room to establish rhythm and confidence. Narratively, this is the incursion point - the first successful breach of the old defense lattice. Mechanically, it gives the player a clean baseline before the campaign starts tightening the screws.
 
 **Tone:** controlled, exploratory, ominous
 **Function:** onboarding that doesn't feel like a tutorial
 
 ---
 
-### Stage 2 — Crossroads Interdiction
+### Stage 2 - Crossroads Interdiction
 
 | | |
 |---|---|
 | **Map** | Crossroads (`arena_classic`) |
-| **Mandate** | **Draft Ban** — Momentum and Exploit Weakness removed from pool |
+| **Mandate** | **Draft Ban** - Momentum and Exploit Weakness removed from pool |
 | **Unlock on clear** | Split Shot |
 | **Stage subtitle** | Adaptive response sector |
 | **Intro line** | `"Adaptive filtering active. Draft channels restricted."` |
@@ -53,19 +53,19 @@ This is the only part of the campaign where the world still pretends to play fai
 
 The system has now observed your methods and begun to react. Patterns that worked before are no longer available.
 
-This is where the campaign first shows its teeth. Instead of making enemies stronger, it attacks the player's assumptions. By stripping out a pair of familiar draft options, the campaign sends a clear message: adaptation is part of the mode's identity. The machine is not just spawning resistance — it is learning which tools you lean on and cutting them away.
+This is where the campaign first shows its teeth. Instead of making enemies stronger, it attacks the player's assumptions. By stripping out a pair of familiar draft options, the campaign sends a clear message: adaptation is part of the mode's identity. The machine is not just spawning resistance - it is learning which tools you lean on and cutting them away.
 
 **Tone:** tactical disruption, first "this mode is doing something" moment
 **Function:** reframes the campaign from map sequence to active resistance
 
 ---
 
-### Stage 3 — Pinch & Bleed
+### Stage 3 - Pinch & Bleed
 
 | | |
 |---|---|
 | **Map** | Gauntlet (`gauntlet`) |
-| **Mandate** | **Slot Lockout** — only 5 tower slots available |
+| **Mandate** | **Slot Lockout** - only 5 tower slots available |
 | **Unlock on clear** | Rift Sapper |
 | **Stage subtitle** | Constricted deployment lane |
 | **Intro line** | `"Spatial permissions revoked. Deployment capacity reduced."` |
@@ -82,17 +82,17 @@ This is where the mode stops being a tour and starts becoming a test.
 
 ---
 
-### Stage 4 — Iron Mandate
+### Stage 4 - Iron Mandate
 
 | | |
 |---|---|
 | **Map** | Ridgeback (`ridgeback`) |
-| **Mandate** | **Heavy Burden** — all enemies have +25% HP |
-| **Unlock on clear** | None — capstone |
+| **Mandate** | **Heavy Burden** - all enemies have +25% HP |
+| **Unlock on clear** | None - capstone |
 | **Stage subtitle** | Core reinforcement spine |
 | **Intro line** | `"Final sector awake. Resistance parameters lifted."` |
 | **Clear stamp** | `CORE MANDATE SHATTERED` |
-| **Full-game gate** | Yes — requires full game (Ridgeback is already `isFullGame: true`) |
+| **Full-game gate** | Yes - requires full game (Ridgeback is already `isFullGame: true`) |
 
 The core defense wakes up. No more subtlety. No more observation. Just force.
 
@@ -124,7 +124,7 @@ A small amount of world text earns disproportionate atmosphere. No cutscenes, no
 **Context panel header (shown above stage list in `CampaignSelectPanel`):**
 > THE FRACTURE CIRCUIT
 
-**After Stage 4 clear — final completion text:**
+**After Stage 4 clear - final completion text:**
 ```
 The circuit does not die.
 It goes quiet.
@@ -141,7 +141,7 @@ For now.
 
 The full mechanical plan (data model, mandate types, `CampaignProgress`, `CampaignManager`, `DraftSystem` filtering, `WaveSystem` HP multiplier, `SlotInstance.IsLocked`, `RunState.ActiveMandate`, `GameController` boot wiring, `CampaignSelectPanel` structure, `MainMenu` button) is documented in `CAMPAIGN.MD`. All of that applies unchanged here.
 
-This document extends that plan with the **narrative layer** — the data fields, UI moments, and display logic that give the campaign its voice.
+This document extends that plan with the **narrative layer** - the data fields, UI moments, and display logic that give the campaign its voice.
 
 ---
 
@@ -210,7 +210,7 @@ Each stage entry gains four new string fields. The campaign root gains one:
 
 ---
 
-### `Scripts/Data/Models.cs` — Extended `CampaignStageDef`
+### `Scripts/Data/Models.cs` - Extended `CampaignStageDef`
 
 Update the record from CAMPAIGN.MD to include narrative fields:
 
@@ -239,7 +239,7 @@ public record CampaignDataRoot(
 
 ---
 
-### `Scripts/Core/CampaignStageDefinition.cs` — Narrative Properties
+### `Scripts/Core/CampaignStageDefinition.cs` - Narrative Properties
 
 Add to the existing class from CAMPAIGN.MD:
 
@@ -353,7 +353,7 @@ private void ShowStageIntroThenContinue(System.Action onDismiss)
         AutowrapMode = TextServer.AutowrapMode.Off,
     };
     UITheme.ApplyFont(introLabel, semiBold: false, size: 18);
-    introLabel.Modulate = new Color(0.70f, 0.85f, 0.70f, 0.90f);  // slightly green — machine readout
+    introLabel.Modulate = new Color(0.70f, 0.85f, 0.70f, 0.90f);  // slightly green - machine readout
     vbox.AddChild(introLabel);
 
     // If mandate is active, show a one-line mandate warning
@@ -452,11 +452,11 @@ The stage name and subtitle come from `CampaignStageDefinition.StageName` and `.
 ```
 "Outer grid compromised. Response latency acceptable."
 ```
-Displayed below the difficulty selector in a small, green-tinted, italic-style label — suggesting a live system readout.
+Displayed below the difficulty selector in a small, green-tinted, italic-style label - suggesting a live system readout.
 
 ---
 
-### Extended: `EndScreen` — Sector Stamp
+### Extended: `EndScreen` - Sector Stamp
 
 Add a new public method to `EndScreen.cs`:
 
@@ -534,7 +534,7 @@ MainMenu → [Play] → ModeSelect.tscn
                         └── [SKIRMISH] → MapSelect.tscn  (unchanged)
 ```
 
-The "Campaign" button that CAMPAIGN.MD planned to add directly to `MainMenu` is replaced entirely by this flow — the main menu stays uncluttered and the mode split lives in its own screen.
+The "Campaign" button that CAMPAIGN.MD planned to add directly to `MainMenu` is replaced entirely by this flow - the main menu stays uncluttered and the mode split lives in its own screen.
 
 #### `Scripts/UI/ModeSelectPanel.cs`
 
@@ -626,7 +626,7 @@ private void OnPlay()
 }
 ```
 
-The `CampaignManager.ClearActiveStage()` call that was planned for `MainMenu._Ready()` moves to `ModeSelectPanel._Ready()` — that's the right place for it since it's the entry point for both modes.
+The `CampaignManager.ClearActiveStage()` call that was planned for `MainMenu._Ready()` moves to `ModeSelectPanel._Ready()` - that's the right place for it since it's the entry point for both modes.
 
 #### Back navigation from `CampaignSelectPanel`
 
@@ -640,7 +640,7 @@ private void OnBack()
 }
 ```
 
-Same update in `MapSelectPanel.OnBack()` — it should also return to `ModeSelect.tscn`, not `MainMenu.tscn`. This keeps Back always going one level up in the hierarchy rather than jumping all the way to the main menu.
+Same update in `MapSelectPanel.OnBack()` - it should also return to `ModeSelect.tscn`, not `MainMenu.tscn`. This keeps Back always going one level up in the hierarchy rather than jumping all the way to the main menu.
 
 ---
 
@@ -669,14 +669,14 @@ if (allHardCleared) AchievementManager.Instance?.Unlock("CAMPAIGN_HARD_CLEAR");
 
 Same ordered steps as CAMPAIGN.MD, with narrative work interleaved where it's cheapest:
 
-**Step 1 — Data foundation**
+**Step 1 - Data foundation**
 - Add narrative fields to `CampaignStageDef` record (`StageName`, `StageSubtitle`, `IntroLine`, `ClearStamp`)
 - Add `CampaignDataRoot` record with `FinalCompletionText`
 - Write `Data/campaign_stages.json` with all four stages fully populated
 - Update `DataLoader`: load narrative fields, expose `GetFinalCompletionText()`
 - Unit test: all four stages deserialize with non-empty `StageName` and `ClearStamp`
 
-**Step 2 — Core mandate plumbing** *(from CAMPAIGN.MD, unchanged)*
+**Step 2 - Core mandate plumbing** *(from CAMPAIGN.MD, unchanged)*
 - `SlotInstance.IsLocked`
 - `RunState.ActiveMandate`
 - `MandateDefinition.cs`
@@ -685,11 +685,11 @@ Same ordered steps as CAMPAIGN.MD, with narrative work interleaved where it's ch
 - `WaveSystem.GetScaledHp` multiplier param
 - Unit tests for filtered draft pools
 
-**Step 3 — Campaign state management** *(from CAMPAIGN.MD, unchanged)*
+**Step 3 - Campaign state management** *(from CAMPAIGN.MD, unchanged)*
 - `CampaignManager.cs`
 - `CampaignProgress.cs`
 
-**Step 4 — GameController integration**
+**Step 4 - GameController integration**
 - Apply mandate + lock slots on boot
 - Render locked slot visual
 - Wrap first-draft open in `ShowStageIntroThenContinue`
@@ -697,20 +697,20 @@ Same ordered steps as CAMPAIGN.MD, with narrative work interleaved where it's ch
 - Unlock `CAMPAIGN_CLEAR` / `CAMPAIGN_HARD_CLEAR` achievements on full completion
 - Test: run campaign stage, verify intro shows, stamp appears on win screen
 
-**Step 5 — HUD mandate strip** *(from CAMPAIGN.MD, unchanged)*
+**Step 5 - HUD mandate strip** *(from CAMPAIGN.MD, unchanged)*
 - Orange one-line reminder in `HudPanel` during campaign runs
 
-**Step 6 — `EndScreen` sector stamp**
+**Step 6 - `EndScreen` sector stamp**
 - Promote `vbox` to field in `EndScreen._Ready()`
 - Implement `SetCampaignStageStamp`
 - Test: win a campaign stage, verify stamp color and text, test final stage for completion text
 
-**Step 7 — `CampaignSelectPanel` with narrative skin**
+**Step 7 - `CampaignSelectPanel` with narrative skin**
 - Panel header: "THE FRACTURE CIRCUIT" + subtitle
 - Stage cards: number badge + stage name + subtitle + mandate badge + intro line in right column
 - Lock/clear state as CAMPAIGN.MD
 
-**Step 8 — Mode select screen + navigation wiring**
+**Step 8 - Mode select screen + navigation wiring**
 - Create `Scripts/UI/ModeSelectPanel.cs` and `Scenes/ModeSelect.tscn`
 - Change `MainMenu.OnPlay()` to navigate to `ModeSelect.tscn` (one-line change)
 - `CampaignSelectPanel.OnBack()` → `ModeSelect.tscn`
@@ -718,7 +718,7 @@ Same ordered steps as CAMPAIGN.MD, with narrative work interleaved where it's ch
 - `CampaignManager.ClearActiveStage()` + `CampaignProgress.Load()` in `ModeSelectPanel._Ready()`
 - Test full nav loop: MainMenu → ModeSelect → Campaign → back to ModeSelect → Skirmish → back to ModeSelect → back to MainMenu
 
-**Step 9 — Achievements**
+**Step 9 - Achievements**
 - Add `CAMPAIGN_CLEAR` and `CAMPAIGN_HARD_CLEAR` to `AchievementManager.All`
 - Wire check logic in `GameController`
 

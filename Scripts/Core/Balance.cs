@@ -11,7 +11,7 @@ public enum DifficultyMode
 /// <summary>All tunables in one place. Change values here, nowhere else.</summary>
 public static class Balance
 {
-    // Build type — set via export preset custom_features="demo".
+    // Build type - set via export preset custom_features="demo".
     // Use this to gate all full-game-only content. Never hardcode true/false here.
     // _isDemoOverride allows headless bot runs to pass --demo and simulate demo conditions.
     private static bool? _isDemoOverride;

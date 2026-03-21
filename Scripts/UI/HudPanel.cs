@@ -178,7 +178,7 @@ public partial class HudPanel : CanvasLayer
         _difficultyLabel.Modulate = new Color(0.55f, 0.65f, 0.75f);
         rightHbox.AddChild(_difficultyLabel);
 
-        // Mandate banner — sits below the main HUD bar, full width
+        // Mandate banner - sits below the main HUD bar, full width
         _mandateBanner = new Panel();
         _mandateBanner.LayoutMode = 1;
         _mandateBanner.AnchorLeft   = 0f;

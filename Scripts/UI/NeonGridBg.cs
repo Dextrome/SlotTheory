@@ -5,7 +5,7 @@ namespace SlotTheory.UI;
 
 /// <summary>
 /// Fullscreen animated circuit-board background for the main menu.
-/// PCB infrastructure in dormant standby — crisp traces, tight annular pads,
+/// PCB infrastructure in dormant standby - crisp traces, tight annular pads,
 /// component footprints, via holes. Atmosphere from corner vignette and a soft
 /// central light pocket, not from density or noise.
 /// </summary>
@@ -136,7 +136,7 @@ public partial class NeonGridBg : Control
         (0.62f, 0.28f, 0.65f, 0.25f, 2),
     };
 
-    // ── Nodes (annular ring + bright core — no wide soft halos) ──────────────
+    // ── Nodes (annular ring + bright core - no wide soft halos) ──────────────
     private static readonly (float X, float Y, int C, float R)[] Nodes =
     {
         // Orange hot nodes
@@ -249,7 +249,7 @@ public partial class NeonGridBg : Control
         // ── Central atmospheric light ─────────────────────────────────────────
         // A faint blue-indigo light pocket behind the menu card area.
         // Creates the impression the board is powered and the card is lit
-        // from within — not a visible glow, just a warmth/depth separation.
+        // from within - not a visible glow, just a warmth/depth separation.
         var focus = S(0.50f, 0.50f);
         for (int i = 0; i < 38; i++)
         {
@@ -305,7 +305,7 @@ public partial class NeonGridBg : Control
         DrawLine(S(0.66f, 0.06f), S(1.00f, 0.06f), halo, 4f);
 
         // ── Circuit traces ────────────────────────────────────────────────────
-        // Drawn quiet — the structure should read as detail, not as the scene.
+        // Drawn quiet - the structure should read as detail, not as the scene.
         for (int ti = 0; ti < Traces.Length; ti++)
         {
             var (x1, y1, x2, y2, wClass) = Traces[ti];
@@ -364,7 +364,7 @@ public partial class NeonGridBg : Control
             DrawArc(pos, vr * 0.6f, 0f, MathF.Tau, 16, new Color(Cyan,   va * 0.14f), 0.9f);
         }
 
-        // ── Glow nodes — tight annular rings, controlled cores ────────────────
+        // ── Glow nodes - tight annular rings, controlled cores ────────────────
         for (int ni = 0; ni < Nodes.Length; ni++)
         {
             var (nx, ny, colorIdx, r) = Nodes[ni];
@@ -373,18 +373,18 @@ public partial class NeonGridBg : Control
 
             switch (colorIdx)
             {
-                case 0: // orange — tight halo + annular ring + bright core
+                case 0: // orange - tight halo + annular ring + bright core
                     DrawCircle(pos, r * 1.70f, new Color(Orange, 0.025f + 0.016f * pulse));
                     DrawArc(pos, r,       0f, MathF.Tau, 18, new Color(Orange, 0.28f + 0.14f * pulse), 1.2f);
                     DrawCircle(pos, r * 0.44f, new Color(1.0f, 0.84f, 0.44f, 0.38f + 0.12f * pulse));
                     DrawCircle(pos, r * 0.16f, new Color(1.0f, 0.96f, 0.80f, 0.52f + 0.10f * pulse));
                     break;
-                case 1: // cyan — tight halo + ring + core
+                case 1: // cyan - tight halo + ring + core
                     DrawCircle(pos, r * 1.52f, new Color(Cyan, 0.018f + 0.012f * pulse));
                     DrawArc(pos, r,       0f, MathF.Tau, 16, new Color(Cyan, 0.19f + 0.12f * pulse), 1.0f);
                     DrawCircle(pos, r * 0.40f, new Color(Cyan, 0.36f + 0.12f * pulse));
                     break;
-                case 2: // lime — square SMD pad
+                case 2: // lime - square SMD pad
                     DrawRect(new Rect2(pos.X - r * 1.1f, pos.Y - r * 1.1f, r * 2.2f, r * 2.2f),
                         new Color(Lime, 0.018f + 0.012f * pulse));
                     DrawRect(new Rect2(pos.X - r,        pos.Y - r,        r * 2.0f, r * 2.0f),
@@ -395,7 +395,7 @@ public partial class NeonGridBg : Control
             }
         }
 
-        // ── Charge packets — slow, deliberate, 8 traces ───────────────────────
+        // ── Charge packets - slow, deliberate, 8 traces ───────────────────────
         for (int i = 0; i < 260; i++)
         {
             float hx = Hash01(i * 13.17f + 2.1f);

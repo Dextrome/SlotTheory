@@ -851,7 +851,7 @@ public partial class SlotCodexPanel : Node
         "reverse_walker"  => $"Trickster unit. If one hit chunks at least {Balance.ReverseWalkerTriggerDamageRatio * 100f:0}% of its max HP, it rewinds a short distance. Cooldown-gated and capped at {Balance.ReverseWalkerMaxTriggersPerLife} rewinds per life.",
         "splitter_walker" => $"Splits into {Balance.SplitterShardCount} fast shards on death. Burst damage that kills it cleanly does not reach the shards - sustained DPS or AoE builds must deal with both. A leaked Splitter risks 3 lives total.",
         "splitter_shard"  => $"A fragment of a destroyed Splitter. Faster than its parent and harder to catch mid-lane. {Balance.SplitterShardCount} spawn per kill - if your DPS cannot clean them up quickly they will slip through.",
-        "shield_drone"    => $"Support unit. Projects a {Balance.ShieldDroneProtectionReduction * 100f:0}% damage reduction field to nearby allies within {Balance.ShieldDroneAuraRadius:0}px. Eliminate it first — shielded groups absorb far more punishment before breaking.",
+        "shield_drone"    => $"Support unit. Projects a {Balance.ShieldDroneProtectionReduction * 100f:0}% damage reduction field to nearby allies within {Balance.ShieldDroneAuraRadius:0}px. Eliminate it first - shielded groups absorb far more punishment before breaking.",
         _                 => "Standard threat. Low bulk, steady pace. Pressure escalates each wave via HP scaling.",
     };
 }

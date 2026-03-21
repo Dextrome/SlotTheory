@@ -69,23 +69,23 @@ The player does not need every detail immediately. They need the core causal lad
 ## System Overview
 Implement Surge teaching as a four-layer system:
 
-### Layer 1 — Passive Visual Truth
+### Layer 1 - Passive Visual Truth
 Make important Surge states visually obvious without any text.
 
-### Layer 2 — Contextual Micro-Hints
+### Layer 2 - Contextual Micro-Hints
 Show tiny hints attached to the relevant tower or surge bar only when relevant.
 
-### Layer 3 — Failure / Missed-Opportunity Reminders
+### Layer 3 - Failure / Missed-Opportunity Reminders
 After ignoring Surge or losing with Surge available, show a one-line tip tied to what was missed.
 
-### Layer 4 — Optional Reference Material
+### Layer 4 - Optional Reference Material
 Keep the tutorial map and how-to-play screen, but treat them as supplemental rather than primary teaching.
 
 ---
 
 ## Implementation Phases
 
-# Phase 1 — Instrumentation and State Tracking
+# Phase 1 - Instrumentation and State Tracking
 Before adding hint logic, track the behaviors needed to decide when hints should appear and retire.
 
 ## Add Per-Profile or Per-Save Flags
@@ -126,7 +126,7 @@ These do not need to be perfect. They just need to be good enough.
 
 ---
 
-# Phase 2 — Passive Visual Communication Improvements
+# Phase 2 - Passive Visual Communication Improvements
 Improve the non-text readability of Surge.
 
 ## Tower Surge Ring Readability
@@ -171,7 +171,7 @@ When a tower has 2+ mods, make it clearer that this tower is now surge-relevant.
 
 ---
 
-# Phase 3 — Contextual Micro-Hint System
+# Phase 3 - Contextual Micro-Hint System
 Build a lightweight hint system that attaches tiny messages to the relevant object.
 
 ## Rules for Micro-Hints
@@ -242,7 +242,7 @@ Suggested initial caps:
 
 ---
 
-# Phase 4 — Adaptive Retirement Logic
+# Phase 4 - Adaptive Retirement Logic
 Hints should stop once the player likely understands the system.
 
 ## Retirement Conditions
@@ -277,7 +277,7 @@ Possible exception:
 
 ---
 
-# Phase 5 — Failure-Driven Reminder Layer
+# Phase 5 - Failure-Driven Reminder Layer
 Teach the mechanic when the player has a reason to care.
 
 ## Post-Loss Tip Conditions
@@ -292,7 +292,7 @@ Show a Surge-related reminder only when directly relevant.
 Keep these short and specific.
 
 - **Tip: full modded towers charge your Global Surge.**
-- **Tip: Global Surge was available this run — click the bar to trigger it.**
+- **Tip: Global Surge was available this run - click the bar to trigger it.**
 - **Tip: Combat fills Tower Surge over time.**
 - **Tip: 2+ mod towers unlock stronger combo surges.**
 
@@ -308,7 +308,7 @@ Do not repeat the same tip too many times in a row.
 
 ---
 
-# Phase 6 — Wording and UI Label Pass
+# Phase 6 - Wording and UI Label Pass
 Audit whether current naming helps or hurts comprehension.
 
 ## Review Current Terms
@@ -335,7 +335,7 @@ Goal is not verbosity. Goal is reducing abstractness.
 
 ---
 
-# Phase 7 — Tutorial / How-to-Play Repositioning
+# Phase 7 - Tutorial / How-to-Play Repositioning
 Keep existing tutorial material, but demote it from “primary teaching method” to “reinforcement layer.”
 
 ## Tutorial Design Change
@@ -469,26 +469,26 @@ Use visuals if possible rather than dense explanation.
 
 ## Recommended Rollout Order
 
-### Milestone 1 — Telemetry Foundation
+### Milestone 1 - Telemetry Foundation
 Implement tracking first so later testing is grounded.
 
-### Milestone 2 — Visual Readability Pass
+### Milestone 2 - Visual Readability Pass
 Improve ring and global bar clarity before adding more text.
 
-### Milestone 3 — Core Micro-Hints
+### Milestone 3 - Core Micro-Hints
 Implement the four essential hints:
 - Combat fills Surge
 - Tower Surge Ready
 - Full towers power this
 - Click to trigger Global Surge
 
-### Milestone 4 — Post-Loss Tips
+### Milestone 4 - Post-Loss Tips
 Add missed-opportunity reminders.
 
-### Milestone 5 — Adaptive Retirement
+### Milestone 5 - Adaptive Retirement
 Prevent long-term annoyance.
 
-### Milestone 6 — Tutorial / How-to-Play Cleanup
+### Milestone 6 - Tutorial / How-to-Play Cleanup
 Align reference material with the new in-game teaching language.
 
 ---
@@ -522,22 +522,22 @@ This system is working if:
 
 ## Risks and Failure Modes
 
-### Risk 1 — Hint spam
+### Risk 1 - Hint spam
 If triggers are too eager, players tune them out immediately.
 
 **Mitigation:** strict cooldowns, caps, retirement logic.
 
-### Risk 2 — Visual overload
+### Risk 2 - Visual overload
 If surge emphasis is too flashy, it muddies combat readability.
 
 **Mitigation:** emphasize only relevant states, not constant animation.
 
-### Risk 3 — Still too abstract
+### Risk 3 - Still too abstract
 If wording stays too vague, players still fail to build the mental model.
 
 **Mitigation:** prefer operational phrases tied to visible objects and actions.
 
-### Risk 4 — Players understand activation but not combo logic
+### Risk 4 - Players understand activation but not combo logic
 Basic surge may become clear while combo interactions remain fuzzy.
 
 **Mitigation:** treat combo surge as a second-stage lesson, not day-one required knowledge.

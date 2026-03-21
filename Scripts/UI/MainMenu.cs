@@ -359,7 +359,7 @@ public partial class MainMenu : Node
 
 	public override void _UnhandledInput(InputEvent @event)
 	{
-		// Escape does nothing on the main menu — quit via the Quit button only.
+		// Escape does nothing on the main menu - quit via the Quit button only.
 	}
 
 	private void OnPlay()

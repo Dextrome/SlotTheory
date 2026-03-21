@@ -1,4 +1,4 @@
-# Slot Theory — Dev-Facing Master Feature List
+# Slot Theory - Dev-Facing Master Feature List
 
 This document is the current internal source-of-truth feature overview for the shipped game state. It is written for development, planning, QA, store-page prep, and patch-note extraction.
 
@@ -85,7 +85,7 @@ Platforms currently supported:
 - Clears at wave 20
 - Allows Endless continuation after victory
 
-### Campaign — The Fracture Circuit
+### Campaign - The Fracture Circuit
 - 4-stage linear campaign structure
 - Separate Campaign Select flow from Mode Select
 - Stage ladder with locked / available / cleared state

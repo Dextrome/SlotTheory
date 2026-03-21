@@ -54,7 +54,7 @@ public static class DamageModel
         if (ctx.Target.DamageAmpRemaining > 0f && ctx.Target.DamageAmpMultiplier > 0f)
             damage *= (1f + ctx.Target.DamageAmpMultiplier);
 
-        // Shield Drone protection — 35% damage reduction for allies within aura radius
+        // Shield Drone protection - 35% damage reduction for allies within aura radius
         if (ctx.Target.IsShieldProtected)
             damage *= (1f - Balance.ShieldDroneProtectionReduction);
 
