@@ -1049,6 +1049,10 @@ public partial class GameController : Node
 	{
 		if (_restartInProgress) return;
 		_restartInProgress = true;
+		CurrentPhase = GamePhase.Boot;  // block OnDraftPick clicks during restart animations
+		_draftPanel.Hide();             // hide immediately; StartDraftPhase re-shows after animations
+		ClearTowerPlacementPreviewGhost();
+		ClearModifierPreviewGhost();
 
 		_pendingWinScorePayload    = null;
 		_pendingWinLeaderboardLine = "";
@@ -1083,6 +1087,7 @@ public partial class GameController : Node
 			_unlockRevealScreen.Visible = false;
 		Engine.TimeScale = 1.0;   // always reset speed on new run
 		SoundManager.Instance?.SetMusicTension(0f);
+		SoundManager.Instance?.FadePad(2.5f);  // re-silence pad if OnRunEnd had faded it back in
 		_hitStopActive = false;
 		_hitStopCooldown = 0f;
 		_hitStopFactor = 1f;

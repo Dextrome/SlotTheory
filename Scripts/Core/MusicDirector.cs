@@ -269,6 +269,7 @@ public partial class MusicDirector : Node
         MelodyLayer.Active = false;
         Clock.Stop();
         SoundManager.Instance?.SetMusicTension(0f);
+        SoundManager.Instance?.FadePadIn(3.0f);  // gently restore ambient pad on end screen
     }
 
     /// <summary>

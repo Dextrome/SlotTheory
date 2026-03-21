@@ -280,16 +280,13 @@ public partial class SoundManager : Node
     // ── Background music ─────────────────────────────────────────────────
 
     /// <summary>
-    /// Precomputes an 8-second ambient loop (Cm bass pulse + pad drone + shimmer)
-    /// and streams it continuously via AudioStreamGenerator for seamless looping.
-    /// </summary>
     /// <summary>
-    /// Precomputes a 32-second synthwave ambient loop.
-    /// Key: A minor Dorian (A, C, E + F# colour tone) - brighter and more energetic
-    /// than C minor. Wide chorus detuning on mid/upper layers creates the lush
-    /// analogue-pad sound. A 4-second gentle pulse on the high register adds groove
-    /// without percussion. Each layer has an independent swell period (4/8/16/32 s)
-    /// so the mix evolves continuously across the loop.
+    /// Precomputes a 32-second funky ambient loop.
+    /// Key: A major 9th (A, C#, E, F#, B) -- warm, soulful, not minor/sad.
+    /// A half-wave-rectified groove pulse on the bright layer bounces every 1 s
+    /// for a rhythmic feel without percussion. Swell periods are faster (4/8 s)
+    /// so the mix feels lively rather than slow and droney.
+    /// All swell periods divide 32 s evenly for a seamless loop.
     /// </summary>
     private void StartMusic()
     {
@@ -301,44 +298,52 @@ public partial class SoundManager : Node
         {
             float t = i / (float)Rate;
 
-            // ── Root: A2 only (A1 removed - too boomy alongside procedural bass) ─
+            // ── Root: A2, light sub-bass anchor ──────────────────────────────
             float root = (MathF.Sin(t * MathF.Tau * 110.00f)
-                        + MathF.Sin(t * MathF.Tau * 110.10f)
-                        + MathF.Sin(t * MathF.Tau * 109.90f)) * 0.010f;
+                        + MathF.Sin(t * MathF.Tau * 110.08f)
+                        + MathF.Sin(t * MathF.Tau * 109.92f)) * 0.008f;
 
-            // ── Fifth: E3, 32-s swell ─────────────────────────────────────────
-            float fifthSwell = 0.42f + 0.38f * MathF.Sin(t * MathF.Tau / 32f - MathF.PI * 0.4f);
+            // ── Fifth: E3, 8-s swell (was 32 s -- faster = more energy) ──────
+            float fifthSwell = 0.45f + 0.40f * MathF.Sin(t * MathF.Tau / 8f - MathF.PI * 0.4f);
             float fifth = (MathF.Sin(t * MathF.Tau * 164.81f)
-                         + MathF.Sin(t * MathF.Tau * 164.95f)) * 0.055f * fifthSwell;
+                         + MathF.Sin(t * MathF.Tau * 164.97f)) * 0.048f * fifthSwell;
 
-            // ── Mid pad: A3 + C4 + E4, wide chorus detuning, 8-s swell ───────
-            // ±0.28 Hz on A3 → ~3.6 s beat = lush analogue chorus pad sound
-            float padSwell = 0.44f + 0.40f * MathF.Sin(t * MathF.Tau / 8f + MathF.PI * 0.5f);
-            float pad = (MathF.Sin(t * MathF.Tau * 220.00f) + MathF.Sin(t * MathF.Tau * 220.28f) + MathF.Sin(t * MathF.Tau * 219.72f)) * 0.065f  // A3
-                      + (MathF.Sin(t * MathF.Tau * 261.63f) + MathF.Sin(t * MathF.Tau * 261.90f)) * 0.050f  // C4
-                      + (MathF.Sin(t * MathF.Tau * 329.63f) + MathF.Sin(t * MathF.Tau * 329.93f)) * 0.036f; // E4
+            // ── Mid pad: A3 + C#4 + E4 -- MAJOR triad (C# not C, no more whine)
+            // C#4 = 277.18 Hz replaces C4 = 261.63 Hz; 4-s swell keeps it lively
+            float padSwell = 0.50f + 0.42f * MathF.Sin(t * MathF.Tau / 4f + MathF.PI * 0.3f);
+            float pad = (MathF.Sin(t * MathF.Tau * 220.00f) + MathF.Sin(t * MathF.Tau * 220.30f) + MathF.Sin(t * MathF.Tau * 219.70f)) * 0.060f  // A3
+                      + (MathF.Sin(t * MathF.Tau * 277.18f) + MathF.Sin(t * MathF.Tau * 277.48f)) * 0.048f  // C#4 (major 3rd)
+                      + (MathF.Sin(t * MathF.Tau * 329.63f) + MathF.Sin(t * MathF.Tau * 329.95f)) * 0.036f; // E4
             pad *= padSwell;
 
-            // ── Dorian colour: F#4 - raised 6th lifts mood, gives 80s feel ───
-            float dorianSwell = 0.25f + 0.23f * MathF.Sin(t * MathF.Tau / 16f + MathF.PI * 0.2f);
-            float dorian = (MathF.Sin(t * MathF.Tau * 369.99f)
-                          + MathF.Sin(t * MathF.Tau * 370.35f)) * 0.038f * dorianSwell;
+            // ── Jazz 6th: F#4 -- major 6th adds soulful funk colour, 8-s swell ─
+            float jazzSwell = 0.28f + 0.25f * MathF.Sin(t * MathF.Tau / 8f + MathF.PI * 0.7f);
+            float jazz = (MathF.Sin(t * MathF.Tau * 369.99f)
+                        + MathF.Sin(t * MathF.Tau * 370.38f)) * 0.038f * jazzSwell;
 
-            // ── Bright A4: wide chorus, gentle 4-s pulse for groove ──────────
-            // 4 s divides 32 s evenly (8 cycles) - loop stays seamless
-            float brightPulse = 0.35f + 0.33f * MathF.Sin(t * MathF.Tau / 4f - MathF.PI * 0.5f);
+            // ── 9th: B4 -- Amaj9 richness, gives that smooth soul/funk feel ────
+            float ninthSwell = 0.22f + 0.20f * MathF.Sin(t * MathF.Tau / 4f + MathF.PI);
+            float ninth = (MathF.Sin(t * MathF.Tau * 493.88f)
+                         + MathF.Sin(t * MathF.Tau * 494.28f)) * 0.030f * ninthSwell;
+
+            // ── Bright A4: 1-s groove bounce (half-wave rectified = punchy) ───
+            // Positive half of 1 Hz sine fires 60 accents/min -- rhythmic without drums.
+            // 1 s divides 32 s evenly (32 cycles). Base level 0.20 keeps it present
+            // between accents; peak 0.75 gives a clear forward push.
+            float groovePulse = 0.20f + 0.55f * MathF.Max(0f, MathF.Sin(t * MathF.Tau / 1f));
             float bright = (MathF.Sin(t * MathF.Tau * 440.00f)
-                          + MathF.Sin(t * MathF.Tau * 440.55f)
-                          + MathF.Sin(t * MathF.Tau * 439.45f)) * 0.055f * brightPulse;
+                          + MathF.Sin(t * MathF.Tau * 440.60f)
+                          + MathF.Sin(t * MathF.Tau * 439.40f)) * 0.062f * groovePulse;
 
-            // ── Shimmer: E5 + A5, prominent sparkle, 16-s swell ─────────────
-            float shimSwell = 0.30f + 0.28f * MathF.Sin(t * MathF.Tau / 16f + MathF.PI * 0.75f);
+            // ── Shimmer: E5 + B5, bright sparkle, 8-s swell ─────────────────
+            // B5 (987.77 Hz) replaces A5 (880 Hz) -- airier, less droney high end
+            float shimSwell = 0.32f + 0.30f * MathF.Sin(t * MathF.Tau / 8f + MathF.PI * 0.5f);
             float shimmer = (MathF.Sin(t * MathF.Tau * 659.25f)
-                           + MathF.Sin(t * MathF.Tau * 659.80f)) * 0.032f * shimSwell
-                          + (MathF.Sin(t * MathF.Tau * 880.00f)
-                           + MathF.Sin(t * MathF.Tau * 880.70f)) * 0.018f * shimSwell;
+                           + MathF.Sin(t * MathF.Tau * 659.85f)) * 0.032f * shimSwell
+                          + (MathF.Sin(t * MathF.Tau * 987.77f)
+                           + MathF.Sin(t * MathF.Tau * 988.42f)) * 0.020f * shimSwell;
 
-            float s = Mathf.Clamp(root + fifth + pad + dorian + bright + shimmer, -1f, 1f);
+            float s = Mathf.Clamp(root + fifth + pad + jazz + ninth + bright + shimmer, -1f, 1f);
             _musicFrames[i] = new Vector2(s, s);
         }
 
@@ -374,9 +379,10 @@ public partial class SoundManager : Node
         if (_musicPlayer == null)
             return;
 
-        // _musicPlayer volume lerps in _Process, so this snaps target while still sounding smooth.
-        _padFadeRate = 0f;
-        _padFadeDb = enabled ? 0f : 60f;
+        if (enabled)
+            FadePadIn(2.0f);   // smooth return to menu over 2 s
+        else
+            FadePad(2.5f);     // smooth fade into game over 2.5 s (matches map animation)
     }
 
     public override void _Process(double delta)
@@ -419,11 +425,12 @@ public partial class SoundManager : Node
             else
                 _musicDuckDb = Mathf.Max(0f, _musicDuckDb - 14f * (float)delta);
 
-            // Advance pad fade
-            if (_padFadeRate > 0f)
+            // Advance pad fade (positive rate = fade out, negative = fade in)
+            if (_padFadeRate != 0f)
             {
                 _padFadeDb += _padFadeRate * (float)delta;
-                if (_padFadeDb >= 60f) { _padFadeDb = 60f; _padFadeRate = 0f; }
+                if (_padFadeRate > 0f && _padFadeDb >= 60f) { _padFadeDb = 60f; _padFadeRate = 0f; }
+                else if (_padFadeRate < 0f && _padFadeDb <= 0f) { _padFadeDb = 0f; _padFadeRate = 0f; }
             }
 
             float targetDb = MusicBaseDb + _musicTensionDb - _musicDuckDb - _padFadeDb;
@@ -998,12 +1005,20 @@ public partial class SoundManager : Node
 
     /// <summary>
     /// Gradually fade out the ambient pad loop over the given duration.
-    /// Called by MusicDirector when the procedural layers first activate.
     /// </summary>
     public void FadePad(float durationSec)
     {
         if (_headless || _musicPlayer == null) return;
-        _padFadeRate = 60f / MathF.Max(0.1f, durationSec);  // reach -60 dB = inaudible
+        _padFadeRate = 60f / MathF.Max(0.1f, durationSec);  // positive → fade out
+    }
+
+    /// <summary>
+    /// Gradually fade the ambient pad back in over the given duration.
+    /// </summary>
+    public void FadePadIn(float durationSec)
+    {
+        if (_headless || _musicPlayer == null) return;
+        _padFadeRate = -(60f / MathF.Max(0.1f, durationSec));  // negative → fade in
     }
 
     // ── Music note synthesis ──────────────────────────────────────────────
