@@ -25,10 +25,7 @@ public class BotRunner
     {
         BotStrategy.GreedyDps,
         BotStrategy.MarkerSynergy,
-        BotStrategy.SplitFocus,
-        BotStrategy.RiftPrismFocus,
         BotStrategy.SpectacleComboPairing,
-        BotStrategy.SpectacleTriadDiversity,
         BotStrategy.PlayerStyleKenny,
     };
 
@@ -176,7 +173,9 @@ public BotRunner(
         _quiet = quiet;
 		_maps = targetMap != null
 			? new[] { targetMap }
-			: new[] { "arena_classic", "gauntlet", "sprawl", "ridgeback" };
+			: Balance.IsDemo
+				? new[] { "arena_classic", "gauntlet", "sprawl" }
+				: new[] { "arena_classic", "gauntlet", "sprawl", "ridgeback" };
 		// Filter difficulties if specific one requested
 		if (targetDifficulty.HasValue)
 			_difficulties = new[] { targetDifficulty.Value };
