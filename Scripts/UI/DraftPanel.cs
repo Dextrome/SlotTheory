@@ -47,6 +47,7 @@ public partial class DraftPanel : CanvasLayer
     private bool _touchPreviewActive = false;
     private bool _suppressNextCardPress = false;
     private bool _isCardCommitInFlight = false;
+    private int  _cardPickGeneration   = 0;
     private readonly RandomNumberGenerator _rng = new();
     private PanelContainer _firstRunBanner = null!;
     private Label _bannerHeader = null!;
@@ -756,6 +757,7 @@ public partial class DraftPanel : CanvasLayer
         _pendingModifier = null;
         _previewTowerSlot = -1;
         _previewTowerSetAtMs = 0;
+        _cardPickGeneration++;  // invalidate any in-flight 0.06s hide timers
         Show(_lastOptions, _lastWaveNumber, _lastPickNumber, _lastTotalPicks, null);
     }
 
@@ -924,10 +926,14 @@ public partial class DraftPanel : CanvasLayer
             GameController.Instance?.PlayDraftCardSpirit(start, opt);
         }
         PulseDraftVignette();
+        int pickGen = ++_cardPickGeneration;
         GetTree().CreateTimer(0.06f).Timeout += () =>
         {
             // Don't hide if player is already in slot-selection - ShowPlacementUI already owns Visible.
-            if (!GodotObject.IsInstanceValid(this) || IsAwaitingSlot || IsAwaitingTower) return;
+            // Don't hide if the pick was cancelled (Escape) and Show() has already been called - the
+            // generation counter advances in CancelAssignment so we can detect this stale timer.
+            if (!GodotObject.IsInstanceValid(this) || _cardPickGeneration != pickGen) return;
+            if (IsAwaitingSlot || IsAwaitingTower) return;
             var tw = CreateTween();
             tw.SetParallel(true);
             tw.TweenProperty(_bg,    "modulate:a", 0f, 0.10f);

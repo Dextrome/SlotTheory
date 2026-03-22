@@ -644,7 +644,10 @@ public partial class GameController : Node
 		{
 			hudPanel!.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 			hudPanel.RefreshTime(_runState.TotalPlayTime);
-			hudPanel.RefreshEnemies(_runState.EnemiesAlive.Count, _waveSystem.GetTotalCount());
+			int alive      = _runState.EnemiesAlive.Count;
+			int unspawned  = Mathf.Max(0, _waveSystem.GetTotalCount() - _runState.EnemiesSpawnedThisWave);
+			int remaining  = alive + unspawned;
+			hudPanel.RefreshEnemies(alive, remaining);
 		}
 		if (_runState.Lives < livesBefore)
 		{
@@ -981,6 +984,7 @@ public partial class GameController : Node
 		}
 		_tutorialManager?.DismissCallouts();
 		ClearUndoPlacementState();
+		_hudPanel?.RefreshEnemies(0, 0);  // hide enemy counter during draft
 		CurrentPhase = GamePhase.Draft;
 		// Music continues uninterrupted through the draft phase.
 		_hudPanel.SetBuildName("", visible: false);

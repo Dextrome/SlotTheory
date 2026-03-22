@@ -40,8 +40,8 @@ public class WaveSystem
                 / MathF.Pow(1f + Balance.EndlessEnemyCountScalePerWave * 0.5f, depth),
             Balance.EndlessSpawnIntervalFloor);
 
-        // Shield Drones appear from endless depth 4 onward, scaling with depth
-        int shieldDroneCount = depth < 4
+        // Shield Drones appear from endless depth 4 onward, scaling with depth (full game only)
+        int shieldDroneCount = Balance.IsDemo || depth < 4
             ? 0
             : (int)MathF.Ceiling((1f + (depth - 4) / (float)Balance.EndlessShieldDroneBonusInterval)
                 * Balance.GetEnemyCountMultiplier(difficulty));

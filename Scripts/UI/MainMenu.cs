@@ -326,12 +326,13 @@ public partial class MainMenu : Node
 		{
 			Text = $"v{GetGameVersion()}",
 			HorizontalAlignment = HorizontalAlignment.Right,
-			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
 		versionLabel.AddThemeFontSizeOverride("font_size", 13);
 		versionLabel.Modulate = new Color(0.55f, 0.58f, 0.68f);
-		vbox.AddChild(versionLabel);
+		versionLabel.SetAnchorsPreset(Control.LayoutPreset.BottomRight);
+		versionLabel.Position = new Vector2(-84f, -28f);
+		canvas.AddChild(versionLabel);
 
 		if (MobileOptimization.IsMobile())
 			CallDeferred(nameof(ApplyFitScale), center);

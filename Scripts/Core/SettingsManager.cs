@@ -32,6 +32,7 @@ public partial class SettingsManager : Node
     public float MusicVolume   { get; private set; } = 80f;
     public float FxVolume      { get; private set; } = 80f;
     public float UiFxVolume    { get; private set; } = 80f;
+    public bool  AltMenuMusic  { get; private set; } = false;
     public bool  ColorblindMode { get; private set; } = false;
     public bool  ReducedMotion  { get; private set; } = false;
     // Hidden per-profile capability flag (not exposed in user-facing settings UI).
@@ -105,6 +106,13 @@ public partial class SettingsManager : Node
     {
         UiFxVolume = Mathf.Clamp(value, 0f, 100f);
         ApplyUiFx(UiFxVolume);
+        SaveAccount();
+    }
+
+    public void SetAltMenuMusic(bool alt)
+    {
+        AltMenuMusic = alt;
+        SoundManager.Instance?.SetMenuMusicStyle(alt);
         SaveAccount();
     }
 
@@ -314,6 +322,7 @@ public partial class SettingsManager : Node
             MusicVolume    = (float)cfg.GetValue(SecAudio, "music_volume",    80f);
             FxVolume       = (float)cfg.GetValue(SecAudio, "fx_volume",       80f);
             UiFxVolume     = (float)cfg.GetValue(SecAudio, "ui_fx_volume",    80f);
+            AltMenuMusic   = (bool) cfg.GetValue(SecAudio, "alt_menu_music", false);
             ColorblindMode = (bool) cfg.GetValue(SecDisp,  "colorblind",    false);
             ReducedMotion  = (bool) cfg.GetValue(SecDisp,  "reduced_motion", false);
             int rawDifficulty = (int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Easy);
@@ -369,6 +378,7 @@ public partial class SettingsManager : Node
         cfg.SetValue(SecAudio, "music_volume",   MusicVolume);
         cfg.SetValue(SecAudio, "fx_volume",      FxVolume);
         cfg.SetValue(SecAudio, "ui_fx_volume",   UiFxVolume);
+        cfg.SetValue(SecAudio, "alt_menu_music", AltMenuMusic);
         cfg.SetValue(SecDisp,  "colorblind",     ColorblindMode);
         cfg.SetValue(SecDisp,  "reduced_motion", ReducedMotion);
         if (cfg.HasSectionKey(SecDisp, LegacyDevModeKey))

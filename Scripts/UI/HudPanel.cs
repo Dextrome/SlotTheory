@@ -586,10 +586,11 @@ public partial class HudPanel : CanvasLayer
 
     public void RefreshEnemies(int alive, int total)
     {
-        _enemyLabel.Text = alive > 0 ? $"Enemies: {alive} / {total}" : "";
-        _enemyLabel.Visible = alive > 0;
+        bool show = total > 0 || alive > 0;
+        _enemyLabel.Text = show ? $"Enemies: {alive} / {total}" : "";
+        _enemyLabel.Visible = show;
         if (GodotObject.IsInstanceValid(_enemyReadoutChip))
-            _enemyReadoutChip.Visible = alive > 0;
+            _enemyReadoutChip.Visible = show;
         LayoutTopReadouts();
     }
 
@@ -1630,6 +1631,9 @@ public partial class HudPanel : CanvasLayer
             Visible = false,
             MouseFilter = Control.MouseFilterEnum.Ignore,
             Modulate = new Color(1f, 1f, 1f, 0.97f),
+            // Always process so GuiInput fires even when the scene tree is paused
+            // (tutorial surge panel pauses the tree and expects a click on this bar).
+            ProcessMode = ProcessModeEnum.Always,
         };
         _globalSpectaclePanel.GuiInput += (@event) =>
         {
