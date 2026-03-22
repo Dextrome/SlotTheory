@@ -259,6 +259,7 @@ public partial class HowToPlay : Node
         AddTargetModeRow(vbox, TargetingMode.First, "First", "Enemy furthest along the path");
         AddTargetModeRow(vbox, TargetingMode.Strongest, "Strongest", "Enemy with the most current HP");
         AddTargetModeRow(vbox, TargetingMode.LowestHp, "Lowest HP", "Enemy closest to death");
+        AddTargetModeRow(vbox, TargetingMode.Last, "Last", "Enemy least far along the path (trailing enemy)");
         AddLine(vbox, "Rift Sapper uses its own targeting set (same cycle keybind):");
         AddTargetModeRow(vbox, TargetingMode.First, "Random", "Place mines at random valid lane points within range.", TargetModeIconSet.RiftSapper);
         AddTargetModeRow(vbox, TargetingMode.Strongest, "Closest", "Place mines at the closest valid lane point within range.", TargetModeIconSet.RiftSapper);

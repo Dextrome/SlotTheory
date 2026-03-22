@@ -150,13 +150,14 @@ Unlockable modifiers:
 
 ## Targeting Modes
 
-- Right arrow icon - **First**: highest path progress
+Regular towers cycle through 4 modes on click/tap during waves:
+
+- Right arrow icon - **First**: highest path progress (closest to exit)
 - Star icon - **Strongest**: highest current HP
 - Down arrow icon - **Lowest HP**: lowest current HP
+- Left arrow icon - **Last**: lowest path progress (trailing enemy in range)
 
-Modes cycle on tower click/tap during waves.
-
-Rift Sapper uses tower-specific labels/icons for the same 3 internal modes:
+Rift Sapper uses tower-specific labels/icons for its own 3 internal modes (no Last mode):
 - Die icon: Random (internal First)
 - Down arrow icon: Closest (internal Strongest)
 - Up arrow icon: Furthest (internal Lowest HP)

@@ -2773,6 +2773,7 @@ public partial class GameController : Node
 					TargetingMode.First     => "First",
 					TargetingMode.Strongest => "Strongest",
 					TargetingMode.LowestHp  => "Lowest HP",
+					TargetingMode.Last      => "Last",
 					_                       => "First",
 				};
 			// Effective attack interval: baked (HairTrigger) + runtime hooks (FocusLens)

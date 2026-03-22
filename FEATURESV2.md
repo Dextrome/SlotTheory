@@ -233,15 +233,16 @@ All damage is hitscan (instant, no projectile nodes).
 
 ### Targeting Modes
 
-Three modes cycle on tower click/tap during waves:
+Four modes cycle on tower click/tap during waves (regular towers only -- Rift Sapper has 3 custom modes):
 
 | Mode | Icon | Logic |
 |---|---|---|
 | First | Right-arrow | Highest Progress (closest to exit) |
 | Strongest | Star | Highest current HP |
 | Lowest HP | Down-arrow | Lowest current HP |
+| Last | Left-arrow | Lowest Progress (trailing enemy in range) |
 
-Rift Sapper uses custom labels/icons mapped to the same 3 internal modes (Random/Closest/Furthest via die/down-arrow/up-arrow icons). Implemented in `TowerInstance.CycleTargetingMode()`.
+Rift Sapper uses custom labels/icons mapped to its own 3 internal modes (Random/Closest/Furthest via die/down-arrow/up-arrow icons) and does not get the Last mode. Implemented in `TowerInstance.CycleTargetingMode()`.
 
 ### Statuses
 

@@ -82,6 +82,9 @@ public partial class TargetModeIcon : Control
                 if (_iconSet == TargetModeIconSet.RiftSapper) DrawUpArrowIcon(c, r);
                 else DrawLowestHpIcon(c, r);
                 break;
+            case TargetingMode.Last:
+                DrawLastIcon(c, r);
+                break;
         }
     }
 
@@ -95,6 +98,20 @@ public partial class TargetModeIcon : Control
             c + new Vector2(r * 0.08f, -r * 0.85f),
             c + new Vector2(r * 1.02f, 0f),
             c + new Vector2(r * 0.08f, r * 0.85f),
+        };
+        DrawColoredPolygon(head, _iconColor);
+    }
+
+    private void DrawLastIcon(Vector2 c, float r)
+    {
+        float stroke = Mathf.Max(1.6f, r * 0.38f);
+        DrawLine(c + new Vector2(r * 0.95f, 0f), c + new Vector2(-r * 0.08f, 0f), _iconColor, stroke, true);
+
+        var head = new[]
+        {
+            c + new Vector2(-r * 0.08f, -r * 0.85f),
+            c + new Vector2(-r * 1.02f, 0f),
+            c + new Vector2(-r * 0.08f, r * 0.85f),
         };
         DrawColoredPolygon(head, _iconColor);
     }

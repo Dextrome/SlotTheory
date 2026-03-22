@@ -6,7 +6,7 @@ using SlotTheory.UI;
 
 namespace SlotTheory.Entities;
 
-public enum TargetingMode { First, Strongest, LowestHp }
+public enum TargetingMode { First, Strongest, LowestHp, Last }
 
 /// <summary>
 /// Tower node. Positioned as a child of its Slot node so GlobalPosition is correct for range checks.
@@ -234,11 +234,14 @@ public partial class TowerInstance : Node2D, ITowerView
 
     public void CycleTargetingMode()
     {
+        // Rift Sapper has 3 custom targeting semantics (Random/Closest/Furthest); Last is not applicable.
+        bool isRiftSapper = TowerId == "rift_prism";
         TargetingMode = TargetingMode switch
         {
             TargetingMode.First     => TargetingMode.Strongest,
             TargetingMode.Strongest => TargetingMode.LowestHp,
-            _                      => TargetingMode.First,
+            TargetingMode.LowestHp  => isRiftSapper ? TargetingMode.First : TargetingMode.Last,
+            _                       => TargetingMode.First,
         };
         if (ModeIconControl != null)
             ModeIconControl.Mode = TargetingMode;

@@ -25,6 +25,7 @@ public static class Targeting
             TargetingMode.First     => inRange.MaxBy(e => e.ProgressRatio),
             TargetingMode.Strongest => inRange.MaxBy(e => e.Hp),
             TargetingMode.LowestHp  => inRange.MinBy(e => e.Hp),
+            TargetingMode.Last      => inRange.MinBy(e => e.ProgressRatio),
             _                       => inRange.MaxBy(e => e.ProgressRatio),
         };
     }
