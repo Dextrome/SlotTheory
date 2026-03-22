@@ -524,24 +524,45 @@ public partial class SoundManager : Node
             }
         }
 
+        // ── Hi-hat (16th-note closed, inharmonic metallic sines) ────────────
+        // Fires every 2 rows = 160 ms = 16th note @ ~94 BPM. Accented on 8th notes (row%4==0).
+        const int HatLen = (int)(0.038f * Rate);
+        for (int hrow = 0; hrow < rows; hrow += 2)
+        {
+            bool isAccent = (hrow % 4 == 0);
+            float hatVol  = isAccent ? 0.12f : 0.06f;
+            int   hstart  = hrow * RowSamples;
+            for (int i = 0; i < HatLen && hstart + i < n; i++)
+            {
+                float tt  = i / (float)Rate;
+                float env = MathF.Exp(-95f * tt);
+                // Inharmonic high-freq sines → metallic closed hi-hat timbre
+                float h = MathF.Sin(tt * MathF.Tau * 7800f) * 0.38f
+                        + MathF.Sin(tt * MathF.Tau * 9300f) * 0.30f
+                        + MathF.Sin(tt * MathF.Tau * 11600f) * 0.22f
+                        + MathF.Sin(tt * MathF.Tau * 13800f) * 0.10f;
+                mix[hstart + i] += h * env * hatVol;
+            }
+        }
+
         // ── Chug (distorted sawtooth, staccato 70 ms) ───────────────────────
         var chugEvents = new List<(int row, int midi)>();
         if (intro)
         {
-            // Correct MIDI: formula is MIDI=60+12*log2(428/period) - period 428 = middle C.
-            // All note values are one octave higher than the parser output (which wrongly used 214).
-            int[] cp = { 69,69,71,67,69,71,69,67 };  // A4,A4,B4,G4,A4,B4,A4,G4
+            // F minor pentatonic chug (Ab4,Ab4,Bb4,F4 pattern) - in key with bass and melody.
+            int[] cp = { 68,68,70,65,68,70,68,65 };  // Ab4,Ab4,Bb4,F4,Ab4,Bb4,Ab4,F4
             for (int r = 0; r < 64; r += 2) chugEvents.Add((r, cp[(r / 2) % cp.Length]));
         }
         else
         {
-            // Correct MIDI (period 428 = MIDI 60 reference):
-            // P3/P7 first half (rows 0-30): A4,A4,B4,G4 phrase, D5 turnaround at row 28
-            int[] chugPhrase = { 69,69,71,67,69,71,69,67,69,69,71,67,69,71,74,69 };
-            // P3/P7 second half (rows 32-62): settle groove, mostly G4 with occasional A4
-            int[] chugGroove = { 67,67,69,67,67,69,67,67,67,67,69,67,67,67,69,67 };
-            // P8 high section (rows 16-30, 48-62): D5,D5,E5,C5,D5,E5,D5,D5
-            int[] cHigh = { 74,74,76,72,74,76,74,74 };
+            // F minor pentatonic / Dorian chug - all notes in key with bass and melody.
+            // Main phrase: Ab4-Ab4-Bb4-F4 (minor3rd / 4th / root) - funky root-bounce pattern.
+            int[] chugPhrase = { 68,68,70,65,68,70,68,65,68,68,70,65,68,70,74,68 };
+            // Settle groove second half: F4-F4-Ab4-F4 - tonic pedal with root colour.
+            int[] chugGroove = { 65,65,68,65,65,68,65,65,65,65,68,65,65,65,68,65 };
+            // P8 high section: keep chug in low register (Ab4/Bb4/F4) so it doesn't
+            // compete with the high melody (Ab5/F5) in the same octave.
+            int[] cHigh = { 68,68,70,65,68,70,68,68 };
             for (int p = 0; p < 4; p++)
             {
                 for (int r = 0; r < 64; r += 2)
@@ -576,11 +597,9 @@ public partial class SoundManager : Node
         foreach (var (row, midi) in chugEvents)
         {
             int   start = row * RowSamples;
-            // chugalug sample is 8468 Hz (not standard 8287 Hz).
-            // On Amiga hardware, period 254 + 8468 Hz sample → 431 Hz (≈G#4), not A4=440 Hz.
-            // With correction: 440 * 8287/8468 = 430.6 Hz → near-octave below melody G#5=830 Hz.
-            // Without correction: 440 Hz (A4) = minor 7th below G#5 = maximally dissonant.
-            float freq  = MidiFreq(midi) * 8287f / 8468f;
+            // Chug gate is 25 ms - percussive attack only, pitch content is negligible.
+            // Use equal-temperament MIDI freq so chug, bass, and melody share the same tuning reference.
+            float freq  = MidiFreq(midi);
             float phase = 0f;
             for (int i = 0; i < ChugGate && start + i < n; i++)
             {
@@ -588,7 +607,7 @@ public partial class SoundManager : Node
                 float env = MathF.Exp(-40f * tt) * (1f - MathF.Exp(-800f * tt));
                 phase += freq / Rate;
                 float saw = (phase % 1f) * 2f - 1f;
-                mix[start + i] += MathF.Tanh(saw * 2.0f) * env * 0.18f;
+                mix[start + i] += MathF.Tanh(saw * 2.0f) * env * 0.12f;
             }
         }
 
@@ -634,10 +653,13 @@ public partial class SoundManager : Node
                 float env = MathF.Min(tt / 0.012f, 1f)
                           * MathF.Min((totalT - tt) / 0.04f, 1f);
                 if (intro) env *= MathF.Max(0f, 1f - (start + i) / (float)(64 * RowSamples));
-                float s = (MathF.Sin(tt * MathF.Tau * freq)        * 0.65f
-                         + MathF.Sin(tt * MathF.Tau * freq * 2f)   * 0.25f
-                         + MathF.Sin(tt * MathF.Tau * freq * 3f)   * 0.10f) * env;
-                mix[start + i] += s * 0.50f;
+                // Electric guitar lead: richer harmonics + light tanh bite
+                float raw = (MathF.Sin(tt * MathF.Tau * freq)        * 0.55f
+                           + MathF.Sin(tt * MathF.Tau * freq * 2f)   * 0.25f
+                           + MathF.Sin(tt * MathF.Tau * freq * 3f)   * 0.12f
+                           + MathF.Sin(tt * MathF.Tau * freq * 4f)   * 0.06f) * env;
+                float s = MathF.Tanh(raw * 1.4f);  // peak ≈ 0.88 → ×0.55 ≈ 0.48 (near original 0.50)
+                mix[start + i] += s * 0.55f;
             }
         }
 
@@ -649,9 +671,10 @@ public partial class SoundManager : Node
         }
         else
         {
-            // P3 and P7 bass: Ab4/F#4/B4 (period 269/302/226, MIDI=60+12*log2(428/P))
+            // P3 and P7 bass: Ab4 root pedal with Bb4 (4th) bounce - classic F minor groove.
+            // Original Gb4(66) and B4(71) caused half-step and tritone clashes with the melody.
             int[] p37BassRows = { 0, 24, 28, 32, 60 };
-            int[] p37BassMidi = { 68, 66, 71, 66, 71 };  // Ab4, F#4, B4
+            int[] p37BassMidi = { 68, 68, 70, 68, 70 };  // Ab4, Ab4, Bb4, Ab4, Bb4
             for (int p = 0; p < 3; p++)  // patterns 3+7+3 at offsets 0,64,128
                 for (int i = 0; i < p37BassRows.Length; i++)
                     bass.Add((p * 64 + p37BassRows[i], p37BassMidi[i]));
@@ -660,7 +683,8 @@ public partial class SoundManager : Node
             // runs by one octave: 80→68, 78→66, 73→61. Bass stays in G#4/F#4/C#4 range (~285-428 Hz),
             // below the melody (~830 Hz). Sample-rate correction then applies as normal.
             int[] p8BassRows = { 0,4,6,8,12,14,16,20,22,24,28,32,36,38,40,44,46,48,52,54,56,60 };
-            int[] p8BassMidi = { 68,68,68,66,68,68,61,68,61,66,68,68,68,68,66,68,68,61,68,61,66,68 };
+            // Gb4(66) replaced with F4(65) - tonic root; Db4(61) kept (bVI = natural minor 6th).
+            int[] p8BassMidi = { 68,68,68,65,68,68,61,68,61,65,68,68,68,68,65,68,68,61,68,61,65,68 };
             for (int i = 0; i < p8BassRows.Length; i++)
                 bass.Add((192 + p8BassRows[i], p8BassMidi[i]));
         }
@@ -670,19 +694,21 @@ public partial class SoundManager : Node
             int nextRow  = evIdx + 1 < bass.Count ? bass[evIdx + 1].row : rows;
             int gate     = (nextRow - row) * RowSamples;
             int start    = row * RowSamples;
-            // coolbass2 sample is 8051 Hz (not standard 8287 Hz).
-            // On Amiga hardware, period 269 + 8051 Hz sample → 428 Hz (≈G#4, near-unison with chug).
-            // Without correction: 415 Hz (G#4) - still close, but with correction both chug+bass
-            // cluster at ~429 Hz forming a near-octave pair below melody G#5=830 Hz.
-            float freq   = MidiFreq(midi) * 8287f / 8051f;
+            // Use equal-temperament MIDI freq so bass sits exactly an octave below the melody
+            // (e.g. G#4=415 Hz is a perfect octave below G#5=831 Hz). Sample-rate corrections
+            // shifted bass +50¢ sharp vs melody, causing audible dissonance.
+            float freq   = MidiFreq(midi);
             float totalT = gate / (float)Rate;
             for (int i = 0; i < gate && start + i < n; i++)
             {
                 float tt  = i / (float)Rate;
                 float env = MathF.Min(tt / 0.010f, 1f)
                           * Math.Clamp((totalT - tt) / 0.05f, 0f, 1f);
-                float s = MathF.Sin(tt * MathF.Tau * freq) * env;
-                mix[start + i] += s * 0.25f;
+                // Electric bass: fundamental + harmonics for body and presence
+                float s = (MathF.Sin(tt * MathF.Tau * freq)      * 0.60f
+                         + MathF.Sin(tt * MathF.Tau * freq * 2f) * 0.25f
+                         + MathF.Sin(tt * MathF.Tau * freq * 3f) * 0.10f) * env;
+                mix[start + i] += s * 0.30f;
             }
         }
 
@@ -690,7 +716,7 @@ public partial class SoundManager : Node
         var frames = new Vector2[n];
         for (int i = 0; i < n; i++)
         {
-            float s = MathF.Tanh(mix[i] * 0.80f);
+            float s = MathF.Tanh(mix[i] * 0.50f);
             frames[i] = new Vector2(s, s);
         }
         return frames;
