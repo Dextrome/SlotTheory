@@ -8,6 +8,7 @@ namespace SlotTheory.UI;
 /// </summary>
 public partial class Settings : Node
 {
+    private Button? _menuMusicBtn;
     private Button? _fullscreenBtn;
     private Button? _colorblindBtn;
     private Button? _reducedMotionBtn;
@@ -114,6 +115,10 @@ public partial class Settings : Node
         AddVolumeRow(vbox, "Music",   sm?.MusicVolume  ?? 80f, v => SettingsManager.Instance?.SetMusicVolume(v));
         AddVolumeRow(vbox, "Game FX", sm?.FxVolume     ?? 80f, v => SettingsManager.Instance?.SetFxVolume(v));
         AddVolumeRow(vbox, "UI FX",   sm?.UiFxVolume   ?? 80f, v => SettingsManager.Instance?.SetUiFxVolume(v));
+
+        bool isAlt = sm?.AltMenuMusic ?? false;
+        _menuMusicBtn = AddSettingRow(vbox, "Menu Music",
+            isAlt ? "Ambient" : "Mars", isOn: isAlt, OnToggleMenuMusic);
 
         AddSpacer(vbox, 4);
 
@@ -335,6 +340,13 @@ public partial class Settings : Node
         bool next = !(SettingsManager.Instance?.VhsGlitchEnabled ?? false);
         SettingsManager.Instance?.SetVhsGlitchEnabled(next);
         UpdateValueButton(_vhsGlitchBtn, OnOffText(next), next);
+    }
+
+    private void OnToggleMenuMusic()
+    {
+        bool next = !(SettingsManager.Instance?.AltMenuMusic ?? false);
+        SettingsManager.Instance?.SetAltMenuMusic(next);
+        UpdateValueButton(_menuMusicBtn, next ? "Ambient" : "Mars", next);
     }
 
     private void OnToggleEnemyLayered()

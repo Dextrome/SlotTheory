@@ -30,7 +30,6 @@ public partial class MusicDirector : Node
 
     private MusicTension  _tension = MusicTension.Intro;
     private System.Random _rng     = new();
-    private float _gameSpeedScale = 1f;
 
     // Active profile (set in _Ready based on selected map)
     private MapMusicProfile _profile;
@@ -87,7 +86,6 @@ public partial class MusicDirector : Node
         // Pick the per-map profile before anything else.
         string? mapId = GameController.Instance?.GetRunState()?.SelectedMapId;
         _profile = GetProfileForMap(mapId);
-        _gameSpeedScale = Mathf.Max(1f, (float)Engine.TimeScale);
 
         int rootMidi = BaseRootMidi + _profile.RootOffset;
         var mode     = _profile.IntroMode;
@@ -288,24 +286,9 @@ public partial class MusicDirector : Node
     }
 
     /// <summary>
-    /// Called by HUD speed controls so map music pace tracks gameplay speed.
+    /// No-op: map music tempo is fixed regardless of gameplay speed.
     /// </summary>
-    public void SetGameSpeedScale(float speedScale)
-    {
-        if (Clock is null) return;
-
-        float clamped = Mathf.Max(1f, speedScale);
-        if (Mathf.IsEqualApprox(_gameSpeedScale, clamped))
-            return;
-
-        _gameSpeedScale = clamped;
-        if (!Clock.IsRunning)
-            return;
-
-        float targetBpm = TargetBpmFor(_tension);
-        if (System.MathF.Abs(Clock.Bpm - targetBpm) > 0.5f)
-            Clock.SetBpm(targetBpm, rampBars: 1.25f);
-    }
+    public void SetGameSpeedScale(float speedScale) { }
 
     // ── Internal ──────────────────────────────────────────────────────────
 
@@ -360,16 +343,8 @@ public partial class MusicDirector : Node
 
     private float TargetBpmFor(MusicTension tension)
     {
-        float baseBpm = MusicHarmony.TensionToBpm(tension) + _profile.BpmOffset;
-        return baseBpm * SpeedToTempoScale(_gameSpeedScale);
-    }
-
-    private static float SpeedToTempoScale(float speedScale)
-    {
-        // Keep pitch identity while making speed changes clearly audible:
-        // 1x -> 1.00, 2x -> 1.25, 3x -> 1.50. Clamp higher dev speeds.
-        float t = Mathf.Clamp(speedScale, 1f, 3f) - 1f;
-        return 1f + t * 0.25f;
+        // Fixed at 2× gameplay-speed tempo (× 1.25 over base BPM).
+        return (MusicHarmony.TensionToBpm(tension) + _profile.BpmOffset) * 1.25f;
     }
 
     private void BeginStartupPercussionRamp()

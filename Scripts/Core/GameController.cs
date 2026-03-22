@@ -463,6 +463,8 @@ public partial class GameController : Node
 
 		_extraPicksRemaining = Balance.ExtraPicksForWave(0);
 		_lastWaveReport = null;
+		_runState.MaxLives = Balance.GetStartingLives(SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal);
+		_runState.Lives = _runState.MaxLives;
 		_hudPanel.ResetSpeed();   // Engine.TimeScale persists across scene loads; always reset on fresh run
 		GetViewport().SizeChanged += () => CallDeferred(MethodName.CenterWorldNode);
 		if (!TryRestoreMobileSnapshot())
@@ -1037,6 +1039,7 @@ public partial class GameController : Node
 		_runState.EndlessWaveDepth = 1;
 		_extraPicksRemaining       = 0;
 		_hudPanel.SetEndlessMode(true);
+		SoundManager.Instance?.FadePad(2.5f);  // re-silence background music that OnRunEnd faded in
 		MusicDirector.Instance?.OnEndlessContinue(_runState.WaveIndex + 1, _runState.Lives);
 		StartDraftPhase();
 	}
@@ -7261,9 +7264,9 @@ void fragment() {
 		_tutorialManager?.OnWaveStarted(_runState.WaveIndex);
 		if (_tutorialManager != null && _runState.WaveIndex == 2)
 			ShowTutorialTargetingPanel();
-		// Tutorial: pre-fill global meter to 90% at wave 6 so it fills naturally during combat.
+		// Tutorial: pre-fill global meter to 99% at wave 7 so it fills naturally during combat.
 		if (_tutorialManager != null && _runState.WaveIndex == 6)
-			_spectacleSystem.SetGlobalMeterFraction(0.95f);
+			_spectacleSystem.SetGlobalMeterFraction(0.99f);
 		if (_botRunner == null) ShowWaveAnnouncement(waveNumber);
 		WaveConfig? nextCfg = _runState.WaveIndex < _mapTotalWaves
 			? DataLoader.GetWaveConfig(

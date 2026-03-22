@@ -38,6 +38,30 @@ public partial class SoundManager : Node
     private float _musicDuckHold = 0f;
     private const float MusicBaseDb = -3f;
 
+    // Procedural solo for alt rock track -- re-generated every 32 s loop (3 final bars)
+    private float[] _soloNoteFreqs   = Array.Empty<float>();
+    private bool[]  _soloNoteVibrato = Array.Empty<bool>();
+    private float[] _soloNoteVol     = Array.Empty<float>(); // 1=full, 0.2=ghost, 0=rest
+    private float[] _soloNoteBend    = Array.Empty<float>(); // != 0 → slide FROM this freq to target
+    // Bars 0-8 lead: cascade (deterministic) OR Zappa-esque improv -- chosen each loop
+    private float[] _leadNoteFreqs   = Array.Empty<float>();
+    private bool[]  _leadVib         = Array.Empty<bool>();
+    private float[] _leadVol         = Array.Empty<float>();
+    private float[] _leadBend        = Array.Empty<float>();
+    private int      _soloLoopSeed       = 12345;
+    private bool     _isAltMusic         = false;
+    private Vector2[]? _musicFramesFull  = null;   // full-intensity loop (no buildup); used from loop 2+
+    private bool     _altMusicIntroPlayed = false;  // true after first 32s loop completes
+    // Fast-lick overlay: short blazing 64th-note bursts rendered additively on top of main solo
+    private float[] _fastFreqs   = Array.Empty<float>();
+    private float[] _fastVols    = Array.Empty<float>();
+    private float[] _fastBends   = Array.Empty<float>();
+    private int[]   _fastOffsets = Array.Empty<int>();
+    private const int SoloNoteCount      = 96;          // 3 bars × 32 32nd-notes (double speed)
+    private const int SoloSamplesPerNote = 1837;        // ≈ 22050/12  (32nd note @ 90 BPM)
+    private const int SoloStartSample    = 529200;      // 24 × 22050
+    private const int LeadNoteCount      = 144;         // 9 bars × 16 sixteenth-notes (bars 0-8)
+
     private static readonly HashSet<string> UiSoundIds = new(StringComparer.Ordinal)
     {
         "draft_pick", "ui_card_pick", "ui_preview_ghost", "ui_lock_in", "ui_lock_in_hard",
@@ -280,6 +304,48 @@ public partial class SoundManager : Node
     // ── Background music ─────────────────────────────────────────────────
 
     /// <summary>
+    /// Starts the background music player and precomputes the initial loop.
+    /// Style (ambient vs rock) is read from SettingsManager.
+    /// </summary>
+    private void StartMusic()
+    {
+        bool altStyle = SettingsManager.Instance?.AltMenuMusic ?? false;
+        _isAltMusic = !altStyle;  // true = Mars/rock is playing; false = ambient
+        _altMusicIntroPlayed = false;
+        if (!altStyle)  // Mars is default
+        {
+            GenerateWildSolo(_soloLoopSeed);
+            _musicFramesFull = BuildMusicFramesAlt(intro: false);
+        }
+        _musicFrames = altStyle ? BuildMusicFramesClassic() : BuildMusicFramesAlt(intro: true);
+
+        var gen = new AudioStreamGenerator { MixRate = Rate, BufferLength = 0.5f };
+        _musicPlayer = new AudioStreamPlayer { Stream = gen, VolumeDb = MusicBaseDb, Bus = "Music" };
+        AddChild(_musicPlayer);
+        _musicPlayer.Play();
+        _musicPlayback = (AudioStreamGeneratorPlayback)_musicPlayer.GetStreamPlayback();
+    }
+
+    /// <summary>
+    /// Switches the menu music style while already playing. Safe to call from Settings UI.
+    /// Replaces the precomputed loop buffer immediately; the generator's internal 0.5 s
+    /// buffer drains the old track, then the new style starts from position 0.
+    /// </summary>
+    public void SetMenuMusicStyle(bool alt)
+    {
+        if (_headless) return;
+        if (_musicPlayer == null) return;  // not started yet; StartMusic() will read the setting
+        _isAltMusic = !alt;  // true = Mars/rock is playing; false = ambient
+        _altMusicIntroPlayed = false;
+        if (!alt)  // Mars
+        {
+            GenerateWildSolo(_soloLoopSeed);
+            _musicFramesFull = BuildMusicFramesAlt(intro: false);
+        }
+        _musicFrames = alt ? BuildMusicFramesClassic() : BuildMusicFramesAlt(intro: true);
+        _musicPos = 0;
+    }
+
     /// <summary>
     /// Precomputes a 32-second funky ambient loop.
     /// Key: A major 9th (A, C#, E, F#, B) -- warm, soulful, not minor/sad.
@@ -288,11 +354,11 @@ public partial class SoundManager : Node
     /// so the mix feels lively rather than slow and droney.
     /// All swell periods divide 32 s evenly for a seamless loop.
     /// </summary>
-    private void StartMusic()
+    private static Vector2[] BuildMusicFramesClassic()
     {
         const float LoopDur = 32f;
         int n = (int)(Rate * LoopDur);
-        _musicFrames = new Vector2[n];
+        var frames = new Vector2[n];
 
         for (int i = 0; i < n; i++)
         {
@@ -344,14 +410,477 @@ public partial class SoundManager : Node
                            + MathF.Sin(t * MathF.Tau * 988.42f)) * 0.020f * shimSwell;
 
             float s = Mathf.Clamp(root + fifth + pad + jazz + ninth + bright + shimmer, -1f, 1f);
-            _musicFrames[i] = new Vector2(s, s);
+            frames[i] = new Vector2(s, s);
         }
 
-        var gen = new AudioStreamGenerator { MixRate = Rate, BufferLength = 0.5f };
-        _musicPlayer = new AudioStreamPlayer { Stream = gen, VolumeDb = MusicBaseDb, Bus = "Music" };
-        AddChild(_musicPlayer);
-        _musicPlayer.Play();
-        _musicPlayback = (AudioStreamGeneratorPlayback)_musicPlayer.GetStreamPlayback();
+        return frames;
+    }
+
+    /// <summary>
+    /// Precomputes a 32-second hard-driving synth-rock loop inspired by
+    /// "Rock 'n' Zool" by Patrick Phelan (Amiga MOD, Zool 1992).
+    ///
+    /// Key: Ab/G# blues (G#, A#, C, D#, F).  Tempo: 90 BPM (12 bars / 32 s).
+    ///
+    /// The defining feature of Rock N Zool is a FAST 2-octave descending shred
+    /// run that races through the Ab scale on 16th notes (~160 ms/note, matching
+    /// the original MOD).  Everything else -- chug, kick, snare, pad -- provides
+    /// the driving backdrop for that lead cascade.
+    ///
+    /// Loop guarantee: all frequencies are N/32 Hz (integer N) so every sine
+    /// completes exactly N cycles in 32 s → signal is 0 at t=0 and t=32, no click.
+    /// </summary>
+    private static Vector2[] BuildMusicFramesAlt(bool intro = true)
+    {
+        const float LoopDur   = 32f;
+        const float BPM       = 90f;
+        const float Beat      = 60f / BPM;    // 0.6667 s quarter note
+        const float Eighth    = Beat / 2f;    // 0.3333 s 8th note
+        // Note: Sixteenth = Beat/4 used by real-time lead layer in _Process, not the precomputed buffer.
+        const float Bar       = Beat * 4f;    // 2.6667 s bar  (12 bars = 32 s)
+
+        // Loop-safe frequencies: N/32 Hz, N = round(pitch × 32).
+        const float GS2  = 3323f  / 32f;  // G#2  ≈ 103.84 Hz  root bass
+        const float FS2  = 2960f  / 32f;  // F#2  =  92.50 Hz  b7 bass (bar 4 each group)
+        const float AS2  = 3729f  / 32f;  // A#2  ≈ 116.53 Hz  chug alt
+        const float GS3  = 6645f  / 32f;  // G#3  ≈ 207.66 Hz  pad root
+        const float DS4  = 9956f  / 32f;  // D#4  ≈ 311.13 Hz  pad 5th
+        const float GS4  = 13290f / 32f;  // G#4  ≈ 415.31 Hz  pad oct
+
+        // Lead melody is fully real-time (see _Process / GenerateWildSolo).
+        // This buffer carries only the backing track: bass + chug + drums + pad.
+        // Buildup envelope schedule (all thresholds are bar numbers):
+        //   Bar 0      -- kick only (anchor, sparse)
+        //   Bar 1      -- bass fades in
+        //   Bar 2      -- snare enters
+        //   Bar 3      -- chug enters at quarter-note pace, low drive
+        //   Bar 5      -- chug doubles to 8th notes, drive increases
+        //   Bar 5      -- pad fades in
+        //   Bar 7      -- full intensity, hi-hat enters
+
+        int n = (int)(Rate * LoopDur);
+        var frames = new Vector2[n];
+
+        for (int i = 0; i < n; i++)
+        {
+            float t = i / (float)Rate;
+
+            // ── Per-element buildup envelopes (intro only) ──────────────────
+            float bassVol, snareVol, chugVol, padVol, hatVol, kickVol;
+            float chugInterval, drive;
+            if (intro)
+            {
+                bassVol      = Mathf.Min(t / (Bar * 0.6f), 1f);
+                snareVol     = t < Bar       ? 0f : Mathf.Min((t - Bar)       / (Bar * 0.5f), 1f);
+                chugVol      = t < Bar * 1.5f? 0f : Mathf.Min((t - Bar * 1.5f)/ (Bar * 0.4f), 1f);
+                padVol       = t < Bar * 2.5f? 0f : Mathf.Min((t - Bar * 2.5f)/ (Bar * 0.6f), 1f);
+                hatVol       = t < Bar * 4f  ? 0f : Mathf.Min((t - Bar * 4f)  / (Bar * 0.3f), 1f);
+                kickVol      = 0.35f + 0.65f * Mathf.Min(t / (Bar * 2f), 1f);
+                chugInterval = t < Bar * 3f ? Beat : Eighth;
+                drive        = 1.2f + 0.8f * Mathf.Min((t - Bar * 1.5f) / (Bar * 3f), 1f);
+            }
+            else // full intensity: all layers on, chug at 8th pace, full drive
+            {
+                bassVol = snareVol = chugVol = padVol = hatVol = kickVol = 1f;
+                chugInterval = Eighth;
+                drive = 2.0f;
+            }
+
+            // ── Bass: G#2 root; F#2 on bar 4 of every 4-bar group ──────────
+            int   barNum   = (int)(t / Bar);
+            float barPos   = (t - barNum * Bar) / Bar;
+            float bassFreq = (barNum % 4 == 3) ? FS2 : GS2;
+            float bassEnv  = Mathf.Min(barPos / 0.03f, 1f);
+            float bass     = (MathF.Sin(t * MathF.Tau * bassFreq)      * 0.10f
+                           +  MathF.Sin(t * MathF.Tau * bassFreq * 2f) * 0.028f) * bassEnv * bassVol;
+            float chugStep     = (t / chugInterval) % 2f;
+            float chugFreq     = chugStep < 1f ? GS2 : AS2;
+            float chugBeat     = chugStep % 1f;
+            float chugEnv      = MathF.Exp(-chugBeat * 12f);
+            float chugWave     = MathF.Sin(t * MathF.Tau * chugFreq)
+                               + MathF.Sin(t * MathF.Tau * chugFreq * 3f) * 0.45f
+                               + MathF.Sin(t * MathF.Tau * chugFreq * 5f) * 0.18f;
+            float chugDriven   = chugWave * drive;
+            float chug         = (chugDriven / (1f + MathF.Abs(chugDriven))) * 0.060f * chugEnv * chugVol;
+
+            // ── Kick: every beat, integrated 160→50 Hz pitch sweep ──────────
+            float kickPos = (t / Beat) - MathF.Floor(t / Beat);
+            float tKick   = kickPos * Beat;
+            float kPhase  = 160f * (1f - MathF.Exp(-tKick * 25f)) / 25f + 50f * tKick;
+            float kick    = MathF.Sin(MathF.Tau * kPhase) * MathF.Exp(-tKick * 18f) * 0.082f * kickVol;
+
+            // ── Snare: beats 2 and 4 ────────────────────────────────────────
+            float beatNum = MathF.Floor(t / Beat);
+            float tSnare  = t - beatNum * Beat;
+            float snare   = 0f;
+            if ((int)beatNum % 2 == 1)
+            {
+                float sdecay = MathF.Exp(-tSnare * 26f);
+                snare = ((MathF.Sin(t * MathF.Tau * 285f)
+                        + MathF.Sin(t * MathF.Tau * 437f)
+                        + MathF.Sin(t * MathF.Tau * 612f)) * 0.030f * sdecay
+                        + MathF.Sin(t * MathF.Tau * 180f)  * 0.018f * MathF.Exp(-tSnare * 35f))
+                       * snareVol;
+            }
+
+            // ── Hi-hat: 8th-note metallic clicks enter at bar 7 ─────────────
+            float hatStep  = (t / Eighth) % 1f;
+            float tHat     = hatStep * Eighth;
+            float hat      = (MathF.Sin(t * MathF.Tau * 4600f)
+                            + MathF.Sin(t * MathF.Tau * 5900f) * 0.75f
+                            + MathF.Sin(t * MathF.Tau * 7300f) * 0.50f
+                            + MathF.Sin(t * MathF.Tau * 9100f) * 0.30f)
+                            * MathF.Exp(-tHat * 90f) * 0.009f * hatVol;
+
+            // ── Lead is fully real-time; precomputed buffer carries 0 here ──
+            const float lead = 0f;
+
+            // ── Pad: G#3 + D#4 + G#4, enters at bar 5 ─────────────────────
+            float padSwell = 0.42f + 0.30f * MathF.Sin(t * MathF.Tau / (Bar * 1.5f));
+            float pad = (MathF.Sin(t * MathF.Tau * GS3)
+                       + MathF.Sin(t * MathF.Tau * DS4) * 0.65f
+                       + MathF.Sin(t * MathF.Tau * GS4) * 0.25f) * 0.020f * padSwell * padVol;
+
+            float s = Mathf.Clamp(bass + chug + kick + snare + hat + lead + pad, -1f, 1f);
+            frames[i] = new Vector2(s, s);
+        }
+
+        return frames;
+    }
+
+    /// <summary>
+    /// Generates a wild, chaotic 3-bar guitar solo that plays differently every loop.
+    /// Full chromatic range G#3–A#5, with huge jumps, screaming high notes, wide
+    /// vibrato (±1 semitone+), and a forced dive-bomb ending. Seeded so consecutive
+    /// loops are always distinct.
+    /// </summary>
+    private void GenerateWildSolo(int seed)
+    {
+        // Full chromatic pool G#3 to D6 (31 notes, G#3=0...D6=30)
+        float[] pool =
+        {
+            207.652f, 220.000f, 233.082f, 246.942f,
+            261.626f, 277.183f, 293.665f, 311.127f, 329.628f, 349.228f, 369.994f, 391.995f,
+            415.305f, 440.000f, 466.164f, 493.883f,
+            523.251f, 554.365f, 587.330f, 622.254f, 659.255f, 698.456f, 739.989f, 783.991f,
+            830.609f, 880.000f, 932.328f, 987.767f, 1046.502f, 1108.731f, 1174.659f,
+        };
+        const int PoolLen = 31;
+
+        var rng  = new System.Random(seed);
+        var freq = new float[SoloNoteCount];
+        var vib  = new bool[SoloNoteCount];
+        var vol  = new float[SoloNoteCount];
+        var bnd  = new float[SoloNoteCount]; // slide-in start freq; 0 = no bend
+
+        // G# minor pentatonic indices into pool: G#3,A#3,C4,D#4,F4,G#4,A#4,C5,D#5,F5,G#5,A#5,C6
+        int[] penta    = { 0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24, 26, 28 };
+        const int PentaLen = 13;
+
+        int NearestPenta(int poolIdx)
+        {
+            int best = 0;
+            for (int k = 1; k < PentaLen; k++)
+                if (Math.Abs(penta[k] - poolIdx) < Math.Abs(penta[best] - poolIdx))
+                    best = k;
+            return best;
+        }
+
+        int cur       = penta[5 + rng.Next(4)]; // G#4-D#5 start zone
+        int pp        = 5 + rng.Next(4);
+        int n         = 0;
+        int diveStart = SoloNoteCount - 14;
+
+        while (n < diveStart)
+        {
+            int rem = diveStart - n;
+            double ph = rng.NextDouble();
+
+            if (ph < 0.22) // pentatonic blues run ascending
+            {
+                int len = Math.Min(7 + rng.Next(8), rem);
+                for (int k = 0; k < len; k++, n++)
+                {
+                    pp = Math.Clamp(pp + 1, 0, PentaLen - 1);  cur = penta[pp];
+                    freq[n] = pool[cur];  vib[n] = false;  vol[n] = 1f;
+                    bnd[n]  = k == 0 && rng.NextDouble() < 0.45 ? pool[Math.Max(0, cur - 1)] : 0f;
+                }
+            }
+            else if (ph < 0.44) // pentatonic blues run descending
+            {
+                int len = Math.Min(7 + rng.Next(8), rem);
+                for (int k = 0; k < len; k++, n++)
+                {
+                    pp = Math.Clamp(pp - 1, 0, PentaLen - 1);  cur = penta[pp];
+                    freq[n] = pool[cur];  vib[n] = false;  vol[n] = 1f;
+                    bnd[n]  = k == 0 && rng.NextDouble() < 0.45 ? pool[Math.Min(PoolLen - 1, cur + 1)] : 0f;
+                }
+            }
+            else if (ph < 0.56) // octave leap + bends (pentatonic-snapped target)
+            {
+                int len = Math.Min(3 + rng.Next(6), rem);
+                int dir = rng.NextDouble() < 0.5 ? 5 : -5; // ~5 penta steps ≈ 1 octave
+                for (int k = 0; k < len; k++, n++)
+                {
+                    pp  = Math.Clamp(k % 2 == 0 ? pp + dir : pp - dir + rng.Next(3) - 1, 0, PentaLen - 1);
+                    cur = penta[pp];
+                    freq[n] = pool[cur];
+                    vib[n]  = rng.NextDouble() < 0.25;
+                    vol[n]  = 1f;
+                    bnd[n]  = rng.NextDouble() < 0.55 ? pool[Math.Clamp(cur + (dir > 0 ? -2 : 2), 0, PoolLen - 1)] : 0f;
+                }
+            }
+            else if (ph < 0.68) // ghost-note funk
+            {
+                int len = Math.Min(5 + rng.Next(7), rem);
+                for (int k = 0; k < len; k++, n++)
+                {
+                    bool ghost = k % 3 == 1;
+                    if (!ghost)
+                    {
+                        pp  = Math.Clamp(pp + (rng.NextDouble() < 0.5 ? 1 : -1) * (1 + rng.Next(2)), 0, PentaLen - 1);
+                        cur = penta[pp];
+                    }
+                    freq[n] = pool[cur];
+                    vib[n]  = !ghost && rng.NextDouble() < 0.18;
+                    vol[n]  = ghost ? 0.22f : 1f;
+                    bnd[n]  = 0f;
+                }
+            }
+            else if (ph < 0.80) // machine-gun stutter → chromatic slide to next penta note
+            {
+                int len = Math.Min(3 + rng.Next(4), rem);
+                for (int k = 0; k < len; k++, n++)
+                {
+                    freq[n] = pool[cur];
+                    vib[n]  = k == len - 1 && rng.NextDouble() < 0.35;
+                    vol[n]  = k % 2 == 0 ? 1f : 0.35f;
+                    bnd[n]  = 0f;
+                }
+                if (n < diveStart && rng.NextDouble() < 0.6)
+                {
+                    pp = Math.Clamp(pp + (rng.NextDouble() < 0.5 ? 1 : -1), 0, PentaLen - 1);
+                    cur = penta[pp];
+                    freq[n] = pool[cur];  vib[n] = false;  vol[n] = 1f;
+                    bnd[n] = pool[Math.Clamp(cur + (rng.NextDouble() < 0.5 ? -1 : 1), 0, PoolLen - 1)];
+                    n++;
+                }
+            }
+            else // blues lick: pentatonic steps with chromatic passing tone
+            {
+                int len = Math.Min(3 + rng.Next(4), rem);
+                for (int k = 0; k < len; k++, n++)
+                {
+                    if (k % 3 == 2) // brief chromatic passing tone
+                    {
+                        int pass = Math.Clamp(cur + (rng.NextDouble() < 0.5 ? 1 : -1), 0, PoolLen - 1);
+                        freq[n] = pool[pass];  vib[n] = false;  vol[n] = 1f;  bnd[n] = 0f;
+                    }
+                    else
+                    {
+                        pp  = Math.Clamp(pp + (rng.NextDouble() < 0.6 ? 1 : -1) * (1 + rng.Next(2)), 0, PentaLen - 1);
+                        cur = penta[pp];
+                        freq[n] = pool[cur];
+                        vib[n]  = rng.NextDouble() < 0.22;
+                        vol[n]  = 1f;
+                        bnd[n]  = rng.NextDouble() < 0.30 ? pool[Math.Clamp(cur - 1, 0, PoolLen - 1)] : 0f;
+                    }
+                }
+            }
+        }
+
+        while (n < diveStart) { freq[n] = pool[cur]; vol[n] = 1f; n++; }
+
+        // Dive bomb: pentatonic sweep down with glide bends
+        pp = NearestPenta(cur);
+        for (; n < SoloNoteCount; n++)
+        {
+            pp  = Math.Max(0, pp - 1 - rng.Next(2));
+            cur = penta[pp];
+            freq[n] = pool[cur];  vib[n] = false;  vol[n] = 1f;
+            bnd[n]  = n < diveStart + 5 ? freq[n - 1] : 0f;
+        }
+
+        _soloNoteFreqs   = freq;
+        _soloNoteVibrato = vib;
+        _soloNoteVol     = vol;
+        _soloNoteBend    = bnd;
+
+        // ── Lead layer: bars 0-8 (144 sixteenth-note slots) ─────────────────
+        // Lead pool: F3-A#5 chromatic (30 notes, no giant gap)
+        float[] lPool =
+        {
+            174.614f, 185.000f, 196.000f, 207.652f, 220.000f, 233.082f, // F3-A#3
+            246.942f, 261.626f, 277.183f, 293.665f, 311.127f, 329.628f, // B3-E4
+            349.228f, 369.994f, 391.995f, 415.305f, 440.000f, 466.164f, // F4-A#4
+            493.883f, 523.251f, 554.365f, 587.330f, 622.254f, 659.255f, // B4-E5
+            698.456f, 739.989f, 783.991f, 830.609f, 880.000f, 932.328f, // F5-A#5
+        };
+        const int LPoolLen = 30;
+
+        // G# minor pentatonic in lPool: G#3=3, A#3=5, C4=7, D#4=10, F4=12, G#4=15, A#4=17, C5=19, D#5=22, F5=24, G#5=27, A#5=29
+        int[] lpenta   = { 3, 5, 7, 10, 12, 15, 17, 19, 22, 24, 27, 29 };
+        const int LPentaLen = 12;
+
+        var lFreq = new float[LeadNoteCount];
+        var lVib  = new bool[LeadNoteCount];
+        var lVol  = new float[LeadNoteCount];
+        var lBnd  = new float[LeadNoteCount];
+
+        // Improv: blues-pentatonic phrases (changes every loop via seed walk)
+        {
+            var lrng = new System.Random(seed ^ 0xABCD);
+            int lp   = 4 + lrng.Next(3); // start G#4-A#4 zone
+            int lcur = lpenta[lp];
+            int ln   = 0;
+
+            while (ln < LeadNoteCount)
+            {
+                int rem  = LeadNoteCount - ln;
+                double lph = lrng.NextDouble();
+
+                if (lph < 0.25) // scale walk (ascending or descending)
+                {
+                    int len = Math.Min(5 + lrng.Next(9), rem);
+                    int dir = lrng.NextDouble() < 0.5 ? 1 : -1;
+                    for (int k = 0; k < len; k++, ln++)
+                    {
+                        lp = Math.Clamp(lp + dir, 0, LPentaLen - 1);  lcur = lpenta[lp];
+                        lFreq[ln] = lPool[lcur];
+                        lVib[ln]  = k == len - 1 && lrng.NextDouble() < 0.30;
+                        lVol[ln]  = 1f;
+                        lBnd[ln]  = k == 0 && lrng.NextDouble() < 0.40
+                            ? lPool[Math.Clamp(lcur + (dir > 0 ? -1 : 1), 0, LPoolLen - 1)] : 0f;
+                    }
+                }
+                else if (lph < 0.45) // repeating blues riff (2-3 note motif)
+                {
+                    int motifLen = 2 + lrng.Next(2);
+                    int[] motif  = new int[motifLen];
+                    int motifLp  = lp;
+                    for (int k = 0; k < motifLen; k++)
+                    {
+                        motifLp  = Math.Clamp(motifLp + (lrng.NextDouble() < 0.6 ? 1 : -1) * (1 + lrng.Next(2)), 0, LPentaLen - 1);
+                        motif[k] = motifLp;
+                    }
+                    int maxReps = Math.Min(2 + lrng.Next(3), rem / Math.Max(motifLen, 1) + 1);
+                    for (int r = 0; r < maxReps && ln < LeadNoteCount; r++)
+                        for (int k = 0; k < motifLen && ln < LeadNoteCount; k++, ln++)
+                        {
+                            lp = motif[k];  lcur = lpenta[lp];
+                            lFreq[ln] = lPool[lcur];  lVib[ln] = false;  lVol[ln] = 1f;
+                            lBnd[ln]  = r == 0 && k == 0 && lrng.NextDouble() < 0.35
+                                ? lPool[Math.Clamp(lcur - 1, 0, LPoolLen - 1)] : 0f;
+                        }
+                }
+                else if (lph < 0.58) // ghost-note funk
+                {
+                    int len = Math.Min(4 + lrng.Next(6), rem);
+                    for (int k = 0; k < len; k++, ln++)
+                    {
+                        bool ghost = k % 3 == 1;
+                        if (!ghost) { lp = Math.Clamp(lp + (lrng.NextDouble() < 0.6 ? 1 : -1) * (1 + lrng.Next(2)), 0, LPentaLen - 1);  lcur = lpenta[lp]; }
+                        lFreq[ln] = lPool[lcur];
+                        lVib[ln]  = !ghost && lrng.NextDouble() < 0.18;
+                        lVol[ln]  = ghost ? 0.22f : 1f;
+                        lBnd[ln]  = 0f;
+                    }
+                }
+                else if (lph < 0.70) // octave leap with bend
+                {
+                    int len = Math.Min(2 + lrng.Next(4), rem);
+                    int dir = lrng.NextDouble() < 0.5 ? 5 : -5;
+                    for (int k = 0; k < len; k++, ln++)
+                    {
+                        lp = Math.Clamp(k % 2 == 0 ? lp + dir : lp - dir + lrng.Next(3) - 1, 0, LPentaLen - 1);
+                        lcur = lpenta[lp];
+                        lFreq[ln] = lPool[lcur];
+                        lVib[ln]  = lrng.NextDouble() < 0.28;
+                        lVol[ln]  = 1f;
+                        lBnd[ln]  = lrng.NextDouble() < 0.50
+                            ? lPool[Math.Clamp(lcur + (dir > 0 ? -2 : 2), 0, LPoolLen - 1)] : 0f;
+                    }
+                }
+                else if (lph < 0.82) // machine-gun stutter
+                {
+                    int len = Math.Min(2 + lrng.Next(4), rem);
+                    for (int k = 0; k < len; k++, ln++)
+                    {
+                        lFreq[ln] = lPool[lcur];
+                        lVib[ln]  = k == len - 1 && lrng.NextDouble() < 0.28;
+                        lVol[ln]  = k % 2 == 0 ? 1f : 0.30f;
+                        lBnd[ln]  = 0f;
+                    }
+                }
+                else // sustained note with vibrato + bend
+                {
+                    int len = Math.Min(2 + lrng.Next(4), rem);
+                    lp = Math.Clamp(lp + (lrng.NextDouble() < 0.5 ? 1 : -1), 0, LPentaLen - 1);
+                    lcur = lpenta[lp];
+                    for (int k = 0; k < len; k++, ln++)
+                    {
+                        lFreq[ln] = lPool[lcur];
+                        lVib[ln]  = true;
+                        lVol[ln]  = 1f;
+                        lBnd[ln]  = k == 0 && lrng.NextDouble() < 0.50
+                            ? lPool[Math.Clamp(lcur + (lrng.NextDouble() < 0.5 ? -2 : 2), 0, LPoolLen - 1)] : 0f;
+                    }
+                }
+            }
+        }
+
+        _leadNoteFreqs = lFreq;
+        _leadVib       = lVib;
+        _leadVol       = lVol;
+        _leadBend      = lBnd;
+
+        // ── Fast lick overlay: 0-3 blazing 64th-note bursts in the solo window ─────
+        const int FastDur    = SoloSamplesPerNote / 2; // 64th note ≈ 918 samples
+        int soloBodyEnd      = diveStart * SoloSamplesPerNote; // sample budget before dive bomb
+        int numBursts        = rng.Next(4); // 0, 1, 2, or 3 bursts per loop
+        var fFreqList  = new System.Collections.Generic.List<float>();
+        var fVolList   = new System.Collections.Generic.List<float>();
+        var fBendList  = new System.Collections.Generic.List<float>();
+        var fOffList   = new System.Collections.Generic.List<int>();
+
+        for (int b = 0; b < numBursts; b++)
+        {
+            int burstLen = 4 + rng.Next(9); // 4-12 notes per burst
+            int span     = burstLen * FastDur;
+            int maxStart = soloBodyEnd - span;
+            if (maxStart <= 0) break;
+
+            // Snap to beat boundary (4 × SoloSamplesPerNote ≈ 1 beat)
+            int snap       = SoloSamplesPerNote * 4;
+            int burstStart = rng.Next(Math.Max(1, maxStart / snap + 1)) * snap;
+            burstStart     = Math.Min(burstStart, maxStart);
+
+            // Reject if overlapping an existing burst
+            bool overlaps = false;
+            foreach (int off in fOffList)
+                if (Math.Abs(off - burstStart) < span + SoloSamplesPerNote * 2) { overlaps = true; break; }
+            if (overlaps) continue;
+
+            // Generate pentatonic blues run (mostly ascending for energy)
+            int bpp = 4 + rng.Next(5); // G#4-C5 start
+            int bdir = rng.NextDouble() < 0.65 ? 1 : -1;
+            for (int k = 0; k < burstLen; k++)
+            {
+                bpp = Math.Clamp(bpp + bdir, 0, PentaLen - 1);
+                if (k > 0 && rng.NextDouble() < 0.18) bdir = -bdir; // occasional reversal
+                int bcur = penta[bpp];
+                fFreqList.Add(pool[bcur]);
+                fVolList.Add(1f);
+                fBendList.Add(k == 0 && rng.NextDouble() < 0.50
+                    ? pool[Math.Clamp(bcur + (bdir > 0 ? -1 : 1), 0, PoolLen - 1)] : 0f);
+                fOffList.Add(burstStart + k * FastDur);
+            }
+        }
+
+        _fastFreqs   = fFreqList.ToArray();
+        _fastVols    = fVolList.ToArray();
+        _fastBends   = fBendList.ToArray();
+        _fastOffsets = fOffList.ToArray();
     }
 
     /// <summary>
@@ -410,10 +939,172 @@ public partial class SoundManager : Node
         // Stream music: push however many frames the generator buffer can accept
         if (_musicPlayback != null && _musicFrames.Length > 0)
         {
-            int frames = _musicPlayback.GetFramesAvailable();
-            for (int i = 0; i < frames; i++)
+            int avail = _musicPlayback.GetFramesAvailable();
+            for (int i = 0; i < avail; i++)
             {
-                _musicPlayback.PushFrame(_musicFrames[_musicPos]);
+                // Detect loop wrap → evolve seed and regenerate the solo for the next loop
+                if (_isAltMusic && _musicPos + 1 >= _musicFrames.Length)
+                {
+                    _soloLoopSeed += 7919;
+                    GenerateWildSolo(_soloLoopSeed);
+                    // After intro finishes, swap to full-intensity buffer -- no more buildup replay
+                    if (!_altMusicIntroPlayed && _musicFramesFull != null)
+                    {
+                        _musicFrames = _musicFramesFull;
+                        _altMusicIntroPlayed = true;
+                    }
+                }
+
+                var frame = _musicFrames[_musicPos];
+
+                // Shared 6-harmonic saw -- used by both solo and fast-lick layers
+                static float Saw(float tt, float f) =>
+                    MathF.Sin(tt * MathF.Tau * f)
+                  + MathF.Sin(tt * MathF.Tau * f * 2f) * 0.500f
+                  + MathF.Sin(tt * MathF.Tau * f * 3f) * 0.333f
+                  + MathF.Sin(tt * MathF.Tau * f * 4f) * 0.250f
+                  + MathF.Sin(tt * MathF.Tau * f * 5f) * 0.200f
+                  + MathF.Sin(tt * MathF.Tau * f * 6f) * 0.167f;
+
+                // Real-time lead layer: bars 0-8 (samples 0 to SoloStartSample-1)
+                if (_isAltMusic && _leadNoteFreqs.Length == LeadNoteCount
+                    && _musicPos < SoloStartSample)
+                {
+                    // BPM constants (must match BuildMusicFramesAlt)
+                    const float BPM_     = 90f;
+                    const float Beat_    = 60f / BPM_;
+                    const float Eighth_  = Beat_ / 2f;
+                    const float Sixteenth_ = Beat_ / 4f;
+                    const float Bar_     = Beat_ * 4f;
+
+                    float t = _musicPos / (float)Rate;
+
+                    // Lead volume: intro ramps in from bar 4; after intro always full
+                    float leadVol = _altMusicIntroPlayed ? 1f :
+                        (t < Bar_ * 4f ? 0f : Mathf.Min((t - Bar_ * 4f) / (Bar_ * 0.5f), 1f));
+
+                    if (leadVol > 0f)
+                    {
+                        // leadInterval: intro ramps quarter→8th→16th; after intro always 16th
+                        float leadInterval = _altMusicIntroPlayed ? Sixteenth_ :
+                            (t < Bar_ * 4f ? Beat_ : t < Bar_ * 6f ? Eighth_ : Sixteenth_);
+
+                        int noteIdx = (int)(t / leadInterval) % LeadNoteCount;
+                        float vol   = _leadVol.Length == LeadNoteCount ? _leadVol[noteIdx] : 1f;
+
+                        if (vol > 0f)
+                        {
+                            float notePos = (t % leadInterval) / leadInterval;
+                            float sf      = _leadNoteFreqs[noteIdx];
+
+                            // Pitch bend: slide FROM bend-start freq → target during first 40%
+                            if (_leadBend.Length == LeadNoteCount && _leadBend[noteIdx] != 0f)
+                            {
+                                float bendT = Mathf.Min(notePos / 0.40f, 1f);
+                                sf = _leadBend[noteIdx] + (_leadNoteFreqs[noteIdx] - _leadBend[noteIdx]) * bendT;
+                            }
+
+                            // Vibrato
+                            if (_leadVib.Length == LeadNoteCount && _leadVib[noteIdx])
+                            {
+                                float depth = sf > 700f ? 0.060f : 0.040f;
+                                float vrate = sf > 700f ? 8.2f   : 6.8f;
+                                sf *= 1f + depth * MathF.Sin(t * MathF.Tau * vrate);
+                            }
+
+                            static float SawL(float tt, float f) =>
+                                MathF.Sin(tt * MathF.Tau * f)
+                              + MathF.Sin(tt * MathF.Tau * f * 2f) * 0.500f
+                              + MathF.Sin(tt * MathF.Tau * f * 3f) * 0.333f
+                              + MathF.Sin(tt * MathF.Tau * f * 4f) * 0.250f
+                              + MathF.Sin(tt * MathF.Tau * f * 5f) * 0.200f
+                              + MathF.Sin(tt * MathF.Tau * f * 6f) * 0.167f;
+
+                            float sf1 = sf * 1.00462f;
+                            float sf2 = sf * 0.99541f;
+
+                            float attack = vol < 0.5f ? 0.012f : 0.020f;
+                            float env    = Mathf.Min(notePos / attack, 1f)
+                                         * Mathf.Min((1f - notePos) / 0.06f, 1f);
+                            float lead   = (SawL(t, sf1) + SawL(t, sf2)) * 0.5f * 0.040f * env * vol * leadVol;
+
+                            float mixed = Mathf.Clamp(frame.X + lead, -1f, 1f);
+                            frame = new Vector2(mixed, mixed);
+                        }
+                    }
+                }
+
+                // Real-time solo layer: replaces cascade lead in final 3 bars (bars 9-11)
+                if (_isAltMusic && _soloNoteFreqs.Length == SoloNoteCount
+                    && _musicPos >= SoloStartSample)
+                {
+                    int soloSample = _musicPos - SoloStartSample;
+                    int noteIdx    = soloSample / SoloSamplesPerNote;
+                    if (noteIdx < SoloNoteCount)
+                    {
+                        float vol     = _soloNoteVol.Length == SoloNoteCount ? _soloNoteVol[noteIdx] : 1f;
+                        float notePos = (soloSample % SoloSamplesPerNote) / (float)SoloSamplesPerNote;
+                        float t       = _musicPos / (float)Rate;
+                        float sf      = _soloNoteFreqs[noteIdx];
+
+                        // Pitch bend: slide FROM bend-start freq → target during first 40% of note
+                        if (_soloNoteBend.Length == SoloNoteCount && _soloNoteBend[noteIdx] != 0f)
+                        {
+                            float bendT = Mathf.Min(notePos / 0.40f, 1f);
+                            sf = _soloNoteBend[noteIdx] + (_soloNoteFreqs[noteIdx] - _soloNoteBend[noteIdx]) * bendT;
+                        }
+
+                        // Wide synth vibrato -- faster and deeper on high screamers
+                        if (_soloNoteVibrato[noteIdx])
+                        {
+                            float depth = sf > 700f ? 0.075f : 0.050f;
+                            float rate  = sf > 700f ? 8.6f    : 7.2f;
+                            sf *= 1f + depth * MathF.Sin(t * MathF.Tau * rate);
+                        }
+
+                        // Fat unison: two oscillators detuned ±8 cents (×1.00462 / ×0.99541)
+                        float sf1 = sf * 1.00462f;
+                        float sf2 = sf * 0.99541f;
+                        float attack = vol < 0.5f ? 0.015f : 0.025f; // ghosts attack faster (shorter)
+                        float env    = Mathf.Min(notePos / attack, 1f)
+                                     * Mathf.Min((1f - notePos) / 0.07f, 1f);
+                        float solo   = (Saw(t, sf1) + Saw(t, sf2)) * 0.5f * 0.058f * env * vol;
+
+                        float mixed = Mathf.Clamp(frame.X + solo, -1f, 1f);
+                        frame = new Vector2(mixed, mixed);
+                    }
+                }
+
+                // Fast lick overlay: blazing 64th-note bursts on top of main solo
+                if (_isAltMusic && _fastOffsets.Length > 0 && _musicPos >= SoloStartSample)
+                {
+                    int ss = _musicPos - SoloStartSample;
+                    const int FastDur_ = SoloSamplesPerNote / 2;
+                    for (int k = 0; k < _fastOffsets.Length; k++)
+                    {
+                        int ns = _fastOffsets[k];
+                        if (ss >= ns && ss < ns + FastDur_)
+                        {
+                            float notePos = (ss - ns) / (float)FastDur_;
+                            float t  = _musicPos / (float)Rate;
+                            float sf = _fastFreqs[k];
+                            if (_fastBends[k] != 0f)
+                            {
+                                float bendT = Mathf.Min(notePos / 0.35f, 1f);
+                                sf = _fastBends[k] + (_fastFreqs[k] - _fastBends[k]) * bendT;
+                            }
+                            float sf1  = sf * 1.00462f;
+                            float sf2  = sf * 0.99541f;
+                            float env  = Mathf.Min(notePos / 0.010f, 1f) * Mathf.Min((1f - notePos) / 0.05f, 1f);
+                            float fast = (Saw(t, sf1) + Saw(t, sf2)) * 0.5f * 0.052f * env;
+                            float mixed = Mathf.Clamp(frame.X + fast, -1f, 1f);
+                            frame = new Vector2(mixed, mixed);
+                            break;
+                        }
+                    }
+                }
+
+                _musicPlayback.PushFrame(frame);
                 _musicPos = (_musicPos + 1) % _musicFrames.Length;
             }
         }

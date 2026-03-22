@@ -31,6 +31,14 @@ public partial class MusicMelodyLayer : Node
     // Pitch continuity across phrases
     private int? _lastNote;
 
+    // Off-beat sub-phrase: approach/anticipation notes on the "and" of each beat
+    private int?[] _subCurrent = new int?[16];
+    private int?[] _subNext    = new int?[16];
+
+    // Ghost-note flags: which main-beat slots play at reduced volume
+    private bool[] _ghostSlots = new bool[16];
+    private bool[] _ghostNext  = new bool[16];
+
     // Pending mode change - applied at next PhraseFired
     private bool      _pendingChange;
     private MusicMode _pendingMode;
@@ -76,9 +84,10 @@ public partial class MusicMelodyLayer : Node
         // Pre-plan the first phrase; it becomes _current at the first PhraseFired.
         _next = PlanPhrase(mode, tension);
 
-        _clock.PhraseFired += OnPhrase;
-        _clock.BarFired    += OnBar;
-        _clock.BeatFired   += OnBeat;
+        _clock.PhraseFired  += OnPhrase;
+        _clock.BarFired     += OnBar;
+        _clock.BeatFired    += OnBeat;
+        _clock.SubBeatFired += OnSubBeat;
     }
 
     /// <summary>
@@ -97,7 +106,9 @@ public partial class MusicMelodyLayer : Node
     private void OnPhrase()
     {
         // Swap pre-planned phrase into current slot
-        (_current, _next) = (_next, _current);
+        (_current,    _next)    = (_next,    _current);
+        (_subCurrent, _subNext) = (_subNext, _subCurrent);
+        (_ghostSlots, _ghostNext) = (_ghostNext, _ghostSlots);
 
         // Apply any deferred mode/progression change
         if (_pendingChange)
@@ -123,7 +134,23 @@ public partial class MusicMelodyLayer : Node
         if ((uint)slot >= (uint)_current.Length) return;
         int? midi = _current[slot];
         if (midi.HasValue)
-            SoundManager.Instance?.PlayNote(midi.Value, MelodyVolDb);
+        {
+            float vol = _ghostSlots[slot] ? MelodyVolDb - 7f : MelodyVolDb;
+            SoundManager.Instance?.PlayNote(midi.Value, vol);
+        }
+    }
+
+    private void OnSubBeat(int globalSubBeat)
+    {
+        if (!Active) return;
+        // SubBeat fires on every 8th-note subdivision (0-7 per bar).
+        // Odd indices (1,3,5,7) are the "and" of each beat -- our approach notes.
+        if ((globalSubBeat & 1) == 0) return;
+        int beat = globalSubBeat / 2; // which main beat this "and" leads into
+        if ((uint)beat >= (uint)_subCurrent.Length) return;
+        int? midi = _subCurrent[beat];
+        if (midi.HasValue)
+            SoundManager.Instance?.PlayNote(midi.Value, MelodyVolDb - 5f);
     }
 
     // ── Phrase planning ────────────────────────────────────────────────────
@@ -133,8 +160,14 @@ public partial class MusicMelodyLayer : Node
     private int?[] PlanPhrase(MusicMode mode, MusicTension tension)
     {
         var slots = new int?[16];
+        var ghostNext = new bool[16];
         var notes = GetMelodyScaleNotes(_rootMidi, mode);
-        if (notes.Count == 0) return slots;
+        if (notes.Count == 0)
+        {
+            _ghostNext = ghostNext;
+            PlanSubPhrase(tension, slots);
+            return slots;
+        }
 
         float   restProb = RestProbability(tension);
         Contour contour  = PickContour(tension);
@@ -150,14 +183,14 @@ public partial class MusicMelodyLayer : Node
         {
             // Chord-aware bias: at each bar boundary, pull the melody toward
             // the pitch class of the current chord root.
-            int chordOffset    = MusicHarmony.GetChordRootOffset(mode, _progressionIdx, bar);
+            int chordOffset     = MusicHarmony.GetChordRootOffset(mode, _progressionIdx, bar);
             int chordPitchClass = ((_rootMidi + chordOffset) % 12 + 12) % 12;
-            int chordIdx       = FindPitchClassNearest(notes, chordPitchClass, noteIdx);
+            int chordIdx        = FindPitchClassNearest(notes, chordPitchClass, noteIdx);
 
             if (_rng.NextDouble() < 0.40)
-                noteIdx = chordIdx;                          // hard snap (40%)
+                noteIdx = chordIdx;
             else
-                noteIdx += Math.Sign(chordIdx - noteIdx);   // gentle drift toward chord root
+                noteIdx += Math.Sign(chordIdx - noteIdx);
 
             noteIdx = Math.Clamp(noteIdx, 0, notes.Count - 1);
 
@@ -171,14 +204,67 @@ public partial class MusicMelodyLayer : Node
                     continue;
                 }
 
-                slots[beat] = notes[noteIdx];
-                lastFilled  = notes[noteIdx];
+                // 7% chance: chromatic passing tone (±1 semitone off the scale note)
+                int midi = notes[noteIdx];
+                if (_rng.NextDouble() < 0.07)
+                    midi += _rng.Next(2) == 0 ? 1 : -1;
+
+                // 7% chance: octave leap (Tommy Mars register displacement)
+                if (_rng.NextDouble() < 0.07)
+                {
+                    int leapMidi = midi + (_rng.Next(2) == 0 ? 12 : -12);
+                    if (leapMidi >= LeadMidiMin && leapMidi <= LeadMidiMax)
+                        midi = leapMidi;
+                }
+
+                // 12% chance: ghost note (reduced velocity)
+                ghostNext[beat] = _rng.NextDouble() < 0.12;
+
+                slots[beat] = midi;
+                lastFilled  = midi;
                 noteIdx     = AdvanceIndex(notes, noteIdx, beat, contour);
             }
         }
 
-        _lastNote = lastFilled;
+        _lastNote  = lastFilled;
+        _ghostNext = ghostNext;
+        PlanSubPhrase(tension, slots);
         return slots;
+    }
+
+    /// <summary>
+    /// Plans off-beat approach/anticipation notes for the "and" of each beat.
+    /// Stored into _subNext so OnPhrase() can swap them in.
+    /// </summary>
+    private void PlanSubPhrase(MusicTension tension, int?[] mainSlots)
+    {
+        var sub = new int?[16];
+
+        // Probability of placing an approach note on the "and" before beat N
+        float approachProb = tension switch
+        {
+            MusicTension.Intro     => 0.06f,
+            MusicTension.Building  => 0.18f,
+            MusicTension.MidGame   => 0.28f,
+            MusicTension.LateGame  => 0.35f,
+            MusicTension.NearDeath => 0.12f,
+            _                      => 0.15f,
+        };
+
+        for (int beat = 1; beat < 16; beat++)
+        {
+            int? target = mainSlots[beat];
+            if (!target.HasValue) continue;
+            if (_rng.NextDouble() >= approachProb) continue;
+
+            // Approach note: chromatic semitone below or above the target
+            int approach = target.Value + (_rng.Next(2) == 0 ? -1 : 1);
+            if (approach < LeadMidiMin || approach > LeadMidiMax) continue;
+
+            sub[beat - 1] = approach; // "and" of beat-1 leads into beat
+        }
+
+        _subNext = sub;
     }
 
     private int AdvanceIndex(List<int> notes, int idx, int beat, Contour contour)
@@ -196,6 +282,10 @@ public partial class MusicMelodyLayer : Node
         // 10% chance of an extra step for variety
         if (_rng.NextDouble() < 0.10)
             step += _rng.Next(2) == 0 ? 1 : -1;
+
+        // 4% chance of a dramatic 3-step leap (Tommy Mars register jump)
+        if (_rng.NextDouble() < 0.04)
+            step += _rng.Next(2) == 0 ? 3 : -3;
 
         return Math.Clamp(idx + step, 0, max);
     }
