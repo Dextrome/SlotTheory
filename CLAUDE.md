@@ -13,10 +13,7 @@ Engine: **Godot 4.x .NET** (C#) Â· Runtime: **.NET 8+** Â· Target: **Windows
 - Spectacle combat system is integrated into runtime gameplay and bot simulations.
 - Spectacle analytics are now reported in bot summaries (trigger tier totals and top effects).
 - Tower tooltip now shows all possible spectacle outcomes for current supported modifier loadout.
-- New spectacle-focused bot draft strategies were added:
-  - `SpectacleSingleStack`
-  - `SpectacleComboPairing`
-  - `SpectacleTriadDiversity`
+- New spectacle-focused bot draft strategy added: `SpectacleSingleStack`
 - Minor spectacle triggers were removed; balancing should target surge/global surge spectacle cadence and effects.
 - **Surge differentiation system** added: `SurgeDifferentiation.cs` (pure-logic, no Godot deps) is the single source of truth for global surge archetypes (10 named labels mapped from dominant contributing mod, e.g. REDLINE WAVE, CHAIN STORM). Global surge banner shows dynamic label; visual feel (Detonation/Pressure/Neutral) drives flash alpha, secondary pulses, and ripple pattern. Multi-color ripples reflect top-3 contributing mods. Per-tower archetype FX fire in sequence. 35 unit tests in `SurgeDifferentiationTests`.
 - **Automated tuning pipeline** added: `run_tuning_pipeline.ps1` + `Scripts/Tools/CombatLab/` drive iterative difficulty optimization against bot win-rate targets. `SpectacleTuning.Current` overrides difficulty multipliers at runtime.
@@ -96,8 +93,8 @@ dotnet build SlotTheory.sln
 - Range checks are **fully enforced** in bot mode (`ignoreRange: false` hardcoded in `CombatSim.Step`). Enemy `GlobalPosition` is correctly updated by `PathFollow2D` whenever `Progress` is set in `BotTick`.
 - Spectacle gameplay payloads are applied in bot mode for surge/global surge triggers (matching live gameplay logic).
 - Minor spectacle trigger tier no longer exists, so surge/global surge metrics are the primary balancing signal.
-- 12 strategies cycle round-robin: `Random`, `TowerFirst`, `GreedyDps`, `MarkerSynergy`, `ChainFocus`, `SplitFocus`, `HeavyStack`, `RiftPrismFocus`, `SpectacleSingleStack`, `SpectacleComboPairing`, `SpectacleTriadDiversity`, `PlayerStyleKenny`.
-- Bot strategy sets: pass `--strategy-set optimization` (8 strategies focused on win-rate) or `--strategy-set edge` (3 edge-case strategies) to scope runs. Default (`all`) cycles all 12.
+- 10 strategies cycle round-robin: `Random`, `TowerFirst`, `GreedyDps`, `MarkerSynergy`, `ChainFocus`, `SplitFocus`, `HeavyStack`, `RiftPrismFocus`, `SpectacleSingleStack`, `PlayerStyleKenny`.
+- Bot strategy sets: pass `--strategy-set optimization` (4 strategies focused on win-rate) or `--strategy-set edge` (3 edge-case strategies) to scope runs. Default (`all`) cycles all 10.
 - Pass `--demo` to any bot run to simulate demo build conditions: Shield Drone and Reverse Walker counts are zeroed via `Balance.SetDemoOverride(true)` (same gating as a real demo export).
 - Run `run_tuning_pipeline.ps1` for automated iterative tuning (generates seed from current `SpectacleTuning`, runs bot eval + scenario suite, outputs best profile).
 

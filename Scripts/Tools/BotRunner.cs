@@ -25,7 +25,7 @@ public class BotRunner
     {
         BotStrategy.GreedyDps,
         BotStrategy.MarkerSynergy,
-        BotStrategy.SpectacleComboPairing,
+        BotStrategy.SpectacleSingleStack,
         BotStrategy.PlayerStyleKenny,
     };
 
@@ -42,8 +42,6 @@ public class BotRunner
     {
         BotStrategy.ChainFocus,
         BotStrategy.SpectacleSingleStack,
-        BotStrategy.SpectacleComboPairing,
-        BotStrategy.SpectacleTriadDiversity,
     };
 
     private record RunTrace(
@@ -1257,7 +1255,7 @@ public BotRunner(
             float livesLost = Balance.GetStartingLives(difficultyForConfig) - avgLives;
             
             GD.Print($"Wave {waveNum,2}: {lossRate,5:0.0%} loss rate, {livesLost,4:0.1} avg lives lost | " +
-                    $"Config: {waveConfig.EnemyCount} basic, {waveConfig.TankyCount} tanky, {waveConfig.SwiftCount} swift, {waveConfig.SplitterCount} splitter, {waveConfig.ReverseCount} reverse, " +
+                    $"Config: {waveConfig.EnemyCount} basic, {waveConfig.TankyCount} tanky, {waveConfig.SwiftCount} swift, {waveConfig.SplitterCount} splitter, {waveConfig.ReverseCount} reverse, {waveConfig.ShieldDroneCount} shield, " +
                     $"{waveConfig.SpawnInterval:0.0}s interval{(waveConfig.ClumpArmored ? ", clumped" : "")}");
             
             // Identify problem patterns

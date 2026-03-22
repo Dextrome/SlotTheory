@@ -11,7 +11,7 @@ public enum BotStrategy
 {
     Random, TowerFirst, GreedyDps, MarkerSynergy,
     ChainFocus, SplitFocus, HeavyStack, RiftPrismFocus,
-    SpectacleSingleStack, SpectacleComboPairing, SpectacleTriadDiversity,
+    SpectacleSingleStack,
     PlayerStyleKenny
 }
 
@@ -27,9 +27,6 @@ public class BotPlayer
     private readonly string? _forcedModifierId;
     private readonly bool _forcedLabMode;
     private string? _spectacleSingleTargetMod;
-    private string? _spectacleComboModA;
-    private string? _spectacleComboModB;
-    private readonly HashSet<string> _spectacleTriadTargets = new(StringComparer.Ordinal);
 
     public BotPlayer(
         BotStrategy strategy,
@@ -66,8 +63,6 @@ public class BotPlayer
         BotStrategy.HeavyStack    => PickHeavyStack(options, state),
         BotStrategy.RiftPrismFocus => PickRiftPrismFocus(options, state),
         BotStrategy.SpectacleSingleStack => PickSpectacleSingleStack(options, state),
-        BotStrategy.SpectacleComboPairing => PickSpectacleComboPairing(options, state),
-        BotStrategy.SpectacleTriadDiversity => PickSpectacleTriadDiversity(options, state),
         BotStrategy.PlayerStyleKenny => PickPlayerStyleKenny(options, state),
         _                         => PickRandom(options, state),
     };
@@ -88,9 +83,7 @@ public class BotPlayer
         bool guardStrategy = Strategy is
             BotStrategy.TowerFirst or
             BotStrategy.ChainFocus or
-            BotStrategy.SpectacleSingleStack or
-            BotStrategy.SpectacleComboPairing or
-            BotStrategy.SpectacleTriadDiversity;
+            BotStrategy.SpectacleSingleStack;
         if (!guardStrategy)
             return null;
 
@@ -1559,219 +1552,7 @@ public class BotPlayer
         return PickGreedyDps(opts, s);
     }
 
-    // Combo spectacle profile: lock to two modifiers and bias placements that preserve pair purity.
-    private DraftPick? PickSpectacleComboPairing(List<DraftOption> opts, RunState s)
-    {
-        var empty = EmptySlots(s);
-        var eligible = ModSlots(s);
-        DifficultyMode difficulty = ResolveDifficultyMode();
-        int towerCount = s.Slots.Count(sl => sl.Tower != null);
-        int totalModCount = s.Slots.Sum(sl => sl.Tower?.Modifiers.Count ?? 0);
-        int picksSoFar = towerCount + totalModCount;
-        var offeredNormalized = SpectacleModsOffered(opts)
-            .Select(o => NormalizeSpectacleMod(o.Id))
-            .Distinct()
-            .ToHashSet(StringComparer.Ordinal);
 
-        var survivalGatePick = TryPickSpectacleSurvivalGate(opts, s, empty, eligible, difficulty, picksSoFar);
-        if (survivalGatePick != null)
-            return survivalGatePick;
-
-        var hardPanicPick = TryPickHardPanicOverride(opts, s, empty, eligible, difficulty, picksSoFar, allowRiftTower: true);
-        if (hardPanicPick != null)
-            return hardPanicPick;
-
-        // EW top priority until first copy if marker is placed
-        if (eligible.Count > 0)
-        {
-            bool hasMarkerCP = s.Slots.Any(sl => sl.Tower?.TowerId == "marker_tower");
-            bool hasEWCP     = s.Slots.Any(sl => sl.Tower?.Modifiers.Any(m => m.ModifierId == "exploit_weakness") == true);
-            if (hasMarkerCP && !hasEWCP)
-            {
-                var ewPick = FindModOption(opts, "exploit_weakness");
-                if (ewPick != null)
-                {
-                    int ewSlot = eligible
-                        .Where(i => s.Slots[i].Tower?.TowerId != "marker_tower")
-                        .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
-                        .FirstOrDefault(-1);
-                    if (ewSlot >= 0) return new DraftPick(ewPick, ewSlot);
-                }
-            }
-        }
-
-        if (_spectacleComboModA == null)
-            _spectacleComboModA = SpectacleModPriority.FirstOrDefault(offeredNormalized.Contains);
-        if (_spectacleComboModB == null && _spectacleComboModA != null)
-            _spectacleComboModB = SpectacleModPriority.FirstOrDefault(m => m != _spectacleComboModA && offeredNormalized.Contains(m));
-
-        if (eligible.Count > 0 && _spectacleComboModA != null && _spectacleComboModB != null)
-        {
-            var allowed = new HashSet<string>(StringComparer.Ordinal) { _spectacleComboModA, _spectacleComboModB };
-            foreach (string targetMod in new[] { _spectacleComboModA, _spectacleComboModB })
-            {
-                var targetOption = SpectacleModsOffered(opts).FirstOrDefault(o => NormalizeSpectacleMod(o.Id) == targetMod);
-                if (targetOption == null) continue;
-
-                string partner = targetMod == _spectacleComboModA ? _spectacleComboModB : _spectacleComboModA;
-                int slot = eligible
-                    .OrderByDescending(i =>
-                    {
-                        int partnerCopies = CountSpectacleModCopies(s.Slots[i], partner);
-                        int targetCopies = CountSpectacleModCopies(s.Slots[i], targetMod);
-                        int offTarget = CountOffTargetSpectacleMods(s.Slots[i], allowed);
-                        return (partnerCopies > 0 ? 6 : 0)
-                            + (targetCopies > 0 ? 3 : 0)
-                            - offTarget * 8
-                            - s.Slots[i].Tower!.Modifiers.Count;
-                    })
-                    .First();
-                return new DraftPick(targetOption, slot);
-            }
-        }
-
-        if (eligible.Count > 0)
-        {
-            if (_spectacleComboModA == null)
-            {
-                var firstPairMod = SpectacleModsOffered(opts)
-                    .OrderBy(o => Array.IndexOf(SpectacleModPriority, NormalizeSpectacleMod(o.Id)))
-                    .FirstOrDefault();
-                if (firstPairMod != null)
-                {
-                    _spectacleComboModA = NormalizeSpectacleMod(firstPairMod.Id);
-                    int slot = eligible.OrderBy(i => s.Slots[i].Tower!.Modifiers.Count).First();
-                    return new DraftPick(firstPairMod, slot);
-                }
-            }
-            else if (_spectacleComboModB == null)
-            {
-                var secondPairMod = SpectacleModsOffered(opts)
-                    .Where(o => NormalizeSpectacleMod(o.Id) != _spectacleComboModA)
-                    .OrderBy(o => Array.IndexOf(SpectacleModPriority, NormalizeSpectacleMod(o.Id)))
-                    .FirstOrDefault();
-                if (secondPairMod != null)
-                {
-                    _spectacleComboModB = NormalizeSpectacleMod(secondPairMod.Id);
-                    int slot = eligible.OrderBy(i => s.Slots[i].Tower!.Modifiers.Count).First();
-                    return new DraftPick(secondPairMod, slot);
-                }
-            }
-        }
-
-        if (empty.Count > 0)
-        {
-            var towerPick = PickPreferredSpectacleTower(opts, s);
-            if (towerPick != null) return towerPick;
-        }
-
-        return PickGreedyDps(opts, s);
-    }
-
-    // Triad spectacle profile: build and maintain three unique supported mods for triad + augment coverage.
-    private DraftPick? PickSpectacleTriadDiversity(List<DraftOption> opts, RunState s)
-    {
-        var empty = EmptySlots(s);
-        var eligible = ModSlots(s);
-        DifficultyMode difficulty = ResolveDifficultyMode();
-        int towerCount = s.Slots.Count(sl => sl.Tower != null);
-        int totalModCount = s.Slots.Sum(sl => sl.Tower?.Modifiers.Count ?? 0);
-        int picksSoFar = towerCount + totalModCount;
-        var offeredSpectacle = SpectacleModsOffered(opts).ToList();
-
-        var survivalGatePick = TryPickSpectacleSurvivalGate(opts, s, empty, eligible, difficulty, picksSoFar);
-        if (survivalGatePick != null)
-            return survivalGatePick;
-
-        var hardPanicPick = TryPickHardPanicOverride(opts, s, empty, eligible, difficulty, picksSoFar, allowRiftTower: true);
-        if (hardPanicPick != null)
-            return hardPanicPick;
-
-        // EW top priority until first copy if marker is placed
-        if (eligible.Count > 0)
-        {
-            bool hasMarkerTD = s.Slots.Any(sl => sl.Tower?.TowerId == "marker_tower");
-            bool hasEWTD     = s.Slots.Any(sl => sl.Tower?.Modifiers.Any(m => m.ModifierId == "exploit_weakness") == true);
-            if (hasMarkerTD && !hasEWTD)
-            {
-                var ewPick = FindModOption(opts, "exploit_weakness");
-                if (ewPick != null)
-                {
-                    int ewSlot = eligible
-                        .Where(i => s.Slots[i].Tower?.TowerId != "marker_tower")
-                        .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
-                        .FirstOrDefault(-1);
-                    if (ewSlot >= 0) return new DraftPick(ewPick, ewSlot);
-                }
-            }
-        }
-
-        foreach (string mod in SpectacleModPriority)
-        {
-            if (_spectacleTriadTargets.Count >= 3) break;
-            if (offeredSpectacle.Any(o => NormalizeSpectacleMod(o.Id) == mod))
-                _spectacleTriadTargets.Add(mod);
-        }
-
-        if (eligible.Count > 0 && _spectacleTriadTargets.Count > 0)
-        {
-            DraftOption? bestOption = null;
-            int bestSlot = -1;
-            int bestScore = int.MinValue;
-
-            foreach (var opt in offeredSpectacle)
-            {
-                string normalized = NormalizeSpectacleMod(opt.Id);
-                if (_spectacleTriadTargets.Count >= 3 && !_spectacleTriadTargets.Contains(normalized))
-                    continue;
-
-                var allowed = new HashSet<string>(_spectacleTriadTargets, StringComparer.Ordinal) { normalized };
-                foreach (int slotIndex in eligible)
-                {
-                    var slot = s.Slots[slotIndex];
-                    var slotTargetSet = slot.Tower!.Modifiers
-                        .Select(m => NormalizeSpectacleMod(m.ModifierId))
-                        .Where(allowed.Contains)
-                        .Distinct()
-                        .ToHashSet(StringComparer.Ordinal);
-                    bool hasThisMod = slotTargetSet.Contains(normalized);
-                    int offTarget = CountOffTargetSpectacleMods(slot, allowed);
-                    int score = 0;
-
-                    if (!hasThisMod && slotTargetSet.Count == 2) score += 10;
-                    else if (!hasThisMod && slotTargetSet.Count == 1) score += 6;
-                    else if (!hasThisMod && slotTargetSet.Count == 0) score += 3;
-                    else score += 2;
-
-                    score -= offTarget * 8;
-                    score -= slot.Tower.Modifiers.Count;
-
-                    if (score > bestScore)
-                    {
-                        bestScore = score;
-                        bestOption = opt;
-                        bestSlot = slotIndex;
-                    }
-                }
-            }
-
-            if (bestOption != null && bestSlot >= 0)
-            {
-                string normalized = NormalizeSpectacleMod(bestOption.Id);
-                if (_spectacleTriadTargets.Count < 3)
-                    _spectacleTriadTargets.Add(normalized);
-                return new DraftPick(bestOption, bestSlot);
-            }
-        }
-
-        if (empty.Count > 0)
-        {
-            var towerPick = PickPreferredSpectacleTower(opts, s);
-            if (towerPick != null) return towerPick;
-        }
-
-        return PickGreedyDps(opts, s);
-    }
 
     // Stack focus_lens + momentum on heavy_cannon for maximum single-shot burst damage.
     // Tests whether ultra-high-damage slow towers can handle hard waves.

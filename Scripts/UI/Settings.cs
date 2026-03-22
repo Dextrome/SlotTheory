@@ -8,7 +8,9 @@ namespace SlotTheory.UI;
 /// </summary>
 public partial class Settings : Node
 {
-    private Button? _menuMusicBtn;
+    private Button? _menuMusicPrevBtn;
+    private Button? _menuMusicNextBtn;
+    private Label?  _menuMusicLabel;
     private Button? _fullscreenBtn;
     private Button? _colorblindBtn;
     private Button? _reducedMotionBtn;
@@ -116,9 +118,10 @@ public partial class Settings : Node
         AddVolumeRow(vbox, "Game FX", sm?.FxVolume     ?? 80f, v => SettingsManager.Instance?.SetFxVolume(v));
         AddVolumeRow(vbox, "UI FX",   sm?.UiFxVolume   ?? 80f, v => SettingsManager.Instance?.SetUiFxVolume(v));
 
-        bool isAlt = sm?.AltMenuMusic ?? false;
-        _menuMusicBtn = AddSettingRow(vbox, "Menu Music",
-            isAlt ? "Ambient" : "Mars", isOn: isAlt, OnToggleMenuMusic);
+        int musicStyle = sm?.MenuMusicStyle ?? 0;
+        string musicLabel = musicStyle switch { 0 => "Mars", 1 => "Ambient", _ => "Zool" };
+        (_menuMusicPrevBtn, _menuMusicLabel, _menuMusicNextBtn) =
+            AddMusicSelectRow(vbox, "Menu Music", musicLabel);
 
         AddSpacer(vbox, 4);
 
@@ -342,11 +345,22 @@ public partial class Settings : Node
         UpdateValueButton(_vhsGlitchBtn, OnOffText(next), next);
     }
 
-    private void OnToggleMenuMusic()
+    private void OnMenuMusicPrev()
     {
-        bool next = !(SettingsManager.Instance?.AltMenuMusic ?? false);
-        SettingsManager.Instance?.SetAltMenuMusic(next);
-        UpdateValueButton(_menuMusicBtn, next ? "Ambient" : "Mars", next);
+        int current = SettingsManager.Instance?.MenuMusicStyle ?? 0;
+        int next    = (current - 1 + 3) % 3;
+        SettingsManager.Instance?.SetMenuMusicStyle(next);
+        if (_menuMusicLabel != null)
+            _menuMusicLabel.Text = next switch { 0 => "Mars", 1 => "Ambient", _ => "Zool" };
+    }
+
+    private void OnMenuMusicNext()
+    {
+        int current = SettingsManager.Instance?.MenuMusicStyle ?? 0;
+        int next    = (current + 1) % 3;
+        SettingsManager.Instance?.SetMenuMusicStyle(next);
+        if (_menuMusicLabel != null)
+            _menuMusicLabel.Text = next switch { 0 => "Mars", 1 => "Ambient", _ => "Zool" };
     }
 
     private void OnToggleEnemyLayered()
@@ -447,6 +461,71 @@ public partial class Settings : Node
         inner.AddChild(btn);
 
         return btn;
+    }
+
+    /// <summary>Adds a label + left-arrow / track-name / right-arrow row for cycling a 3-option setting.</summary>
+    private (Button prev, Label track, Button next) AddMusicSelectRow(
+        VBoxContainer vbox, string labelText, string currentTrack)
+    {
+        var row = new PanelContainer();
+        row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        row.AddThemeStyleboxOverride("panel", MakeRowStyle());
+        vbox.AddChild(row);
+
+        var inner = new HBoxContainer();
+        inner.AddThemeConstantOverride("separation", 8);
+        row.AddChild(inner);
+
+        var lbl = new Label
+        {
+            Text = labelText,
+            VerticalAlignment = VerticalAlignment.Center,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
+        };
+        lbl.AddThemeFontSizeOverride("font_size", 18);
+        lbl.Modulate = new Color(0.88f, 0.88f, 0.92f);
+        inner.AddChild(lbl);
+
+        var prevBtn = new Button
+        {
+            Text = "<",
+            CustomMinimumSize = new Vector2(32, 28),
+            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+        };
+        prevBtn.AddThemeFontSizeOverride("font_size", 16);
+        ApplyValueButtonStyle(prevBtn, isOn: true);
+        UITheme.ApplyMenuButtonFinish(prevBtn, UITheme.Cyan, 0.07f, 0.11f);
+        prevBtn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); OnMenuMusicPrev(); };
+        prevBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+        inner.AddChild(prevBtn);
+
+        var trackLabel = new Label
+        {
+            Text = currentTrack,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment   = VerticalAlignment.Center,
+            CustomMinimumSize   = new Vector2(72, 28),
+            SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
+        };
+        trackLabel.AddThemeFontSizeOverride("font_size", 15);
+        trackLabel.Modulate = UITheme.Lime;
+        inner.AddChild(trackLabel);
+
+        var nextBtn = new Button
+        {
+            Text = ">",
+            CustomMinimumSize = new Vector2(32, 28),
+            SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+        };
+        nextBtn.AddThemeFontSizeOverride("font_size", 16);
+        ApplyValueButtonStyle(nextBtn, isOn: true);
+        UITheme.ApplyMenuButtonFinish(nextBtn, UITheme.Cyan, 0.07f, 0.11f);
+        nextBtn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); OnMenuMusicNext(); };
+        nextBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+        inner.AddChild(nextBtn);
+
+        return (prevBtn, trackLabel, nextBtn);
     }
 
     private static void AddVolumeRow(VBoxContainer vbox, string labelText, float current,

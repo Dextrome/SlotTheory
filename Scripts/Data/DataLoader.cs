@@ -116,12 +116,12 @@ public static class DataLoader
         var scaled = new WaveConfig(
             EnemyCount: Mathf.CeilToInt(baseWave.EnemyCount * Balance.GetEnemyCountMultiplier(difficulty)),
             SpawnInterval: baseWave.SpawnInterval * Balance.GetSpawnIntervalMultiplier(difficulty),
-            TankyCount: Mathf.CeilToInt(baseWave.TankyCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetTankyCountMultiplier(difficulty)),
+            TankyCount: Mathf.FloorToInt(baseWave.TankyCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetTankyCountMultiplier(difficulty)),
             ClumpArmored: baseWave.ClumpArmored,
-            SwiftCount: Mathf.CeilToInt(baseWave.SwiftCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetSwiftCountMultiplier(difficulty)),
-            SplitterCount: Mathf.CeilToInt(baseWave.SplitterCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetSplitterCountMultiplier(difficulty)),
-            ReverseCount: Mathf.CeilToInt(baseWave.ReverseCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetReverseCountMultiplier(difficulty)),
-            ShieldDroneCount: Mathf.CeilToInt(baseWave.ShieldDroneCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetShieldDroneCountMultiplier(difficulty))
+            SwiftCount: Mathf.FloorToInt(baseWave.SwiftCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetSwiftCountMultiplier(difficulty)),
+            SplitterCount: Mathf.FloorToInt(baseWave.SplitterCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetSplitterCountMultiplier(difficulty)),
+            ReverseCount: Mathf.FloorToInt(baseWave.ReverseCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetReverseCountMultiplier(difficulty)),
+            ShieldDroneCount: Mathf.FloorToInt(baseWave.ShieldDroneCount * Balance.GetEnemyCountMultiplier(difficulty) * Balance.GetShieldDroneCountMultiplier(difficulty))
         );
 
         return ApplyMapDifficultyTuning(index, scaled, mapId, difficulty);

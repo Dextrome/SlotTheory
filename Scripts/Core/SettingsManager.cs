@@ -1,4 +1,5 @@
 using Godot;
+using System;
 
 namespace SlotTheory.Core;
 
@@ -32,7 +33,7 @@ public partial class SettingsManager : Node
     public float MusicVolume   { get; private set; } = 80f;
     public float FxVolume      { get; private set; } = 80f;
     public float UiFxVolume    { get; private set; } = 80f;
-    public bool  AltMenuMusic  { get; private set; } = false;
+    public int   MenuMusicStyle { get; private set; } = 0;  // 0=Mars, 1=Ambient, 2=Zool
     public bool  ColorblindMode { get; private set; } = false;
     public bool  ReducedMotion  { get; private set; } = false;
     // Hidden per-profile capability flag (not exposed in user-facing settings UI).
@@ -109,10 +110,10 @@ public partial class SettingsManager : Node
         SaveAccount();
     }
 
-    public void SetAltMenuMusic(bool alt)
+    public void SetMenuMusicStyle(int style)
     {
-        AltMenuMusic = alt;
-        SoundManager.Instance?.SetMenuMusicStyle(alt);
+        MenuMusicStyle = Math.Clamp(style, 0, 2);
+        SoundManager.Instance?.SetMenuMusicStyle(MenuMusicStyle);
         SaveAccount();
     }
 
@@ -322,7 +323,11 @@ public partial class SettingsManager : Node
             MusicVolume    = (float)cfg.GetValue(SecAudio, "music_volume",    80f);
             FxVolume       = (float)cfg.GetValue(SecAudio, "fx_volume",       80f);
             UiFxVolume     = (float)cfg.GetValue(SecAudio, "ui_fx_volume",    80f);
-            AltMenuMusic   = (bool) cfg.GetValue(SecAudio, "alt_menu_music", false);
+            // Migrate from old bool key → int style
+            if (cfg.HasSectionKey(SecAudio, "menu_music_style"))
+                MenuMusicStyle = (int)cfg.GetValue(SecAudio, "menu_music_style", 0);
+            else if (cfg.HasSectionKey(SecAudio, "alt_menu_music"))
+                MenuMusicStyle = ((bool)cfg.GetValue(SecAudio, "alt_menu_music", false)) ? 1 : 0;
             ColorblindMode = (bool) cfg.GetValue(SecDisp,  "colorblind",    false);
             ReducedMotion  = (bool) cfg.GetValue(SecDisp,  "reduced_motion", false);
             int rawDifficulty = (int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Easy);
@@ -378,7 +383,7 @@ public partial class SettingsManager : Node
         cfg.SetValue(SecAudio, "music_volume",   MusicVolume);
         cfg.SetValue(SecAudio, "fx_volume",      FxVolume);
         cfg.SetValue(SecAudio, "ui_fx_volume",   UiFxVolume);
-        cfg.SetValue(SecAudio, "alt_menu_music", AltMenuMusic);
+        cfg.SetValue(SecAudio, "menu_music_style", MenuMusicStyle);
         cfg.SetValue(SecDisp,  "colorblind",     ColorblindMode);
         cfg.SetValue(SecDisp,  "reduced_motion", ReducedMotion);
         if (cfg.HasSectionKey(SecDisp, LegacyDevModeKey))

@@ -52,6 +52,8 @@ public partial class SoundManager : Node
     private bool     _isAltMusic         = false;
     private Vector2[]? _musicFramesFull  = null;   // full-intensity loop (no buildup); used from loop 2+
     private bool     _altMusicIntroPlayed = false;  // true after first 32s loop completes
+    private bool     _isZoolMusic        = false;
+    private bool     _zoolIntroPlayed    = false;
     // Fast-lick overlay: short blazing 64th-note bursts rendered additively on top of main solo
     private float[] _fastFreqs   = Array.Empty<float>();
     private float[] _fastVols    = Array.Empty<float>();
@@ -309,15 +311,26 @@ public partial class SoundManager : Node
     /// </summary>
     private void StartMusic()
     {
-        bool altStyle = SettingsManager.Instance?.AltMenuMusic ?? false;
-        _isAltMusic = !altStyle;  // true = Mars/rock is playing; false = ambient
+        int style = SettingsManager.Instance?.MenuMusicStyle ?? 0;
+        _isAltMusic  = (style == 0);
+        _isZoolMusic = (style == 2);
         _altMusicIntroPlayed = false;
-        if (!altStyle)  // Mars is default
+        _zoolIntroPlayed     = false;
+        if (style == 0)  // Mars
         {
             GenerateWildSolo(_soloLoopSeed);
             _musicFramesFull = BuildMusicFramesAlt(intro: false);
         }
-        _musicFrames = altStyle ? BuildMusicFramesClassic() : BuildMusicFramesAlt(intro: true);
+        else if (style == 2)  // Zool
+        {
+            _musicFramesFull = BuildMusicFramesZool(intro: false);
+        }
+        _musicFrames = style switch
+        {
+            1 => BuildMusicFramesClassic(),
+            2 => BuildMusicFramesZool(intro: true),
+            _ => BuildMusicFramesAlt(intro: true),
+        };
 
         var gen = new AudioStreamGenerator { MixRate = Rate, BufferLength = 0.5f };
         _musicPlayer = new AudioStreamPlayer { Stream = gen, VolumeDb = MusicBaseDb, Bus = "Music" };
@@ -331,18 +344,29 @@ public partial class SoundManager : Node
     /// Replaces the precomputed loop buffer immediately; the generator's internal 0.5 s
     /// buffer drains the old track, then the new style starts from position 0.
     /// </summary>
-    public void SetMenuMusicStyle(bool alt)
+    public void SetMenuMusicStyle(int style)
     {
         if (_headless) return;
         if (_musicPlayer == null) return;  // not started yet; StartMusic() will read the setting
-        _isAltMusic = !alt;  // true = Mars/rock is playing; false = ambient
+        _isAltMusic  = (style == 0);
+        _isZoolMusic = (style == 2);
         _altMusicIntroPlayed = false;
-        if (!alt)  // Mars
+        _zoolIntroPlayed     = false;
+        if (style == 0)  // Mars
         {
             GenerateWildSolo(_soloLoopSeed);
             _musicFramesFull = BuildMusicFramesAlt(intro: false);
         }
-        _musicFrames = alt ? BuildMusicFramesClassic() : BuildMusicFramesAlt(intro: true);
+        else if (style == 2)  // Zool
+        {
+            _musicFramesFull = BuildMusicFramesZool(intro: false);
+        }
+        _musicFrames = style switch
+        {
+            1 => BuildMusicFramesClassic(),
+            2 => BuildMusicFramesZool(intro: true),
+            _ => BuildMusicFramesAlt(intro: true),
+        };
         _musicPos = 0;
     }
 
@@ -426,6 +450,252 @@ public partial class SoundManager : Node
     /// run that races through the Ab scale on 16th notes (~160 ms/note, matching
     /// the original MOD).  Everything else -- chug, kick, snare, pad -- provides
     /// the driving backdrop for that lead cascade.
+    /// <summary>
+    /// PCM recreation of "Rock N Zool" (Patrick Phelan, Zool 1992, Amiga).
+    /// Reconstructed note-for-note from the original ProTracker MOD file.
+    /// Tempo: CIA 125 BPM, speed=4 → 80 ms/row = 1764 samples/row @ 22050 Hz.
+    /// Key: F minor (F Gb Ab Bb C Db Eb).
+    ///
+    /// intro=true  → Pattern 0 only (64 rows, ~5.1 s)
+    /// intro=false → Patterns 3+7+3+8 (256 rows, ~20.5 s main loop)
+    /// </summary>
+    private static Vector2[] BuildMusicFramesZool(bool intro)
+    {
+        const int RowSamples = 1764;   // 80 ms row @ 22050 Hz
+        int rows = intro ? 64 : 256;
+        int n    = rows * RowSamples;
+        var mix  = new float[n];
+
+        static float MidiFreq(int midi) => 440f * MathF.Pow(2f, (midi - 69) / 12f);
+
+        // ── Kick (freq-swept sine, 100→40 Hz) ───────────────────────────────
+        int[] kickRows;
+        if (intro)
+        {
+            kickRows = new[] { 0 };
+        }
+        else
+        {
+            int[] baseKick = { 0,8,10,16,22,26,32,40,42,48,56,62 };
+            var klist = new List<int>();
+            for (int p = 0; p < 4; p++)
+                foreach (int r in baseKick) klist.Add(p * 64 + r);
+            kickRows = klist.ToArray();
+        }
+        const int KickSamp = (int)(0.28f * Rate);
+        foreach (int row in kickRows)
+        {
+            int start = row * RowSamples;
+            for (int i = 0; i < KickSamp && start + i < n; i++)
+            {
+                float tt  = i / (float)Rate;
+                float env = MathF.Exp(-18f * tt) * 0.9f;
+                float ph  = (100f / 30f) * (1f - MathF.Exp(-30f * tt)) + 40f * tt;
+                mix[start + i] += MathF.Sin(ph * MathF.Tau) * env * 0.55f;
+            }
+        }
+
+        // ── Snare (noise + 185 Hz tone) ──────────────────────────────────────
+        int[] snareRows;
+        if (intro)
+        {
+            snareRows = Array.Empty<int>();
+        }
+        else
+        {
+            int[] baseSnare = { 4,12,20,28,36,44,52,54,60 };
+            var slist = new List<int>();
+            for (int p = 0; p < 4; p++)
+                foreach (int r in baseSnare) slist.Add(p * 64 + r);
+            snareRows = slist.ToArray();
+        }
+        const int SnareSamp = (int)(0.22f * Rate);
+        var noiseRng = new Random(42);
+        var noise    = new float[SnareSamp];
+        for (int i = 0; i < SnareSamp; i++) noise[i] = (float)(noiseRng.NextDouble() * 2.0 - 1.0);
+        foreach (int row in snareRows)
+        {
+            int start = row * RowSamples;
+            for (int i = 0; i < SnareSamp && start + i < n; i++)
+            {
+                float tt  = i / (float)Rate;
+                float env = MathF.Exp(-28f * tt) * 0.85f;
+                mix[start + i] += (noise[i] * 0.6f + MathF.Sin(tt * MathF.Tau * 185f) * 0.4f) * env * 0.40f;
+            }
+        }
+
+        // ── Chug (distorted sawtooth, staccato 70 ms) ───────────────────────
+        var chugEvents = new List<(int row, int midi)>();
+        if (intro)
+        {
+            // Correct MIDI: formula is MIDI=60+12*log2(428/period) - period 428 = middle C.
+            // All note values are one octave higher than the parser output (which wrongly used 214).
+            int[] cp = { 69,69,71,67,69,71,69,67 };  // A4,A4,B4,G4,A4,B4,A4,G4
+            for (int r = 0; r < 64; r += 2) chugEvents.Add((r, cp[(r / 2) % cp.Length]));
+        }
+        else
+        {
+            // Correct MIDI (period 428 = MIDI 60 reference):
+            // P3/P7 first half (rows 0-30): A4,A4,B4,G4 phrase, D5 turnaround at row 28
+            int[] chugPhrase = { 69,69,71,67,69,71,69,67,69,69,71,67,69,71,74,69 };
+            // P3/P7 second half (rows 32-62): settle groove, mostly G4 with occasional A4
+            int[] chugGroove = { 67,67,69,67,67,69,67,67,67,67,69,67,67,67,69,67 };
+            // P8 high section (rows 16-30, 48-62): D5,D5,E5,C5,D5,E5,D5,D5
+            int[] cHigh = { 74,74,76,72,74,76,74,74 };
+            for (int p = 0; p < 4; p++)
+            {
+                for (int r = 0; r < 64; r += 2)
+                {
+                    int midi;
+                    if (p == 3)
+                    {
+                        bool isHi = (r >= 16 && r <= 30) || (r >= 48 && r <= 62);
+                        if (isHi)
+                        {
+                            int hi = (r < 32 ? r - 16 : r - 48) / 2;
+                            midi = cHigh[hi % cHigh.Length];
+                        }
+                        else
+                        {
+                            int idx = (r < 32 ? r : r - 32) / 2;
+                            midi = chugPhrase[idx % 8];
+                        }
+                    }
+                    else
+                    {
+                        midi = r < 32 ? chugPhrase[(r / 2) % chugPhrase.Length]
+                                      : chugGroove[((r - 32) / 2) % chugGroove.Length];
+                    }
+                    chugEvents.Add((p * 64 + r, midi));
+                }
+            }
+        }
+        // Chug: very short staccato "chk" - rhythm guitar mute, not a sustained pitched tone.
+        // 25 ms gate + fast decay so pitch content is minimal; it reads as rhythmic texture.
+        const int ChugGate = (int)(0.025f * Rate);
+        foreach (var (row, midi) in chugEvents)
+        {
+            int   start = row * RowSamples;
+            // chugalug sample is 8468 Hz (not standard 8287 Hz).
+            // On Amiga hardware, period 254 + 8468 Hz sample → 431 Hz (≈G#4), not A4=440 Hz.
+            // With correction: 440 * 8287/8468 = 430.6 Hz → near-octave below melody G#5=830 Hz.
+            // Without correction: 440 Hz (A4) = minor 7th below G#5 = maximally dissonant.
+            float freq  = MidiFreq(midi) * 8287f / 8468f;
+            float phase = 0f;
+            for (int i = 0; i < ChugGate && start + i < n; i++)
+            {
+                float tt  = i / (float)Rate;
+                float env = MathF.Exp(-40f * tt) * (1f - MathF.Exp(-800f * tt));
+                phase += freq / Rate;
+                float saw = (phase % 1f) * 2f - 1f;
+                mix[start + i] += MathF.Tanh(saw * 2.0f) * env * 0.18f;
+            }
+        }
+
+        // ── Melody (sine + harmonics, note-for-note from MOD) ───────────────
+        var mel = new List<(int row, int midi)>();
+        if (intro)
+        {
+            mel.Add((0, 65));  // F4 (period 160), fades out over pattern
+        }
+        else
+        {
+            // Correct MIDI: MIDI=60+12*log2(428/period). Period 428=C4=MIDI60.
+            // Pattern 3 sparse melody (rows 0-63)
+            int[] p3r = { 0,24,32,56,60 };
+            int[] p3m = { 65,65,63,63,68 };  // F4,F4,Eb4,Eb4,G#4
+            for (int i = 0; i < p3r.Length; i++) mel.Add((p3r[i], p3m[i]));
+            // Pattern 3 repeat (rows 128-191)
+            for (int i = 0; i < p3r.Length; i++) mel.Add((128 + p3r[i], p3m[i]));
+            // Pattern 7 main riff (rows 64-127)
+            int[] p7r = { 0,2,4,6,8,10,12,14,16,18,20,22,24,25,26,27,28,29,30,31 };
+            int[] p7m = { 80,75,77,80,75,77,80,75,77,72,70,72,75,72,70,68,65,63,65,63 };
+            for (int i = 0; i < p7r.Length; i++) mel.Add((64 + p7r[i], p7m[i]));
+            // Pattern 7 second half (rows 32-62)
+            int[] p7ar = { 32,42,44,46,48,50,52,54,56,58,60,62 };
+            int[] p7am = { 63,65,68,70,68,70,72,70,72,75,77,75 };
+            for (int i = 0; i < p7ar.Length; i++) mel.Add((64 + p7ar[i], p7am[i]));
+            // Pattern 8 melody (rows 192-255)
+            int[] p8r = { 0,4,8,10,12,14,18,26,28,30,36,40,42,44,46,58,60,62 };
+            int[] p8m = { 65,80,80,79,77,75,77,70,72,63,77,77,75,74,70,68,70,63 };
+            for (int i = 0; i < p8r.Length; i++) mel.Add((192 + p8r[i], p8m[i]));
+        }
+        for (int evIdx = 0; evIdx < mel.Count; evIdx++)
+        {
+            var (row, midi) = mel[evIdx];
+            int nextRow  = evIdx + 1 < mel.Count ? mel[evIdx + 1].row : rows;
+            int gate     = Math.Min(nextRow - row, 8) * RowSamples;
+            int start    = row * RowSamples;
+            float freq   = MidiFreq(midi);
+            float totalT = gate / (float)Rate;
+            for (int i = 0; i < gate && start + i < n; i++)
+            {
+                float tt  = i / (float)Rate;
+                float env = MathF.Min(tt / 0.012f, 1f)
+                          * MathF.Min((totalT - tt) / 0.04f, 1f);
+                if (intro) env *= MathF.Max(0f, 1f - (start + i) / (float)(64 * RowSamples));
+                float s = (MathF.Sin(tt * MathF.Tau * freq)        * 0.65f
+                         + MathF.Sin(tt * MathF.Tau * freq * 2f)   * 0.25f
+                         + MathF.Sin(tt * MathF.Tau * freq * 3f)   * 0.10f) * env;
+                mix[start + i] += s * 0.50f;
+            }
+        }
+
+        // ── Bass (sine + octave, actual MOD Ch4 note schedule) ───────────────
+        var bass = new List<(int row, int midi)>();
+        if (intro)
+        {
+            bass.Add((0, 68));  // Ab4 (period 269, MIDI=60+12*log2(428/269)=68)
+        }
+        else
+        {
+            // P3 and P7 bass: Ab4/F#4/B4 (period 269/302/226, MIDI=60+12*log2(428/P))
+            int[] p37BassRows = { 0, 24, 28, 32, 60 };
+            int[] p37BassMidi = { 68, 66, 71, 66, 71 };  // Ab4, F#4, B4
+            for (int p = 0; p < 3; p++)  // patterns 3+7+3 at offsets 0,64,128
+                for (int i = 0; i < p37BassRows.Length; i++)
+                    bass.Add((p * 64 + p37BassRows[i], p37BassMidi[i]));
+            // Pattern 8 bass (offset 192): original high runs (G#5=80, F#5=78, C#5=73) clash with
+            // melody in the same register. Keep G#4(68) anchor notes as-is; drop only the high
+            // runs by one octave: 80→68, 78→66, 73→61. Bass stays in G#4/F#4/C#4 range (~285-428 Hz),
+            // below the melody (~830 Hz). Sample-rate correction then applies as normal.
+            int[] p8BassRows = { 0,4,6,8,12,14,16,20,22,24,28,32,36,38,40,44,46,48,52,54,56,60 };
+            int[] p8BassMidi = { 68,68,68,66,68,68,61,68,61,66,68,68,68,68,66,68,68,61,68,61,66,68 };
+            for (int i = 0; i < p8BassRows.Length; i++)
+                bass.Add((192 + p8BassRows[i], p8BassMidi[i]));
+        }
+        for (int evIdx = 0; evIdx < bass.Count; evIdx++)
+        {
+            var (row, midi) = bass[evIdx];
+            int nextRow  = evIdx + 1 < bass.Count ? bass[evIdx + 1].row : rows;
+            int gate     = (nextRow - row) * RowSamples;
+            int start    = row * RowSamples;
+            // coolbass2 sample is 8051 Hz (not standard 8287 Hz).
+            // On Amiga hardware, period 269 + 8051 Hz sample → 428 Hz (≈G#4, near-unison with chug).
+            // Without correction: 415 Hz (G#4) - still close, but with correction both chug+bass
+            // cluster at ~429 Hz forming a near-octave pair below melody G#5=830 Hz.
+            float freq   = MidiFreq(midi) * 8287f / 8051f;
+            float totalT = gate / (float)Rate;
+            for (int i = 0; i < gate && start + i < n; i++)
+            {
+                float tt  = i / (float)Rate;
+                float env = MathF.Min(tt / 0.010f, 1f)
+                          * Math.Clamp((totalT - tt) / 0.05f, 0f, 1f);
+                float s = MathF.Sin(tt * MathF.Tau * freq) * env;
+                mix[start + i] += s * 0.25f;
+            }
+        }
+
+        // ── Soft limit → stereo ──────────────────────────────────────────────
+        var frames = new Vector2[n];
+        for (int i = 0; i < n; i++)
+        {
+            float s = MathF.Tanh(mix[i] * 0.80f);
+            frames[i] = new Vector2(s, s);
+        }
+        return frames;
+    }
+
     ///
     /// Loop guarantee: all frequencies are N/32 Hz (integer N) so every sine
     /// completes exactly N cycles in 32 s → signal is 0 at t=0 and t=32, no click.
@@ -953,6 +1223,14 @@ public partial class SoundManager : Node
                         _musicFrames = _musicFramesFull;
                         _altMusicIntroPlayed = true;
                     }
+                }
+
+                // Zool: swap intro → main loop after first pass
+                if (_isZoolMusic && _musicPos + 1 >= _musicFrames.Length
+                    && !_zoolIntroPlayed && _musicFramesFull != null)
+                {
+                    _musicFrames    = _musicFramesFull;
+                    _zoolIntroPlayed = true;
                 }
 
                 var frame = _musicFrames[_musicPos];
