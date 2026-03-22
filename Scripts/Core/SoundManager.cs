@@ -109,10 +109,11 @@ public partial class SoundManager : Node
     private static readonly Dictionary<string, int> MobileSfxCooldownMs = new()
     {
         // Rapid-fire tower shots: tight throttle prevents distortion stacking on mobile CPUs.
-        ["shoot_rapid"]    = 45,
-        ["shoot_marker"]   = 60,
+        ["shoot_rapid"]       = 45,
+        ["shoot_marker"]      = 60,
+        ["shoot_accordion"]   = 80,
         // Heavy impacts: longer cooldown since they're loud and infrequent by design.
-        ["shoot_heavy"]    = 90,
+        ["shoot_heavy"]       = 90,
         ["mine_pop"]       = 55,
         ["mine_chain_pop"] = 85,
         // Per-frame hit ticks: 35ms floor keeps them audible without drowning other SFX.
@@ -137,7 +138,8 @@ public partial class SoundManager : Node
         // Per-frame hits: very short to feel responsive; throttle only kicks in at high speed.
         ["hit"]            = 12,
         ["kill_confirm"]   = 15,   // matches hit cadence; both fire on the same combat frame
-        ["shoot_rapid"]    = 20,
+        ["shoot_rapid"]       = 20,
+        ["shoot_accordion"]   = 60,
         // Death sounds: 60–100ms keeps individual kills audibly distinct at ×2/×3.
         ["die_basic"]      = 60,
         ["die_armored"]    = 100,
@@ -198,6 +200,10 @@ public partial class SoundManager : Node
         Reg("shoot_rapid_cold", Tone(420f, 0.07f, vol: 0.24f, shape: 's', env: 'f'));  // Chill Shot variant: softer, icier
         Reg("shoot_heavy",      Tone( 72f, 0.24f, vol: 0.72f, shape: 's', env: 'f'));
         Reg("shoot_marker",     Tone(360f, 0.07f, vol: 0.32f, shape: 's', env: 'f'));
+        Reg("shoot_accordion",  Layer(
+            Sweep(860f, 140f, 0.22f, vol: 0.58f),                        // compression fold: high-to-low crunch
+            Tone(95f, 0.18f, vol: 0.34f, shape: 'q', env: 'f'),          // mechanical thump
+            Tone(2800f, 0.04f, vol: 0.12f, shape: 'q', env: 'f')));      // lock click
 
         // ── Enemy events ─────────────────────────────────────────────────
         Reg("hit",          Tone(520f, 0.03f, vol: 0.16f, shape: 'n', env: 'f'));

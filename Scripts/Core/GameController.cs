@@ -842,6 +842,12 @@ public partial class GameController : Node
 				case Unlocks.RiftPrismAchievementId:
 					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: true, Unlocks.RiftPrismTowerId));
 					break;
+				case Unlocks.AccordionEngineAchievementId:
+					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: true, Unlocks.AccordionEngineTowerId));
+					break;
+				case Unlocks.BlastCoreAchievementId:
+					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: false, Unlocks.BlastCoreModifierId));
+					break;
 			}
 		}
 
@@ -1565,9 +1571,10 @@ public partial class GameController : Node
 		"rapid_shooter" => new Color(0.30f, 0.90f, 1.00f),  // cyan
 		"heavy_cannon"  => new Color(1.00f, 0.55f, 0.00f),  // orange
 		"marker_tower"  => new Color(0.75f, 0.30f, 1.00f),  // purple
-		"chain_tower"   => new Color(0.55f, 0.90f, 1.00f),  // electric blue
-		"rift_prism"    => new Color(0.70f, 1.00f, 0.56f),  // lime
-		_               => Colors.Yellow,
+		"chain_tower"      => new Color(0.55f, 0.90f, 1.00f),  // electric blue
+		"rift_prism"       => new Color(0.70f, 1.00f, 0.56f),  // lime
+		"accordion_engine" => new Color(0.78f, 0.40f, 1.00f),  // bright violet
+		_                  => Colors.Yellow,
 	};
 
 	private static Color GetTowerBodyColor(string towerId) => towerId switch
@@ -1575,9 +1582,10 @@ public partial class GameController : Node
 		"rapid_shooter" => new Color(0.15f, 0.65f, 1.00f),
 		"heavy_cannon"  => new Color(1.00f, 0.55f, 0.00f),
 		"marker_tower"  => new Color(1.00f, 0.15f, 0.60f),
-		"chain_tower"   => new Color(0.50f, 0.85f, 1.00f),
-		"rift_prism"    => new Color(0.58f, 0.98f, 0.50f),
-		_               => new Color(0.20f, 0.50f, 1.00f),
+		"chain_tower"      => new Color(0.50f, 0.85f, 1.00f),
+		"rift_prism"       => new Color(0.58f, 0.98f, 0.50f),
+		"accordion_engine" => new Color(0.72f, 0.20f, 1.00f),
+		_                  => new Color(0.20f, 0.50f, 1.00f),
 	};
 
 	public override void _Input(InputEvent @event)
@@ -2780,6 +2788,11 @@ public partial class GameController : Node
 				text += $"plants up to {Balance.RiftMineMaxActivePerTower} mines  ({Balance.RiftMineChargesPerMine} charges each)\n";
 				text += $"trigger {Balance.RiftMineTriggerRadius:0}px  burst seed {Balance.RiftMineBurstWindow:0.#}s (+{Balance.RiftMineBurstFastPlantsPerTower} fast plants)\n";
 			}
+			if (tower.TowerId == "accordion_engine")
+			{
+				text += $"compresses enemy spacing on pulse  ({(int)((1f - Balance.AccordionCompressionFactor) * 100)}% spread reduction)\n";
+				text += $"min {Balance.AccordionMinSpacingPx:0}px spacing  -  hits all enemies in range\n";
+			}
 			if (tower.IsChainTower)
 				text += $"chains x{tower.ChainCount}  ({(int)(tower.ChainDamageDecay * 100)}% per bounce)  range {(int)tower.ChainRange} px\n";
 			if (tower.SplitCount > 0)
@@ -3556,11 +3569,12 @@ void fragment() {
 			return;
 		switch (tower.TowerId)
 		{
-			case "chain_tower":   SpawnArchetypeChainArcs(tower, accent, drama); break;
-			case "heavy_cannon":  SpawnArchetypeCannonRing(tower.GlobalPosition, accent, drama); break;
-			case "rapid_shooter": SpawnArchetypeSparks(tower.GlobalPosition, accent, drama); break;
-			case "marker_tower":  SpawnArchetypeMarkedFlash(accent, drama); break;
-			case "rift_prism":    SpawnArchetypeRiftRing(tower.GlobalPosition, accent, drama); break;
+			case "chain_tower":      SpawnArchetypeChainArcs(tower, accent, drama); break;
+			case "heavy_cannon":     SpawnArchetypeCannonRing(tower.GlobalPosition, accent, drama); break;
+			case "rapid_shooter":    SpawnArchetypeSparks(tower.GlobalPosition, accent, drama); break;
+			case "marker_tower":     SpawnArchetypeMarkedFlash(accent, drama); break;
+			case "rift_prism":       SpawnArchetypeRiftRing(tower.GlobalPosition, accent, drama); break;
+			case "accordion_engine": SpawnArchetypeAccordionRing(tower.GlobalPosition, accent, drama); break;
 		}
 	}
 
@@ -3632,6 +3646,27 @@ void fragment() {
 			float radius = 55f + drama * 95f + idx * 28f;
 			float dur = 0.28f + drama * 0.32f + idx * 0.05f;
 			float rw = 2.8f + drama * 2.2f;
+			if (delay <= 0f)
+				EmitSignatureRing(origin, accent, radius, dur, rw);
+			else
+			{
+				var cc = accent; var cr = radius; var cd = dur; var cw = rw;
+				GetTree().CreateTimer(delay, true, false, true).Timeout += () =>
+					EmitSignatureRing(origin, cc, cr, cd, cw);
+			}
+		}
+	}
+
+	private void SpawnArchetypeAccordionRing(Vector2 origin, Color accent, float drama)
+	{
+		// Accordion Engine identity: converging double-ring that contracts inward
+		for (int i = 0; i < 2; i++)
+		{
+			int idx = i;
+			float delay = i * 0.08f;
+			float radius = 80f + drama * 140f - idx * 22f;  // second ring smaller (inward compression feel)
+			float dur = 0.36f + drama * 0.28f;
+			float rw = 3.0f + drama * 2.4f - idx * 0.6f;
 			if (delay <= 0f)
 				EmitSignatureRing(origin, accent, radius, dur, rw);
 			else
@@ -8001,10 +8036,12 @@ void fragment() {
 		return modifierId switch
 		{
 			"exploit_weakness" => tower.AppliesMark || tower.TowerId == "marker_tower",
-			"chain_reaction" => tower.IsChainTower,
+			"chain_reaction"   => tower.IsChainTower,
 			"overkill" or "focus_lens" => tower.TowerId == "heavy_cannon"
 				|| tower.Modifiers.Any(m => m.ModifierId == "focus_lens")
 				|| tower.BaseDamage >= 40f,
+			// Overreach extends the accordion compression zone; blast_core rewards the packed formation it creates
+			"overreach" or "blast_core" => tower.TowerId == "accordion_engine",
 			_ => false,
 		};
 	}

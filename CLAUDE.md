@@ -18,7 +18,8 @@ Engine: **Godot 4.x .NET** (C#) Â· Runtime: **.NET 8+** Â· Target: **Windows
 - **Surge differentiation system** added: `SurgeDifferentiation.cs` (pure-logic, no Godot deps) is the single source of truth for global surge archetypes (10 named labels mapped from dominant contributing mod, e.g. REDLINE WAVE, CHAIN STORM). Global surge banner shows dynamic label; visual feel (Detonation/Pressure/Neutral) drives flash alpha, secondary pulses, and ripple pattern. Multi-color ripples reflect top-3 contributing mods. Per-tower archetype FX fire in sequence. 35 unit tests in `SurgeDifferentiationTests`.
 - **Automated tuning pipeline** added: `run_tuning_pipeline.ps1` + `Scripts/Tools/CombatLab/` drive iterative difficulty optimization against bot win-rate targets. `SpectacleTuning.Current` overrides difficulty multipliers at runtime.
 - **Achievement system** added: `AchievementManager.cs`, `AchievementDefinition.cs`, `SteamAchievements.cs`. Achievements persist across sessions and gate unlocks.
-- **Unlockable content**: Arc Emitter, Split Shot modifier, and Rift Prism are now gated behind campaign map clears (`Unlocks.cs`). Bots always have full unlock access for deterministic balance testing.
+- **Unlockable content**: Arc Emitter, Split Shot modifier, Rift Prism, and **Accordion Engine** are gated behind campaign map clears (`Unlocks.cs`). Bots always have full unlock access for deterministic balance testing.
+- **Accordion Engine** tower added (`accordion_engine`): formation-topology control tower that compresses enemy Progress values (not a slow/stun) on each pulse. All in-range enemies take damage simultaneously; primary (leading) hit gets `isChain:false` full modifier treatment; secondaries get `isChain:true`. Chain Reaction modifier arcs from the primary into the compressed pack. Violet/purple visual identity. `AccordionPulseVfx.cs` contracting-ring VFX. New `AccordionEngine` bot strategy. Achievement: `ACCORDION_UNSEALED`.
 - **Three difficulty modes**: Easy (no scaling), Normal (~75% bot win target), Hard (~50% bot win target). Multipliers are tunable via `SpectacleTuning.Current`.
 - **Enemy render pipeline overhaul**: layered render pipeline with perf controls, class-specific death FX, and mobile-adaptive quality settings.
 - **New UI screens**: `UnlockRevealScreen.cs`, `AchievementsPanel.cs`, `AchievementToast.cs`, `SlotCodexPanel.cs`.
@@ -93,8 +94,8 @@ dotnet build SlotTheory.sln
 - Range checks are **fully enforced** in bot mode (`ignoreRange: false` hardcoded in `CombatSim.Step`). Enemy `GlobalPosition` is correctly updated by `PathFollow2D` whenever `Progress` is set in `BotTick`.
 - Spectacle gameplay payloads are applied in bot mode for surge/global surge triggers (matching live gameplay logic).
 - Minor spectacle trigger tier no longer exists, so surge/global surge metrics are the primary balancing signal.
-- 10 strategies cycle round-robin: `Random`, `TowerFirst`, `GreedyDps`, `MarkerSynergy`, `ChainFocus`, `SplitFocus`, `HeavyStack`, `RiftPrismFocus`, `SpectacleSingleStack`, `PlayerStyleKenny`.
-- Bot strategy sets: pass `--strategy-set optimization` (4 strategies focused on win-rate) or `--strategy-set edge` (3 edge-case strategies) to scope runs. Default (`all`) cycles all 10.
+- 11 strategies cycle round-robin: `Random`, `TowerFirst`, `GreedyDps`, `MarkerSynergy`, `ChainFocus`, `SplitFocus`, `HeavyStack`, `RiftPrismFocus`, `SpectacleSingleStack`, `AccordionEngine`, `PlayerStyleKenny`.
+- Bot strategy sets: pass `--strategy-set optimization` (4 strategies focused on win-rate) or `--strategy-set edge` (3 edge-case strategies) to scope runs. Default (`all`) cycles all 11.
 - Pass `--demo` to any bot run to simulate demo build conditions: Shield Drone and Reverse Walker counts are zeroed via `Balance.SetDemoOverride(true)` (same gating as a real demo export).
 - Run `run_tuning_pipeline.ps1` for automated iterative tuning (generates seed from current `SpectacleTuning`, runs bot eval + scenario suite, outputs best profile).
 
@@ -412,7 +413,7 @@ If an idea requires a new system â†’ defer to "Project 2."
 
 ## V1 Content
 
-- **5 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +40% dmg taken, 4s), Arc Emitter (**unlockable** via campaign map clear; chains to 2 enemies, 400 px chain range, 60% decay/bounce), Rift Sapper (**unlockable** via campaign map clear; charged lane-mine trap tower with wave-start seeding burst)
+- **6 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +40% dmg taken, 4s), Arc Emitter (**unlockable** via campaign map clear; chains to 2 enemies, 400 px chain range, 60% decay/bounce), Rift Sapper (**unlockable** via campaign map clear; charged lane-mine trap tower with wave-start seeding burst), Accordion Engine (**unlockable** via campaign map clear; 3.2s pulse hits all in-range enemies + compresses their Progress spacing; primary isChain:false, secondaries isChain:true; violet visual identity; `AccordionPulseVfx.cs` contracting-ring FX; synergizes with Overreach + Blast Core)
 - **10 modifiers** (always check `Balance.cs` + `modifiers.json` for current values â€” these drift after balance passes):
   - Momentum: +16% dmg/hit same target, max Ã-1.80
   - Overkill: 60% excess dmg spills to next enemy

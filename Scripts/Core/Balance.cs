@@ -272,6 +272,11 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
         _ => 1f
     };
 
+    // Accordion Engine tower
+    public const float AccordionCompressionFactor        = 0.25f;  // 75% spread reduction per pulse
+    public const float AccordionMinSpacingPx             = 8f;     // minimum path distance between enemies after compression
+    public const int   AccordionMinEnemiesForCompression = 2;      // need at least 2 in range to compress
+
     private static float ClampDifficultyMultiplier(float value, float min, float max)
         => value < min ? min : (value > max ? max : value);
 }

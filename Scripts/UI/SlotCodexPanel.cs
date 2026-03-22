@@ -302,7 +302,11 @@ public partial class SlotCodexPanel : Node
 
         if (!unlocked)
         {
-            BuildCardBack(body, "UNREVEALED TOWER", GetUnlockGateNote(towerId));
+            bool isFullGameOnly = Balance.IsDemo &&
+                string.Equals(towerId, Unlocks.AccordionEngineTowerId, StringComparison.OrdinalIgnoreCase);
+            BuildCardBack(body,
+                isFullGameOnly ? "FULL GAME"               : "UNREVEALED TOWER",
+                isFullGameOnly ? "Available in full release." : GetUnlockGateNote(towerId));
             return panel;
         }
 
@@ -487,9 +491,11 @@ public partial class SlotCodexPanel : Node
         {
             string mapId = id switch
             {
-                Unlocks.ArcEmitterTowerId  => Unlocks.GetArcEmitterUnlockMapId(),
-                Unlocks.RiftPrismTowerId   => Unlocks.GetRiftPrismUnlockMapId(),
-                Unlocks.SplitShotModifierId => Unlocks.GetSplitShotUnlockMapId(),
+                Unlocks.ArcEmitterTowerId      => Unlocks.GetArcEmitterUnlockMapId(),
+                Unlocks.RiftPrismTowerId       => Unlocks.GetRiftPrismUnlockMapId(),
+                Unlocks.AccordionEngineTowerId => Unlocks.GetAccordionEngineUnlockMapId(),
+                Unlocks.SplitShotModifierId    => Unlocks.GetSplitShotUnlockMapId(),
+                Unlocks.BlastCoreModifierId    => Unlocks.GetBlastCoreUnlockMapId(),
                 _ => ""
             };
             if (string.IsNullOrEmpty(mapId)) return "Reveal by completing unlock achievements.";
@@ -650,8 +656,9 @@ public partial class SlotCodexPanel : Node
         "rapid_shooter" => new Color(0.30f, 0.90f, 1.00f),
         "heavy_cannon" => new Color(1.00f, 0.55f, 0.00f),
         "marker_tower" => new Color(1.00f, 0.15f, 0.60f),
-        "chain_tower" => new Color(0.50f, 0.85f, 1.00f),
-        "rift_prism" => new Color(0.60f, 1.00f, 0.58f),
+        "chain_tower"      => new Color(0.50f, 0.85f, 1.00f),
+        "rift_prism"       => new Color(0.60f, 1.00f, 0.58f),
+        "accordion_engine" => new Color(0.72f, 0.20f, 1.00f),
         _ => new Color(0.82f, 0.88f, 1.00f),
     };
 
@@ -660,8 +667,9 @@ public partial class SlotCodexPanel : Node
         "rapid_shooter" => "High cadence chip tower. Great for stacking Momentum, Feedback Loop, and Chill pressure.",
         "heavy_cannon" => "Burst cannon with huge per-shot impact. Best when paired with Overkill or Focus Lens.",
         "marker_tower" => "Applies Mark to amplify team damage. Core enabler for Exploit Weakness strategies.",
-        "chain_tower" => "Built-in chain bounces for dense waves and lane clear. Excellent in clustered path sections.",
-        "rift_prism" => "Plants charged lane mines. Final charge detonates harder, with rapid wave-start seeding for early trap setup.",
+        "chain_tower"      => "Built-in chain bounces for dense waves and lane clear. Excellent in clustered path sections.",
+        "rift_prism"       => "Plants charged lane mines. Final charge detonates harder, with rapid wave-start seeding for early trap setup.",
+        "accordion_engine" => "Emits compression pulses that physically squeeze enemy spacing along the lane. Not a slow or stun -- it edits wave formation topology. Packed enemies become better targets for Blast Core, Arc Emitter chains, and Rift Sapper mines.",
         _ => "Tower entry."
     };
 

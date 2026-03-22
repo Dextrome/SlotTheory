@@ -289,6 +289,95 @@ public class CombatSim
                 continue;
             }
 
+            // Accordion Engine: compression pulse hits all in-range enemies simultaneously.
+            if (tower.TowerId == "accordion_engine")
+            {
+                float accordionInterval = tower.AttackInterval;
+                foreach (var mod in tower.Modifiers)
+                    mod.ModifyAttackInterval(ref accordionInterval, tower);
+
+                // Collect in-range enemies sorted by Progress ascending (trailing → leading).
+                var inRange = new List<EnemyInstance>();
+                foreach (var e in state.EnemiesAlive)
+                {
+                    if (!GodotObject.IsInstanceValid(e) || e.Hp <= 0f) continue;
+                    if (tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= tower.Range)
+                        inRange.Add(e);
+                }
+                inRange.Sort((a, b) => a.Progress.CompareTo(b.Progress));
+
+                if (inRange.Count == 0)
+                {
+                    tower.Cooldown = 0.12f;
+                    continue;
+                }
+
+                if (BotMode) state.SlotFiredSteps[si]++;
+                tower.Cooldown = accordionInterval;
+                GameController.Instance?.RegisterSpectacleShotFired(tower);
+
+                // Apply formation compression: squeeze enemy Progress values toward their median.
+                if (inRange.Count >= Balance.AccordionMinEnemiesForCompression)
+                    CompressEnemyFormation(inRange);
+
+                // Primary = leading enemy (highest Progress, last in ascending sort).
+                var primaryTarget = inRange[inRange.Count - 1];
+
+                // Primary hit: isChain=false so Blast Core and Overkill OnHit fire.
+                float primaryHpBefore = primaryTarget.Hp;
+                var primaryCtx = new DamageContext(tower, primaryTarget, state.WaveIndex, state.EnemiesAlive, _state, isChain: false);
+                DamageModel.Apply(primaryCtx);
+                if (!BotMode)
+                {
+                    float dealt = primaryHpBefore - primaryTarget.Hp;
+                    if (dealt > 0.01f)
+                    {
+                        bool isKill = primaryTarget.Hp <= 0f;
+                        SpawnDamageNumber(primaryTarget.GlobalPosition, Mathf.Max(1f, dealt), isKill, tower.TowerId, towerNode?.ProjectileColor ?? Godot.Colors.Yellow);
+                        if (!isKill && GodotObject.IsInstanceValid(primaryTarget))
+                            primaryTarget.FlashHit();
+                    }
+                }
+
+                // Secondary hits: isChain=true so Blast Core and Overkill OnHit are skipped.
+                for (int pi = 0; pi < inRange.Count - 1; pi++)
+                {
+                    var sec = inRange[pi];
+                    if (!GodotObject.IsInstanceValid(sec) || sec.Hp <= 0f) continue;
+                    float secHpBefore = sec.Hp;
+                    DamageModel.Apply(new DamageContext(tower, sec, state.WaveIndex, state.EnemiesAlive, _state, isChain: true));
+                    if (!BotMode)
+                    {
+                        float dealt = secHpBefore - sec.Hp;
+                        if (dealt > 0.01f)
+                        {
+                            bool isKill = sec.Hp <= 0f;
+                            SpawnDamageNumber(sec.GlobalPosition, Mathf.Max(1f, dealt), isKill, tower.TowerId, towerNode?.ProjectileColor ?? Godot.Colors.Yellow);
+                            if (!isKill && GodotObject.IsInstanceValid(sec))
+                                sec.FlashHit();
+                        }
+                    }
+                }
+
+                // Chain bounces from primary (ChainReaction modifier).
+                if (tower.IsChainTower && GodotObject.IsInstanceValid(primaryTarget) && primaryTarget.Hp > 0f)
+                {
+                    if (BotMode)
+                        ApplyChainBotMode(tower, primaryTarget, state.WaveIndex, state.EnemiesAlive);
+                    else if (towerNode != null)
+                        ApplyMineEnemyChain(towerNode, primaryTarget, state.WaveIndex, state.EnemiesAlive, primaryCtx.FinalDamage * tower.ChainDamageDecay);
+                }
+
+                if (!BotMode && towerNode != null)
+                {
+                    towerNode.FlashAttack();
+                    towerNode.KickRecoil(2.8f);
+                    SpawnAccordionPulseVfx(tower.GlobalPosition, towerNode.ProjectileColor, tower.Range, inRange.Count);
+                }
+                Sounds?.Play("shoot_accordion", pitchScale: ComputeShootPitch(tower));
+                continue;
+            }
+
             var target = Targeting.SelectTarget(tower, state.EnemiesAlive, ignoreRange: false);
             if (target == null) continue;
 
@@ -959,6 +1048,41 @@ public class CombatSim
     /// Each modifier contributes a factor that shifts tonal character to match its gameplay role.
     /// Stacking is multiplicative and clamped by Play() to 0.75–1.40.
     /// </summary>
+    /// <summary>
+    /// Compresses the Progress values of sorted (ascending) in-range enemies toward their median.
+    /// Shrinks the spread by <see cref="Balance.AccordionCompressionFactor"/> while enforcing
+    /// a minimum inter-enemy spacing of <see cref="Balance.AccordionMinSpacingPx"/> pixels.
+    /// Safe to call in both bot mode and live mode: PathFollow2D.GlobalPosition updates automatically
+    /// when Progress is assigned, exactly as the Reverse Walker already does.
+    /// </summary>
+    private static void CompressEnemyFormation(List<EnemyInstance> sortedAscending)
+    {
+        int count = sortedAscending.Count;
+        if (count < 2) return;
+
+        // Extract, compress via pure helper (testable without Godot), write back.
+        // PathFollow2D.GlobalPosition updates automatically when Progress is assigned.
+        float[] progress = new float[count];
+        for (int i = 0; i < count; i++)
+            progress[i] = sortedAscending[i].Progress;
+
+        AccordionFormation.Compress(progress, Balance.AccordionCompressionFactor, Balance.AccordionMinSpacingPx);
+
+        for (int i = 0; i < count; i++)
+            sortedAscending[i].Progress = progress[i];
+    }
+
+    private void SpawnAccordionPulseVfx(Vector2 worldPos, Color color, float range, int enemyCount)
+    {
+        if (BotMode || LanePath == null) return;
+
+        var parent = LanePath.GetParent();
+        var vfx = new Entities.AccordionPulseVfx();
+        parent.AddChild(vfx);
+        vfx.GlobalPosition = worldPos;
+        vfx.Initialize(color, range, enemyCount);
+    }
+
     private static float ComputeShootPitch(ITowerView tower)
     {
         float pitch = 1f;

@@ -11,7 +11,7 @@ public enum BotStrategy
 {
     Random, TowerFirst, GreedyDps, MarkerSynergy,
     ChainFocus, SplitFocus, HeavyStack, RiftPrismFocus,
-    SpectacleSingleStack,
+    SpectacleSingleStack, AccordionEngine,
     PlayerStyleKenny
 }
 
@@ -63,7 +63,8 @@ public class BotPlayer
         BotStrategy.HeavyStack    => PickHeavyStack(options, state),
         BotStrategy.RiftPrismFocus => PickRiftPrismFocus(options, state),
         BotStrategy.SpectacleSingleStack => PickSpectacleSingleStack(options, state),
-        BotStrategy.PlayerStyleKenny => PickPlayerStyleKenny(options, state),
+        BotStrategy.AccordionEngine      => PickAccordionEngine(options, state),
+        BotStrategy.PlayerStyleKenny     => PickPlayerStyleKenny(options, state),
         _                         => PickRandom(options, state),
     };
     }
@@ -121,6 +122,7 @@ public class BotPlayer
     private static List<DraftOption> Mods(List<DraftOption> opts) =>
         opts.Where(o => o.Type == DraftOptionType.Modifier).ToList();
 
+    // Note: accordion_engine is NOT a fast tower (3.2s interval); it's a zone-control tower.
     private static bool IsFastTower(string? towerId) =>
         towerId is "rapid_shooter" or "chain_tower" or "rift_prism";
 
@@ -651,6 +653,98 @@ public class BotPlayer
 
             var preferredTower = FindTowerOption(opts, "rapid_shooter", "heavy_cannon", "chain_tower", "rift_prism");
             if (preferredTower != null) return new DraftPick(preferredTower, empty[0]);
+        }
+
+        return PickGreedyDps(opts, s);
+    }
+
+    /// <summary>
+    /// Accordion Engine strategy: places accordion early for compression coverage,
+    /// stacks Overreach + Blast Core to exploit the packed formations it creates,
+    /// then fills remaining slots with standard damage towers.
+    /// </summary>
+    private DraftPick? PickAccordionEngine(List<DraftOption> opts, RunState s)
+    {
+        var empty    = EmptySlots(s);
+        var eligible = ModSlots(s);
+        DifficultyMode difficulty = ResolveDifficultyMode();
+        int towerCount     = s.Slots.Count(sl => sl.Tower != null);
+        int totalModCount  = s.Slots.Sum(sl => sl.Tower?.Modifiers.Count ?? 0);
+        int picksSoFar     = towerCount + totalModCount;
+        bool hasAccordion  = s.Slots.Any(sl => sl.Tower?.TowerId == "accordion_engine");
+
+        var survivalGatePick = TryPickSpectacleSurvivalGate(opts, s, empty, eligible, difficulty, picksSoFar);
+        if (survivalGatePick != null) return survivalGatePick;
+
+        var hardPanicPick = TryPickHardPanicOverride(opts, s, empty, eligible, difficulty, picksSoFar, allowRiftTower: true);
+        if (hardPanicPick != null) return hardPanicPick;
+
+        // Priority 1: place accordion early (ideally slot 1 or 2).
+        if (!hasAccordion && empty.Count > 0)
+        {
+            var accordion = FindTowerOption(opts, "accordion_engine");
+            if (accordion != null)
+            {
+                // Need at least one damage tower first on wave 1 or we'll get crushed.
+                if (towerCount == 0)
+                {
+                    var opener = FindTowerOption(opts, "rapid_shooter", "heavy_cannon");
+                    if (opener != null) return new DraftPick(opener, empty[0]);
+                }
+                return new DraftPick(accordion, empty[0]);
+            }
+        }
+
+        if (eligible.Count > 0)
+        {
+            // Priority 2: stack Overreach on accordion to maximize compression zone.
+            if (hasAccordion)
+            {
+                var overreach = FindModOption(opts, "overreach");
+                if (overreach != null)
+                {
+                    int slot = eligible
+                        .Where(i => s.Slots[i].Tower?.TowerId == "accordion_engine" &&
+                                    !s.Slots[i].Tower!.Modifiers.Any(m => m.ModifierId == "overreach"))
+                        .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                        .FirstOrDefault(-1);
+                    if (slot >= 0) return new DraftPick(overreach, slot);
+                }
+
+                // Priority 3: stack Blast Core on a damage tower -- rewards packed formations.
+                var blastCore = FindModOption(opts, "blast_core");
+                if (blastCore != null)
+                {
+                    int slot = eligible
+                        .Where(i => s.Slots[i].Tower?.TowerId != "accordion_engine" &&
+                                    !s.Slots[i].Tower!.Modifiers.Any(m => m.ModifierId == "blast_core"))
+                        .OrderByDescending(i => s.Slots[i].Tower!.BaseDamage)
+                        .FirstOrDefault(-1);
+                    if (slot >= 0) return new DraftPick(blastCore, slot);
+                }
+
+                // Priority 4: Chill Shot on accordion for combined slow + compression pressure.
+                var slow = FindModOption(opts, "slow");
+                if (slow != null)
+                {
+                    int slot = eligible
+                        .Where(i => s.Slots[i].Tower?.TowerId == "accordion_engine" &&
+                                    s.Slots[i].Tower!.Modifiers.Count(m => m.ModifierId == "slow") < 2)
+                        .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                        .FirstOrDefault(-1);
+                    if (slot >= 0) return new DraftPick(slow, slot);
+                }
+            }
+
+            // Generic stability mods on damage towers.
+            var fallbackMod = TryPickPriorityMod(opts, s, eligible, SurvivalStabilityModPriority);
+            if (fallbackMod != null) return fallbackMod;
+        }
+
+        if (empty.Count > 0)
+        {
+            var dmgTower = FindTowerOption(opts, "heavy_cannon", "rapid_shooter", "chain_tower");
+            if (dmgTower != null) return new DraftPick(dmgTower, empty[0]);
         }
 
         return PickGreedyDps(opts, s);

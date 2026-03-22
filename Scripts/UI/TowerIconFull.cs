@@ -37,12 +37,13 @@ public partial class TowerIconFull : Control
         // naturalHalf: largest extent from that center, used to compute scale.
         var (naturalHalf, visualCenterY) = _towerId switch
         {
-            "rapid_shooter" => (24f, -5.5f),   // barrel top ~-23, base bottom ~+12
-            "heavy_cannon"  => (24f, -9.0f),   // barrel top ~-32 (scaled), base bottom ~+14
-            "marker_tower"  => (22f, -3.0f),   // antenna tip ~-22, diamond bottom ~+16
-            "chain_tower"   => (20f,  0.0f),   // prong tips at ~r=19, symmetric
-            "rift_prism"    => (23f,  0.0f),   // fins at ±22, symmetric
-            _               => (14f,  0.0f),
+            "rapid_shooter"    => (24f, -5.5f),   // barrel top ~-23, base bottom ~+12
+            "heavy_cannon"     => (24f, -9.0f),   // barrel top ~-32 (scaled), base bottom ~+14
+            "marker_tower"     => (22f, -3.0f),   // antenna tip ~-22, diamond bottom ~+16
+            "chain_tower"      => (20f,  0.0f),   // prong tips at ~r=19, symmetric
+            "rift_prism"       => (23f,  0.0f),   // fins at ±22, symmetric
+            "accordion_engine" => (23f,  0.0f),   // claw arm tips at ±18, symmetric
+            _                  => (14f,  0.0f),
         };
 
         float available = Mathf.Min(Size.X, Size.Y) * 0.44f;
@@ -54,11 +55,12 @@ public partial class TowerIconFull : Control
 
         switch (_towerId)
         {
-            case "rapid_shooter": DrawRapidShooter(); break;
-            case "heavy_cannon":  DrawHeavyCannon();  break;
-            case "marker_tower":  DrawMarkerTower();  break;
-            case "chain_tower":   DrawChainTower();   break;
-            case "rift_prism":    DrawRiftSapper();   break;
+            case "rapid_shooter":    DrawRapidShooter();    break;
+            case "heavy_cannon":     DrawHeavyCannon();     break;
+            case "marker_tower":     DrawMarkerTower();     break;
+            case "chain_tower":      DrawChainTower();      break;
+            case "rift_prism":       DrawRiftSapper();      break;
+            case "accordion_engine": DrawAccordionEngine(); break;
             default:
                 DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f));
                 break;
@@ -200,6 +202,40 @@ public partial class TowerIconFull : Control
         DrawLine(new Vector2(-4f, 0f), new Vector2(4f, 0f), glyph, 1.7f);
         DrawLine(new Vector2(0f, -4f), new Vector2(0f, 4f), glyph, 1.7f);
         DrawCircle(Vector2.Zero, 2.2f, new Color(1f, 1f, 0.95f, 0.94f));
+    }
+
+    // ── Accordion Engine ─────────────────────────────────────────────────────
+
+    private void DrawAccordionEngine()
+    {
+        var violet = new Color(0.72f, 0.20f, 1.00f);
+        var dark   = new Color(0.10f, 0.02f, 0.20f);
+        var bright = new Color(0.88f, 0.55f, 1.00f);
+
+        // Soft glow
+        DrawCircle(Vector2.Zero, 26f, new Color(violet.R, violet.G, violet.B, 0.07f));
+        DrawCircle(Vector2.Zero, 17f, new Color(violet.R, violet.G, violet.B, 0.16f));
+
+        // Hexagonal core body
+        DrawPolygon(RegularPoly(6, 13f, 0f), new[] { violet });
+        DrawPolygon(RegularPoly(6, 10.5f, 0f), new[] { dark });
+
+        // Resonator ring
+        DrawArc(Vector2.Zero, 17f, 0f, Mathf.Tau, 48, new Color(bright.R, bright.G, bright.B, 0.28f), 1.6f);
+
+        // Compression claw arms: top and bottom (neutral, no compression offset)
+        const float armY = 18f;
+        var clawColor = new Color(bright.R, bright.G, bright.B, 0.82f);
+        DrawLine(new Vector2(-8f, -armY),           new Vector2( 8f, -armY),           clawColor, 2.8f);
+        DrawLine(new Vector2(-8f, -armY),           new Vector2(-8f, -armY + 4.5f),    clawColor, 2.2f);
+        DrawLine(new Vector2( 8f, -armY),           new Vector2( 8f, -armY + 4.5f),    clawColor, 2.2f);
+        DrawLine(new Vector2(-8f,  armY),           new Vector2( 8f,  armY),           clawColor, 2.8f);
+        DrawLine(new Vector2(-8f,  armY),           new Vector2(-8f,  armY - 4.5f),    clawColor, 2.2f);
+        DrawLine(new Vector2( 8f,  armY),           new Vector2( 8f,  armY - 4.5f),    clawColor, 2.2f);
+
+        // Core energy node
+        DrawCircle(Vector2.Zero, 4.5f, new Color(violet.R, violet.G, violet.B, 0.68f));
+        DrawCircle(Vector2.Zero, 2.5f, new Color(1f, 0.85f, 1f, 0.90f));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

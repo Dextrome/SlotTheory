@@ -77,11 +77,14 @@ Modifier assignment uses `Preview -> Confirm`:
 | Marker Tower | 7 | 1.0 s | 333 px | Applies Marked on hit |
 | Arc Emitter | 18 | 1.2 s | 257 px | Chains to 2 extra enemies, 400 px chain range, 50% damage decay per bounce |
 | Rift Sapper | 22 | 0.98 s | 230 px | Charged lane-mine trap tower with wave-start rapid seeding |
+| Accordion Engine | 28 | 3.2 s | 300 px | Pulses all in-range enemies simultaneously; compresses their progress spacing; violet identity |
 
 Unlock flow (via Campaign mode):
 - Arc Emitter: beat the first campaign map on Normal or Hard (`ARC_UNSEALED`)
 - Split Shot modifier: beat the second campaign map on Normal or Hard (`SPLIT_UNSEALED`)
 - Rift Sapper: beat the third campaign map on Normal or Hard (`RIFT_UNSEALED`)
+- Blast Core modifier: beat the fourth campaign map - Ridgeback / Iron Mandate (`BLAST_UNSEALED`)
+- Accordion Engine: beat the fifth map - Double Back (`ACCORDION_UNSEALED`)
 
 ### Rift Sapper Mechanics
 
@@ -123,7 +126,9 @@ Unlock flow (via Campaign mode):
 
 Max modifiers per tower: 3
 
-Split Shot is unlockable - beat the second campaign map on Normal or Hard.
+Unlockable modifiers:
+- Split Shot: beat the second campaign map on Normal or Hard (`SPLIT_UNSEALED`)
+- Blast Core: beat the fourth campaign map - Ridgeback / Iron Mandate (`BLAST_UNSEALED`)
 
 ---
 
@@ -268,7 +273,7 @@ Stages unlock sequentially. Per-stage clear state persisted per difficulty. Camp
 
 ## Achievements
 
-16 achievements tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`. Forwarded to Steam when available.
+27 achievements tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`. Forwarded to Steam when available.
 
 | ID | Name | Condition |
 |---|---|---|
@@ -285,6 +290,8 @@ Stages unlock sequentially. Per-stage clear state persisted per difficulty. Camp
 | ARC_UNSEALED | Arc Unsealed | Beat the first campaign map (unlocks Arc Emitter) |
 | SPLIT_UNSEALED | Split Unsealed | Beat the second campaign map (unlocks Split Shot) |
 | RIFT_UNSEALED | Rift Unsealed | Beat the third campaign map (unlocks Rift Sapper) |
+| BLAST_UNSEALED | Blast Unsealed | Beat the fourth campaign map - Ridgeback (unlocks Blast Core) |
+| ACCORDION_UNSEALED | Accordion Unsealed | Beat the fifth map - Double Back (unlocks Accordion Engine) |
 | TUTORIAL_COMPLETE | First Steps | Complete the tutorial run |
 | CAMPAIGN_CLEAR | The Circuit | Clear all four campaign stages |
 | CAMPAIGN_HARD_CLEAR | Iron Mandate | Clear all four campaign stages on Hard |

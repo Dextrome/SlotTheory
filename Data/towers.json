@@ -36,5 +36,12 @@
                        "AttackInterval":  0.98,
                        "Range":  230.0,
                        "AppliesMark":  false
-                   }
+                   },
+    "accordion_engine":  {
+                             "Name":  "Accordion Engine",
+                             "BaseDamage":  14.0,
+                             "AttackInterval":  3.2,
+                             "Range":  290.0,
+                             "AppliesMark":  false
+                         }
 }

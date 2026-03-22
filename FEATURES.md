@@ -19,7 +19,7 @@ This document reflects the current implementation in code/data.
 - **Tension ramp:** Music volume and pitch gradually increase across waves 15–20 (up to +3.5 dB / +2.5% pitch at wave 20); resets each run.
 - **Colorblind mode:** Settings toggle that switches modifier accent colors to a high-contrast palette with no red/green reliance.
 - **Reduced motion toggle:** Settings toggle that skips card flip animations in draft - cards appear face-up instantly.
-- **In-game achievements:** 16 achievements tracked locally (persistent across sessions) with unlock toast notifications and a dedicated achievements screen. Steam forwarding active via Steamworks.NET.
+- **In-game achievements:** 27 achievements tracked locally (persistent across sessions) with unlock toast notifications and a dedicated achievements screen. Steam forwarding active via Steamworks.NET.
 - **Procedural music system (Phases 1–8):** `MusicDirector` drives a fully procedural adaptive score. Phase 1: drift-free `MusicClock` + MIDI note pool. Phase 2: `MusicHarmony` scale/chord tables + `MusicBassLayer`. Phase 3: game-state hooks (tension tier, BPM, mode, layer density). Phase 4: `MusicMelodyLayer` - phrase-planned lead with contour weighting and cross-phrase continuity. Phase 5: `MusicPercLayer` - tension-driven kick/snare/hat grid, density arc, pad fade-out. Phase 6: surge percussion fill on global surge trigger. Phase 7: chord-aware melody (root pitch-class snapping) + walking bass. Phase 8: BPM tiers raised (112/128/140) + per-map BPM spread (Gauntlet +24, Sprawl −24).
 - **Slot Codex in-game graphics:** Tower and enemy cards in the Slot Codex now render actual in-game body shapes using `TowerIconFull` and `EnemyIcon` - the same procedural draw geometry used in live gameplay, scaled to icon size. Codex header and each card have a 2 px colored top accent stripe via `UITheme.AddTopAccent()`.
 - **All-runs leaderboard:** Global leaderboard now stores every run as a separate row (wins and losses). Previously only kept the personal best per player.
@@ -68,8 +68,8 @@ Platforms: Windows Desktop, Android (phone and tablet)
   - `CombatLabTowerBenchmarkRunner` - scenario-based per-tower DPS profiling; invoke via `--lab_tower_benchmark <suite.json>`. Outputs JSON + CSV report comparing towers across wave counts, HP budgets, and modifier loadouts.
   - `CombatLabModifierBenchmarkRunner` - baseline vs loadout damage delta analysis; invoke via `--lab_modifier_benchmark <suite.json>`. Measures individual modifier contributions and synergy pairs across shared scenarios.
   - `CombatResolution.cs` extracted from `CombatSim` as a reusable chain-resolution helper used by both runners.
-- **Achievement system:** 13 achievements tracked via `AchievementManager` (autoload, persistent to `user://achievements.cfg`). Unlock toasts, dedicated achievements screen, and Steam forwarding via `SteamAchievements`. Gates content unlocks.
-- **Unlockable content:** Arc Emitter, Split Shot, and Rift Prism are gated behind campaign map clears (`Unlocks.cs`). Bots always have full unlock access for deterministic balance testing.
+- **Achievement system:** 27 achievements tracked via `AchievementManager` (autoload, persistent to `user://achievements.cfg`). Unlock toasts, dedicated achievements screen, and Steam forwarding via `SteamAchievements`. Gates content unlocks.
+- **Unlockable content:** Arc Emitter, Split Shot, Rift Prism, Blast Core, and Accordion Engine are gated behind campaign map clears (`Unlocks.cs`). Bots always have full unlock access for deterministic balance testing.
 - **Three difficulty modes:** Easy (no scaling), Normal (~75% bot win target), Hard (~50% bot win target). Multipliers live in `Balance.DifficultyMultipliers` and are overridable at runtime via `SpectacleTuning.Current`.
 - **Enemy render pipeline overhaul:** Layered render pipeline with per-class death FX, perf controls, and mobile-adaptive quality settings (`EnemyRenderPerfProfiler`, `EnemyRenderSettingsSnapshot`, `EnemyRenderLayerSettings`).
 - **New UI screens:** `UnlockRevealScreen` (shown on first map-clear unlock), `AchievementsPanel`, `AchievementToast`, `SlotCodexPanel`.
@@ -102,7 +102,7 @@ Platforms: Windows Desktop, Android (phone and tablet)
 
 **Signature Flourish:** Scanline-style signature streak on key moments (Bonus Pick waves, wave beat labels).
 
-**In-Game Achievements:** 13 achievements with persistent local state, unlock toast notifications, and a dedicated screen accessible from main menu and pause menu. Steam forwarding is wired - each local unlock is forwarded to Steamworks when available.
+**In-Game Achievements:** 27 achievements with persistent local state, unlock toast notifications, and a dedicated screen accessible from main menu and pause menu. Steam forwarding is wired - each local unlock is forwarded to Steamworks when available.
 
 ---
 
@@ -210,7 +210,7 @@ powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1
 
 ### Rift Sapper Deep-Dive
 
-- Unlock: beat the second campaign map on Normal or Hard (`RIFT_UNSEALED`).
+- Unlock: beat the third campaign map on Normal or Hard (`RIFT_UNSEALED`).
 - Placement model:
   - plants mines on lane anchors within tower range
   - mine cap per tower: `7`
@@ -882,7 +882,7 @@ Mandate is stored on `RunState.ActiveMandate`. All mandate logic is a no-op when
 
 ## Achievements
 
-16 achievements tracked locally via `AchievementManager` (autoload). State persisted to `user://achievements.cfg`.
+27 achievements tracked locally via `AchievementManager` (autoload). State persisted to `user://achievements.cfg`.
 
 | ID | Name | Condition |
 |---|---|---|
@@ -899,13 +899,15 @@ Mandate is stored on `RunState.ActiveMandate`. All mandate logic is a no-op when
 | ARC_UNSEALED | Arc Unsealed | Beat the first campaign map (unlocks Arc Emitter) |
 | SPLIT_UNSEALED | Split Unsealed | Beat the second campaign map (unlocks Split Shot) |
 | RIFT_UNSEALED | Rift Unsealed | Beat the third campaign map (unlocks Rift Sapper) |
+| BLAST_UNSEALED | Blast Unsealed | Beat the fourth campaign map - Ridgeback (unlocks Blast Core modifier) |
+| ACCORDION_UNSEALED | Accordion Unsealed | Beat the fifth map - Double Back (unlocks Accordion Engine tower) |
 | TUTORIAL_COMPLETE | First Steps | Complete the tutorial run |
 | CAMPAIGN_CLEAR | The Circuit | Clear all four stages of The Fracture Circuit |
 | CAMPAIGN_HARD_CLEAR | Iron Mandate | Clear all four stages of The Fracture Circuit on Hard difficulty |
 
 **Unlock toast:** Small fade-in/out notification in the bottom-right corner when an achievement is newly unlocked. Multiple unlocks queue and show sequentially.
 
-**Achievements screen:** Full-screen list showing all 16 achievements. Locked entries show `???` name and a generic hint. Unlocked entries show name, description, and a green border + star. Accessible from both main menu and pause menu (pause menu opens it as an inline overlay without leaving the game scene).
+**Achievements screen:** Full-screen list showing all 27 achievements. Locked entries show `???` name and a generic hint. Unlocked entries show name, description, and a green border + star. Accessible from both main menu and pause menu (pause menu opens it as an inline overlay without leaving the game scene).
 
 **Steam forwarding:** `AchievementManager.AchievementUnlocked` signal is subscribed by `SteamAchievements`, which forwards each newly unlocked ID to Steamworks when available. No Steam dependency in `AchievementManager` itself.
 
@@ -1024,7 +1026,7 @@ Mandate is stored on `RunState.ActiveMandate`. All mandate logic is a no-op when
 
 ## Notes
 
-- This file is intentionally aligned to code/data as of 2026-03-19 (post v0.2.5).
+- This file is intentionally aligned to code/data as of 2026-03-22 (post v0.2.5).
 - If gameplay values change, update:
   - `Data/towers.json`
   - `Data/modifiers.json`

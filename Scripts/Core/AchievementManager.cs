@@ -43,6 +43,8 @@ public partial class AchievementManager : Node
         new(Unlocks.ArcEmitterAchievementId, "Arc Unsealed", "Beat the first campaign map to unlock Arc Emitter."),
         new(Unlocks.SplitShotAchievementId, "Split Unsealed", "Beat the second campaign map to unlock Split Shot."),
         new(Unlocks.RiftPrismAchievementId, "Rift Unsealed", "Beat the third campaign map to unlock Rift Sapper."),
+        new(Unlocks.AccordionEngineAchievementId, "Accordion Unsealed", "Beat the fifth campaign map to unlock Accordion Engine."),
+        new(Unlocks.BlastCoreAchievementId, "Blast Unsealed", "Beat the fourth campaign map to unlock Blast Core."),
         new("FLAWLESS",      "Flawless",           "Win a run without losing a single life."),
         new("LAST_STAND",    "Last Stand",         "Win a run with exactly 1 life remaining."),
         new("HALFWAY_THERE", "Halfway There",      "Survive to wave 10 in any run."),
@@ -190,6 +192,12 @@ public partial class AchievementManager : Node
 
             if (Unlocks.ShouldUnlockRiftPrism(state, difficulty))
                 TryUnlock(Unlocks.RiftPrismAchievementId);
+
+            if (Unlocks.ShouldUnlockAccordionEngine(state, difficulty))
+                TryUnlock(Unlocks.AccordionEngineAchievementId);
+
+            if (Unlocks.ShouldUnlockBlastCore(state, difficulty))
+                TryUnlock(Unlocks.BlastCoreAchievementId);
 
             if (state.Lives == state.MaxLives)
                 TryUnlock("FLAWLESS");
@@ -417,6 +425,8 @@ public partial class AchievementManager : Node
             Unlocks.ArcEmitterAchievementId,
             Unlocks.SplitShotAchievementId,
             Unlocks.RiftPrismAchievementId,
+            Unlocks.AccordionEngineAchievementId,
+            Unlocks.BlastCoreAchievementId,
         };
 
     private void Load()

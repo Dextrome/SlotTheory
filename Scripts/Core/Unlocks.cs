@@ -16,10 +16,15 @@ public static class Unlocks
     public const string SplitShotAchievementId = "SPLIT_UNSEALED";
     public const string RiftPrismTowerId = "rift_prism";
     public const string RiftPrismAchievementId = "RIFT_UNSEALED";
+    public const string AccordionEngineTowerId = "accordion_engine";
+    public const string AccordionEngineAchievementId = "ACCORDION_UNSEALED";
     public const string BlastCoreModifierId = "blast_core";
+    public const string BlastCoreAchievementId = "BLAST_UNSEALED";
     private const string ArcEmitterFallbackMapId = "sprawl";
     private const string SplitShotFallbackMapId = "arena_classic";
     private const string RiftPrismFallbackMapId = "gauntlet";
+    private const string AccordionEngineFallbackMapId = "double_back";
+    private const string BlastCoreFallbackMapId = "ridgeback";
 
     public static bool ShouldUnlockArcEmitter(RunState state, DifficultyMode difficulty)
     {
@@ -42,6 +47,20 @@ public static class Unlocks
         return IsRunOnUnlockMap(state, unlockMapId);
     }
 
+    public static bool ShouldUnlockAccordionEngine(RunState state, DifficultyMode difficulty)
+    {
+        _ = difficulty;
+        string unlockMapId = GetAccordionEngineUnlockMapId();
+        return IsRunOnUnlockMap(state, unlockMapId);
+    }
+
+    public static bool ShouldUnlockBlastCore(RunState state, DifficultyMode difficulty)
+    {
+        _ = difficulty;
+        string unlockMapId = GetBlastCoreUnlockMapId();
+        return IsRunOnUnlockMap(state, unlockMapId);
+    }
+
     /// <summary>
     /// Arc Emitter unlock follows the first non-random campaign map by display order.
     /// This keeps progression behavior correct even if map ordering changes.
@@ -60,6 +79,18 @@ public static class Unlocks
     /// </summary>
     public static string GetRiftPrismUnlockMapId()
         => GetCampaignMapByOrder(order: 2, fallbackId: RiftPrismFallbackMapId);
+
+    /// <summary>
+    /// Accordion Engine unlock follows the fifth non-random campaign map by display order.
+    /// </summary>
+    public static string GetAccordionEngineUnlockMapId()
+        => GetCampaignMapByOrder(order: 4, fallbackId: AccordionEngineFallbackMapId);
+
+    /// <summary>
+    /// Blast Core unlock follows the fourth non-random campaign map by display order.
+    /// </summary>
+    public static string GetBlastCoreUnlockMapId()
+        => GetCampaignMapByOrder(order: 3, fallbackId: BlastCoreFallbackMapId);
 
     private static string GetCampaignMapByOrder(int order, string fallbackId)
     {
@@ -85,6 +116,11 @@ public static class Unlocks
 
     public static bool IsTowerUnlocked(string towerId)
     {
+        // Accordion Engine unlocks on ridgeback, which is not in the demo map pool --
+        // demo players can never reach it, so exclude from demo regardless of bot mode.
+        if (Balance.IsDemo && string.Equals(towerId, AccordionEngineTowerId, StringComparison.OrdinalIgnoreCase))
+            return false;
+
         // Bot simulations evaluate full content balance regardless of player progression.
         if (OS.GetCmdlineUserArgs().Contains("--bot"))
             return true;
@@ -95,23 +131,27 @@ public static class Unlocks
         if (string.Equals(towerId, RiftPrismTowerId, StringComparison.OrdinalIgnoreCase))
             return AchievementManager.Instance?.IsUnlocked(RiftPrismAchievementId) == true;
 
+        if (string.Equals(towerId, AccordionEngineTowerId, StringComparison.OrdinalIgnoreCase))
+            return AchievementManager.Instance?.IsUnlocked(AccordionEngineAchievementId) == true;
+
         return true;
     }
 
     public static bool IsModifierUnlocked(string modifierId)
     {
-        // Keep bots fully unlocked for deterministic balance tests.
-        // This intentionally runs before the demo check so --demo tuning runs still
-        // evaluate Blast Core for balance data (enemy composition is demo-gated separately).
-        if (OS.GetCmdlineUserArgs().Contains("--bot"))
-            return true;
-
-        // Blast Core is full-game only -- excluded from the demo draft pool and codex.
+        // Blast Core is full-game only -- excluded from demo regardless of bot mode.
         if (Balance.IsDemo && string.Equals(modifierId, BlastCoreModifierId, StringComparison.OrdinalIgnoreCase))
             return false;
 
+        // Keep bots fully unlocked for deterministic balance tests.
+        if (OS.GetCmdlineUserArgs().Contains("--bot"))
+            return true;
+
         if (string.Equals(modifierId, SplitShotModifierId, StringComparison.OrdinalIgnoreCase))
             return AchievementManager.Instance?.IsUnlocked(SplitShotAchievementId) == true;
+
+        if (string.Equals(modifierId, BlastCoreModifierId, StringComparison.OrdinalIgnoreCase))
+            return AchievementManager.Instance?.IsUnlocked(BlastCoreAchievementId) == true;
 
         return true;
     }

@@ -1,6 +1,6 @@
 # Achievements
 
-## Current Achievements (25)
+## Current Achievements (27)
 
 Tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`. Forwarded to Steam when available.
 
@@ -29,6 +29,8 @@ Tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`
 | `ARC_UNSEALED` | Arc Unsealed | Beat the first campaign map on Normal or Hard | Run end (win) - gates Arc Emitter |
 | `SPLIT_UNSEALED` | Split Unsealed | Beat the second campaign map on Normal or Hard | Run end (win) - gates Split Shot |
 | `RIFT_UNSEALED` | Rift Unsealed | Beat the third campaign map on Normal or Hard | Run end (win) - gates Rift Sapper |
+| `BLAST_UNSEALED` | Blast Unsealed | Beat the fourth campaign map (Ridgeback) on Normal or Hard | Run end (win) - gates Blast Core modifier |
+| `ACCORDION_UNSEALED` | Accordion Unsealed | Beat the fifth map (Double Back) on Normal or Hard | Run end (win) - gates Accordion Engine tower |
 | `CAMPAIGN_CLEAR` | The Circuit | Clear all four stages of The Fracture Circuit (any difficulty) | Campaign stage win - `HandleCampaignStageWin()` |
 | `CAMPAIGN_HARD_CLEAR` | Iron Mandate | Clear all four stages of The Fracture Circuit on Hard difficulty | Campaign stage win - `HandleCampaignStageWin()` |
 

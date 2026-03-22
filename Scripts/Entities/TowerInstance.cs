@@ -253,11 +253,12 @@ public partial class TowerInstance : Node2D, ITowerView
 
         switch (TowerId)
         {
-            case "rapid_shooter": DrawRapidShooter(); break;
-            case "heavy_cannon":  DrawHeavyCannon();  break;
-            case "marker_tower":  DrawMarkerTower();  break;
-            case "chain_tower":   DrawChainTower();   break;
-            case "rift_prism":    DrawRiftSapper();   break;
+            case "rapid_shooter":    DrawRapidShooter();    break;
+            case "heavy_cannon":     DrawHeavyCannon();     break;
+            case "marker_tower":     DrawMarkerTower();     break;
+            case "chain_tower":      DrawChainTower();      break;
+            case "rift_prism":       DrawRiftSapper();      break;
+            case "accordion_engine": DrawAccordionEngine(); break;
             default: DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f)); break;
         }
         DrawReadabilityAccent();
@@ -494,6 +495,44 @@ public partial class TowerInstance : Node2D, ITowerView
         DrawLine(new Vector2(-4f, 0f), new Vector2(4f, 0f), glyph, 1.7f);
         DrawLine(new Vector2(0f, -4f), new Vector2(0f, 4f), glyph, 1.7f);
         DrawCircle(Vector2.Zero, 2.2f + surge * 0.3f, new Color(1f, 1f, 0.95f, 0.94f));
+    }
+
+    private void DrawAccordionEngine()
+    {
+        var violet = new Color(0.72f, 0.20f, 1.00f);
+        var dark   = LiftInnerTone(new Color(0.08f, 0.01f, 0.18f));
+        var bright = new Color(0.88f, 0.55f, 1.00f);
+        float shot = ShotKick();
+        float pulse = 0.65f + 0.35f * Mathf.Sin(_idleTime * 5.2f);
+        float compress = shot * 0.70f;   // claw arm drives inward on fire
+
+        // Soft glow
+        DrawCircle(Vector2.Zero, 26f, new Color(violet.R, violet.G, violet.B, 0.07f + 0.04f * pulse));
+        DrawCircle(Vector2.Zero, 17f, new Color(violet.R, violet.G, violet.B, 0.14f + 0.05f * pulse));
+
+        // Hexagonal core body
+        DrawPolygon(RegularPoly(6, 13f, 0f), new[] { violet });
+        DrawPolygon(RegularPoly(6, 10.5f, 0f), new[] { dark });
+
+        // Resonator ring
+        float ringPulse = 0.20f + 0.12f * Mathf.Sin(_idleTime * 8.0f) + shot * 0.28f;
+        DrawArc(Vector2.Zero, 17f, 0f, Mathf.Tau, 48, new Color(bright.R, bright.G, bright.B, ringPulse), 1.6f);
+
+        // Compression claw arms: top and bottom, drive inward on shot
+        float armY = 18f - compress * 5.5f;
+        var clawColor = new Color(bright.R, bright.G, bright.B, 0.80f + 0.14f * shot);
+        // Top claw
+        DrawLine(new Vector2(-8f, -armY),   new Vector2( 8f, -armY),   clawColor, 2.8f);
+        DrawLine(new Vector2(-8f, -armY),   new Vector2(-8f, -armY + 4.5f), clawColor, 2.2f);
+        DrawLine(new Vector2( 8f, -armY),   new Vector2( 8f, -armY + 4.5f), clawColor, 2.2f);
+        // Bottom claw
+        DrawLine(new Vector2(-8f,  armY),   new Vector2( 8f,  armY),   clawColor, 2.8f);
+        DrawLine(new Vector2(-8f,  armY),   new Vector2(-8f,  armY - 4.5f), clawColor, 2.2f);
+        DrawLine(new Vector2( 8f,  armY),   new Vector2( 8f,  armY - 4.5f), clawColor, 2.2f);
+
+        // Core energy node
+        DrawCircle(Vector2.Zero, 4.5f + compress * 0.8f, new Color(violet.R, violet.G, violet.B, 0.65f + 0.20f * shot));
+        DrawCircle(Vector2.Zero, 2.5f + compress * 0.5f, new Color(1f, 0.85f, 1f, 0.90f));
     }
 
     private static Vector2[] RegularPoly(int sides, float radius, float angleOffset)

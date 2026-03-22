@@ -67,7 +67,7 @@ param(
     [double]$TargetMaxModifierSurgeRatio = 2.2,
     [double]$TargetTowerWinRateGap = 0.18,
     [double]$TargetModifierWinRateGap = 0.20,
-    [double]$HardGuardMaxTowerSurgeRatio = 2.8,
+    [double]$HardGuardMaxTowerSurgeRatio = 5.0,
     [double]$HardGuardMaxTowerWinRateGap = 0.28,
     [int]$MinTowerRunsForFairness = 40,
     [int]$MinModifierRunsForFairness = 50,
@@ -1042,7 +1042,14 @@ function Get-MetricsScore {
     }
 
     if ($hardRejected) {
+        # Keep the -1M floor so rejected profiles never beat clean ones.
+        # Still include win-rate deviation so the optimizer doesn't abandon difficulty
+        # targeting when every profile in the search is rejected (e.g. demo with Marker
+        # Tower's inherently asymmetric surge contribution).
         $score = -1000000.0 - ($towerSurgeRatio * 100.0) - ($towerWinRateGap * 1000.0)
+        $score -= $easyError * 140.0
+        $score -= $normalError * 120.0
+        $score -= $hardError * 100.0
     }
 
     return [PSCustomObject]@{
