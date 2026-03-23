@@ -78,6 +78,13 @@ public sealed class CombatLabTowerBenchmarkRunner
         public float Potency { get; init; }
     }
 
+    private sealed class WildfireTrail
+    {
+        public Vector2 Position { get; init; }
+        public float RemainingSeconds { get; set; }
+        public float DamagePerSecond { get; init; }
+    }
+
     private sealed class TrialMetrics
     {
         public float TotalDamage;
@@ -334,6 +341,7 @@ public sealed class CombatLabTowerBenchmarkRunner
         bool liveRules = string.Equals((suite.Mode ?? string.Empty).Trim(), "live_rules", StringComparison.OrdinalIgnoreCase);
         SpectacleSystem? spectacle = liveRules ? new SpectacleSystem() : null;
         var residues = new List<ResidueZone>();
+        var wildfireTrails = new List<WildfireTrail>();
         bool pendingGlobal = false;
         float globalReadyAt = -1f;
         float simTime = 0f;
@@ -380,6 +388,7 @@ public sealed class CombatLabTowerBenchmarkRunner
             }
 
             UpdateEnemyStatuses(enemies, dt);
+            UpdateWildfireBurnAndTrails(wildfireTrails, enemies, tower, dt, metrics);
             UpdateResidues(residues, enemies, tower, dt, metrics);
             MoveEnemies(enemies, dt, metrics);
             MarkNewDeaths(enemies, metrics);
@@ -533,6 +542,80 @@ public sealed class CombatLabTowerBenchmarkRunner
                 enemy.DamageAmpRemaining = Math.Max(0f, enemy.DamageAmpRemaining - dt);
                 if (enemy.DamageAmpRemaining <= 0f)
                     enemy.DamageAmpMultiplier = 0f;
+            }
+        }
+    }
+
+    private static void UpdateWildfireBurnAndTrails(
+        List<WildfireTrail> trails,
+        List<BenchmarkEnemy> enemies,
+        BenchmarkTower tower,
+        float dt,
+        TrialMetrics metrics)
+    {
+        foreach (BenchmarkEnemy enemy in enemies)
+        {
+            if (!enemy.Spawned || enemy.Resolved || enemy.Hp <= 0f)
+                continue;
+            if (enemy.BurnRemaining <= 0f || enemy.BurnDamagePerSecond <= 0f)
+                continue;
+
+            enemy.BurnRemaining = Math.Max(0f, enemy.BurnRemaining - dt);
+
+            float burnRaw = enemy.BurnDamagePerSecond * dt;
+            float burnBefore = enemy.Hp;
+            float burnDealt = SpectacleDamageCore.ApplyRawDamage(enemy, burnRaw);
+            ApplyRawDamageToMetrics(enemy, burnRaw, burnDealt, metrics);
+            if (burnBefore > 0f && enemy.Hp <= 0f)
+                enemy.Killed = true;
+
+            if (enemy.BurnRemaining > 0f)
+            {
+                enemy.BurnTrailDropTimer -= dt;
+                while (enemy.BurnTrailDropTimer <= 0f)
+                {
+                    enemy.BurnTrailDropTimer += Balance.WildfireTrailDropInterval;
+                    float trailDps = enemy.BurnDamagePerSecond * Balance.WildfireTrailDamageRatio;
+                    if (trailDps <= 0f)
+                        continue;
+
+                    if (trails.Count >= Balance.WildfireMaxTrailSegments)
+                        trails.RemoveAt(0);
+
+                    trails.Add(new WildfireTrail
+                    {
+                        Position = enemy.GlobalPosition,
+                        RemainingSeconds = Balance.WildfireTrailLifetime,
+                        DamagePerSecond = trailDps,
+                    });
+                }
+            }
+        }
+
+        for (int i = trails.Count - 1; i >= 0; i--)
+        {
+            WildfireTrail trail = trails[i];
+            trail.RemainingSeconds = Math.Max(0f, trail.RemainingSeconds - dt);
+
+            if (trail.RemainingSeconds <= 0f)
+            {
+                trails.RemoveAt(i);
+                continue;
+            }
+
+            foreach (BenchmarkEnemy enemy in enemies)
+            {
+                if (!enemy.Spawned || enemy.Resolved || enemy.Hp <= 0f)
+                    continue;
+                if (trail.Position.DistanceTo(enemy.GlobalPosition) > Balance.WildfireTrailRadius)
+                    continue;
+
+                float trailRaw = trail.DamagePerSecond * dt;
+                float trailBefore = enemy.Hp;
+                float trailDealt = SpectacleDamageCore.ApplyRawDamage(enemy, trailRaw);
+                ApplyRawDamageToMetrics(enemy, trailRaw, trailDealt, metrics);
+                if (trailBefore > 0f && enemy.Hp <= 0f)
+                    enemy.Killed = true;
             }
         }
     }
@@ -781,6 +864,18 @@ public sealed class CombatLabTowerBenchmarkRunner
         DamageModel.Apply(ctx);
         ApplyContextToMetrics(ctx, metrics);
         return ctx;
+    }
+
+    private static void ApplyRawDamageToMetrics(BenchmarkEnemy enemy, float rawDamage, float dealt, TrialMetrics metrics)
+    {
+        float safeRaw = Math.Max(0f, rawDamage);
+        float safeDealt = Math.Max(0f, dealt);
+        metrics.Hits++;
+        metrics.TotalDamage += safeDealt;
+        metrics.RawDamage += safeRaw;
+        metrics.OverkillWaste += Math.Max(0f, safeRaw - safeDealt);
+        if (enemy.IsTank) metrics.TankDamage += safeDealt;
+        if (enemy.IsSwarm) metrics.SwarmDamage += safeDealt;
     }
 
     private static void ApplyContextToMetrics(DamageContext ctx, TrialMetrics metrics)

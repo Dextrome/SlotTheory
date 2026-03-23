@@ -131,6 +131,19 @@ public class BotPlayer
     private static bool IsOpenerTower(string? towerId) =>
         towerId is "rapid_shooter" or "chain_tower" or "heavy_cannon";
 
+    private static bool IsWildfireAnchorTower(string? towerId) =>
+        towerId is "rapid_shooter" or "rift_prism" or "accordion_engine";
+
+    private static bool IsWildfireTimingOnline(RunState s, DifficultyMode difficulty, int picksSoFar)
+    {
+        return difficulty switch
+        {
+            DifficultyMode.Hard => s.WaveIndex >= 10 || picksSoFar >= 10,
+            DifficultyMode.Normal => s.WaveIndex >= 7 || picksSoFar >= 7,
+            _ => s.WaveIndex >= 5 || picksSoFar >= 5,
+        };
+    }
+
     private static DraftOption? FindTowerOption(List<DraftOption> opts, params string[] towerIds)
     {
         foreach (string towerId in towerIds)
@@ -527,23 +540,26 @@ public class BotPlayer
     {
         var empty = EmptySlots(s);
         var eligible = ModSlots(s);
+        DifficultyMode difficulty = ResolveDifficultyMode();
 
         bool hasMarker = s.Slots.Any(sl => sl.Tower?.TowerId == "marker_tower");
         bool hasRift = s.Slots.Any(sl => sl.Tower?.TowerId == "rift_prism");
         int towerCount = s.Slots.Count(sl => sl.Tower != null);
+        int totalModCount = s.Slots.Sum(sl => sl.Tower?.Modifiers.Count ?? 0);
+        int picksSoFar = towerCount + totalModCount;
+        int wildfireCopies = CountTowerModifiers(s, "wildfire");
 
         if (eligible.Count > 0)
         {
-            // Prioritize blast_core and wildfire on any tower that doesn't already have them.
-            foreach (string advMod in new[] { "blast_core", "wildfire" })
+            // Prioritize blast_core on any tower that doesn't already have it.
+            var blastCore = FindModOption(opts, "blast_core");
+            if (blastCore != null)
             {
-                var mod = FindModOption(opts, advMod);
-                if (mod == null) continue;
                 int slot = eligible
-                    .Where(i => !s.Slots[i].Tower!.Modifiers.Any(m => m.ModifierId == advMod))
+                    .Where(i => !s.Slots[i].Tower!.Modifiers.Any(m => m.ModifierId == "blast_core"))
                     .OrderByDescending(i => s.Slots[i].Tower!.Modifiers.Count) // stack on busiest tower
                     .FirstOrDefault(-1);
-                if (slot >= 0) return new DraftPick(mod, slot);
+                if (slot >= 0) return new DraftPick(blastCore, slot);
             }
 
             // After opener, force one strong damage modifier early.
@@ -556,6 +572,23 @@ public class BotPlayer
                                   s.Slots[i].Tower!.TowerId == "chain_tower" ? 1 : 2)
                     .FirstOrDefault(-1);
                 if (earlySlot >= 0) return new DraftPick(earlyDamage, earlySlot);
+            }
+
+            // Wildfire is strong but high-variance; only add one copy and only once the run is stabilized.
+            // Anchor it on towers that can reliably apply ignites and convert trails.
+            var wildfire = FindModOption(opts, "wildfire");
+            if (wildfire != null && wildfireCopies < 1 && IsWildfireTimingOnline(s, difficulty, picksSoFar))
+            {
+                int slot = eligible
+                    .Where(i =>
+                        IsWildfireAnchorTower(s.Slots[i].Tower?.TowerId) &&
+                        !s.Slots[i].Tower!.Modifiers.Any(m => m.ModifierId == "wildfire"))
+                    .OrderBy(i => s.Slots[i].Tower!.TowerId == "rapid_shooter" ? 0 :
+                                  s.Slots[i].Tower!.TowerId == "rift_prism" ? 1 :
+                                  s.Slots[i].Tower!.TowerId == "accordion_engine" ? 2 : 3)
+                    .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .FirstOrDefault(-1);
+                if (slot >= 0) return new DraftPick(wildfire, slot);
             }
 
             // Marker upgrades: chain reaction then overreach.
@@ -674,6 +707,16 @@ public class BotPlayer
 
             var preferredTower = FindTowerOption(opts, "accordion_engine", "rift_prism", "rapid_shooter", "heavy_cannon", "chain_tower");
             if (preferredTower != null) return new DraftPick(preferredTower, empty[0]);
+        }
+
+        bool allowWildfireFallback = wildfireCopies < 1 && IsWildfireTimingOnline(s, difficulty, picksSoFar);
+        if (!allowWildfireFallback)
+        {
+            var filtered = opts
+                .Where(o => !(o.Type == DraftOptionType.Modifier && o.Id == "wildfire"))
+                .ToList();
+            if (filtered.Count > 0)
+                return PickGreedyDps(filtered, s);
         }
 
         return PickGreedyDps(opts, s);
@@ -1865,5 +1908,3 @@ public class BotPlayer
         return PickGreedyDps(opts, s);
     }
 }
-
-

@@ -33,7 +33,7 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 **Genre:** Constraint-driven drafting tower defense.
 
 **Loop per wave:**
-1. Draft phase: player picks 1 card from 4–5 options (tower or modifier)
+1. Draft phase: player picks 1 card from 4-5 options (tower or modifier)
 2. Placement phase: place tower in a world slot, or assign modifier to a placed tower
 3. Wave runs automatically -- no direct input during combat
 4. After wave: next draft begins
@@ -56,7 +56,7 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 - No mid-wave player input, no tower selling, no rerolls
 
 **Key implementation files:**
-- `GameController.cs` -- run lifecycle state machine (DraftPhase → WavePhase → Win/Lose)
+- `GameController.cs` -- run lifecycle state machine (DraftPhase -> WavePhase -> Win/Lose)
 - `RunState.cs` -- single source of truth for all runtime data
 - `Balance.cs` -- all tunable constants
 
@@ -85,24 +85,24 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 ### Arc Emitter (chain_tower) -- Chain Mechanics
 - Primary target receives full hit
 - Bounces to 2 additional enemies within **400 px** chain range
-- Each bounce: `0.5×` damage carry (50% decay per bounce)
+- Each bounce: `0.5x` damage carry (50% decay per bounce)
 - Chain targets receive `isChain: true` -- Blast Core and Overkill OnHit are skipped on them
 
 ### Rift Sapper (rift_prism) -- Mine Mechanics
 - Passive placement: plants mines at lane anchor points in range; no target needed to act
 - Mine cap: **7 active mines per tower** (`Balance.RiftMineMaxActivePerTower`)
 - Each mine has **3 charges** (`Balance.RiftMineChargesPerMine`):
-  - Triggers 1–2: `0.65×` base damage (`Balance.RiftMineTickDamageMultiplier`), rearm delay 0.18 s
-  - Trigger 3 (final pop): `1.15×` base damage (`Balance.RiftMineFinalDamageMultiplier`)
-- Wave-start burst seeding: first **2.4 s** of each wave plants at `0.55×` normal interval, capped at +3 accelerated plants per tower per wave
+  - Triggers 1-2: `0.65x` base damage (`Balance.RiftMineTickDamageMultiplier`), rearm delay 0.18 s
+  - Trigger 3 (final pop): `1.15x` base damage (`Balance.RiftMineFinalDamageMultiplier`)
+- Wave-start burst seeding: first **2.4 s** of each wave plants at `0.55x` normal interval, capped at +3 accelerated plants per tower per wave
 - Modifier interactions on mines:
   - Split Shot and Chain Reaction only trigger on final-charge pops
   - Chain-triggered mine pops are forced to final pop to preserve cascades
 - Targeting modes re-labeled on this tower (die = Random, down-arrow = Closest, up-arrow = Furthest)
 
 ### Accordion Engine (accordion_engine) -- Pulse Mechanics
-- On each pulse: collects **all in-range alive enemies**, sorts by Progress (trailing → leading)
-- **Formation compression:** enemies with ≥ 2 in range have their Progress values compressed toward the group median by `0.25×` factor (75% spread reduction), enforcing 8 px minimum spacing (`AccordionFormation.Compress`)
+- On each pulse: collects **all in-range alive enemies**, sorts by Progress (trailing -> leading)
+- **Formation compression:** enemies with >= 2 in range have their Progress values compressed toward the group median by `0.25x` factor (75% spread reduction), enforcing 8 px minimum spacing (`AccordionFormation.Compress`)
 - **Primary target** (leading enemy, highest Progress): `isChain: false` -- full modifier pipeline including Blast Core and Overkill OnHit
 - **Secondary targets** (all others in range): `isChain: true` -- stat modifiers apply, OnHit effects that opt out (Blast Core, Overkill) are skipped
 - Chain bounces from ChainReaction fire from the primary target only
@@ -117,13 +117,13 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 
 | Modifier | ID | Effect | Unlock |
 |---|---|---|---|
-| Momentum | `momentum` | +16% dmg per consecutive hit on same target, max ×1.8; resets on target switch | -- |
+| Momentum | `momentum` | +16% dmg per consecutive hit on same target, max x1.8; resets on target switch | -- |
 | Overkill | `overkill` | 100% excess kill damage spills to next enemy in lane | -- |
 | Exploit Weakness | `exploit_weakness` | +45% dmg vs Marked enemies | -- |
-| Focus Lens | `focus_lens` | +140% damage, ×1.85 attack interval (slower) | -- |
-| Chill Shot | `slow` | On hit: ×0.70 enemy speed for 6 s; stacks multiplicatively per tower | -- |
-| Overreach | `overreach` | +45% range, −10% damage | -- |
-| Hair Trigger | `hair_trigger` | +30% attack speed, −18% range | -- |
+| Focus Lens | `focus_lens` | +140% damage, x1.85 attack interval (slower) | -- |
+| Chill Shot | `slow` | On hit: x0.70 enemy speed for 6 s; stacks multiplicatively per tower | -- |
+| Overreach | `overreach` | +45% range, -10% damage | -- |
+| Hair Trigger | `hair_trigger` | +30% attack speed, -18% range | -- |
 | Feedback Loop | `feedback_loop` | On kill: instantly reset cooldown + +20% attack speed for 4 s | -- |
 | Chain Reaction | `chain_reaction` | On hit: +1 bounce at 50% damage carry; each extra copy adds +1 bounce | -- |
 | Split Shot | `split_shot` | On hit: fires 2 extra projectiles at nearby enemies at 28% damage; each extra copy adds +1 projectile | SPLIT_UNSEALED |
@@ -153,15 +153,15 @@ All modifier effects stack additively within their category (no multiplicative e
 
 | Enemy | HP Multiplier | Speed | Leak Cost | Appearance | Notes |
 |---|---|---:|---:|---|---|
-| Basic Walker | `65 × 1.10^(wave−1)` | 120 px/s | 1 | All waves | Baseline enemy |
-| Armored Walker | 3.5× Basic HP | 60 px/s | 2 | Wave 6+ | Counts as 2 lives on exit |
-| Swift Walker | 1.5× Basic HP | 240 px/s | 1 | Waves 10–19 (skip 12, 20) | Fast fragile |
-| Splitter Walker | 1.8× Basic HP | 90 px/s | 3 | Waves 9–15 | Spawns 2 Splitter Shards on death |
-| Splitter Shard | 0.55× Basic HP | 165 px/s | 1 | On Splitter death | Inherit split path |
-| Shield Drone | 1.8× Basic HP | 85 px/s | 1 | Waves 9–20 (full game) | Projects 35% damage reduction aura to allies within 140 px |
-| Reverse Walker | 1.35× Basic HP | 108 px/s | 1 | Wave 11+ (full game) | Jumps backward (−Progress) when hit for ≥10% max HP in one shot; cooldown-gated |
+| Basic Walker | `65 x 1.10^(wave-1)` | 120 px/s | 1 | All waves | Baseline enemy |
+| Armored Walker | 3.5x Basic HP | 60 px/s | 2 | Wave 6+ | Counts as 2 lives on exit |
+| Swift Walker | 1.5x Basic HP | 240 px/s | 1 | Waves 10-19 (skip 12, 20) | Fast fragile |
+| Splitter Walker | 1.8x Basic HP | 90 px/s | 3 | Waves 9-15 | Spawns 2 Splitter Shards on death |
+| Splitter Shard | 0.55x Basic HP | 165 px/s | 1 | On Splitter death | Inherit split path |
+| Shield Drone | 1.8x Basic HP | 85 px/s | 1 | Waves 9-20 (full game) | Projects 35% damage reduction aura to allies within 140 px |
+| Reverse Walker | 1.35x Basic HP | 108 px/s | 1 | Wave 11+ (full game) | Jumps backward (-Progress) when hit for >=10% max HP in one shot; cooldown-gated |
 
-**HP scaling:** every wave the Basic Walker baseline grows by ×1.10. All HP-multiplier types use the current-wave baseline.
+**HP scaling:** every wave the Basic Walker baseline grows by x1.10. All HP-multiplier types use the current-wave baseline.
 
 **Shield Drone protection:** `35%` damage reduction (`Balance.ShieldDroneProtectionReduction`) applied per hit to any allied enemy within 140 px -- including splash (Blast Core respects it) and mine pops.
 
@@ -200,8 +200,8 @@ If a tower or modifier is locked (`Unlocks.IsTowerUnlocked` / `Unlocks.IsModifie
 
 1. Spawn enemies per wave interval until wave quota reached
 2. Enemies self-move via `EnemyInstance._Process()` -- `Progress += Speed * delta` (PathFollow2D absolute offset)
-3. For each tower: decrement cooldown → acquire target → run damage pipeline → reset cooldown
-4. Remove dead enemies (Hp ≤ 0)
+3. For each tower: decrement cooldown -> acquire target -> run damage pipeline -> reset cooldown
+4. Remove dead enemies (Hp <= 0)
 5. Wave end: quota spawned **and** no enemies alive
 6. Loss check: player Lives reach 0
 
@@ -220,8 +220,8 @@ All damage is hitscan (instant, no projectile nodes).
 ### isChain Flag
 
 `DamageContext.IsChain` controls modifier opt-out:
-- `false` = primary hit → full pipeline
-- `true` = chain bounce / Accordion secondary / Overkill spill → `ApplyToChainTargets=false` mods skip `OnHit`
+- `false` = primary hit -> full pipeline
+- `true` = chain bounce / Accordion secondary / Overkill spill -> `ApplyToChainTargets=false` mods skip `OnHit`
 
 ### Accordion Engine Hit Model
 
@@ -253,8 +253,8 @@ Rift Sapper uses custom labels/icons mapped to its own 3 internal modes (Random/
 - Interact with: Exploit Weakness (`+45%` multiplicative bonus on top), `DamageModel` step 3
 
 **Slow** (applied by Chill Shot, 6 s duration):
-- `×0.70` speed multiplier per tower that applies it
-- Stacks **multiplicatively** across towers (two Chill Shot towers → ×0.70 × 0.70 = ×0.49 effective speed)
+- `x0.70` speed multiplier per tower that applies it
+- Stacks **multiplicatively** across towers (two Chill Shot towers -> x0.70 x 0.70 = x0.49 effective speed)
 
 ---
 
@@ -263,9 +263,9 @@ Rift Sapper uses custom labels/icons mapped to its own 3 internal modes (Random/
 ### Wave Scaling
 
 - 20 standard waves
-- Basic Walker HP: `65 × 1.10^(waveIndex)` (waveIndex 0-based)
+- Basic Walker HP: `65 x 1.10^(waveIndex)` (waveIndex 0-based)
 - Enemy types introduced at specific waves (see Enemy Roster section)
-- Wave config: `WaveSystem.GetWaveConfig(waveIndex)` → `WaveConfig` struct
+- Wave config: `WaveSystem.GetWaveConfig(waveIndex)` -> `WaveConfig` struct
 
 ### Difficulty Modes
 
@@ -273,9 +273,9 @@ Three modes selectable in Settings. Multipliers apply to all spawned enemies.
 
 | Difficulty | Enemy HP | Enemy Count | Spawn Interval |
 |---|---:|---:|---:|
-| Easy | 1.0× | 1.0× | 1.0× |
-| Normal | 1.2× | 1.05× | 0.95× |
-| Hard | 1.3× | 1.1× | 0.90× |
+| Easy | 1.0x | 1.0x | 1.0x |
+| Normal | 1.2x | 1.05x | 0.95x |
+| Hard | 1.3x | 1.1x | 0.90x |
 
 - Easy: no scaling beyond base wave difficulty -- intended for accessibility
 - Normal: targets ~75% bot win rate
@@ -298,18 +298,18 @@ Three modes selectable in Settings. Multipliers apply to all spawned enemies.
 | # | Stage Name | Map | Mandate |
 |---|---|---|---|
 | 1 | Orbit Breach | `sprawl` | Arc Emitter, Rift Sapper, Split Shot unavailable |
-| 2 | Crossroads Interdiction | `arena_classic` | Rift Sapper unavailable · Momentum, Exploit Weakness, Split Shot banned |
-| 3 | Pinch & Bleed | `gauntlet` | 5 tower slots only (1 locked) · Rift Sapper unavailable |
-| 4 | Iron Mandate | `ridgeback` | Full tower + modifier access · Enemies +25% HP |
+| 2 | Crossroads Interdiction | `arena_classic` | Rift Sapper unavailable - Momentum, Exploit Weakness, Split Shot banned |
+| 3 | Pinch & Bleed | `gauntlet` | 5 tower slots only (1 locked) - Rift Sapper unavailable |
+| 4 | Iron Mandate | `ridgeback` | Full tower + modifier access - Enemies +25% HP |
 
 Mandate data source: `Data/campaign_stages.json`.
 
 ### Campaign UI
 
-- Entry: Main Menu → Play → Mode Select → Campaign
-- `CampaignSelectPanel.cs` -- stage ladder with per-difficulty clear stamps (E✓ N✓ H✓)
+- Entry: Main Menu -> Play -> Mode Select -> Campaign
+- `CampaignSelectPanel.cs` -- stage ladder with per-difficulty clear stamps (EOK NOK HOK)
 - `CampaignManager.cs` -- active stage tracking; `CampaignProgress.cs` -- ConfigFile-backed save
-- End screen shows campaign stamps + "Next Stage →" on win; "Campaign Select" replaces "Main Menu"
+- End screen shows campaign stamps + "Next Stage ->" on win; "Campaign Select" replaces "Main Menu"
 - `CAMPAIGN_CLEAR` achievement: all 4 stages cleared (any difficulty)
 - `CAMPAIGN_HARD_CLEAR` achievement: all 4 stages cleared on Hard
 
@@ -345,13 +345,13 @@ After clearing all 20 waves, the win screen offers **Continue - Endless**. Press
 
 | What scales | Rate |
 |---|---|
-| Enemy count | ×1.05 per wave (compounding) |
-| Enemy HP | ×1.02 per wave (compounding) |
+| Enemy count | x1.05 per wave (compounding) |
+| Enemy HP | x1.02 per wave (compounding) |
 | Swift Walkers | +1 extra every 5 endless waves |
 | Reverse Walkers (full game) | +1 extra every 6 endless waves |
 
 - Spawn interval shrinks slowly, floored at 0.70 s
-- HUD shows "Wave 21 ∞", "Wave 22 ∞", etc.
+- HUD shows "Wave 21 inf", "Wave 22 inf", etc.
 - `KEEP_GOING` achievement: press Continue - Endless
 - `ENDLESS_25 / 30 / 40` achievements: clear those wave numbers
 - If player continues to endless, the wave-20 global win leaderboard score is **not submitted** -- only the endless loss result is submitted
@@ -425,13 +425,13 @@ Falls back to **GLOBAL SURGE** if no dominant modifier detected.
 
 ### Surge UX Details
 
-- **Archetype preview:** global meter label transitions to predicted archetype name at ≥70% fill
+- **Archetype preview:** global meter label transitions to predicted archetype name at >=70% fill
 - **Feel types:** Detonation builds (Overkill, Focus Lens, Feedback Loop, Hair Trigger) = sharp flash + snap pulse; Pressure builds (Momentum, Chill Shot, Overreach) = softer sustained flash
 - **Multi-color ripples:** up to 3 ripple colors reflecting top contributing modifiers
 - **Per-tower archetype FX:** each tower type fires its own sequence in staggered order
 - **Screen-edge vignette:** square-masked overlay ramps in during final 30% of global meter fill, tinted to dominant mod's color
 - **Sustained archetype tint:** low-alpha full-screen color wash lingers ~2.4 s post-global-surge
-- **SURGE ×N chain counter:** gold callout accumulates at screen center when surges chain within the contribution window
+- **SURGE xN chain counter:** gold callout accumulates at screen center when surges chain within the contribution window
 - **Per-tower afterglow:** each contributing tower holds a 2.4 s accent-colored modulate fade
 
 ---
@@ -524,45 +524,45 @@ Bot mode (`--bot`) skips all evaluation -- unlocks are never modified in automat
 
 ```
 MainMenu.tscn
-  → Play → ModeSelectPanel → Campaign or Skirmish
-  → Map Editor → MapEditor.tscn
-  → Leaderboards → LeaderboardsMenu.tscn
-  → Achievements → AchievementsPanel (inline)
-  → How to Play → HowToPlay
-  → Settings → Settings
+  -> Play -> ModeSelectPanel -> Campaign or Skirmish
+  -> Map Editor -> MapEditor.tscn
+  -> Leaderboards -> LeaderboardsMenu.tscn
+  -> Achievements -> AchievementsPanel (inline)
+  -> How to Play -> HowToPlay
+  -> Settings -> Settings
 
 Main.tscn (active run)
-  → DraftPanel (full-screen overlay, 2-step pick flow)
-  → HudPanel (wave, lives, speed, global surge meter)
-  → PauseScreen (Esc overlay)
-  → UnlockRevealScreen (on achievement unlock)
-  → AchievementToast (bottom-right notification)
-  → EndScreen → MainMenu / Campaign Select
+  -> DraftPanel (full-screen overlay, 2-step pick flow)
+  -> HudPanel (wave, lives, speed, global surge meter)
+  -> PauseScreen (Esc overlay)
+  -> UnlockRevealScreen (on achievement unlock)
+  -> AchievementToast (bottom-right notification)
+  -> EndScreen -> MainMenu / Campaign Select
 
 MapEditor.tscn
-  → Canvas → Main.tscn (playtest, Easy difficulty)
-  → Playtest EndScreen → Back to Editor
+  -> Canvas -> Main.tscn (playtest, Easy difficulty)
+  -> Playtest EndScreen -> Back to Editor
 ```
 
 ### DraftPanel
 
 - Full-screen overlay shown between waves
-- 2-step: pick card → placement mode (click slot or tower)
+- 2-step: pick card -> placement mode (click slot or tower)
 - Cancel placement: Esc or Cancel button
-- Card keyboard shortcuts: `1–5`
+- Card keyboard shortcuts: `1-5`
 - Modifier preview: hovering Overreach or Hair Trigger over a placed tower shows range ring at modified radius
 - Tower preview: hovering a tower card over an empty slot shows pulsing range fill on the ghost
 
 ### HudPanel
 
-- Wave number, lives counter, speed toggle (1×/2×/3×)
-- Global surge meter bar with archetype label (transitions to predicted name at ≥70% fill)
+- Wave number, lives counter, speed toggle (1x/2x/3x)
+- Global surge meter bar with archetype label (transitions to predicted name at >=70% fill)
 - Screen-edge vignette at high global meter fill
 
 ### Tower Tooltips
 
 - Visible only during Wave phase
-- Hover 50×50 hit area on tower → `CanvasLayer(Layer=5)` panel + label
+- Hover 50x50 hit area on tower -> `CanvasLayer(Layer=5)` panel + label
 - Shows: tower name, targeting mode, modifier list
 
 ### Slot Codex (SlotCodexPanel)
@@ -576,7 +576,7 @@ In-game reference for all towers, modifiers, and enemies:
 ### Map Editor
 
 - Entry from Main Menu
-- Interactive waypoint + slot placement on an 8×5 grid (snap to 80 px)
+- Interactive waypoint + slot placement on an 8x5 grid (snap to 80 px)
 - Custom maps saved to `user://custom_maps/{id}.json`
 - Playtest always uses Easy difficulty; end screen shows [PLAYTEST] badge + Back to Editor
 - Ctrl+Z/Y undo/redo; Ctrl+S save
@@ -627,7 +627,7 @@ Cycle round-robin across runs:
 | `SplitFocus` | Split Shot stacking |
 | `HeavyStack` | Heavy Cannon with Focus Lens |
 | `RiftPrismFocus` | Rift Sapper mine coverage |
-| `SpectacleSingleStack` | Single modifier stacked 3× for surge identity |
+| `SpectacleSingleStack` | Single modifier stacked 3x for surge identity |
 | `AccordionEngine` | Accordion Engine + compression synergies |
 | `PlayerStyleKenny` | Mimics observed human play patterns |
 | `HeavyOverkill` | Heavy Cannon priority + max 1 Overkill + 1 Feedback Loop per tower, then Hair Trigger/Focus Lens/Chain Reaction/Split Shot finisher |
@@ -672,7 +672,7 @@ Scripted scenario validation and sweeps:
 
 ### Modifier Description Validation
 
-`ModifierDataValidator.cs` runs on startup during `DataLoader.LoadAll()`. Checks that key stat tokens appear in `modifiers.json` descriptions (e.g., "42%", "×1.80"). Prints `[VALIDATOR] OK` or lists mismatches. Zero runtime overhead after initial load.
+`ModifierDataValidator.cs` runs on startup during `DataLoader.LoadAll()`. Checks that key stat tokens appear in `modifiers.json` descriptions (e.g., "42%", "x1.80"). Prints `[VALIDATOR] OK` or lists mismatches. Zero runtime overhead after initial load.
 
 ---
 
@@ -682,15 +682,15 @@ Scripted scenario validation and sweeps:
 
 | Phase | Component | Feature |
 |---|---|---|
-| 1 | `MusicClock` | Drift-free beat/bar/phrase events, BPM ramp; note pool (MIDI 28–81) |
+| 1 | `MusicClock` | Drift-free beat/bar/phrase events, BPM ramp; note pool (MIDI 28-81) |
 | 2 | `MusicHarmony` | Scale/chord tables: Dorian, Mixolydian, Phrygian |
 | 3 | `MusicBassLayer` | Root + fifth patterns; BPM ramp |
 | 3 | `MusicDirector` hooks | OnWaveStart, OnWaveClear, OnLivesChanged, OnDraftPhaseStart, OnRunEnd |
 | 4 | `MusicMelodyLayer` | Phrase-planned lead: contour-weighted (Ascending/Descending/Arch/Static), rest probability by tension, cross-phrase continuity |
-| 5 | `MusicPercLayer` | Kick/snare/hat 8th-note grid, tension-driven density; kick sweep 100→65 Hz |
+| 5 | `MusicPercLayer` | Kick/snare/hat 8th-note grid, tension-driven density; kick sweep 100->65 Hz |
 | 6 | Surge percussion | Fill triggered on global surge event |
 | 7 | Chord-aware melody | Root pitch-class snapping; walking bass |
-| 8 | BPM tiers | 112/128/140 BPM + per-map BPM spread (Gauntlet +24, Sprawl −24) |
+| 8 | BPM tiers | 112/128/140 BPM + per-map BPM spread (Gauntlet +24, Sprawl -24) |
 
 `SoundManager` auto-disables all audio init in headless mode (`DisplayServer.GetName() == "headless"`).
 
@@ -729,7 +729,7 @@ All tower attacks are hitscan -- instant damage on attack. No projectile nodes s
 
 ### Map System
 
-- `MapGenerator.cs` -- procedural snake-path 8×5 grid map (for skirmish/random)
+- `MapGenerator.cs` -- procedural snake-path 8x5 grid map (for skirmish/random)
 - Custom maps: `user://custom_maps/{id}.json` via `CustomMapManager.cs`
 - Campaign maps: fixed paths defined in `Data/maps.json` with `displayOrder` field
 

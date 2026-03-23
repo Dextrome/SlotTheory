@@ -25,9 +25,8 @@ public partial class SlotCodexPanel : Node
     private Button _towerTabBtn = null!;
     private Button _modTabBtn = null!;
     private Button _enemyTabBtn = null!;
-    private ColorRect _towerUnderline = null!;
-    private ColorRect _modUnderline = null!;
-    private ColorRect _enemyUnderline = null!;
+    private ColorRect _tabIndicator = null!;
+    private CodexTab _activeTab = CodexTab.Towers;
     private Label _progressLabel = null!;
     private float _lastWidth = -1f;
 
@@ -119,11 +118,27 @@ public partial class SlotCodexPanel : Node
         var tabs = new HBoxContainer();
         tabs.Alignment = BoxContainer.AlignmentMode.Center;
         tabs.AddThemeConstantOverride("separation", 12);
-        root.AddChild(tabs);
+        headerBody.AddChild(tabs);
 
-        tabs.AddChild(BuildTabEntry("Towers",  () => SetActiveTab(CodexTab.Towers),  out _towerTabBtn, out _towerUnderline));
-        tabs.AddChild(BuildTabEntry("Mods",    () => SetActiveTab(CodexTab.Mods),    out _modTabBtn,   out _modUnderline));
-        tabs.AddChild(BuildTabEntry("Enemies", () => SetActiveTab(CodexTab.Enemies), out _enemyTabBtn, out _enemyUnderline));
+        tabs.AddChild(BuildTabEntry("Towers",  () => SetActiveTab(CodexTab.Towers),  out _towerTabBtn));
+        tabs.AddChild(BuildTabEntry("Mods",    () => SetActiveTab(CodexTab.Mods),    out _modTabBtn));
+        tabs.AddChild(BuildTabEntry("Enemies", () => SetActiveTab(CodexTab.Enemies), out _enemyTabBtn));
+
+        // Single sliding indicator -- repositioned under the active tab on each switch.
+        var indicatorRow = new Control
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            CustomMinimumSize = new Vector2(0f, 3f),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        headerBody.AddChild(indicatorRow);
+        _tabIndicator = new ColorRect
+        {
+            Color = UITheme.Lime,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Size = new Vector2(MobileOptimization.IsMobile() ? 106f : 158f, 3f),
+        };
+        indicatorRow.AddChild(_tabIndicator);
 
         var contentFrame = new PanelContainer
         {
@@ -214,13 +229,10 @@ public partial class SlotCodexPanel : Node
         Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
     }
 
-    private Control BuildTabEntry(string label, Action onPressed, out Button btn, out ColorRect underline)
+    private Control BuildTabEntry(string label, Action onPressed, out Button btn)
     {
         float btnW = MobileOptimization.IsMobile() ? 106f : 158f;
         float btnH = MobileOptimization.IsMobile() ? 40f : 42f;
-
-        var wrap = new VBoxContainer();
-        wrap.AddThemeConstantOverride("separation", 0);
 
         btn = new Button
         {
@@ -250,18 +262,8 @@ public partial class SlotCodexPanel : Node
             SoundManager.Instance?.Play("ui_select");
             onPressed();
         };
-        wrap.AddChild(btn);
 
-        underline = new ColorRect
-        {
-            CustomMinimumSize = new Vector2(btnW, 3f),
-            Color = UITheme.Lime,
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-            Visible = false
-        };
-        wrap.AddChild(underline);
-
-        return wrap;
+        return btn;
     }
 
     private ScrollContainer BuildCardScroll(Control parent, out GridContainer grid)
@@ -576,24 +578,44 @@ public partial class SlotCodexPanel : Node
 
     private void SetActiveTab(CodexTab tab)
     {
+        _activeTab = tab;
         _towerScroll.Visible  = tab == CodexTab.Towers;
         _modScroll.Visible    = tab == CodexTab.Mods;
         _enemyScroll.Visible  = tab == CodexTab.Enemies;
-        ApplyTabButtonState(_towerTabBtn, _towerUnderline, tab == CodexTab.Towers);
-        ApplyTabButtonState(_modTabBtn,   _modUnderline,   tab == CodexTab.Mods);
-        ApplyTabButtonState(_enemyTabBtn, _enemyUnderline, tab == CodexTab.Enemies);
+        ApplyTabButtonState(_towerTabBtn, tab == CodexTab.Towers);
+        ApplyTabButtonState(_modTabBtn,   tab == CodexTab.Mods);
+        ApplyTabButtonState(_enemyTabBtn, tab == CodexTab.Enemies);
         RefreshProgressLabel(tab);
+        CallDeferred(nameof(RepositionIndicator));
     }
 
-    private static void ApplyTabButtonState(Button btn, ColorRect underline, bool active)
+    private static void ApplyTabButtonState(Button btn, bool active)
     {
-        underline.Visible = active;
         btn.AddThemeColorOverride("font_color",
             active ? UITheme.Lime : new Color(0.48f, 0.58f, 0.76f));
         btn.AddThemeColorOverride("font_hover_color",
             active ? UITheme.Lime : new Color(0.65f, 0.75f, 0.92f));
         btn.AddThemeColorOverride("font_pressed_color",
             active ? UITheme.Lime : new Color(0.48f, 0.58f, 0.76f));
+    }
+
+    private void RepositionIndicator()
+    {
+        if (!GodotObject.IsInstanceValid(_tabIndicator)) return;
+        Button activeBtn = _activeTab switch
+        {
+            CodexTab.Towers  => _towerTabBtn,
+            CodexTab.Mods    => _modTabBtn,
+            _                => _enemyTabBtn,
+        };
+        if (!GodotObject.IsInstanceValid(activeBtn)) return;
+        var row = _tabIndicator.GetParent<Control>();
+        if (!GodotObject.IsInstanceValid(row)) return;
+
+        float x = activeBtn.GlobalPosition.X - row.GlobalPosition.X;
+        float w = activeBtn.Size.X;
+        _tabIndicator.Position = new Vector2(x, 0f);
+        _tabIndicator.Size     = new Vector2(w, 3f);
     }
 
     private void RefreshGridColumns(bool force)
