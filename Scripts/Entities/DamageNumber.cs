@@ -17,12 +17,15 @@ public partial class DamageNumber : Node2D
     private string _text   = "";
     private Color  _color;
     private bool   _isKill;
+    private float  _scale  = 1f;
 
-    public void Initialize(float damage, Color color, bool isKill = false, string sourceTowerId = "")
+    /// <param name="scale">Font size multiplier. Use &lt;1 for secondary/area damage numbers (e.g. 0.72f).</param>
+    public void Initialize(float damage, Color color, bool isKill = false, string sourceTowerId = "", float scale = 1f)
     {
         _text   = $"{(int)damage}";
         _color  = color;
         _isKill = isKill;
+        _scale  = scale;
         if (isKill)
             SoundManager.Instance?.Play("kill_confirm");
     }
@@ -53,7 +56,7 @@ public partial class DamageNumber : Node2D
 
         var   font  = UITheme.SemiBold;
         int   baseSize = _isKill ? 24 : 18;
-        int   size  = Mathf.Clamp(Mathf.RoundToInt(baseSize * _mobileReadabilityScale * punch), 12, 52);
+        int   size  = Mathf.Clamp(Mathf.RoundToInt(baseSize * _scale * _mobileReadabilityScale * punch), 10, 52);
         var   col   = _isKill ? new Color(1f, 0.85f, 0.15f, alpha)
                                : new Color(_color.R, _color.G, _color.B, alpha);
 

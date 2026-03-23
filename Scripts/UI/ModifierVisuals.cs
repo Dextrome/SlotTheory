@@ -42,6 +42,8 @@ public static class ModifierVisuals
 
         "exploit_weakness" => colorblind ? CB_StatusSynergy : StatusSynergy,
         "blast_core"       => colorblind ? CB_DamageScaling : DamageScaling,
+        // Wildfire: amber-orange -- reads as "fire" and is distinct from all existing mod colors
+        "wildfire"         => colorblind ? new Color(0.902f, 0.624f, 0.000f) : new Color(1.00f, 0.52f, 0.08f),
         _ => new Color(0.80f, 0.80f, 0.95f),
     };
 
@@ -58,6 +60,7 @@ public static class ModifierVisuals
         "feedback_loop" => "COOLDOWN RESET",
         "chain_reaction" => "CHAINING",
         "blast_core"     => "SPLASH",
+        "wildfire"       => "BURN & TRAIL",
         _ => "MODIFIER",
     };
 }

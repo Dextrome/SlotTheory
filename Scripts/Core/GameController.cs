@@ -5423,6 +5423,20 @@ void fragment() {
 		ring.Initialize(origin, accent, mechanicalRadius, power);
 	}
 
+	/// <summary>
+	/// Spawns a damage number at reduced scale for secondary/area hits (Blast Core splash, fire trail).
+	/// Visually distinct from primary tower-shot numbers: smaller font, same amber/fire color.
+	/// </summary>
+	private void SpawnSecondaryDamageNumber(Vector2 worldPos, float damage, bool isKill, Color color)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode)) return;
+		if (damage < 1f) return;
+		var num = new DamageNumber();
+		_worldNode.AddChild(num);
+		num.GlobalPosition = worldPos + new Vector2(0f, -14f);
+		num.Initialize(damage, color, isKill, scale: 0.72f);
+	}
+
 	private void PrimeExplosionCompression(Vector2 origin, float radius, Color accent, int maxTargets)
 	{
 		if (_botRunner != null || _runState == null || radius <= 0f || maxTargets <= 0)
@@ -6931,11 +6945,17 @@ void fragment() {
 		// Central impact flash at the detonation origin.
 		SpawnSpectacleImpactSparks(origin, blastColor, heavy: splashDamage >= 40f);
 
-		// Smaller hit sparks at each affected enemy position.
+		// Smaller hit sparks + secondary damage numbers at each affected enemy position.
+		// Note: use a plain IsInstanceValid check rather than IsEnemyUsable here --
+		// IsEnemyUsable requires Hp > 0 but splash damage is applied before this notify,
+		// so a splash-killed enemy already has Hp = 0 and must still show its damage number.
 		foreach (var target in splashTargets)
 		{
-			if (target is EnemyInstance enemy && IsEnemyUsable(enemy))
+			if (target is EnemyInstance enemy && GodotObject.IsInstanceValid(enemy))
+			{
 				SpawnSpectacleImpactSparks(enemy.GlobalPosition, blastColor, heavy: false);
+				SpawnSecondaryDamageNumber(enemy.GlobalPosition, splashDamage, enemy.Hp <= 0f, blastColor);
+			}
 		}
 
 		// Combat callout when blast catches 2+ enemies.

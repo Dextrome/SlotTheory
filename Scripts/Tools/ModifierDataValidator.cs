@@ -163,6 +163,16 @@ public static class ModifierDataValidator
                     $"{FormatInt(Balance.BlastCoreRadius)}px",
                     $"+{FormatInt(Balance.BlastCoreRadiusPerCopy)}px"
                 }
+            },
+            ["wildfire"] = new ModifierExpectation
+            {
+                Name = "Wildfire",
+                RequiredTokens = new()
+                {
+                    $"{FormatInt(Balance.WildfireBurnDuration)}s",
+                    $"{FormatInt(Balance.WildfireBurnDpsRatio * 100f)}%",
+                    $"{FormatInt(Balance.WildfireTrailDamageRatio * 100f)}%"
+                }
             }
         };
     }

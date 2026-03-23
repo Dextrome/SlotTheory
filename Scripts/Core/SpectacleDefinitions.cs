@@ -49,6 +49,7 @@ public static class SpectacleDefinitions
     public const string FeedbackLoop = "feedback_loop";
     public const string ChainReaction = "chain_reaction";
     public const string BlastCore = "blast_core";
+    public const string Wildfire  = "wildfire";
 
     public const float SurgeThreshold = 150f;
     public const float SurgeCooldownSeconds = 6.0f;
@@ -92,6 +93,7 @@ public static class SpectacleDefinitions
         FeedbackLoop,
         ChainReaction,
         BlastCore,
+        Wildfire,
     };
 
     private static readonly HashSet<string> SupportedTowers = new(StringComparer.Ordinal)

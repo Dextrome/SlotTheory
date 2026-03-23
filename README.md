@@ -123,12 +123,17 @@ Unlock flow (via Campaign mode):
 | Feedback Loop | On kill: instantly reset cooldown + 20% attack speed for 4 s |
 | Chain Reaction | +1 chain bounce per copy, 50% damage carry per bounce |
 | Blast Core | On hit: 45% splash in 140 px radius; each extra copy adds +25 px radius |
+| Wildfire | On primary hit: ignite for 4 s burn at 25% BaseDamage/s; burning enemies drop fire trail segments (2.2 s, 30 px radius, 40% burn DPS to overlapping enemies); stacks add burn DPS |
 
 Max modifiers per tower: 3
 
 Unlockable modifiers:
 - Split Shot: beat the second campaign map on Normal or Hard (`SPLIT_UNSEALED`)
 - Blast Core: beat the fourth campaign map - Ridgeback / Iron Mandate (`BLAST_UNSEALED`)
+
+Full-game only modifiers (not in demo):
+- Blast Core
+- Wildfire
 
 ---
 
@@ -244,7 +249,7 @@ Global surge is a mapwide event with synchronized spectacle + gameplay:
 
 The banner label and visual treatment are driven by which mods contributed most to filling the global meter:
 
-- **10 named archetypes** - e.g. REDLINE WAVE (Momentum), CHAIN STORM (Chain Reaction), PRISM BARRAGE (Focus Lens). Falls back to GLOBAL SURGE if no dominant mod is detected.
+- **12 named archetypes** - e.g. REDLINE WAVE (Momentum), CHAIN STORM (Chain Reaction), INFERNO SURGE (Wildfire). Falls back to GLOBAL SURGE if no dominant mod is detected.
 - **Archetype preview**: the HUD global meter label transitions from "GLOBAL SURGE" to the predicted archetype name at ≥70% fill.
 - **Feel types** - Detonation builds (Overkill, Focus Lens, Feedback Loop, Hair Trigger) produce a sharp spike flash + second snap pulse. Pressure builds (Momentum, Chill Shot, Overreach) produce a softer sustained flash.
 - **Multi-color ripples** - up to 3 ripple colors reflecting the top contributing mods.

@@ -45,6 +45,7 @@ public class CombatSim
     private readonly RunState _state;
     private float _spawnTimer = 0f;
     private readonly Queue<string> _spawnQueue = new();
+    private bool _walkerNextIsFirst = true; // alternates short/long gap for basic_walker pairs
     private float _initialSpawnDelay = 0f;
     private float _killComboTimer = 0f;
     private int _killComboCount = 0;
@@ -53,6 +54,23 @@ public class CombatSim
     private readonly Dictionary<ulong, int> _riftBurstFastPlantsUsed = new();
     private ulong _nextMineId = 1;
     private readonly Random _mineRng;
+
+    // Wildfire fire trail segments -- managed like active mines but simpler (no charges, no targeting)
+    private sealed class FireTrailSegment
+    {
+        public Vector2 Position { get; init; }
+        public Vector2 Direction { get; init; }
+        public float TotalLifetime { get; init; }
+        public float LifetimeRemaining { get; set; }
+        public float DamagePerSecond { get; init; }
+        public int OwnerSlotIndex { get; init; }
+        public WildfireTrailVfx? Visual { get; init; }
+        // Per-enemy fractional damage accumulator: shows a damage number once ≥ 1 HP has built up.
+        // Keyed by Godot instance ID (ulong) to avoid holding enemy references after death.
+        public readonly Dictionary<ulong, float> DmgAccumulator = new();
+    }
+    private readonly List<FireTrailSegment> _activeFireTrails = new();
+    private static readonly Color WildfireFireColor = new(1.0f, 0.55f, 0.12f);
 
     // Set externally by GameController when an enemy scene is needed
     public PackedScene? EnemyScene { get; set; }
@@ -79,10 +97,12 @@ public class CombatSim
     {
         _spawnTimer = _initialSpawnDelay;
         _spawnQueue.Clear();
+        _walkerNextIsFirst = true;
         _killComboTimer = 0f;
         _killComboCount = 0;
         _riftBurstFastPlantsUsed.Clear();
         ClearMines();
+        ClearFireTrails();
         RebuildMineAnchors();
     }
 
@@ -91,10 +111,12 @@ public class CombatSim
     {
         _spawnTimer = _initialSpawnDelay;
         _spawnQueue.Clear();
+        _walkerNextIsFirst = true;
         _killComboTimer = 0f;
         _killComboCount = 0;
         _riftBurstFastPlantsUsed.Clear();
         ClearMines();
+        ClearFireTrails();
         RebuildMineAnchors();
 
         int walkers   = ws.GetWalkerCount();
@@ -202,8 +224,9 @@ public class CombatSim
         int quota = waveSystem.GetTotalCount();
         if (_spawnTimer <= 0f && state.EnemiesSpawnedThisWave < quota && _spawnQueue.Count > 0)
         {
-            SpawnEnemy(state, _spawnQueue.Dequeue());
-            _spawnTimer = waveSystem.GetSpawnInterval();
+            string typeId = _spawnQueue.Dequeue();
+            SpawnEnemy(state, typeId);
+            _spawnTimer = NextSpawnInterval(typeId, waveSystem.GetSpawnInterval());
         }
 
         // 2. Leaked enemies - each one costs a life; return Loss when lives run out
@@ -229,6 +252,7 @@ public class CombatSim
         if (state.Lives <= 0)
         {
             ClearMines();
+            ClearFireTrails();
             return WaveResult.Loss;
         }
 
@@ -422,6 +446,9 @@ public class CombatSim
                 Sounds?.DuckMusic(1.9f, 0.11f);
         }
 
+        // 3.5. Wildfire burn DOT and fire trail hazards
+        UpdateBurnAndTrails(delta, state.WaveIndex, state.EnemiesAlive);
+
         // 4. Remove dead enemies
         foreach (var dead in state.EnemiesAlive.FindAll(e => e.Hp <= 0))
         {
@@ -451,6 +478,7 @@ public class CombatSim
         if (quotaDone && state.EnemiesAlive.Count == 0)
         {
             ClearMines();
+            ClearFireTrails();
             return WaveResult.WaveComplete;
         }
 
@@ -465,6 +493,207 @@ public class CombatSim
                 mine.Visual.QueueFree();
         }
         _activeMines.Clear();
+    }
+
+    private void ClearFireTrails()
+    {
+        foreach (var trail in _activeFireTrails)
+        {
+            if (trail.Visual != null && GodotObject.IsInstanceValid(trail.Visual))
+                trail.Visual.QueueFree();
+        }
+        _activeFireTrails.Clear();
+    }
+
+    /// <summary>
+    /// Advances Wildfire burn DOT on all burning enemies and manages fire trail segments.
+    ///
+    /// Called from Step() between tower attacks (step 3) and dead-enemy removal (step 4)
+    /// so burn kills are caught by the same cleanup pass as tower kills.
+    ///
+    /// Anti-recursion guarantees (structural, no flag needed):
+    ///   - Burn DOT and trail damage are raw HP reductions -- no modifier OnHit pipeline is called.
+    ///   - Only Wildfire.OnHit() writes BurnRemaining; that method is only invoked by DamageModel
+    ///     from direct tower attack dispatch. Burn ticks never call DamageModel.Apply.
+    ///   - Trail damage does NOT write BurnRemaining onto enemies it hits. Structural guarantee.
+    /// </summary>
+    private void UpdateBurnAndTrails(float delta, int waveIndex, List<EnemyInstance> enemies)
+    {
+        // A. Advance burn timers, apply burn DOT, and deposit trail segments.
+        foreach (var enemy in enemies)
+        {
+            if (!GodotObject.IsInstanceValid(enemy) || enemy.Hp <= 0f) continue;
+            if (enemy.BurnRemaining <= 0f) continue;
+
+            // Tick burn timer.
+            enemy.BurnRemaining = MathF.Max(0f, enemy.BurnRemaining - delta);
+
+            // Apply burn damage proportional to elapsed delta.
+            float burnDamage = enemy.BurnDamagePerSecond * delta;
+            if (burnDamage > 0.001f)
+            {
+                float hpBefore = enemy.Hp;
+                enemy.Hp = MathF.Max(0f, enemy.Hp - burnDamage);
+                float dealt = hpBefore - enemy.Hp;
+
+                if (dealt > 0f && _state != null)
+                {
+                    bool isKill = enemy.Hp <= 0f;
+                    _state.TrackBaseAttackDamage(enemy.BurnOwnerSlotIndex, (int)dealt,
+                        isKill, enemy.ProgressRatio);
+                }
+
+                // Spectacle: register kill events so Wildfire-heavy builds can surge on burn kills.
+                // Per-tick spectacle is only sent on kills to prevent meter spam.
+                if (enemy.Hp <= 0f && enemy.BurnOwnerSlotIndex >= 0
+                    && _state != null && enemy.BurnOwnerSlotIndex < _state.Slots.Length)
+                {
+                    var ownerTower = _state.Slots[enemy.BurnOwnerSlotIndex].Tower;
+                    if (ownerTower != null)
+                        GameController.Instance?.RegisterSpectacleProc(ownerTower, "wildfire", 1.2f, dealt);
+                }
+
+                // Damage numbers for burn ticks -- small scale to distinguish from primary hits.
+                if (!BotMode && dealt >= 1f)
+                    SpawnDamageNumber(enemy.GlobalPosition + new Godot.Vector2(6f, 0f),
+                        MathF.Max(1f, dealt), enemy.Hp <= 0f, "wildfire", WildfireFireColor, scale: 0.72f);
+            }
+
+            // Trail drop: count down and deposit a segment at the enemy's current position.
+            // Only deposit while burn is still active (BurnRemaining > 0 after tick).
+            if (enemy.BurnRemaining > 0f && enemy.BurnDamagePerSecond > 0f)
+            {
+                enemy.BurnTrailDropTimer -= delta;
+                if (enemy.BurnTrailDropTimer <= 0f)
+                {
+                    enemy.BurnTrailDropTimer = Balance.WildfireTrailDropInterval;
+                    DropFireTrail(enemy);
+                }
+            }
+        }
+
+        // B. Advance fire trail lifetimes, update visuals, apply trail hazard damage.
+        for (int i = _activeFireTrails.Count - 1; i >= 0; i--)
+        {
+            var trail = _activeFireTrails[i];
+            trail.LifetimeRemaining -= delta;
+
+            if (trail.LifetimeRemaining <= 0f)
+            {
+                // Trail expired -- free the visual and remove the segment.
+                if (!BotMode && trail.Visual != null && GodotObject.IsInstanceValid(trail.Visual))
+                    trail.Visual.ExpireAndFree();
+                _activeFireTrails.RemoveAt(i);
+                continue;
+            }
+
+            // Update visual fade.
+            if (!BotMode && trail.Visual != null && GodotObject.IsInstanceValid(trail.Visual))
+                trail.Visual.SetLifetimeFraction(trail.LifetimeRemaining / trail.TotalLifetime);
+
+            // Apply trail hazard damage to enemies in radius.
+            // Raw HP reduction -- no modifier pipeline, no Burning re-application.
+            float trailDamage = trail.DamagePerSecond * delta;
+            if (trailDamage <= 0.001f) continue;
+
+            foreach (var enemy in enemies)
+            {
+                if (!GodotObject.IsInstanceValid(enemy) || enemy.Hp <= 0f) continue;
+                if (trail.Position.DistanceTo(enemy.GlobalPosition) > Balance.WildfireTrailRadius) continue;
+
+                float hpBefore = enemy.Hp;
+                enemy.Hp = MathF.Max(0f, enemy.Hp - trailDamage);
+                float dealt = hpBefore - enemy.Hp;
+
+                if (dealt > 0f && _state != null)
+                {
+                    bool isKill = enemy.Hp <= 0f;
+                    _state.TrackBaseAttackDamage(trail.OwnerSlotIndex, (int)dealt,
+                        isKill, enemy.ProgressRatio);
+
+                    // Spectacle: trail kills are minor events but still register.
+                    if (isKill && trail.OwnerSlotIndex >= 0
+                        && trail.OwnerSlotIndex < _state.Slots.Length)
+                    {
+                        var ownerTower = _state.Slots[trail.OwnerSlotIndex].Tower;
+                        if (ownerTower != null)
+                            GameController.Instance?.RegisterSpectacleProc(ownerTower, "wildfire", 0.8f, dealt);
+                    }
+                }
+
+                // Accumulate fractional trail damage per enemy; pop a number once ≥ 1 HP builds up.
+                if (!BotMode && dealt > 0f)
+                {
+                    ulong eid = enemy.GetInstanceId();
+                    trail.DmgAccumulator.TryGetValue(eid, out float acc);
+                    acc += dealt;
+                    if (acc >= 1f)
+                    {
+                        SpawnDamageNumber(enemy.GlobalPosition + new Godot.Vector2(-6f, 0f),
+                            acc, enemy.Hp <= 0f, "wildfire", WildfireFireColor, scale: 0.72f);
+                        acc = 0f;
+                    }
+                    trail.DmgAccumulator[eid] = acc;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Returns the next spawn timer interval after spawning <paramref name="typeId"/>.
+    /// Basic walkers alternate between a short gap (within pair) and long gap (between pairs)
+    /// to create a "2s arriving in a cluster" feel without changing total wave density.
+    /// All other enemy types use the unmodified base interval.
+    /// </summary>
+    private float NextSpawnInterval(string typeId, float baseInterval)
+    {
+        if (typeId != "basic_walker")
+            return baseInterval;
+
+        bool isFirst = _walkerNextIsFirst;
+        _walkerNextIsFirst = !_walkerNextIsFirst;
+        return isFirst
+            ? baseInterval * Balance.BasicWalkerGroupShortInterval  // tight gap inside pair
+            : baseInterval * Balance.BasicWalkerGroupLongInterval;  // breathing room between pairs
+    }
+
+    private void DropFireTrail(EnemyInstance enemy)
+    {
+        float trailDps = enemy.BurnDamagePerSecond * Balance.WildfireTrailDamageRatio;
+        if (trailDps <= 0f) return;
+
+        // Global segment cap: when full, remove the oldest (lowest index) to make room.
+        // This keeps behavior predictable under rapid-fire + Hair Trigger combinations.
+        if (_activeFireTrails.Count >= Balance.WildfireMaxTrailSegments)
+        {
+            var oldest = _activeFireTrails[0];
+            if (!BotMode && oldest.Visual != null && GodotObject.IsInstanceValid(oldest.Visual))
+                oldest.Visual.ExpireAndFree();
+            _activeFireTrails.RemoveAt(0);
+        }
+
+        WildfireTrailVfx? visual = null;
+        if (!BotMode && LanePath != null)
+        {
+            visual = new WildfireTrailVfx();
+            LanePath.GetParent().AddChild(visual);
+            visual.GlobalPosition = enemy.GlobalPosition;
+            visual.Initialize(Balance.WildfireTrailLifetime, enemy.Heading);
+        }
+
+        _activeFireTrails.Add(new FireTrailSegment
+        {
+            Position = enemy.GlobalPosition,
+            Direction = enemy.Heading,
+            TotalLifetime = Balance.WildfireTrailLifetime,
+            LifetimeRemaining = Balance.WildfireTrailLifetime,
+            DamagePerSecond = trailDps,
+            OwnerSlotIndex = enemy.BurnOwnerSlotIndex,
+            Visual = visual,
+        });
+
+        // Audio: subtle crackle cue for trail deposit. Throttled naturally by TrailDropInterval.
+        Sounds?.Play("wildfire_trail", pitchScale: 0.85f + GD.Randf() * 0.30f);
     }
 
     private int GetRiftBurstFastPlantsUsed(ITowerView tower)
@@ -1127,13 +1356,14 @@ public class CombatSim
         arc.Initialize(worldFrom, worldTo, color, intensity, mineChainStyle);
     }
 
-    private void SpawnDamageNumber(Vector2 worldPos, float damage, bool isKill, string sourceTowerId, Color color)
+    private void SpawnDamageNumber(Vector2 worldPos, float damage, bool isKill, string sourceTowerId, Color color,
+                                    float scale = 1f)
     {
         if (BotMode || LanePath == null) return;
         var num = new DamageNumber();
         LanePath.GetParent().AddChild(num);
         num.GlobalPosition = worldPos + new Vector2(0f, -14f);
-        num.Initialize(damage, color, isKill, sourceTowerId);
+        num.Initialize(damage, color, isKill, sourceTowerId, scale);
     }
 
     private void SpawnProjectile(Vector2 fromGlobal, EnemyInstance target, Color color,

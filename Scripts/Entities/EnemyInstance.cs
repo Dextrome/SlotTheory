@@ -53,6 +53,15 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
     public bool IsDamageAmped => DamageAmpRemaining > 0f && DamageAmpMultiplier > 0f;
     public bool IsShieldProtected { get; set; } = false;
 
+    // Wildfire burn state
+    public float BurnRemaining { get; set; } = 0f;
+    public float BurnDamagePerSecond { get; set; } = 0f;
+    public int BurnOwnerSlotIndex { get; set; } = -1;
+    public float BurnTrailDropTimer { get; set; } = 0f;
+
+    /// <summary>Last known movement direction (normalized). Used by Wildfire to orient trail VFX.</summary>
+    public Vector2 Heading => _hasLastHeading ? _lastHeading : Vector2.Right;
+
     private ColorRect? _hpFill;
     private float _hpBarWidth;
     private bool _wasSlow;
@@ -307,7 +316,48 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
             }
         }
 
+        if (BurnRemaining > 0f)
+            DrawBurnOverlay(GetBurnOverlayRadius());
+
         DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
+    }
+
+    private float GetBurnOverlayRadius() => EnemyTypeId switch
+    {
+        "armored_walker"  => 19f,
+        "splitter_walker" => 14f,
+        "reverse_walker"  => 14f,
+        "swift_walker"    => 13f,
+        "splitter_shard"  => 12f,
+        "shield_drone"    => 14f,
+        _                 => 13f,
+    };
+
+    private void DrawBurnOverlay(float radius)
+    {
+        float intensity = System.MathF.Min(1f, BurnRemaining / SlotTheory.Core.Balance.WildfireBurnDuration);
+        float phase = _visualTime * 3.1f;
+        float pulse = 0.5f + System.MathF.Sin(phase) * 0.5f;
+
+        // Amber fill glow -- communicates heat clearly, distinct from chill (blue) and mark (magenta)
+        float fillAlpha = (0.08f + pulse * 0.06f) * intensity;
+        DrawCircle(Vector2.Zero, radius * 0.85f, new Color(1.0f, 0.45f, 0.10f, fillAlpha));
+
+        // Pulsing outer ring
+        float ringAlpha = (0.50f + pulse * 0.28f) * intensity;
+        DrawArc(Vector2.Zero, radius, 0f, Mathf.Tau, 20,
+            new Color(1.0f, 0.60f, 0.10f, ringAlpha), 1.8f);
+
+        // Three orbiting embers -- small sparks rotating around the enemy
+        float sparkOrbit = radius * 0.72f;
+        for (int i = 0; i < 3; i++)
+        {
+            float angle = _visualTime * 2.5f + i * Mathf.Tau / 3f;
+            var off = new Vector2(System.MathF.Cos(angle) * sparkOrbit,
+                                  System.MathF.Sin(angle) * sparkOrbit);
+            float sa = (0.55f + 0.35f * System.MathF.Sin(_visualTime * 4.4f + i)) * intensity;
+            DrawCircle(off, 2.4f, new Color(1.0f, 0.78f, 0.18f, sa));
+        }
     }
 
     private EnemyRenderState BuildRenderState()

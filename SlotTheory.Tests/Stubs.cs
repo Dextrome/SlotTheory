@@ -52,4 +52,8 @@ public class FakeEnemy : IEnemyView
     public float DamageAmpRemaining { get; set; } = 0f;
     public float DamageAmpMultiplier { get; set; } = 0f;
     public bool IsShieldProtected { get; set; } = false;
+    public float BurnRemaining { get; set; } = 0f;
+    public float BurnDamagePerSecond { get; set; } = 0f;
+    public int BurnOwnerSlotIndex { get; set; } = -1;
+    public float BurnTrailDropTimer { get; set; } = 0f;
 }

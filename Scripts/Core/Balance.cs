@@ -180,6 +180,10 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
     // Waves
     public const float DefaultSpawnInterval = 1.275f;
     public const int DefaultEnemyCount = 12;
+    // Basic walker pair grouping: walkers arrive in pairs separated by a short gap,
+    // with a longer gap between pairs. Average = 1.0× so total wave density is unchanged.
+    public const float BasicWalkerGroupShortInterval = 0.5f; // gap within a pair
+    public const float BasicWalkerGroupLongInterval  = 1.5f; // gap between pairs
 
     // Difficulty multipliers
     public static class DifficultyMultipliers
@@ -276,6 +280,17 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
     public const float AccordionCompressionFactor        = 0.25f;  // 75% spread reduction per pulse
     public const float AccordionMinSpacingPx             = 8f;     // minimum path distance between enemies after compression
     public const int   AccordionMinEnemiesForCompression = 2;      // need at least 2 in range to compress
+
+    // Wildfire modifier
+    // Burn DPS = tower.BaseDamage × WildfireBurnDpsRatio (intentionally does NOT scale with FinalDamage
+    // so Focus Lens / Momentum amplification doesn't create runaway burn values).
+    public const float WildfireBurnDuration      = 4.0f;   // seconds the burn status lasts
+    public const float WildfireBurnDpsRatio      = 0.25f;  // burn DPS as fraction of tower BaseDamage
+    public const float WildfireTrailDropInterval = 0.65f;  // seconds between trail segment deposits
+    public const float WildfireTrailLifetime     = 2.2f;   // seconds a trail segment persists
+    public const float WildfireTrailDamageRatio  = 0.40f;  // trail DPS = burnDPS × this
+    public const float WildfireTrailRadius       = 30f;    // overlap radius for trail damage (px)
+    public const int   WildfireMaxTrailSegments  = 20;     // global cap per wave (prevents perf blowup with Hair Trigger)
 
     private static float ClampDifficultyMultiplier(float value, float min, float max)
         => value < min ? min : (value > max ? max : value);

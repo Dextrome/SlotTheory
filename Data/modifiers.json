@@ -53,5 +53,10 @@
     "Id": "blast_core",
     "Name": "Blast Core",
     "Description": "Hit: 45% splash in 140px. +25px radius/copy."
+  },
+  "wildfire": {
+    "Id": "wildfire",
+    "Name": "Wildfire",
+    "Description": "Ignite 4s: 25% dmg/s burn. Burning enemies leave fire trails; enemies overlapping take 40% burn DPS."
   }
 }

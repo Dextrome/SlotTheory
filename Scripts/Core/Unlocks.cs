@@ -20,6 +20,7 @@ public static class Unlocks
     public const string AccordionEngineAchievementId = "ACCORDION_UNSEALED";
     public const string BlastCoreModifierId = "blast_core";
     public const string BlastCoreAchievementId = "BLAST_UNSEALED";
+    public const string WildfireModifierId = "wildfire";
     private const string ArcEmitterFallbackMapId = "sprawl";
     private const string SplitShotFallbackMapId = "arena_classic";
     private const string RiftPrismFallbackMapId = "gauntlet";
@@ -139,8 +140,10 @@ public static class Unlocks
 
     public static bool IsModifierUnlocked(string modifierId)
     {
-        // Blast Core is full-game only -- excluded from demo regardless of bot mode.
+        // Blast Core and Wildfire are full-game only -- excluded from demo regardless of bot mode.
         if (Balance.IsDemo && string.Equals(modifierId, BlastCoreModifierId, StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (Balance.IsDemo && string.Equals(modifierId, WildfireModifierId, StringComparison.OrdinalIgnoreCase))
             return false;
 
         // Keep bots fully unlocked for deterministic balance tests.

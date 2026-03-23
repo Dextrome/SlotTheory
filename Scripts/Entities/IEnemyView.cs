@@ -18,4 +18,10 @@ public interface IEnemyView
     float DamageAmpRemaining { get; set; }
     float DamageAmpMultiplier { get; set; }
     bool IsShieldProtected { get; set; }
+
+    // Wildfire burn state. Written by Wildfire.OnHit(); ticked and applied by CombatSim.UpdateBurnAndTrails().
+    float BurnRemaining { get; set; }
+    float BurnDamagePerSecond { get; set; }
+    int BurnOwnerSlotIndex { get; set; }
+    float BurnTrailDropTimer { get; set; }
 }

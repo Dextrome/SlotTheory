@@ -66,6 +66,7 @@ public partial class ModifierIcon : Control
             case "feedback_loop": DrawFeedbackLoop(c, r); break;
             case "chain_reaction": DrawChainReaction(c, r); break;
             case "blast_core": DrawBlastCore(c, r); break;
+            case "wildfire": DrawWildfire(c, r); break;
             default:
                 DrawCircle(c, r * 0.45f, _iconColor);
                 break;
@@ -176,5 +177,35 @@ public partial class ModifierIcon : Control
             var dir = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
             DrawLine(c + dir * r * 0.32f, c + dir * r * 0.88f, _iconColor, 1.8f);
         }
+    }
+
+    private void DrawWildfire(Vector2 c, float r)
+    {
+        // Flame silhouette: teardrop pointing up, with two side-curving tendrils.
+        // Reads as "fire" at small icon sizes -- distinct from explosion (spikes) and chain (rings).
+
+        // Central flame body -- tall teardrop
+        var flame = new[]
+        {
+            c + new Vector2(0,        -r * 0.92f),  // tip
+            c + new Vector2( r * 0.42f,  r * 0.10f),
+            c + new Vector2( r * 0.30f,  r * 0.72f),
+            c + new Vector2(0,           r * 0.50f), // base
+            c + new Vector2(-r * 0.30f,  r * 0.72f),
+            c + new Vector2(-r * 0.42f,  r * 0.10f),
+            c + new Vector2(0,        -r * 0.92f),
+        };
+        DrawPolyline(flame, _iconColor, 2.0f);
+
+        // Left ember tendril -- short curved line suggesting a trail fragment
+        DrawLine(c + new Vector2(-r * 0.55f, r * 0.30f),
+                 c + new Vector2(-r * 0.88f, r * 0.65f), _iconColor, 1.5f);
+
+        // Right ember tendril
+        DrawLine(c + new Vector2( r * 0.55f, r * 0.30f),
+                 c + new Vector2( r * 0.88f, r * 0.65f), _iconColor, 1.5f);
+
+        // Hot inner core dot
+        DrawCircle(c + new Vector2(0, r * 0.10f), r * 0.18f, _iconColor);
     }
 }

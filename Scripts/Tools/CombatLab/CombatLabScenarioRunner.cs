@@ -44,6 +44,10 @@ public sealed class CombatLabScenarioRunner
         public float DamageAmpRemaining { get; set; }
         public float DamageAmpMultiplier { get; set; }
         public bool IsShieldProtected { get; set; }
+        public float BurnRemaining { get; set; }
+        public float BurnDamagePerSecond { get; set; }
+        public int BurnOwnerSlotIndex { get; set; } = -1;
+        public float BurnTrailDropTimer { get; set; }
 
         public string StatusTags()
         {

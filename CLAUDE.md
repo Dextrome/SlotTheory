@@ -414,7 +414,7 @@ If an idea requires a new system â†’ defer to "Project 2."
 ## V1 Content
 
 - **6 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +40% dmg taken, 4s), Arc Emitter (**unlockable** via campaign map clear; chains to 2 enemies, 400 px chain range, 60% decay/bounce), Rift Sapper (**unlockable** via campaign map clear; charged lane-mine trap tower with wave-start seeding burst), Accordion Engine (**unlockable** via campaign map clear; 3.2s pulse hits all in-range enemies + compresses their Progress spacing; primary isChain:false, secondaries isChain:true; violet visual identity; `AccordionPulseVfx.cs` contracting-ring FX; synergizes with Overreach + Blast Core)
-- **10 modifiers** (always check `Balance.cs` + `modifiers.json` for current values â€” these drift after balance passes):
+- **11 modifiers** (always check `Balance.cs` + `modifiers.json` for current values â€” these drift after balance passes):
   - Momentum: +16% dmg/hit same target, max Ã-1.80
   - Overkill: 60% excess dmg spills to next enemy
   - Exploit Weakness: +45% dmg vs Marked enemies
@@ -431,6 +431,12 @@ If an idea requires a new system â†’ defer to "Project 2."
     - Splash is raw HP damage -- no modifier hooks, no status application, no recursive blast
     - Splash respects Shield Drone protection; does NOT re-apply Marked/DamageAmp bonuses
     - VFX: `BlastCoreRing.cs` expanding amber ring at impact point; impact sparks at each hit enemy
+  - Wildfire: ignites enemies on primary hit (4s burn, 25% BaseDamage/s DOT); burning enemies drop short-lived fire trail segments (2.2s lifetime, 30px radius, 40% of burn DPS to overlapping enemies); stacks increase burn DPS additively; does NOT fire on chain bounces (isChain=true)
+    - Burn DPS scales with tower BaseDamage (not FinalDamage) -- prevents runaway scaling with Focus Lens/Momentum
+    - Trail segments are raw HP damage -- no modifier hooks, no recursive burn, no status application
+    - Chill Shot synergy: slowed enemies linger inside trail segments longer (no special-case code needed)
+    - Global trail cap: `Balance.WildfireMaxTrailSegments = 20` per wave (prevents blowup with Hair Trigger)
+    - VFX: burn overlay on ignited enemies; `WildfireTrailVfx.cs` ember puddle nodes at drop points
 - **7 enemy types** (5 in demo; Shield Drone and Reverse Walker are full-game only):
   - Basic Walker: 65 HP wave 1, Ã-1.10/wave, 120px/s
   - Armored Walker: 3.5Ã- HP, 60px/s, first appears wave 6 (index 5)

@@ -20,6 +20,7 @@ public static class ModifierRegistry
         ["feedback_loop"]    = def => new FeedbackLoop(def),
         ["chain_reaction"]   = def => new ChainReaction(def),
         ["blast_core"]       = def => new BlastCore(def),
+        ["wildfire"]         = def => new Wildfire(def),
     };
 
     public static Modifier Create(string modifierId)

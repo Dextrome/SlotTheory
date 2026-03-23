@@ -155,13 +155,14 @@ public class BotPlayer
     {
         "overkill",         // bloom from kills; spill now tracked as explosion damage
         "blast_core",       // splash AoE drives multi-kill chains; strong spectacle meter generator
+        "wildfire",         // burn DOT + trail hazards drive sustained damage and kill chains
         "chain_reaction",   // chain bounces → more kills → more overkill spills
-        "split_shot",       // BurnPatch residue (only damage-dealing residue type)
-        "hair_trigger",     // attack speed → more kills → more overkill spills
+        "split_shot",       // multi-ignition: each split projectile applies Burning independently
+        "hair_trigger",     // attack speed → more kills + denser trail painting
         "momentum",
         "feedback_loop",
         "focus_lens",
-        "slow",             // status-primes enemies for detonation
+        "slow",             // status-primes enemies; slowed enemies linger in trails longer
         "exploit_weakness",
         "overreach",
     };

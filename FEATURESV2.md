@@ -113,7 +113,7 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 
 ## 3. Modifier Roster
 
-11 modifiers total. 2 unlockable. All equipped via draft; max 3 per tower.
+12 modifiers total. 2 unlockable. All equipped via draft; max 3 per tower.
 
 | Modifier | ID | Effect | Unlock |
 |---|---|---|---|
@@ -128,6 +128,7 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 | Chain Reaction | `chain_reaction` | On hit: +1 bounce at 50% damage carry; each extra copy adds +1 bounce | -- |
 | Split Shot | `split_shot` | On hit: fires 2 extra projectiles at nearby enemies at 28% damage; each extra copy adds +1 projectile | SPLIT_UNSEALED |
 | Blast Core | `blast_core` | On primary hit: 45% splash in 140 px radius; each extra copy adds +25 px radius | BLAST_UNSEALED |
+| Wildfire | `wildfire` | On primary hit: ignite for 4 s burn at 25% BaseDamage/s; burning enemies drop fire trail segments (2.2 s, 30 px radius, 40% burn DPS to overlapping enemies); stacks add burn DPS | -- |
 
 ### Modifier isChain Rules
 
@@ -136,6 +137,7 @@ Modifiers that opt out of chain/secondary targets set `ApplyToChainTargets = fal
 | Modifier | ApplyToChainTargets | OnHit fires on secondaries? |
 |---|---|---|
 | Blast Core | **false** | No -- splash only on primary hits |
+| Wildfire | **false** | No -- ignition only on primary hits |
 | Overkill | **false** | No -- kill spill only on primary kills |
 | All others | true | Yes |
 
@@ -327,7 +329,7 @@ Unlock gates live in `Unlocks.cs`. All unlocks require winning a run on the spec
 
 **Map order** is determined by `displayOrder` field in `maps.json`, filtered to non-random maps. Fallback IDs are hardcoded in `Unlocks.cs` for cases where DataLoader is unavailable.
 
-**Demo gating:** Blast Core is always locked in demo builds regardless of achievement state. Accordion Engine is similarly locked in demo (it requires ridgeback/double_back which are not in the demo map pool).
+**Demo gating:** Blast Core and Wildfire are always locked in demo builds regardless of achievement state. Accordion Engine is similarly locked in demo (it requires ridgeback/double_back which are not in the demo map pool).
 
 **Unlock reveal flow:** On winning a run that triggers an unlock, `GameController.EnqueueUnlockReveals()` queues `UnlockRevealScreen` panels that show sequentially. Each panel uses `ShowTowerUnlock` or `ShowModifierUnlock` based on content type.
 
@@ -402,7 +404,7 @@ Every tower surge contributes to a shared global meter:
 
 ### Surge Differentiation System
 
-`SurgeDifferentiation.cs` (pure-logic, no Godot deps) is the single source of truth for global surge archetypes. 11 named labels mapped from dominant contributing modifier:
+`SurgeDifferentiation.cs` (pure-logic, no Godot deps) is the single source of truth for global surge archetypes. 12 named labels mapped from dominant contributing modifier:
 
 | Label | Dominant Modifier | Feel |
 |---|---|---|
@@ -417,6 +419,7 @@ Every tower surge contributes to a shared global meter:
 | REBOOT CASCADE | Feedback Loop | Detonation |
 | CHAIN STORM | Chain Reaction | Neutral |
 | BLAST WAVE | Blast Core | Detonation |
+| INFERNO SURGE | Wildfire | Detonation |
 
 Falls back to **GLOBAL SURGE** if no dominant modifier detected.
 
@@ -732,7 +735,7 @@ All tower attacks are hitscan -- instant damage on attack. No projectile nodes s
 
 ### Unit Tests
 
-`SlotTheory.Tests` (xUnit, 483 tests as of current build). All pure-logic tests; no Godot engine initialization required.
+`SlotTheory.Tests` (xUnit, 490 tests as of current build). All pure-logic tests; no Godot engine initialization required.
 
 Key test suites:
 - `ModifierTests.cs` -- all 11 modifiers

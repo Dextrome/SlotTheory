@@ -9,7 +9,7 @@ using Xunit;
 namespace SlotTheory.Tests;
 
 /// <summary>
-/// Unit tests for all 10 modifier behaviors using FakeTower and FakeEnemy stubs.
+/// Unit tests for all 11 modifier behaviors using FakeTower and FakeEnemy stubs.
 /// No Godot engine needed - all pure C# logic.
 /// </summary>
 public class ModifierTests
@@ -312,5 +312,121 @@ public class ModifierTests
         mod.OnKill(Ctx(tower, enemy));
 
         Assert.Equal(0f, tower.Cooldown);
+    }
+
+    // ── Wildfire ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Wildfire_OnHit_PrimaryHit_AppliesBurnToTarget()
+    {
+        var tower = new FakeTower { BaseDamage = 10f };
+        tower.Modifiers.Add(new Wildfire(Def("wildfire")));
+        var enemy = new FakeEnemy { Hp = 100f };
+
+        tower.Modifiers[0].OnHit(Ctx(tower, enemy));
+
+        Assert.Equal(Balance.WildfireBurnDuration, enemy.BurnRemaining, precision: 3);
+        Assert.True(enemy.BurnDamagePerSecond > 0f);
+    }
+
+    [Fact]
+    public void Wildfire_OnHit_ChainHit_DoesNotApplyBurn()
+    {
+        var tower = new FakeTower { BaseDamage = 10f };
+        tower.Modifiers.Add(new Wildfire(Def("wildfire")));
+        var enemy = new FakeEnemy { Hp = 100f };
+        var ctx = new DamageContext(tower, enemy, waveIndex: 0,
+                                    new List<IEnemyView>(), isChain: true);
+
+        tower.Modifiers[0].OnHit(ctx);
+
+        Assert.Equal(0f, enemy.BurnRemaining);
+        Assert.Equal(0f, enemy.BurnDamagePerSecond);
+    }
+
+    [Fact]
+    public void Wildfire_OnHit_RefreshesDurationOnReapplication()
+    {
+        var tower = new FakeTower { BaseDamage = 10f };
+        tower.Modifiers.Add(new Wildfire(Def("wildfire")));
+        var enemy = new FakeEnemy { Hp = 100f, BurnRemaining = 0.5f };
+
+        tower.Modifiers[0].OnHit(Ctx(tower, enemy));
+
+        Assert.Equal(Balance.WildfireBurnDuration, enemy.BurnRemaining, precision: 3);
+    }
+
+    [Fact]
+    public void Wildfire_OnHit_TwoCopies_DoublesBurnDps()
+    {
+        var tower = new FakeTower { BaseDamage = 10f };
+        tower.Modifiers.Add(new Wildfire(Def("wildfire")));
+        tower.Modifiers.Add(new Wildfire(Def("wildfire")));
+        var enemy = new FakeEnemy { Hp = 100f };
+
+        tower.Modifiers[0].OnHit(Ctx(tower, enemy));
+
+        float expectedDps = tower.BaseDamage * Balance.WildfireBurnDpsRatio * 2;
+        Assert.Equal(expectedDps, enemy.BurnDamagePerSecond, precision: 3);
+    }
+
+    [Fact]
+    public void Wildfire_OnHit_DeadTarget_DoesNotIgnite()
+    {
+        var tower = new FakeTower { BaseDamage = 10f };
+        tower.Modifiers.Add(new Wildfire(Def("wildfire")));
+        var enemy = new FakeEnemy { Hp = 0f }; // already dead
+
+        tower.Modifiers[0].OnHit(Ctx(tower, enemy));
+
+        Assert.Equal(0f, enemy.BurnRemaining);
+    }
+
+    [Fact]
+    public void Wildfire_OnHit_SetsTrailDropTimerToFullInterval()
+    {
+        var tower = new FakeTower { BaseDamage = 10f };
+        tower.Modifiers.Add(new Wildfire(Def("wildfire")));
+        var enemy = new FakeEnemy { Hp = 100f };
+
+        tower.Modifiers[0].OnHit(Ctx(tower, enemy));
+
+        Assert.Equal(Balance.WildfireTrailDropInterval, enemy.BurnTrailDropTimer, precision: 3);
+    }
+
+    [Fact]
+    public void Wildfire_OnHit_ReIgnition_DoesNotResetTrailDropTimer()
+    {
+        // Fast-firing tower re-ignites a burning enemy before the drop timer expires.
+        // The timer must NOT be reset, otherwise it never counts down and trails never drop.
+        var tower = new FakeTower { BaseDamage = 10f };
+        tower.Modifiers.Add(new Wildfire(Def("wildfire")));
+        var enemy = new FakeEnemy { Hp = 100f };
+
+        // First ignition -- sets timer to full interval
+        tower.Modifiers[0].OnHit(Ctx(tower, enemy));
+        float timerAfterFirstHit = enemy.BurnTrailDropTimer;
+
+        // Simulate partial countdown (0.3 s elapsed out of 0.65 s interval)
+        enemy.BurnTrailDropTimer -= 0.3f;
+        float timerBeforeReIgnition = enemy.BurnTrailDropTimer;
+
+        // Re-ignition while still burning -- timer must NOT be reset to full interval
+        tower.Modifiers[0].OnHit(Ctx(tower, enemy));
+
+        Assert.Equal(timerBeforeReIgnition, enemy.BurnTrailDropTimer, precision: 3);
+    }
+
+    [Fact]
+    public void Wildfire_OnHit_SingleCopy_DpsEqualsBaseDamageTimesRatio()
+    {
+        var tower = new FakeTower { BaseDamage = 20f };
+        tower.Modifiers.Add(new Wildfire(Def("wildfire")));
+        var enemy = new FakeEnemy { Hp = 100f };
+
+        tower.Modifiers[0].OnHit(Ctx(tower, enemy));
+
+        float expectedDps = 20f * Balance.WildfireBurnDpsRatio;
+        Assert.Equal(expectedDps, enemy.BurnDamagePerSecond, precision: 3);
     }
 }
