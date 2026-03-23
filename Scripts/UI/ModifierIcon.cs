@@ -65,6 +65,7 @@ public partial class ModifierIcon : Control
             case "split_shot": DrawSplitShot(c, r); break;
             case "feedback_loop": DrawFeedbackLoop(c, r); break;
             case "chain_reaction": DrawChainReaction(c, r); break;
+            case "blast_core": DrawBlastCore(c, r); break;
             default:
                 DrawCircle(c, r * 0.45f, _iconColor);
                 break;
@@ -163,5 +164,17 @@ public partial class ModifierIcon : Control
         DrawArc(c + new Vector2(r * 0.35f, 0), r * 0.32f, 0f, Mathf.Tau, 24, _iconColor, 1.8f);
         DrawLine(c + new Vector2(-r * 0.05f, -r * 0.22f), c + new Vector2(r * 0.05f, -r * 0.22f), _iconColor, 1.8f);
         DrawLine(c + new Vector2(-r * 0.05f, r * 0.22f), c + new Vector2(r * 0.05f, r * 0.22f), _iconColor, 1.8f);
+    }
+
+    private void DrawBlastCore(Vector2 c, float r)
+    {
+        // Explosion burst: small center circle + 8 radiating spikes
+        DrawCircle(c, r * 0.22f, _iconColor);
+        for (int i = 0; i < 8; i++)
+        {
+            float angle = i * Mathf.Tau / 8f;
+            var dir = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
+            DrawLine(c + dir * r * 0.32f, c + dir * r * 0.88f, _iconColor, 1.8f);
+        }
     }
 }

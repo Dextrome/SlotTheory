@@ -20,9 +20,10 @@ public partial class AchievementToast : CanvasLayer
     private const int   MarginBottom  = 16;
     private const float EnterShiftPx  = 34f;
 
-    private Panel?  _panel;
-    private Label?  _title;
-    private Label?  _desc;
+    private Panel?   _panel;
+    private Label?   _title;
+    private Label?   _desc;
+    private Control? _iconHolder;
     private ColorRect? _flash;
     private float   _timer;
     private double  _lastTickSec;
@@ -71,27 +72,28 @@ public partial class AchievementToast : CanvasLayer
         margin.MouseFilter = Control.MouseFilterEnum.Ignore;
         _panel.AddChild(margin);
 
+        var outerHbox = new HBoxContainer();
+        outerHbox.AddThemeConstantOverride("separation", 10);
+        outerHbox.MouseFilter = Control.MouseFilterEnum.Ignore;
+        margin.AddChild(outerHbox);
+
+        // Icon holder -- filled with achievement PNG if available, star badge otherwise
+        _iconHolder = new Control();
+        _iconHolder.CustomMinimumSize = new Vector2(44f, 44f);
+        _iconHolder.MouseFilter = Control.MouseFilterEnum.Ignore;
+        outerHbox.AddChild(_iconHolder);
+
         var vbox = new VBoxContainer();
         vbox.AddThemeConstantOverride("separation", 2);
         vbox.MouseFilter = Control.MouseFilterEnum.Ignore;
-        margin.AddChild(vbox);
-
-        var header = new HBoxContainer();
-        header.AddThemeConstantOverride("separation", 6);
-        header.MouseFilter = Control.MouseFilterEnum.Ignore;
-        vbox.AddChild(header);
-
-        var badge = new Label { Text = "★" };
-        badge.AddThemeFontSizeOverride("font_size", 14);
-        badge.Modulate    = new Color("#a6d608");
-        badge.MouseFilter = Control.MouseFilterEnum.Ignore;
-        header.AddChild(badge);
+        vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        outerHbox.AddChild(vbox);
 
         var unlockLabel = new Label { Text = "Achievement Unlocked" };
         unlockLabel.AddThemeFontSizeOverride("font_size", 12);
         unlockLabel.Modulate    = new Color(0.55f, 0.55f, 0.55f);
         unlockLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
-        header.AddChild(unlockLabel);
+        vbox.AddChild(unlockLabel);
 
         _title = new Label();
         _title.AddThemeFontSizeOverride("font_size", 15);
@@ -155,6 +157,44 @@ public partial class AchievementToast : CanvasLayer
 
         if (_title != null) _title.Text = def.Name;
         if (_desc  != null) _desc.Text  = def.Desc;
+
+        // Populate icon: PNG from Assets/Achievements if it exists, ★ badge otherwise
+        if (_iconHolder != null)
+        {
+            foreach (var child in _iconHolder.GetChildren())
+                ((Node)child).QueueFree();
+
+            string iconPath = $"res://Assets/Achievements/{id}.png";
+            Texture2D? tex = null;
+            if (ResourceLoader.Exists(iconPath))
+            {
+                try { tex = ResourceLoader.Load<Texture2D>(iconPath); }
+                catch { tex = null; }
+            }
+            if (tex != null)
+            {
+                var iconRect = new TextureRect
+                {
+                    Texture           = tex,
+                    ExpandMode        = TextureRect.ExpandModeEnum.IgnoreSize,
+                    StretchMode       = TextureRect.StretchModeEnum.KeepAspectCentered,
+                    MouseFilter       = Control.MouseFilterEnum.Ignore,
+                };
+                iconRect.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+                _iconHolder.AddChild(iconRect);
+            }
+            else
+            {
+                var badge = new Label { Text = "★" };
+                badge.AddThemeFontSizeOverride("font_size", 24);
+                badge.Modulate            = new Color("#a6d608");
+                badge.MouseFilter         = Control.MouseFilterEnum.Ignore;
+                badge.HorizontalAlignment = HorizontalAlignment.Center;
+                badge.VerticalAlignment   = VerticalAlignment.Center;
+                badge.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+                _iconHolder.AddChild(badge);
+            }
+        }
 
         _visible = true;
         _timer   = ShowDuration;

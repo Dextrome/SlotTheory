@@ -41,6 +41,7 @@ public static class ModifierVisuals
         "overreach" => colorblind ? CB_Range : Range,
 
         "exploit_weakness" => colorblind ? CB_StatusSynergy : StatusSynergy,
+        "blast_core"       => colorblind ? CB_DamageScaling : DamageScaling,
         _ => new Color(0.80f, 0.80f, 0.95f),
     };
 
@@ -56,6 +57,7 @@ public static class ModifierVisuals
         "split_shot" => "MULTI-HIT",
         "feedback_loop" => "COOLDOWN RESET",
         "chain_reaction" => "CHAINING",
+        "blast_core"     => "SPLASH",
         _ => "MODIFIER",
     };
 }

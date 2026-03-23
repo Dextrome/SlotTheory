@@ -199,9 +199,14 @@ public partial class AchievementsPanel : Node
         string? loadPath = isUnlocked && ResourceLoader.Exists(iconPath)        ? iconPath
                          : !isUnlocked && ResourceLoader.Exists(iconLockedPath) ? iconLockedPath
                          : null;
+        Texture2D? tex = null;
         if (loadPath != null)
         {
-            var tex = ResourceLoader.Load<Texture2D>(loadPath);
+            try { tex = ResourceLoader.Load<Texture2D>(loadPath); }
+            catch { tex = null; }
+        }
+        if (tex != null)
+        {
             var iconRect = new TextureRect
             {
                 Texture             = tex,

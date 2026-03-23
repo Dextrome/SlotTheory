@@ -353,7 +353,7 @@ public partial class UnlockRevealScreen : CanvasLayer
     private static Control BuildTowerGraphic(string towerId)
     {
         float size = MobileOptimization.IsMobile() ? 76f : 92f;
-        return new TowerIcon
+        return new TowerIconFull
         {
             TowerId = towerId,
             CustomMinimumSize = new Vector2(size, size),

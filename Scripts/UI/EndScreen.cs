@@ -346,6 +346,7 @@ public partial class EndScreen : CanvasLayer
 	public void SetCampaignMode(CampaignStageDefinition? nextStage)
 	{
 		_isCampaignRun = true;
+		_isPlaytestRun = false;
 		_nextCampaignStage = nextStage;
 
 		if (GodotObject.IsInstanceValid(_viewLeaderboardButton)) _viewLeaderboardButton.Visible = false;

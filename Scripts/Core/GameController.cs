@@ -20,6 +20,7 @@ public partial class GameController : Node
 	public static GameController Instance { get; private set; } = null!;
 
 	public GamePhase CurrentPhase { get; private set; } = GamePhase.Boot;
+	public TutorialManager? ActiveTutorial => _tutorialManager;
 
 	[Export] public PackedScene? EnemyScene { get; set; }
 	[Export] public Path2D? LanePath { get; set; }
@@ -260,11 +261,11 @@ public partial class GameController : Node
 			GetTree().Quit();
 			return;
 		}
-        if (userArgs.Contains("--lab_scenario") || userArgs.Contains("--lab_sweep") || userArgs.Contains("--lab_tower_benchmark") || userArgs.Contains("--lab_modifier_benchmark"))
-        {
-            bool success = CombatLabCli.Run(userArgs);
-            if (!success)
-                GD.PrintErr("[LAB] Failed to run combat lab automation.");
+		if (userArgs.Contains("--lab_scenario") || userArgs.Contains("--lab_sweep") || userArgs.Contains("--lab_tower_benchmark") || userArgs.Contains("--lab_modifier_benchmark"))
+		{
+			bool success = CombatLabCli.Run(userArgs);
+			if (!success)
+				GD.PrintErr("[LAB] Failed to run combat lab automation.");
 			GetTree().Quit();
 			return;
 		}
@@ -995,7 +996,7 @@ public partial class GameController : Node
 		_hudPanel?.RefreshEnemies(0, 0);  // hide enemy counter during draft
 		CurrentPhase = GamePhase.Draft;
 		// Music continues uninterrupted through the draft phase.
-		_hudPanel.SetBuildName("", visible: false);
+		_hudPanel?.SetBuildName("", visible: false);
 		// Tutorial: inject scripted picks for this wave (overrides random generation)
 		if (_currentDraftOptions == null && _tutorialManager != null)
 			_currentDraftOptions = _tutorialManager.GetScriptedOptions(_runState.WaveIndex);
@@ -1273,8 +1274,8 @@ public partial class GameController : Node
 		if (option.Type == DraftOptionType.Tower)
 		{
 			if (targetSlotIndex >= 0 && targetSlotIndex < _runState.Slots.Length
-			    && _runState.Slots[targetSlotIndex].Tower == null
-			    && !_runState.Slots[targetSlotIndex].IsLocked)
+				&& _runState.Slots[targetSlotIndex].Tower == null
+				&& !_runState.Slots[targetSlotIndex].IsLocked)
 			{
 				ClearTowerPlacementPreviewGhost();
 				PlaceTower(option.Id, targetSlotIndex);
@@ -1556,9 +1557,9 @@ public partial class GameController : Node
 			tower.Scale = Vector2.Zero;
 			var placeTween = tower.CreateTween();
 			placeTween.TweenProperty(tower, "scale", new Vector2(1.15f, 1.15f), 0.15f)
-			          .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+					  .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
 			placeTween.TweenProperty(tower, "scale", Vector2.One, 0.10f)
-			          .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+					  .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
 		}
 
 		RefreshModPips(slotIndex);
@@ -2722,7 +2723,7 @@ public partial class GameController : Node
 
 		// Show during wave, and during modifier assignment so player can see what's on each tower
 		bool tooltipAllowed = CurrentPhase == GamePhase.Wave
-		                   || draftAwaitingTower;
+						   || draftAwaitingTower;
 		if (!tooltipAllowed || _runState?.Slots == null)
 		{
 			HideTooltip();
@@ -3781,7 +3782,7 @@ void fragment() {
 			rider: surgeRider,
 			spawnResidue: surgeRider != SpectacleConsequenceKind.None);
 		bool isLightningSurge = info.Signature.PrimaryModId == SpectacleDefinitions.ChainReaction
-		    || info.Signature.SecondaryModId == SpectacleDefinitions.ChainReaction;
+			|| info.Signature.SecondaryModId == SpectacleDefinitions.ChainReaction;
 		SoundManager.Instance?.Play(isLightningSurge ? "surge_lightning" : "surge");
 		ApplySpectacleGameplayPayload(info, isMajor: true);
 		TriggerStatusDetonationChain(
@@ -6989,9 +6990,9 @@ void fragment() {
 		icon.Visible = true;
 		var snap = icon.CreateTween();
 		snap.TweenProperty(icon, "scale", new Vector2(1.08f, 1.08f), 0.06f)
-		    .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+			.SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
 		snap.TweenProperty(icon, "scale", Vector2.One, 0.06f)
-		    .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+			.SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
 
 		GetTree().CreateTimer(0.12f).Timeout += () =>
 		{
@@ -8580,7 +8581,3 @@ void fragment() {
 	}
 
 }
-
-
-
-

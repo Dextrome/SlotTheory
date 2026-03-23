@@ -23,6 +23,15 @@ public partial class TutorialCallout : CanvasLayer
         Visible = false;
     }
 
+    /// <summary>Temporarily hide the callout while the pause menu is open without losing queued state.</summary>
+    public void SetPaused(bool paused)
+    {
+        if (paused)
+            Visible = false;
+        else if (_panel != null && GodotObject.IsInstanceValid(_panel))
+            Visible = true;
+    }
+
     /// <summary>Queue a callout. anchorBottom=true places it near the bottom (for HUD references).</summary>
     public void Show(string text, bool anchorBottom = false, float autoDismissSeconds = 0f)
     {

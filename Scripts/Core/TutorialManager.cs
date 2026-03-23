@@ -78,4 +78,7 @@ public class TutorialManager
 
     /// <summary>Clears any active or queued wave callouts (called when the wave ends).</summary>
     public void DismissCallouts() => _callout.DismissAll();
+
+    /// <summary>Hide/show the callout overlay without dismissing it (used by the pause screen).</summary>
+    public void SetOverlayPaused(bool paused) => _callout.SetPaused(paused);
 }

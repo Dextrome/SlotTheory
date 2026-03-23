@@ -482,6 +482,7 @@ public partial class PauseScreen : CanvasLayer
         _quitConfirmPanel.Visible = false;
         _rootContainer.Modulate = new Color(1f, 1f, 1f, 0f);
         Visible = true;
+        GameController.Instance.ActiveTutorial?.SetOverlayPaused(true);
         GetTree().Paused = true;
         var tween = CreateTween();
         tween.SetIgnoreTimeScale(true);
@@ -501,6 +502,7 @@ public partial class PauseScreen : CanvasLayer
             {
                 Visible = false;
                 _rootContainer.Modulate = Colors.White;
+                GameController.Instance.ActiveTutorial?.SetOverlayPaused(false);
                 GetTree().Paused = false;
             }));
         }
