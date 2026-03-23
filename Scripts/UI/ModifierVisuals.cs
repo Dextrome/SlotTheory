@@ -44,6 +44,8 @@ public static class ModifierVisuals
         "blast_core"       => colorblind ? CB_DamageScaling : DamageScaling,
         // Wildfire: amber-orange -- reads as "fire" and is distinct from all existing mod colors
         "wildfire"         => colorblind ? new Color(0.902f, 0.624f, 0.000f) : new Color(1.00f, 0.52f, 0.08f),
+        // Reaper Protocol: jade-teal -- reads as "life/healing", distinct from all other mod colors
+        "reaper_protocol"  => colorblind ? new Color(0.00f, 0.60f, 0.50f) : new Color(0.22f, 0.90f, 0.62f),
         _ => new Color(0.80f, 0.80f, 0.95f),
     };
 
@@ -59,8 +61,9 @@ public static class ModifierVisuals
         "split_shot" => "MULTI-HIT",
         "feedback_loop" => "COOLDOWN RESET",
         "chain_reaction" => "CHAINING",
-        "blast_core"     => "SPLASH",
-        "wildfire"       => "BURN & TRAIL",
+        "blast_core"       => "SPLASH",
+        "wildfire"         => "BURN & TRAIL",
+        "reaper_protocol"  => "SURVIVAL",
         _ => "MODIFIER",
     };
 }

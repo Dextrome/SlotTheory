@@ -103,6 +103,7 @@ public static class SpectacleDefinitions
         "marker_tower",
         "chain_tower",
         "rift_prism",
+        "phase_splitter",
     };
 
     // Compressed gain spread to keep triad charge pacing more consistent across modifier groups.

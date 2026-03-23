@@ -429,4 +429,135 @@ public class ModifierTests
         float expectedDps = 20f * Balance.WildfireBurnDpsRatio;
         Assert.Equal(expectedDps, enemy.BurnDamagePerSecond, precision: 3);
     }
+
+    // ── ReaperProtocol ────────────────────────────────────────────────────────
+
+    private static DamageContext ChainCtx(ITowerView attacker, IEnemyView target, int waveIndex = 10)
+        => new(attacker, target, waveIndex, new List<IEnemyView>(), isChain: true);
+
+    private static DamageContext PrimaryCtx(ITowerView attacker, IEnemyView target, int waveIndex = 10)
+        => new(attacker, target, waveIndex, new List<IEnemyView>(), isChain: false);
+
+    [Fact]
+    public void ReaperProtocol_OnKill_ChainKill_ReturnsFalse()
+    {
+        var tower = new FakeTower();
+        var enemy = new FakeEnemy { Hp = 0f };
+        var mod = new ReaperProtocol(Def("reaper_protocol"));
+
+        bool result = mod.OnKill(ChainCtx(tower, enemy));
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ReaperProtocol_OnKill_PrimaryKill_ReturnsTrue()
+    {
+        var tower = new FakeTower();
+        var enemy = new FakeEnemy { Hp = 0f };
+        var mod = new ReaperProtocol(Def("reaper_protocol"));
+
+        bool result = mod.OnKill(PrimaryCtx(tower, enemy));
+
+        Assert.True(result);
+    }
+
+    [Fact]
+    public void ReaperProtocol_OnKill_CapsAtKillCapPerWave()
+    {
+        var tower = new FakeTower();
+        var mod = new ReaperProtocol(Def("reaper_protocol"));
+
+        int procs = 0;
+        for (int i = 0; i < Balance.ReaperProtocolKillCap + 3; i++)
+        {
+            var enemy = new FakeEnemy { Hp = 0f };
+            if (mod.OnKill(PrimaryCtx(tower, enemy, waveIndex: 12)))
+                procs++;
+        }
+
+        Assert.Equal(Balance.ReaperProtocolKillCap, procs);
+    }
+
+    [Fact]
+    public void ReaperProtocol_OnKill_AfterCapReached_ReturnsFalse()
+    {
+        var tower = new FakeTower();
+        var mod = new ReaperProtocol(Def("reaper_protocol"));
+
+        // Exhaust the per-wave cap
+        for (int i = 0; i < Balance.ReaperProtocolKillCap; i++)
+        {
+            var e = new FakeEnemy { Hp = 0f };
+            mod.OnKill(PrimaryCtx(tower, e, waveIndex: 5));
+        }
+
+        var extra = new FakeEnemy { Hp = 0f };
+        bool result = mod.OnKill(PrimaryCtx(tower, extra, waveIndex: 5));
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    public void ReaperProtocol_OnKill_ResetsCapOnNewWave()
+    {
+        var tower = new FakeTower();
+        var mod = new ReaperProtocol(Def("reaper_protocol"));
+
+        // Exhaust cap on wave 10
+        for (int i = 0; i < Balance.ReaperProtocolKillCap; i++)
+        {
+            var e = new FakeEnemy { Hp = 0f };
+            mod.OnKill(PrimaryCtx(tower, e, waveIndex: 10));
+        }
+
+        // Cap is full -- wave 10 kill returns false
+        var postCap = new FakeEnemy { Hp = 0f };
+        Assert.False(mod.OnKill(PrimaryCtx(tower, postCap, waveIndex: 10)));
+
+        // Wave 11 resets the counter -- first kill of new wave returns true
+        var newWave = new FakeEnemy { Hp = 0f };
+        Assert.True(mod.OnKill(PrimaryCtx(tower, newWave, waveIndex: 11)));
+    }
+
+    [Fact]
+    public void ReaperProtocol_OnKill_TwoCopies_EachHaveIndependentCounters()
+    {
+        // Per the design, each modifier copy tracks kills independently.
+        // Two copies on the same tower each have their own cap of 5.
+        var tower = new FakeTower();
+        var mod1 = new ReaperProtocol(Def("reaper_protocol"));
+        var mod2 = new ReaperProtocol(Def("reaper_protocol"));
+
+        // Exhaust mod1's cap
+        for (int i = 0; i < Balance.ReaperProtocolKillCap; i++)
+        {
+            var e = new FakeEnemy { Hp = 0f };
+            mod1.OnKill(PrimaryCtx(tower, e, waveIndex: 10));
+        }
+
+        // mod1 is capped, mod2 still has kills available
+        var enemy = new FakeEnemy { Hp = 0f };
+        Assert.False(mod1.OnKill(PrimaryCtx(tower, enemy, waveIndex: 10)));
+        Assert.True(mod2.OnKill(PrimaryCtx(tower, enemy, waveIndex: 10)));
+    }
+
+    [Fact]
+    public void ReaperProtocol_OnKill_ChainKillDoesNotCountTowardCap()
+    {
+        // Chain kills must never consume cap slots -- only primary kills do.
+        var tower = new FakeTower();
+        var mod = new ReaperProtocol(Def("reaper_protocol"));
+
+        // 10 chain kills -- none count toward cap
+        for (int i = 0; i < 10; i++)
+        {
+            var e = new FakeEnemy { Hp = 0f };
+            mod.OnKill(ChainCtx(tower, e, waveIndex: 10));
+        }
+
+        // First primary kill after many chain kills should still proc (cap not consumed)
+        var primary = new FakeEnemy { Hp = 0f };
+        Assert.True(mod.OnKill(PrimaryCtx(tower, primary, waveIndex: 10)));
+    }
 }

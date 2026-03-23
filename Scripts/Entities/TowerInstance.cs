@@ -262,6 +262,7 @@ public partial class TowerInstance : Node2D, ITowerView
             case "chain_tower":      DrawChainTower();      break;
             case "rift_prism":       DrawRiftSapper();      break;
             case "accordion_engine": DrawAccordionEngine(); break;
+            case "phase_splitter":   DrawPhaseSplitter();   break;
             default: DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f)); break;
         }
         DrawReadabilityAccent();
@@ -536,6 +537,50 @@ public partial class TowerInstance : Node2D, ITowerView
         // Core energy node
         DrawCircle(Vector2.Zero, 4.5f + compress * 0.8f, new Color(violet.R, violet.G, violet.B, 0.65f + 0.20f * shot));
         DrawCircle(Vector2.Zero, 2.5f + compress * 0.5f, new Color(1f, 0.85f, 1f, 0.90f));
+    }
+
+    private void DrawPhaseSplitter()
+    {
+        var aqua = new Color(0.45f, 1.00f, 0.95f);
+        var dark = LiftInnerTone(new Color(0.04f, 0.11f, 0.16f));
+        var white = new Color(0.92f, 1.00f, 1.00f);
+        float shot = ShotKick();
+        float pulse = 0.62f + 0.38f * Mathf.Sin(_idleTime * 6.2f);
+        float phase = Mathf.Sin(_idleTime * 5.2f) * 1.4f;
+        float armPush = shot * 2.8f;
+
+        DrawCircle(Vector2.Zero, 24f, new Color(aqua.R, aqua.G, aqua.B, 0.08f + 0.04f * pulse));
+        DrawCircle(Vector2.Zero, 16f, new Color(aqua.R, aqua.G, aqua.B, 0.13f + 0.06f * pulse));
+
+        // Split core.
+        DrawPolygon(RegularPoly(10, 10.5f, Mathf.Pi / 10f), new[] { aqua });
+        DrawPolygon(RegularPoly(10, 8.2f, Mathf.Pi / 10f), new[] { dark });
+
+        // Opposed emitter arms (front/back symmetry).
+        float armLen = 15.5f + armPush;
+        float armHalfWidth = 3.1f + shot * 0.5f;
+        DrawPolygon(new[]
+        {
+            new Vector2(-armHalfWidth, -armLen - phase),
+            new Vector2( armHalfWidth, -armLen - phase),
+            new Vector2( armHalfWidth * 0.7f, -9f),
+            new Vector2(-armHalfWidth * 0.7f, -9f),
+        }, new[] { aqua });
+        DrawPolygon(new[]
+        {
+            new Vector2(-armHalfWidth,  armLen - phase),
+            new Vector2( armHalfWidth,  armLen - phase),
+            new Vector2( armHalfWidth * 0.7f, 9f),
+            new Vector2(-armHalfWidth * 0.7f, 9f),
+        }, new[] { aqua });
+
+        DrawCircle(new Vector2(0f, -armLen - phase), 3.4f + shot, new Color(white.R, white.G, white.B, 0.80f + shot * 0.15f));
+        DrawCircle(new Vector2(0f, armLen - phase), 3.4f + shot, new Color(white.R, white.G, white.B, 0.80f + shot * 0.15f));
+
+        // Midline phase seam.
+        DrawArc(Vector2.Zero, 13.5f + shot * 0.8f, -Mathf.Pi * 0.43f, Mathf.Pi * 0.43f, 26, new Color(aqua.R, aqua.G, aqua.B, 0.34f + shot * 0.18f), 1.8f);
+        DrawArc(Vector2.Zero, 13.5f + shot * 0.8f, Mathf.Pi * 0.57f, Mathf.Pi * 1.43f, 26, new Color(aqua.R, aqua.G, aqua.B, 0.34f + shot * 0.18f), 1.8f);
+        DrawCircle(Vector2.Zero, 2.6f + shot * 0.5f, new Color(1f, 1f, 1f, 0.88f));
     }
 
     private static Vector2[] RegularPoly(int sides, float radius, float angleOffset)

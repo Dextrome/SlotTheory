@@ -22,6 +22,7 @@ public static class Unlocks
     public const string BlastCoreAchievementId = "BLAST_UNSEALED";
     public const string WildfireModifierId = "wildfire";
     public const string WildfireAchievementId = "WILDFIRE_UNSEALED";
+    public const string ReaperProtocolModifierId = "reaper_protocol";
     private const string ArcEmitterFallbackMapId = "sprawl";
     private const string WildfireFallbackMapId = "six";
     private const string SplitShotFallbackMapId = "arena_classic";
@@ -155,10 +156,13 @@ public static class Unlocks
 
     public static bool IsModifierUnlocked(string modifierId)
     {
-        // Blast Core and Wildfire are full-game only -- excluded from demo regardless of bot mode.
+        // Blast Core, Wildfire, and Reaper Protocol are full-game only --
+        // excluded from demo builds and demo bot simulations regardless of bot mode.
         if (Balance.IsDemo && string.Equals(modifierId, BlastCoreModifierId, StringComparison.OrdinalIgnoreCase))
             return false;
         if (Balance.IsDemo && string.Equals(modifierId, WildfireModifierId, StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (Balance.IsDemo && string.Equals(modifierId, ReaperProtocolModifierId, StringComparison.OrdinalIgnoreCase))
             return false;
 
         // Keep bots fully unlocked for deterministic balance tests.

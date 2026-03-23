@@ -203,6 +203,7 @@ public sealed class SpectacleTuningProfile
         ["marker_tower"] = 1f,
         ["chain_tower"] = 0.96f,
         ["rift_prism"] = 1.091f,
+        ["phase_splitter"] = 1f,
     };
 
     [JsonPropertyName("tower_surge_threshold_multipliers")]
@@ -213,6 +214,7 @@ public sealed class SpectacleTuningProfile
         ["marker_tower"] = 0.9755f,
         ["chain_tower"] = 1.18f,
         ["rift_prism"] = 1.0673f,
+        ["phase_splitter"] = 1f,
     };
 
     /// <summary>

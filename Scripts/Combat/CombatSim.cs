@@ -402,6 +402,116 @@ public class CombatSim
                 continue;
             }
 
+            // Phase Splitter: single fire event that applies two independent primary hits
+            // to the first and last in-range enemies.
+            if (tower.TowerId == "phase_splitter")
+            {
+                float interval = tower.AttackInterval;
+                foreach (var mod in tower.Modifiers)
+                    mod.ModifyAttackInterval(ref interval, tower);
+
+                var (frontTarget, backTarget) = Targeting.SelectFirstAndLastTargets(tower, state.EnemiesAlive, ignoreRange: false);
+                if (frontTarget == null && backTarget == null)
+                {
+                    tower.Cooldown = 0.12f;
+                    continue;
+                }
+
+                if (BotMode) state.SlotFiredSteps[si]++;
+                tower.Cooldown = interval;
+                GameController.Instance?.RegisterSpectacleShotFired(tower);
+
+                var primaryTargets = new List<EnemyInstance>(2);
+                if (frontTarget != null) primaryTargets.Add(frontTarget);
+                if (backTarget != null && !ReferenceEquals(frontTarget, backTarget))
+                    primaryTargets.Add(backTarget);
+
+                if (!BotMode && towerNode != null)
+                {
+                    towerNode.LastTargetPosition = frontTarget?.GlobalPosition ?? backTarget!.GlobalPosition;
+                    towerNode.OnShotFired(primaryTargets[0]);
+                }
+
+                bool anyImpact = false;
+                float primaryDamage = tower.BaseDamage * Balance.PhaseSplitterDamageRatio;
+
+                foreach (EnemyInstance primary in primaryTargets)
+                {
+                    if (!GodotObject.IsInstanceValid(primary) || primary.Hp <= 0f)
+                        continue;
+
+                    float hpBefore = primary.Hp;
+                    var primaryCtx = new DamageContext(
+                        tower,
+                        primary,
+                        state.WaveIndex,
+                        state.EnemiesAlive,
+                        _state,
+                        isChain: false,
+                        damageOverride: primaryDamage);
+                    DamageModel.Apply(primaryCtx);
+                    if (tower.IsChainTower)
+                    {
+                        if (BotMode)
+                        {
+                            int bounces = CombatResolution.ApplyChainHits(tower, primary, state.WaveIndex, state.EnemiesAlive, _state);
+                            _state.TrackSpectacleChainDepth(bounces);
+                            if (bounces > 0)
+                            {
+                                float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(bounces);
+                                float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
+                                GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, chainEventDamage);
+                            }
+                        }
+                        else
+                        {
+                            ApplyChainImmediate(tower, primary, state.WaveIndex, state.EnemiesAlive, towerNode?.ProjectileColor ?? Colors.Yellow, tower.BaseDamage * tower.ChainDamageDecay);
+                        }
+                    }
+
+                    if (tower.SplitCount > 0)
+                    {
+                        ApplyPhaseSplitterSplitHits(
+                            tower,
+                            primary,
+                            state.WaveIndex,
+                            state.EnemiesAlive,
+                            inBotMode: BotMode,
+                            sourceColor: towerNode?.ProjectileColor ?? Colors.Yellow);
+                    }
+
+                    if (!BotMode)
+                    {
+                        float dealt = hpBefore - primary.Hp;
+                        if (dealt > 0.01f)
+                        {
+                            anyImpact = true;
+                            bool isKill = primary.Hp <= 0f;
+                            SpawnDamageNumber(primary.GlobalPosition, Mathf.Max(1f, dealt), isKill, tower.TowerId, towerNode?.ProjectileColor ?? Colors.Yellow);
+                            if (!isKill && GodotObject.IsInstanceValid(primary))
+                                primary.FlashHit();
+                        }
+                    }
+                }
+
+                if (!BotMode && towerNode != null)
+                {
+                    towerNode.FlashAttack();
+                    towerNode.KickRecoil(3.9f);
+                    SpawnPhaseSplitVfx(
+                        tower.GlobalPosition,
+                        frontTarget?.GlobalPosition,
+                        backTarget?.GlobalPosition,
+                        towerNode.ProjectileColor);
+                }
+
+                string phaseShootId = "shoot_phase_splitter";
+                Sounds?.Play(phaseShootId, pitchScale: ComputeShootPitch(tower));
+                if (anyImpact)
+                    Sounds?.Play("hit_phase_splitter", pitchScale: 1.0f + (float)(_mineRng.NextDouble() - 0.5) * 0.08f);
+                continue;
+            }
+
             var target = Targeting.SelectTarget(tower, state.EnemiesAlive, ignoreRange: false);
             if (target == null) continue;
 
@@ -436,6 +546,7 @@ public class CombatSim
                 "heavy_cannon"  => "shoot_heavy",
                 "marker_tower"  => "shoot_marker",
                 "chain_tower"   => "shoot_rapid",
+                "phase_splitter"=> "shoot_phase_splitter",
                 _               => "shoot_rapid",
             };
             // Chill Shot gives rapid-fire towers a softer, icier sound
@@ -1364,6 +1475,151 @@ public class CombatSim
         LanePath.GetParent().AddChild(num);
         num.GlobalPosition = worldPos + new Vector2(0f, -14f);
         num.Initialize(damage, color, isKill, sourceTowerId, scale);
+    }
+
+    private int ApplyPhaseSplitterSplitHits(
+        ITowerView tower,
+        EnemyInstance primary,
+        int waveIndex,
+        List<EnemyInstance> enemies,
+        bool inBotMode,
+        Color sourceColor)
+    {
+        if (tower.SplitCount <= 0)
+            return 0;
+
+        float splitDamage = tower.BaseDamage * Balance.SplitShotDamageRatio;
+        int splitBudget = tower.SplitCount; // phase splitter: one additional split per copy
+        int spawned = 0;
+        var candidates = enemies
+            .Where(e => !ReferenceEquals(e, primary) && e.Hp > 0f && GodotObject.IsInstanceValid(e))
+            .OrderBy(e => e.GlobalPosition.DistanceTo(primary.GlobalPosition));
+
+        foreach (EnemyInstance candidate in candidates)
+        {
+            if (spawned >= splitBudget)
+                break;
+            if (candidate.GlobalPosition.DistanceTo(primary.GlobalPosition) > Balance.SplitShotRange)
+                break;
+
+            float hpBefore = candidate.Hp;
+            DamageModel.Apply(new DamageContext(
+                tower,
+                candidate,
+                waveIndex,
+                enemies,
+                _state,
+                isChain: true,
+                damageOverride: splitDamage));
+            spawned++;
+
+            if (!inBotMode)
+            {
+                float dealt = hpBefore - candidate.Hp;
+                if (dealt > 0.01f)
+                {
+                    bool isKill = candidate.Hp <= 0f;
+                    SpawnDamageNumber(candidate.GlobalPosition, Mathf.Max(1f, dealt), isKill, tower.TowerId, sourceColor, 0.90f);
+                    if (!isKill && GodotObject.IsInstanceValid(candidate))
+                        candidate.FlashHit();
+                }
+            }
+        }
+
+        if (spawned > 0)
+        {
+            float splitScalar = SpectacleDefinitions.SplitShotEventScalar(spawned);
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.SplitShot, splitScalar, splitDamage);
+        }
+
+        return spawned;
+    }
+
+    private int ApplyChainImmediate(
+        ITowerView tower,
+        EnemyInstance primary,
+        int waveIndex,
+        List<EnemyInstance> enemies,
+        Color sourceColor,
+        float initialDamage)
+    {
+        if (tower.ChainCount <= 0)
+            return 0;
+
+        var alreadyHit = new HashSet<EnemyInstance> { primary };
+        EnemyInstance current = primary;
+        float damage = initialDamage;
+        int bounces = 0;
+
+        while (bounces < tower.ChainCount)
+        {
+            EnemyInstance? next = null;
+            float bestDist = tower.ChainRange;
+
+            foreach (EnemyInstance e in enemies)
+            {
+                if (!GodotObject.IsInstanceValid(e) || e.Hp <= 0f || alreadyHit.Contains(e))
+                    continue;
+                float d = current.GlobalPosition.DistanceTo(e.GlobalPosition);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    next = e;
+                }
+            }
+
+            if (next == null)
+                break;
+
+            float hpBefore = next.Hp;
+            DamageModel.Apply(new DamageContext(
+                tower,
+                next,
+                waveIndex,
+                enemies,
+                _state,
+                isChain: true,
+                damageOverride: damage));
+            SpawnChainArc(current.GlobalPosition, next.GlobalPosition, sourceColor);
+
+            float dealt = hpBefore - next.Hp;
+            if (dealt > 0.01f)
+            {
+                bool isKill = next.Hp <= 0f;
+                SpawnDamageNumber(next.GlobalPosition, Mathf.Max(1f, dealt), isKill, tower.TowerId, sourceColor);
+                if (!isKill && GodotObject.IsInstanceValid(next))
+                    next.FlashHit();
+            }
+
+            alreadyHit.Add(next);
+            current = next;
+            damage *= tower.ChainDamageDecay;
+            bounces++;
+        }
+
+        _state.TrackSpectacleChainDepth(bounces);
+        if (bounces > 0)
+        {
+            float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(bounces);
+            float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, chainEventDamage);
+        }
+
+        return bounces;
+    }
+
+    private void SpawnPhaseSplitVfx(Vector2 source, Vector2? frontTargetPos, Vector2? backTargetPos, Color color)
+    {
+        if (BotMode || LanePath == null)
+            return;
+
+        if (!frontTargetPos.HasValue && !backTargetPos.HasValue)
+            return;
+
+        var vfx = new PhaseSplitVfx();
+        LanePath.GetParent().AddChild(vfx);
+        vfx.GlobalPosition = Vector2.Zero;
+        vfx.Initialize(source, frontTargetPos, backTargetPos, color);
     }
 
     private void SpawnProjectile(Vector2 fromGlobal, EnemyInstance target, Color color,

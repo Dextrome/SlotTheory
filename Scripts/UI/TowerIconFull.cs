@@ -43,6 +43,7 @@ public partial class TowerIconFull : Control
             "chain_tower"      => (20f,  0.0f),   // prong tips at ~r=19, symmetric
             "rift_prism"       => (23f,  0.0f),   // fins at ±22, symmetric
             "accordion_engine" => (23f,  0.0f),   // claw arm tips at ±18, symmetric
+            "phase_splitter"   => (24f,  0.0f),   // mirrored emitters at ±16
             _                  => (14f,  0.0f),
         };
 
@@ -61,6 +62,7 @@ public partial class TowerIconFull : Control
             case "chain_tower":      DrawChainTower();      break;
             case "rift_prism":       DrawRiftSapper();      break;
             case "accordion_engine": DrawAccordionEngine(); break;
+            case "phase_splitter":   DrawPhaseSplitter();   break;
             default:
                 DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f));
                 break;
@@ -236,6 +238,42 @@ public partial class TowerIconFull : Control
         // Core energy node
         DrawCircle(Vector2.Zero, 4.5f, new Color(violet.R, violet.G, violet.B, 0.68f));
         DrawCircle(Vector2.Zero, 2.5f, new Color(1f, 0.85f, 1f, 0.90f));
+    }
+
+    // -- Phase Splitter --
+
+    private void DrawPhaseSplitter()
+    {
+        var aqua = new Color(0.45f, 1.00f, 0.95f);
+        var dark = new Color(0.07f, 0.16f, 0.22f);
+        var white = new Color(0.92f, 1.00f, 1.00f);
+
+        DrawCircle(Vector2.Zero, 24f, new Color(aqua.R, aqua.G, aqua.B, 0.08f));
+        DrawCircle(Vector2.Zero, 16f, new Color(aqua.R, aqua.G, aqua.B, 0.15f));
+
+        DrawPolygon(RegularPoly(10, 10.5f, Mathf.Pi / 10f), new[] { aqua });
+        DrawPolygon(RegularPoly(10, 8.2f, Mathf.Pi / 10f), new[] { dark });
+
+        DrawPolygon(new[]
+        {
+            new Vector2(-3.0f, -16f),
+            new Vector2( 3.0f, -16f),
+            new Vector2( 2.0f, -9f),
+            new Vector2(-2.0f, -9f),
+        }, new[] { aqua });
+        DrawPolygon(new[]
+        {
+            new Vector2(-3.0f, 16f),
+            new Vector2( 3.0f, 16f),
+            new Vector2( 2.0f, 9f),
+            new Vector2(-2.0f, 9f),
+        }, new[] { aqua });
+
+        DrawCircle(new Vector2(0f, -16f), 3.4f, new Color(white.R, white.G, white.B, 0.86f));
+        DrawCircle(new Vector2(0f, 16f), 3.4f, new Color(white.R, white.G, white.B, 0.86f));
+        DrawArc(Vector2.Zero, 13.5f, -Mathf.Pi * 0.43f, Mathf.Pi * 0.43f, 26, new Color(aqua.R, aqua.G, aqua.B, 0.36f), 1.8f);
+        DrawArc(Vector2.Zero, 13.5f, Mathf.Pi * 0.57f, Mathf.Pi * 1.43f, 26, new Color(aqua.R, aqua.G, aqua.B, 0.36f), 1.8f);
+        DrawCircle(Vector2.Zero, 2.6f, new Color(1f, 1f, 1f, 0.90f));
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

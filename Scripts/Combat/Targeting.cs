@@ -33,4 +33,29 @@ public static class Targeting
     /// <summary>Circular range check using world positions of tower and enemy nodes.</summary>
     private static bool IsInRange(ITowerView tower, IEnemyView enemy) =>
         tower.GlobalPosition.DistanceTo(enemy.GlobalPosition) <= tower.Range;
+
+    /// <summary>
+    /// Returns the leading ("first") and trailing ("last") enemy in range.
+    /// If exactly one enemy is valid, it is returned as first and last is null.
+    /// </summary>
+    public static (T? First, T? Last) SelectFirstAndLastTargets<T>(
+        ITowerView tower,
+        IEnumerable<T> enemies,
+        bool ignoreRange = false)
+        where T : class, IEnemyView
+    {
+        var inRange = ignoreRange
+            ? enemies.Where(e => e.Hp > 0).ToList()
+            : enemies.Where(e => e.Hp > 0 && IsInRange(tower, e)).ToList();
+
+        if (inRange.Count == 0)
+            return (null, null);
+
+        T? first = inRange.MaxBy(e => e.ProgressRatio);
+        T? last = inRange.MinBy(e => e.ProgressRatio);
+        if (ReferenceEquals(first, last))
+            last = null;
+
+        return (first, last);
+    }
 }

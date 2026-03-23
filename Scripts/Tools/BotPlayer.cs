@@ -126,13 +126,13 @@ public class BotPlayer
 
     // Note: accordion_engine is NOT a fast tower (3.2s interval); it's a zone-control tower.
     private static bool IsFastTower(string? towerId) =>
-        towerId is "rapid_shooter" or "chain_tower" or "rift_prism";
+        towerId is "rapid_shooter" or "chain_tower" or "rift_prism" or "phase_splitter";
 
     private static bool IsOpenerTower(string? towerId) =>
-        towerId is "rapid_shooter" or "chain_tower" or "heavy_cannon";
+        towerId is "rapid_shooter" or "chain_tower" or "heavy_cannon" or "phase_splitter";
 
     private static bool IsWildfireAnchorTower(string? towerId) =>
-        towerId is "rapid_shooter" or "rift_prism" or "accordion_engine";
+        towerId is "rapid_shooter" or "rift_prism" or "accordion_engine" or "phase_splitter";
 
     private static bool IsWildfireTimingOnline(RunState s, DifficultyMode difficulty, int picksSoFar)
     {
@@ -183,6 +183,7 @@ public class BotPlayer
     private static readonly string[] SpectacleTowerPriority =
     {
         "rapid_shooter",
+        "phase_splitter",
         "marker_tower",   // provides Marked status - status-primes enemies for detonation
         "chain_tower",
         "heavy_cannon",
@@ -269,8 +270,9 @@ public class BotPlayer
     private static int ScoreFastTowerForCadence(string? towerId) => towerId switch
     {
         "rapid_shooter" => 4,
-        "chain_tower"   => 3,
-        "rift_prism"    => 2,
+        "phase_splitter"=> 3,
+        "chain_tower"   => 2,
+        "rift_prism"    => 1,
         "heavy_cannon"  => 1,
         _               => 0
     };
@@ -278,9 +280,20 @@ public class BotPlayer
     private static int ScoreBurstTowerForSnap(string? towerId) => towerId switch
     {
         "heavy_cannon"  => 4,
-        "rapid_shooter" => 3,
+        "phase_splitter"=> 3,
+        "rapid_shooter" => 2,
         "chain_tower"   => 2,
         "rift_prism"    => 1,
+        _               => 0
+    };
+
+    private static int ScoreBacklineTower(string? towerId) => towerId switch
+    {
+        "phase_splitter" => 4,
+        "chain_tower"    => 3,
+        "rapid_shooter"  => 2,
+        "rift_prism"     => 2,
+        "heavy_cannon"  => 1,
         _               => 0
     };
 
@@ -677,7 +690,7 @@ public class BotPlayer
             // Open with an early damage tower.
             if (towerCount == 0)
             {
-                var opener = FindTowerOption(opts, "rapid_shooter", "chain_tower", "heavy_cannon");
+                var opener = FindTowerOption(opts, "phase_splitter", "rapid_shooter", "chain_tower", "heavy_cannon");
                 if (opener != null) return new DraftPick(opener, empty[0]);
             }
 
@@ -705,7 +718,7 @@ public class BotPlayer
                 }
             }
 
-            var preferredTower = FindTowerOption(opts, "accordion_engine", "rift_prism", "rapid_shooter", "heavy_cannon", "chain_tower");
+            var preferredTower = FindTowerOption(opts, "phase_splitter", "accordion_engine", "rift_prism", "rapid_shooter", "heavy_cannon", "chain_tower");
             if (preferredTower != null) return new DraftPick(preferredTower, empty[0]);
         }
 
@@ -807,7 +820,7 @@ public class BotPlayer
 
         if (empty.Count > 0)
         {
-            var dmgTower = FindTowerOption(opts, "heavy_cannon", "rapid_shooter", "chain_tower");
+            var dmgTower = FindTowerOption(opts, "phase_splitter", "heavy_cannon", "rapid_shooter", "chain_tower");
             if (dmgTower != null) return new DraftPick(dmgTower, empty[0]);
         }
 
@@ -920,7 +933,7 @@ public class BotPlayer
 
         if (empty.Count > 0)
         {
-            var tower = FindTowerOption(opts, "rapid_shooter", "heavy_cannon", "chain_tower", "rift_prism", "marker_tower");
+            var tower = FindTowerOption(opts, "phase_splitter", "rapid_shooter", "heavy_cannon", "chain_tower", "rift_prism", "marker_tower");
             if (tower != null) return new DraftPick(tower, empty[0]);
         }
 
@@ -993,9 +1006,12 @@ public class BotPlayer
                             IsFastTower(s.Slots[i].Tower?.TowerId) ? 1 : 0)
                         .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count).First(),
                     // Heavy-synergy mods: prefer heavy_cannon (big base damage)
-                    "focus_lens" or "split_shot" or "overkill" or "blast_core" =>
+                    "focus_lens" or "overkill" or "blast_core" =>
                         eligible.OrderByDescending(i =>
                             s.Slots[i].Tower?.TowerId == "heavy_cannon" ? 1 : 0)
+                        .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count).First(),
+                    "split_shot" =>
+                        eligible.OrderByDescending(i => ScoreBacklineTower(s.Slots[i].Tower?.TowerId))
                         .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count).First(),
                     // Default: tower with fewest mods
                     _ => eligible.OrderBy(i => s.Slots[i].Tower!.Modifiers.Count).First(),
@@ -1639,7 +1655,8 @@ public class BotPlayer
             // Open with a DPS tower first - Rift Sapper is a setup tower, not an opener.
             if (towerCount == 0)
             {
-                var opener = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rapid_shooter")
+                var opener = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "phase_splitter")
+                          ?? opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rapid_shooter")
                           ?? opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "chain_tower")
                           ?? opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "heavy_cannon");
                 if (opener != null) return new DraftPick(opener, empty[0]);
@@ -1647,7 +1664,7 @@ public class BotPlayer
 
             if (mapFallbackActive && !readyForFirstRift && riftCount == 0)
             {
-                var safetyOpener = FindTowerOption(opts, "rapid_shooter", "chain_tower", "heavy_cannon", "marker_tower");
+                var safetyOpener = FindTowerOption(opts, "phase_splitter", "rapid_shooter", "chain_tower", "heavy_cannon", "marker_tower");
                 if (safetyOpener != null) return new DraftPick(safetyOpener, empty[0]);
             }
 
@@ -1690,7 +1707,8 @@ public class BotPlayer
                 if (heavy != null) return new DraftPick(heavy, empty[0]);
             }
 
-            var rapid = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rapid_shooter");
+            var rapid = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "phase_splitter")
+                     ?? opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rapid_shooter");
             if (rapid != null) return new DraftPick(rapid, empty[0]);
             var chain = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "chain_tower");
             if (chain != null) return new DraftPick(chain, empty[0]);
@@ -1884,7 +1902,7 @@ public class BotPlayer
             // Wave 1: rapid_shooter opener - heavy alone can't cover early waves
             if (towerCount == 0)
             {
-                var opener = FindTowerOption(opts, "rapid_shooter", "chain_tower");
+                var opener = FindTowerOption(opts, "phase_splitter", "rapid_shooter", "chain_tower");
                 if (opener != null) return new DraftPick(opener, empty[0]);
             }
 
@@ -1899,7 +1917,8 @@ public class BotPlayer
                 var marker = FindTowerOption(opts, "marker_tower");
                 if (marker != null) return new DraftPick(marker, empty[0]);
             }
-            var rapid = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rapid_shooter");
+            var rapid = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "phase_splitter")
+                     ?? opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "rapid_shooter");
             if (rapid != null) return new DraftPick(rapid, empty[0]);
             var chain = opts.FirstOrDefault(o => o.Type == DraftOptionType.Tower && o.Id == "chain_tower");
             if (chain != null) return new DraftPick(chain, empty[0]);

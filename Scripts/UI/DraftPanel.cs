@@ -1495,6 +1495,7 @@ public partial class DraftPanel : CanvasLayer
         "marker_tower" => new Color(1.00f, 0.30f, 0.72f),
         "chain_tower" => new Color(0.62f, 0.90f, 1.00f),
         "rift_prism" => new Color(0.60f, 1.00f, 0.58f),
+        "phase_splitter" => new Color(0.45f, 1.00f, 0.95f),
         _ => new Color(0.75f, 0.85f, 1.00f),
     };
 
@@ -1505,6 +1506,7 @@ public partial class DraftPanel : CanvasLayer
         "marker_tower" => "MK",
         "chain_tower" => "AR",
         "rift_prism" => "SA",
+        "phase_splitter" => "PS",
         _ => "TW",
     };
 
@@ -1515,6 +1517,7 @@ public partial class DraftPanel : CanvasLayer
         "marker_tower" => "Applies mark to amplify team damage.",
         "chain_tower" => "Bounces into grouped enemy packs.",
         "rift_prism" => "Plants charged mines along the lane. Final charge pops harder; rapid seeding at wave start.",
+        "phase_splitter" => "Hits front and back enemies in range at reduced damage.",
         _ => "Generalist tower.",
     };
 

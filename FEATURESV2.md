@@ -64,7 +64,7 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 
 ## 2. Tower Roster
 
-6 towers total. 3 available from the start; 3 unlockable via campaign progression.
+7 towers total. 4 available from the start; 3 unlockable via campaign progression.
 
 ### Base Towers
 
@@ -73,6 +73,7 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 | Rapid Shooter | `rapid_shooter` | 10 | 0.45 s | 285 px | Fast single-target fire |
 | Heavy Cannon | `heavy_cannon` | 56 | 2.0 s | 238 px | Slow, high-burst hitscan |
 | Marker Tower | `marker_tower` | 7 | 1.0 s | 333 px | Applies Marked status on hit (+40% damage taken, 4 s) |
+| Phase Splitter | `phase_splitter` | 20 | 0.95 s | 275 px | Each shot hits first + last in range at 65% each; strong front/back pressure, weaker mid-pack density |
 
 ### Unlockable Towers
 
@@ -109,11 +110,28 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 - VFX: contracting ring via `AccordionPulseVfx.cs` (violet identity)
 - Compression is pure Progress manipulation (not a slow, stun, or crowd-control -- enemies continue moving)
 
+### Phase Splitter (phase_splitter) -- Dual-End Targeting
+- On each attack, acquires two endpoints in range:
+  - **First** target: highest ProgressRatio (front-most)
+  - **Last** target: lowest ProgressRatio (rear-most)
+- Each endpoint hit is a full primary hit context with `isChain: false` and `0.65x` damage (`Balance.PhaseSplitterDamageRatio`)
+- If only one valid target exists, fires one hit only (no duplicate/double-hit)
+- Modifier pipeline is run per endpoint hit independently:
+  - independent crit/modify damage path
+  - independent OnHit / OnKill hooks
+  - Chain Reaction can bounce from both endpoints
+  - Blast Core uses both endpoint impacts as separate splash anchors
+  - Wildfire can ignite both endpoints independently
+- Split Shot on Phase Splitter applies one extra split per copy on each endpoint hit (4-hit pattern with one Split Shot copy)
+- Visual/audio identity:
+  - one phase-split emission event with linked dual-end beams (`PhaseSplitVfx`)
+  - shared linked impact cue (not two unrelated projectile shots)
+
 ---
 
 ## 3. Modifier Roster
 
-12 modifiers total. 2 unlockable. All equipped via draft; max 3 per tower.
+13 modifiers total. 2 unlockable, 1 full-game-only wave-gated. All equipped via draft; max 3 per tower.
 
 | Modifier | ID | Effect | Unlock |
 |---|---|---|---|
@@ -129,6 +147,7 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 | Split Shot | `split_shot` | On hit: fires 2 extra projectiles at nearby enemies at 28% damage; each extra copy adds +1 projectile | SPLIT_UNSEALED |
 | Blast Core | `blast_core` | On primary hit: 45% splash in 140 px radius; each extra copy adds +25 px radius | BLAST_UNSEALED |
 | Wildfire | `wildfire` | On primary hit: ignite for 4 s burn at 25% BaseDamage/s; burning enemies drop fire trail segments (2.2 s, 30 px radius, 40% burn DPS to overlapping enemies); stacks add burn DPS | -- |
+| Reaper Protocol | `reaper_protocol` | Kill (primary only): first 5 kills per wave restore 1 life each (capped at MaxLives). **Full game only. Available from wave 10 onward.** | -- |
 
 ### Modifier isChain Rules
 
@@ -139,6 +158,7 @@ Modifiers that opt out of chain/secondary targets set `ApplyToChainTargets = fal
 | Blast Core | **false** | No -- splash only on primary hits |
 | Wildfire | **false** | No -- ignition only on primary hits |
 | Overkill | **false** | No -- kill spill only on primary kills |
+| Reaper Protocol | true (OnKill only) | OnKill checks `ctx.IsChain` internally -- chain kills are rejected at the modifier level, not via `ApplyToChainTargets` |
 | All others | true | Yes |
 
 ### Stacking

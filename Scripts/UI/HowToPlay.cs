@@ -252,6 +252,8 @@ public partial class HowToPlay : Node
             "Unlock by beating the first campaign map. Chains to 2 nearby enemies per shot (60% damage decay per bounce).");
         AddTowerRow(vbox, "rift_prism", "Rift Sapper (unlock)", "22 dmg, 0.98 s, 230 px range",
             "Unlock by beating the third campaign map. Plants up to 7 mines with 3 charges each; final charge causes the big pop. Wave start gets rapid seeding for 2.4s. Split Shot seeds mini-mines (35% scale) on final pops only.");
+        AddTowerRow(vbox, "phase_splitter", "Phase Splitter", "20 dmg, 0.95 s, 275 px range",
+            "Each attack hits both the first and last enemy in range at 65% damage each. Strong versus blockers/backline pressure, weaker into dense mid-pack clusters.");
         AddSpacer(vbox, 8);
 
         AddHeader(vbox, "TARGETING MODES  (click a tower mid-wave to cycle)");
@@ -277,6 +279,9 @@ public partial class HowToPlay : Node
         AddModRowWithIcon(vbox, "split_shot",       "Split Shot (unlock)", "Unlock by beating the second campaign map. On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
         AddModRowWithIcon(vbox, "feedback_loop",    "Feedback Loop",       "Killing an enemy instantly resets this tower's cooldown to zero. Fire again immediately after each kill.");
         AddModRowWithIcon(vbox, "chain_reaction",   "Chain Reaction",      "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
+        if (!Balance.IsDemo)
+            AddModRowWithIcon(vbox, "reaper_protocol", "Reaper Protocol (full game, wave 10+)",
+                $"Kill (primary hits only): the first {Balance.ReaperProtocolKillCap} kills each wave restore 1 life, up to your starting life total. Available from wave 10. Invaluable in Endless runs where lives become scarce.");
         AddSpacer(vbox, 8);
 
         AddHeader(vbox, "ENEMIES");

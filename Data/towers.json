@@ -43,5 +43,12 @@
                              "AttackInterval":  3.2,
                              "Range":  290.0,
                              "AppliesMark":  false
+                         },
+    "phase_splitter":  {
+                           "Name":  "Phase Splitter",
+                           "BaseDamage":  20.0,
+                           "AttackInterval":  0.95,
+                           "Range":  275.0,
+                           "AppliesMark":  false
                          }
 }

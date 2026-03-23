@@ -967,6 +967,7 @@ public sealed class CombatLabModifierBenchmarkRunner
             "marker_tower" => 90f,
             "chain_tower" => 115f,
             "rift_prism" => 120f,
+            "phase_splitter" => 122f,
             _ => 100f,
         };
     }

@@ -87,6 +87,11 @@ public static class RunNameGenerator
             "Sapper", "Minegrid", "Trapline", "Riftcharge", "Detonator", "Demolisher", "Saboteur", "Fuseweb",
             "Chokemine", "Burrowline", "Blastnet", "Voidmine"
         ],
+        ["phase_splitter"] =
+        [
+            "Splitter", "Bifurcator", "Twinphase", "Dualgate", "Mirrornode", "Phasefork", "Backline",
+            "Forkline", "Echoedge", "Polarity", "Seamcutter", "Dualcore"
+        ],
     };
 
     private static readonly Dictionary<string, string[]> FamilySuffixWords = new(StringComparer.OrdinalIgnoreCase)
@@ -311,6 +316,7 @@ public static class RunNameGenerator
             "marker_tower" => new Color(1.00f, 0.30f, 0.72f),
             "chain_tower" => new Color(0.62f, 0.90f, 1.00f),
             "rift_prism" => new Color(0.62f, 1.00f, 0.58f),
+            "phase_splitter" => new Color(0.45f, 1.00f, 0.95f),
             _ => new Color(0.84f, 0.92f, 1.00f),
         };
 
@@ -410,6 +416,7 @@ public static class RunNameGenerator
         {
             "chain_tower" => "MultiTarget",
             "rift_prism" => "Utility",
+            "phase_splitter" => "MultiTarget",
             "marker_tower" => "StatusSynergy",
             "rapid_shooter" => "DamageScaling",
             "heavy_cannon" => "DamageScaling",

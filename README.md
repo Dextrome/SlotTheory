@@ -77,7 +77,8 @@ Modifier assignment uses `Preview -> Confirm`:
 | Marker Tower | 7 | 1.0 s | 333 px | Applies Marked on hit |
 | Arc Emitter | 18 | 1.2 s | 257 px | Chains to 2 extra enemies, 400 px chain range, 50% damage decay per bounce |
 | Rift Sapper | 22 | 0.98 s | 230 px | Charged lane-mine trap tower with wave-start rapid seeding |
-| Accordion Engine | 28 | 3.2 s | 300 px | Pulses all in-range enemies simultaneously; compresses their progress spacing; violet identity |
+| Accordion Engine | 14 | 3.2 s | 290 px | Pulses all in-range enemies simultaneously; compresses their progress spacing |
+| Phase Splitter | 20 | 0.95 s | 275 px | One shot hits first and last enemies in range at 65% per target; backline/frontline pressure specialist |
 
 Unlock flow (via Campaign mode):
 - Arc Emitter: beat the first campaign map on Normal or Hard (`ARC_UNSEALED`)

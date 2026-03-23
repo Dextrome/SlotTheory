@@ -98,4 +98,77 @@ public class DraftSystemTests
         Assert.DoesNotContain(first,  o => o.Type == DraftOptionType.Modifier);
         Assert.DoesNotContain(second, o => o.Type == DraftOptionType.Modifier);
     }
+
+    // ── Wave-gated modifier (Reaper Protocol) ─────────────────────────────────
+
+    private sealed class StubDataWithReaper : IDraftDataSource
+    {
+        public IEnumerable<string> GetAllTowerIds()
+            => ["rapid_shooter", "heavy_cannon", "marker_tower"];
+
+        // Pool contains a wave-gated modifier alongside ungated ones
+        public IEnumerable<string> GetAllModifierIds()
+            => ["momentum", "overkill", "reaper_protocol"];
+    }
+
+    private static DraftSystem MakeDraftWithReaper() => new(new StubDataWithReaper());
+
+    [Fact]
+    public void GenerateOptions_WaveBelowThreshold_ExcludesWaveGatedModifier()
+    {
+        var draft = MakeDraftWithReaper();
+        var tower = new FakeTower { CanAddModifier = true };
+
+        // Wave 5 is below the Reaper Protocol minimum wave index (9)
+        var options = draft.GenerateOptions(
+            hasFreeSlots: false,
+            placedTowers: new[] { tower },
+            waveIndex: 5);
+
+        Assert.DoesNotContain(options, o => o.Id == "reaper_protocol");
+    }
+
+    [Fact]
+    public void GenerateOptions_WaveExactlyAtThreshold_IncludesWaveGatedModifier()
+    {
+        var draft = MakeDraftWithReaper();
+        var tower = new FakeTower { CanAddModifier = true };
+
+        // Wave 9 exactly equals ReaperProtocolMinWaveIndex (the threshold)
+        var options = draft.GenerateOptions(
+            hasFreeSlots: false,
+            placedTowers: new[] { tower },
+            waveIndex: Balance.ReaperProtocolMinWaveIndex);
+
+        Assert.Contains(options, o => o.Id == "reaper_protocol");
+    }
+
+    [Fact]
+    public void GenerateOptions_WaveAboveThreshold_IncludesWaveGatedModifier()
+    {
+        var draft = MakeDraftWithReaper();
+        var tower = new FakeTower { CanAddModifier = true };
+
+        // Wave 15 is well above the threshold
+        var options = draft.GenerateOptions(
+            hasFreeSlots: false,
+            placedTowers: new[] { tower },
+            waveIndex: 15);
+
+        Assert.Contains(options, o => o.Id == "reaper_protocol");
+    }
+
+    [Fact]
+    public void GenerateOptions_DefaultWaveIndex_ExcludesWaveGatedModifier()
+    {
+        // The overload without waveIndex defaults to 0, which is below the Reaper Protocol gate.
+        var draft = MakeDraftWithReaper();
+        var tower = new FakeTower { CanAddModifier = true };
+
+        var options = draft.GenerateOptions(
+            hasFreeSlots: false,
+            placedTowers: new[] { tower });  // waveIndex omitted, defaults to 0
+
+        Assert.DoesNotContain(options, o => o.Id == "reaper_protocol");
+    }
 }

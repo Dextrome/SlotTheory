@@ -112,6 +112,7 @@ public partial class SoundManager : Node
         ["shoot_rapid"]       = 45,
         ["shoot_marker"]      = 60,
         ["shoot_accordion"]   = 80,
+        ["shoot_phase_splitter"] = 70,
         // Heavy impacts: longer cooldown since they're loud and infrequent by design.
         ["shoot_heavy"]       = 90,
         ["mine_pop"]       = 55,
@@ -140,6 +141,7 @@ public partial class SoundManager : Node
         ["kill_confirm"]   = 15,   // matches hit cadence; both fire on the same combat frame
         ["shoot_rapid"]       = 20,
         ["shoot_accordion"]   = 60,
+        ["shoot_phase_splitter"] = 50,
         // Death sounds: 60–100ms keeps individual kills audibly distinct at ×2/×3.
         ["die_basic"]      = 60,
         ["die_armored"]    = 100,
@@ -204,9 +206,16 @@ public partial class SoundManager : Node
             Sweep(860f, 140f, 0.22f, vol: 0.58f),                        // compression fold: high-to-low crunch
             Tone(95f, 0.18f, vol: 0.34f, shape: 'q', env: 'f'),          // mechanical thump
             Tone(2800f, 0.04f, vol: 0.12f, shape: 'q', env: 'f')));      // lock click
+        Reg("shoot_phase_splitter", Layer(
+            Sweep(1500f, 520f, 0.14f, vol: 0.48f),                       // phase discharge
+            Sweep(420f, 980f, 0.11f, vol: 0.22f),                        // spatial split shimmer
+            Tone(110f, 0.11f, vol: 0.22f, shape: 'q', env: 'f')));       // core thump
 
         // ── Enemy events ─────────────────────────────────────────────────
         Reg("hit",          Tone(520f, 0.03f, vol: 0.16f, shape: 'n', env: 'f'));
+        Reg("hit_phase_splitter", Layer(
+            Tone(760f, 0.035f, vol: 0.14f, shape: 's', env: 'f'),
+            Tone(1400f, 0.022f, vol: 0.08f, shape: 'n', env: 'f')));
         Reg("kill_confirm", Tone(1200f, 0.04f, vol: 0.14f, shape: 's', env: 'f'));  // subtle tick layered with die_* on kill
         Reg("die_basic",    Sweep(400f, 170f, 0.14f, vol: 0.55f));
         Reg("die_armored",  Sweep(155f,  50f, 0.24f, vol: 0.70f));
@@ -218,6 +227,11 @@ public partial class SoundManager : Node
             Sweep(1650f, 620f, 0.16f, vol: 0.30f),
             Tone(2900f, 0.07f, vol: 0.11f, shape: 'n', env: 'f')));
         Reg("leak",         Sweep(230f,  90f, 0.34f, vol: 0.60f));
+        // life_gain: soft rising two-note chime + high shimmer -- "soul collect" feel.
+        // Fires up to 5x per wave; pitch is randomized at call site to avoid monotony.
+        Reg("life_gain", Layer(
+            Seq(new[] { 660f, 990f }, gapMs: 18, noteLen: 0.09f, vol: 0.28f),
+            Tone(1980f, 0.06f, vol: 0.09f, shape: 's', env: 'f')));
         Reg("mine_pop", Layer(
             Sweep(220f, 72f, 0.16f, vol: 0.44f),
             Tone(96f, 0.11f, vol: 0.22f, shape: 'q', env: 'f'),

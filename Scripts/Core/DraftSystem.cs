@@ -51,26 +51,28 @@ public class DraftSystem
         var placedTowers = state.Slots
             .Where(s => s.Tower != null)
             .Select(s => (Entities.ITowerView)s.Tower!);
-        return GenerateOptions(state.HasFreeSlots(), placedTowers, state.ActiveMandate);
+        return GenerateOptions(state.HasFreeSlots(), placedTowers, state.ActiveMandate, state.WaveIndex);
     }
 
     /// <summary>
     /// Overload for unit tests: supply free-slot status and tower views directly,
     /// with no dependency on RunState or Godot-backed TowerInstance.
+    /// <paramref name="waveIndex"/> gates wave-restricted modifiers (e.g. Reaper Protocol at wave 9+);
+    /// defaults to 0 so existing test calls that omit it behave identically to pre-gating code.
     /// </summary>
     public List<DraftOption> GenerateOptions(bool hasFreeSlots, IEnumerable<Entities.ITowerView> placedTowers,
-        MandateDefinition? mandate = null)
+        MandateDefinition? mandate = null, int waveIndex = 0)
     {
         var options = new List<DraftOption>(Balance.DraftOptionsCount);
 
         if (hasFreeSlots)
         {
             AddTowerOptions(options, Balance.DraftTowerOptions, mandate);
-            AddModifierOptions(options, Balance.DraftModifierOptions, placedTowers, mandate);
+            AddModifierOptions(options, Balance.DraftModifierOptions, placedTowers, mandate, waveIndex);
         }
         else
         {
-            AddModifierOptions(options, Balance.DraftModifierOptionsFull, placedTowers, mandate);
+            AddModifierOptions(options, Balance.DraftModifierOptionsFull, placedTowers, mandate, waveIndex);
         }
 
         // Pad to 5 with tower options if modifiers couldn't fill the list
@@ -112,7 +114,8 @@ public class DraftSystem
 
     private void AddModifierOptions(List<DraftOption> list, int count,
                                      IEnumerable<Entities.ITowerView> placedTowers,
-                                     MandateDefinition? mandate = null)
+                                     MandateDefinition? mandate = null,
+                                     int waveIndex = 0)
     {
         var towersWithSpace = placedTowers.Where(t => t.CanAddModifier).ToList();
 
@@ -120,6 +123,7 @@ public class DraftSystem
 
         var pool = _data.GetAllModifierIds()
             .Where(id => mandate?.IsModifierBanned(id) != true)
+            .Where(id => Balance.GetModifierMinWaveIndex(id) <= waveIndex)  // wave gate
             .OrderBy(_ => _rng.Next())
             .Take(count);
         foreach (var id in pool)

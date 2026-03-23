@@ -1672,6 +1672,7 @@ public partial class GameController : Node
 		"chain_tower"      => new Color(0.55f, 0.90f, 1.00f),  // electric blue
 		"rift_prism"       => new Color(0.70f, 1.00f, 0.56f),  // lime
 		"accordion_engine" => new Color(0.78f, 0.40f, 1.00f),  // bright violet
+		"phase_splitter"   => new Color(0.45f, 1.00f, 0.95f),  // aqua phase beam
 		_                  => Colors.Yellow,
 	};
 
@@ -1683,6 +1684,7 @@ public partial class GameController : Node
 		"chain_tower"      => new Color(0.50f, 0.85f, 1.00f),
 		"rift_prism"       => new Color(0.58f, 0.98f, 0.50f),
 		"accordion_engine" => new Color(0.72f, 0.20f, 1.00f),
+		"phase_splitter"   => new Color(0.36f, 0.92f, 0.88f),
 		_                  => new Color(0.20f, 0.50f, 1.00f),
 	};
 
@@ -2892,6 +2894,11 @@ public partial class GameController : Node
 				text += $"compresses enemy spacing on pulse  ({(int)((1f - Balance.AccordionCompressionFactor) * 100)}% spread reduction)\n";
 				text += $"min {Balance.AccordionMinSpacingPx:0}px spacing  -  hits all enemies in range\n";
 			}
+			if (tower.TowerId == "phase_splitter")
+			{
+				text += $"hits front + back in range at {(int)(Balance.PhaseSplitterDamageRatio * 100)}% damage per target\n";
+				text += "strong lane-edge pressure, weaker into dense mid packs\n";
+			}
 			if (tower.IsChainTower)
 				text += $"chains x{tower.ChainCount}  ({(int)(tower.ChainDamageDecay * 100)}% per bounce)  range {(int)tower.ChainRange} px\n";
 			if (tower.SplitCount > 0)
@@ -3676,7 +3683,17 @@ void fragment() {
 			case "marker_tower":     SpawnArchetypeMarkedFlash(accent, drama); break;
 			case "rift_prism":       SpawnArchetypeRiftRing(tower.GlobalPosition, accent, drama); break;
 			case "accordion_engine": SpawnArchetypeAccordionRing(tower.GlobalPosition, accent, drama); break;
+			case "phase_splitter":   SpawnArchetypePhaseRing(tower.GlobalPosition, accent, drama); break;
 		}
+	}
+
+	private void SpawnArchetypePhaseRing(Vector2 worldPos, Color accent, float drama)
+	{
+		float radiusA = Mathf.Lerp(80f, 170f, Mathf.Clamp(drama, 0f, 1f));
+		float radiusB = radiusA * 0.62f;
+		float duration = Mathf.Lerp(0.22f, 0.34f, Mathf.Clamp(drama, 0f, 1f));
+		EmitSignatureRing(worldPos, new Color(accent.R, accent.G, accent.B, 0.84f), radiusA, duration, 3.1f);
+		EmitSignatureRing(worldPos, new Color(accent.R, accent.G, accent.B, 0.56f), radiusB, duration * 0.8f, 2.0f);
 	}
 
 	private void SpawnArchetypeChainArcs(TowerInstance tower, Color accent, float drama)
@@ -6828,6 +6845,7 @@ void fragment() {
 				"marker_tower" => new Color(1.00f, 0.30f, 0.72f),
 				"chain_tower" => new Color(0.62f, 0.90f, 1.00f),
 				"rift_prism" => new Color(0.60f, 1.00f, 0.58f),
+				"phase_splitter" => new Color(0.45f, 1.00f, 0.95f),
 				_ => new Color(0.75f, 0.85f, 1.00f),
 			};
 
@@ -6854,6 +6872,7 @@ void fragment() {
 					"marker_tower" => "MK",
 					"chain_tower" => "AR",
 					"rift_prism" => "SA",
+					"phase_splitter" => "PS",
 					_ => "TW",
 				},
 				HorizontalAlignment = HorizontalAlignment.Center,
@@ -6994,6 +7013,39 @@ void fragment() {
 
 		if (nearby.Count >= 2 && TryCombatCallout("marked_pop", 4.8f))
 			SpawnCombatCallout("MARKED POP", origin, markColor, durationScale: 1.20f);
+	}
+
+	/// <summary>
+	/// Called by ReaperProtocol.OnKill after a valid primary kill within the per-wave cap.
+	/// Increments lives (capped at MaxLives), refreshes HUD, plays sound, and spawns subtle VFX.
+	/// Runs in both live and bot/headless modes -- only the VFX branch is skipped when headless.
+	/// </summary>
+	public void NotifyReaperProtocolKill(SlotTheory.Entities.ITowerView tower)
+	{
+		if (CurrentPhase != GamePhase.Wave) return;
+
+		// No overheal: cannot exceed the difficulty-determined starting lives
+		if (_runState.Lives >= _runState.MaxLives) return;
+
+		_runState.Lives++;
+
+		// Refresh HUD so the life counter updates immediately
+		if (GodotObject.IsInstanceValid(_hudPanel))
+			_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
+
+		// Notify music director (life gain = positive tension event)
+		MusicDirector.Instance?.OnLivesChanged(_runState.Lives);
+
+		// Sound: soft soul-collect chime, pitch-varied to avoid monotony at up to 5 procs/wave.
+		// SoundManager._headless guard silences this automatically in headless/bot mode.
+		float pitch = 0.90f + (float)GD.Randf() * 0.20f;
+		SoundManager.Instance?.Play("life_gain", pitchScale: pitch);
+
+		// VFX: subtle floating "+1" at the tower. SpawnCombatCallout already guards against
+		// bot runner and invalid scene tree, so no explicit bot check needed here.
+		Color reaperColor = new Color(0.22f, 0.90f, 0.62f);  // jade-teal matching ModifierVisuals accent
+		SpawnCombatCallout("+1", tower.GlobalPosition, reaperColor,
+			durationScale: 0.65f, yOffset: -14f, drift: true, holdPortion: 0.22f, sizeOverride: 14);
 	}
 
 	public void NotifyFeedbackLoopProc(SlotTheory.Entities.ITowerView tower)
@@ -8182,6 +8234,7 @@ void fragment() {
 				|| tower.BaseDamage >= 40f,
 			// Overreach extends the accordion compression zone; blast_core rewards the packed formation it creates
 			"overreach" or "blast_core" => tower.TowerId == "accordion_engine",
+			"wildfire" => tower.TowerId == "phase_splitter" || tower.TowerId == "rapid_shooter" || tower.TowerId == "rift_prism",
 			_ => false,
 		};
 	}

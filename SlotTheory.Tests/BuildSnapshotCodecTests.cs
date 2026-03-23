@@ -28,6 +28,8 @@ public class BuildSnapshotCodecTests
     [InlineData("marker_tower")]
     [InlineData("chain_tower")]
     [InlineData("rift_prism")]
+    [InlineData("accordion_engine")]
+    [InlineData("phase_splitter")]
     public void PackSlot_KnownTower_NoMods_IsNonZero(string towerId)
     {
         var slot = new RunSlotBuild(towerId, []);

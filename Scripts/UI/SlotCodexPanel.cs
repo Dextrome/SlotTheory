@@ -393,8 +393,10 @@ public partial class SlotCodexPanel : Node
 
         if (!unlocked)
         {
-            bool isFullGameOnly = Balance.IsDemo &&
-                string.Equals(modifierId, Unlocks.BlastCoreModifierId, StringComparison.OrdinalIgnoreCase);
+            bool isFullGameOnly = Balance.IsDemo && (
+                string.Equals(modifierId, Unlocks.BlastCoreModifierId,       StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(modifierId, Unlocks.WildfireModifierId,        StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(modifierId, Unlocks.ReaperProtocolModifierId,  StringComparison.OrdinalIgnoreCase));
             BuildCardBack(body,
                 isFullGameOnly ? "FULL GAME"        : "UNREVEALED MOD",
                 isFullGameOnly ? "Available in full release." : GetUnlockGateNote(modifierId));
@@ -712,6 +714,7 @@ public partial class SlotCodexPanel : Node
         "chain_tower"      => new Color(0.50f, 0.85f, 1.00f),
         "rift_prism"       => new Color(0.60f, 1.00f, 0.58f),
         "accordion_engine" => new Color(0.72f, 0.20f, 1.00f),
+        "phase_splitter"   => new Color(0.45f, 1.00f, 0.95f),
         _ => new Color(0.82f, 0.88f, 1.00f),
     };
 
@@ -723,6 +726,7 @@ public partial class SlotCodexPanel : Node
         "chain_tower"      => "Built-in chain bounces for dense waves and lane clear. Excellent in clustered path sections.",
         "rift_prism"       => "Plants charged lane mines. Final charge detonates harder, with rapid wave-start seeding for early trap setup.",
         "accordion_engine" => "Emits compression pulses that physically squeeze enemy spacing along the lane. Not a slow or stun -- it edits wave formation topology. Packed enemies become better targets for Blast Core, Arc Emitter chains, and Rift Sapper mines.",
+        "phase_splitter"   => "Dual-end striker. Each shot hits both the first and last enemy in range at reduced damage. Strong against blocking frontlines and backline runners, but weaker than Arc Emitter in dense mid packs.",
         _ => "Tower entry."
     };
 

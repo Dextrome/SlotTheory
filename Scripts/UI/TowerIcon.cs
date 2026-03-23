@@ -42,6 +42,7 @@ public partial class TowerIcon : Control
             "chain_tower"      => (new Color(0.62f, 0.95f, 1.00f), new Color(0.05f, 0.15f, 0.25f)),
             "rift_prism"       => (new Color(0.62f, 1.00f, 0.62f), new Color(0.08f, 0.20f, 0.10f)),
             "accordion_engine" => (new Color(0.72f, 0.20f, 1.00f), new Color(0.12f, 0.02f, 0.22f)),
+            "phase_splitter"   => (new Color(0.45f, 1.00f, 0.95f), new Color(0.04f, 0.11f, 0.16f)),
             _ => (new Color(0.42f, 0.48f, 0.60f), new Color(0.18f, 0.20f, 0.26f)),
         };
 
@@ -63,6 +64,7 @@ public partial class TowerIcon : Control
             "chain_tower"      => "C",
             "rift_prism"       => "S",
             "accordion_engine" => "A",
+            "phase_splitter"   => "P",
             _ => "?",
         };
 

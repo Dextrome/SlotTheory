@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using SlotTheory.Data;
+using SlotTheory.Modifiers;
 using SlotTheory.Tools;
 using Xunit;
 
@@ -55,6 +57,32 @@ public class CombatLabTowerBenchmarkRunnerTests
         Assert.Contains(strong.Flags, f => f.Contains("overpowered") || f.Contains("dominant"));
         Assert.Contains(weak.Flags, f => f.Contains("underpowered"));
     }
+
+    /// <summary>
+    /// Creates modifiers without DataLoader so benchmark tests can run without the Godot JSON pipeline.
+    /// Uses a stub ModifierDef (id only; no params needed for stat-default modifiers).
+    /// </summary>
+    private static Func<string, Modifier> StubModifierFactory() => id =>
+    {
+        var def = new ModifierDef(id, id, string.Empty);
+        return id switch
+        {
+            "momentum"         => new Momentum(def),
+            "overkill"         => new Overkill(def),
+            "exploit_weakness" => new ExploitWeakness(def),
+            "focus_lens"       => new FocusLens(def),
+            "slow"             => new Slow(def),
+            "overreach"        => new Overreach(def),
+            "hair_trigger"     => new HairTrigger(def),
+            "split_shot"       => new SplitShot(def),
+            "feedback_loop"    => new FeedbackLoop(def),
+            "chain_reaction"   => new ChainReaction(def),
+            "blast_core"       => new BlastCore(def),
+            "wildfire"         => new Wildfire(def),
+            "reaper_protocol"  => new ReaperProtocol(def),
+            _ => throw new InvalidOperationException($"Unknown modifier id in test stub: '{id}'"),
+        };
+    };
 
     private static CombatLabTowerBenchmarkSuite BuildSimpleSuite(int seed)
     {
@@ -118,5 +146,168 @@ public class CombatLabTowerBenchmarkRunnerTests
                 },
             },
         };
+    }
+
+    [Fact]
+    public void PhaseSplitter_SingleTarget_DoesNotDoubleHit()
+    {
+        var defs = new Dictionary<string, TowerDef>
+        {
+            ["phase_splitter"] = new TowerDef("Phase Splitter", BaseDamage: 20f, AttackInterval: 0.95f, Range: 275f),
+        };
+
+        var suite = new CombatLabTowerBenchmarkSuite
+        {
+            Name = "phase_single_target",
+            Seed = 1337,
+            TrialsPerScenario = 1,
+            IncludeAllTowers = false,
+            Towers = new List<CombatLabTowerBenchmarkTowerSetup>
+            {
+                new() { Tower = "phase_splitter", Targeting = "first" },
+            },
+            Scenarios = new List<CombatLabTowerBenchmarkScenario>
+            {
+                new()
+                {
+                    Id = "single_enemy",
+                    Name = "Single Enemy",
+                    DurationSeconds = 4f,
+                    PathLength = 1200f,
+                    TowerPosition = new[] { 100f, 0f },
+                    EnemyGroups = new List<CombatLabTowerBenchmarkEnemyGroup>
+                    {
+                        new() { Id = "solo", Count = 1, Hp = 500f, Speed = 40f, SpawnInterval = 0.1f },
+                    },
+                },
+            },
+        };
+
+        var report = new CombatLabTowerBenchmarkRunner(defs).RunSuite(suite);
+        var row = report.ScenarioResults.Single().Results.Single();
+        Assert.InRange(row.AverageTargetsHit, 0.95f, 1.05f);
+    }
+
+    [Fact]
+    public void PhaseSplitter_TwoEndpoints_HitsBothTargets()
+    {
+        var defs = new Dictionary<string, TowerDef>
+        {
+            ["phase_splitter"] = new TowerDef("Phase Splitter", BaseDamage: 20f, AttackInterval: 0.95f, Range: 275f),
+        };
+
+        var suite = new CombatLabTowerBenchmarkSuite
+        {
+            Name = "phase_two_targets",
+            Seed = 7331,
+            TrialsPerScenario = 1,
+            IncludeAllTowers = false,
+            Towers = new List<CombatLabTowerBenchmarkTowerSetup>
+            {
+                new() { Tower = "phase_splitter", Targeting = "first" },
+            },
+            Scenarios = new List<CombatLabTowerBenchmarkScenario>
+            {
+                new()
+                {
+                    Id = "two_enemies",
+                    Name = "Two Enemies",
+                    DurationSeconds = 4f,
+                    PathLength = 1200f,
+                    TowerPosition = new[] { 100f, 0f },
+                    EnemyGroups = new List<CombatLabTowerBenchmarkEnemyGroup>
+                    {
+                        new() { Id = "pair", Count = 2, Hp = 500f, Speed = 40f, SpawnInterval = 0.1f },
+                    },
+                },
+            },
+        };
+
+        var report = new CombatLabTowerBenchmarkRunner(defs).RunSuite(suite);
+        var row = report.ScenarioResults.Single().Results.Single();
+        Assert.True(row.AverageTargetsHit >= 1.75f);
+    }
+
+    [Fact]
+    public void PhaseSplitter_WithSplitShot_ExpandsToFourHitPattern()
+    {
+        var defs = new Dictionary<string, TowerDef>
+        {
+            ["phase_splitter"] = new TowerDef("Phase Splitter", BaseDamage: 20f, AttackInterval: 0.95f, Range: 275f),
+        };
+
+        var suite = new CombatLabTowerBenchmarkSuite
+        {
+            Name = "phase_split_pattern",
+            Seed = 9898,
+            TrialsPerScenario = 1,
+            IncludeAllTowers = false,
+            Towers = new List<CombatLabTowerBenchmarkTowerSetup>
+            {
+                new() { Tower = "phase_splitter", Mods = new[] { "split_shot" }, Targeting = "first" },
+            },
+            Scenarios = new List<CombatLabTowerBenchmarkScenario>
+            {
+                new()
+                {
+                    Id = "four_enemies",
+                    Name = "Four Enemies",
+                    DurationSeconds = 4f,
+                    PathLength = 1200f,
+                    TowerPosition = new[] { 100f, 0f },
+                    EnemyGroups = new List<CombatLabTowerBenchmarkEnemyGroup>
+                    {
+                        new() { Id = "pack", Count = 4, Hp = 700f, Speed = 35f, SpawnInterval = 0.08f },
+                    },
+                },
+            },
+        };
+
+        var report = new CombatLabTowerBenchmarkRunner(defs, StubModifierFactory()).RunSuite(suite);
+        var row = report.ScenarioResults.Single().Results.Single();
+        // ~3.4 expected: first shot fires with 1 enemy active (warm-up), subsequent shots hit
+        // all 4 (front primary + back primary + 1 split each). 3.0 threshold clears baseline ~1.8.
+        Assert.True(row.AverageTargetsHit >= 3.0f);
+    }
+
+    [Fact]
+    public void PhaseSplitter_BlastCore_UsesBothPrimaryAnchors()
+    {
+        var defs = new Dictionary<string, TowerDef>
+        {
+            ["phase_splitter"] = new TowerDef("Phase Splitter", BaseDamage: 20f, AttackInterval: 0.95f, Range: 275f),
+        };
+
+        var suite = new CombatLabTowerBenchmarkSuite
+        {
+            Name = "phase_blast_core",
+            Seed = 7788,
+            TrialsPerScenario = 1,
+            IncludeAllTowers = false,
+            Towers = new List<CombatLabTowerBenchmarkTowerSetup>
+            {
+                new() { CaseId = "base", Tower = "phase_splitter", Targeting = "first" },
+                new() { CaseId = "blast", Tower = "phase_splitter", Mods = new[] { "blast_core" }, Targeting = "first" },
+            },
+            Scenarios = new List<CombatLabTowerBenchmarkScenario>
+            {
+                new()
+                {
+                    Id = "paired_targets",
+                    Name = "Paired Targets",
+                    DurationSeconds = 4f,
+                    PathLength = 1200f,
+                    TowerPosition = new[] { 100f, 0f },
+                    EnemyGroups = new List<CombatLabTowerBenchmarkEnemyGroup>
+                    {
+                        new() { Id = "pair", Count = 2, Hp = 1200f, Speed = 30f, SpawnInterval = 0.10f },
+                    },
+                },
+            },
+        };
+
+        var report = new CombatLabTowerBenchmarkRunner(defs, StubModifierFactory()).RunSuite(suite);
+        var rows = report.ScenarioResults.Single().Results.ToDictionary(r => r.CaseId);
+        Assert.True(rows["blast"].TotalDamage > rows["base"].TotalDamage * 1.10f);
     }
 }

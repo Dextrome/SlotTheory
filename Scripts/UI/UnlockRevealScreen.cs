@@ -382,6 +382,7 @@ public partial class UnlockRevealScreen : CanvasLayer
         "marker_tower" => new Color(1.00f, 0.15f, 0.60f),
         "chain_tower" => new Color(0.50f, 0.85f, 1.00f),
         "rift_prism" => new Color(0.60f, 1.00f, 0.58f),
+        "phase_splitter" => new Color(0.45f, 1.00f, 0.95f),
         _ => new Color(0.82f, 0.88f, 1.00f),
     };
 
@@ -389,6 +390,7 @@ public partial class UnlockRevealScreen : CanvasLayer
     {
         "chain_tower" => "Built-in chain bounces for dense packs and lane control.",
         "rift_prism" => "Plants charged lane mines that detonate on final charge.",
+        "phase_splitter" => "Fires a split-phase blast that hits both front and back targets.",
         _ => "Tower unlocked."
     };
 }

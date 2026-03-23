@@ -173,6 +173,16 @@ public static class ModifierDataValidator
                     $"{FormatInt(Balance.WildfireBurnDpsRatio * 100f)}%",
                     $"{FormatInt(Balance.WildfireTrailDamageRatio * 100f)}%"
                 }
+            },
+            ["reaper_protocol"] = new ModifierExpectation
+            {
+                Name = "Reaper Protocol",
+                RequiredTokens = new()
+                {
+                    $"{Balance.ReaperProtocolKillCap}",                                     // "5"
+                    "life",
+                    $"Wave {Balance.ReaperProtocolMinWaveIndex + 1}"                        // "Wave 10"
+                }
             }
         };
     }

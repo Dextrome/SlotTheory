@@ -280,6 +280,7 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
     public const float AccordionCompressionFactor        = 0.25f;  // 75% spread reduction per pulse
     public const float AccordionMinSpacingPx             = 8f;     // minimum path distance between enemies after compression
     public const int   AccordionMinEnemiesForCompression = 2;      // need at least 2 in range to compress
+    public const float PhaseSplitterDamageRatio          = 0.65f;  // each dual-end primary hit deals 65% base damage
 
     // Wildfire modifier
     // Burn DPS = tower.BaseDamage × WildfireBurnDpsRatio (intentionally does NOT scale with FinalDamage
@@ -291,6 +292,20 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
     public const float WildfireTrailDamageRatio  = 0.40f;  // trail DPS = burnDPS × this
     public const float WildfireTrailRadius       = 30f;    // overlap radius for trail damage (px)
     public const int   WildfireMaxTrailSegments  = 20;     // global cap per wave (prevents perf blowup with Hair Trigger)
+
+    // Reaper Protocol modifier
+    // Full game only; excluded from demo builds and demo bot simulations.
+    // Per-instance per-wave cap: each copy of the modifier tracks kills independently.
+    // Expected usage: one copy per tower (stacking is legal but each copy caps at 5).
+    public const int ReaperProtocolKillCap      = 5;  // max life-restoring kills per modifier copy per wave
+    public const int ReaperProtocolMinWaveIndex = 9;  // 0-based; first eligible in draft at wave 10 (display)
+
+    /// <summary>
+    /// Returns the minimum 0-based wave index at which a modifier may appear in the draft pool.
+    /// Returns 0 (always eligible) for all modifiers that have no wave gate.
+    /// </summary>
+    public static int GetModifierMinWaveIndex(string modifierId)
+        => modifierId == "reaper_protocol" ? ReaperProtocolMinWaveIndex : 0;
 
     private static float ClampDifficultyMultiplier(float value, float min, float max)
         => value < min ? min : (value > max ? max : value);

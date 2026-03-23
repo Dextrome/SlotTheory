@@ -24,6 +24,7 @@ Engine: **Godot 4.x .NET** (C#) Â· Runtime: **.NET 8+** Â· Target: **Windows
 - **Enemy render pipeline overhaul**: layered render pipeline with perf controls, class-specific death FX, and mobile-adaptive quality settings.
 - **New UI screens**: `UnlockRevealScreen.cs`, `AchievementsPanel.cs`, `AchievementToast.cs`, `SlotCodexPanel.cs`.
 - **Supabase leaderboard service** added alongside Steam leaderboards (`SupabaseLeaderboardService.cs`, `SupabaseConfig.cs`).
+- **Reaper Protocol modifier** added (`reaper_protocol`): survival modifier, full game only. Kill (primary hits only): first 5 kills per wave restore 1 life each, capped at MaxLives. Available from wave 10 onward (draft pool gate enforced in `DraftSystem.AddModifierOptions` via `Balance.GetModifierMinWaveIndex`). Life gain handled by `GameController.NotifyReaperProtocolKill`. `ReaperProtocol.cs` uses wave-index-based counter reset (no separate OnWaveStart hook needed). Excluded from demo builds via `Unlocks.IsModifierUnlocked`. Jade-teal visual identity. Sound: "life_gain" rising chime. Slot Codex: shows "FULL GAME" card back in demo. HowToPlay: listed for non-demo builds. 8 unit tests in `ModifierTests`, 4 wave-gate tests in `DraftSystemTests`.
 
 ## Setup Requirements
 
@@ -413,7 +414,7 @@ If an idea requires a new system â†’ defer to "Project 2."
 
 ## V1 Content
 
-- **6 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +40% dmg taken, 4s), Arc Emitter (**unlockable** via campaign map clear; chains to 2 enemies, 400 px chain range, 60% decay/bounce), Rift Sapper (**unlockable** via campaign map clear; charged lane-mine trap tower with wave-start seeding burst), Accordion Engine (**unlockable** via campaign map clear; 3.2s pulse hits all in-range enemies + compresses their Progress spacing; primary isChain:false, secondaries isChain:true; violet visual identity; `AccordionPulseVfx.cs` contracting-ring FX; synergizes with Overreach + Blast Core)
+- **7 towers**: Rapid Shooter (fast/low dmg), Heavy Cannon (slow/high dmg), Marker Tower (applies Marked: +40% dmg taken, 4s), Phase Splitter (hits first + last in range simultaneously at 65% damage each; `Balance.PhaseSplitterDamageRatio = 0.65f`; aqua visual identity; `PhaseSplitVfx.cs`; both hits are isChain:false; strong vs blocking frontlines/backline runners), Arc Emitter (**unlockable** via campaign map clear; chains to 2 enemies, 400 px chain range, 60% decay/bounce), Rift Sapper (**unlockable** via campaign map clear; charged lane-mine trap tower with wave-start seeding burst), Accordion Engine (**unlockable** via campaign map clear; 3.2s pulse hits all in-range enemies + compresses their Progress spacing; primary isChain:false, secondaries isChain:true; violet visual identity; `AccordionPulseVfx.cs` contracting-ring FX; synergizes with Overreach + Blast Core)
 - **11 modifiers** (always check `Balance.cs` + `modifiers.json` for current values â€” these drift after balance passes):
   - Momentum: +16% dmg/hit same target, max Ã-1.80
   - Overkill: 60% excess dmg spills to next enemy

@@ -428,63 +428,135 @@ public sealed class CombatLabTowerBenchmarkRunner
             bool firedThisStep = false;
             if (tower.Cooldown <= 0f)
             {
-                BenchmarkEnemy? target = Targeting.SelectTarget(tower, activeEnemies, ignoreRange: false);
-                if (target != null)
+                if (tower.TowerId == "phase_splitter")
                 {
-                    firedThisStep = true;
-                    metrics.Shots++;
-                    metrics.FiredSteps++;
-
-                    float effectiveInterval = tower.AttackInterval;
-                    foreach (Modifier mod in tower.Modifiers)
-                        mod.ModifyAttackInterval(ref effectiveInterval, tower);
-                    tower.Cooldown = Math.Max(0.01f, effectiveInterval);
-
-                    if (spectacle != null)
-                        spectacle.RegisterShotFired(tower);
-
-                    bool targetMarkedBefore = target.IsMarked;
-                    DamageContext primaryCtx = ApplyHitAndCollect(tower, target, activeEnemies, metrics, state: null, isChain: false);
-                    RegisterLiveProcForHit(spectacle, tower, targetMarkedBefore, target, primaryCtx.DamageDealt);
-
-                    int chainHits = CombatResolution.ApplyChainHits(
-                        tower,
-                        target,
-                        waveIndex: 0,
-                        activeEnemies,
-                        state: null,
-                        onHit: ctx =>
-                        {
-                            ApplyContextToMetrics(ctx, metrics);
-                            RegisterLiveProcForHit(spectacle, tower, ctx.Target.IsMarked, ctx.Target, ctx.DamageDealt);
-                        });
-                    if (chainHits > 0 && spectacle != null)
+                    var (front, back) = Targeting.SelectFirstAndLastTargets(tower, activeEnemies, ignoreRange: false);
+                    if (front != null || back != null)
                     {
-                        float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(chainHits);
-                        float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
-                        spectacle.RegisterProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, chainEventDamage);
-                    }
+                        firedThisStep = true;
+                        metrics.Shots++;
+                        metrics.FiredSteps++;
 
-                    int splitHits = CombatResolution.ApplySplitHits(
-                        tower,
-                        target,
-                        waveIndex: 0,
-                        activeEnemies,
-                        state: null,
-                        onHit: ctx =>
+                        float effectiveInterval = tower.AttackInterval;
+                        foreach (Modifier mod in tower.Modifiers)
+                            mod.ModifyAttackInterval(ref effectiveInterval, tower);
+                        tower.Cooldown = Math.Max(0.01f, effectiveInterval);
+
+                        if (spectacle != null)
+                            spectacle.RegisterShotFired(tower);
+
+                        int totalHitsThisShot = 0;
+                        float primaryDamage = tower.BaseDamage * Balance.PhaseSplitterDamageRatio;
+                        var phaseTargets = new List<BenchmarkEnemy>(2);
+                        if (front != null) phaseTargets.Add(front);
+                        if (back != null && !ReferenceEquals(front, back)) phaseTargets.Add(back);
+
+                        foreach (BenchmarkEnemy phaseTarget in phaseTargets)
                         {
-                            ApplyContextToMetrics(ctx, metrics);
-                            RegisterLiveProcForHit(spectacle, tower, ctx.Target.IsMarked, ctx.Target, ctx.DamageDealt);
-                        });
-                    if (splitHits > 0 && spectacle != null)
-                    {
-                        float splitDamage = tower.BaseDamage * Balance.SplitShotDamageRatio;
-                        float splitScalar = SpectacleDefinitions.SplitShotEventScalar(splitHits);
-                        spectacle.RegisterProc(tower, SpectacleDefinitions.SplitShot, splitScalar, splitDamage);
-                    }
+                            bool markedBefore = phaseTarget.IsMarked;
+                            DamageContext primaryCtx = ApplyHitAndCollect(
+                                tower,
+                                phaseTarget,
+                                activeEnemies,
+                                metrics,
+                                state: null,
+                                isChain: false,
+                                damageOverride: primaryDamage);
+                            RegisterLiveProcForHit(spectacle, tower, markedBefore, phaseTarget, primaryCtx.DamageDealt);
+                            totalHitsThisShot++;
 
-                    metrics.TargetsHitTotal += 1 + chainHits + splitHits;
-                    MarkNewDeaths(enemies, metrics);
+                            int chainHits = CombatResolution.ApplyChainHits(
+                                tower,
+                                phaseTarget,
+                                waveIndex: 0,
+                                activeEnemies,
+                                state: null,
+                                onHit: ctx =>
+                                {
+                                    ApplyContextToMetrics(ctx, metrics);
+                                    RegisterLiveProcForHit(spectacle, tower, ctx.Target.IsMarked, ctx.Target, ctx.DamageDealt);
+                                });
+                            if (chainHits > 0 && spectacle != null)
+                            {
+                                float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(chainHits);
+                                float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
+                                spectacle.RegisterProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, chainEventDamage);
+                            }
+                            totalHitsThisShot += chainHits;
+
+                            int splitHits = ApplyPhaseSplitterSplitHits(
+                                tower,
+                                phaseTarget,
+                                activeEnemies,
+                                metrics,
+                                spectacle);
+                            totalHitsThisShot += splitHits;
+                        }
+
+                        metrics.TargetsHitTotal += totalHitsThisShot;
+                        MarkNewDeaths(enemies, metrics);
+                    }
+                }
+                else
+                {
+                    BenchmarkEnemy? target = Targeting.SelectTarget(tower, activeEnemies, ignoreRange: false);
+                    if (target != null)
+                    {
+                        firedThisStep = true;
+                        metrics.Shots++;
+                        metrics.FiredSteps++;
+
+                        float effectiveInterval = tower.AttackInterval;
+                        foreach (Modifier mod in tower.Modifiers)
+                            mod.ModifyAttackInterval(ref effectiveInterval, tower);
+                        tower.Cooldown = Math.Max(0.01f, effectiveInterval);
+
+                        if (spectacle != null)
+                            spectacle.RegisterShotFired(tower);
+
+                        bool targetMarkedBefore = target.IsMarked;
+                        DamageContext primaryCtx = ApplyHitAndCollect(tower, target, activeEnemies, metrics, state: null, isChain: false);
+                        RegisterLiveProcForHit(spectacle, tower, targetMarkedBefore, target, primaryCtx.DamageDealt);
+
+                        int chainHits = CombatResolution.ApplyChainHits(
+                            tower,
+                            target,
+                            waveIndex: 0,
+                            activeEnemies,
+                            state: null,
+                            onHit: ctx =>
+                            {
+                                ApplyContextToMetrics(ctx, metrics);
+                                RegisterLiveProcForHit(spectacle, tower, ctx.Target.IsMarked, ctx.Target, ctx.DamageDealt);
+                            });
+                        if (chainHits > 0 && spectacle != null)
+                        {
+                            float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(chainHits);
+                            float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
+                            spectacle.RegisterProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, chainEventDamage);
+                        }
+
+                        int splitHits = CombatResolution.ApplySplitHits(
+                            tower,
+                            target,
+                            waveIndex: 0,
+                            activeEnemies,
+                            state: null,
+                            onHit: ctx =>
+                            {
+                                ApplyContextToMetrics(ctx, metrics);
+                                RegisterLiveProcForHit(spectacle, tower, ctx.Target.IsMarked, ctx.Target, ctx.DamageDealt);
+                            });
+                        if (splitHits > 0 && spectacle != null)
+                        {
+                            float splitDamage = tower.BaseDamage * Balance.SplitShotDamageRatio;
+                            float splitScalar = SpectacleDefinitions.SplitShotEventScalar(splitHits);
+                            spectacle.RegisterProc(tower, SpectacleDefinitions.SplitShot, splitScalar, splitDamage);
+                        }
+
+                        metrics.TargetsHitTotal += 1 + chainHits + splitHits;
+                        MarkNewDeaths(enemies, metrics);
+                    }
                 }
             }
 
@@ -852,7 +924,8 @@ public sealed class CombatLabTowerBenchmarkRunner
         List<BenchmarkEnemy> activeEnemies,
         TrialMetrics metrics,
         RunState? state,
-        bool isChain)
+        bool isChain,
+        float damageOverride = -1f)
     {
         var ctx = new DamageContext(
             tower,
@@ -860,10 +933,55 @@ public sealed class CombatLabTowerBenchmarkRunner
             waveIndex: 0,
             activeEnemies,
             state,
-            isChain: isChain);
+            isChain: isChain,
+            damageOverride: damageOverride);
         DamageModel.Apply(ctx);
         ApplyContextToMetrics(ctx, metrics);
         return ctx;
+    }
+
+    private static int ApplyPhaseSplitterSplitHits(
+        BenchmarkTower tower,
+        BenchmarkEnemy primary,
+        List<BenchmarkEnemy> activeEnemies,
+        TrialMetrics metrics,
+        SpectacleSystem? spectacle)
+    {
+        if (tower.SplitCount <= 0)
+            return 0;
+
+        float splitDamage = tower.BaseDamage * Balance.SplitShotDamageRatio;
+        int splitBudget = tower.SplitCount; // phase splitter: one split per copy on each endpoint hit
+        int spawned = 0;
+        foreach (BenchmarkEnemy candidate in activeEnemies
+            .Where(e => !ReferenceEquals(e, primary) && e.Hp > 0f)
+            .OrderBy(e => e.GlobalPosition.DistanceTo(primary.GlobalPosition)))
+        {
+            if (spawned >= splitBudget)
+                break;
+            if (candidate.GlobalPosition.DistanceTo(primary.GlobalPosition) > Balance.SplitShotRange)
+                break;
+
+            var ctx = new DamageContext(
+                tower,
+                candidate,
+                waveIndex: 0,
+                activeEnemies,
+                state: null,
+                isChain: true,
+                damageOverride: splitDamage);
+            DamageModel.Apply(ctx);
+            ApplyContextToMetrics(ctx, metrics);
+            RegisterLiveProcForHit(spectacle, tower, ctx.Target.IsMarked, ctx.Target, ctx.DamageDealt);
+            spawned++;
+        }
+
+        if (spawned > 0 && spectacle != null)
+        {
+            float splitScalar = SpectacleDefinitions.SplitShotEventScalar(spawned);
+            spectacle.RegisterProc(tower, SpectacleDefinitions.SplitShot, splitScalar, splitDamage);
+        }
+        return spawned;
     }
 
     private static void ApplyRawDamageToMetrics(BenchmarkEnemy enemy, float rawDamage, float dealt, TrialMetrics metrics)
@@ -1288,6 +1406,7 @@ public sealed class CombatLabTowerBenchmarkRunner
             "marker_tower" => 90f,
             "chain_tower" => 115f,
             "rift_prism" => 120f,
+            "phase_splitter" => 122f,
             _ => 100f
         };
     }
@@ -1304,6 +1423,7 @@ public sealed class CombatLabTowerBenchmarkRunner
             "marker_tower" => new[] { "support", "control" },
             "chain_tower" => new[] { "anti_swarm", "control" },
             "rift_prism" => new[] { "area_denial", "anti_tank" },
+            "phase_splitter" => new[] { "backline_pressure", "control", "generalist" },
             _ => Array.Empty<string>()
         };
     }

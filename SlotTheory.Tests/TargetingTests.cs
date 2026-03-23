@@ -126,4 +126,30 @@ public class TargetingTests
         Assert.NotNull(result);
         Assert.Equal(0.4f, result.ProgressRatio);
     }
+
+    [Fact]
+    public void SelectFirstAndLastTargets_ReturnsFrontAndBackInRange()
+    {
+        var enemies = new List<FakeEnemy>
+        {
+            E(0.20f, 100f),
+            E(0.90f, 100f),
+            E(0.45f, 100f),
+        };
+
+        var (first, last) = Targeting.SelectFirstAndLastTargets(Tower(TargetingMode.First), enemies);
+        Assert.NotNull(first);
+        Assert.NotNull(last);
+        Assert.Equal(0.90f, first!.ProgressRatio);
+        Assert.Equal(0.20f, last!.ProgressRatio);
+    }
+
+    [Fact]
+    public void SelectFirstAndLastTargets_SingleTarget_DoesNotDuplicate()
+    {
+        var enemy = E(0.55f, 100f);
+        var (first, last) = Targeting.SelectFirstAndLastTargets(Tower(TargetingMode.First), new List<FakeEnemy> { enemy });
+        Assert.NotNull(first);
+        Assert.Null(last);
+    }
 }
