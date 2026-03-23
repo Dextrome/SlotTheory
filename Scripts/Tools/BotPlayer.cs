@@ -12,7 +12,8 @@ public enum BotStrategy
     Random, TowerFirst, GreedyDps, MarkerSynergy,
     ChainFocus, SplitFocus, HeavyStack, RiftPrismFocus,
     SpectacleSingleStack, AccordionEngine,
-    PlayerStyleKenny
+    PlayerStyleKenny,
+    HeavyOverkill
 }
 
 /// <summary>
@@ -65,6 +66,7 @@ public class BotPlayer
         BotStrategy.SpectacleSingleStack => PickSpectacleSingleStack(options, state),
         BotStrategy.AccordionEngine      => PickAccordionEngine(options, state),
         BotStrategy.PlayerStyleKenny     => PickPlayerStyleKenny(options, state),
+        BotStrategy.HeavyOverkill        => PickHeavyOverkill(options, state),
         _                         => PickRandom(options, state),
     };
     }
@@ -745,6 +747,86 @@ public class BotPlayer
         {
             var dmgTower = FindTowerOption(opts, "heavy_cannon", "rapid_shooter", "chain_tower");
             if (dmgTower != null) return new DraftPick(dmgTower, empty[0]);
+        }
+
+        return PickGreedyDps(opts, s);
+    }
+
+    /// <summary>
+    /// Heavy Overkill strategy: fills all slots with Heavy Cannon first,
+    /// falling back to Arc Emitter then Rapid Shooter if unavailable.
+    /// Each Heavy Cannon gets at most 1 Overkill and 1 Feedback Loop, plus one
+    /// finisher mod (Hair Trigger > Focus Lens > Chain Reaction > Split Shot).
+    /// Non-heavy slots get whatever damage mods are available.
+    /// </summary>
+    private DraftPick? PickHeavyOverkill(List<DraftOption> opts, RunState s)
+    {
+        var empty    = EmptySlots(s);
+        var eligible = ModSlots(s);
+        DifficultyMode difficulty = ResolveDifficultyMode();
+        int picksSoFar = s.Slots.Count(sl => sl.Tower != null) + s.Slots.Sum(sl => sl.Tower?.Modifiers.Count ?? 0);
+
+        var survivalGatePick = TryPickSpectacleSurvivalGate(opts, s, empty, eligible, difficulty, picksSoFar);
+        if (survivalGatePick != null) return survivalGatePick;
+
+        var hardPanicPick = TryPickHardPanicOverride(opts, s, empty, eligible, difficulty, picksSoFar, allowRiftTower: false);
+        if (hardPanicPick != null) return hardPanicPick;
+
+        // Priority 1: fill empty slots - heavy cannon first, then arc emitter, then rapid shooter.
+        if (empty.Count > 0)
+        {
+            var tower = FindTowerOption(opts, "heavy_cannon", "chain_tower", "rapid_shooter");
+            if (tower != null) return new DraftPick(tower, empty[0]);
+        }
+
+        // Priority 2: place targeted mods on heavy cannon slots.
+        if (eligible.Count > 0)
+        {
+            var heavySlots = eligible
+                .Where(i => s.Slots[i].Tower?.TowerId == "heavy_cannon")
+                .ToList();
+
+            if (heavySlots.Count > 0)
+            {
+                // Up to 1 Overkill per heavy cannon.
+                var overkill = FindModOption(opts, "overkill");
+                if (overkill != null)
+                {
+                    int slot = heavySlots
+                        .Where(i => !SlotHasModifier(s.Slots[i], "overkill"))
+                        .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                        .FirstOrDefault(-1);
+                    if (slot >= 0) return new DraftPick(overkill, slot);
+                }
+
+                // Up to 1 Feedback Loop per heavy cannon.
+                var feedbackLoop = FindModOption(opts, "feedback_loop");
+                if (feedbackLoop != null)
+                {
+                    int slot = heavySlots
+                        .Where(i => !SlotHasModifier(s.Slots[i], "feedback_loop"))
+                        .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                        .FirstOrDefault(-1);
+                    if (slot >= 0) return new DraftPick(feedbackLoop, slot);
+                }
+
+                // Third mod slot: Hair Trigger > Focus Lens > Chain Reaction > Split Shot.
+                foreach (string finisher in new[] { "hair_trigger", "focus_lens", "chain_reaction", "split_shot" })
+                {
+                    var mod = FindModOption(opts, finisher);
+                    if (mod == null) continue;
+                    int slot = heavySlots
+                        .Where(i => !SlotHasModifier(s.Slots[i], finisher))
+                        .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                        .FirstOrDefault(-1);
+                    if (slot >= 0) return new DraftPick(mod, slot);
+                }
+            }
+
+            // Non-heavy slots: fallback damage mods.
+            var fallback = TryPickPriorityMod(opts, s, eligible, new[]
+                { "overkill", "feedback_loop", "hair_trigger", "focus_lens", "chain_reaction" });
+            if (fallback != null) return fallback;
         }
 
         return PickGreedyDps(opts, s);

@@ -110,20 +110,20 @@
     "SpawnInterval": 1.25,
     "TankyCount": 2,
     "SwiftCount": 2,
-    "ReverseCount": 1,
-    "ShieldDroneCount": 1
+    "ReverseCount": 1
   },
   {
     "EnemyCount": 36,
     "SpawnInterval": 1.25,
-    "SwiftCount": 3,
+    "SwiftCount": 2,
     "ReverseCount": 2,
     "ShieldDroneCount": 1
   },
   {
     "EnemyCount": 38,
-    "SpawnInterval": 1.25,
+    "SpawnInterval": 1.35,
     "TankyCount": 4,
+    "SwiftCount": 1,
     "ReverseCount": 2,
     "ShieldDroneCount": 2
   }

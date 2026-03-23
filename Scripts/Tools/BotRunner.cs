@@ -20,6 +20,7 @@ public class BotRunner
     public const string StrategySetOptimization = "optimization";
     public const string StrategySetEdge = "edge";
     public const string StrategySetSpectacle = "spectacle";
+    public const string StrategySetTop3 = "top3";
 
     private static readonly BotStrategy[] OptimizationStrategies =
     {
@@ -34,6 +35,14 @@ public class BotRunner
         BotStrategy.TowerFirst,
         BotStrategy.ChainFocus,
         BotStrategy.HeavyStack,
+    };
+
+    // Top-3 best-performing strategies for focused difficulty ceiling testing.
+    private static readonly BotStrategy[] Top3Strategies =
+    {
+        BotStrategy.GreedyDps,
+        BotStrategy.PlayerStyleKenny,
+        BotStrategy.RiftPrismFocus,
     };
 
     // Spectacle strategy set: only drafts that consistently build Overkill + Chain combos,
@@ -195,6 +204,9 @@ public BotRunner(
             case StrategySetSpectacle:
                 resolvedLabel = StrategySetSpectacle;
                 return SpectacleStrategies;
+            case StrategySetTop3:
+                resolvedLabel = StrategySetTop3;
+                return Top3Strategies;
             case StrategySetAll:
             case "":
                 resolvedLabel = StrategySetAll;
