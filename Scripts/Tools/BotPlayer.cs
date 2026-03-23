@@ -534,6 +534,18 @@ public class BotPlayer
 
         if (eligible.Count > 0)
         {
+            // Prioritize blast_core and wildfire on any tower that doesn't already have them.
+            foreach (string advMod in new[] { "blast_core", "wildfire" })
+            {
+                var mod = FindModOption(opts, advMod);
+                if (mod == null) continue;
+                int slot = eligible
+                    .Where(i => !s.Slots[i].Tower!.Modifiers.Any(m => m.ModifierId == advMod))
+                    .OrderByDescending(i => s.Slots[i].Tower!.Modifiers.Count) // stack on busiest tower
+                    .FirstOrDefault(-1);
+                if (slot >= 0) return new DraftPick(mod, slot);
+            }
+
             // After opener, force one strong damage modifier early.
             var earlyDamage = FindModOption(opts, "hair_trigger", "momentum", "split_shot", "focus_lens", "chain_reaction", "exploit_weakness");
             if (earlyDamage != null)
@@ -636,6 +648,19 @@ public class BotPlayer
                 if (opener != null) return new DraftPick(opener, empty[0]);
             }
 
+            // Grab accordion engine and rift sapper as early as possible.
+            bool hasAccordion = s.Slots.Any(sl => sl.Tower?.TowerId == "accordion_engine");
+            if (!hasAccordion && towerCount >= 1)
+            {
+                var accordion = FindTowerOption(opts, "accordion_engine");
+                if (accordion != null) return new DraftPick(accordion, empty[0]);
+            }
+            if (!hasRift && towerCount >= 1)
+            {
+                var rift = FindTowerOption(opts, "rift_prism");
+                if (rift != null) return new DraftPick(rift, empty[0]);
+            }
+
             // Grab marker as soon as possible after opener; place near center.
             if (!hasMarker && towerCount >= 1)
             {
@@ -647,14 +672,7 @@ public class BotPlayer
                 }
             }
 
-            // Add rift sapper once core is established.
-            if (!hasRift && towerCount >= 2)
-            {
-                var rift = FindTowerOption(opts, "rift_prism");
-                if (rift != null) return new DraftPick(rift, empty[0]);
-            }
-
-            var preferredTower = FindTowerOption(opts, "rapid_shooter", "heavy_cannon", "chain_tower", "rift_prism");
+            var preferredTower = FindTowerOption(opts, "accordion_engine", "rift_prism", "rapid_shooter", "heavy_cannon", "chain_tower");
             if (preferredTower != null) return new DraftPick(preferredTower, empty[0]);
         }
 

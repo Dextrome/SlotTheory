@@ -199,6 +199,9 @@ public partial class AchievementManager : Node
             if (Unlocks.ShouldUnlockBlastCore(state, difficulty))
                 TryUnlock(Unlocks.BlastCoreAchievementId);
 
+            if (Unlocks.ShouldUnlockWildfire(state, difficulty))
+                TryUnlock(Unlocks.WildfireAchievementId);
+
             if (state.Lives == state.MaxLives)
                 TryUnlock("FLAWLESS");
 

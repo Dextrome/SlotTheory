@@ -21,7 +21,9 @@ public static class Unlocks
     public const string BlastCoreModifierId = "blast_core";
     public const string BlastCoreAchievementId = "BLAST_UNSEALED";
     public const string WildfireModifierId = "wildfire";
+    public const string WildfireAchievementId = "WILDFIRE_UNSEALED";
     private const string ArcEmitterFallbackMapId = "sprawl";
+    private const string WildfireFallbackMapId = "six";
     private const string SplitShotFallbackMapId = "arena_classic";
     private const string RiftPrismFallbackMapId = "gauntlet";
     private const string AccordionEngineFallbackMapId = "double_back";
@@ -62,6 +64,13 @@ public static class Unlocks
         return IsRunOnUnlockMap(state, unlockMapId);
     }
 
+    public static bool ShouldUnlockWildfire(RunState state, DifficultyMode difficulty)
+    {
+        _ = difficulty;
+        string unlockMapId = GetWildfireUnlockMapId();
+        return IsRunOnUnlockMap(state, unlockMapId);
+    }
+
     /// <summary>
     /// Arc Emitter unlock follows the first non-random campaign map by display order.
     /// This keeps progression behavior correct even if map ordering changes.
@@ -92,6 +101,12 @@ public static class Unlocks
     /// </summary>
     public static string GetBlastCoreUnlockMapId()
         => GetCampaignMapByOrder(order: 3, fallbackId: BlastCoreFallbackMapId);
+
+    /// <summary>
+    /// Wildfire unlock follows the sixth non-random campaign map by display order.
+    /// </summary>
+    public static string GetWildfireUnlockMapId()
+        => GetCampaignMapByOrder(order: 5, fallbackId: WildfireFallbackMapId);
 
     private static string GetCampaignMapByOrder(int order, string fallbackId)
     {
@@ -155,6 +170,9 @@ public static class Unlocks
 
         if (string.Equals(modifierId, BlastCoreModifierId, StringComparison.OrdinalIgnoreCase))
             return AchievementManager.Instance?.IsUnlocked(BlastCoreAchievementId) == true;
+
+        if (string.Equals(modifierId, WildfireModifierId, StringComparison.OrdinalIgnoreCase))
+            return AchievementManager.Instance?.IsUnlocked(WildfireAchievementId) == true;
 
         return true;
     }

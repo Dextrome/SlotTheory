@@ -81,6 +81,13 @@ public partial class GameController : Node
 	private Line2D[]? _pathLines;
 	private Vector2[]? _fullPathPoints;
 	private BotRunner? _botRunner;
+	private ScreenshotPipeline? _screenshotPipeline;
+	private string _screenshotOutputDir = "";
+	// Auto-draft mode: bot AI picks cards but _botRunner stays null so all VFX fire normally.
+	private bool       _autoDraftMode        = false;
+	private BotPlayer? _autoDraftBot;
+	private int        _autoDraftRunsTotal    = 0;
+	private int        _autoDraftRunsDone     = 0;
 	private int   _botWaveInRangeSum;
 	private int   _botWaveInRangeSamples;
 	private int   _botWaveSteps;
@@ -374,6 +381,49 @@ public partial class GameController : Node
 			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}{(targetMap != null ? $" on {targetMap}" : "")}{(targetStrategy.HasValue ? $" strategy={targetStrategy.Value}" : "")}{(strategySet != null ? $" strategy_set={strategySet}" : "")}{(forcedTower != null ? $" tower={forcedTower}" : "")}{(forcedMod != null ? $" mod={forcedMod}" : "")}{(runIndexOffset > 0 ? $" run_offset={runIndexOffset}" : "")}{(botFastMetrics ? " fast_metrics=on" : "")}{(botQuiet ? " quiet=on" : "")}{(string.IsNullOrWhiteSpace(metricsOutputPath) ? "" : $" metrics={metricsOutputPath}")}{(string.IsNullOrWhiteSpace(traceOutputPath) ? "" : $" trace={traceOutputPath}")}");
 		}
 
+		// Screenshot pipeline: enabled by --screenshot-capture (requires non-headless)
+		if (userArgs.Contains("--screenshot-capture") && DisplayServer.GetName() != "headless")
+		{
+			string defaultOut = Path.Combine(
+				Path.GetFullPath(ProjectSettings.GlobalizePath("res://")),
+				"screenshots");
+			int soIdx = System.Array.IndexOf(userArgs, "--screenshot_out");
+			string outDir = (soIdx >= 0 && soIdx + 1 < userArgs.Length)
+				? userArgs[soIdx + 1]
+				: defaultOut;
+			_screenshotPipeline = new ScreenshotPipeline();
+			AddChild(_screenshotPipeline);
+			GD.Print($"[SCREENSHOT] Pipeline created. Output: {outDir}");
+			// Store outDir for InitScreenshotPipeline(); actual Initialize() called after _runState is set.
+			// We stash the resolved path in a local -- reused in InitScreenshotPipeline below.
+			// (Captured via lambda scope in RestartRun via field set below.)
+			_screenshotOutputDir = outDir;
+		}
+
+		// Auto-draft mode: visually-rendered games with AI draft picks for screenshot capture.
+		// Enabled via --auto-draft. Does NOT set _botRunner, so all VFX/visuals fire normally.
+		if (userArgs.Contains("--auto-draft") && _botRunner == null)
+		{
+			int runs = 5;
+			int ri = System.Array.IndexOf(userArgs, "--auto-runs");
+			if (ri >= 0 && ri + 1 < userArgs.Length) int.TryParse(userArgs[ri + 1], out runs);
+
+			BotStrategy strategy = BotStrategy.PlayerStyleKenny;
+			int si = System.Array.IndexOf(userArgs, "--strategy");
+			if (si >= 0 && si + 1 < userArgs.Length)
+				System.Enum.TryParse<BotStrategy>(userArgs[si + 1], ignoreCase: true, out strategy);
+
+			int mapIdx = System.Array.IndexOf(userArgs, "--map");
+			if (mapIdx >= 0 && mapIdx + 1 < userArgs.Length)
+				SlotTheory.UI.MapSelectPanel.SetPendingMapSelection(userArgs[mapIdx + 1]);
+
+			_autoDraftMode      = true;
+			_autoDraftRunsTotal = runs;
+			_autoDraftRunsDone  = 0;
+			_autoDraftBot       = new BotPlayer(strategy, (int)(System.Environment.TickCount64 & 0x7FFFFFFF));
+			GD.Print($"[AUTO-DRAFT] {runs} run(s), strategy={strategy}, map={SlotTheory.UI.MapSelectPanel.PendingMapSelection}. All visuals active.");
+		}
+
 		_runState = new RunState();
 		_botGlobalSurgePending = false;
 		_botGlobalSurgeReadyAtPlayTime = -1f;
@@ -433,6 +483,7 @@ public partial class GameController : Node
 		_spectacleSystem.OnSurgeTriggered   += OnSpectacleSurgeTriggered;
 		_spectacleSystem.OnGlobalTriggered  += OnGlobalSurgeTriggered;
 		_spectacleSystem.OnGlobalSurgeReady += OnGlobalSurgeReadyHandler;
+		_screenshotPipeline?.Initialize(_runState, _screenshotOutputDir, 0);
 		_draftPanel = GetNode<DraftPanel>("../DraftPanel");
 		_hudPanel   = GetNode<HudPanel>("../HudPanel");
 		_hudPanel.GlobalSurgeActivateRequested -= OnHudGlobalSurgeActivate;
@@ -569,7 +620,7 @@ public partial class GameController : Node
 				previewAlpha = Mathf.Clamp((globalFill - 0.70f) / 0.30f, 0f, 1f) * 0.80f;
 			}
 			// Screen-edge vignette intensifies as meter approaches full
-			if (_botRunner == null && GodotObject.IsInstanceValid(_vignetteRect))
+			if (_botRunner == null && !_autoDraftMode && GodotObject.IsInstanceValid(_vignetteRect))
 			{
 				float vigIntensity = Mathf.Clamp((globalFill - 0.70f) / 0.30f, 0f, 1f);
 				if (vigIntensity > 0f)
@@ -691,6 +742,8 @@ public partial class GameController : Node
 			ApplySurgeProfileToEndScreen();
 			if (_tutorialManager != null) _endScreen.SetTutorialMode(true);
 			_endScreen.ShowLoss(_runState.WaveIndex + 1, livesLost, _runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), _runState, runName, mvpLine, modLine, runColors.start, runColors.end, _mapTotalWaves);
+			_screenshotPipeline?.NotifyLossScreen();
+			if (_autoDraftMode) AutoDraftScheduleNextRun();
 			_endScreen.SetLeaderboardStatus(leaderboardLine);
 			string? surgeLossHint = FinalizeSurgeHintingRun(won: false);
 			var lossGoalHint = AchievementManager.Instance?.GetGoalHint(_runState, scorePayload.Difficulty, won: false);
@@ -736,8 +789,10 @@ public partial class GameController : Node
 				ApplySurgeProfileToEndScreen();
 				if (_tutorialManager != null) _endScreen.SetTutorialMode(true);
 			_endScreen.ShowWin(_runState.TotalKills, _runState.TotalDamageDealt, _runState.TotalPlayTime, BuildBuildSummary(), runName, mvpLine, modLine, runColors.start, runColors.end, _runState.Lives, _mapTotalWaves, _runState.MaxLives);
+			_screenshotPipeline?.NotifyWinScreen();
 				if (_tutorialManager == null) _endScreen.SetLeaderboardStatus(leaderboardLine);
 				FinalizeSurgeHintingRun(won: true);
+				if (_autoDraftMode) AutoDraftScheduleNextRun();
 				var winGoalHint = AchievementManager.Instance?.GetGoalHint(_runState, scorePayload.Difficulty, won: true);
 				if (!string.IsNullOrEmpty(winGoalHint)) _endScreen.SetGoalHint(winGoalHint);
 				HandleCampaignStageWin(SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal);
@@ -813,6 +868,9 @@ public partial class GameController : Node
 			SaveMobileRunSnapshot("exit_tree");
 		if (_tutorialCallout != null && GodotObject.IsInstanceValid(_tutorialCallout))
 			_tutorialCallout.QueueFree();
+		// Generate gallery if screenshot pipeline was active (handles manual window close)
+		if (_botRunner == null)
+			_screenshotPipeline?.FinalizeSession();
 	}
 
 	/// <summary>
@@ -848,6 +906,9 @@ public partial class GameController : Node
 					break;
 				case Unlocks.BlastCoreAchievementId:
 					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: false, Unlocks.BlastCoreModifierId));
+					break;
+				case Unlocks.WildfireAchievementId:
+					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: false, Unlocks.WildfireModifierId));
 					break;
 			}
 		}
@@ -995,6 +1056,7 @@ public partial class GameController : Node
 		ClearUndoPlacementState();
 		_hudPanel?.RefreshEnemies(0, 0);  // hide enemy counter during draft
 		CurrentPhase = GamePhase.Draft;
+		if (_botRunner == null) _screenshotPipeline?.NotifyDraftScreen();
 		// Music continues uninterrupted through the draft phase.
 		_hudPanel?.SetBuildName("", visible: false);
 		// Tutorial: inject scripted picks for this wave (overrides random generation)
@@ -1030,6 +1092,20 @@ public partial class GameController : Node
 		_draftPanel.Show(options, _runState.WaveIndex + 1, pickNum, totalPicks, _lastWaveReport);
 		_lastWaveReport = null; // Clear after use
 		SaveMobileRunSnapshot("start_draft");
+
+		// Auto-draft: show panel briefly for screenshot capture, then pick automatically.
+		if (_autoDraftMode && _autoDraftBot != null)
+		{
+			var optionsSnap = options;
+			GetTree().CreateTimer(0.7f).Timeout += () =>
+			{
+				if (CurrentPhase != GamePhase.Draft) return;
+				_draftPanel.Hide();  // panel hides itself in the normal click flow; we do it manually here
+				var pick = _autoDraftBot!.Pick(optionsSnap, _runState);
+				if (pick != null) OnDraftPick(pick.Option, pick.SlotIndex);
+				else              StartWavePhase();
+			};
+		}
 	}
 
 	public RunState GetRunState() => _runState;
@@ -1049,6 +1125,26 @@ public partial class GameController : Node
 		SoundManager.Instance?.FadePad(2.5f);  // re-silence background music that OnRunEnd faded in
 		MusicDirector.Instance?.OnEndlessContinue(_runState.WaveIndex + 1, _runState.Lives);
 		StartDraftPhase();
+	}
+
+	private void AutoDraftScheduleNextRun()
+	{
+		_autoDraftRunsDone++;
+		GD.Print($"[AUTO-DRAFT] Run {_autoDraftRunsDone}/{_autoDraftRunsTotal} complete.");
+		if (_autoDraftRunsDone >= _autoDraftRunsTotal)
+		{
+			GetTree().CreateTimer(3.5f).Timeout += () =>
+			{
+				_screenshotPipeline?.FinalizeSession();
+				GD.Print("[AUTO-DRAFT] All runs complete. Quitting.");
+				GetTree().Quit();
+			};
+		}
+		else
+		{
+			// Brief pause so win/loss screen is visible for screenshot, then restart.
+			GetTree().CreateTimer(3.5f).Timeout += () => RestartRun();
+		}
 	}
 
 	private void OnWinExited()
@@ -1126,6 +1222,8 @@ public partial class GameController : Node
 		_globalActivateHintToken++;
 		_initialDraftMusicPrimed = false;
 		_spectacleSystem.Reset();
+		if (_screenshotPipeline != null && _runState != null)
+			_screenshotPipeline.Initialize(_runState, _screenshotOutputDir, (_botRunner?.CompletedRuns ?? 0));
 		if (_botRunner != null)
 			ResetBotTraceBuffer();
 		ClearUndoPlacementState();
@@ -1135,12 +1233,11 @@ public partial class GameController : Node
 		_hudPanel.SetGlobalSurgeReady(false);
 		_hudPanel.SetPersistentSurgeHint(null);
 
-			// In bot mode BotRunner.StartNextRun() already called SetPendingMapSelection
-			// before RestartRun() - pick it up here since _Ready() only runs once.
-			if (_botRunner != null)
+			// In bot/auto-draft mode re-apply the pending map since _Ready() only runs once.
+			if (_botRunner != null || _autoDraftMode)
 			{
 				_runState.SelectedMapId = SlotTheory.UI.MapSelectPanel.PendingMapSelection;
-				if (_runState.SelectedMapId == "random_map")
+				if (_runState.SelectedMapId == "random_map" && _botRunner != null)
 					_runState.RngSeed = ResolveBotProceduralSeed();
 			}
 			else if (_runState.SelectedMapId == "random_map")
@@ -3014,6 +3111,7 @@ public partial class GameController : Node
 					_botRunner!.RecordRunTrace(_botRunTraceEvents);
 				_botRunner!.RecordResult(false, _runState.WaveIndex + 1, _runState);
 				if (_botRunner.HasMoreRuns) { RestartRun(); return; }
+				_screenshotPipeline?.FinalizeSession();
 				_botRunner.PrintSummary();
 				GetTree().Quit();
 				return;
@@ -3034,6 +3132,7 @@ public partial class GameController : Node
 						_botRunner.RecordRunTrace(_botRunTraceEvents);
 					_botRunner.RecordResult(true, _runState.WaveIndex, _runState);
 					if (_botRunner.HasMoreRuns) { RestartRun(); return; }
+					_screenshotPipeline?.FinalizeSession();
 					_botRunner.PrintSummary();
 					GetTree().Quit();
 					return;
@@ -3686,6 +3785,7 @@ void fragment() {
 	{
 		if (CurrentPhase != GamePhase.Wave)
 			return;
+		_screenshotPipeline?.NotifyTowerSurge(info);
 		if (_tutorialManager != null && !_tutorialManager.SurgePanelShown)
 		{
 			_tutorialManager.MarkSurgePanelShown();
@@ -3867,11 +3967,22 @@ void fragment() {
 	private void OnGlobalSurgeReadyHandler(string archetypeName)
 	{
 		if (CurrentPhase != GamePhase.Wave) return;
+		_screenshotPipeline?.NotifyGlobalSurgeReady(archetypeName);
 		if (_botRunner == null && _runState != null)
 		{
 			_runState.SurgeHintTelemetry.GlobalsBecameReady++;
 			_globalReadyWindowOpen = true;
 			_globalReadySincePlayTime = _runState.TotalPlayTime;
+		}
+
+		if (_autoDraftMode)
+		{
+			// Auto-draft: let the ready banner screenshot fire, then activate.
+			GetTree().CreateTimer(1.2f).Timeout += () =>
+			{
+				if (CurrentPhase == GamePhase.Wave && _spectacleSystem.IsGlobalSurgeReady)
+					_spectacleSystem.ActivateGlobalSurge();
+			};
 		}
 
 		if (_botRunner != null)
@@ -3991,6 +4102,7 @@ void fragment() {
 			return;
 		if (_runState == null)
 			return;
+		_screenshotPipeline?.NotifyGlobalSurge(info);
 		_botGlobalSurgePending = false;
 		_botGlobalSurgeReadyAtPlayTime = -1f;
 		if (_botRunner == null)
@@ -6417,7 +6529,7 @@ void fragment() {
 
 	private void FlashSpectacleScreen(Color accent, float peakAlpha, float rampSec, float fadeSec)
 	{
-		if (_botRunner != null || !GodotObject.IsInstanceValid(_spectaclePulse))
+		if (_botRunner != null || _autoDraftMode || !GodotObject.IsInstanceValid(_spectaclePulse))
 			return;
 
 		_spectaclePulse.Visible = true;
@@ -6435,7 +6547,7 @@ void fragment() {
 
 	private void FlashSpectacleScreenLinger(Color color, float alpha, float holdSec, float fadeSec)
 	{
-		if (_botRunner != null || !GodotObject.IsInstanceValid(_lingerTint))
+		if (_botRunner != null || _autoDraftMode || !GodotObject.IsInstanceValid(_lingerTint))
 			return;
 		_lingerTint.Visible = true;
 		_lingerTint.Color = new Color(color.R, color.G, color.B, 0f);
@@ -6469,7 +6581,7 @@ void fragment() {
 
 	private void FlashSpectacleAfterimage(Color accent, float strength)
 	{
-		if (_botRunner != null || !GodotObject.IsInstanceValid(_spectacleAfterimage))
+		if (_botRunner != null || _autoDraftMode || !GodotObject.IsInstanceValid(_spectacleAfterimage))
 			return;
 
 		float s = Mathf.Clamp(strength, 0f, 1f);
@@ -6783,6 +6895,7 @@ void fragment() {
 	{
 		if (CurrentPhase != GamePhase.Wave || spillDamage <= 0f)
 			return;
+		_screenshotPipeline?.NotifyOverkillSpill(spillDamage);
 
 		// Track actual damage dealt (capped by target HP), not the attempted spill amount.
 		TrackSpectacleDamage(sourceTower, dealtDamage, isKill: false, SpectacleDamageSource.ExplosionFollowUp);
@@ -6819,6 +6932,7 @@ void fragment() {
 	{
 		if (CurrentPhase != GamePhase.Wave || sourceTower == null || deadEnemy == null || enemiesAlive == null)
 			return;
+		_screenshotPipeline?.NotifyMarkedEnemyPop();
 
 		Vector2 origin = deadEnemy.GlobalPosition;
 		float radius = SpectacleExplosionCore.MarkedPopRadius;
@@ -6885,6 +6999,7 @@ void fragment() {
 	public void NotifyFeedbackLoopProc(SlotTheory.Entities.ITowerView tower)
 	{
 		if (_botRunner != null || CurrentPhase != GamePhase.Wave) return;
+		_screenshotPipeline?.NotifyFeedbackLoop();
 
 		ulong now = Time.GetTicksMsec();
 		if (_feedbackLoopBurst.TryGetValue(tower, out var state) && now - state.firstMs <= 1300)
@@ -6903,6 +7018,7 @@ void fragment() {
 	public void NotifyChainMaxBounce(Vector2 worldPos, int bounceCount)
 	{
 		if (bounceCount < 2) return;
+		_screenshotPipeline?.NotifyChainMaxBounce(bounceCount);
 		if (!TryCombatCallout("chain_reaction", 7.0f)) return;
 		SpawnCombatCallout("CHAIN REACTION", worldPos, new Color(0.56f, 0.95f, 1.00f));
 	}
@@ -6920,6 +7036,7 @@ void fragment() {
 		float mechanicalRadius = SlotTheory.Core.Balance.BlastCoreRadius)
 	{
 		if (CurrentPhase != GamePhase.Wave) return;
+		_screenshotPipeline?.NotifyBlastCoreSplash(splashTargets?.Count ?? 0);
 
 		// Warm amber -- distinct from chain cyan (0.56,0.95,1) and overkill orange (1,0.56,0.25).
 		Color blastColor = new Color(1.00f, 0.72f, 0.22f);
@@ -7317,6 +7434,7 @@ void fragment() {
 		_currentDraftOptions = null;
 		ClearUndoPlacementState();
 		CurrentPhase = GamePhase.Wave;
+		_screenshotPipeline?.NotifyWaveStart(_runState.WaveIndex);
 		int waveNumber = _runState.WaveIndex + 1;
 		_tutorialManager?.OnWaveStarted(_runState.WaveIndex);
 		if (_tutorialManager != null && _runState.WaveIndex == 2)
