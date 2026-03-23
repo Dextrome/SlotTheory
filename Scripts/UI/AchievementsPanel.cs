@@ -85,9 +85,7 @@ public partial class AchievementsPanel : Node
 
         // ── Title ──────────────────────────────────────────────────────────────
         var title = new Label { Text = "ACHIEVEMENTS" };
-        UITheme.ApplyFont(title, semiBold: true, size: 36);
-        title.Modulate = new Color("#a6d608");
-        title.HorizontalAlignment = HorizontalAlignment.Center;
+        UITheme.ApplyAnagramTitle(title, MobileOptimization.IsMobile() ? 38 : 50);
         vbox.AddChild(title);
 
         int unlocked = 0;

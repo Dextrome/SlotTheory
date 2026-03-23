@@ -112,6 +112,21 @@ public static class UITheme
     // ── Helpers ───────────────────────────────────────────────────────────
 
     /// <summary>Applies Rajdhani font overrides to any Control.</summary>
+    public static void ApplyAnagramTitle(Label lbl, int size = 50)
+    {
+        var ls = new LabelSettings();
+        ls.Font = GD.Load<FontFile>("res://Assets/Fonts/Anagram.ttf");
+        ls.FontSize = size;
+        ls.FontColor = Lime;
+        ls.OutlineColor = new Color(0f, 0f, 0f, 0.85f);
+        ls.OutlineSize = 3;
+        ls.ShadowColor = new Color(Lime.R, Lime.G, Lime.B, 0.50f);
+        ls.ShadowSize = 8;
+        ls.ShadowOffset = Vector2.Zero;
+        lbl.LabelSettings = ls;
+        lbl.HorizontalAlignment = HorizontalAlignment.Center;
+    }
+
     public static void ApplyFont(Control control, bool semiBold = false, bool bold = false, int size = 0)
     {
         var font = bold ? Bold : (semiBold ? SemiBold : Regular);

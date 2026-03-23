@@ -25,6 +25,9 @@ public partial class SlotCodexPanel : Node
     private Button _towerTabBtn = null!;
     private Button _modTabBtn = null!;
     private Button _enemyTabBtn = null!;
+    private ColorRect _towerUnderline = null!;
+    private ColorRect _modUnderline = null!;
+    private ColorRect _enemyUnderline = null!;
     private Label _progressLabel = null!;
     private float _lastWidth = -1f;
 
@@ -92,13 +95,8 @@ public partial class SlotCodexPanel : Node
         headerBody.AddThemeConstantOverride("separation", 4);
         headerPanel.AddChild(headerBody);
 
-        var title = new Label
-        {
-            Text = "SLOT CODEX",
-            HorizontalAlignment = HorizontalAlignment.Center
-        };
-        UITheme.ApplyFont(title, semiBold: true, size: MobileOptimization.IsMobile() ? 34 : 44);
-        title.Modulate = UITheme.Lime;
+        var title = new Label { Text = "SLOT CODEX" };
+        UITheme.ApplyAnagramTitle(title, MobileOptimization.IsMobile() ? 38 : 50);
         headerBody.AddChild(title);
 
         var subtitle = new Label
@@ -123,12 +121,9 @@ public partial class SlotCodexPanel : Node
         tabs.AddThemeConstantOverride("separation", 12);
         root.AddChild(tabs);
 
-        _towerTabBtn = BuildTabButton("Towers",  () => SetActiveTab(CodexTab.Towers));
-        _modTabBtn   = BuildTabButton("Mods",    () => SetActiveTab(CodexTab.Mods));
-        _enemyTabBtn = BuildTabButton("Enemies", () => SetActiveTab(CodexTab.Enemies));
-        tabs.AddChild(_towerTabBtn);
-        tabs.AddChild(_modTabBtn);
-        tabs.AddChild(_enemyTabBtn);
+        tabs.AddChild(BuildTabEntry("Towers",  () => SetActiveTab(CodexTab.Towers),  out _towerTabBtn, out _towerUnderline));
+        tabs.AddChild(BuildTabEntry("Mods",    () => SetActiveTab(CodexTab.Mods),    out _modTabBtn,   out _modUnderline));
+        tabs.AddChild(BuildTabEntry("Enemies", () => SetActiveTab(CodexTab.Enemies), out _enemyTabBtn, out _enemyUnderline));
 
         var contentFrame = new PanelContainer
         {
@@ -219,23 +214,54 @@ public partial class SlotCodexPanel : Node
         Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
     }
 
-    private Button BuildTabButton(string text, Action onPressed)
+    private Control BuildTabEntry(string label, Action onPressed, out Button btn, out ColorRect underline)
     {
-        var btn = new Button
+        float btnW = MobileOptimization.IsMobile() ? 106f : 158f;
+        float btnH = MobileOptimization.IsMobile() ? 40f : 42f;
+
+        var wrap = new VBoxContainer();
+        wrap.AddThemeConstantOverride("separation", 0);
+
+        btn = new Button
         {
-            Text = text,
-            CustomMinimumSize = new Vector2(MobileOptimization.IsMobile() ? 106f : 158f, MobileOptimization.IsMobile() ? 44f : 46f),
+            Text = label,
+            CustomMinimumSize = new Vector2(btnW, btnH),
         };
-        btn.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 17 : 19);
-        UITheme.ApplyCyanStyle(btn);
-        UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, 0.09f, 0.11f);
+        btn.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 16 : 18);
+
+        // Flat uniform style -- no border swap, no BG color change
+        var style = new StyleBoxFlat
+        {
+            BgColor = new Color(0.07f, 0.08f, 0.17f, 0.0f),
+            BorderWidthTop = 0, BorderWidthBottom = 0, BorderWidthLeft = 0, BorderWidthRight = 0,
+            ContentMarginLeft = 6, ContentMarginRight = 6, ContentMarginTop = 4, ContentMarginBottom = 4
+        };
+        btn.AddThemeStyleboxOverride("normal", style);
+        btn.AddThemeStyleboxOverride("hover",  style);
+        btn.AddThemeStyleboxOverride("pressed", style);
+        btn.AddThemeStyleboxOverride("focus",   new StyleBoxEmpty());
+        btn.AddThemeColorOverride("font_color", new Color(0.48f, 0.58f, 0.76f));
+        btn.AddThemeColorOverride("font_hover_color", new Color(0.65f, 0.75f, 0.92f));
+        btn.AddThemeColorOverride("font_pressed_color", new Color(0.48f, 0.58f, 0.76f));
+
         btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         btn.Pressed += () =>
         {
             SoundManager.Instance?.Play("ui_select");
             onPressed();
         };
-        return btn;
+        wrap.AddChild(btn);
+
+        underline = new ColorRect
+        {
+            CustomMinimumSize = new Vector2(btnW, 3f),
+            Color = UITheme.Lime,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+            Visible = false
+        };
+        wrap.AddChild(underline);
+
+        return wrap;
     }
 
     private ScrollContainer BuildCardScroll(Control parent, out GridContainer grid)
@@ -553,18 +579,21 @@ public partial class SlotCodexPanel : Node
         _towerScroll.Visible  = tab == CodexTab.Towers;
         _modScroll.Visible    = tab == CodexTab.Mods;
         _enemyScroll.Visible  = tab == CodexTab.Enemies;
-        ApplyTabButtonState(_towerTabBtn,  tab == CodexTab.Towers);
-        ApplyTabButtonState(_modTabBtn,    tab == CodexTab.Mods);
-        ApplyTabButtonState(_enemyTabBtn,  tab == CodexTab.Enemies);
+        ApplyTabButtonState(_towerTabBtn, _towerUnderline, tab == CodexTab.Towers);
+        ApplyTabButtonState(_modTabBtn,   _modUnderline,   tab == CodexTab.Mods);
+        ApplyTabButtonState(_enemyTabBtn, _enemyUnderline, tab == CodexTab.Enemies);
         RefreshProgressLabel(tab);
     }
 
-    private static void ApplyTabButtonState(Button btn, bool active)
+    private static void ApplyTabButtonState(Button btn, ColorRect underline, bool active)
     {
-        if (active)
-            UITheme.ApplyPrimaryStyle(btn);
-        else
-            UITheme.ApplyCyanStyle(btn);
+        underline.Visible = active;
+        btn.AddThemeColorOverride("font_color",
+            active ? UITheme.Lime : new Color(0.48f, 0.58f, 0.76f));
+        btn.AddThemeColorOverride("font_hover_color",
+            active ? UITheme.Lime : new Color(0.65f, 0.75f, 0.92f));
+        btn.AddThemeColorOverride("font_pressed_color",
+            active ? UITheme.Lime : new Color(0.48f, 0.58f, 0.76f));
     }
 
     private void RefreshGridColumns(bool force)
@@ -588,15 +617,17 @@ public partial class SlotCodexPanel : Node
         int towerUnlocked = DataLoader.GetAllTowerIds(includeLocked: true).Count(Unlocks.IsTowerUnlocked);
         int modTotal = DataLoader.GetAllModifierIds(includeLocked: true).Count();
         int modUnlocked = DataLoader.GetAllModifierIds(includeLocked: true).Count(Unlocks.IsModifierUnlocked);
-        string enemyCountText = Balance.IsDemo ? "5 playable  •  2 full game" : "7 enemy types";
+        int enemyTotal = Balance.IsDemo ? 5 : 7;
 
-        _progressLabel.Text = tab switch
-        {
-            CodexTab.Towers  => $"{towerUnlocked}/{towerTotal} towers   •   Mods: {modUnlocked}/{modTotal}" + (Balance.IsDemo ? "   •   Full game has more" : ""),
-            CodexTab.Mods    => $"{modUnlocked}/{modTotal} mods   •   Towers: {towerUnlocked}/{towerTotal}" + (Balance.IsDemo ? "   •   Full game has more" : ""),
-            CodexTab.Enemies => $"{enemyCountText}   •   Towers: {towerUnlocked}/{towerTotal}   •   Mods: {modUnlocked}/{modTotal}",
-            _                => ""
-        };
+        _towerTabBtn.Text = $"{towerUnlocked}/{towerTotal} Towers";
+        _modTabBtn.Text   = $"{modUnlocked}/{modTotal} Mods";
+        _enemyTabBtn.Text = $"{enemyTotal} Enemies";
+
+        _progressLabel.Text = (Balance.IsDemo && tab != CodexTab.Enemies)
+            ? "Full game has more content"
+            : (Balance.IsDemo && tab == CodexTab.Enemies)
+            ? "2 more enemy types in the full game"
+            : "";
     }
 
     private static Control BuildFullGameCard(string note)

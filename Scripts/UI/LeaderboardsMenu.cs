@@ -94,13 +94,8 @@ public partial class LeaderboardsMenu : Node
         frame.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
         center.AddChild(frame);
 
-        var title = new Label
-        {
-            Text = "LEADERBOARDS",
-            HorizontalAlignment = HorizontalAlignment.Center,
-        };
-        UITheme.ApplyFont(title, semiBold: true, size: 52);
-        title.Modulate = new Color("#a6d608");
+        var title = new Label { Text = "LEADERBOARDS" };
+        UITheme.ApplyAnagramTitle(title, MobileOptimization.IsMobile() ? 38 : 50);
         frame.AddChild(title);
 
         var bodyPanel = new PanelContainer

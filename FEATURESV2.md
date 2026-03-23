@@ -85,7 +85,7 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 ### Arc Emitter (chain_tower) -- Chain Mechanics
 - Primary target receives full hit
 - Bounces to 2 additional enemies within **400 px** chain range
-- Each bounce: `0.6×` damage carry (40% decay per bounce)
+- Each bounce: `0.5×` damage carry (50% decay per bounce)
 - Chain targets receive `isChain: true` -- Blast Core and Overkill OnHit are skipped on them
 
 ### Rift Sapper (rift_prism) -- Mine Mechanics
@@ -610,7 +610,7 @@ Output goes to stdout. Log also written to `C:/Users/kenny/AppData/Roaming/Godot
 - Spectacle gameplay payloads are applied (matching live logic for balance accuracy)
 - Range checks fully enforced (`ignoreRange: false`)
 
-### Bot Strategies (11)
+### Bot Strategies (12)
 
 Cycle round-robin across runs:
 
@@ -627,8 +627,9 @@ Cycle round-robin across runs:
 | `SpectacleSingleStack` | Single modifier stacked 3× for surge identity |
 | `AccordionEngine` | Accordion Engine + compression synergies |
 | `PlayerStyleKenny` | Mimics observed human play patterns |
+| `HeavyOverkill` | Heavy Cannon priority + max 1 Overkill + 1 Feedback Loop per tower, then Hair Trigger/Focus Lens/Chain Reaction/Split Shot finisher |
 
-**Strategy sets:** `--strategy-set all` (default, all 11), `optimization` (4 win-rate focused), `edge` (3 edge-case scenarios).
+**Strategy sets:** `--strategy_set all` (default, all 12), `optimization` (4 win-rate focused), `edge` (3 edge-case), `spectacle` (2 chain/overkill focused), `top3` (GreedyDps + PlayerStyleKenny + RiftPrismFocus -- ceiling testing).
 
 **Demo simulation:** `--demo` flag zeroes Shield Drone and Reverse Walker counts via `Balance.SetDemoOverride(true)`.
 

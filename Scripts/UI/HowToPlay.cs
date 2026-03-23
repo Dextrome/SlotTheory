@@ -428,10 +428,8 @@ public partial class HowToPlay : Node
 
     private static void AddTitle(VBoxContainer vbox, string text)
     {
-        var lbl = new Label { Text = text, HorizontalAlignment = HorizontalAlignment.Center };
-        var titleSize = MobileOptimization.IsMobile() ? 36 : 52;
-        SlotTheory.Core.UITheme.ApplyFont(lbl, semiBold: true, size: titleSize);
-        lbl.Modulate = new Color("#a6d608");
+        var lbl = new Label { Text = text };
+        SlotTheory.Core.UITheme.ApplyAnagramTitle(lbl, MobileOptimization.IsMobile() ? 38 : 50);
         vbox.AddChild(lbl);
     }
 
