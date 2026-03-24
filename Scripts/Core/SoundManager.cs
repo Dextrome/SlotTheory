@@ -207,15 +207,15 @@ public partial class SoundManager : Node
             Tone(95f, 0.18f, vol: 0.34f, shape: 'q', env: 'f'),          // mechanical thump
             Tone(2800f, 0.04f, vol: 0.12f, shape: 'q', env: 'f')));      // lock click
         Reg("shoot_phase_splitter", Layer(
-            Sweep(1500f, 520f, 0.14f, vol: 0.48f),                       // phase discharge
-            Sweep(420f, 980f, 0.11f, vol: 0.22f),                        // spatial split shimmer
-            Tone(110f, 0.11f, vol: 0.22f, shape: 'q', env: 'f')));       // core thump
+            Sweep(1500f, 520f, 0.14f, vol: 0.36f),                       // phase discharge
+            Sweep(420f, 980f, 0.11f, vol: 0.16f),                        // spatial split shimmer
+            Tone(110f, 0.11f, vol: 0.18f, shape: 'q', env: 'f')));       // core thump
 
         // ── Enemy events ─────────────────────────────────────────────────
         Reg("hit",          Tone(520f, 0.03f, vol: 0.16f, shape: 'n', env: 'f'));
         Reg("hit_phase_splitter", Layer(
-            Tone(760f, 0.035f, vol: 0.14f, shape: 's', env: 'f'),
-            Tone(1400f, 0.022f, vol: 0.08f, shape: 'n', env: 'f')));
+            Tone(760f, 0.035f, vol: 0.11f, shape: 's', env: 'f'),
+            Tone(1400f, 0.022f, vol: 0.06f, shape: 'n', env: 'f')));
         Reg("kill_confirm", Tone(1200f, 0.04f, vol: 0.14f, shape: 's', env: 'f'));  // subtle tick layered with die_* on kill
         Reg("die_basic",    Sweep(400f, 170f, 0.14f, vol: 0.55f));
         Reg("die_armored",  Sweep(155f,  50f, 0.24f, vol: 0.70f));
