@@ -34,20 +34,6 @@ public readonly record struct GlobalSurgeTriggerInfo(float MeterAfter, int Uniqu
 
 public sealed class SpectacleSystem
 {
-    private readonly struct ContributionSample
-    {
-        public float Time { get; }
-        public string ModId { get; }
-        public float Value { get; }
-
-        public ContributionSample(float time, string modId, float value)
-        {
-            Time = time;
-            ModId = modId;
-            Value = value;
-        }
-    }
-
     private readonly struct SurgeContribution
     {
         public float Time { get; }
@@ -71,13 +57,7 @@ public sealed class SpectacleSystem
         public float Pulse;
         public float PulseHold;
         public string LoadoutSignature = string.Empty;
-        public bool RolesLocked;
-        public string LockedPrimary = string.Empty;
-        public string LockedSecondary = string.Empty;
-        public string LockedTertiary = string.Empty;
         public readonly Dictionary<string, float> ModCooldowns = new(StringComparer.Ordinal);
-        public readonly Dictionary<string, float> ContributionWindow = new(StringComparer.Ordinal);
-        public readonly Queue<ContributionSample> ContributionSamples = new();
         public readonly Queue<float> ShotTimes = new();
 
         public void Clear()
@@ -87,13 +67,7 @@ public sealed class SpectacleSystem
             InactivityTime = 0f;
             Pulse = 0f;
             PulseHold = 0f;
-            RolesLocked = false;
-            LockedPrimary = string.Empty;
-            LockedSecondary = string.Empty;
-            LockedTertiary = string.Empty;
             ModCooldowns.Clear();
-            ContributionWindow.Clear();
-            ContributionSamples.Clear();
             ShotTimes.Clear();
         }
     }
@@ -217,7 +191,6 @@ public sealed class SpectacleSystem
             if (state.InactivityTime >= SpectacleDefinitions.ResolveInactivityGraceSeconds() && state.Meter > 0f)
                 state.Meter = Max(0f, state.Meter - SpectacleDefinitions.ResolveInactivityDecayPerSecond() * delta);
 
-            PruneContributionWindow(state);
         }
 
         PruneGlobalContributions();
@@ -228,7 +201,7 @@ public sealed class SpectacleSystem
         if (!_towerStates.TryGetValue(tower, out var state))
             return new SpectacleVisualState(0f, 0f, string.Empty);
 
-        var signature = ResolveSignature(state, tower, useLockedRoles: true);
+        var signature = ResolveSignature(tower);
         return new SpectacleVisualState(
             MeterNormalized: Clamp(state.Meter / SpectacleDefinitions.ResolveSurgeThreshold(tower.TowerId), 0f, 1f),
             Pulse: state.Pulse,
@@ -237,8 +210,8 @@ public sealed class SpectacleSystem
 
     public SpectacleSignature PreviewSignature(ITowerView tower)
     {
-        var state = EnsureTowerState(tower);
-        return ResolveSignature(state, tower, useLockedRoles: false);
+        EnsureTowerState(tower);
+        return ResolveSignature(tower);
     }
 
     public void RegisterShotFired(ITowerView tower)
@@ -301,10 +274,6 @@ public sealed class SpectacleSystem
         state.InactivityTime = 0f;
         float surgeThreshold = SpectacleDefinitions.ResolveSurgeThreshold(tower.TowerId);
         state.Meter = Clamp(state.Meter + gain, 0f, surgeThreshold);
-        AddContribution(state, modId, gain);
-
-        if (!state.RolesLocked && state.Meter >= SpectacleDefinitions.ResolveRoleLockMeterThreshold())
-            LockRoles(state, tower);
 
         TryTriggerEvents(tower, state);
     }
@@ -315,15 +284,11 @@ public sealed class SpectacleSystem
         float globalThreshold = SpectacleDefinitions.ResolveGlobalThreshold();
         if (state.Meter >= surgeThreshold && state.SurgeCooldown <= 0f)
         {
-            var signature = ResolveSignature(state, tower, useLockedRoles: true);
+            var signature = ResolveSignature(tower);
             state.Meter = SpectacleDefinitions.ResolveSurgeMeterAfterTrigger();
             state.SurgeCooldown = SpectacleDefinitions.ResolveSurgeCooldownSeconds();
             state.Pulse = Max(state.Pulse, 1.0f);
             state.PulseHold = Max(state.PulseHold, 0.42f);
-            state.RolesLocked = false;
-            state.LockedPrimary = string.Empty;
-            state.LockedSecondary = string.Empty;
-            state.LockedTertiary = string.Empty;
 
             _globalMeter = Clamp(_globalMeter + SpectacleDefinitions.ResolveGlobalMeterPerSurge(), 0f, globalThreshold);
             _surgeContributions.Enqueue(new SurgeContribution(_time, tower, signature.PrimaryModId));
@@ -351,19 +316,7 @@ public sealed class SpectacleSystem
         }
     }
 
-    private void LockRoles(TowerState state, ITowerView tower)
-    {
-        var signature = ResolveSignature(state, tower, useLockedRoles: false);
-        if (string.IsNullOrEmpty(signature.PrimaryModId))
-            return;
-
-        state.RolesLocked = true;
-        state.LockedPrimary = signature.PrimaryModId;
-        state.LockedSecondary = signature.SecondaryModId;
-        state.LockedTertiary = signature.TertiaryModId;
-    }
-
-    private SpectacleSignature ResolveSignature(TowerState state, ITowerView tower, bool useLockedRoles)
+    private static SpectacleSignature ResolveSignature(ITowerView tower)
     {
         var counts = BuildCopyCountMap(tower);
         if (counts.Count == 0)
@@ -386,27 +339,17 @@ public sealed class SpectacleSystem
                 AugmentName: string.Empty);
         }
 
-        string r1;
-        string r2;
-        string r3;
-        if (useLockedRoles && state.RolesLocked && !string.IsNullOrEmpty(state.LockedPrimary))
-        {
-            r1 = state.LockedPrimary;
-            r2 = state.LockedSecondary;
-            r3 = state.LockedTertiary;
-        }
-        else
-        {
-            var ranked = counts.Keys
-                .OrderByDescending(modId => 100f * counts[modId] + 0.01f * state.ContributionWindow.GetValueOrDefault(modId, 0f))
-                .ThenBy(modId => CanonicalRank(modId))
-                .ThenBy(modId => modId, StringComparer.Ordinal)
-                .ToList();
+        // Roles determined purely by loadout: highest copy count first,
+        // ties broken by canonical order, then lexicographic.
+        var ranked = counts.Keys
+            .OrderByDescending(modId => counts[modId])
+            .ThenBy(modId => CanonicalRank(modId))
+            .ThenBy(modId => modId, StringComparer.Ordinal)
+            .ToList();
 
-            r1 = ranked.Count > 0 ? ranked[0] : string.Empty;
-            r2 = ranked.Count > 1 ? ranked[1] : string.Empty;
-            r3 = ranked.Count > 2 ? ranked[2] : string.Empty;
-        }
+        string r1 = ranked.Count > 0 ? ranked[0] : string.Empty;
+        string r2 = ranked.Count > 1 ? ranked[1] : string.Empty;
+        string r3 = ranked.Count > 2 ? ranked[2] : string.Empty;
 
         int unique = counts.Count;
         int n = tower.Modifiers.Count;
@@ -551,31 +494,6 @@ public sealed class SpectacleSystem
                 count++;
         }
         return count;
-    }
-
-    private void AddContribution(TowerState state, string modId, float value)
-    {
-        state.ContributionSamples.Enqueue(new ContributionSample(_time, modId, value));
-        state.ContributionWindow.TryGetValue(modId, out float current);
-        state.ContributionWindow[modId] = current + value;
-        PruneContributionWindow(state);
-    }
-
-    private void PruneContributionWindow(TowerState state)
-    {
-        float cutoff = _time - SpectacleDefinitions.ResolveContributionWindowSeconds();
-        while (state.ContributionSamples.Count > 0 && state.ContributionSamples.Peek().Time < cutoff)
-        {
-            var sample = state.ContributionSamples.Dequeue();
-            if (!state.ContributionWindow.TryGetValue(sample.ModId, out float current))
-                continue;
-
-            float next = current - sample.Value;
-            if (next <= 0.0001f)
-                state.ContributionWindow.Remove(sample.ModId);
-            else
-                state.ContributionWindow[sample.ModId] = next;
-        }
     }
 
     private void PruneGlobalContributions()

@@ -58,8 +58,6 @@ public static class SpectacleDefinitions
     public const float GlobalContributionWindowSeconds = 6f;
     public const float InactivityGraceSeconds = 2f;
     public const float InactivityDecayPerSecond = 3f;
-    public const float ContributionWindowSeconds = 20f;
-    public const float RoleLockMeterThreshold = 20f;
     // Fill is intentionally slower so spectacle pacing is easier to read:
     // ~30% longer than baseline (rate = baseline / 1.3).
     public const float MeterGainScale = 0.75f / 1.30f;
@@ -213,12 +211,6 @@ public static class SpectacleDefinitions
 
     public static float ResolveInactivityDecayPerSecond()
         => MathF.Max(0f, InactivityDecayPerSecond * MathF.Max(0f, SpectacleTuning.Current.InactivityDecayMultiplier));
-
-    public static float ResolveContributionWindowSeconds()
-        => MathF.Max(0.05f, ContributionWindowSeconds * MathF.Max(0.05f, SpectacleTuning.Current.ContributionWindowMultiplier));
-
-    public static float ResolveRoleLockMeterThreshold()
-        => MathF.Max(0f, RoleLockMeterThreshold * MathF.Max(0f, SpectacleTuning.Current.RoleLockMeterThresholdMultiplier));
 
     public static float ResolveMeterGainScale()
         => MeterGainScale * MathF.Max(0f, SpectacleTuning.Current.MeterGainMultiplier);

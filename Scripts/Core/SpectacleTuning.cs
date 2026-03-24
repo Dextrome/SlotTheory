@@ -68,10 +68,6 @@ public sealed class SpectacleTuningProfile
     public float InactivityGraceMultiplier { get; set; } = 0.9151f;
     [JsonPropertyName("inactivity_decay_multiplier")]
     public float InactivityDecayMultiplier { get; set; } = 1.2156f;
-    [JsonPropertyName("contribution_window_multiplier")]
-    public float ContributionWindowMultiplier { get; set; } = 0.8148f;
-    [JsonPropertyName("role_lock_meter_threshold_multiplier")]
-    public float RoleLockMeterThresholdMultiplier { get; set; } = 1.1286f;
     [JsonPropertyName("copy_multiplier_scale")]
     public float CopyMultiplierScale { get; set; } = 0.8532f;
     [JsonPropertyName("event_scalar_multiplier")]
@@ -221,8 +217,6 @@ public sealed class SpectacleTuningProfile
         GlobalContributionWindowMultiplier = 1f,
         InactivityGraceMultiplier = 1f,
         InactivityDecayMultiplier = 1f,
-        ContributionWindowMultiplier = 1f,
-        RoleLockMeterThresholdMultiplier = 1f,
         CopyMultiplierScale = 1f,
         EventScalarMultiplier = 1f,
         SecondStagePowerThreshold = 0.95f,
@@ -313,8 +307,6 @@ public sealed class SpectacleTuningProfile
             GlobalContributionWindowMultiplier = MathF.Max(0.05f, GlobalContributionWindowMultiplier),
             InactivityGraceMultiplier = MathF.Max(0f, InactivityGraceMultiplier),
             InactivityDecayMultiplier = MathF.Max(0f, InactivityDecayMultiplier),
-            ContributionWindowMultiplier = MathF.Max(0.05f, ContributionWindowMultiplier),
-            RoleLockMeterThresholdMultiplier = MathF.Max(0f, RoleLockMeterThresholdMultiplier),
             CopyMultiplierScale = MathF.Max(0f, CopyMultiplierScale),
             EventScalarMultiplier = MathF.Max(0f, EventScalarMultiplier),
             SecondStagePowerThreshold = Math.Clamp(SecondStagePowerThreshold, 0.05f, 3f),
