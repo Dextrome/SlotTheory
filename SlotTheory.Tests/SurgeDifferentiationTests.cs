@@ -47,10 +47,8 @@ public class SurgeDifferentiationTests
 
         float baseGain = SpectacleDefinitions.GetBaseGain(procModId);
         float copy = SpectacleDefinitions.GetCopyMultiplier(1);
-        float diversity = SpectacleDefinitions.GetDiversityMultiplier(1);
         float scale = SpectacleDefinitions.ResolveMeterGainScale();
-        float damageScale = SpectacleDefinitions.ResolveDamageMeterMultiplier(-1f);
-        float perScalarGain = baseGain * copy * diversity * scale * damageScale;
+        float perScalarGain = baseGain * copy * scale;
         float scalarForOneSurge = (surgeThreshold / perScalarGain) + 1f;
 
         for (int i = 0; i < requiredSurges; i++)
@@ -215,10 +213,8 @@ public class SurgeDifferentiationTests
         float surgeThreshold = SpectacleDefinitions.ResolveSurgeThreshold();
         float baseGain = SpectacleDefinitions.GetBaseGain(SpectacleDefinitions.Momentum);
         float copy = SpectacleDefinitions.GetCopyMultiplier(1);
-        float diversity = SpectacleDefinitions.GetDiversityMultiplier(1);
         float scale = SpectacleDefinitions.ResolveMeterGainScale();
-        float dmgScale = SpectacleDefinitions.ResolveDamageMeterMultiplier(-1f);
-        float scalarForSurge = (surgeThreshold / (baseGain * copy * diversity * scale * dmgScale)) + 1f;
+        float scalarForSurge = (surgeThreshold / (baseGain * copy * scale)) + 1f;
 
         // Two momentum surges from towerA
         system.RegisterProc(towerA, SpectacleDefinitions.Momentum, scalarForSurge);
@@ -261,9 +257,7 @@ public class SurgeDifferentiationTests
         float surgeThreshold = SpectacleDefinitions.ResolveSurgeThreshold();
         float baseGain = SpectacleDefinitions.GetBaseGain(SpectacleDefinitions.Momentum);
         float scalarForSurge = (surgeThreshold / (baseGain * SpectacleDefinitions.GetCopyMultiplier(1)
-            * SpectacleDefinitions.GetDiversityMultiplier(1)
-            * SpectacleDefinitions.ResolveMeterGainScale()
-            * SpectacleDefinitions.ResolveDamageMeterMultiplier(-1f))) + 1f;
+            * SpectacleDefinitions.ResolveMeterGainScale())) + 1f;
 
         for (int i = 0; i < 30 && !system.IsGlobalSurgeReady; i++)
         {
@@ -319,9 +313,7 @@ public class SurgeDifferentiationTests
             float surgeThreshold = SpectacleDefinitions.ResolveSurgeThreshold();
             float baseGain = SpectacleDefinitions.GetBaseGain(SpectacleDefinitions.Momentum);
             float scalarForSurge = (surgeThreshold / (baseGain * SpectacleDefinitions.GetCopyMultiplier(1)
-                * SpectacleDefinitions.GetDiversityMultiplier(1)
-                * SpectacleDefinitions.ResolveMeterGainScale()
-                * SpectacleDefinitions.ResolveDamageMeterMultiplier(-1f))) + 1f;
+                * SpectacleDefinitions.ResolveMeterGainScale())) + 1f;
 
             // Fire surge, then advance time past the contribution window so contributions expire
             system.RegisterProc(tower, SpectacleDefinitions.Momentum, scalarForSurge);

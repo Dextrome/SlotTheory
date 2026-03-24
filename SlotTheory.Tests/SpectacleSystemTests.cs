@@ -103,9 +103,12 @@ public class SpectacleSystemTests
         };
 
         // Build a deterministic contribution order without crossing lock threshold first.
+        // Each uses a different mod so no cooldown conflicts; then tick past the cooldown
+        // before re-firing primary with the large scalar.
         system.RegisterProc(tower, primary, 2.0f);
         system.RegisterProc(tower, secondary, 1.5f);
         system.RegisterProc(tower, tertiary, 1.0f);
+        system.Update(SpectacleDefinitions.ModProcCooldownSeconds + 0.01f);
         system.RegisterProc(tower, primary, 125f);
 
         Assert.Equal(1, surgeCount);
@@ -126,11 +129,9 @@ public class SpectacleSystemTests
         float threshold = SpectacleDefinitions.ResolveSurgeThreshold();
         float baseGain = SpectacleDefinitions.GetBaseGain(modId);
         float copy = SpectacleDefinitions.GetCopyMultiplier(1);
-        float diversity = SpectacleDefinitions.GetDiversityMultiplier(1);
         float meterScale = SpectacleDefinitions.ResolveMeterGainScale();
-        float damageScale = SpectacleDefinitions.ResolveDamageMeterMultiplier(eventDamage: -1f);
 
-        float perScalarGain = baseGain * copy * diversity * meterScale * damageScale;
+        float perScalarGain = baseGain * copy * meterScale;
         Assert.True(perScalarGain > 0f);
         return (threshold / perScalarGain) + 1f;
     }
@@ -206,16 +207,12 @@ public class SpectacleSystemTests
     }
 
     [Fact]
-    public void CopyAndDiversityMultipliers_MatchPlannedTables()
+    public void CopyMultiplier_MatchesPlannedTable()
     {
         Assert.Equal(0f, SpectacleDefinitions.GetCopyMultiplier(0), 3);
         Assert.Equal(1.00f, SpectacleDefinitions.GetCopyMultiplier(1), 3);
         Assert.Equal(1.92f, SpectacleDefinitions.GetCopyMultiplier(2), 3);
         Assert.Equal(2.70f, SpectacleDefinitions.GetCopyMultiplier(3), 3);
-
-        Assert.Equal(1.00f, SpectacleDefinitions.GetDiversityMultiplier(1), 3);
-        Assert.Equal(1.08f, SpectacleDefinitions.GetDiversityMultiplier(2), 3);
-        Assert.Equal(1.16f, SpectacleDefinitions.GetDiversityMultiplier(3), 3);
     }
 
     [Fact]
@@ -518,6 +515,9 @@ public class SpectacleSystemTests
         system.RegisterProc(tower, "split_shot", scalarForSingleProcSurge * 0.25f);
         Assert.Equal(0, surgeCount);
 
+        // Tick past the per-mod cooldown so the second proc is admitted.
+        system.Update(SpectacleDefinitions.ModProcCooldownSeconds + 0.01f);
+
         // Carried meter + second proc crosses surge threshold.
         system.RegisterProc(tower, "split_shot", scalarForSingleProcSurge * 0.80f);
         Assert.Equal(1, surgeCount);
@@ -552,17 +552,10 @@ public class SpectacleSystemTests
         Assert.True(float.IsFinite(visual.MeterNormalized));
         Assert.True(visual.MeterNormalized > 0f);
 
+        system.Update(SpectacleDefinitions.ModProcCooldownSeconds + 0.01f);
         system.RegisterProc(tower, "split_shot", scalarForSingleProcSurge * 0.80f, eventDamage: float.PositiveInfinity);
         Assert.Equal(1, surgeCount);
         Assert.True(float.IsFinite(system.GlobalMeter));
-    }
-
-    [Fact]
-    public void ResolveDamageMeterMultiplier_NonFiniteDamage_DefaultsToOne()
-    {
-        Assert.Equal(1f, SpectacleDefinitions.ResolveDamageMeterMultiplier(float.NaN), 3);
-        Assert.Equal(1f, SpectacleDefinitions.ResolveDamageMeterMultiplier(float.PositiveInfinity), 3);
-        Assert.Equal(1f, SpectacleDefinitions.ResolveDamageMeterMultiplier(float.NegativeInfinity), 3);
     }
 
     [Fact]

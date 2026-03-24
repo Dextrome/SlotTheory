@@ -36,9 +36,7 @@ public class SurgePreviewFeatureTests
         float threshold = SpectacleDefinitions.ResolveSurgeThreshold();
         float perGain = SpectacleDefinitions.GetBaseGain(modId)
             * SpectacleDefinitions.GetCopyMultiplier(1)
-            * SpectacleDefinitions.GetDiversityMultiplier(1)
-            * SpectacleDefinitions.ResolveMeterGainScale()
-            * SpectacleDefinitions.ResolveDamageMeterMultiplier(-1f);
+            * SpectacleDefinitions.ResolveMeterGainScale();
         Assert.True(perGain > 0f);
         return (threshold / perGain) + 1f;
     }

@@ -75,7 +75,7 @@ public sealed class SpectacleSystem
         public string LockedPrimary = string.Empty;
         public string LockedSecondary = string.Empty;
         public string LockedTertiary = string.Empty;
-        public readonly Dictionary<string, float> Tokens = new(StringComparer.Ordinal);
+        public readonly Dictionary<string, float> ModCooldowns = new(StringComparer.Ordinal);
         public readonly Dictionary<string, float> ContributionWindow = new(StringComparer.Ordinal);
         public readonly Queue<ContributionSample> ContributionSamples = new();
         public readonly Queue<float> ShotTimes = new();
@@ -91,7 +91,7 @@ public sealed class SpectacleSystem
             LockedPrimary = string.Empty;
             LockedSecondary = string.Empty;
             LockedTertiary = string.Empty;
-            Tokens.Clear();
+            ModCooldowns.Clear();
             ContributionWindow.Clear();
             ContributionSamples.Clear();
             ShotTimes.Clear();
@@ -201,7 +201,18 @@ public sealed class SpectacleSystem
             {
                 state.Pulse = Max(0f, state.Pulse - delta * 0.72f);
             }
-            RegenerateTokens(state, delta);
+            if (state.ModCooldowns.Count > 0)
+            {
+                var cdKeys = state.ModCooldowns.Keys.ToArray();
+                foreach (string k in cdKeys)
+                {
+                    float next = state.ModCooldowns[k] - delta;
+                    if (next <= 0f)
+                        state.ModCooldowns.Remove(k);
+                    else
+                        state.ModCooldowns[k] = next;
+                }
+            }
             state.InactivityTime += delta;
             if (state.InactivityTime >= SpectacleDefinitions.ResolveInactivityGraceSeconds() && state.Meter > 0f)
                 state.Meter = Max(0f, state.Meter - SpectacleDefinitions.ResolveInactivityDecayPerSecond() * delta);
@@ -234,7 +245,6 @@ public sealed class SpectacleSystem
     {
         if (tower == null) return;
         var state = EnsureTowerState(tower);
-        EnsureTokenBuckets(state);
 
         state.ShotTimes.Enqueue(_time);
         while (state.ShotTimes.Count > 0 && state.ShotTimes.Peek() < _time - 1f)
@@ -260,7 +270,6 @@ public sealed class SpectacleSystem
             return;
 
         var state = EnsureTowerState(tower);
-        EnsureTokenBuckets(state);
         RegisterProcInternal(tower, state, modId, eventScalar, eventDamage);
     }
 
@@ -268,43 +277,23 @@ public sealed class SpectacleSystem
     {
         if (!float.IsFinite(eventScalar) || eventScalar <= 0f)
             return;
-        if (!float.IsFinite(eventDamage))
-            eventDamage = -1f;
 
         int copies = CountCopies(tower, modId);
         if (copies <= 0)
             return;
 
-        int uniqueCount = CountUniqueSupportedMods(tower);
-        if (uniqueCount <= 0)
+        // Per-mod-per-tower cooldown gate: prevents the same mod from contributing
+        // more than once per ModProcCooldownSeconds on the same tower.
+        if (state.ModCooldowns.TryGetValue(modId, out float remaining) && remaining > 0f)
             return;
+        state.ModCooldowns[modId] = SpectacleDefinitions.ModProcCooldownSeconds;
 
-        if (!state.Tokens.TryGetValue(modId, out float tokens))
-            tokens = SpectacleDefinitions.GetTokenConfig(modId).Cap;
-
-        float gate = Clamp(tokens, 0f, 1f);
-        state.Tokens[modId] = Max(0f, tokens - 1f);
-
-        if (gate <= 0.0001f)
-            return;
-
-        // Scale meter gain by attack interval relative to 1s reference:
-        // - Fast towers (< 1s interval) earn less per proc so high fire rate doesn't dominate surge count.
-        // - Slow towers (> 1s interval) earn a bonus (up to 1.5×) so heavy hitters remain surge-relevant.
-        // - Floor (MeterIntervalMinScale) prevents very fast towers (e.g. Rapid Shooter + Hair Trigger)
-        //   from being double-penalized into near-impossible surge fill.
-        float intervalScale = MathF.Min(1.5f, MathF.Max(SpectacleDefinitions.MeterIntervalMinScale,
-            tower.AttackInterval / SpectacleDefinitions.MeterIntervalReference));
-
+        // Meter gain: base gain × event intensity × copy bonus × global scale × per-tower bias.
         float gain = SpectacleDefinitions.GetBaseGain(modId)
             * eventScalar
             * SpectacleDefinitions.GetCopyMultiplier(copies)
-            * gate
-            * SpectacleDefinitions.GetDiversityMultiplier(uniqueCount)
             * SpectacleDefinitions.ResolveMeterGainScale()
-            * SpectacleDefinitions.ResolveTowerMeterGainMultiplier(tower.TowerId)
-            * SpectacleDefinitions.ResolveDamageMeterMultiplier(eventDamage)
-            * intervalScale;
+            * SpectacleDefinitions.ResolveTowerMeterGainMultiplier(tower.TowerId);
 
         if (!float.IsFinite(gain) || gain <= 0.0001f)
             return;
@@ -509,7 +498,6 @@ public sealed class SpectacleSystem
         {
             state.Clear();
             state.LoadoutSignature = sig;
-            EnsureTokenBuckets(state);
         }
 
         return state;
@@ -563,38 +551,6 @@ public sealed class SpectacleSystem
                 count++;
         }
         return count;
-    }
-
-    private static int CountUniqueSupportedMods(ITowerView tower)
-    {
-        var set = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var mod in tower.Modifiers)
-        {
-            string id = SpectacleDefinitions.NormalizeModId(mod.ModifierId);
-            if (SpectacleDefinitions.IsSupported(id))
-                set.Add(id);
-        }
-        return set.Count;
-    }
-
-    private static void EnsureTokenBuckets(TowerState state)
-    {
-        foreach (string modId in SpectacleDefinitions.SupportedModIds)
-        {
-            if (!state.Tokens.ContainsKey(modId))
-                state.Tokens[modId] = SpectacleDefinitions.GetTokenConfig(modId).Cap;
-        }
-    }
-
-    private static void RegenerateTokens(TowerState state, float delta)
-    {
-        var ids = state.Tokens.Keys.ToArray();
-        foreach (string modId in ids)
-        {
-            var cfg = SpectacleDefinitions.GetTokenConfig(modId);
-            float next = state.Tokens[modId] + cfg.RegenPerSecond * delta;
-            state.Tokens[modId] = Clamp(next, 0f, cfg.Cap);
-        }
     }
 
     private void AddContribution(TowerState state, string modId, float value)

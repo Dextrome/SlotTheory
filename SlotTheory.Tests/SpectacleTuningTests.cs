@@ -137,26 +137,6 @@ public class SpectacleTuningTests
     }
 
     [Fact]
-    public void TokenMultipliers_AffectResolvedTokenConfig()
-    {
-        SpectacleTuning.Reset();
-        SpectacleTokenConfig baseline = SpectacleDefinitions.GetTokenConfig(SpectacleDefinitions.Overkill);
-
-        SpectacleTuning.Apply(new SpectacleTuningProfile
-        {
-            TokenCapMultiplier = 1.20f,
-            TokenRegenMultiplier = 1.30f,
-            TokenCapMultipliers = { [SpectacleDefinitions.Overkill] = 1.10f },
-            TokenRegenMultipliers = { [SpectacleDefinitions.Overkill] = 1.10f },
-        }, "test");
-        SpectacleTokenConfig tuned = SpectacleDefinitions.GetTokenConfig(SpectacleDefinitions.Overkill);
-
-        Assert.True(tuned.Cap > baseline.Cap);
-        Assert.True(tuned.RegenPerSecond > baseline.RegenPerSecond);
-        SpectacleTuning.Reset();
-    }
-
-    [Fact]
     public void DifficultyMultipliers_AffectBalanceForNormalAndHard()
     {
         SpectacleTuning.Reset();
@@ -212,10 +192,6 @@ public class SpectacleTuningTests
         Assert.Equal(
             profile.EventScalarMultiplier * 0.68f,
             profile.ResolveEventScalarMultiplier(SpectacleDefinitions.ChainReaction),
-            3);
-        Assert.Equal(
-            profile.TokenCapMultiplier * 0.92f,
-            profile.ResolveTokenCapMultiplier(SpectacleDefinitions.ChainReaction),
             3);
     }
 }
