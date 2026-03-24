@@ -201,7 +201,7 @@
       "id": "switchback",
       "name": "Switchback",
       "description": "Four parallel channels in a descending switchback. The center slots cover two passes at once; the final run fires back across the full width.",
-      "displayOrder": 7,
+      "displayOrder": 8,
       "isFullGame": true,
       "path": [
         { "x": 80,   "y": 96  },
@@ -221,6 +221,30 @@
         { "id": 3, "x": 960, "y": 336 },
         { "id": 4, "x": 800, "y": 176 },
         { "id": 5, "x": 640, "y": 496 }
+      ]
+    },
+    {
+      "id": "ziggurat",
+      "name": "Ziggurat",
+      "description": "Two great diagonals slash the field and cross at the apex. Every enemy walks through the crossing twice -- stack your kill zone there or bleed out.",
+      "displayOrder": 9,
+      "isFullGame": true,
+      "path": [
+        { "x": 80,   "y": 80  },
+        { "x": 1120, "y": 560 },
+        { "x": 1120, "y": 80  },
+        { "x": 80,   "y": 560 },
+        { "x": 80,   "y": 192 },
+        { "x": 640,  "y": 560 },
+        { "x": 640,  "y": 640 }
+      ],
+      "slots": [
+        { "id": 0, "x": 560, "y": 240 },
+        { "id": 1, "x": 400, "y": 320 },
+        { "id": 2, "x": 400, "y": 160 },
+        { "id": 3, "x": 960, "y": 240 },
+        { "id": 4, "x": 1040, "y": 400 },
+        { "id": 5, "x": 720, "y": 480 }
       ]
     }
   ],

@@ -182,7 +182,7 @@ public BotRunner(
 			? new[] { targetMap }
 			: Balance.IsDemo
 				? new[] { "crossroads", "pinch_bleed", "orbit" }
-				: new[] { "crossroads", "pinch_bleed", "orbit", "ridgeback", "double_back", "threshold", "switchback" };
+				: new[] { "crossroads", "pinch_bleed", "orbit", "ridgeback", "double_back", "crossfire", "threshold", "switchback", "ziggurat" };
 		// Filter difficulties if specific one requested
 		if (targetDifficulty.HasValue)
 			_difficulties = new[] { targetDifficulty.Value };
@@ -419,8 +419,10 @@ public BotRunner(
                 "orbit" => "Orbit",
                 "ridgeback" => "Ridgeback",
                 "double_back" => "Double Back",
+                "crossfire"   => "Crossfire",
                 "threshold"   => "Threshold",
                 "switchback"  => "Switchback",
+                "ziggurat"    => "Ziggurat",
                 _ => mapId
             };
 
