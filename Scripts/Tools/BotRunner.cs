@@ -181,8 +181,8 @@ public BotRunner(
 		_maps = targetMap != null
 			? new[] { targetMap }
 			: Balance.IsDemo
-				? new[] { "arena_classic", "gauntlet", "sprawl" }
-				: new[] { "arena_classic", "gauntlet", "sprawl", "ridgeback", "double_back", "threshold", "switchback" };
+				? new[] { "crossroads", "pinch_bleed", "orbit" }
+				: new[] { "crossroads", "pinch_bleed", "orbit", "ridgeback", "double_back", "threshold", "switchback" };
 		// Filter difficulties if specific one requested
 		if (targetDifficulty.HasValue)
 			_difficulties = new[] { targetDifficulty.Value };
@@ -414,9 +414,9 @@ public BotRunner(
             int mapWins = mapResults.Count(r => r.Won);
             var mapName = mapId switch
             {
-                "arena_classic" => "Crossroads",
-                "gauntlet" => "Pinch & Bleed",
-                "sprawl" => "Orbit",
+                "crossroads" => "Crossroads",
+                "pinch_bleed" => "Pinch & Bleed",
+                "orbit" => "Orbit",
                 "ridgeback" => "Ridgeback",
                 "double_back" => "Double Back",
                 "threshold"   => "Threshold",

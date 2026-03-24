@@ -910,6 +910,12 @@ public partial class GameController : Node
 				case Unlocks.WildfireAchievementId:
 					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: false, Unlocks.WildfireModifierId));
 					break;
+				case Unlocks.PhaseSplitterAchievementId:
+					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: true, Unlocks.PhaseSplitterTowerId));
+					break;
+				case Unlocks.ReaperProtocolAchievementId:
+					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: false, Unlocks.ReaperProtocolModifierId));
+					break;
 			}
 		}
 
@@ -1644,6 +1650,13 @@ public partial class GameController : Node
 		};
 		modeBadge.AddChild(modeIcon);
 		tower.ModeIconControl = modeIcon;
+
+		// Phase Splitter always hits front + back -- targeting mode is not applicable.
+		if (tower.TowerId == "phase_splitter")
+		{
+			modeBadge.Visible = false;
+			modeBadgeBorder.Visible = false;
+		}
 
 		_slotNodes[slotIndex].AddChild(tower);
 		_runState.Slots[slotIndex].Tower = tower;
@@ -2882,7 +2895,9 @@ public partial class GameController : Node
 				mod.ModifyAttackInterval(ref effInterval, tower);
 			// Effective damage: unconditional modifiers (FocusLens) + baked changes
 			float effDamage = tower.GetEffectiveDamageForPreview();
-			var text = $"Slot {i + 1}  -  {def.Name}  [{targetingName}]\n";
+			var text = tower.TowerId == "phase_splitter"
+				? $"Slot {i + 1}  -  {def.Name}\n"
+				: $"Slot {i + 1}  -  {def.Name}  [{targetingName}]\n";
 			text += $"{effDamage:0.#} dmg  -  {effInterval:0.##} s  -  {(int)tower.Range} px\n";
 			if (tower.TowerId == "rift_prism")
 			{

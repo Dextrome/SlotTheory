@@ -12,12 +12,12 @@ public class ScoreCalculatorTests
 
     private static RunScorePayload WinPayload(
         int wave = 20, int lives = 5, float time = 300f, int damage = 50_000, int kills = 200)
-        => new("arena_classic", DifficultyMode.Normal, Won: true, wave, lives,
+        => new("crossroads", DifficultyMode.Normal, Won: true, wave, lives,
                damage, kills, time, 0L, "0.1.5", EmptyBuild());
 
     private static RunScorePayload LossPayload(
         int wave = 10, int lives = 0, float time = 300f, int damage = 20_000, int kills = 100)
-        => new("arena_classic", DifficultyMode.Normal, Won: false, wave, lives,
+        => new("crossroads", DifficultyMode.Normal, Won: false, wave, lives,
                damage, kills, time, 0L, "0.1.5", EmptyBuild());
 
     // ── ComputeScore ───────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ public class ScoreCalculatorTests
     [Fact]
     public void IsPayloadSane_ExcessiveDamage_ReturnsFalse()
     {
-        var p = new RunScorePayload("arena_classic", DifficultyMode.Normal, true,
+        var p = new RunScorePayload("crossroads", DifficultyMode.Normal, true,
             20, 5, TotalDamageDealt: 100_000_000, 200, 300f, 0L, "0.1.5", EmptyBuild());
         Assert.False(ScoreCalculator.IsPayloadSane(p));
     }

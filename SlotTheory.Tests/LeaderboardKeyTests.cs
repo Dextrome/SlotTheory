@@ -23,9 +23,9 @@ public class LeaderboardKeyTests
     // ── ToBucketId ─────────────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData("arena_classic", DifficultyMode.Easy,   "arena_classic_easy")]
-    [InlineData("arena_classic", DifficultyMode.Normal, "arena_classic_normal")]
-    [InlineData("arena_classic", DifficultyMode.Hard,   "arena_classic_hard")]
+    [InlineData("crossroads", DifficultyMode.Easy,   "crossroads_easy")]
+    [InlineData("crossroads", DifficultyMode.Normal, "crossroads_normal")]
+    [InlineData("crossroads", DifficultyMode.Hard,   "crossroads_hard")]
     [InlineData("forest_run",    DifficultyMode.Easy,   "forest_run_easy")]
     [InlineData("forest_run",    DifficultyMode.Normal, "forest_run_normal")]
     public void ToBucketId_FormatsCorrectly(string mapId, DifficultyMode diff, string expected)
@@ -34,18 +34,18 @@ public class LeaderboardKeyTests
     // ── ToSectionKey ───────────────────────────────────────────────────────────
 
     [Theory]
-    [InlineData("arena_classic", DifficultyMode.Easy,   "bucket.arena_classic.easy")]
-    [InlineData("arena_classic", DifficultyMode.Normal, "bucket.arena_classic.normal")]
-    [InlineData("arena_classic", DifficultyMode.Hard,   "bucket.arena_classic.hard")]
+    [InlineData("crossroads", DifficultyMode.Easy,   "bucket.crossroads.easy")]
+    [InlineData("crossroads", DifficultyMode.Normal, "bucket.crossroads.normal")]
+    [InlineData("crossroads", DifficultyMode.Hard,   "bucket.crossroads.hard")]
     public void ToSectionKey_FormatsCorrectly(string mapId, DifficultyMode diff, string expected)
         => Assert.Equal(expected, LeaderboardKey.ToSectionKey(mapId, diff));
 
     // ── ToSteamLeaderboardName ─────────────────────────────────────────────────
 
     [Theory]
-    [InlineData("arena_classic", DifficultyMode.Easy,   "global_arena_classic_easy")]
-    [InlineData("arena_classic", DifficultyMode.Normal, "global_arena_classic_normal")]
-    [InlineData("arena_classic", DifficultyMode.Hard,   "global_arena_classic_hard")]
+    [InlineData("crossroads", DifficultyMode.Easy,   "global_crossroads_easy")]
+    [InlineData("crossroads", DifficultyMode.Normal, "global_crossroads_normal")]
+    [InlineData("crossroads", DifficultyMode.Hard,   "global_crossroads_hard")]
     public void ToSteamLeaderboardName_FormatsCorrectly(string mapId, DifficultyMode diff, string expected)
         => Assert.Equal(expected, LeaderboardKey.ToSteamLeaderboardName(mapId, diff));
 
@@ -53,16 +53,16 @@ public class LeaderboardKeyTests
 
     [Fact]
     public void IsGlobalEligibleMap_AnyMap_ReturnsTrue()
-        => Assert.True(LeaderboardKey.IsGlobalEligibleMap("arena_classic"));
+        => Assert.True(LeaderboardKey.IsGlobalEligibleMap("crossroads"));
 
     // ── Key uniqueness ─────────────────────────────────────────────────────────
 
     [Fact]
     public void BucketId_EasyNormalHard_AreDistinct()
     {
-        string easy = LeaderboardKey.ToBucketId("arena_classic", DifficultyMode.Easy);
-        string normal = LeaderboardKey.ToBucketId("arena_classic", DifficultyMode.Normal);
-        string hard = LeaderboardKey.ToBucketId("arena_classic", DifficultyMode.Hard);
+        string easy = LeaderboardKey.ToBucketId("crossroads", DifficultyMode.Easy);
+        string normal = LeaderboardKey.ToBucketId("crossroads", DifficultyMode.Normal);
+        string hard = LeaderboardKey.ToBucketId("crossroads", DifficultyMode.Hard);
         Assert.NotEqual(easy, normal);
         Assert.NotEqual(normal, hard);
         Assert.NotEqual(easy, hard);
@@ -71,9 +71,9 @@ public class LeaderboardKeyTests
     [Fact]
     public void SectionKey_EasyNormalHard_AreDistinct()
     {
-        string easy = LeaderboardKey.ToSectionKey("arena_classic", DifficultyMode.Easy);
-        string normal = LeaderboardKey.ToSectionKey("arena_classic", DifficultyMode.Normal);
-        string hard = LeaderboardKey.ToSectionKey("arena_classic", DifficultyMode.Hard);
+        string easy = LeaderboardKey.ToSectionKey("crossroads", DifficultyMode.Easy);
+        string normal = LeaderboardKey.ToSectionKey("crossroads", DifficultyMode.Normal);
+        string hard = LeaderboardKey.ToSectionKey("crossroads", DifficultyMode.Hard);
         Assert.NotEqual(easy, normal);
         Assert.NotEqual(normal, hard);
         Assert.NotEqual(easy, hard);
@@ -82,7 +82,7 @@ public class LeaderboardKeyTests
     [Fact]
     public void SteamName_DifferentMaps_AreDistinct()
     {
-        string a = LeaderboardKey.ToSteamLeaderboardName("arena_classic", DifficultyMode.Normal);
+        string a = LeaderboardKey.ToSteamLeaderboardName("crossroads", DifficultyMode.Normal);
         string b = LeaderboardKey.ToSteamLeaderboardName("forest_run",    DifficultyMode.Normal);
         Assert.NotEqual(a, b);
     }

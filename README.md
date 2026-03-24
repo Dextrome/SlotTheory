@@ -269,9 +269,9 @@ The banner label and visual treatment are driven by which mods contributed most 
 
 | # | Stage | Map | Mandate |
 |---|---|---|---|
-| 1 | Orbit Breach | sprawl | Rapid, Heavy, Marker only · Split Shot banned |
-| 2 | Crossroads Interdiction | arena_classic | + Arc Emitter · Momentum, Exploit Weakness, Split Shot banned |
-| 3 | Pinch & Bleed | gauntlet | + Arc Emitter · 5 slots only · Rift Sapper banned |
+| 1 | Orbit Breach | orbit | Rapid, Heavy, Marker only · Split Shot banned |
+| 2 | Crossroads Interdiction | crossroads | + Arc Emitter · Momentum, Exploit Weakness, Split Shot banned |
+| 3 | Pinch & Bleed | pinch_bleed | + Arc Emitter · 5 slots only · Rift Sapper banned |
 | 4 | Iron Mandate | ridgeback | All towers · Enemies +25% HP |
 
 Stages unlock sequentially. Per-stage clear state persisted per difficulty. Campaign end screen shows sector stamps, "Next Stage →" on win, and "Campaign Select" instead of "Main Menu".

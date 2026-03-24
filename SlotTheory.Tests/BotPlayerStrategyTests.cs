@@ -11,7 +11,7 @@ public class BotPlayerStrategyTests
     public void SpectacleSingleStack_EarlySurvivalGate_PrioritizesSecondTowerBeforeStackingMods()
     {
         var bot = new BotPlayer(BotStrategy.SpectacleSingleStack, seed: 7);
-        var state = NewState(mapId: "sprawl", waveIndex: 1, lives: 10);
+        var state = NewState(mapId: "orbit", waveIndex: 1, lives: 10);
 
         state.Slots[0].Tower = new FakeTower
         {
@@ -36,7 +36,7 @@ public class BotPlayerStrategyTests
     public void RiftPrismFocus_OnPressureMapWithLowLives_DelaysFirstRiftUntilStableCoreExists()
     {
         var bot = new BotPlayer(BotStrategy.RiftPrismFocus, seed: 11);
-        var state = NewState(mapId: "gauntlet", waveIndex: 2, lives: 4);
+        var state = NewState(mapId: "pinch_bleed", waveIndex: 2, lives: 4);
 
         state.Slots[0].Tower = new FakeTower
         {

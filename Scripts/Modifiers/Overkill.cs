@@ -26,7 +26,9 @@ public class Overkill : Modifier
 
         if (next == null) return false;
 
-        float spillDamage = excess * SpillEfficiency;
+        // Make spill damage scale with number of Overkill copies
+        int overkillCount = ctx.Attacker.Modifiers.Count(m => m.ModifierId == "overkill");
+        float spillDamage = excess * SpillEfficiency * overkillCount;
 
         // Apply spill as raw damage (no ModifyDamage, no Marked/DamageAmp bonuses, no OnHit side effects)
         // so the spill amount stays exactly excess * SpillEfficiency and doesn't inherit modifier multipliers.

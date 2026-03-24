@@ -1,7 +1,7 @@
 {
   "maps": [
     {
-      "id": "arena_classic",
+      "id": "crossroads",
       "name": "Crossroads",
       "description": "Two mid-lane crossovers + near-parallel returns. Center slot is king, but greed slots exist.",
       "displayOrder": 1,
@@ -31,7 +31,7 @@
       ]
     },
     {
-      "id": "gauntlet",
+      "id": "pinch_bleed",
       "name": "Pinch & Bleed",
       "description": "Asymmetric S-curve with a brutal central pinch. You either stack synergy in the choke or you leak.",
       "displayOrder": 2,
@@ -120,10 +120,10 @@
       ]
     },
     {
-      "id": "six",
+      "id": "crossfire",
       "name": "Crossfire",
       "description": "Two diagonals slash the field in opposite directions. Towers catch enemies on the way in and again on the way back.",
-      "displayOrder": 6,
+      "displayOrder": 5,
       "isFullGame": true,
       "path": [
         { "x": 1200, "y": 0   },
@@ -145,7 +145,7 @@
       ]
     },
     {
-      "id": "sprawl",
+      "id": "orbit",
       "name": "Orbit",
       "description": "Spiral-in then slingshot-out. One interior slot gets multi-pass value; edge slots are early bait.",
       "displayOrder": 0,
@@ -174,36 +174,34 @@
     {
       "id": "threshold",
       "name": "Threshold",
-      "description": "A tightening spiral that rewards patience. Interior slots see three paths at once -- grab one early or concede the center.",
+      "description": "A near-complete perimeter sweep then a sharp inward plunge. The outer three walls see every enemy; center slots catch them twice.",
       "displayOrder": 7,
       "isFullGame": true,
       "path": [
-        { "x": 160,  "y": 80  },
-        { "x": 1040, "y": 80  },
-        { "x": 1040, "y": 576 },
-        { "x": 240,  "y": 576 },
-        { "x": 240,  "y": 192 },
-        { "x": 880,  "y": 192 },
-        { "x": 880,  "y": 480 },
+        { "x": 1120, "y": 80  },
+        { "x": 80,   "y": 80  },
+        { "x": 80,   "y": 576 },
+        { "x": 1120, "y": 576 },
+        { "x": 1120, "y": 192 },
+        { "x": 400,  "y": 192 },
         { "x": 400,  "y": 480 },
-        { "x": 400,  "y": 320 },
-        { "x": 720,  "y": 320 },
-        { "x": 720,  "y": 640 }
+        { "x": 960,  "y": 480 },
+        { "x": 960,  "y": 640 }
       ],
       "slots": [
-        { "id": 0, "x": 640, "y": 256 },
-        { "id": 1, "x": 560, "y": 400 },
-        { "id": 2, "x": 320, "y": 416 },
-        { "id": 3, "x": 960, "y": 336 },
-        { "id": 4, "x": 480, "y": 560 },
-        { "id": 5, "x": 800, "y": 144 }
+        { "id": 0, "x": 640, "y": 336 },
+        { "id": 1, "x": 240, "y": 336 },
+        { "id": 2, "x": 960, "y": 288 },
+        { "id": 3, "x": 640, "y": 528 },
+        { "id": 4, "x": 800, "y": 256 },
+        { "id": 5, "x": 160, "y": 400 }
       ]
     },
     {
       "id": "switchback",
       "name": "Switchback",
-      "description": "Three parallel channels stepping downward. The center slot rules the middle pass; the side slots are all-or-nothing bets.",
-      "displayOrder": 8,
+      "description": "Four parallel channels in a descending switchback. The center slots cover two passes at once; the final run fires back across the full width.",
+      "displayOrder": 7,
       "isFullGame": true,
       "path": [
         { "x": 80,   "y": 96  },
@@ -214,7 +212,7 @@
         { "x": 1040, "y": 416 },
         { "x": 1040, "y": 576 },
         { "x": 80,   "y": 576 },
-        { "x": 80,   "y": 736 }
+        { "x": 1200, "y": 576 }
       ],
       "slots": [
         { "id": 0, "x": 640, "y": 176 },

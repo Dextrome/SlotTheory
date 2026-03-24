@@ -317,9 +317,9 @@ Three modes selectable in Settings. Multipliers apply to all spawned enemies.
 
 | # | Stage Name | Map | Mandate |
 |---|---|---|---|
-| 1 | Orbit Breach | `sprawl` | Arc Emitter, Rift Sapper, Split Shot unavailable |
-| 2 | Crossroads Interdiction | `arena_classic` | Rift Sapper unavailable - Momentum, Exploit Weakness, Split Shot banned |
-| 3 | Pinch & Bleed | `gauntlet` | 5 tower slots only (1 locked) - Rift Sapper unavailable |
+| 1 | Orbit Breach | `orbit` | Arc Emitter, Rift Sapper, Split Shot unavailable |
+| 2 | Crossroads Interdiction | `crossroads` | Rift Sapper unavailable - Momentum, Exploit Weakness, Split Shot banned |
+| 3 | Pinch & Bleed | `pinch_bleed` | 5 tower slots only (1 locked) - Rift Sapper unavailable |
 | 4 | Iron Mandate | `ridgeback` | Full tower + modifier access - Enemies +25% HP |
 
 Mandate data source: `Data/campaign_stages.json`.
@@ -341,9 +341,9 @@ Unlock gates live in `Unlocks.cs`. All unlocks require winning a run on the spec
 
 | Content | Type | Unlock Map | Achievement | Order |
 |---|---|---|---|---|
-| Arc Emitter | Tower | sprawl (Stage 1) | `ARC_UNSEALED` | 1st non-random map |
-| Split Shot | Modifier | arena_classic (Stage 2) | `SPLIT_UNSEALED` | 2nd non-random map |
-| Rift Sapper | Tower | gauntlet (Stage 3) | `RIFT_UNSEALED` | 3rd non-random map |
+| Arc Emitter | Tower | orbit (Stage 1) | `ARC_UNSEALED` | 1st non-random map |
+| Split Shot | Modifier | crossroads (Stage 2) | `SPLIT_UNSEALED` | 2nd non-random map |
+| Rift Sapper | Tower | pinch_bleed (Stage 3) | `RIFT_UNSEALED` | 3rd non-random map |
 | Blast Core | Modifier | ridgeback (Stage 4 / Iron Mandate) | `BLAST_UNSEALED` | 4th non-random map |
 | Accordion Engine | Tower | double_back (skirmish only) | `ACCORDION_UNSEALED` | 5th non-random map |
 
@@ -475,9 +475,9 @@ Falls back to **GLOBAL SURGE** if no dominant modifier detected.
 | `LAST_STAND` | Last Stand | Win with exactly 1 life remaining | Run end (win) |
 | `SPEED_RUN` | Speed Run | Win a run in under 15 minutes | Run end (win) |
 | `CHAIN_MASTER` | Chain Master | Win with all 6 slots filled by Arc Emitters | Run end (win) |
-| `ARC_UNSEALED` | Arc Unsealed | Beat sprawl -- unlocks Arc Emitter | Run end (win) |
-| `SPLIT_UNSEALED` | Split Unsealed | Beat arena_classic -- unlocks Split Shot | Run end (win) |
-| `RIFT_UNSEALED` | Rift Unsealed | Beat gauntlet -- unlocks Rift Sapper | Run end (win) |
+| `ARC_UNSEALED` | Arc Unsealed | Beat orbit -- unlocks Arc Emitter | Run end (win) |
+| `SPLIT_UNSEALED` | Split Unsealed | Beat crossroads -- unlocks Split Shot | Run end (win) |
+| `RIFT_UNSEALED` | Rift Unsealed | Beat pinch_bleed -- unlocks Rift Sapper | Run end (win) |
 | `BLAST_UNSEALED` | Blast Unsealed | Beat ridgeback (Iron Mandate) -- unlocks Blast Core | Run end (win) |
 | `ACCORDION_UNSEALED` | Accordion Unsealed | Beat double_back -- unlocks Accordion Engine | Run end (win) |
 | `HALFWAY_THERE` | Halfway There | Survive to wave 10 | Wave 10 start |

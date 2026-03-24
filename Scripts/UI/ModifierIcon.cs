@@ -67,6 +67,7 @@ public partial class ModifierIcon : Control
             case "chain_reaction": DrawChainReaction(c, r); break;
             case "blast_core": DrawBlastCore(c, r); break;
             case "wildfire": DrawWildfire(c, r); break;
+            case "reaper_protocol": DrawReaperProtocol(c, r); break;
             default:
                 DrawCircle(c, r * 0.45f, _iconColor);
                 break;
@@ -177,6 +178,17 @@ public partial class ModifierIcon : Control
             var dir = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
             DrawLine(c + dir * r * 0.32f, c + dir * r * 0.88f, _iconColor, 1.8f);
         }
+    }
+
+    private void DrawReaperProtocol(Vector2 c, float r)
+    {
+        // Green cross -- classic healing symbol.
+        float armW = r * 0.32f;
+        float armH = r * 0.88f;
+        // Vertical bar
+        DrawLine(c + new Vector2(0, -armH), c + new Vector2(0, armH), _iconColor, armW * 2f);
+        // Horizontal bar
+        DrawLine(c + new Vector2(-armH, 0), c + new Vector2(armH, 0), _iconColor, armW * 2f);
     }
 
     private void DrawWildfire(Vector2 c, float r)

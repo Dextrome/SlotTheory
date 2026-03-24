@@ -240,8 +240,8 @@ public class BotPlayer
         SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy;
 
     private static bool IsPressureMap(string? mapId) =>
-        string.Equals(mapId, "gauntlet", StringComparison.Ordinal) ||
-        string.Equals(mapId, "arena_classic", StringComparison.Ordinal);
+        string.Equals(mapId, "pinch_bleed", StringComparison.Ordinal) ||
+        string.Equals(mapId, "crossroads", StringComparison.Ordinal);
 
     private static WaveConfig? TryGetWaveConfig(RunState s, DifficultyMode difficulty)
     {

@@ -24,7 +24,7 @@ Progress persists across sessions. Clearing a stage unlocks the next sector and 
 
 | | |
 |---|---|
-| **Map** | Orbit (`sprawl`) |
+| **Map** | Orbit (`orbit`) |
 | **Mandate** | None |
 | **Unlock on clear** | Arc Emitter |
 | **Stage subtitle** | Outer defense ring |
@@ -44,7 +44,7 @@ This is the only part of the campaign where the world still pretends to play fai
 
 | | |
 |---|---|
-| **Map** | Crossroads (`arena_classic`) |
+| **Map** | Crossroads (`crossroads`) |
 | **Mandate** | **Draft Ban** - Momentum and Exploit Weakness removed from pool |
 | **Unlock on clear** | Split Shot |
 | **Stage subtitle** | Adaptive response sector |
@@ -64,7 +64,7 @@ This is where the campaign first shows its teeth. Instead of making enemies stro
 
 | | |
 |---|---|
-| **Map** | Gauntlet (`gauntlet`) |
+| **Map** | Pinch & Bleed (`pinch_bleed`) |
 | **Mandate** | **Slot Lockout** - only 5 tower slots available |
 | **Unlock on clear** | Rift Sapper |
 | **Stage subtitle** | Constricted deployment lane |
@@ -154,7 +154,7 @@ Each stage entry gains four new string fields. The campaign root gains one:
   "stages": [
     {
       "stageIndex": 0,
-      "mapId": "sprawl",
+      "mapId": "orbit",
       "stageName": "Orbit Breach",
       "stageSubtitle": "Outer defense ring",
       "introLine": "Outer grid compromised. Response latency acceptable.",
@@ -166,7 +166,7 @@ Each stage entry gains four new string fields. The campaign root gains one:
     },
     {
       "stageIndex": 1,
-      "mapId": "arena_classic",
+      "mapId": "crossroads",
       "stageName": "Crossroads Interdiction",
       "stageSubtitle": "Adaptive response sector",
       "introLine": "Adaptive filtering active. Draft channels restricted.",
@@ -179,7 +179,7 @@ Each stage entry gains four new string fields. The campaign root gains one:
     },
     {
       "stageIndex": 2,
-      "mapId": "gauntlet",
+      "mapId": "pinch_bleed",
       "stageName": "Pinch & Bleed",
       "stageSubtitle": "Constricted deployment lane",
       "introLine": "Spatial permissions revoked. Deployment capacity reduced.",

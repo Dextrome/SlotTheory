@@ -62,7 +62,7 @@ public partial class MusicPercLayer : Node
     // Four groove styles; each has 4 tension tiers (Intro/Building/MidGame/LateGame).
     // Index map: 0=beat1, 1=beat1-and, 2=beat2, 3=beat2-and, 4=beat3, 5=beat3-and, 6=beat4, 7=beat4-and
 
-    // ── Standard (arena_classic) - classic hip-hop/electronic backbeat ──────
+    // ── Standard (crossroads) - classic hip-hop/electronic backbeat ──────
     private static readonly bool[][] KickStandard =
     {
         new[] { true,  false, false, false, true,  false, false, false },  // Intro:    1 + 3
@@ -78,7 +78,7 @@ public partial class MusicPercLayer : Node
         new[] { false, false, true,  false, false, true,  true,  false },  // LateGame: 2 + 3-and + 4
     };
 
-    // ── HalfTime (sprawl) - slow, weighty; snare lands on beat 3 only ───────
+    // ── HalfTime (orbit) - slow, weighty; snare lands on beat 3 only ───────
     private static readonly bool[][] KickHalfTime =
     {
         new[] { true,  false, false, false, false, false, false, false },  // Intro:    1 only
@@ -94,7 +94,7 @@ public partial class MusicPercLayer : Node
         new[] { false, false, false, true,  true,  false, true,  false },  // LateGame: 2-and + 3 + 4 (snare fills out)
     };
 
-    // ── FourOnFloor (gauntlet) - driving techno, kick on every beat ──────────
+    // ── FourOnFloor (pinch_bleed) - driving techno, kick on every beat ──────────
     private static readonly bool[][] KickFourOnFloor =
     {
         new[] { true,  false, true,  false, true,  false, true,  false },  // Intro:    1+2+3+4 (pure 4-on-floor)

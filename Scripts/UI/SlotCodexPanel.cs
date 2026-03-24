@@ -330,8 +330,9 @@ public partial class SlotCodexPanel : Node
 
         if (!unlocked)
         {
-            bool isFullGameOnly = Balance.IsDemo &&
-                string.Equals(towerId, Unlocks.AccordionEngineTowerId, StringComparison.OrdinalIgnoreCase);
+            bool isFullGameOnly = Balance.IsDemo && (
+                string.Equals(towerId, Unlocks.AccordionEngineTowerId,  StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(towerId, Unlocks.PhaseSplitterTowerId,    StringComparison.OrdinalIgnoreCase));
             BuildCardBack(body,
                 isFullGameOnly ? "FULL GAME"               : "UNREVEALED TOWER",
                 isFullGameOnly ? "Available in full release." : GetUnlockGateNote(towerId));
@@ -521,11 +522,14 @@ public partial class SlotCodexPanel : Node
         {
             string mapId = id switch
             {
-                Unlocks.ArcEmitterTowerId      => Unlocks.GetArcEmitterUnlockMapId(),
-                Unlocks.RiftPrismTowerId       => Unlocks.GetRiftPrismUnlockMapId(),
-                Unlocks.AccordionEngineTowerId => Unlocks.GetAccordionEngineUnlockMapId(),
-                Unlocks.SplitShotModifierId    => Unlocks.GetSplitShotUnlockMapId(),
-                Unlocks.BlastCoreModifierId    => Unlocks.GetBlastCoreUnlockMapId(),
+                Unlocks.ArcEmitterTowerId        => Unlocks.GetArcEmitterUnlockMapId(),
+                Unlocks.RiftPrismTowerId         => Unlocks.GetRiftPrismUnlockMapId(),
+                Unlocks.AccordionEngineTowerId   => Unlocks.GetAccordionEngineUnlockMapId(),
+                Unlocks.PhaseSplitterTowerId     => Unlocks.GetPhaseSplitterUnlockMapId(),
+                Unlocks.SplitShotModifierId      => Unlocks.GetSplitShotUnlockMapId(),
+                Unlocks.BlastCoreModifierId      => Unlocks.GetBlastCoreUnlockMapId(),
+                Unlocks.WildfireModifierId       => Unlocks.GetWildfireUnlockMapId(),
+                Unlocks.ReaperProtocolModifierId => Unlocks.GetReaperProtocolUnlockMapId(),
                 _ => ""
             };
             if (string.IsNullOrEmpty(mapId)) return "Reveal by completing unlock achievements.";

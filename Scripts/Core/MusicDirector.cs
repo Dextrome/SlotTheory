@@ -58,12 +58,12 @@ public partial class MusicDirector : Node
 
     private static MapMusicProfile GetProfileForMap(string? mapId) => mapId switch
     {
-        // arena_classic - more drive up-front without losing readability
-        "arena_classic" => new MapMusicProfile(0, MusicMode.Dorian, +12f, 0.10f, MusicPercLayer.DrumStyle.Funk),
-        // gauntlet - max aggression: darker color + faster pace + relentless kick
-        "gauntlet"      => new MapMusicProfile(5, MusicMode.Phrygian,   +30f, 0.00f, MusicPercLayer.DrumStyle.FourOnFloor),
-        // sprawl - keep space but keep a dark/funky pocket
-        "sprawl"        => new MapMusicProfile(2, MusicMode.Dorian,      +8f, 0.14f, MusicPercLayer.DrumStyle.Funk),
+        // crossroads - more drive up-front without losing readability
+        "crossroads" => new MapMusicProfile(0, MusicMode.Dorian, +12f, 0.10f, MusicPercLayer.DrumStyle.Funk),
+        // pinch_bleed - max aggression: darker color + faster pace + relentless kick
+        "pinch_bleed"   => new MapMusicProfile(5, MusicMode.Phrygian,   +30f, 0.00f, MusicPercLayer.DrumStyle.FourOnFloor),
+        // orbit - keep space but keep a dark/funky pocket
+        "orbit"         => new MapMusicProfile(2, MusicMode.Dorian,      +8f, 0.14f, MusicPercLayer.DrumStyle.Funk),
         // random_map - tense and energetic by default
         "random_map"    => new MapMusicProfile(3, MusicMode.Phrygian,   +18f, 0.12f, MusicPercLayer.DrumStyle.Funk),
         _               => new MapMusicProfile(0, MusicMode.Dorian,     +10f, 0.12f, MusicPercLayer.DrumStyle.Funk),

@@ -45,6 +45,9 @@ public partial class AchievementManager : Node
         new(Unlocks.RiftPrismAchievementId, "Rift Unsealed", "Beat the third campaign map to unlock Rift Sapper."),
         new(Unlocks.AccordionEngineAchievementId, "Accordion Unsealed", "Beat the fifth campaign map to unlock Accordion Engine."),
         new(Unlocks.BlastCoreAchievementId, "Blast Unsealed", "Beat the fourth campaign map to unlock Blast Core."),
+        new(Unlocks.WildfireAchievementId, "Wildfire Unsealed", "Beat the sixth campaign map to unlock Wildfire."),
+        new(Unlocks.PhaseSplitterAchievementId, "Phase Unsealed", "Beat the seventh campaign map to unlock Phase Splitter."),
+        new(Unlocks.ReaperProtocolAchievementId, "Reaper Unsealed", "Beat the eighth campaign map to unlock Reaper Protocol."),
         new("FLAWLESS",      "Flawless",           "Win a run without losing a single life."),
         new("LAST_STAND",    "Last Stand",         "Win a run with exactly 1 life remaining."),
         new("HALFWAY_THERE", "Halfway There",      "Survive to wave 10 in any run."),
@@ -201,6 +204,12 @@ public partial class AchievementManager : Node
 
             if (Unlocks.ShouldUnlockWildfire(state, difficulty))
                 TryUnlock(Unlocks.WildfireAchievementId);
+
+            if (Unlocks.ShouldUnlockPhaseSplitter(state, difficulty))
+                TryUnlock(Unlocks.PhaseSplitterAchievementId);
+
+            if (Unlocks.ShouldUnlockReaperProtocol(state, difficulty))
+                TryUnlock(Unlocks.ReaperProtocolAchievementId);
 
             if (state.Lives == state.MaxLives)
                 TryUnlock("FLAWLESS");
@@ -430,6 +439,9 @@ public partial class AchievementManager : Node
             Unlocks.RiftPrismAchievementId,
             Unlocks.AccordionEngineAchievementId,
             Unlocks.BlastCoreAchievementId,
+            Unlocks.WildfireAchievementId,
+            Unlocks.PhaseSplitterAchievementId,
+            Unlocks.ReaperProtocolAchievementId,
         };
 
     private void Load()

@@ -30,7 +30,7 @@ public partial class LeaderboardsMenu : Node
 
     private BoardMode _mode = BoardMode.Local;
     private readonly List<MapDef> _maps = new();
-    private string _selectedMapId = "arena_classic";
+    private string _selectedMapId = "crossroads";
     private DifficultyMode _selectedDifficulty = DifficultyMode.Normal;
     private int _refreshToken;
 

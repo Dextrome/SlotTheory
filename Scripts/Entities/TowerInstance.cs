@@ -234,6 +234,9 @@ public partial class TowerInstance : Node2D, ITowerView
 
     public void CycleTargetingMode()
     {
+        // Phase Splitter always hits front + back simultaneously; targeting mode has no effect.
+        if (TowerId == "phase_splitter") return;
+
         // Rift Sapper has 3 custom targeting semantics (Random/Closest/Furthest); Last is not applicable.
         bool isRiftSapper = TowerId == "rift_prism";
         TargetingMode = TargetingMode switch

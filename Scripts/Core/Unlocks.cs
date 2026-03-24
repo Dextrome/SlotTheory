@@ -23,12 +23,17 @@ public static class Unlocks
     public const string WildfireModifierId = "wildfire";
     public const string WildfireAchievementId = "WILDFIRE_UNSEALED";
     public const string ReaperProtocolModifierId = "reaper_protocol";
-    private const string ArcEmitterFallbackMapId = "sprawl";
-    private const string WildfireFallbackMapId = "six";
-    private const string SplitShotFallbackMapId = "arena_classic";
-    private const string RiftPrismFallbackMapId = "gauntlet";
+    public const string ReaperProtocolAchievementId = "REAPER_UNSEALED";
+    public const string PhaseSplitterTowerId = "phase_splitter";
+    public const string PhaseSplitterAchievementId = "PHASE_UNSEALED";
+    private const string ArcEmitterFallbackMapId = "orbit";
+    private const string WildfireFallbackMapId = "crossfire";
+    private const string SplitShotFallbackMapId = "crossroads";
+    private const string RiftPrismFallbackMapId = "pinch_bleed";
     private const string AccordionEngineFallbackMapId = "double_back";
     private const string BlastCoreFallbackMapId = "ridgeback";
+    private const string PhaseSplitterFallbackMapId = "threshold";
+    private const string ReaperProtocolFallbackMapId = "switchback";
 
     public static bool ShouldUnlockArcEmitter(RunState state, DifficultyMode difficulty)
     {
@@ -72,6 +77,20 @@ public static class Unlocks
         return IsRunOnUnlockMap(state, unlockMapId);
     }
 
+    public static bool ShouldUnlockPhaseSplitter(RunState state, DifficultyMode difficulty)
+    {
+        _ = difficulty;
+        string unlockMapId = GetPhaseSplitterUnlockMapId();
+        return IsRunOnUnlockMap(state, unlockMapId);
+    }
+
+    public static bool ShouldUnlockReaperProtocol(RunState state, DifficultyMode difficulty)
+    {
+        _ = difficulty;
+        string unlockMapId = GetReaperProtocolUnlockMapId();
+        return IsRunOnUnlockMap(state, unlockMapId);
+    }
+
     /// <summary>
     /// Arc Emitter unlock follows the first non-random campaign map by display order.
     /// This keeps progression behavior correct even if map ordering changes.
@@ -109,6 +128,18 @@ public static class Unlocks
     public static string GetWildfireUnlockMapId()
         => GetCampaignMapByOrder(order: 5, fallbackId: WildfireFallbackMapId);
 
+    /// <summary>
+    /// Phase Splitter unlock follows the seventh non-random campaign map by display order.
+    /// </summary>
+    public static string GetPhaseSplitterUnlockMapId()
+        => GetCampaignMapByOrder(order: 6, fallbackId: PhaseSplitterFallbackMapId);
+
+    /// <summary>
+    /// Reaper Protocol unlock follows the eighth non-random campaign map by display order.
+    /// </summary>
+    public static string GetReaperProtocolUnlockMapId()
+        => GetCampaignMapByOrder(order: 7, fallbackId: ReaperProtocolFallbackMapId);
+
     private static string GetCampaignMapByOrder(int order, string fallbackId)
     {
         try
@@ -133,9 +164,11 @@ public static class Unlocks
 
     public static bool IsTowerUnlocked(string towerId)
     {
-        // Accordion Engine unlocks on ridgeback, which is not in the demo map pool --
-        // demo players can never reach it, so exclude from demo regardless of bot mode.
+        // Accordion Engine and Phase Splitter unlock on full-game-only maps --
+        // demo players can never reach them, so exclude from demo regardless of bot mode.
         if (Balance.IsDemo && string.Equals(towerId, AccordionEngineTowerId, StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (Balance.IsDemo && string.Equals(towerId, PhaseSplitterTowerId, StringComparison.OrdinalIgnoreCase))
             return false;
 
         // Bot simulations evaluate full content balance regardless of player progression.
@@ -150,6 +183,9 @@ public static class Unlocks
 
         if (string.Equals(towerId, AccordionEngineTowerId, StringComparison.OrdinalIgnoreCase))
             return AchievementManager.Instance?.IsUnlocked(AccordionEngineAchievementId) == true;
+
+        if (string.Equals(towerId, PhaseSplitterTowerId, StringComparison.OrdinalIgnoreCase))
+            return AchievementManager.Instance?.IsUnlocked(PhaseSplitterAchievementId) == true;
 
         return true;
     }
@@ -177,6 +213,9 @@ public static class Unlocks
 
         if (string.Equals(modifierId, WildfireModifierId, StringComparison.OrdinalIgnoreCase))
             return AchievementManager.Instance?.IsUnlocked(WildfireAchievementId) == true;
+
+        if (string.Equals(modifierId, ReaperProtocolModifierId, StringComparison.OrdinalIgnoreCase))
+            return AchievementManager.Instance?.IsUnlocked(ReaperProtocolAchievementId) == true;
 
         return true;
     }

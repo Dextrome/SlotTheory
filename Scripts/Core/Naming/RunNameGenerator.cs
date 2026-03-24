@@ -106,9 +106,9 @@ public static class RunNameGenerator
 
     private static readonly Dictionary<string, string[]> MapWords = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["arena_classic"] = ["Crossroad", "Conflux", "Junction", "Interlock", "Midlane", "Switchback", "X-Line", "Merge"],
-        ["gauntlet"] = ["Gauntlet", "Pinch", "Bleedline", "Choke", "S-Curve", "Clamp", "Bottleneck", "Vice"],
-        ["sprawl"] = ["Orbital", "Spiral", "Ringline", "Perihelion", "Slingshot", "Helix", "Orbit", "Outring"],
+        ["crossroads"] = ["Crossroad", "Conflux", "Junction", "Interlock", "Midlane", "Switchback", "X-Line", "Merge"],
+        ["pinch_bleed"] = ["Gauntlet", "Pinch", "Bleedline", "Choke", "S-Curve", "Clamp", "Bottleneck", "Vice"],
+        ["orbit"] = ["Orbital", "Spiral", "Ringline", "Perihelion", "Slingshot", "Helix", "Orbit", "Outring"],
         ["random_map"] = ["Anomaly", "Chaosline", "Wildgrid", "Fracture", "Glitch", "Unstable", "Unknown", "Rift"],
     };
 
