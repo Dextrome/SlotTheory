@@ -478,9 +478,9 @@ public sealed class CombatLabTowerBenchmarkRunner
                                 });
                             if (chainHits > 0 && spectacle != null)
                             {
-                                float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(chainHits);
                                 float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
-                                spectacle.RegisterProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, chainEventDamage);
+                                spectacle.RegisterProc(tower, SpectacleDefinitions.ChainReaction,
+                                    SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ChainReaction), chainEventDamage);
                             }
                             totalHitsThisShot += chainHits;
 
@@ -531,9 +531,9 @@ public sealed class CombatLabTowerBenchmarkRunner
                             });
                         if (chainHits > 0 && spectacle != null)
                         {
-                            float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(chainHits);
                             float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
-                            spectacle.RegisterProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, chainEventDamage);
+                            spectacle.RegisterProc(tower, SpectacleDefinitions.ChainReaction,
+                                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ChainReaction), chainEventDamage);
                         }
 
                         int splitHits = CombatResolution.ApplySplitHits(
@@ -550,8 +550,8 @@ public sealed class CombatLabTowerBenchmarkRunner
                         if (splitHits > 0 && spectacle != null)
                         {
                             float splitDamage = tower.BaseDamage * Balance.SplitShotDamageRatio;
-                            float splitScalar = SpectacleDefinitions.SplitShotEventScalar(splitHits);
-                            spectacle.RegisterProc(tower, SpectacleDefinitions.SplitShot, splitScalar, splitDamage);
+                            spectacle.RegisterProc(tower, SpectacleDefinitions.SplitShot,
+                                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.SplitShot), splitDamage);
                         }
 
                         metrics.TargetsHitTotal += 1 + chainHits + splitHits;
@@ -889,33 +889,20 @@ public sealed class CombatLabTowerBenchmarkRunner
 
         float dealt = Math.Max(0f, hitDamage);
         if (CountMod(tower, SpectacleDefinitions.ExploitWeakness) > 0 && targetWasMarkedBeforeHit)
-        {
-            float scalar = SpectacleDefinitions.ExploitWeaknessEventScalar(targetWasMarkedBeforeHit, target.Hp <= 0f);
-            spectacle.RegisterProc(tower, SpectacleDefinitions.ExploitWeakness, scalar, dealt);
-        }
+            spectacle.RegisterProc(tower, SpectacleDefinitions.ExploitWeakness,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ExploitWeakness), dealt);
 
         if (CountMod(tower, SpectacleDefinitions.FocusLens) > 0)
-        {
-            float damageNorm = dealt / Math.Max(1f, tower.BaseDamage);
-            float scalar = SpectacleDefinitions.FocusLensEventScalar(damageNorm);
-            spectacle.RegisterProc(tower, SpectacleDefinitions.FocusLens, scalar, dealt);
-        }
+            spectacle.RegisterProc(tower, SpectacleDefinitions.FocusLens,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.FocusLens), dealt);
 
-        int overreachCopies = CountMod(tower, SpectacleDefinitions.Overreach);
-        if (overreachCopies > 0)
-        {
-            float overreachFactor = MathF.Pow(Balance.OverreachRangeFactor, overreachCopies);
-            float baseRange = tower.Range / MathF.Max(0.001f, overreachFactor);
-            float rangeNorm = (tower.Range / MathF.Max(1f, baseRange)) - 1f;
-            float scalar = SpectacleDefinitions.OverreachEventScalar(rangeNorm);
-            spectacle.RegisterProc(tower, SpectacleDefinitions.Overreach, scalar, dealt);
-        }
+        if (CountMod(tower, SpectacleDefinitions.Overreach) > 0)
+            spectacle.RegisterProc(tower, SpectacleDefinitions.Overreach,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.Overreach), dealt);
 
         if (CountMod(tower, SpectacleDefinitions.ChillShot) > 0)
-        {
-            float scalar = SpectacleDefinitions.ChillEventScalar(1);
-            spectacle.RegisterProc(tower, SpectacleDefinitions.ChillShot, scalar, dealt);
-        }
+            spectacle.RegisterProc(tower, SpectacleDefinitions.ChillShot,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ChillShot), dealt);
     }
 
     private static DamageContext ApplyHitAndCollect(
@@ -977,10 +964,8 @@ public sealed class CombatLabTowerBenchmarkRunner
         }
 
         if (spawned > 0 && spectacle != null)
-        {
-            float splitScalar = SpectacleDefinitions.SplitShotEventScalar(spawned);
-            spectacle.RegisterProc(tower, SpectacleDefinitions.SplitShot, splitScalar, splitDamage);
-        }
+            spectacle.RegisterProc(tower, SpectacleDefinitions.SplitShot,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.SplitShot), splitDamage);
         return spawned;
     }
 

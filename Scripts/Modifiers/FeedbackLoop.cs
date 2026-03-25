@@ -40,12 +40,8 @@ public class FeedbackLoop : Modifier
         _stimRemaining = Balance.FeedbackLoopStimDuration;
 
         if (preCooldown > 0.001f)
-        {
-            float refunded = preCooldown - ctx.Attacker.Cooldown;
-            float refundFrac = refunded / preCooldown;
-            float scalar = SpectacleDefinitions.FeedbackLoopEventScalar(refundFrac);
-            GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId, scalar, ctx.DamageDealt);
-        }
+            GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId,
+                SpectacleDefinitions.GetProcScalar(ModifierId), ctx.DamageDealt);
         GameController.Instance?.NotifyFeedbackLoopProc(ctx.Attacker);
         return true;
     }

@@ -385,18 +385,9 @@ public partial class HowToPlay : Node
 
     private static string DescribeAugmentKind(SpectacleAugmentKind kind) => kind switch
     {
-        SpectacleAugmentKind.RampCap => "Raises momentum ramp cap",
-        SpectacleAugmentKind.SpillTransfer => "Boosts spill transfer",
-        SpectacleAugmentKind.MarkedVulnerability => "Increases marked vulnerability",
-        SpectacleAugmentKind.BeamBurst => "Strengthens beam burst",
-        SpectacleAugmentKind.SlowIntensity => "Deepens slow intensity",
-        SpectacleAugmentKind.RangePulse => "Adds range pulse coverage",
-        SpectacleAugmentKind.AttackSpeed => "Adds temporary attack-speed overclock",
-        SpectacleAugmentKind.SplitVolley => "Amplifies split-volley burst",
-        SpectacleAugmentKind.CooldownRefund => "Increases cooldown reclaim",
-        SpectacleAugmentKind.ChainBounces => "Adds chain-bounce pressure",
-        SpectacleAugmentKind.ExecutionStrike => "Execution spike on lowest-HP enemy; +1 life on kill",
-        SpectacleAugmentKind.BurnAmplify => "Flame surge: chip + scorched slow to enemies in range",
+        SpectacleAugmentKind.Area   => "Multi-target pulse to nearby enemies",
+        SpectacleAugmentKind.Strike => "Heavy single-target strike",
+        SpectacleAugmentKind.Reload => "Cooldown reduction with follow-up hit",
         _ => "Triad augment package",
     };
 

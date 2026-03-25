@@ -43,7 +43,6 @@ public sealed class SpectacleSystem
         public float PulseHold;
         public string LoadoutSignature = string.Empty;
         public readonly Dictionary<string, float> ModCooldowns = new(StringComparer.Ordinal);
-        public readonly Queue<float> ShotTimes = new();
 
         public void Clear()
         {
@@ -53,7 +52,6 @@ public sealed class SpectacleSystem
             Pulse = 0f;
             PulseHold = 0f;
             ModCooldowns.Clear();
-            ShotTimes.Clear();
         }
     }
 
@@ -198,20 +196,12 @@ public sealed class SpectacleSystem
     public void RegisterShotFired(ITowerView tower)
     {
         if (tower == null) return;
-        var state = EnsureTowerState(tower);
-
-        state.ShotTimes.Enqueue(_time);
-        while (state.ShotTimes.Count > 0 && state.ShotTimes.Peek() < _time - 1f)
-            state.ShotTimes.Dequeue();
-
         if (CountCopies(tower, SpectacleDefinitions.HairTrigger) <= 0)
             return;
-
-        float expectedShotsPerSecond = 1f / Max(0.001f, tower.AttackInterval);
-        float streakNorm = Clamp(state.ShotTimes.Count / Max(0.001f, expectedShotsPerSecond), 0f, 2f);
-        float eventScalar = SpectacleDefinitions.HairTriggerEventScalar(streakNorm);
+        var state = EnsureTowerState(tower);
         float estimatedHitDamage = Max(1f, tower.GetEffectiveDamageForPreview());
-        RegisterProcInternal(tower, state, SpectacleDefinitions.HairTrigger, eventScalar, estimatedHitDamage);
+        RegisterProcInternal(tower, state, SpectacleDefinitions.HairTrigger,
+            SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.HairTrigger), estimatedHitDamage);
     }
 
     public void RegisterProc(ITowerView tower, string modifierId, float eventScalar, float eventDamage = -1f)
@@ -352,16 +342,8 @@ public sealed class SpectacleSystem
             _ => SpectacleMode.Triad,
         };
 
-        float copyBoost = 1f;
-        if (!string.IsNullOrEmpty(r1) && counts.TryGetValue(r1, out int count1))
-            copyBoost += 0.28f * (count1 - 1);
-        if (!string.IsNullOrEmpty(r2) && counts.TryGetValue(r2, out int count2))
-            copyBoost += 0.16f * (count2 - 1);
-        if (!string.IsNullOrEmpty(r3) && counts.TryGetValue(r3, out int count3))
-            copyBoost += 0.10f * (count3 - 1);
-
-        float surgePower = SpectacleDefinitions.GetModeBase(mode) * copyBoost;
-        float augmentStrength = mode == SpectacleMode.Triad ? w3 * surgePower : 0f;
+        float surgePower = SpectacleDefinitions.GetModeBase(mode);
+        float augmentStrength = mode == SpectacleMode.Triad ? 1.0f : 0f;
 
         string effectId;
         string effectName;

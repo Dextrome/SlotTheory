@@ -186,9 +186,9 @@ public partial class ProjectileVisual : Node2D
             GameController.Instance?.NotifyChainMaxBounce(chainFrom, bounceHits);
         if (bounceHits > 0)
         {
-            float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(bounceHits);
             float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
-            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, chainEventDamage);
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ChainReaction), chainEventDamage);
         }
     }
 
@@ -220,8 +220,8 @@ public partial class ProjectileVisual : Node2D
         if (spawned > 0)
         {
             SlotTheory.Core.SoundManager.Instance?.Play("shoot_rapid");
-            float splitScalar = SpectacleDefinitions.SplitShotEventScalar(spawned);
-            GameController.Instance?.RegisterSpectacleProc(_tower, SpectacleDefinitions.SplitShot, splitScalar, splitDamage);
+            GameController.Instance?.RegisterSpectacleProc(_tower, SpectacleDefinitions.SplitShot,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.SplitShot), splitDamage);
         }
     }
 

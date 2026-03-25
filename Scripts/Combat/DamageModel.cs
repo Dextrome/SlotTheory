@@ -126,28 +126,16 @@ public static class DamageModel
             return;
 
         if (CountModifier(ctx.Attacker, SpectacleDefinitions.ExploitWeakness) > 0 && ctx.Target.IsMarked)
-        {
-            float scalar = SpectacleDefinitions.ExploitWeaknessEventScalar(markedHit: true, markedKill: isKill);
-            gc.RegisterSpectacleProc(ctx.Attacker, SpectacleDefinitions.ExploitWeakness, scalar, damageDealt);
-        }
+            gc.RegisterSpectacleProc(ctx.Attacker, SpectacleDefinitions.ExploitWeakness,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ExploitWeakness), damageDealt);
 
         if (CountModifier(ctx.Attacker, SpectacleDefinitions.FocusLens) > 0)
-        {
-            float baseShotDamage = System.MathF.Max(1f, ctx.Attacker.BaseDamage);
-            float damageNorm = System.MathF.Max(0f, damageDealt) / baseShotDamage;
-            float scalar = SpectacleDefinitions.FocusLensEventScalar(damageNorm);
-            gc.RegisterSpectacleProc(ctx.Attacker, SpectacleDefinitions.FocusLens, scalar, damageDealt);
-        }
+            gc.RegisterSpectacleProc(ctx.Attacker, SpectacleDefinitions.FocusLens,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.FocusLens), damageDealt);
 
-        int overreachCopies = CountModifier(ctx.Attacker, SpectacleDefinitions.Overreach);
-        if (overreachCopies > 0)
-        {
-            float overreachFactor = System.MathF.Pow(Balance.OverreachRangeFactor, overreachCopies);
-            float baseRange = ctx.Attacker.Range / System.MathF.Max(0.001f, overreachFactor);
-            float rangeNorm = (ctx.Attacker.Range / System.MathF.Max(1f, baseRange)) - 1f;
-            float scalar = SpectacleDefinitions.OverreachEventScalar(rangeNorm);
-            gc.RegisterSpectacleProc(ctx.Attacker, SpectacleDefinitions.Overreach, scalar, damageDealt);
-        }
+        if (CountModifier(ctx.Attacker, SpectacleDefinitions.Overreach) > 0)
+            gc.RegisterSpectacleProc(ctx.Attacker, SpectacleDefinitions.Overreach,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.Overreach), damageDealt);
     }
 
     private static int CountModifier(ITowerView tower, string modifierId)

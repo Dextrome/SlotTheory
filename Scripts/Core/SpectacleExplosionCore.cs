@@ -7,9 +7,7 @@ public readonly record struct OverkillBloomProfile(
     float OverflowVisualT,
     float VisualRadius,
     float BloomDamage,
-    int MaxTargets,
-    float BloomPower,
-    bool StageTwoKick);
+    int MaxTargets);
 
 public readonly record struct GlobalSurgeWaveTiming(
     float WaveSpeed,
@@ -85,14 +83,7 @@ public static class SpectacleExplosionCore
     public const float HitStopMaxDurationSeconds = 0.08f;
     public const float LargeSurgeAfterimagePowerThreshold = 1.55f;
 
-    public static bool ShouldEmitSecondStage(bool major, float power)
-    {
-        if (major)
-            return true;
-
-        float threshold = SpectacleTuning.Current.SecondStagePowerThreshold;
-        return power >= threshold;
-    }
+    public static bool ShouldEmitSecondStage(bool major) => major;
 
     public static ExplosionResidueProfile ResolveResidueProfile(
         ComboExplosionSkin skin,
@@ -100,7 +91,7 @@ public static class SpectacleExplosionCore
         float surgePower,
         int chainIndex)
     {
-        if (!SpectacleTuning.Current.EnableResidue)
+        if (!SpectacleTuning.Current.EnableResidue || (!globalSurge && chainIndex > 0))
         {
             return new ExplosionResidueProfile(
                 ShouldSpawn: false,
@@ -110,105 +101,24 @@ public static class SpectacleExplosionCore
                 TickIntervalSeconds: 0f,
                 Potency: 0f);
         }
-
-        ExplosionResidueKind kind = skin switch
-        {
-            ComboExplosionSkin.ChillShatter => ExplosionResidueKind.FrostSlow,
-            ComboExplosionSkin.SplitShrapnel => ExplosionResidueKind.BurnPatch,
-            ComboExplosionSkin.ChainArc => ExplosionResidueKind.VulnerabilityZone,
-            ComboExplosionSkin.FocusImplosion => ExplosionResidueKind.VulnerabilityZone,
-            _ => globalSurge ? ExplosionResidueKind.VulnerabilityZone : ExplosionResidueKind.None,
-        };
-
-        if (kind == ExplosionResidueKind.None)
-        {
-            return new ExplosionResidueProfile(
-                ShouldSpawn: false,
-                Kind: ExplosionResidueKind.None,
-                DurationSeconds: 0f,
-                Radius: 0f,
-                TickIntervalSeconds: 0f,
-                Potency: 0f);
-        }
-
-        int stride = kind switch
-        {
-            ExplosionResidueKind.FrostSlow => 2,
-            ExplosionResidueKind.BurnPatch => 2,
-            ExplosionResidueKind.VulnerabilityZone => globalSurge ? 2 : 3,
-            _ => 99,
-        };
-
-        if (chainIndex < 0)
-            chainIndex = 0;
-        bool shouldSpawn = chainIndex % stride == 0;
-        if (!shouldSpawn)
-        {
-            return new ExplosionResidueProfile(
-                ShouldSpawn: false,
-                Kind: kind,
-                DurationSeconds: 0f,
-                Radius: 0f,
-                TickIntervalSeconds: 0f,
-                Potency: 0f);
-        }
-
-        float duration = kind switch
-        {
-            ExplosionResidueKind.FrostSlow => ResidueFrostSlowDurationSeconds,
-            ExplosionResidueKind.BurnPatch => ResidueBurnDurationSeconds,
-            ExplosionResidueKind.VulnerabilityZone => ResidueVulnerabilityDurationSeconds,
-            _ => 0f,
-        };
-        duration *= MathF.Max(0.1f, SpectacleTuning.Current.ResidueDurationMultiplier);
-        float radius = kind switch
-        {
-            ExplosionResidueKind.FrostSlow => ResidueFrostRadius,
-            ExplosionResidueKind.BurnPatch => ResidueBurnRadius,
-            ExplosionResidueKind.VulnerabilityZone => ResidueVulnerabilityRadius,
-            _ => 0f,
-        };
-
-        float potency = Clamp(
-            (0.72f + 0.20f * Clamp(surgePower, 0.6f, 2.2f)) * (globalSurge ? 1.10f : 1f),
-            0.65f,
-            1.35f);
-        potency *= MathF.Max(0.1f, SpectacleTuning.Current.ResiduePotencyMultiplier);
-        potency = Clamp(potency, 0.20f, 2.40f);
 
         return new ExplosionResidueProfile(
             ShouldSpawn: true,
-            Kind: kind,
-            DurationSeconds: duration,
-            Radius: radius,
+            Kind: ExplosionResidueKind.VulnerabilityZone,
+            DurationSeconds: ResidueVulnerabilityDurationSeconds,
+            Radius: ResidueVulnerabilityRadius,
             TickIntervalSeconds: ResidueTickIntervalSeconds,
-            Potency: potency);
+            Potency: globalSurge ? 1.10f : 1.00f);
     }
 
     public static ExplosionHitStopProfile ResolveExplosionHitStopProfile(bool majorExplosion, bool globalSurge, float surgePower)
     {
         if (!majorExplosion)
-        {
-            return new ExplosionHitStopProfile(
-                ShouldApply: false,
-                DurationSeconds: 0f,
-                SlowScale: 1f);
-        }
+            return new ExplosionHitStopProfile(ShouldApply: false, DurationSeconds: 0f, SlowScale: 1f);
 
-        float t = Clamp((surgePower - 0.85f) / 1.35f, 0f, 1f);
-        float duration = Lerp(
-            globalSurge ? 0.056f : HitStopMinDurationSeconds,
-            HitStopMaxDurationSeconds,
-            t);
-        float slowScale = Lerp(
-            globalSurge ? 0.30f : 0.38f,
-            globalSurge ? 0.22f : 0.30f,
-            t);
-
-        return new ExplosionHitStopProfile(
-            ShouldApply: true,
-            DurationSeconds: Clamp(duration, HitStopMinDurationSeconds, HitStopMaxDurationSeconds),
-            SlowScale: Clamp(slowScale, 0.20f, 0.55f));
+        float duration = globalSurge ? HitStopMaxDurationSeconds : HitStopMinDurationSeconds + 0.02f;
+        float slowScale = globalSurge ? 0.24f : 0.34f;
+        return new ExplosionHitStopProfile(ShouldApply: true, DurationSeconds: duration, SlowScale: slowScale);
     }
 
     public static ResidueTickAdvance ResolveResidueTickAdvance(
@@ -233,16 +143,8 @@ public static class SpectacleExplosionCore
 
     public static float ResolveLargeSurgeAfterimageStrength(bool majorExplosion, bool globalSurge, float surgePower)
     {
-        if (!majorExplosion)
-            return 0f;
-
-        float t = Clamp((surgePower - LargeSurgeAfterimagePowerThreshold) / 0.75f, 0f, 1f);
-        if (globalSurge)
-            t = MathF.Max(0.62f, t);
-        if (t <= 0f)
-            return 0f;
-
-        return Clamp(0.40f + 0.60f * t, 0f, 1f);
+        if (!majorExplosion) return 0f;
+        return globalSurge ? 1.0f : 0.5f;
     }
 
     public static int ResolveStatusDetonationMaxTargets(bool globalSurge, bool reducedMotion)
@@ -261,11 +163,7 @@ public static class SpectacleExplosionCore
     }
 
     public static float ResolveStatusDetonationStaggerSeconds(bool reducedMotion)
-    {
-        float baseStagger = SurgeStatusDetonationStaggerSeconds * (reducedMotion ? 0.55f : 1f);
-        float multiplier = MathF.Max(0.1f, SpectacleTuning.Current.DetonationStaggerMultiplier);
-        return baseStagger * multiplier;
-    }
+        => SurgeStatusDetonationStaggerSeconds * (reducedMotion ? 0.55f : 1f);
 
     public static ComboExplosionSkin ResolveComboExplosionSkin(string modA, string modB)
     {
@@ -287,29 +185,14 @@ public static class SpectacleExplosionCore
 
     public static OverkillBloomProfile BuildOverkillBloomProfile(float overflowDamage)
     {
-        if (!SpectacleTuning.Current.EnableOverkillBloom)
+        if (!SpectacleTuning.Current.EnableOverkillBloom || overflowDamage < OverkillBloomOverflowThreshold)
         {
             return new OverkillBloomProfile(
                 ShouldTrigger: false,
                 OverflowVisualT: 0f,
                 VisualRadius: 0f,
                 BloomDamage: 0f,
-                MaxTargets: 0,
-                BloomPower: 0f,
-                StageTwoKick: false);
-        }
-
-        float overflowThreshold = OverkillBloomOverflowThreshold * MathF.Max(0.1f, SpectacleTuning.Current.OverkillBloomThresholdMultiplier);
-        if (overflowDamage < overflowThreshold)
-        {
-            return new OverkillBloomProfile(
-                ShouldTrigger: false,
-                OverflowVisualT: 0f,
-                VisualRadius: 0f,
-                BloomDamage: 0f,
-                MaxTargets: 0,
-                BloomPower: 0f,
-                StageTwoKick: false);
+                MaxTargets: 0);
         }
 
         float overflowVisual = Clamp(overflowDamage, 0f, OverkillBloomVisualOverflowCap);
@@ -321,30 +204,22 @@ public static class SpectacleExplosionCore
         float bloomDamage = damageScale <= 0f
             ? 0f
             : Clamp(overflowDamage * OverkillBloomDamageScale * damageScale, 4f, bloomDamageCap);
-        int baseMaxTargets = Clamp(2 + (int)MathF.Floor(overflowVisualT * 5f), 2, 7);
-        float maxTargetMult = MathF.Max(0.1f, SpectacleTuning.Current.OverkillBloomMaxTargetsMultiplier);
-        int maxTargets = Clamp((int)MathF.Round(baseMaxTargets * maxTargetMult), 1, 14);
-        float bloomPower = Clamp(0.92f + overflowVisualT * 0.90f, 0.92f, 1.95f);
+        int maxTargets = Clamp(2 + (int)MathF.Floor(overflowVisualT * 5f), 2, 7);
 
         return new OverkillBloomProfile(
             ShouldTrigger: true,
             OverflowVisualT: overflowVisualT,
             VisualRadius: radius,
             BloomDamage: bloomDamage,
-            MaxTargets: maxTargets,
-            BloomPower: bloomPower,
-            StageTwoKick: overflowVisualT >= 0.40f);
+            MaxTargets: maxTargets);
     }
 
     public static GlobalSurgeWaveTiming ResolveGlobalSurgeWaveTiming(float distance, int contributors, bool reducedMotion)
     {
-        float contributorT = Clamp((contributors - 1f) / 5f, 0f, 1f);
-        float waveSpeed = Lerp(GlobalSurgeWaveSpeedMin, GlobalSurgeWaveSpeedMax, contributorT);
-
+        const float waveSpeed = (GlobalSurgeWaveSpeedMin + GlobalSurgeWaveSpeedMax) * 0.5f;
         if (reducedMotion)
             return new GlobalSurgeWaveTiming(waveSpeed, ImpactDelay: 0f, PreFlashDelay: 0f);
-
-        float impactDelay = MathF.Max(0f, distance) / MathF.Max(220f, waveSpeed);
+        float impactDelay = MathF.Max(0f, distance) / waveSpeed;
         float preFlashDelay = MathF.Max(0f, impactDelay - GlobalSurgeWavePreFlashLeadSeconds);
         return new GlobalSurgeWaveTiming(waveSpeed, impactDelay, preFlashDelay);
     }

@@ -39,7 +39,6 @@ Each tower tracked by the system has a private `TowerState` containing:
 - `InactivityTime` -- time since last proc (for decay)
 - `Pulse` / `PulseHold` -- visual pulse animation state
 - `ModCooldowns[modId]` -- per-mod-per-tower cooldown timer; prevents same mod from contributing more than once per `ModProcCooldownSeconds` (0.25s)
-- `ShotTimes` -- queue of shot timestamps for HairTrigger streak measurement
 - `LoadoutSignature` -- hash of current modifier loadout; if this changes, the entire state resets
 
 State resets automatically when the tower's modifier loadout changes (new mod drafted onto the tower).
@@ -54,14 +53,7 @@ Two entry points feed the system:
 Called by modifier code after the mod does something meaningful (kill, hit, bounce, etc.). Validates inputs, normalizes the mod ID, checks it is supported, then calls `RegisterProcInternal`.
 
 ### `RegisterShotFired(tower)`
-Called every time a tower fires. Only acts if the tower has at least one `hair_trigger` modifier. Computes `streakNorm` from a 1-second rolling shot-count window and calls `RegisterProcInternal` with `HairTrigger` and the streak-based event scalar.
-
-```
-streakNorm = recentShots(last 1s) / expectedShotsPerSecond
-           = recentShots / (1 / attackInterval)
-           = recentShots * attackInterval
-Capped at 2.0
-```
+Called every time a tower fires. Only acts if the tower has at least one `hair_trigger` modifier. Uses the HairTrigger bucket scalar (Low = 0.75) and an estimated hit damage, then calls `RegisterProcInternal`.
 
 ---
 
@@ -134,38 +126,15 @@ Effective at tuned defaults: 1×=0.853, 2×=1.638, 3+=2.304.
 
 ## 6. Event Scalars Per Modifier
 
-Each modifier computes an `eventScalar` that reflects how impactful the specific proc was. All formulas are multiplied by `ResolveEventScalarMultiplier(mod)` which is `EventScalarMultiplier × perModEventScalarMultiplier`.
+Each modifier passes an `eventScalar` (a float) to `RegisterSpectacleProc`. Scalars use three fixed buckets defined in `SpectacleDefinitions.GetProcScalar(modId)`:
 
-| Modifier | Formula | Min | Max |
-|---|---|---|---|
-| Momentum | `0.75 + 0.50 × stackNorm` | 0.75 | 1.25 |
-| Overkill | `Clamp(0.65 + 0.55 × spillRatio, 0.65, 1.80)` | 0.65 | 1.80 |
-| Exploit Weakness | `0.70 + 0.65 × markedHit + 0.45 × markedKill` | 0.70 | 1.80 |
-| Focus Lens | `Clamp(0.85 + 0.45 × Clamp(damageNorm, 0, 2), 0.85, 1.75)` | 0.85 | 1.75 |
-| Chill Shot | `Clamp(0.80 + 0.20 × affectedEnemies, 0.80, 1.80)` | 0.80 | 1.80 |
-| Overreach | `0.85 + 0.40 × Clamp(rangeNorm, 0, 1.5)` | 0.85 | 1.45 |
-| Hair Trigger | `0.70 + 0.30 × Clamp(streakNorm, 0, 2)` | 0.70 | 1.30 |
-| Split Shot | `Clamp(0.70 + 0.15 × extraHits, 0.70, 1.75)` | 0.70 | 1.75 |
-| Feedback Loop | `Clamp(0.90 + 1.20 × refundFrac, 0.90, 2.00)` | 0.90 | 2.00 |
-| Chain Reaction | `Clamp(0.75 + 0.18 × bounces, 0.75, 1.85)` | 0.75 | 1.85 |
-| Blast Core | `Clamp(0.70 + 0.22 × splashHits, 0.70, 1.60)` | 0.70 | 1.60 |
-| Wildfire | `Clamp(0.75 + 0.35 × Clamp(burnDpsScalar, 0, 2), 0.75, 1.70)` | 0.75 | 1.70 |
-| Reaper Protocol | `Clamp(0.80 + 0.25 × livesRestoredThisWave, 0.80, 1.80)` | 0.80 | 1.80 |
+| Bucket | Value | Modifiers |
+|---|---|---|
+| Low | 0.75 | Hair Trigger, Split Shot, Chain Reaction, Blast Core, Wildfire |
+| Medium | 1.00 | Momentum, Exploit Weakness, Chill Shot, Overreach, Feedback Loop |
+| High | 1.35 | Overkill, Focus Lens, Reaper Protocol |
 
-**Notes on inputs:**
-- `stackNorm`: Momentum's current stack divided by max (normalized 0–1)
-- `spillRatio`: Overkill excess damage divided by target's max HP
-- `markedHit`/`markedKill`: booleans -- max scalar requires both true simultaneously (hit a Marked enemy AND kill it)
-- `damageNorm`: final damage divided by some reference (context-specific)
-- `affectedEnemies`: number of enemies slowed on this hit
-- `rangeNorm`: how "far out" the hit was relative to base range
-- `streakNorm`: computed in `RegisterShotFired`, NOT in `RegisterProc` -- Hair Trigger fires automatically
-- `extraHits`: number of extra targets Split Shot hit
-- `refundFrac`: fraction of cooldown refunded (1.0 = full instant refund)
-- `bounces`: number of chain bounces achieved
-- `splashHits`: number of enemies caught by the Blast Core AoE
-- `burnDpsScalar`: `burnDps × 0.5`, passed from Wildfire.OnHit and CombatSim burn/trail procs; higher effective burn = richer payout
-- `livesRestoredThisWave`: cumulative Reaper Protocol life gains on this tower this wave
+All mods call `GetProcScalar(ModifierId)` -- there are no bespoke per-modifier formulas.
 
 ---
 
@@ -220,24 +189,18 @@ Determined by how many *unique* supported modifier types are on the tower:
 ```
 ModeBase:
   Single → 1.00
-  Combo  → 1.08
-  Triad  → 1.16
+  Combo  → 1.10
+  Triad  → 1.20
 
-copyBoost = 1.0
-          + 0.28 × (copies(r1) - 1)   -- primary stacking bonus
-          + 0.16 × (copies(r2) - 1)   -- secondary stacking bonus
-          + 0.10 × (copies(r3) - 1)   -- tertiary stacking bonus
-
-SurgePower = ModeBase × copyBoost
+SurgePower = ModeBase   (fixed; no copyBoost)
 ```
 
-`AugmentStrength` (Triad only): `w3 × SurgePower` -- how strongly the third modifier's augment flavors the explosion.
+`AugmentStrength` (Triad only): fixed `1.0` -- copies affect meter fill frequency via `CopyMultiplier`, not surge power.
 
 Example: Heavy Cannon with 2× Focus Lens + 1× Chain Reaction + 1× Overkill:
 - Mode = Triad
-- r1 = focus_lens (2 copies), r2 = chain_reaction (1), r3 = overkill (1)
-- copyBoost = 1 + 0.28×(2-1) + 0 + 0 = 1.28
-- SurgePower = 1.16 × 1.28 = 1.485
+- SurgePower = 1.20
+- AugmentStrength = 1.0
 
 ---
 
@@ -383,25 +346,31 @@ The surge name is `"[combo name] + [augment name]"` where:
 - Combo = r1 + r2 pairing (same as Combo mode)
 - Augment = the r3 mod's triad augment definition
 
-**Triad Augments** (r3 modifier contributes one of these):
+**Triad Augments** (r3 modifier contributes one of three kinds):
+
+| Kind | Behavior |
+|---|---|
+| `Area` | Multi-target pulse to nearby enemies (splash/spread) |
+| `Strike` | Heavy single-target beam hit |
+| `Reload` | Cooldown reduction + follow-up hit if cooldown near zero |
 
 | Modifier (r3) | Augment Name | Kind | Coefficient | Duration |
 |---|---|---|---|---|
-| Momentum | Momentum Surge | RampCap | 0.18 | 2.0s |
-| Overkill | Spill Multiplier | SpillTransfer | 0.22 | 1.8s |
-| Exploit Weakness | Marked Execute | MarkedVulnerability | 0.20 | 2.2s |
-| Focus Lens | Beam Spike | BeamBurst | 0.25 | instant |
-| Chill Shot | Cryo Saturation | SlowIntensity | 0.20 | 2.0s |
-| Overreach | Range Pulse | RangePulse | 0.22 | 2.0s |
-| Hair Trigger | Overclock Injection | AttackSpeed | 0.24 | 1.6s |
-| Split Shot | Split Volley | SplitVolley | 0.30 | instant |
-| Feedback Loop | Cooldown Reclaim | CooldownRefund | 0.35 | instant |
-| Chain Reaction | Chain Charge | ChainBounces | 0.28 | 1.8s |
-| Blast Core | Blast Radius | RangePulse | 0.22 | 1.8s |
-| Wildfire | Flame Surge | BurnAmplify | 0.24 | 2.5s |
-| Reaper Protocol | Death Mark | ExecutionStrike | 0.28 | instant |
+| Momentum | Momentum Surge | Reload | 0.18 | 2.0s |
+| Overkill | Spill Multiplier | Area | 0.22 | 1.8s |
+| Exploit Weakness | Marked Execute | Strike | 0.20 | 2.2s |
+| Focus Lens | Beam Spike | Strike | 0.25 | instant |
+| Chill Shot | Cryo Saturation | Area | 0.20 | 2.0s |
+| Overreach | Range Pulse | Area | 0.22 | 2.0s |
+| Hair Trigger | Overclock Injection | Reload | 0.24 | 1.6s |
+| Split Shot | Split Volley | Area | 0.30 | instant |
+| Feedback Loop | Cooldown Reclaim | Reload | 0.35 | instant |
+| Chain Reaction | Chain Charge | Area | 0.28 | 1.8s |
+| Blast Core | Blast Radius | Area | 0.22 | 1.8s |
+| Wildfire | Flame Surge | Area | 0.24 | 2.5s |
+| Reaper Protocol | Death Mark | Strike | 0.28 | instant |
 
-The augment's `Coefficient × AugmentStrength` determines intensity. `AugmentStrength = w3 × SurgePower`.
+The augment's `Coefficient × AugmentStrength` determines intensity. `AugmentStrength = 1.0` (fixed).
 
 ---
 
@@ -493,11 +462,13 @@ The explosion system provides pure-math helpers consumed by visual/gameplay node
 
 ### Combo Explosion Skin
 Assigned based on which mods are in the combo (r1 or r2):
-- Chill Shot present → `ChillShatter` (generates FrostSlow residue)
-- Chain Reaction present → `ChainArc` (generates VulnerabilityZone residue)
-- Split Shot present → `SplitShrapnel` (generates BurnPatch residue)
-- Focus Lens present → `FocusImplosion` (generates VulnerabilityZone residue)
-- Otherwise → `Default` (no residue unless global surge)
+- Chill Shot present → `ChillShatter`
+- Chain Reaction present → `ChainArc`
+- Split Shot present → `SplitShrapnel`
+- Focus Lens present → `FocusImplosion`
+- Otherwise → `Default`
+
+All skins generate `VulnerabilityZone` residue when they spawn residue (see below). Skin only affects visuals.
 
 ### Overkill Bloom
 Fires when Overkill's overflow damage (excess beyond killing blow) exceeds a threshold.
@@ -517,12 +488,7 @@ bloomDamage = Clamp(overflow × 0.42 × OverkillBloomDamageScaleMultiplier,
                     86 × OverkillBloomDamageScaleMultiplier)
             = Clamp(overflow × 0.42 × 0.7532, 4, ~64.8)
 
-maxTargets = Round(Clamp(2 + floor(overflowVisualT × 5), 2, 7) × OverkillBloomMaxTargetsMultiplier)
-           = 2–7 scaled by ≈1.025
-
-bloomPower = Clamp(0.92 + overflowVisualT × 0.90, 0.92, 1.95)
-
-StageTwoKick = overflowVisualT >= 0.40
+maxTargets = Round(Clamp(2 + floor(overflowVisualT × 5), 2, 7))
 ```
 
 Bloom damage is raw HP damage -- no modifier hooks, no chain.
@@ -535,8 +501,8 @@ maxTargets (regular surge)  = Round(8 × DetonationMaxTargetsMultiplier) capped 
 maxTargets (global surge)   = Round(24 × DetonationMaxTargetsMultiplier) capped at 48
                               (10 in reduced-motion mode)
 
-staggerSeconds = 0.20s × DetonationStaggerMultiplier × (0.55 if reducedMotion else 1.0)
-               ≈ 0.181s between pops
+staggerSeconds = 0.20s × (0.55 if reducedMotion else 1.0)
+               ≈ 0.11–0.20s between pops
 ```
 
 ### Marked Pop (ExploitWeakness / Marker Tower context)
@@ -547,67 +513,46 @@ damageAmpMultiplier = +22% damage received for 1.45s applied to nearby enemies
 ```
 
 ### Explosion Residue Zones
-After a surge/explosion, a lingering zone can spawn at the impact point:
+After a surge/explosion, a lingering `VulnerabilityZone` can spawn at the impact point. All skins use the same single residue kind.
 
 | Kind | Radius | Base Duration | Tick Interval |
 |---|---|---|---|
-| FrostSlow | 88px | 0.80s | 0.20s |
 | VulnerabilityZone | 108px | 1.20s | 0.20s |
-| BurnPatch | 96px | 0.90s | 0.20s |
 
-Duration is multiplied by `ResidueDurationMultiplier` (1.2161). Potency:
+Potency:
 ```
-potency = Clamp(
-    (0.72 + 0.20 × Clamp(surgePower, 0.6, 2.2)) × (1.10 if globalSurge else 1.0),
-    0.65, 1.35)
-          × ResiduePotencyMultiplier (1.1563)
-          clamped to [0.20, 2.40]
+potency = 1.10 if globalSurge else 1.00
 ```
 
-Residue zones do NOT spawn on every explosion -- they use a stride (spawn every N-th):
-- FrostSlow: every 2nd explosion in chain
-- BurnPatch: every 2nd
-- VulnerabilityZone (regular surge): every 3rd
-- VulnerabilityZone (global surge): every 2nd
+Spawn rule: residue spawns when `EnableResidue` is true AND (`globalSurge` OR `chainIndex == 0`). Non-global chain explosions (chainIndex > 0) skip residue to avoid visual clutter.
+
+Max simultaneous residues: 12 (7 in reduced-motion mode). Oldest is evicted when at cap.
 
 ### Explosion Hit Stop
 On major explosions (surge or global surge), enemy movement briefly slows:
 ```
-t = Clamp((surgePower - 0.85) / 1.35, 0, 1)
-duration = Lerp(
-    globalSurge ? 0.056s : 0.04s,
-    0.08s,
-    t)
-slowScale = Lerp(
-    globalSurge ? 0.30 : 0.38,
-    globalSurge ? 0.22 : 0.30,
-    t)
-           clamped to [0.20, 0.55]
+globalSurge:      duration = 0.08s,  slowScale = 0.24
+non-global major: duration = 0.06s,  slowScale = 0.34
 ```
 
 ### Second Stage Explosion
-Major surges can emit a second blast wave with a 0.12s delay:
-```
-if major surge  → always fires
-if not major    → fires when surgePower >= SecondStagePowerThreshold (0.95)
-```
+A second blast wave fires with a 0.12s delay when `major == true`. Non-major surges do not emit a second stage.
 
 ### Afterimage Strength
 ```
-t = Clamp((surgePower - 1.55) / 0.75, 0, 1)
-if globalSurge → t = Max(0.62, t)
-afterimage = Clamp(0.40 + 0.60 × t, 0, 1)   (0 if not major)
+if not majorExplosion → 0.0
+if globalSurge       → 1.0
+else                 → 0.5
 ```
 
 ### Global Surge Wave Timing
 The ripple wave that sweeps out from the surge point:
 ```
-contributorT = Clamp((uniqueContributors - 1) / 5, 0, 1)
-waveSpeed    = Lerp(880, 1280, contributorT) px/s
-impactDelay  = distance / Max(220, waveSpeed)
-preFlashDelay = impactDelay - 0.05s
+waveSpeed    = (GlobalSurgeWaveSpeedMin + GlobalSurgeWaveSpeedMax) / 2   (fixed average, ~1080 px/s)
+impactDelay  = distance / waveSpeed
+preFlashDelay = Max(0, impactDelay - GlobalSurgeWavePreFlashLeadSeconds)
 ```
-More unique contributors → faster wave (more towers recently surged = faster global catharsis).
+Wave speed is fixed -- it no longer scales with contributor count.
 
 ---
 
@@ -638,8 +583,8 @@ Returned by `PreviewSignature()` and embedded in `SpectacleTriggerInfo`. Contain
 | `PrimaryShare` | copies(r1) / totalMods |
 | `SecondaryShare` | copies(r2) / totalMods |
 | `TertiaryShare` | copies(r3) / totalMods |
-| `SurgePower` | ModeBase × copyBoost |
-| `AugmentStrength` | w3 × SurgePower (Triad only) |
+| `SurgePower` | ModeBase (1.00 / 1.10 / 1.20) |
+| `AugmentStrength` | Fixed 1.0 (Triad only) |
 | `EffectId` | Full effect string (e.g. "C_MOMENTUM_OVERKILL+T_AUG_CHAIN") |
 | `EffectName` | Human-readable (e.g. "Redline Spillstorm + Chain Charge") |
 | `ComboEffectId` | Combo portion only |
@@ -655,7 +600,7 @@ Returned by `PreviewSignature()` and embedded in `SpectacleTriggerInfo`. Contain
 
 The profile is loaded at startup from `res://Data/best_tuning_full.json` (or `best_tuning_demo.json` in demo mode). If the file doesn't exist, the hardcoded defaults in `SpectacleTuningProfile` are used. The `--tuning_file` CLI arg overrides this for pipeline runs.
 
-**Key multipliers:**
+**Spectacle / surge knobs:**
 
 | Multiplier | Default | Controls |
 |---|---|---|
@@ -668,17 +613,26 @@ The profile is loaded at startup from `res://Data/best_tuning_full.json` (or `be
 | GlobalMeterAfterTriggerMultiplier | 0.9987 | Global meter carry-over (≈0) |
 | InactivityGraceMultiplier | 0.9151 | How long before decay starts |
 | InactivityDecayMultiplier | 1.2156 | How fast meter decays |
-| ContributionWindowMultiplier | 0.8148 | How far back role resolution looks |
-| RoleLockMeterThresholdMultiplier | 1.1286 | When roles freeze |
 | CopyMultiplierScale | 0.8532 | How much stacking same mod pays off |
-| DiversityMultiplierScale | 0.867 | Bonus for mixing mods |
-| TokenCapMultiplier | 1.1632 | Token bucket sizes |
+
+**Explosion knobs:**
+
+| Multiplier | Default | Controls |
+|---|---|---|
+| EnableOverkillBloom | true | Toggle Overkill bloom entirely |
+| EnableStatusDetonation | true | Toggle status detonation entirely |
+| EnableResidue | true | Toggle residue zone spawning entirely |
 | OverkillBloomDamageScaleMultiplier | 0.7532 | Bloom damage output |
+| OverkillBloomRadiusMultiplier | 0.9387 | Bloom visual radius |
+| DetonationMaxTargetsMultiplier | 1.0799 | Detonation target cap scale |
 | StatusDetonationDamageMultiplier | 1.2506 | Status pop damage |
-| ResidueDurationMultiplier | 1.2161 | How long residue zones last |
+| ResidueDamageMultiplier | 0.9283 | Residue zone tick damage |
 
 ### Per-Mod and Per-Tower Overrides
-The profile also carries dictionaries for per-mod `GainMultipliers`, `EventScalarMultipliers`, `TokenCapMultipliers`, `TokenRegenMultipliers`, and per-tower `TowerMeterGainMultipliers` / `TowerSurgeThresholdMultipliers`. These stack multiplicatively with the global versions.
+The profile carries three dictionaries:
+- `GainMultipliers[modId]` -- multiplies BaseGain for specific mods (default entries: overkill ×0.879, split_shot ×0.872, chain_reaction ×0.94, blast_core ×0.88)
+- `TowerMeterGainMultipliers[towerId]` -- per-tower gain scale
+- `TowerSurgeThresholdMultipliers[towerId]` -- per-tower threshold scale
 
 ### Automated Tuning Pipeline
 `run_tuning_pipeline.ps1` runs iterative bot playtest sweeps and gradient-searches tuning parameters to hit target win rates (~75% Normal, ~50% Hard). The pipeline outputs `Data/best_tuning_full.json` / `Data/best_tuning_demo.json`. Those files ship with the game.
@@ -689,9 +643,9 @@ The profile also carries dictionaries for per-mod `GainMultipliers`, `EventScala
 
 | File | Role |
 |---|---|
-| `SpectacleSystem.cs` | Per-tower meter, token gate, gain formula, surge trigger, global meter, global surge arming |
-| `SpectacleDefinitions.cs` | Constants, base gains, token configs, event scalar formulas, effect name tables, resolve helpers |
-| `SpectacleTuning.cs` | `SpectacleTuningProfile` (all multipliers), `SpectacleTuning.Current` singleton |
+| `SpectacleSystem.cs` | Per-tower meter, mod proc cooldown gate, gain formula, surge trigger, global meter, global surge arming |
+| `SpectacleDefinitions.cs` | Constants, base gains, 3-bucket proc scalars (`GetProcScalar`), copy multiplier, mode base, effect name tables, resolve helpers |
+| `SpectacleTuning.cs` | `SpectacleTuningProfile` (all multipliers + dicts), `SpectacleTuning.Current` singleton |
 | `SurgeDifferentiation.cs` | Global surge archetype table (label + feel), `ResolveLabel()`, `ResolveFeel()`, flash alpha |
 | `SpectacleExplosionCore.cs` | Pure-math explosion profiles: OverkillBloom, residue, hit stop, afterimage, wave timing |
 | `SpectacleDamageCore.cs` | `ApplyRawDamage(enemy, damage)` -- raw HP mutation used by spectacle payloads |
@@ -709,19 +663,11 @@ The profile also carries dictionaries for per-mod `GainMultipliers`, `EventScala
 | GlobalMeterPerSurge | 10 |
 | GlobalThreshold | 200 |
 | GlobalMeterAfterTrigger | 0 |
-| GlobalContributionWindowSeconds | 6s |
 | InactivityGraceSeconds | 2s |
 | InactivityDecayPerSecond | 3 pts/s |
-| ContributionWindowSeconds | 20s |
-| RoleLockMeterThreshold | 20 |
 | MeterGainScale | 0.75 / 1.30 ≈ 0.577 |
-| MeterIntervalReference | 1.0s |
-| MeterIntervalMinScale | 0.65 (floor) |
-| MeterIntervalMaxScale | 1.5 (cap) |
-| MeterDamageReference | 20 |
-| MeterDamageWeight | 0.90 |
-| MeterDamageMinMultiplier | 0.45 |
-| MeterDamageMaxMultiplier | 2.40 |
+| ModProcCooldownSeconds | 0.25s |
+| ProcScalarLow / Medium / High | 0.75 / 1.00 / 1.35 |
 | OverkillBloomOverflowThreshold | 6 |
 | OverkillBloomDamageScale | 0.42 |
 | OverkillBloomDamageCap | 86 |
@@ -729,13 +675,11 @@ The profile also carries dictionaries for per-mod `GainMultipliers`, `EventScala
 | MarkedPopRadius | 170 px |
 | MarkedPopDamageAmpMultiplier | +22% for 1.45s |
 | SurgeStatusDetonationStaggerSeconds | 0.20s |
-| ResidueFrostRadius | 88 px |
 | ResidueVulnerabilityRadius | 108 px |
-| ResidueBurnRadius | 96 px |
+| ResidueVulnerabilityDurationSeconds | 1.20s |
 | ResidueTickIntervalSeconds | 0.20s |
-| HitStopMinDuration | 0.04s |
-| HitStopMaxDuration | 0.08s |
-| LargeSurgeAfterimagePowerThreshold | 1.55 |
+| HitStop (non-global major) | 0.06s duration, 0.34 slowScale |
+| HitStop (global surge) | 0.08s duration, 0.24 slowScale |
 | TwoStageBlastDelaySeconds | 0.12s |
 | GlobalSurgeWaveSpeedMin / Max | 880 / 1280 px/s |
 | Pulse decay rate | 0.72/s |

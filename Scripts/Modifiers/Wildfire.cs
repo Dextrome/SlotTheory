@@ -90,10 +90,8 @@ public class Wildfire : Modifier
         if (!wasAlreadyBurning)
             ctx.Target.BurnTrailDropTimer = Balance.WildfireTrailDropInterval;
 
-        // Spectacle: register ignition as a minor proc so Wildfire charges the surge meter.
-        // Scalar is intentionally low (ignitions are common) -- the real spectacle value comes
-        // from chains of kills on burning enemies.
-        GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId, 0.35f, burnDps * 0.5f);
+        GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId,
+            SpectacleDefinitions.GetProcScalar(ModifierId), burnDps * 0.5f);
 
         return true; // show the tower proc halo
     }
