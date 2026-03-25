@@ -116,7 +116,7 @@ public sealed class SpectacleSystem
     }
 
     /// <summary>
-    /// Returns the current dominant mod IDs based on recent surge contributions,
+    /// Returns the current dominant mod IDs from cycle-accumulated surge scores,
     /// without mutating any state. Safe to call every frame for preview purposes.
     /// </summary>
     public string[] PeekDominantMods() => ResolveDominantGlobalMods();

@@ -6,8 +6,9 @@ namespace SlotTheory.Core;
 
 /// <summary>
 /// Runtime tuning overrides used by automation, sweeps, and combat lab scenarios.
-/// Defaults reflect the tuned best_tuning profile (20260321_000207 pipeline run).
-/// All multipliers are applied on top of Balance.cs constants - Reset() returns to these same defaults.
+/// Defaults are used when no best_tuning JSON file is present. Production values are
+/// loaded from Data/best_tuning_full.json or best_tuning_demo.json at startup.
+/// All multipliers are applied on top of Balance.cs constants - Reset() returns to hardcoded defaults.
 /// </summary>
 public sealed class SpectacleTuningProfile
 {

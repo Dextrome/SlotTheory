@@ -210,19 +210,9 @@ function New-NeutralTuningProfile {
         global_meter_per_surge_multiplier = 1.0
         global_threshold_multiplier = 1.0
         global_meter_after_trigger_multiplier = 1.0
-        global_contribution_window_multiplier = 1.0
         inactivity_grace_multiplier = 1.0
         inactivity_decay_multiplier = 1.0
-        contribution_window_multiplier = 1.0
-        role_lock_meter_threshold_multiplier = 1.0
-        meter_damage_reference_multiplier = 1.0
-        meter_damage_weight_multiplier = 1.0
-        meter_damage_min_clamp_multiplier = 1.0
-        meter_damage_max_clamp_multiplier = 1.0
-        token_cap_multiplier = 1.0
-        token_regen_multiplier = 1.0
         copy_multiplier_scale = 1.0
-        diversity_multiplier_scale = 1.0
         event_scalar_multiplier = 1.0
         second_stage_power_threshold = 0.95
         easy_enemy_hp_multiplier = 1.0
@@ -256,6 +246,7 @@ function New-NeutralTuningProfile {
             overkill = 1.0
             chain_reaction = 1.0
             split_shot = 1.0
+            blast_core = 1.0
         }
         event_scalar_multipliers = [PSCustomObject]@{
             overkill = 1.0
@@ -268,30 +259,7 @@ function New-NeutralTuningProfile {
             focus_lens = 1.0
             momentum = 1.0
             overreach = 1.0
-        }
-        token_cap_multipliers = [PSCustomObject]@{
-            overkill = 1.0
-            chain_reaction = 1.0
-            split_shot = 1.0
-            feedback_loop = 1.0
-            hair_trigger = 1.0
-            slow = 1.0
-            exploit_weakness = 1.0
-            focus_lens = 1.0
-            momentum = 1.0
-            overreach = 1.0
-        }
-        token_regen_multipliers = [PSCustomObject]@{
-            overkill = 1.0
-            chain_reaction = 1.0
-            split_shot = 1.0
-            feedback_loop = 1.0
-            hair_trigger = 1.0
-            slow = 1.0
-            exploit_weakness = 1.0
-            focus_lens = 1.0
-            momentum = 1.0
-            overreach = 1.0
+            blast_core = 1.0
         }
         tower_meter_gain_multipliers = [PSCustomObject]@{
             rapid_shooter = 1.0
@@ -345,19 +313,9 @@ function Normalize-TuningProfile {
     if ($props -contains "global_meter_per_surge_multiplier") { $p.global_meter_per_surge_multiplier = [double]$InputProfile.global_meter_per_surge_multiplier }
     if ($props -contains "global_threshold_multiplier") { $p.global_threshold_multiplier = [double]$InputProfile.global_threshold_multiplier }
     if ($props -contains "global_meter_after_trigger_multiplier") { $p.global_meter_after_trigger_multiplier = [double]$InputProfile.global_meter_after_trigger_multiplier }
-    if ($props -contains "global_contribution_window_multiplier") { $p.global_contribution_window_multiplier = [double]$InputProfile.global_contribution_window_multiplier }
     if ($props -contains "inactivity_grace_multiplier") { $p.inactivity_grace_multiplier = [double]$InputProfile.inactivity_grace_multiplier }
     if ($props -contains "inactivity_decay_multiplier") { $p.inactivity_decay_multiplier = [double]$InputProfile.inactivity_decay_multiplier }
-    if ($props -contains "contribution_window_multiplier") { $p.contribution_window_multiplier = [double]$InputProfile.contribution_window_multiplier }
-    if ($props -contains "role_lock_meter_threshold_multiplier") { $p.role_lock_meter_threshold_multiplier = [double]$InputProfile.role_lock_meter_threshold_multiplier }
-    if ($props -contains "meter_damage_reference_multiplier") { $p.meter_damage_reference_multiplier = [double]$InputProfile.meter_damage_reference_multiplier }
-    if ($props -contains "meter_damage_weight_multiplier") { $p.meter_damage_weight_multiplier = [double]$InputProfile.meter_damage_weight_multiplier }
-    if ($props -contains "meter_damage_min_clamp_multiplier") { $p.meter_damage_min_clamp_multiplier = [double]$InputProfile.meter_damage_min_clamp_multiplier }
-    if ($props -contains "meter_damage_max_clamp_multiplier") { $p.meter_damage_max_clamp_multiplier = [double]$InputProfile.meter_damage_max_clamp_multiplier }
-    if ($props -contains "token_cap_multiplier") { $p.token_cap_multiplier = [double]$InputProfile.token_cap_multiplier }
-    if ($props -contains "token_regen_multiplier") { $p.token_regen_multiplier = [double]$InputProfile.token_regen_multiplier }
     if ($props -contains "copy_multiplier_scale") { $p.copy_multiplier_scale = [double]$InputProfile.copy_multiplier_scale }
-    if ($props -contains "diversity_multiplier_scale") { $p.diversity_multiplier_scale = [double]$InputProfile.diversity_multiplier_scale }
     if ($props -contains "event_scalar_multiplier") { $p.event_scalar_multiplier = [double]$InputProfile.event_scalar_multiplier }
     if ($props -contains "second_stage_power_threshold") { $p.second_stage_power_threshold = [double]$InputProfile.second_stage_power_threshold }
     if ($props -contains "easy_enemy_hp_multiplier") { $p.easy_enemy_hp_multiplier = [double]$InputProfile.easy_enemy_hp_multiplier }
@@ -393,23 +351,12 @@ function Normalize-TuningProfile {
         if ($gm -contains "overkill") { $p.gain_multipliers.overkill = [double]$InputProfile.gain_multipliers.overkill }
         if ($gm -contains "chain_reaction") { $p.gain_multipliers.chain_reaction = [double]$InputProfile.gain_multipliers.chain_reaction }
         if ($gm -contains "split_shot") { $p.gain_multipliers.split_shot = [double]$InputProfile.gain_multipliers.split_shot }
+        if ($gm -contains "blast_core") { $p.gain_multipliers.blast_core = [double]$InputProfile.gain_multipliers.blast_core }
     }
     if ($props -contains "event_scalar_multipliers" -and $InputProfile.event_scalar_multipliers -ne $null) {
         $esm = $InputProfile.event_scalar_multipliers.PSObject.Properties.Name
         foreach ($name in $esm) {
             $p.event_scalar_multipliers.$name = [double]$InputProfile.event_scalar_multipliers.$name
-        }
-    }
-    if ($props -contains "token_cap_multipliers" -and $InputProfile.token_cap_multipliers -ne $null) {
-        $tcm = $InputProfile.token_cap_multipliers.PSObject.Properties.Name
-        foreach ($name in $tcm) {
-            $p.token_cap_multipliers.$name = [double]$InputProfile.token_cap_multipliers.$name
-        }
-    }
-    if ($props -contains "token_regen_multipliers" -and $InputProfile.token_regen_multipliers -ne $null) {
-        $trm = $InputProfile.token_regen_multipliers.PSObject.Properties.Name
-        foreach ($name in $trm) {
-            $p.token_regen_multipliers.$name = [double]$InputProfile.token_regen_multipliers.$name
         }
     }
     if ($props -contains "tower_meter_gain_multipliers" -and $InputProfile.tower_meter_gain_multipliers -ne $null) {
@@ -446,19 +393,9 @@ function Normalize-TuningProfile {
     $p.global_meter_per_surge_multiplier = [Math]::Round((Clamp-Double -Value $p.global_meter_per_surge_multiplier -Min 0.75 -Max 1.80), 4)
     $p.global_threshold_multiplier = [Math]::Round((Clamp-Double -Value $p.global_threshold_multiplier -Min 0.75 -Max 1.35), 4)
     $p.global_meter_after_trigger_multiplier = [Math]::Round((Clamp-Double -Value $p.global_meter_after_trigger_multiplier -Min 0.75 -Max 1.35), 4)
-    $p.global_contribution_window_multiplier = [Math]::Round((Clamp-Double -Value $p.global_contribution_window_multiplier -Min 0.75 -Max 1.35), 4)
     $p.inactivity_grace_multiplier = [Math]::Round((Clamp-Double -Value $p.inactivity_grace_multiplier -Min 0.0 -Max 4.0), 4)
     $p.inactivity_decay_multiplier = [Math]::Round((Clamp-Double -Value $p.inactivity_decay_multiplier -Min 0.0 -Max 4.0), 4)
-    $p.contribution_window_multiplier = [Math]::Round((Clamp-Double -Value $p.contribution_window_multiplier -Min 0.05 -Max 4.0), 4)
-    $p.role_lock_meter_threshold_multiplier = [Math]::Round((Clamp-Double -Value $p.role_lock_meter_threshold_multiplier -Min 0.0 -Max 4.0), 4)
-    $p.meter_damage_reference_multiplier = [Math]::Round((Clamp-Double -Value $p.meter_damage_reference_multiplier -Min 0.05 -Max 6.0), 4)
-    $p.meter_damage_weight_multiplier = [Math]::Round((Clamp-Double -Value $p.meter_damage_weight_multiplier -Min 0.0 -Max 4.0), 4)
-    $p.meter_damage_min_clamp_multiplier = [Math]::Round((Clamp-Double -Value $p.meter_damage_min_clamp_multiplier -Min 0.0 -Max 6.0), 4)
-    $p.meter_damage_max_clamp_multiplier = [Math]::Round((Clamp-Double -Value $p.meter_damage_max_clamp_multiplier -Min 0.0 -Max 6.0), 4)
-    $p.token_cap_multiplier = [Math]::Round((Clamp-Double -Value $p.token_cap_multiplier -Min 0.0 -Max 4.0), 4)
-    $p.token_regen_multiplier = [Math]::Round((Clamp-Double -Value $p.token_regen_multiplier -Min 0.0 -Max 4.0), 4)
     $p.copy_multiplier_scale = [Math]::Round((Clamp-Double -Value $p.copy_multiplier_scale -Min 0.0 -Max 4.0), 4)
-    $p.diversity_multiplier_scale = [Math]::Round((Clamp-Double -Value $p.diversity_multiplier_scale -Min 0.0 -Max 4.0), 4)
     $p.event_scalar_multiplier = [Math]::Round((Clamp-Double -Value $p.event_scalar_multiplier -Min 0.0 -Max 4.0), 4)
     $p.second_stage_power_threshold = [Math]::Round((Clamp-Double -Value $p.second_stage_power_threshold -Min 0.05 -Max 3.0), 4)
     $p.easy_enemy_hp_multiplier = [Math]::Round((Clamp-Double -Value $p.easy_enemy_hp_multiplier -Min 0.3 -Max 2.0), 4)
@@ -493,14 +430,9 @@ function Normalize-TuningProfile {
     $p.gain_multipliers.overkill = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.overkill -Min 0.0 -Max 4.0), 4)
     $p.gain_multipliers.chain_reaction = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.chain_reaction -Min 0.0 -Max 4.0), 4)
     $p.gain_multipliers.split_shot = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.split_shot -Min 0.0 -Max 4.0), 4)
+    $p.gain_multipliers.blast_core = [Math]::Round((Clamp-Double -Value $p.gain_multipliers.blast_core -Min 0.0 -Max 4.0), 4)
     foreach ($name in $p.event_scalar_multipliers.PSObject.Properties.Name) {
         $p.event_scalar_multipliers.$name = [Math]::Round((Clamp-Double -Value $p.event_scalar_multipliers.$name -Min 0.0 -Max 4.0), 4)
-    }
-    foreach ($name in $p.token_cap_multipliers.PSObject.Properties.Name) {
-        $p.token_cap_multipliers.$name = [Math]::Round((Clamp-Double -Value $p.token_cap_multipliers.$name -Min 0.0 -Max 4.0), 4)
-    }
-    foreach ($name in $p.token_regen_multipliers.PSObject.Properties.Name) {
-        $p.token_regen_multipliers.$name = [Math]::Round((Clamp-Double -Value $p.token_regen_multipliers.$name -Min 0.0 -Max 4.0), 4)
     }
     foreach ($name in $p.tower_meter_gain_multipliers.PSObject.Properties.Name) {
         $p.tower_meter_gain_multipliers.$name = [Math]::Round((Clamp-Double -Value $p.tower_meter_gain_multipliers.$name -Min 0.3 -Max 2.5), 4)
