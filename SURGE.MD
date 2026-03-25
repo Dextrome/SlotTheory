@@ -4,15 +4,22 @@ Slot Theory's spectacle system is a two-tier excitement engine layered on top of
 
 ---
 
-## PLAYER QUICK REFERENCE
+## PLAYER-FACING TRUTH (IN GAME)
 
-- Every tower has a Surge Meter that fills as it deals damage. When full, it fires a bonus Surge effect.
-- The meter resets to a partial value after firing (not zero), so surges come back quickly.
-- **1 mod = Single surge**: that mod fires its signature effect (e.g. Wildfire = Firestorm).
-- **2 mods = Combo surge**: named "[Primary] [Secondary]". The first word is the dominant mod; the second word shows what the secondary adds. Example: "Focus Cryo" = Focus Lens surge mutated by a Chill Shot freeze; "Overkill Arc" = Overkill surge that chains through targets.
-- **3 mods = Triad**: same Combo core, plus one bonus Augment (Pulse, Strike, or Recharge) from the third mod.
-- Each tower surge fills the shared Global Surge bar. When it arms, click the READY banner to fire a Global Surge across the whole map.
-- The Global Surge banner shows your build's dominant mod (e.g. MOMENTUM SURGE, WILDFIRE SURGE). Stack one mod on multiple towers to see its archetype appear.
+- Every tower has a Surge Meter that fills as it deals damage. When full, it triggers a Surge.
+- **1 mod = core surge** from that primary mod.
+- **2 mods = core surge + one mutation** from the secondary mod.
+- **3 mods = core surge + one bonus** from the third mod: **Pulse**, **Strike**, or **Recharge**.
+- Each tower surge fills the shared Global Surge bar.
+- The Global Surge label shows the mod family your surges have leaned toward **since the last Global Surge**.
+
+UI teaching is intentionally minimal: `Primary Surge`, `+ Secondary mutation`, `+ Pulse/Strike/Recharge bonus`.
+
+---
+
+## INTERNAL SYSTEM TRUTH (FOR IMPLEMENTATION)
+
+The sections below keep the full implementation detail (signatures, IDs, mode taxonomy, tuning and FX internals). This richer structure is for code/design maintenance, not for player onboarding.
 
 ---
 
@@ -247,94 +254,62 @@ When `meter >= threshold` AND `surgeCooldown <= 0`:
 
 ## 12. Effect Naming
 
+### Player-facing naming (UI)
+Combat UI surfaces (tooltips + callouts) use this structure:
+
+- `[Primary Display Name] Surge`
+- `+ [Secondary Display Name] mutation` (when 2+ unique mods)
+- `+ [Pulse|Strike|Recharge] bonus` (when 3+ unique mods)
+
+Players are not required to learn internal effect IDs or mode taxonomy to read surges.
+
+### Internal naming (runtime/signature data)
+
 ### Single Mode (1 unique mod)
-Each mod has one named Single effect:
+Each mod has one internal Single effect definition:
 
 | Modifier | Effect ID | Effect Name |
 |---|---|---|
-| momentum | S_MOMENTUM_REDLINE_BREAK | Redline Break |
-| overkill | S_OVERKILL_SPILL_CASCADE | Spill Cascade |
-| exploit_weakness | S_EXPLOIT_MARK_COLLAPSE | Mark Collapse |
-| focus_lens | S_FOCUS_PRISM_LANCE | Prism Lance |
+| momentum | S_MOMENTUM_REDLINE_BREAK | Momentum Break |
+| overkill | S_OVERKILL_SPILL_CASCADE | Overkill Cascade |
+| exploit_weakness | S_EXPLOIT_MARK_COLLAPSE | Exploit Collapse |
+| focus_lens | S_FOCUS_PRISM_LANCE | Focus Lance |
 | slow (chill) | S_CHILL_ABSOLUTE_ZERO | Absolute Zero |
-| overreach | S_OVERREACH_HORIZON_SWEEP | Horizon Sweep |
+| overreach | S_OVERREACH_HORIZON_SWEEP | Overreach Sweep |
 | hair_trigger | S_HAIR_HYPERBURST | Hyperburst |
-| split_shot | S_SPLIT_FRACTAL_BLOOM | Fractal Bloom |
-| feedback_loop | S_FEEDBACK_REBOOT_STORM | Reboot Storm |
+| split_shot | S_SPLIT_FRACTAL_BLOOM | Split Bloom |
+| feedback_loop | S_FEEDBACK_REBOOT_STORM | Feedback Storm |
 | chain_reaction | S_CHAIN_ARC_OVERLOAD | Arc Overload |
 | blast_core | S_BLAST_DETONATION_ZONE | Detonation Zone |
 | wildfire | S_WILDFIRE_FIRESTORM | Firestorm |
 | reaper_protocol | S_REAPER_DEATH_DECREE | Death Decree |
 
 ### Combo Mode (2 unique mods)
-
-Combo names are **dynamically generated** at runtime -- there is no static lookup table. The formula is:
+Internal combo names are dynamically generated at runtime (no static lookup table):
 
 ```
 name     = "[PrimaryShortName] [SecondaryTag]"
 effectId = "C_{R1_UPPERCASE}_{R2_UPPERCASE}"
 ```
 
-Where `r1` is the primary mod (highest copy count, then canonical rank) and `r2` is the secondary mod.
-
-The naming scheme is designed so the player can always read a combo name and know:
-- **First word** = which mod dominates (the primary).
-- **Second word** = how the secondary mod mutates the surge.
-
-**Primary short names and secondary tags:**
-
-| Mod | Short Name (as primary) | Tag (as secondary) |
-|---|---|---|
-| Momentum | Momentum | Surge |
-| Overkill | Overkill | Spill |
-| Exploit Weakness | Exploit | Mark |
-| Focus Lens | Focus | Beam |
-| Chill Shot | Chill | Cryo |
-| Overreach | Overreach | Range |
-| Hair Trigger | Hair Trigger | Burst |
-| Split Shot | Split Shot | Split |
-| Feedback Loop | Feedback | Reload |
-| Chain Reaction | Chain | Arc |
-| Blast Core | Blast | Blast |
-| Wildfire | Wildfire | Fire |
-| Reaper Protocol | Reaper | Death |
-
-**Reading examples:**
-- "Focus Cryo" = Focus Lens primary surge + Chill Shot freeze mutation.
-- "Overkill Arc" = Overkill primary surge + Chain Reaction bounce mutation.
-- "Wildfire Reload" = Wildfire primary surge + Feedback Loop cooldown-reset mutation.
-- "Blast Death" = Blast Core primary surge + Reaper Protocol execution mutation.
+`r1` is the primary mod (highest copy count, then canonical rank). `r2` is the secondary mod.
 
 ### Triad Mode (3+ unique mods)
-The surge name is `"[combo name] + [augment name]"` where:
-- Combo = r1 + r2 pairing (same as Combo mode)
-- Augment = the r3 mod's triad augment definition
+Internal triad name format:
 
-**Triad Augments** (r3 modifier contributes one of three kinds):
+```
+"[combo name] + [augment name]"
+```
 
-| Kind | Behavior |
-|---|---|
-| `Area` (Pulse) | Multi-target pulse to nearby enemies (splash/spread) |
-| `Strike` | Heavy single-target beam hit |
-| `Reload` (Recharge) | Cooldown reduction + follow-up hit if cooldown near zero |
+Triad augment names are intentionally flattened to three player-facing concepts:
 
-| Modifier (r3) | Augment Name | Kind | Coefficient | Duration |
-|---|---|---|---|---|
-| Momentum | Momentum Recharge | Reload | 0.18 | 2.0s |
-| Overkill | Overkill Pulse | Area | 0.22 | 1.8s |
-| Exploit Weakness | Exploit Strike | Strike | 0.20 | 2.2s |
-| Focus Lens | Focus Strike | Strike | 0.25 | instant |
-| Chill Shot | Cryo Pulse | Area | 0.20 | 2.0s |
-| Overreach | Range Pulse | Area | 0.22 | 2.0s |
-| Hair Trigger | Rapid Recharge | Reload | 0.24 | 1.6s |
-| Split Shot | Split Pulse | Area | 0.30 | instant |
-| Feedback Loop | Full Recharge | Reload | 0.35 | instant |
-| Chain Reaction | Arc Pulse | Area | 0.28 | 1.8s |
-| Blast Core | Blast Pulse | Area | 0.22 | 1.8s |
-| Wildfire | Fire Pulse | Area | 0.24 | 2.5s |
-| Reaper Protocol | Death Strike | Strike | 0.28 | instant |
+| Kind | Display Name | Behavior |
+|---|---|---|
+| `Area` | Pulse | Hits all enemies near the tower |
+| `Strike` | Strike | One heavy single-target hit |
+| `Reload` | Recharge | Resets cooldown and fires again |
 
-The augment's `Coefficient × AugmentStrength` determines intensity. `AugmentStrength = 1.0` (fixed).
+Per-mod augment IDs, coefficients, and durations still exist internally and are unchanged.
 
 ---
 
@@ -364,11 +339,11 @@ In bot mode, activation is immediate (no player input needed).
 - `UniqueContributors` -- distinct towers that surged in the recent contribution window
 - `EffectId` -- always `"G_SPECTACLE_CATHARSIS"`
 - `EffectName` -- always `"Catastrophe"`
-- `DominantModIds[]` -- up to 3 dominant mod IDs (drives visual archetype)
+- `DominantModIds[]` -- up to 3 dominant mod IDs (drives global label + feel)
 
 ---
 
-## 14. Dominant Mod Attribution (Global Surge)
+## 14. Dominant Mod Attribution (Global Surge Label)
 
 The system maintains `_globalCycleScores: Dictionary<string, int>` -- a count of how many tower surges each `PrimaryModId` has led since the last global surge armed. Every tower surge increments the score for its primary mod by 1.
 
@@ -378,31 +353,31 @@ When the global meter fills and arms, `ResolveDominantGlobalMods()`:
 3. Return top 3 mod IDs
 4. Clear `_globalCycleScores` and `_globalCycleContributors` (reset for next cycle)
 
-Only `dominantModIds[0]` (the highest-score primary mod across the whole cycle) determines the archetype label and feel.
+Only `dominantModIds[0]` (the highest-score primary mod across the whole cycle) determines the displayed global label and feel.
 
-This replaces the previous 6-second time-windowed `Queue<SurgeContribution>` approach. Cycle-accumulated scoring is O(1) per surge and produces deterministic outcomes based on the full build pattern since the last global surge.
+This replaces the previous 6-second time-windowed `Queue<SurgeContribution>` approach. Cycle-accumulated scoring is O(1) per surge and deterministic over the full cycle.
 
 ---
 
-## 15. Surge Differentiation -- Labels and Feel
+## 15. Global Label Mapping and Feel
 
-`SurgeDifferentiation.ResolveLabel(dominantModIds)` maps the dominant mod to one of 13 named archetypes. The banner on screen displays this label. Falls back to `"GLOBAL SURGE"` if no match.
+`SurgeDifferentiation.ResolveLabel(dominantModIds)` maps the dominant mod to one normalized player-facing label. Falls back to `"GLOBAL SURGE"` if no match.
 
-| Dominant Mod | Global Surge Label | Feel |
+| Dominant Mod | Global Label | Feel |
 |---|---|---|
 | momentum | MOMENTUM SURGE | Pressure |
-| overkill | OVERKILL STORM | Detonation |
-| exploit_weakness | EXPLOIT STORM | Neutral |
-| focus_lens | FOCUS BARRAGE | Detonation |
-| slow (chill) | CRYO STORM | Pressure |
-| overreach | OVERREACH BREAK | Pressure |
-| hair_trigger | HAIR TRIGGER WAVE | Detonation |
-| split_shot | SPLIT STORM | Neutral |
-| feedback_loop | FEEDBACK CASCADE | Detonation |
-| chain_reaction | CHAIN STORM | Neutral |
-| blast_core | BLAST WAVE | Detonation |
+| overkill | OVERKILL SURGE | Detonation |
+| exploit_weakness | EXPLOIT SURGE | Neutral |
+| focus_lens | FOCUS SURGE | Detonation |
+| slow (chill) | CHILL SURGE | Pressure |
+| overreach | OVERREACH SURGE | Pressure |
+| hair_trigger | HAIR TRIGGER SURGE | Detonation |
+| split_shot | SPLIT SHOT SURGE | Neutral |
+| feedback_loop | FEEDBACK SURGE | Detonation |
+| chain_reaction | CHAIN SURGE | Neutral |
+| blast_core | BLAST SURGE | Detonation |
 | wildfire | WILDFIRE SURGE | Detonation |
-| reaper_protocol | REAPER TIDE | Neutral |
+| reaper_protocol | REAPER SURGE | Neutral |
 
 ### Visual Feel Classification
 - **Detonation** -- spike/burst builds; bright flash
@@ -411,12 +386,12 @@ This replaces the previous 6-second time-windowed `Queue<SurgeContribution>` app
 
 Flash alpha for the full-screen flash on global surge trigger:
 ```
-Detonation → 0.34
-Pressure   → 0.21
-Neutral    → 0.28
+Detonation -> 0.34
+Pressure   -> 0.21
+Neutral    -> 0.28
 ```
 
-Feel also drives secondary pulses, ripple pattern, and per-tower archetype FX in sequence.
+Feel also drives secondary pulses, ripple pattern, and per-tower identity FX sequencing.
 
 ---
 
@@ -550,7 +525,7 @@ Returned by `PreviewSignature()` and embedded in `SpectacleTriggerInfo`. Contain
 | `SurgePower` | ModeBase (1.00 / 1.10 / 1.20) |
 | `AugmentStrength` | Fixed 1.0 (Triad only) |
 | `EffectId` | Full effect string (e.g. "C_MOMENTUM_SPLIT_SHOT+T_AUG_CHAIN_REACTION") |
-| `EffectName` | Human-readable (e.g. "Momentum Split + Arc Pulse") |
+| `EffectName` | Human-readable (e.g. "Momentum Split + Pulse") |
 | `ComboEffectId` | Combo portion only |
 | `ComboEffectName` | Combo name only |
 | `AugmentEffectId` | Augment portion only (Triad) |
@@ -610,7 +585,7 @@ The profile carries three dictionaries:
 | `SpectacleSystem.cs` | Per-tower meter, mod proc cooldown gate, gain formula, surge trigger, global meter, global surge arming |
 | `SpectacleDefinitions.cs` | Constants, base gains, 3-bucket proc scalars (`GetProcScalar`), copy multiplier, mode base, effect name tables, resolve helpers |
 | `SpectacleTuning.cs` | `SpectacleTuningProfile` (all multipliers + dicts), `SpectacleTuning.Current` singleton |
-| `SurgeDifferentiation.cs` | Global surge archetype table (label + feel), `ResolveLabel()`, `ResolveFeel()`, flash alpha |
+| `SurgeDifferentiation.cs` | Global surge label table (label + feel), `ResolveLabel()`, `ResolveFeel()`, flash alpha |
 | `SpectacleExplosionCore.cs` | Pure-math explosion profiles: OverkillBloom, residue, hit stop, afterimage, wave timing |
 | `SpectacleDamageCore.cs` | `ApplyRawDamage(enemy, damage)` -- raw HP mutation used by spectacle payloads |
 | `SpectacleDamageSource.cs` | Enum identifying which system dealt damage (for VFX/logging) |
@@ -648,3 +623,4 @@ The profile carries three dictionaries:
 | GlobalSurgeWaveSpeedMin / Max | 880 / 1280 px/s |
 | Pulse decay rate | 0.72/s |
 | Pulse hold duration | 0.42s |
+

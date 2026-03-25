@@ -296,7 +296,7 @@ public static class SurgeHintAdvisor
                 "Tip: Combat fills each tower's Surge ring."),
             new SurgePostLossTip(
                 "combo_unlock",
-                "Tip: 2+ mods unlock stronger combo surges."),
+                "Tip: 2 mods add one surge mutation; 3 mods add one bonus (Pulse, Strike, or Recharge)."),
         };
 
         for (int i = 0; i < candidates.Length; i++)

@@ -380,6 +380,12 @@ public class SpectacleSystemTests
 
         var augmentIds = augments.Values.Cast<SpectacleTriadAugmentDef>().Select(def => def.EffectId).ToArray();
         Assert.Equal(13, augmentIds.Distinct(StringComparer.Ordinal).Count());
+
+        var augmentNames = augments.Values.Cast<SpectacleTriadAugmentDef>().Select(def => def.Name).Distinct(StringComparer.Ordinal).ToArray();
+        Assert.Equal(3, augmentNames.Length);
+        Assert.Contains("Pulse", augmentNames);
+        Assert.Contains("Strike", augmentNames);
+        Assert.Contains("Recharge", augmentNames);
     }
 
     [Theory]
@@ -387,10 +393,17 @@ public class SpectacleSystemTests
     public void AugmentDefinition_MapsToExpectedAugmentKind(string modId, SpectacleAugmentKind expectedKind)
     {
         SpectacleTriadAugmentDef augment = SpectacleDefinitions.GetTriadAugment(modId);
+        string expectedName = expectedKind switch
+        {
+            SpectacleAugmentKind.Area => "Pulse",
+            SpectacleAugmentKind.Strike => "Strike",
+            SpectacleAugmentKind.Reload => "Recharge",
+            _ => string.Empty,
+        };
 
         Assert.Equal(expectedKind, augment.Kind);
         Assert.False(string.IsNullOrWhiteSpace(augment.EffectId));
-        Assert.False(string.IsNullOrWhiteSpace(augment.Name));
+        Assert.Equal(expectedName, augment.Name);
         Assert.True(augment.Coefficient > 0f);
     }
 

@@ -314,62 +314,40 @@ public partial class HowToPlay : Node
         AddLine(vbox, "Each tower surge fills the shared Global Surge bar. When full, a READY banner pulses -- click it to fire a Global Surge.");
         AddSpacer(vbox, 8);
 
-        AddHeader(vbox, "SURGE TIERS: MORE MODS = STRONGER SURGES");
-        AddLine(vbox, "  1 mod   →  Single: the mod fires its signature effect.");
-        AddLine(vbox, "  2 mods  →  Combo: named \"[Primary] [Secondary]\". First word = dominant mod; second word = what the secondary adds.");
-        AddLine(vbox, "  3 mods  →  Triad: same Combo core, plus a bonus Augment (Pulse / Strike / Recharge) from the third mod.");
+        AddHeader(vbox, "READ THIS MODEL");
+        AddLine(vbox, "  1 mod  ->  [Primary] Surge (core effect from that mod).");
+        AddLine(vbox, "  2 mods ->  same core surge + one mutation from the second mod.");
+        AddLine(vbox, "  3 mods ->  same core + one simple bonus from the third mod (Pulse / Strike / Recharge).");
+        AddLine(vbox, "  Global label -> the mod family your surges have leaned toward since the last Global Surge.");
         AddSpacer(vbox, 4);
-        AddLine(vbox, "Combo examples:");
-        AddLine(vbox, "  \"Focus Cryo\"   -- Focus Lens surge with a Chill Shot freeze.");
-        AddLine(vbox, "  \"Overkill Arc\" -- Overkill surge that chains through targets via Chain Reaction.");
+        AddLine(vbox, "What a mutation means: the 2nd mod adds its signature trait to the core.");
+        AddLine(vbox, "  Chill Shot mutation -> adds slow/freeze pressure.");
+        AddLine(vbox, "  Chain Reaction mutation -> adds bounce chaining.");
+        AddLine(vbox, "  Feedback Loop mutation -> adds cooldown reset follow-up.");
         AddSpacer(vbox, 4);
-        AddLine(vbox, "Augment types (what the third mod contributes):");
-        AddLine(vbox, "  Pulse    --  hits all enemies near the tower.");
-        AddLine(vbox, "  Strike   --  one heavy hit on a single target.");
-        AddLine(vbox, "  Recharge --  resets cooldown; fires again immediately.");
+        AddLine(vbox, "What a bonus means (3rd mod):");
+        AddLine(vbox, "  Pulse -> hit all nearby enemies.");
+        AddLine(vbox, "  Strike -> one heavy single-target hit.");
+        AddLine(vbox, "  Recharge -> reset cooldown and fire again.");
+        AddSpacer(vbox, 4);
+        AddLine(vbox, "Example: Focus Lens + Chill Shot = Focus Lens Surge + Chill Shot mutation.");
+        AddLine(vbox, "Example: add Feedback Loop as a third mod = + Recharge bonus.");
         AddSpacer(vbox, 8);
 
-        AddHeader(vbox, "SINGLE SURGE TYPES");
+        AddHeader(vbox, "PRIMARY MOD -> CORE SURGE BEHAVIOR");
         foreach (string modId in CanonicalSurgeMods)
         {
             if (modId == SpectacleDefinitions.ReaperProtocol && Balance.IsDemo) continue;
-            var single = SpectacleDefinitions.GetSingle(modId);
             string modName = SpectacleDefinitions.GetDisplayName(modId);
-            AddModRowWithIcon(vbox, modId, single.Name.ToUpperInvariant(), $"{modName}: {DescribeSingleEffect(modId)}");
-        }
-        AddSpacer(vbox, 8);
-
-        AddHeader(vbox, "TRIAD AUGMENTS");
-        foreach (string modId in CanonicalSurgeMods)
-        {
-            if (modId == SpectacleDefinitions.ReaperProtocol && Balance.IsDemo) continue;
-            var aug = SpectacleDefinitions.GetTriadAugment(modId);
-            string modName = SpectacleDefinitions.GetDisplayName(modId);
-            AddModRowWithIcon(vbox, modId, aug.Name.ToUpperInvariant(), $"{modName}: {DescribeAugmentKind(aug.Kind)}.");
+            AddModRowWithIcon(vbox, modId, modName.ToUpperInvariant(), DescribeSingleEffect(modId));
         }
         AddSpacer(vbox, 8);
 
         AddHeader(vbox, "GLOBAL SURGE");
         AddLine(vbox, "Activating a Global Surge fires all placed towers simultaneously and marks + slows all alive enemies.");
-        AddLine(vbox, "The banner label shows which mod dominated your build since the last Global Surge.");
-        AddLine(vbox, "Stack one mod across multiple towers to see its archetype label appear on the next Global Surge.");
-        AddSpacer(vbox, 10);
-
-        AddHeader(vbox, "GLOBAL SURGE ARCHETYPES");
-        foreach (var entry in SurgeDifferentiation.GlobalSurgeTable)
-        {
-            if (entry.ModId == SpectacleDefinitions.ReaperProtocol && Balance.IsDemo) continue;
-            string modName = SpectacleDefinitions.GetDisplayName(entry.ModId);
-            Color feelColor = entry.Feel switch
-            {
-                SurgeDifferentiation.GlobalSurgeFeel.Detonation => new Color(1.00f, 0.58f, 0.15f),
-                SurgeDifferentiation.GlobalSurgeFeel.Pressure   => new Color(0.35f, 0.68f, 1.00f),
-                _                                               => new Color(0.55f, 0.55f, 0.65f),
-            };
-            AddArchetypeRow(vbox, entry.ModId, entry.Label, $"Dominant mod: {modName}", feelColor);
-        }
+        AddLine(vbox, "The label on the bar shows which primary mod family has led most surges since the last Global Surge.");
+        AddLine(vbox, "If you want a specific label, stack that mod across more towers.");
     }
-
     private static string DescribeSingleEffect(string modId) => SpectacleDefinitions.NormalizeModId(modId) switch
     {
         "momentum"         => "Burst hit scaled to current Momentum ramp -- longer streak = bigger surge.",
@@ -386,14 +364,6 @@ public partial class HowToPlay : Node
         "wildfire"         => "Flame burst across all enemies in range, leaving fire trails that slow and tick damage.",
         "reaper_protocol"  => "Executes the lowest-HP enemy in range. Grants +1 life if it kills.",
         _                  => "Modifier-specific primary surge payload.",
-    };
-
-    private static string DescribeAugmentKind(SpectacleAugmentKind kind) => kind switch
-    {
-        SpectacleAugmentKind.Area   => "hits all enemies near this tower",
-        SpectacleAugmentKind.Strike => "one heavy hit on a single target",
-        SpectacleAugmentKind.Reload => "resets cooldown; fires again immediately",
-        _ => "triad augment",
     };
 
     // Helpers
@@ -591,29 +561,6 @@ public partial class HowToPlay : Node
         AddSpacer(vbox, 6);
     }
 
-    private static void AddModRow(VBoxContainer vbox, string name, string desc)
-    {
-        var hbox = new HBoxContainer();
-        hbox.AddThemeConstantOverride("separation", 0);
-        vbox.AddChild(hbox);
-
-        var nameLbl = new Label { Text = "  " + name };
-        var modSize = MobileOptimization.IsMobile() ? 14 : 16;
-        var modNameWidth = MobileOptimization.IsMobile() ? 260 : 390;
-        nameLbl.AddThemeFontSizeOverride("font_size", modSize);
-        nameLbl.Modulate = new Color(0.90f, 0.75f, 1.00f);
-        nameLbl.CustomMinimumSize = new Vector2(modNameWidth, 0);
-        nameLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        hbox.AddChild(nameLbl);
-
-        var descLbl = new Label { Text = desc };
-        descLbl.AddThemeFontSizeOverride("font_size", modSize);
-        descLbl.Modulate = new Color(0.65f, 0.65f, 0.65f);
-        descLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        descLbl.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        hbox.AddChild(descLbl);
-    }
-
     private static void AddModRowWithIcon(VBoxContainer vbox, string modId, string name, string desc)
     {
         var hbox = new HBoxContainer();
@@ -648,89 +595,10 @@ public partial class HowToPlay : Node
         hbox.AddChild(descLbl);
     }
 
-    private static void AddComboModRow(VBoxContainer vbox, string modIdA, string modIdB, string name, string desc)
-    {
-        var hbox = new HBoxContainer();
-        hbox.AddThemeConstantOverride("separation", 3);
-        vbox.AddChild(hbox);
-
-        float iconSize = MobileOptimization.IsMobile() ? 14f : 16f;
-        foreach (string mid in new[] { modIdA, modIdB })
-        {
-            var accent = ModifierVisuals.GetAccent(mid);
-            var icon = new ModifierIcon
-            {
-                ModifierId = mid,
-                IconColor = accent,
-                CustomMinimumSize = new Vector2(iconSize, iconSize),
-                MouseFilter = Control.MouseFilterEnum.Ignore,
-            };
-            hbox.AddChild(icon);
-        }
-
-        var modSize = MobileOptimization.IsMobile() ? 14 : 16;
-        var modNameWidth = MobileOptimization.IsMobile() ? 220 : 330;
-        var nameLbl = new Label { Text = name };
-        nameLbl.AddThemeFontSizeOverride("font_size", modSize);
-        nameLbl.Modulate = new Color(0.90f, 0.75f, 1.00f);
-        nameLbl.CustomMinimumSize = new Vector2(modNameWidth, 0);
-        nameLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        hbox.AddChild(nameLbl);
-
-        var descLbl = new Label { Text = desc };
-        descLbl.AddThemeFontSizeOverride("font_size", modSize);
-        descLbl.Modulate = new Color(0.65f, 0.65f, 0.65f);
-        descLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        descLbl.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        hbox.AddChild(descLbl);
-    }
-
-    private static void AddArchetypeRow(VBoxContainer vbox, string modId, string name, string desc, Color feelColor)
-    {
-        var hbox = new HBoxContainer();
-        hbox.AddThemeConstantOverride("separation", 5);
-        vbox.AddChild(hbox);
-
-        // Feel color bar
-        var bar = new ColorRect
-        {
-            Color = feelColor,
-            CustomMinimumSize = new Vector2(3f, MobileOptimization.IsMobile() ? 18f : 20f),
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-        };
-        hbox.AddChild(bar);
-
-        float iconSize = MobileOptimization.IsMobile() ? 18f : 20f;
-        var accent = ModifierVisuals.GetAccent(modId);
-        var icon = new ModifierIcon
-        {
-            ModifierId = modId,
-            IconColor = accent,
-            CustomMinimumSize = new Vector2(iconSize, iconSize),
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-        };
-        hbox.AddChild(icon);
-
-        var modSize = MobileOptimization.IsMobile() ? 14 : 16;
-        var modNameWidth = MobileOptimization.IsMobile() ? 220 : 340;
-        var nameLbl = new Label { Text = name };
-        nameLbl.AddThemeFontSizeOverride("font_size", modSize);
-        nameLbl.Modulate = new Color(0.96f, 0.92f, 1.00f);
-        nameLbl.CustomMinimumSize = new Vector2(modNameWidth, 0);
-        nameLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        hbox.AddChild(nameLbl);
-
-        var descLbl = new Label { Text = desc };
-        descLbl.AddThemeFontSizeOverride("font_size", modSize);
-        descLbl.Modulate = new Color(0.65f, 0.65f, 0.65f);
-        descLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
-        descLbl.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        hbox.AddChild(descLbl);
-    }
-
     private static void AddSpacer(VBoxContainer vbox, int px)
     {
         var s = new Control { CustomMinimumSize = new Vector2(0, px) };
         vbox.AddChild(s);
     }
 }
+

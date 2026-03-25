@@ -1404,7 +1404,7 @@ public partial class GameController : Node
 							{
 								TryShowSurgeMicroHint(
 									SurgeHintId.ComboUnlock,
-									"2+ mods unlock combo Surge",
+									"2nd mod adds a surge mutation",
 									worldPos: comboTower.GlobalPosition,
 									towerForHighlight: comboTower);
 							}
@@ -3051,12 +3051,37 @@ public partial class GameController : Node
 		if (string.IsNullOrEmpty(sig.PrimaryModId))
 			return "Surge: (no compatible mods)";
 
+		string primary = BuildPrimarySurgeLabel(sig);
+		string mutation = BuildSecondaryMutationLabel(sig);
+		string bonus = BuildBonusSurgeLabel(sig);
+
 		return sig.Mode switch
 		{
-			SpectacleMode.Single => $"Surge: {sig.EffectName}",
-			SpectacleMode.Combo  => $"Surge: {sig.EffectName}",
-			_                    => $"Surge: {sig.ComboEffectName}\n  + {sig.AugmentName}",
+			SpectacleMode.Single => $"Surge: {primary}",
+			SpectacleMode.Combo  => $"Surge: {primary}\n  + {mutation}",
+			_                    => $"Surge: {primary}\n  + {mutation}\n  + {bonus}",
 		};
+	}
+
+	private static string BuildPrimarySurgeLabel(SpectacleSignature sig)
+	{
+		if (string.IsNullOrWhiteSpace(sig.PrimaryModId))
+			return "Surge";
+		return $"{SpectacleDefinitions.GetDisplayName(sig.PrimaryModId)} Surge";
+	}
+
+	private static string BuildSecondaryMutationLabel(SpectacleSignature sig)
+	{
+		if (string.IsNullOrWhiteSpace(sig.SecondaryModId))
+			return "Secondary mutation";
+		return $"{SpectacleDefinitions.GetDisplayName(sig.SecondaryModId)} mutation";
+	}
+
+	private static string BuildBonusSurgeLabel(SpectacleSignature sig)
+	{
+		if (string.IsNullOrWhiteSpace(sig.AugmentName))
+			return "Bonus";
+		return $"{sig.AugmentName} bonus";
 	}
 	// -- Bot multi-step simulation -------------------------------------------------
 
@@ -3909,18 +3934,18 @@ void fragment() {
 		if (sourceTower is TowerInstance towerForArchetype && !mobileLite)
 			SpawnTowerArchetypeFx(towerForArchetype, accent, drama: 0.28f);
 
-		// Phase 3: effect name callout (build archetype label)
-		// For Triad surges use only the combo portion - the augment gets its own callout below.
-		string surgeCalloutText = info.Signature.Mode == SpectacleMode.Triad
-			&& !string.IsNullOrEmpty(info.Signature.ComboEffectName)
-			? info.Signature.ComboEffectName
-			: info.Signature.EffectName;
-		string surgeCalloutUpper = surgeCalloutText.ToUpperInvariant();
+		string surgeCalloutUpper = BuildPrimarySurgeLabel(info.Signature).ToUpperInvariant();
 		float surgeCalloutDurationScale = SurgeUxTiming.ResolveSurgeCalloutDurationScale(2.8f);
 		float surgeCalloutHoldPortion = SurgeUxTiming.ResolveSurgeCalloutHoldPortion(0.68f);
+		bool hasSecondaryMutation = info.Signature.Mode != SpectacleMode.Single
+			&& !string.IsNullOrWhiteSpace(info.Signature.SecondaryModId);
 		bool hasSurgeAugment = info.Signature.Mode == SpectacleMode.Triad
 			&& !string.IsNullOrEmpty(info.Signature.AugmentName);
-		float surgePrimaryYOffset = hasSurgeAugment ? -44f : -34f;
+		float surgePrimaryYOffset = hasSecondaryMutation && hasSurgeAugment
+			? -52f
+			: hasSecondaryMutation || hasSurgeAugment
+				? -44f
+				: -34f;
 		Vector2 surgeCalloutOrigin = sourceTower.GlobalPosition + new Vector2(6f, 0f);
 		CombatCallout? surgeCallout = SpawnCombatCallout(
 			surgeCalloutUpper,
@@ -3932,21 +3957,41 @@ void fragment() {
 			holdPortion: surgeCalloutHoldPortion,
 			sizeOverride: 19);
 
-		// Phase 5: Triad Factorio moment - augment name callout + second flash pulse
+		if (hasSecondaryMutation)
+		{
+			Color mutationAccent = ResolveSpectacleColor(info.Signature.SecondaryModId);
+			string mutationLine = $"+ {BuildSecondaryMutationLabel(info.Signature).ToUpperInvariant()}";
+			GetTree().CreateTimer(0.16f, true, false, true).Timeout += () =>
+			{
+				if (!GodotObject.IsInstanceValid(this)) return;
+				if (surgeCallout != null && GodotObject.IsInstanceValid(surgeCallout))
+					surgeCallout.EnsureRemaining(SurgeUxTiming.ResolveTriadAugmentRemaining(3.0f));
+
+				SpawnCombatCallout(
+					mutationLine,
+					surgeCalloutOrigin,
+					mutationAccent,
+					durationScale: SurgeUxTiming.ResolveSurgeCalloutDurationScale(2.9f),
+					yOffset: -36f,
+					drift: false,
+					holdPortion: surgeCalloutHoldPortion,
+					sizeOverride: 16);
+			};
+		}
+
 		if (hasSurgeAugment)
 		{
 			var capturedOrigin = surgeCalloutOrigin;
 			Color augAccent = ResolveSpectacleColor(info.Signature.AugmentEffectId);
-			string augName = info.Signature.AugmentName;
+			string augLine = $"+ {BuildBonusSurgeLabel(info.Signature).ToUpperInvariant()}";
 			GetTree().CreateTimer(0.24f, true, false, true).Timeout += () =>
 			{
 				if (!GodotObject.IsInstanceValid(this)) return;
-				string augmentLine = $"+ {augName.ToUpperInvariant()}";
 				if (surgeCallout != null && GodotObject.IsInstanceValid(surgeCallout))
 					surgeCallout.EnsureRemaining(SurgeUxTiming.ResolveTriadAugmentRemaining(3.4f));
 
 				SpawnCombatCallout(
-					augmentLine,
+					augLine,
 					capturedOrigin,
 					augAccent,
 					durationScale: SurgeUxTiming.ResolveSurgeCalloutDurationScale(3.0f),
@@ -3972,10 +4017,10 @@ void fragment() {
 		FlashSpectacleAfterimage(accent, afterimageStrength);
 	}
 
-	private void OnGlobalSurgeReadyHandler(string archetypeName)
+	private void OnGlobalSurgeReadyHandler(string surgeLabel)
 	{
 		if (CurrentPhase != GamePhase.Wave) return;
-		_screenshotPipeline?.NotifyGlobalSurgeReady(archetypeName);
+		_screenshotPipeline?.NotifyGlobalSurgeReady(surgeLabel);
 		if (_botRunner == null && _runState != null)
 		{
 			_runState.SurgeHintTelemetry.GlobalsBecameReady++;
@@ -4001,7 +4046,7 @@ void fragment() {
 			return;
 		}
 
-		_hudPanel.SetGlobalSurgeReady(true, archetypeName);
+		_hudPanel.SetGlobalSurgeReady(true, surgeLabel);
 		if (_tutorialManager == null)
 			_hudPanel.SetPersistentSurgeHint("Global ready: click this bar");
 		TryShowSurgeMicroHint(

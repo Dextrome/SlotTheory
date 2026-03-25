@@ -66,15 +66,15 @@ public class SurgeDifferentiationTests
 
     [Theory]
     [InlineData(SpectacleDefinitions.Momentum,        "MOMENTUM SURGE")]
-    [InlineData(SpectacleDefinitions.Overkill,        "OVERKILL STORM")]
-    [InlineData(SpectacleDefinitions.ExploitWeakness, "EXPLOIT STORM")]
-    [InlineData(SpectacleDefinitions.FocusLens,       "FOCUS BARRAGE")]
-    [InlineData(SpectacleDefinitions.ChillShot,       "CRYO STORM")]
-    [InlineData(SpectacleDefinitions.Overreach,       "OVERREACH BREAK")]
-    [InlineData(SpectacleDefinitions.HairTrigger,     "HAIR TRIGGER WAVE")]
-    [InlineData(SpectacleDefinitions.SplitShot,       "SPLIT STORM")]
-    [InlineData(SpectacleDefinitions.FeedbackLoop,    "FEEDBACK CASCADE")]
-    [InlineData(SpectacleDefinitions.ChainReaction,   "CHAIN STORM")]
+    [InlineData(SpectacleDefinitions.Overkill,        "OVERKILL SURGE")]
+    [InlineData(SpectacleDefinitions.ExploitWeakness, "EXPLOIT SURGE")]
+    [InlineData(SpectacleDefinitions.FocusLens,       "FOCUS SURGE")]
+    [InlineData(SpectacleDefinitions.ChillShot,       "CHILL SURGE")]
+    [InlineData(SpectacleDefinitions.Overreach,       "OVERREACH SURGE")]
+    [InlineData(SpectacleDefinitions.HairTrigger,     "HAIR TRIGGER SURGE")]
+    [InlineData(SpectacleDefinitions.SplitShot,       "SPLIT SHOT SURGE")]
+    [InlineData(SpectacleDefinitions.FeedbackLoop,    "FEEDBACK SURGE")]
+    [InlineData(SpectacleDefinitions.ChainReaction,   "CHAIN SURGE")]
     public void ResolveLabel_KnownModId_ReturnsExpectedLabel(string modId, string expected)
     {
         string label = SurgeDifferentiation.ResolveLabel(new[] { modId });
@@ -98,7 +98,7 @@ public class SurgeDifferentiationTests
     {
         // Even if the array has multiple entries, label is driven by [0].
         string[] mods = { SpectacleDefinitions.FocusLens, SpectacleDefinitions.Momentum };
-        Assert.Equal("FOCUS BARRAGE", SurgeDifferentiation.ResolveLabel(mods));
+        Assert.Equal("FOCUS SURGE", SurgeDifferentiation.ResolveLabel(mods));
     }
 
     [Fact]

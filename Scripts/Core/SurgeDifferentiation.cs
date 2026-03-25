@@ -11,28 +11,28 @@ public static class SurgeDifferentiation
     public readonly record struct GlobalSurgeEntry(string ModId, string Label, GlobalSurgeFeel Feel);
 
     /// <summary>
-    /// All named global surge archetypes in canonical mod order.
-    /// Single source of truth for labels, feel, and HowToPlay display.
+    /// Player-facing global surge labels in canonical mod order.
+    /// Single source of truth for label + feel mapping.
     /// </summary>
     public static readonly GlobalSurgeEntry[] GlobalSurgeTable =
     {
         new(SpectacleDefinitions.Momentum,        "MOMENTUM SURGE",      GlobalSurgeFeel.Pressure),
-        new(SpectacleDefinitions.Overkill,        "OVERKILL STORM",      GlobalSurgeFeel.Detonation),
-        new(SpectacleDefinitions.ExploitWeakness, "EXPLOIT STORM",       GlobalSurgeFeel.Neutral),
-        new(SpectacleDefinitions.FocusLens,       "FOCUS BARRAGE",       GlobalSurgeFeel.Detonation),
-        new(SpectacleDefinitions.ChillShot,       "CRYO STORM",          GlobalSurgeFeel.Pressure),
-        new(SpectacleDefinitions.Overreach,       "OVERREACH BREAK",     GlobalSurgeFeel.Pressure),
-        new(SpectacleDefinitions.HairTrigger,     "HAIR TRIGGER WAVE",   GlobalSurgeFeel.Detonation),
-        new(SpectacleDefinitions.SplitShot,       "SPLIT STORM",         GlobalSurgeFeel.Neutral),
-        new(SpectacleDefinitions.FeedbackLoop,    "FEEDBACK CASCADE",    GlobalSurgeFeel.Detonation),
-        new(SpectacleDefinitions.ChainReaction,   "CHAIN STORM",         GlobalSurgeFeel.Neutral),
-        new(SpectacleDefinitions.BlastCore,       "BLAST WAVE",          GlobalSurgeFeel.Detonation),
+        new(SpectacleDefinitions.Overkill,        "OVERKILL SURGE",      GlobalSurgeFeel.Detonation),
+        new(SpectacleDefinitions.ExploitWeakness, "EXPLOIT SURGE",       GlobalSurgeFeel.Neutral),
+        new(SpectacleDefinitions.FocusLens,       "FOCUS SURGE",         GlobalSurgeFeel.Detonation),
+        new(SpectacleDefinitions.ChillShot,       "CHILL SURGE",         GlobalSurgeFeel.Pressure),
+        new(SpectacleDefinitions.Overreach,       "OVERREACH SURGE",     GlobalSurgeFeel.Pressure),
+        new(SpectacleDefinitions.HairTrigger,     "HAIR TRIGGER SURGE",  GlobalSurgeFeel.Detonation),
+        new(SpectacleDefinitions.SplitShot,       "SPLIT SHOT SURGE",    GlobalSurgeFeel.Neutral),
+        new(SpectacleDefinitions.FeedbackLoop,    "FEEDBACK SURGE",      GlobalSurgeFeel.Detonation),
+        new(SpectacleDefinitions.ChainReaction,   "CHAIN SURGE",         GlobalSurgeFeel.Neutral),
+        new(SpectacleDefinitions.BlastCore,       "BLAST SURGE",         GlobalSurgeFeel.Detonation),
         new(SpectacleDefinitions.Wildfire,        "WILDFIRE SURGE",      GlobalSurgeFeel.Detonation),
-        new(SpectacleDefinitions.ReaperProtocol,  "REAPER TIDE",         GlobalSurgeFeel.Neutral),
+        new(SpectacleDefinitions.ReaperProtocol,  "REAPER SURGE",        GlobalSurgeFeel.Neutral),
     };
 
     /// <summary>
-    /// Maps the dominant contributing mod to a named global-surge label (build archetype).
+    /// Maps the dominant contributing mod to the displayed global-surge label.
     /// dominantModIds must be ordered by contribution (most → least); only [0] is used.
     /// </summary>
     public static string ResolveLabel(string[]? dominantModIds)

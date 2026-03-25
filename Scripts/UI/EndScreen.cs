@@ -551,20 +551,19 @@ public partial class EndScreen : CanvasLayer
 		}
 	}
 
-	public void SetSurgeProfile(string archetypeLabel, int count)
+	public void SetSurgeProfile(string surgeLabel, int count)
 	{
 		if (!GodotObject.IsInstanceValid(_surgeProfileLabel)) return;
-		if (string.IsNullOrEmpty(archetypeLabel) || count <= 0)
+		if (string.IsNullOrEmpty(surgeLabel) || count <= 0)
 		{
 			_surgeProfileLabel.Visible = false;
 			return;
 		}
 		_surgeProfileLabel.Text = count == 1
-			? $"Surge archetype: {archetypeLabel}"
-			: $"Surge archetype: {archetypeLabel}  ×{count}";
+			? $"Dominant surge label: {surgeLabel}"
+			: $"Dominant surge label: {surgeLabel}  x{count}";
 		_surgeProfileLabel.Visible = true;
 	}
-
 	public void SetGoalHint(string hint)
 	{
 		if (!GodotObject.IsInstanceValid(_goalLabel)) return;
@@ -934,3 +933,6 @@ public partial class EndScreen : CanvasLayer
 		return insights.Count > 0 ? string.Join("  |  ", insights) : "";
 	}
 }
+
+
+

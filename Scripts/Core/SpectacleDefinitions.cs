@@ -139,21 +139,23 @@ public static class SpectacleDefinitions
         [ReaperProtocol] = "Reaper Protocol",
     };
 
+    // Single surge names: primary mod name is always the first word so the player can
+    // instantly connect the combat callout back to the mod on their tower.
     private static readonly Dictionary<string, SpectacleSingleDef> SingleDefs = new(StringComparer.Ordinal)
     {
-        [Momentum] = new SpectacleSingleDef("S_MOMENTUM_REDLINE_BREAK", "Redline Break"),
-        [Overkill] = new SpectacleSingleDef("S_OVERKILL_SPILL_CASCADE", "Spill Cascade"),
-        [ExploitWeakness] = new SpectacleSingleDef("S_EXPLOIT_MARK_COLLAPSE", "Mark Collapse"),
-        [FocusLens] = new SpectacleSingleDef("S_FOCUS_PRISM_LANCE", "Prism Lance"),
-        [ChillShot] = new SpectacleSingleDef("S_CHILL_ABSOLUTE_ZERO", "Absolute Zero"),
-        [Overreach] = new SpectacleSingleDef("S_OVERREACH_HORIZON_SWEEP", "Horizon Sweep"),
-        [HairTrigger] = new SpectacleSingleDef("S_HAIR_HYPERBURST", "Hyperburst"),
-        [SplitShot] = new SpectacleSingleDef("S_SPLIT_FRACTAL_BLOOM", "Fractal Bloom"),
-        [FeedbackLoop] = new SpectacleSingleDef("S_FEEDBACK_REBOOT_STORM", "Reboot Storm"),
-        [ChainReaction] = new SpectacleSingleDef("S_CHAIN_ARC_OVERLOAD", "Arc Overload"),
-        [BlastCore]      = new SpectacleSingleDef("S_BLAST_DETONATION_ZONE",   "Detonation Zone"),
-        [Wildfire]       = new SpectacleSingleDef("S_WILDFIRE_FIRESTORM",  "Firestorm"),
-        [ReaperProtocol] = new SpectacleSingleDef("S_REAPER_DEATH_DECREE",    "Death Decree"),
+        [Momentum]       = new SpectacleSingleDef("S_MOMENTUM_REDLINE_BREAK",   "Momentum Break"),
+        [Overkill]       = new SpectacleSingleDef("S_OVERKILL_SPILL_CASCADE",   "Overkill Cascade"),
+        [ExploitWeakness]= new SpectacleSingleDef("S_EXPLOIT_MARK_COLLAPSE",    "Exploit Collapse"),
+        [FocusLens]      = new SpectacleSingleDef("S_FOCUS_PRISM_LANCE",        "Focus Lance"),
+        [ChillShot]      = new SpectacleSingleDef("S_CHILL_ABSOLUTE_ZERO",      "Absolute Zero"),
+        [Overreach]      = new SpectacleSingleDef("S_OVERREACH_HORIZON_SWEEP",  "Overreach Sweep"),
+        [HairTrigger]    = new SpectacleSingleDef("S_HAIR_HYPERBURST",          "Hyperburst"),
+        [SplitShot]      = new SpectacleSingleDef("S_SPLIT_FRACTAL_BLOOM",      "Split Bloom"),
+        [FeedbackLoop]   = new SpectacleSingleDef("S_FEEDBACK_REBOOT_STORM",    "Feedback Storm"),
+        [ChainReaction]  = new SpectacleSingleDef("S_CHAIN_ARC_OVERLOAD",       "Arc Overload"),
+        [BlastCore]      = new SpectacleSingleDef("S_BLAST_DETONATION_ZONE",    "Detonation Zone"),
+        [Wildfire]       = new SpectacleSingleDef("S_WILDFIRE_FIRESTORM",       "Firestorm"),
+        [ReaperProtocol] = new SpectacleSingleDef("S_REAPER_DEATH_DECREE",      "Death Decree"),
     };
 
     // Combo naming: [PrimaryShortName] [SecondaryTag] -- always shows primary mod identity + how the secondary mutates it.
@@ -193,22 +195,21 @@ public static class SpectacleDefinitions
 
     private static readonly Dictionary<string, SpectacleTriadAugmentDef> TriadAugments = new(StringComparer.Ordinal)
     {
-        // Reload augments: reset cooldown + fire again
-        [Momentum]       = new SpectacleTriadAugmentDef("T_AUG_MOMENTUM",  "Momentum Recharge", 0.18f, 2.0f, SpectacleAugmentKind.Reload),
-        [HairTrigger]    = new SpectacleTriadAugmentDef("T_AUG_HAIR",      "Rapid Recharge",    0.24f, 1.6f, SpectacleAugmentKind.Reload),
-        [FeedbackLoop]   = new SpectacleTriadAugmentDef("T_AUG_FEEDBACK",  "Full Recharge",     0.35f, 0.0f, SpectacleAugmentKind.Reload),
-        [ReaperProtocol] = new SpectacleTriadAugmentDef("T_AUG_REAPER",    "Death Strike",      0.28f, 0.0f, SpectacleAugmentKind.Strike),
-        // Strike augments: one heavy hit on a single target
-        [ExploitWeakness]= new SpectacleTriadAugmentDef("T_AUG_EXPLOIT",   "Exploit Strike",    0.20f, 2.2f, SpectacleAugmentKind.Strike),
-        [FocusLens]      = new SpectacleTriadAugmentDef("T_AUG_FOCUS",     "Focus Strike",      0.25f, 0.0f, SpectacleAugmentKind.Strike),
-        // Area/Pulse augments: hits all enemies near the tower
-        [Overkill]       = new SpectacleTriadAugmentDef("T_AUG_OVERKILL",  "Overkill Pulse",    0.22f, 1.8f, SpectacleAugmentKind.Area),
-        [ChillShot]      = new SpectacleTriadAugmentDef("T_AUG_CHILL",     "Cryo Pulse",        0.20f, 2.0f, SpectacleAugmentKind.Area),
-        [Overreach]      = new SpectacleTriadAugmentDef("T_AUG_OVERREACH", "Range Pulse",       0.22f, 2.0f, SpectacleAugmentKind.Area),
-        [SplitShot]      = new SpectacleTriadAugmentDef("T_AUG_SPLIT",     "Split Pulse",       0.30f, 0.0f, SpectacleAugmentKind.Area),
-        [ChainReaction]  = new SpectacleTriadAugmentDef("T_AUG_CHAIN",     "Arc Pulse",         0.28f, 1.8f, SpectacleAugmentKind.Area),
-        [BlastCore]      = new SpectacleTriadAugmentDef("T_AUG_BLAST",     "Blast Pulse",       0.22f, 1.8f, SpectacleAugmentKind.Area),
-        [Wildfire]       = new SpectacleTriadAugmentDef("T_AUG_WILDFIRE",  "Fire Pulse",        0.24f, 2.5f, SpectacleAugmentKind.Area),
+        // Player-facing triad accents are intentionally collapsed to 3 names:
+        // Pulse / Strike / Recharge.
+        [Momentum]       = new SpectacleTriadAugmentDef("T_AUG_MOMENTUM",  "Recharge", 0.18f, 2.0f, SpectacleAugmentKind.Reload),
+        [HairTrigger]    = new SpectacleTriadAugmentDef("T_AUG_HAIR",      "Recharge", 0.24f, 1.6f, SpectacleAugmentKind.Reload),
+        [FeedbackLoop]   = new SpectacleTriadAugmentDef("T_AUG_FEEDBACK",  "Recharge", 0.35f, 0.0f, SpectacleAugmentKind.Reload),
+        [ReaperProtocol] = new SpectacleTriadAugmentDef("T_AUG_REAPER",    "Strike",   0.28f, 0.0f, SpectacleAugmentKind.Strike),
+        [ExploitWeakness]= new SpectacleTriadAugmentDef("T_AUG_EXPLOIT",   "Strike",   0.20f, 2.2f, SpectacleAugmentKind.Strike),
+        [FocusLens]      = new SpectacleTriadAugmentDef("T_AUG_FOCUS",     "Strike",   0.25f, 0.0f, SpectacleAugmentKind.Strike),
+        [Overkill]       = new SpectacleTriadAugmentDef("T_AUG_OVERKILL",  "Pulse",    0.22f, 1.8f, SpectacleAugmentKind.Area),
+        [ChillShot]      = new SpectacleTriadAugmentDef("T_AUG_CHILL",     "Pulse",    0.20f, 2.0f, SpectacleAugmentKind.Area),
+        [Overreach]      = new SpectacleTriadAugmentDef("T_AUG_OVERREACH", "Pulse",    0.22f, 2.0f, SpectacleAugmentKind.Area),
+        [SplitShot]      = new SpectacleTriadAugmentDef("T_AUG_SPLIT",     "Pulse",    0.30f, 0.0f, SpectacleAugmentKind.Area),
+        [ChainReaction]  = new SpectacleTriadAugmentDef("T_AUG_CHAIN",     "Pulse",    0.28f, 1.8f, SpectacleAugmentKind.Area),
+        [BlastCore]      = new SpectacleTriadAugmentDef("T_AUG_BLAST",     "Pulse",    0.22f, 1.8f, SpectacleAugmentKind.Area),
+        [Wildfire]       = new SpectacleTriadAugmentDef("T_AUG_WILDFIRE",  "Pulse",    0.24f, 2.5f, SpectacleAugmentKind.Area),
     };
 
     public static IReadOnlyCollection<string> SupportedModIds => Supported;
