@@ -65,15 +65,15 @@ public class SurgeDifferentiationTests
     // ── SurgeDifferentiation.ResolveLabel ──────────────────────────────────────
 
     [Theory]
-    [InlineData(SpectacleDefinitions.Momentum,        "REDLINE WAVE")]
+    [InlineData(SpectacleDefinitions.Momentum,        "MOMENTUM SURGE")]
     [InlineData(SpectacleDefinitions.Overkill,        "OVERKILL STORM")]
-    [InlineData(SpectacleDefinitions.ExploitWeakness, "EXECUTION STORM")]
-    [InlineData(SpectacleDefinitions.FocusLens,       "PRISM BARRAGE")]
+    [InlineData(SpectacleDefinitions.ExploitWeakness, "EXPLOIT STORM")]
+    [InlineData(SpectacleDefinitions.FocusLens,       "FOCUS BARRAGE")]
     [InlineData(SpectacleDefinitions.ChillShot,       "CRYO STORM")]
-    [InlineData(SpectacleDefinitions.Overreach,       "HORIZON BREAK")]
-    [InlineData(SpectacleDefinitions.HairTrigger,     "HYPERBURST WAVE")]
-    [InlineData(SpectacleDefinitions.SplitShot,       "FRACTAL STORM")]
-    [InlineData(SpectacleDefinitions.FeedbackLoop,    "REBOOT CASCADE")]
+    [InlineData(SpectacleDefinitions.Overreach,       "OVERREACH BREAK")]
+    [InlineData(SpectacleDefinitions.HairTrigger,     "HAIR TRIGGER WAVE")]
+    [InlineData(SpectacleDefinitions.SplitShot,       "SPLIT STORM")]
+    [InlineData(SpectacleDefinitions.FeedbackLoop,    "FEEDBACK CASCADE")]
     [InlineData(SpectacleDefinitions.ChainReaction,   "CHAIN STORM")]
     public void ResolveLabel_KnownModId_ReturnsExpectedLabel(string modId, string expected)
     {
@@ -98,7 +98,7 @@ public class SurgeDifferentiationTests
     {
         // Even if the array has multiple entries, label is driven by [0].
         string[] mods = { SpectacleDefinitions.FocusLens, SpectacleDefinitions.Momentum };
-        Assert.Equal("PRISM BARRAGE", SurgeDifferentiation.ResolveLabel(mods));
+        Assert.Equal("FOCUS BARRAGE", SurgeDifferentiation.ResolveLabel(mods));
     }
 
     [Fact]

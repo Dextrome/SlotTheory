@@ -3045,42 +3045,18 @@ public partial class GameController : Node
 			.ToList();
 
 		if (supportedMods.Count == 0)
-			return "Surge Triggers: (none)";
+			return "Surge: (no compatible mods)";
 
-		if (supportedMods.Count == 1)
+		var sig = _spectacleSystem.PreviewSignature(tower);
+		if (string.IsNullOrEmpty(sig.PrimaryModId))
+			return "Surge: (no compatible mods)";
+
+		return sig.Mode switch
 		{
-			SpectacleSingleDef single = SpectacleDefinitions.GetSingle(supportedMods[0]);
-			return $"Surge Triggers [Single]:\n* {single.Name}";
-		}
-
-		if (supportedMods.Count == 2)
-		{
-			SpectacleComboDef combo = SpectacleDefinitions.GetCombo(supportedMods[0], supportedMods[1]);
-			return $"Surge Triggers [Combo]:\n* {combo.Name}";
-		}
-
-		var triadVariants = new HashSet<string>();
-		for (int a = 0; a < supportedMods.Count; a++)
-		{
-			string augmentMod = supportedMods[a];
-			SpectacleTriadAugmentDef aug = SpectacleDefinitions.GetTriadAugment(augmentMod);
-			for (int i = 0; i < supportedMods.Count; i++)
-			{
-				if (i == a) continue;
-				for (int j = i + 1; j < supportedMods.Count; j++)
-				{
-					if (j == a) continue;
-					SpectacleComboDef combo = SpectacleDefinitions.GetCombo(supportedMods[i], supportedMods[j]);
-					triadVariants.Add($"{combo.Name} + {aug.Name}");
-				}
-			}
-		}
-
-		if (triadVariants.Count == 0)
-			return "Surge Triggers [Triad]:\n* (none)";
-
-		var ordered = triadVariants.OrderBy(name => name, System.StringComparer.Ordinal).ToList();
-		return $"Surge Triggers [Triad]:\n* {string.Join("\n* ", ordered)}";
+			SpectacleMode.Single => $"Surge: {sig.EffectName}",
+			SpectacleMode.Combo  => $"Surge: {sig.EffectName}",
+			_                    => $"Surge: {sig.ComboEffectName}\n  + {sig.AugmentName}",
+		};
 	}
 	// -- Bot multi-step simulation -------------------------------------------------
 

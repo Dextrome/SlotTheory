@@ -4,6 +4,18 @@ Slot Theory's spectacle system is a two-tier excitement engine layered on top of
 
 ---
 
+## PLAYER QUICK REFERENCE
+
+- Every tower has a Surge Meter that fills as it deals damage. When full, it fires a bonus Surge effect.
+- The meter resets to a partial value after firing (not zero), so surges come back quickly.
+- **1 mod = Single surge**: that mod fires its signature effect (e.g. Wildfire = Firestorm).
+- **2 mods = Combo surge**: named "[Primary] [Secondary]". The first word is the dominant mod; the second word shows what the secondary adds. Example: "Focus Cryo" = Focus Lens surge mutated by a Chill Shot freeze; "Overkill Arc" = Overkill surge that chains through targets.
+- **3 mods = Triad**: same Combo core, plus one bonus Augment (Pulse, Strike, or Recharge) from the third mod.
+- Each tower surge fills the shared Global Surge bar. When it arms, click the READY banner to fire a Global Surge across the whole map.
+- The Global Surge banner shows your build's dominant mod (e.g. MOMENTUM SURGE, WILDFIRE SURGE). Stack one mod on multiple towers to see its archetype appear.
+
+---
+
 ## 1. Supported Mods and Towers
 
 Only the following modifier IDs are tracked by the spectacle system:
@@ -249,96 +261,49 @@ Each mod has one named Single effect:
 | hair_trigger | S_HAIR_HYPERBURST | Hyperburst |
 | split_shot | S_SPLIT_FRACTAL_BLOOM | Fractal Bloom |
 | feedback_loop | S_FEEDBACK_REBOOT_STORM | Reboot Storm |
-| chain_reaction | S_CHAIN_GRID_OVERLOAD | Grid Overload |
+| chain_reaction | S_CHAIN_ARC_OVERLOAD | Arc Overload |
 | blast_core | S_BLAST_DETONATION_ZONE | Detonation Zone |
-| wildfire | S_WILDFIRE_CONFLAGRATION | Conflagration |
+| wildfire | S_WILDFIRE_FIRESTORM | Firestorm |
 | reaper_protocol | S_REAPER_DEATH_DECREE | Death Decree |
 
 ### Combo Mode (2 unique mods)
-Named pairings (order-independent). Selected pairs (full list in `SpectacleDefinitions.BuildComboDefs()`):
 
-| Pair | Name |
-|---|---|
-| Momentum + Overkill | Redline Spillstorm |
-| Momentum + Exploit Weakness | Predatory Ramp |
-| Momentum + Focus Lens | Siege Tempo |
-| Momentum + Chill Shot | Glacial Grind |
-| Momentum + Overreach | Longline Pressure |
-| Momentum + Hair Trigger | Ramped Overclock |
-| Momentum + Split Shot | Escalating Barrage |
-| Momentum + Feedback Loop | Adrenal Reboot |
-| Momentum + Chain Reaction | Acceleration Lattice |
-| Overkill + Exploit Weakness | Execution Spill |
-| Overkill + Focus Lens | Prism Overflow |
-| Overkill + Chill Shot | Shatter Spill |
-| Overkill + Overreach | Linebreaker Wake |
-| Overkill + Hair Trigger | Shrapnel Cycler |
-| Overkill + Split Shot | Splinter Flood |
-| Overkill + Feedback Loop | Overflow Reboot |
-| Overkill + Chain Reaction | Spill Conduit |
-| Exploit Weakness + Focus Lens | Marked Lance |
-| Exploit Weakness + Chill Shot | Cryo Execute |
-| Exploit Weakness + Overreach | Huntline |
-| Exploit Weakness + Hair Trigger | Predator Haste |
-| Exploit Weakness + Split Shot | Marked Shrapnel |
-| Exploit Weakness + Feedback Loop | Execution Loop |
-| Exploit Weakness + Chain Reaction | Reticle Web |
-| Focus Lens + Chill Shot | Polar Beam |
-| Focus Lens + Overreach | Rail Horizon |
-| Focus Lens + Hair Trigger | Pulse Gatling |
-| Focus Lens + Split Shot | Prism Bloom |
-| Focus Lens + Feedback Loop | Lens Reboot |
-| Focus Lens + Chain Reaction | Arc Lance |
-| Chill Shot + Overreach | Frostline Sweep |
-| Chill Shot + Hair Trigger | Rime Turbine |
-| Chill Shot + Split Shot | Shatter Bloom |
-| Chill Shot + Feedback Loop | Cryo Recursion |
-| Chill Shot + Chain Reaction | Cryo Lattice |
-| Overreach + Hair Trigger | Suppressive Reach |
-| Overreach + Split Shot | Wide Bloom |
-| Overreach + Feedback Loop | Echo Range Loop |
-| Overreach + Chain Reaction | Grid Sweep |
-| Hair Trigger + Split Shot | Needle Storm |
-| Hair Trigger + Feedback Loop | Overclock Loop |
-| Hair Trigger + Chain Reaction | Livewire Barrage |
-| Split Shot + Feedback Loop | Recursive Bloom |
-| Split Shot + Chain Reaction | Fractal Overload |
-| Feedback Loop + Chain Reaction | Reactor Grid |
-| Blast Core + Momentum | Impact Escalation |
-| Blast Core + Overkill | Explosive Overflow |
-| Blast Core + Exploit Weakness | Mark Detonation |
-| Blast Core + Focus Lens | Siege Detonation |
-| Blast Core + Chill Shot | Cryo Blast |
-| Blast Core + Overreach | Wide Detonation |
-| Blast Core + Hair Trigger | Rapid Detonation |
-| Blast Core + Split Shot | Shrapnel Burst |
-| Blast Core + Feedback Loop | Detonation Loop |
-| Blast Core + Chain Reaction | Shockwave Propagation |
-| Reaper Protocol + Momentum | Death Tempo |
-| Reaper Protocol + Overkill | Grim Overflow |
-| Reaper Protocol + Exploit Weakness | Marked for Death |
-| Reaper Protocol + Focus Lens | Lethal Prism |
-| Reaper Protocol + Chill Shot | Cryo Harvest |
-| Reaper Protocol + Overreach | Death Horizon |
-| Reaper Protocol + Hair Trigger | Kill Surge |
-| Reaper Protocol + Split Shot | Harvest Bloom |
-| Reaper Protocol + Feedback Loop | Death Loop |
-| Reaper Protocol + Chain Reaction | Grim Lattice |
-| Reaper Protocol + Blast Core | Lethal Detonation |
-| Wildfire + Momentum | Scorched Escalation |
-| Wildfire + Overkill | Inferno Spill |
-| Wildfire + Exploit Weakness | Marked Combustion |
-| Wildfire + Focus Lens | Prism Ignition |
-| Wildfire + Chill Shot | Boiling Point |
-| Wildfire + Overreach | Wildfire Sweep |
-| Wildfire + Hair Trigger | Firestorm Cycler |
-| Wildfire + Split Shot | Ember Bloom |
-| Wildfire + Feedback Loop | Phoenix Loop |
-| Wildfire + Chain Reaction | Inferno Cascade |
-| Wildfire + Blast Core | Blast Furnace |
-| Wildfire + Reaper Protocol | Death Pyre |
+Combo names are **dynamically generated** at runtime -- there is no static lookup table. The formula is:
 
-Unmatched pairs fall back to `"ModA x ModB"`.
+```
+name     = "[PrimaryShortName] [SecondaryTag]"
+effectId = "C_{R1_UPPERCASE}_{R2_UPPERCASE}"
+```
+
+Where `r1` is the primary mod (highest copy count, then canonical rank) and `r2` is the secondary mod.
+
+The naming scheme is designed so the player can always read a combo name and know:
+- **First word** = which mod dominates (the primary).
+- **Second word** = how the secondary mod mutates the surge.
+
+**Primary short names and secondary tags:**
+
+| Mod | Short Name (as primary) | Tag (as secondary) |
+|---|---|---|
+| Momentum | Momentum | Surge |
+| Overkill | Overkill | Spill |
+| Exploit Weakness | Exploit | Mark |
+| Focus Lens | Focus | Beam |
+| Chill Shot | Chill | Cryo |
+| Overreach | Overreach | Range |
+| Hair Trigger | Hair Trigger | Burst |
+| Split Shot | Split Shot | Split |
+| Feedback Loop | Feedback | Reload |
+| Chain Reaction | Chain | Arc |
+| Blast Core | Blast | Blast |
+| Wildfire | Wildfire | Fire |
+| Reaper Protocol | Reaper | Death |
+
+**Reading examples:**
+- "Focus Cryo" = Focus Lens primary surge + Chill Shot freeze mutation.
+- "Overkill Arc" = Overkill primary surge + Chain Reaction bounce mutation.
+- "Wildfire Reload" = Wildfire primary surge + Feedback Loop cooldown-reset mutation.
+- "Blast Death" = Blast Core primary surge + Reaper Protocol execution mutation.
 
 ### Triad Mode (3+ unique mods)
 The surge name is `"[combo name] + [augment name]"` where:
@@ -349,25 +314,25 @@ The surge name is `"[combo name] + [augment name]"` where:
 
 | Kind | Behavior |
 |---|---|
-| `Area` | Multi-target pulse to nearby enemies (splash/spread) |
+| `Area` (Pulse) | Multi-target pulse to nearby enemies (splash/spread) |
 | `Strike` | Heavy single-target beam hit |
-| `Reload` | Cooldown reduction + follow-up hit if cooldown near zero |
+| `Reload` (Recharge) | Cooldown reduction + follow-up hit if cooldown near zero |
 
 | Modifier (r3) | Augment Name | Kind | Coefficient | Duration |
 |---|---|---|---|---|
-| Momentum | Momentum Surge | Reload | 0.18 | 2.0s |
-| Overkill | Spill Multiplier | Area | 0.22 | 1.8s |
-| Exploit Weakness | Marked Execute | Strike | 0.20 | 2.2s |
-| Focus Lens | Beam Spike | Strike | 0.25 | instant |
-| Chill Shot | Cryo Saturation | Area | 0.20 | 2.0s |
+| Momentum | Momentum Recharge | Reload | 0.18 | 2.0s |
+| Overkill | Overkill Pulse | Area | 0.22 | 1.8s |
+| Exploit Weakness | Exploit Strike | Strike | 0.20 | 2.2s |
+| Focus Lens | Focus Strike | Strike | 0.25 | instant |
+| Chill Shot | Cryo Pulse | Area | 0.20 | 2.0s |
 | Overreach | Range Pulse | Area | 0.22 | 2.0s |
-| Hair Trigger | Overclock Injection | Reload | 0.24 | 1.6s |
-| Split Shot | Split Volley | Area | 0.30 | instant |
-| Feedback Loop | Cooldown Reclaim | Reload | 0.35 | instant |
-| Chain Reaction | Chain Charge | Area | 0.28 | 1.8s |
-| Blast Core | Blast Radius | Area | 0.22 | 1.8s |
-| Wildfire | Flame Surge | Area | 0.24 | 2.5s |
-| Reaper Protocol | Death Mark | Strike | 0.28 | instant |
+| Hair Trigger | Rapid Recharge | Reload | 0.24 | 1.6s |
+| Split Shot | Split Pulse | Area | 0.30 | instant |
+| Feedback Loop | Full Recharge | Reload | 0.35 | instant |
+| Chain Reaction | Arc Pulse | Area | 0.28 | 1.8s |
+| Blast Core | Blast Pulse | Area | 0.22 | 1.8s |
+| Wildfire | Fire Pulse | Area | 0.24 | 2.5s |
+| Reaper Protocol | Death Strike | Strike | 0.28 | instant |
 
 The augment's `Coefficient × AugmentStrength` determines intensity. `AugmentStrength = 1.0` (fixed).
 
@@ -425,19 +390,19 @@ This replaces the previous 6-second time-windowed `Queue<SurgeContribution>` app
 
 | Dominant Mod | Global Surge Label | Feel |
 |---|---|---|
-| momentum | REDLINE WAVE | Pressure |
+| momentum | MOMENTUM SURGE | Pressure |
 | overkill | OVERKILL STORM | Detonation |
-| exploit_weakness | EXECUTION STORM | Neutral |
-| focus_lens | PRISM BARRAGE | Detonation |
+| exploit_weakness | EXPLOIT STORM | Neutral |
+| focus_lens | FOCUS BARRAGE | Detonation |
 | slow (chill) | CRYO STORM | Pressure |
-| overreach | HORIZON BREAK | Pressure |
-| hair_trigger | HYPERBURST WAVE | Detonation |
-| split_shot | FRACTAL STORM | Neutral |
-| feedback_loop | REBOOT CASCADE | Detonation |
+| overreach | OVERREACH BREAK | Pressure |
+| hair_trigger | HAIR TRIGGER WAVE | Detonation |
+| split_shot | SPLIT STORM | Neutral |
+| feedback_loop | FEEDBACK CASCADE | Detonation |
 | chain_reaction | CHAIN STORM | Neutral |
 | blast_core | BLAST WAVE | Detonation |
-| wildfire | INFERNO SURGE | Detonation |
-| reaper_protocol | GRIM TIDE | Neutral |
+| wildfire | WILDFIRE SURGE | Detonation |
+| reaper_protocol | REAPER TIDE | Neutral |
 
 ### Visual Feel Classification
 - **Detonation** -- spike/burst builds; bright flash
@@ -584,8 +549,8 @@ Returned by `PreviewSignature()` and embedded in `SpectacleTriggerInfo`. Contain
 | `TertiaryShare` | copies(r3) / totalMods |
 | `SurgePower` | ModeBase (1.00 / 1.10 / 1.20) |
 | `AugmentStrength` | Fixed 1.0 (Triad only) |
-| `EffectId` | Full effect string (e.g. "C_MOMENTUM_OVERKILL+T_AUG_CHAIN") |
-| `EffectName` | Human-readable (e.g. "Redline Spillstorm + Chain Charge") |
+| `EffectId` | Full effect string (e.g. "C_MOMENTUM_SPLIT_SHOT+T_AUG_CHAIN_REACTION") |
+| `EffectName` | Human-readable (e.g. "Momentum Split + Arc Pulse") |
 | `ComboEffectId` | Combo portion only |
 | `ComboEffectName` | Combo name only |
 | `AugmentEffectId` | Augment portion only (Triad) |

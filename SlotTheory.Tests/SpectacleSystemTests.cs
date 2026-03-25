@@ -204,9 +204,11 @@ public class SpectacleSystemTests
     [Fact]
     public void ComboDefinition_UsesCanonicalPairMapping()
     {
-        SpectacleComboDef combo = SpectacleDefinitions.GetCombo("split_shot", "momentum");
-        Assert.Equal("C_MOMENTUM_SPLIT", combo.EffectId);
-        Assert.Equal("Escalating Barrage", combo.Name);
+        // Dynamic naming: GetCombo(r1, r2) -- r1 is the primary (passed first), r2 is the secondary.
+        // ID format: C_{R1_UPPER}_{R2_UPPER}. Name format: "[PrimaryShortName] [SecondaryTag]".
+        SpectacleComboDef combo = SpectacleDefinitions.GetCombo("momentum", "split_shot");
+        Assert.Equal("C_MOMENTUM_SPLIT_SHOT", combo.EffectId);
+        Assert.Equal("Momentum Split", combo.Name);
     }
 
     [Fact]
@@ -232,9 +234,11 @@ public class SpectacleSystemTests
 
         SpectacleTriggerInfo surge = TriggerOneSurge(system, tower, SpectacleDefinitions.SplitShot, 125f);
 
+        // Dynamic IDs: C_{R1_UPPER}_{R2_UPPER} where r1/r2 are primary/secondary by canonical rank.
+        SpectacleComboDef expected = SpectacleDefinitions.GetCombo(surge.Signature.PrimaryModId, surge.Signature.SecondaryModId);
         Assert.Equal(SpectacleMode.Combo, surge.Signature.Mode);
-        Assert.Equal("C_SPLIT_CHAIN", surge.Signature.ComboEffectId);
-        Assert.Equal("C_SPLIT_CHAIN", surge.Signature.EffectId);
+        Assert.Equal(expected.EffectId, surge.Signature.ComboEffectId);
+        Assert.Equal(expected.EffectId, surge.Signature.EffectId);
     }
 
     [Fact]
@@ -255,8 +259,10 @@ public class SpectacleSystemTests
 
         // Loadout canonical sort: SplitShot(7) < FeedbackLoop(8) < ChainReaction(9)
         // r1=SplitShot, r2=FeedbackLoop, r3=ChainReaction
+        // Dynamic combo ID: C_{R1_UPPER}_{R2_UPPER}
+        SpectacleComboDef expectedCombo = SpectacleDefinitions.GetCombo(surge.Signature.PrimaryModId, surge.Signature.SecondaryModId);
         Assert.Equal(SpectacleMode.Triad, surge.Signature.Mode);
-        Assert.Equal("C_SPLIT_FEEDBACK", surge.Signature.ComboEffectId);
+        Assert.Equal(expectedCombo.EffectId, surge.Signature.ComboEffectId);
         Assert.Equal("T_AUG_CHAIN", surge.Signature.AugmentEffectId);
     }
 
@@ -352,17 +358,27 @@ public class SpectacleSystemTests
     [Fact]
     public void DefinitionCoverage_ComboAndAugmentTablesHaveExpectedCounts()
     {
-        IDictionary combos = ReadPrivateStaticDictionary("ComboDefs");
-        IDictionary augments = ReadPrivateStaticDictionary("TriadAugments");
+        // Combo names are now dynamically generated -- no static ComboDefs table.
+        // Verify all N*(N-1)/2 ordered pairs (r1, r2) produce unique effect IDs.
+        // N = 13 supported mods, so N*(N-1) = 156 ordered pairs.
+        var supported = SpectacleDefinitions.SupportedModIds.ToArray();
+        var comboIds = new HashSet<string>(StringComparer.Ordinal);
+        foreach (string r1 in supported)
+            foreach (string r2 in supported)
+            {
+                if (r1 == r2) continue;
+                SpectacleComboDef combo = SpectacleDefinitions.GetCombo(r1, r2);
+                Assert.False(string.IsNullOrWhiteSpace(combo.EffectId));
+                Assert.False(string.IsNullOrWhiteSpace(combo.Name));
+                comboIds.Add(combo.EffectId);
+            }
+        Assert.Equal(13 * 12, comboIds.Count); // all ordered pairs produce unique IDs
 
-        // N*(N-1)/2 combos where N = number of supported modifiers (13 as of Wildfire+Reaper addition).
-        Assert.Equal(78, combos.Count);
+        // Augment table: 13 entries (one per mod).
+        IDictionary augments = ReadPrivateStaticDictionary("TriadAugments");
         Assert.Equal(13, augments.Count);
 
-        var comboIds = combos.Values.Cast<SpectacleComboDef>().Select(def => def.EffectId).ToArray();
         var augmentIds = augments.Values.Cast<SpectacleTriadAugmentDef>().Select(def => def.EffectId).ToArray();
-
-        Assert.Equal(78, comboIds.Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(13, augmentIds.Distinct(StringComparer.Ordinal).Count());
     }
 

@@ -308,87 +308,92 @@ public partial class HowToPlay : Node
     private static void BuildSurgesSection(VBoxContainer vbox)
     {
         AddHeader(vbox, "HOW SURGES WORK");
-        AddLine(vbox, "Dealing damage fills each tower's surge meter. When full, the tower automatically fires a Surge -- a powerful bonus effect on top of its normal attack.");
-        AddLine(vbox, $"After firing, the meter resets to {SpectacleDefinitions.SurgeMeterAfterTrigger:0} (not zero), so towers return to ready quickly.");
-        AddLine(vbox, "Every tower surge feeds the shared Global Surge bar. When the bar fills, a READY banner pulses -- click it to trigger a Global Surge.");
+        AddLine(vbox, "Every tower has a Surge Meter that fills as it deals damage.");
+        AddLine(vbox, "When full, the tower fires a Surge -- a bonus effect on top of its normal attack.");
+        AddLine(vbox, "The meter drops to a partial value after firing (not zero), so the next surge builds quickly.");
+        AddLine(vbox, "Each tower surge fills the shared Global Surge bar. When full, a READY banner pulses -- click it to fire a Global Surge.");
         AddSpacer(vbox, 8);
 
-        AddHeader(vbox, "SURGE PAYLOAD TIERS");
-        AddLine(vbox, "The surge payload a tower fires depends on how many surge-capable mods it carries:");
-        AddLine(vbox, "  1 mod  →  Single Surge: the mod's signature burst effect.");
-        AddLine(vbox, "  2 mods →  Combo Surge: a hybrid payload blending both mod roles. 45 unique pairings.");
-        AddLine(vbox, "  3 mods →  Triad: same Combo core, plus a bonus Augment effect from the third mod.");
+        AddHeader(vbox, "SURGE TIERS: MORE MODS = STRONGER SURGES");
+        AddLine(vbox, "  1 mod   →  Single: the mod fires its signature effect.");
+        AddLine(vbox, "  2 mods  →  Combo: named \"[Primary] [Secondary]\". First word = dominant mod; second word = what the secondary adds.");
+        AddLine(vbox, "  3 mods  →  Triad: same Combo core, plus a bonus Augment (Pulse / Strike / Recharge) from the third mod.");
+        AddSpacer(vbox, 4);
+        AddLine(vbox, "Combo examples:");
+        AddLine(vbox, "  \"Focus Cryo\"   -- Focus Lens surge with a Chill Shot freeze.");
+        AddLine(vbox, "  \"Overkill Arc\" -- Overkill surge that chains through targets via Chain Reaction.");
+        AddSpacer(vbox, 4);
+        AddLine(vbox, "Augment types (what the third mod contributes):");
+        AddLine(vbox, "  Pulse    --  hits all enemies near the tower.");
+        AddLine(vbox, "  Strike   --  one heavy hit on a single target.");
+        AddLine(vbox, "  Recharge --  resets cooldown; fires again immediately.");
         AddSpacer(vbox, 8);
 
-        AddHeader(vbox, "SINGLE SURGE TYPES (13)");
+        AddHeader(vbox, "SINGLE SURGE TYPES");
         foreach (string modId in CanonicalSurgeMods)
         {
+            if (modId == SpectacleDefinitions.ReaperProtocol && Balance.IsDemo) continue;
             var single = SpectacleDefinitions.GetSingle(modId);
             string modName = SpectacleDefinitions.GetDisplayName(modId);
             AddModRowWithIcon(vbox, modId, single.Name.ToUpperInvariant(), $"{modName}: {DescribeSingleEffect(modId)}");
         }
         AddSpacer(vbox, 8);
 
-        AddHeader(vbox, "TRIAD AUGMENT TYPES (13)");
+        AddHeader(vbox, "TRIAD AUGMENTS");
         foreach (string modId in CanonicalSurgeMods)
         {
+            if (modId == SpectacleDefinitions.ReaperProtocol && Balance.IsDemo) continue;
             var aug = SpectacleDefinitions.GetTriadAugment(modId);
             string modName = SpectacleDefinitions.GetDisplayName(modId);
-            string duration = aug.DurationSec > 0f ? $"{aug.DurationSec:0.0}s" : "instant";
-            AddModRowWithIcon(vbox, modId, aug.Name.ToUpperInvariant(), $"{modName}: {DescribeAugmentKind(aug.Kind)}. Coef {aug.Coefficient * 100f:0}% ({duration}).");
+            AddModRowWithIcon(vbox, modId, aug.Name.ToUpperInvariant(), $"{modName}: {DescribeAugmentKind(aug.Kind)}.");
         }
         AddSpacer(vbox, 8);
 
         AddHeader(vbox, "GLOBAL SURGE");
-        AddLine(vbox, "Triggering a Global Surge fires every placed tower's major surge payload simultaneously and marks + slows all alive enemies for a short window.");
-        AddLine(vbox, $"Each tower surge contributes +{SpectacleDefinitions.GlobalMeterPerSurge:0} to the global meter. Global surge arms at {SpectacleDefinitions.GlobalThreshold:0}, then resets to {SpectacleDefinitions.GlobalMeterAfterTrigger:0}.");
-        AddLine(vbox, "The archetype banner names your build based on which mod drove the most tower surges since the last global surge. Ripple colors show the top contributing mods (up to 3).");
+        AddLine(vbox, "Activating a Global Surge fires all placed towers simultaneously and marks + slows all alive enemies.");
+        AddLine(vbox, "The banner label shows which mod dominated your build since the last Global Surge.");
+        AddLine(vbox, "Stack one mod across multiple towers to see its archetype label appear on the next Global Surge.");
         AddSpacer(vbox, 10);
 
-        AddHeader(vbox, "GLOBAL SURGE ARCHETYPES (10)");
+        AddHeader(vbox, "GLOBAL SURGE ARCHETYPES");
         foreach (var entry in SurgeDifferentiation.GlobalSurgeTable)
         {
+            if (entry.ModId == SpectacleDefinitions.ReaperProtocol && Balance.IsDemo) continue;
             string modName = SpectacleDefinitions.GetDisplayName(entry.ModId);
-            string feelTag = entry.Feel switch
-            {
-                SurgeDifferentiation.GlobalSurgeFeel.Detonation => "Detonation",
-                SurgeDifferentiation.GlobalSurgeFeel.Pressure   => "Pressure",
-                _                                               => "Neutral",
-            };
             Color feelColor = entry.Feel switch
             {
                 SurgeDifferentiation.GlobalSurgeFeel.Detonation => new Color(1.00f, 0.58f, 0.15f),
                 SurgeDifferentiation.GlobalSurgeFeel.Pressure   => new Color(0.35f, 0.68f, 1.00f),
                 _                                               => new Color(0.55f, 0.55f, 0.65f),
             };
-            AddArchetypeRow(vbox, entry.ModId, entry.Label, $"Driven by {modName}  ·  {feelTag}", feelColor);
+            AddArchetypeRow(vbox, entry.ModId, entry.Label, $"Dominant mod: {modName}", feelColor);
         }
     }
 
     private static string DescribeSingleEffect(string modId) => SpectacleDefinitions.NormalizeModId(modId) switch
     {
-        "momentum" => "Ramped burst damage from sustained same-target pressure.",
-        "overkill" => "Spill-focused burst that overflows into nearby enemies.",
-        "exploit_weakness" => "Marked-target execution burst.",
-        "focus_lens" => "Focused beam/lance burst for heavy single-target pressure.",
-        "slow" => "Cryo wave that slows packs and adds chip damage.",
-        "overreach" => "Long-range sweep that pressures distant enemies.",
-        "hair_trigger" => "Overclock burst with high hit tempo.",
-        "split_shot" => "Fractal spread burst across nearby enemies.",
-        "feedback_loop" => "Reboot burst with strong cooldown tempo value.",
-        "chain_reaction" => "Arc overload bouncing through linked targets.",
-        "blast_core" => "Detonation zone that blasts all enemies in an extended radius.",
-        "wildfire" => "Conflagration: chip damage and scorched slow across enemies in range.",
-        "reaper_protocol" => "Execution strike on the lowest-HP enemy in range. Grants +1 life if it kills.",
-        _ => "Modifier-specific primary surge payload.",
+        "momentum"         => "Burst hit scaled to current Momentum ramp -- longer streak = bigger surge.",
+        "overkill"         => "Burst hit that overflows excess damage into the next enemy in line.",
+        "exploit_weakness" => "Detonates all Marked enemies in range for bonus damage simultaneously.",
+        "focus_lens"       => "One massive focused beam shot at the highest-HP target in range.",
+        "slow"             => "Cryo shockwave: slows all enemies in range and deals chip damage to each.",
+        "overreach"        => "Extended-range sweep hitting the farthest enemy in this tower's expanded coverage.",
+        "hair_trigger"     => "Rapid-fire burst: fires extra shots at all enemies in range in quick succession.",
+        "split_shot"       => "Scatter burst: all nearby enemies take split-shot hits at the same time.",
+        "feedback_loop"    => "Burst hit, then instant cooldown reset -- tower fires again immediately.",
+        "chain_reaction"   => "Arc burst that bounces from target to nearby targets through the group.",
+        "blast_core"       => "Detonation at target position: area damage to all enemies in the blast radius.",
+        "wildfire"         => "Flame burst across all enemies in range, leaving fire trails that slow and tick damage.",
+        "reaper_protocol"  => "Executes the lowest-HP enemy in range. Grants +1 life if it kills.",
+        _                  => "Modifier-specific primary surge payload.",
     };
 
     private static string DescribeAugmentKind(SpectacleAugmentKind kind) => kind switch
     {
-        SpectacleAugmentKind.Area   => "Multi-target pulse to nearby enemies",
-        SpectacleAugmentKind.Strike => "Heavy single-target strike",
-        SpectacleAugmentKind.Reload => "Cooldown reduction with follow-up hit",
-        _ => "Triad augment package",
+        SpectacleAugmentKind.Area   => "hits all enemies near this tower",
+        SpectacleAugmentKind.Strike => "one heavy hit on a single target",
+        SpectacleAugmentKind.Reload => "resets cooldown; fires again immediately",
+        _ => "triad augment",
     };
 
     // Helpers

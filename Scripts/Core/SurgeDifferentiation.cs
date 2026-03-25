@@ -16,19 +16,19 @@ public static class SurgeDifferentiation
     /// </summary>
     public static readonly GlobalSurgeEntry[] GlobalSurgeTable =
     {
-        new(SpectacleDefinitions.Momentum,        "REDLINE WAVE",    GlobalSurgeFeel.Pressure),
-        new(SpectacleDefinitions.Overkill,        "OVERKILL STORM",  GlobalSurgeFeel.Detonation),
-        new(SpectacleDefinitions.ExploitWeakness, "EXECUTION STORM", GlobalSurgeFeel.Neutral),
-        new(SpectacleDefinitions.FocusLens,       "PRISM BARRAGE",   GlobalSurgeFeel.Detonation),
-        new(SpectacleDefinitions.ChillShot,       "CRYO STORM",      GlobalSurgeFeel.Pressure),
-        new(SpectacleDefinitions.Overreach,       "HORIZON BREAK",   GlobalSurgeFeel.Pressure),
-        new(SpectacleDefinitions.HairTrigger,     "HYPERBURST WAVE", GlobalSurgeFeel.Detonation),
-        new(SpectacleDefinitions.SplitShot,       "FRACTAL STORM",   GlobalSurgeFeel.Neutral),
-        new(SpectacleDefinitions.FeedbackLoop,    "REBOOT CASCADE",  GlobalSurgeFeel.Detonation),
-        new(SpectacleDefinitions.ChainReaction,   "CHAIN STORM",     GlobalSurgeFeel.Neutral),
-        new(SpectacleDefinitions.BlastCore,       "BLAST WAVE",      GlobalSurgeFeel.Detonation),
-        new(SpectacleDefinitions.Wildfire,        "INFERNO SURGE",   GlobalSurgeFeel.Detonation),
-        new(SpectacleDefinitions.ReaperProtocol,  "GRIM TIDE",       GlobalSurgeFeel.Neutral),
+        new(SpectacleDefinitions.Momentum,        "MOMENTUM SURGE",      GlobalSurgeFeel.Pressure),
+        new(SpectacleDefinitions.Overkill,        "OVERKILL STORM",      GlobalSurgeFeel.Detonation),
+        new(SpectacleDefinitions.ExploitWeakness, "EXPLOIT STORM",       GlobalSurgeFeel.Neutral),
+        new(SpectacleDefinitions.FocusLens,       "FOCUS BARRAGE",       GlobalSurgeFeel.Detonation),
+        new(SpectacleDefinitions.ChillShot,       "CRYO STORM",          GlobalSurgeFeel.Pressure),
+        new(SpectacleDefinitions.Overreach,       "OVERREACH BREAK",     GlobalSurgeFeel.Pressure),
+        new(SpectacleDefinitions.HairTrigger,     "HAIR TRIGGER WAVE",   GlobalSurgeFeel.Detonation),
+        new(SpectacleDefinitions.SplitShot,       "SPLIT STORM",         GlobalSurgeFeel.Neutral),
+        new(SpectacleDefinitions.FeedbackLoop,    "FEEDBACK CASCADE",    GlobalSurgeFeel.Detonation),
+        new(SpectacleDefinitions.ChainReaction,   "CHAIN STORM",         GlobalSurgeFeel.Neutral),
+        new(SpectacleDefinitions.BlastCore,       "BLAST WAVE",          GlobalSurgeFeel.Detonation),
+        new(SpectacleDefinitions.Wildfire,        "WILDFIRE SURGE",      GlobalSurgeFeel.Detonation),
+        new(SpectacleDefinitions.ReaperProtocol,  "REAPER TIDE",         GlobalSurgeFeel.Neutral),
     };
 
     /// <summary>

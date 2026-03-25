@@ -150,29 +150,65 @@ public static class SpectacleDefinitions
         [HairTrigger] = new SpectacleSingleDef("S_HAIR_HYPERBURST", "Hyperburst"),
         [SplitShot] = new SpectacleSingleDef("S_SPLIT_FRACTAL_BLOOM", "Fractal Bloom"),
         [FeedbackLoop] = new SpectacleSingleDef("S_FEEDBACK_REBOOT_STORM", "Reboot Storm"),
-        [ChainReaction] = new SpectacleSingleDef("S_CHAIN_GRID_OVERLOAD", "Grid Overload"),
+        [ChainReaction] = new SpectacleSingleDef("S_CHAIN_ARC_OVERLOAD", "Arc Overload"),
         [BlastCore]      = new SpectacleSingleDef("S_BLAST_DETONATION_ZONE",   "Detonation Zone"),
-        [Wildfire]       = new SpectacleSingleDef("S_WILDFIRE_CONFLAGRATION",  "Conflagration"),
+        [Wildfire]       = new SpectacleSingleDef("S_WILDFIRE_FIRESTORM",  "Firestorm"),
         [ReaperProtocol] = new SpectacleSingleDef("S_REAPER_DEATH_DECREE",    "Death Decree"),
     };
 
-    private static readonly Dictionary<string, SpectacleComboDef> ComboDefs = BuildComboDefs();
+    // Combo naming: [PrimaryShortName] [SecondaryTag] -- always shows primary mod identity + how the secondary mutates it.
+    private static readonly Dictionary<string, string> PrimaryShortNames = new(StringComparer.Ordinal)
+    {
+        [Momentum]        = "Momentum",
+        [Overkill]        = "Overkill",
+        [ExploitWeakness] = "Exploit",
+        [FocusLens]       = "Focus",
+        [ChillShot]       = "Chill",
+        [Overreach]       = "Overreach",
+        [HairTrigger]     = "Hair Trigger",
+        [SplitShot]       = "Split Shot",
+        [FeedbackLoop]    = "Feedback",
+        [ChainReaction]   = "Chain",
+        [BlastCore]       = "Blast",
+        [Wildfire]        = "Wildfire",
+        [ReaperProtocol]  = "Reaper",
+    };
+
+    private static readonly Dictionary<string, string> SecondaryTags = new(StringComparer.Ordinal)
+    {
+        [Momentum]        = "Surge",
+        [Overkill]        = "Spill",
+        [ExploitWeakness] = "Mark",
+        [FocusLens]       = "Beam",
+        [ChillShot]       = "Cryo",
+        [Overreach]       = "Range",
+        [HairTrigger]     = "Burst",
+        [SplitShot]       = "Split",
+        [FeedbackLoop]    = "Reload",
+        [ChainReaction]   = "Arc",
+        [BlastCore]       = "Blast",
+        [Wildfire]        = "Fire",
+        [ReaperProtocol]  = "Death",
+    };
 
     private static readonly Dictionary<string, SpectacleTriadAugmentDef> TriadAugments = new(StringComparer.Ordinal)
     {
-        [Momentum]       = new SpectacleTriadAugmentDef("T_AUG_MOMENTUM", "Momentum Surge",    0.18f, 2.0f, SpectacleAugmentKind.Reload),
-        [Overkill]       = new SpectacleTriadAugmentDef("T_AUG_OVERKILL", "Spill Multiplier",  0.22f, 1.8f, SpectacleAugmentKind.Area),
-        [ExploitWeakness]= new SpectacleTriadAugmentDef("T_AUG_EXPLOIT",  "Marked Execute",    0.20f, 2.2f, SpectacleAugmentKind.Strike),
-        [FocusLens]      = new SpectacleTriadAugmentDef("T_AUG_FOCUS",    "Beam Spike",        0.25f, 0.0f, SpectacleAugmentKind.Strike),
-        [ChillShot]      = new SpectacleTriadAugmentDef("T_AUG_CHILL",    "Cryo Saturation",   0.20f, 2.0f, SpectacleAugmentKind.Area),
-        [Overreach]      = new SpectacleTriadAugmentDef("T_AUG_OVERREACH","Range Pulse",       0.22f, 2.0f, SpectacleAugmentKind.Area),
-        [HairTrigger]    = new SpectacleTriadAugmentDef("T_AUG_HAIR",     "Overclock Injection",0.24f,1.6f, SpectacleAugmentKind.Reload),
-        [SplitShot]      = new SpectacleTriadAugmentDef("T_AUG_SPLIT",    "Split Volley",      0.30f, 0.0f, SpectacleAugmentKind.Area),
-        [FeedbackLoop]   = new SpectacleTriadAugmentDef("T_AUG_FEEDBACK", "Cooldown Reclaim",  0.35f, 0.0f, SpectacleAugmentKind.Reload),
-        [ChainReaction]  = new SpectacleTriadAugmentDef("T_AUG_CHAIN",    "Chain Charge",      0.28f, 1.8f, SpectacleAugmentKind.Area),
-        [BlastCore]      = new SpectacleTriadAugmentDef("T_AUG_BLAST",    "Blast Radius",      0.22f, 1.8f, SpectacleAugmentKind.Area),
-        [Wildfire]       = new SpectacleTriadAugmentDef("T_AUG_WILDFIRE", "Flame Surge",       0.24f, 2.5f, SpectacleAugmentKind.Area),
-        [ReaperProtocol] = new SpectacleTriadAugmentDef("T_AUG_REAPER",   "Death Mark",        0.28f, 0.0f, SpectacleAugmentKind.Strike),
+        // Reload augments: reset cooldown + fire again
+        [Momentum]       = new SpectacleTriadAugmentDef("T_AUG_MOMENTUM",  "Momentum Recharge", 0.18f, 2.0f, SpectacleAugmentKind.Reload),
+        [HairTrigger]    = new SpectacleTriadAugmentDef("T_AUG_HAIR",      "Rapid Recharge",    0.24f, 1.6f, SpectacleAugmentKind.Reload),
+        [FeedbackLoop]   = new SpectacleTriadAugmentDef("T_AUG_FEEDBACK",  "Full Recharge",     0.35f, 0.0f, SpectacleAugmentKind.Reload),
+        [ReaperProtocol] = new SpectacleTriadAugmentDef("T_AUG_REAPER",    "Death Strike",      0.28f, 0.0f, SpectacleAugmentKind.Strike),
+        // Strike augments: one heavy hit on a single target
+        [ExploitWeakness]= new SpectacleTriadAugmentDef("T_AUG_EXPLOIT",   "Exploit Strike",    0.20f, 2.2f, SpectacleAugmentKind.Strike),
+        [FocusLens]      = new SpectacleTriadAugmentDef("T_AUG_FOCUS",     "Focus Strike",      0.25f, 0.0f, SpectacleAugmentKind.Strike),
+        // Area/Pulse augments: hits all enemies near the tower
+        [Overkill]       = new SpectacleTriadAugmentDef("T_AUG_OVERKILL",  "Overkill Pulse",    0.22f, 1.8f, SpectacleAugmentKind.Area),
+        [ChillShot]      = new SpectacleTriadAugmentDef("T_AUG_CHILL",     "Cryo Pulse",        0.20f, 2.0f, SpectacleAugmentKind.Area),
+        [Overreach]      = new SpectacleTriadAugmentDef("T_AUG_OVERREACH", "Range Pulse",       0.22f, 2.0f, SpectacleAugmentKind.Area),
+        [SplitShot]      = new SpectacleTriadAugmentDef("T_AUG_SPLIT",     "Split Pulse",       0.30f, 0.0f, SpectacleAugmentKind.Area),
+        [ChainReaction]  = new SpectacleTriadAugmentDef("T_AUG_CHAIN",     "Arc Pulse",         0.28f, 1.8f, SpectacleAugmentKind.Area),
+        [BlastCore]      = new SpectacleTriadAugmentDef("T_AUG_BLAST",     "Blast Pulse",       0.22f, 1.8f, SpectacleAugmentKind.Area),
+        [Wildfire]       = new SpectacleTriadAugmentDef("T_AUG_WILDFIRE",  "Fire Pulse",        0.24f, 2.5f, SpectacleAugmentKind.Area),
     };
 
     public static IReadOnlyCollection<string> SupportedModIds => Supported;
@@ -309,122 +345,25 @@ public static class SpectacleDefinitions
         => SingleDefs.GetValueOrDefault(NormalizeModId(modifierId),
             new SpectacleSingleDef($"S_{NormalizeModId(modifierId).ToUpperInvariant()}", GetDisplayName(modifierId)));
 
-    public static SpectacleComboDef GetCombo(string modA, string modB)
+    /// <summary>
+    /// Returns a combo surge definition for the given role pair.
+    /// r1 must be the primary mod (highest copy count, then canonical rank).
+    /// The name is generated as "[PrimaryShortName] [SecondaryTag]" so the player
+    /// can always identify the primary mod and how the secondary mutates it.
+    /// </summary>
+    public static SpectacleComboDef GetCombo(string r1, string r2)
     {
-        string key = PairKey(modA, modB);
-        if (ComboDefs.TryGetValue(key, out var def))
-            return def;
-        string a = GetDisplayName(modA);
-        string b = GetDisplayName(modB);
-        return new SpectacleComboDef($"C_{NormalizeModId(modA).ToUpperInvariant()}_{NormalizeModId(modB).ToUpperInvariant()}", $"{a} x {b}");
+        string n1 = NormalizeModId(r1);
+        string n2 = NormalizeModId(r2);
+        string primary   = PrimaryShortNames.GetValueOrDefault(n1, GetDisplayName(n1));
+        string secondary = SecondaryTags.GetValueOrDefault(n2, GetDisplayName(n2));
+        return new SpectacleComboDef(
+            $"C_{n1.ToUpperInvariant()}_{n2.ToUpperInvariant()}",
+            $"{primary} {secondary}");
     }
 
     public static SpectacleTriadAugmentDef GetTriadAugment(string modifierId)
         => TriadAugments.GetValueOrDefault(NormalizeModId(modifierId),
             new SpectacleTriadAugmentDef($"T_AUG_{NormalizeModId(modifierId).ToUpperInvariant()}", GetDisplayName(modifierId), 0.15f, 1.5f, SpectacleAugmentKind.Area));
 
-    private static string PairKey(string a, string b)
-    {
-        string na = NormalizeModId(a);
-        string nb = NormalizeModId(b);
-        return string.CompareOrdinal(na, nb) <= 0 ? $"{na}|{nb}" : $"{nb}|{na}";
-    }
-
-    private static Dictionary<string, SpectacleComboDef> BuildComboDefs()
-    {
-        var map = new Dictionary<string, SpectacleComboDef>(StringComparer.Ordinal);
-
-        static void Add(Dictionary<string, SpectacleComboDef> m, string a, string b, string id, string name)
-        {
-            string key = string.CompareOrdinal(a, b) <= 0 ? $"{a}|{b}" : $"{b}|{a}";
-            m[key] = new SpectacleComboDef(id, name);
-        }
-
-        Add(map, Momentum, Overkill, "C_MOMENTUM_OVERKILL", "Redline Spillstorm");
-        Add(map, Momentum, ExploitWeakness, "C_MOMENTUM_EXPLOIT", "Predatory Ramp");
-        Add(map, Momentum, FocusLens, "C_MOMENTUM_FOCUS", "Siege Tempo");
-        Add(map, Momentum, ChillShot, "C_MOMENTUM_CHILL", "Glacial Grind");
-        Add(map, Momentum, Overreach, "C_MOMENTUM_OVERREACH", "Longline Pressure");
-        Add(map, Momentum, HairTrigger, "C_MOMENTUM_HAIR", "Ramped Overclock");
-        Add(map, Momentum, SplitShot, "C_MOMENTUM_SPLIT", "Escalating Barrage");
-        Add(map, Momentum, FeedbackLoop, "C_MOMENTUM_FEEDBACK", "Adrenal Reboot");
-        Add(map, Momentum, ChainReaction, "C_MOMENTUM_CHAIN", "Acceleration Lattice");
-        Add(map, Overkill, ExploitWeakness, "C_OVERKILL_EXPLOIT", "Execution Spill");
-        Add(map, Overkill, FocusLens, "C_OVERKILL_FOCUS", "Prism Overflow");
-        Add(map, Overkill, ChillShot, "C_OVERKILL_CHILL", "Shatter Spill");
-        Add(map, Overkill, Overreach, "C_OVERKILL_OVERREACH", "Linebreaker Wake");
-        Add(map, Overkill, HairTrigger, "C_OVERKILL_HAIR", "Shrapnel Cycler");
-        Add(map, Overkill, SplitShot, "C_OVERKILL_SPLIT", "Splinter Flood");
-        Add(map, Overkill, FeedbackLoop, "C_OVERKILL_FEEDBACK", "Overflow Reboot");
-        Add(map, Overkill, ChainReaction, "C_OVERKILL_CHAIN", "Spill Conduit");
-        Add(map, ExploitWeakness, FocusLens, "C_EXPLOIT_FOCUS", "Marked Lance");
-        Add(map, ExploitWeakness, ChillShot, "C_EXPLOIT_CHILL", "Cryo Execute");
-        Add(map, ExploitWeakness, Overreach, "C_EXPLOIT_OVERREACH", "Huntline");
-        Add(map, ExploitWeakness, HairTrigger, "C_EXPLOIT_HAIR", "Predator Haste");
-        Add(map, ExploitWeakness, SplitShot, "C_EXPLOIT_SPLIT", "Marked Shrapnel");
-        Add(map, ExploitWeakness, FeedbackLoop, "C_EXPLOIT_FEEDBACK", "Execution Loop");
-        Add(map, ExploitWeakness, ChainReaction, "C_EXPLOIT_CHAIN", "Reticle Web");
-        Add(map, FocusLens, ChillShot, "C_FOCUS_CHILL", "Polar Beam");
-        Add(map, FocusLens, Overreach, "C_FOCUS_OVERREACH", "Rail Horizon");
-        Add(map, FocusLens, HairTrigger, "C_FOCUS_HAIR", "Pulse Gatling");
-        Add(map, FocusLens, SplitShot, "C_FOCUS_SPLIT", "Prism Bloom");
-        Add(map, FocusLens, FeedbackLoop, "C_FOCUS_FEEDBACK", "Lens Reboot");
-        Add(map, FocusLens, ChainReaction, "C_FOCUS_CHAIN", "Arc Lance");
-        Add(map, ChillShot, Overreach, "C_CHILL_OVERREACH", "Frostline Sweep");
-        Add(map, ChillShot, HairTrigger, "C_CHILL_HAIR", "Rime Turbine");
-        Add(map, ChillShot, SplitShot, "C_CHILL_SPLIT", "Shatter Bloom");
-        Add(map, ChillShot, FeedbackLoop, "C_CHILL_FEEDBACK", "Cryo Recursion");
-        Add(map, ChillShot, ChainReaction, "C_CHILL_CHAIN", "Cryo Lattice");
-        Add(map, Overreach, HairTrigger, "C_OVERREACH_HAIR", "Suppressive Reach");
-        Add(map, Overreach, SplitShot, "C_OVERREACH_SPLIT", "Wide Bloom");
-        Add(map, Overreach, FeedbackLoop, "C_OVERREACH_FEEDBACK", "Echo Range Loop");
-        Add(map, Overreach, ChainReaction, "C_OVERREACH_CHAIN", "Grid Sweep");
-        Add(map, HairTrigger, SplitShot, "C_HAIR_SPLIT", "Needle Storm");
-        Add(map, HairTrigger, FeedbackLoop, "C_HAIR_FEEDBACK", "Overclock Loop");
-        Add(map, HairTrigger, ChainReaction, "C_HAIR_CHAIN", "Livewire Barrage");
-        Add(map, SplitShot, FeedbackLoop, "C_SPLIT_FEEDBACK", "Recursive Bloom");
-        Add(map, SplitShot, ChainReaction, "C_SPLIT_CHAIN", "Fractal Overload");
-        Add(map, FeedbackLoop, ChainReaction, "C_FEEDBACK_CHAIN", "Reactor Grid");
-
-        // Reaper Protocol combos
-        Add(map, ReaperProtocol, Momentum,        "C_REAPER_MOMENTUM",  "Death Tempo");
-        Add(map, ReaperProtocol, Overkill,        "C_REAPER_OVERKILL",  "Grim Overflow");
-        Add(map, ReaperProtocol, ExploitWeakness, "C_REAPER_EXPLOIT",   "Marked for Death");
-        Add(map, ReaperProtocol, FocusLens,       "C_REAPER_FOCUS",     "Lethal Prism");
-        Add(map, ReaperProtocol, ChillShot,       "C_REAPER_CHILL",     "Cryo Harvest");
-        Add(map, ReaperProtocol, Overreach,       "C_REAPER_OVERREACH", "Death Horizon");
-        Add(map, ReaperProtocol, HairTrigger,     "C_REAPER_HAIR",      "Kill Surge");
-        Add(map, ReaperProtocol, SplitShot,       "C_REAPER_SPLIT",     "Harvest Bloom");
-        Add(map, ReaperProtocol, FeedbackLoop,    "C_REAPER_FEEDBACK",  "Death Loop");
-        Add(map, ReaperProtocol, ChainReaction,   "C_REAPER_CHAIN",     "Grim Lattice");
-        Add(map, ReaperProtocol, BlastCore,       "C_REAPER_BLAST",     "Lethal Detonation");
-
-        // Wildfire combos
-        Add(map, Wildfire, Momentum,        "C_WILDFIRE_MOMENTUM",  "Scorched Escalation");
-        Add(map, Wildfire, Overkill,        "C_WILDFIRE_OVERKILL",  "Inferno Spill");
-        Add(map, Wildfire, ExploitWeakness, "C_WILDFIRE_EXPLOIT",   "Marked Combustion");
-        Add(map, Wildfire, FocusLens,       "C_WILDFIRE_FOCUS",     "Prism Ignition");
-        Add(map, Wildfire, ChillShot,       "C_WILDFIRE_CHILL",     "Boiling Point");
-        Add(map, Wildfire, Overreach,       "C_WILDFIRE_OVERREACH", "Wildfire Sweep");
-        Add(map, Wildfire, HairTrigger,     "C_WILDFIRE_HAIR",      "Firestorm Cycler");
-        Add(map, Wildfire, SplitShot,       "C_WILDFIRE_SPLIT",     "Ember Bloom");
-        Add(map, Wildfire, FeedbackLoop,    "C_WILDFIRE_FEEDBACK",  "Phoenix Loop");
-        Add(map, Wildfire, ChainReaction,   "C_WILDFIRE_CHAIN",     "Inferno Cascade");
-        Add(map, Wildfire, BlastCore,       "C_WILDFIRE_BLAST",     "Blast Furnace");
-        Add(map, Wildfire, ReaperProtocol,  "C_WILDFIRE_REAPER",    "Death Pyre");
-
-        // Blast Core combos
-        Add(map, BlastCore, Momentum,        "C_BLAST_MOMENTUM",  "Impact Escalation");
-        Add(map, BlastCore, Overkill,        "C_BLAST_OVERKILL",  "Explosive Overflow");
-        Add(map, BlastCore, ExploitWeakness, "C_BLAST_EXPLOIT",   "Mark Detonation");
-        Add(map, BlastCore, FocusLens,       "C_BLAST_FOCUS",     "Siege Detonation");
-        Add(map, BlastCore, ChillShot,       "C_BLAST_CHILL",     "Cryo Blast");
-        Add(map, BlastCore, Overreach,       "C_BLAST_OVERREACH", "Wide Detonation");
-        Add(map, BlastCore, HairTrigger,     "C_BLAST_HAIR",      "Rapid Detonation");
-        Add(map, BlastCore, SplitShot,       "C_BLAST_SPLIT",     "Shrapnel Burst");
-        Add(map, BlastCore, FeedbackLoop,    "C_BLAST_FEEDBACK",  "Detonation Loop");
-        Add(map, BlastCore, ChainReaction,   "C_BLAST_CHAIN",     "Shockwave Propagation");
-
-        return map;
-    }
 }
