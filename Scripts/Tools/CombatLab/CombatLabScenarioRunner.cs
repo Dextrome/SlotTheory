@@ -142,7 +142,7 @@ public sealed class CombatLabScenarioRunner
             ComboSkin = "default",
         });
 
-        if (SpectacleExplosionCore.ShouldEmitSecondStage(major: true, profile.BloomPower))
+        if (SpectacleExplosionCore.ShouldEmitSecondStage(major: true))
         {
             result.Trace.Add(new CombatLabTraceEvent
             {

@@ -54,9 +54,8 @@ public class Overkill : Modifier
 
         ctx.OverkillSpillDealt += dealt;
 
-        float spillRatio = spillDamage / System.MathF.Max(1f, ctx.FinalDamage);
-        float scalar = SpectacleDefinitions.OverkillEventScalar(spillRatio);
-        GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId, scalar, dealt);
+        GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId,
+            SpectacleDefinitions.GetProcScalar(ModifierId), dealt);
         GameController.Instance?.NotifyOverkillSpill(ctx.Attacker, next.GlobalPosition, spillDamage, dealt);
         return true;
     }

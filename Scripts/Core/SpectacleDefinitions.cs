@@ -10,20 +10,13 @@ public enum SpectacleMode
     Triad,
 }
 
+public enum ProcIntensity { Low, Medium, High }
+
 public enum SpectacleAugmentKind
 {
-    RampCap,
-    SpillTransfer,
-    MarkedVulnerability,
-    BeamBurst,
-    SlowIntensity,
-    RangePulse,
-    AttackSpeed,
-    SplitVolley,
-    CooldownRefund,
-    ChainBounces,
-    ExecutionStrike,
-    BurnAmplify,
+    Area,
+    Strike,
+    Reload,
 }
 
 /// <summary>
@@ -167,19 +160,19 @@ public static class SpectacleDefinitions
 
     private static readonly Dictionary<string, SpectacleTriadAugmentDef> TriadAugments = new(StringComparer.Ordinal)
     {
-        [Momentum] = new SpectacleTriadAugmentDef("T_AUG_MOMENTUM", "Momentum Surge", 0.18f, 2.0f, SpectacleAugmentKind.RampCap),
-        [Overkill] = new SpectacleTriadAugmentDef("T_AUG_OVERKILL", "Spill Multiplier", 0.22f, 1.8f, SpectacleAugmentKind.SpillTransfer),
-        [ExploitWeakness] = new SpectacleTriadAugmentDef("T_AUG_EXPLOIT", "Marked Execute", 0.20f, 2.2f, SpectacleAugmentKind.MarkedVulnerability),
-        [FocusLens] = new SpectacleTriadAugmentDef("T_AUG_FOCUS", "Beam Spike", 0.25f, 0.0f, SpectacleAugmentKind.BeamBurst),
-        [ChillShot] = new SpectacleTriadAugmentDef("T_AUG_CHILL", "Cryo Saturation", 0.20f, 2.0f, SpectacleAugmentKind.SlowIntensity),
-        [Overreach] = new SpectacleTriadAugmentDef("T_AUG_OVERREACH", "Range Pulse", 0.22f, 2.0f, SpectacleAugmentKind.RangePulse),
-        [HairTrigger] = new SpectacleTriadAugmentDef("T_AUG_HAIR", "Overclock Injection", 0.24f, 1.6f, SpectacleAugmentKind.AttackSpeed),
-        [SplitShot] = new SpectacleTriadAugmentDef("T_AUG_SPLIT", "Split Volley", 0.30f, 0.0f, SpectacleAugmentKind.SplitVolley),
-        [FeedbackLoop] = new SpectacleTriadAugmentDef("T_AUG_FEEDBACK", "Cooldown Reclaim", 0.35f, 0.0f, SpectacleAugmentKind.CooldownRefund),
-        [ChainReaction] = new SpectacleTriadAugmentDef("T_AUG_CHAIN", "Chain Charge", 0.28f, 1.8f, SpectacleAugmentKind.ChainBounces),
-        [BlastCore]      = new SpectacleTriadAugmentDef("T_AUG_BLAST",    "Blast Radius",    0.22f, 1.8f, SpectacleAugmentKind.RangePulse),
-        [Wildfire]       = new SpectacleTriadAugmentDef("T_AUG_WILDFIRE", "Flame Surge",     0.24f, 2.5f, SpectacleAugmentKind.BurnAmplify),
-        [ReaperProtocol] = new SpectacleTriadAugmentDef("T_AUG_REAPER",  "Death Mark",      0.28f, 0.0f, SpectacleAugmentKind.ExecutionStrike),
+        [Momentum]       = new SpectacleTriadAugmentDef("T_AUG_MOMENTUM", "Momentum Surge",    0.18f, 2.0f, SpectacleAugmentKind.Reload),
+        [Overkill]       = new SpectacleTriadAugmentDef("T_AUG_OVERKILL", "Spill Multiplier",  0.22f, 1.8f, SpectacleAugmentKind.Area),
+        [ExploitWeakness]= new SpectacleTriadAugmentDef("T_AUG_EXPLOIT",  "Marked Execute",    0.20f, 2.2f, SpectacleAugmentKind.Strike),
+        [FocusLens]      = new SpectacleTriadAugmentDef("T_AUG_FOCUS",    "Beam Spike",        0.25f, 0.0f, SpectacleAugmentKind.Strike),
+        [ChillShot]      = new SpectacleTriadAugmentDef("T_AUG_CHILL",    "Cryo Saturation",   0.20f, 2.0f, SpectacleAugmentKind.Area),
+        [Overreach]      = new SpectacleTriadAugmentDef("T_AUG_OVERREACH","Range Pulse",       0.22f, 2.0f, SpectacleAugmentKind.Area),
+        [HairTrigger]    = new SpectacleTriadAugmentDef("T_AUG_HAIR",     "Overclock Injection",0.24f,1.6f, SpectacleAugmentKind.Reload),
+        [SplitShot]      = new SpectacleTriadAugmentDef("T_AUG_SPLIT",    "Split Volley",      0.30f, 0.0f, SpectacleAugmentKind.Area),
+        [FeedbackLoop]   = new SpectacleTriadAugmentDef("T_AUG_FEEDBACK", "Cooldown Reclaim",  0.35f, 0.0f, SpectacleAugmentKind.Reload),
+        [ChainReaction]  = new SpectacleTriadAugmentDef("T_AUG_CHAIN",    "Chain Charge",      0.28f, 1.8f, SpectacleAugmentKind.Area),
+        [BlastCore]      = new SpectacleTriadAugmentDef("T_AUG_BLAST",    "Blast Radius",      0.22f, 1.8f, SpectacleAugmentKind.Area),
+        [Wildfire]       = new SpectacleTriadAugmentDef("T_AUG_WILDFIRE", "Flame Surge",       0.24f, 2.5f, SpectacleAugmentKind.Area),
+        [ReaperProtocol] = new SpectacleTriadAugmentDef("T_AUG_REAPER",   "Death Mark",        0.28f, 0.0f, SpectacleAugmentKind.Strike),
     };
 
     public static IReadOnlyCollection<string> SupportedModIds => Supported;
@@ -285,8 +278,31 @@ public static class SpectacleDefinitions
     public static float GetModeBase(SpectacleMode mode) => mode switch
     {
         SpectacleMode.Single => 1.00f,
-        SpectacleMode.Combo => 1.08f,
-        _ => 1.16f,
+        SpectacleMode.Combo => 1.10f,
+        _ => 1.20f,
+    };
+
+    private const float ProcScalarLow    = 0.75f;
+    private const float ProcScalarMedium = 1.00f;
+    private const float ProcScalarHigh   = 1.35f;
+
+    /// <summary>
+    /// Returns the fixed proc intensity scalar for a modifier.
+    /// Replaces per-mod bespoke event scalar formulas with 3 flat buckets.
+    /// Low (0.75): high-frequency procs. Medium (1.00): conditional hits.
+    /// High (1.35): infrequent/high-value events.
+    /// </summary>
+    public static float GetProcScalar(string modId) => NormalizeModId(modId) switch
+    {
+        HairTrigger     => ProcScalarLow,
+        SplitShot       => ProcScalarLow,
+        ChainReaction   => ProcScalarLow,
+        BlastCore       => ProcScalarLow,
+        Wildfire        => ProcScalarLow,
+        Overkill        => ProcScalarHigh,
+        FocusLens       => ProcScalarHigh,
+        ReaperProtocol  => ProcScalarHigh,
+        _               => ProcScalarMedium,
     };
 
     public static SpectacleSingleDef GetSingle(string modifierId)
@@ -305,55 +321,7 @@ public static class SpectacleDefinitions
 
     public static SpectacleTriadAugmentDef GetTriadAugment(string modifierId)
         => TriadAugments.GetValueOrDefault(NormalizeModId(modifierId),
-            new SpectacleTriadAugmentDef($"T_AUG_{NormalizeModId(modifierId).ToUpperInvariant()}", GetDisplayName(modifierId), 0.15f, 1.5f, SpectacleAugmentKind.RangePulse));
-
-    public static float MomentumEventScalar(float stackNorm)
-        => (0.75f + 0.50f * Clamp01(stackNorm)) * ResolveEventScalarMultiplier(Momentum);
-
-    public static float OverkillEventScalar(float spillRatio)
-        => Clamp(0.65f + 0.55f * spillRatio, 0.65f, 1.80f) * ResolveEventScalarMultiplier(Overkill);
-
-    public static float ExploitWeaknessEventScalar(bool markedHit, bool markedKill)
-        => (0.70f + 0.65f * (markedHit ? 1f : 0f) + 0.45f * (markedKill ? 1f : 0f)) * ResolveEventScalarMultiplier(ExploitWeakness);
-
-    public static float FocusLensEventScalar(float damageNorm)
-        => Clamp(0.85f + 0.45f * Clamp(damageNorm, 0f, 2f), 0.85f, 1.75f) * ResolveEventScalarMultiplier(FocusLens);
-
-    public static float ChillEventScalar(int affectedEnemies)
-        => Clamp(0.80f + 0.20f * affectedEnemies, 0.80f, 1.80f) * ResolveEventScalarMultiplier(ChillShot);
-
-    public static float OverreachEventScalar(float rangeNorm)
-        => (0.85f + 0.40f * Clamp(rangeNorm, 0f, 1.5f)) * ResolveEventScalarMultiplier(Overreach);
-
-    public static float HairTriggerEventScalar(float streakNorm)
-        => (0.70f + 0.30f * Clamp(streakNorm, 0f, 2f)) * ResolveEventScalarMultiplier(HairTrigger);
-
-    public static float SplitShotEventScalar(int extraHits)
-        => Clamp(0.70f + 0.15f * extraHits, 0.70f, 1.75f) * ResolveEventScalarMultiplier(SplitShot);
-
-    public static float FeedbackLoopEventScalar(float refundFrac)
-        => Clamp(0.90f + 1.20f * refundFrac, 0.90f, 2.00f) * ResolveEventScalarMultiplier(FeedbackLoop);
-
-    public static float ChainReactionEventScalar(int bounces)
-        => Clamp(0.75f + 0.18f * bounces, 0.75f, 1.85f) * ResolveEventScalarMultiplier(ChainReaction);
-
-    /// <summary>Scales with enemies hit by splash (more clustered enemies = higher spectacle payout).</summary>
-    public static float BlastCoreEventScalar(int splashHits)
-        => Clamp(0.70f + 0.22f * splashHits, 0.70f, 1.60f) * ResolveEventScalarMultiplier(BlastCore);
-
-    /// <summary>Scales with effective burn DPS delivered (higher burn = richer spectacle payout).</summary>
-    public static float WildfireEventScalar(float burnDpsScalar)
-        => Clamp(0.75f + 0.35f * Clamp(burnDpsScalar, 0f, 2f), 0.75f, 1.70f) * ResolveEventScalarMultiplier(Wildfire);
-
-    /// <summary>Scales with lives restored this wave (peak payout when Reaper is actively recovering HP).</summary>
-    public static float ReaperProtocolEventScalar(int livesRestoredThisWave)
-        => Clamp(0.80f + 0.25f * livesRestoredThisWave, 0.80f, 1.80f) * ResolveEventScalarMultiplier(ReaperProtocol);
-
-    private static float ResolveEventScalarMultiplier(string modifierId)
-        => MathF.Max(0f, SpectacleTuning.Current.ResolveEventScalarMultiplier(modifierId));
-
-    private static float Clamp01(float v) => Clamp(v, 0f, 1f);
-    private static float Clamp(float v, float min, float max) => MathF.Min(max, MathF.Max(min, v));
+            new SpectacleTriadAugmentDef($"T_AUG_{NormalizeModId(modifierId).ToUpperInvariant()}", GetDisplayName(modifierId), 0.15f, 1.5f, SpectacleAugmentKind.Area));
 
     private static string PairKey(string a, string b)
     {

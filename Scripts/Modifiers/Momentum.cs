@@ -38,9 +38,8 @@ public class Momentum : Modifier
         if (!ctx.IsChain)
             _lastTarget = ctx.Target;
 
-        float stackNorm = _stacks / (float)System.Math.Max(1, Core.Balance.MomentumMaxStacks);
-        float scalar = Core.SpectacleDefinitions.MomentumEventScalar(stackNorm);
-        Core.GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId, scalar, ctx.DamageDealt);
+        Core.GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId,
+            Core.SpectacleDefinitions.GetProcScalar(ModifierId), ctx.DamageDealt);
 
         // Only show proc visual when stacks are actively building (not on a reset to 1)
         return sameTarget || ctx.IsChain;

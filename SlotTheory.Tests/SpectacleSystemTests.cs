@@ -53,19 +53,19 @@ public class SpectacleSystemTests
 
     public static IEnumerable<object[]> AugmentExpectations()
     {
-        yield return new object[] { SpectacleDefinitions.Momentum, SpectacleAugmentKind.RampCap };
-        yield return new object[] { SpectacleDefinitions.Overkill, SpectacleAugmentKind.SpillTransfer };
-        yield return new object[] { SpectacleDefinitions.ExploitWeakness, SpectacleAugmentKind.MarkedVulnerability };
-        yield return new object[] { SpectacleDefinitions.FocusLens, SpectacleAugmentKind.BeamBurst };
-        yield return new object[] { SpectacleDefinitions.ChillShot, SpectacleAugmentKind.SlowIntensity };
-        yield return new object[] { SpectacleDefinitions.Overreach, SpectacleAugmentKind.RangePulse };
-        yield return new object[] { SpectacleDefinitions.HairTrigger, SpectacleAugmentKind.AttackSpeed };
-        yield return new object[] { SpectacleDefinitions.SplitShot, SpectacleAugmentKind.SplitVolley };
-        yield return new object[] { SpectacleDefinitions.FeedbackLoop, SpectacleAugmentKind.CooldownRefund };
-        yield return new object[] { SpectacleDefinitions.ChainReaction, SpectacleAugmentKind.ChainBounces };
-        yield return new object[] { SpectacleDefinitions.BlastCore, SpectacleAugmentKind.RangePulse };
-        yield return new object[] { SpectacleDefinitions.Wildfire, SpectacleAugmentKind.BurnAmplify };
-        yield return new object[] { SpectacleDefinitions.ReaperProtocol, SpectacleAugmentKind.ExecutionStrike };
+        yield return new object[] { SpectacleDefinitions.Momentum,       SpectacleAugmentKind.Reload };
+        yield return new object[] { SpectacleDefinitions.Overkill,       SpectacleAugmentKind.Area };
+        yield return new object[] { SpectacleDefinitions.ExploitWeakness,SpectacleAugmentKind.Strike };
+        yield return new object[] { SpectacleDefinitions.FocusLens,      SpectacleAugmentKind.Strike };
+        yield return new object[] { SpectacleDefinitions.ChillShot,      SpectacleAugmentKind.Area };
+        yield return new object[] { SpectacleDefinitions.Overreach,      SpectacleAugmentKind.Area };
+        yield return new object[] { SpectacleDefinitions.HairTrigger,    SpectacleAugmentKind.Reload };
+        yield return new object[] { SpectacleDefinitions.SplitShot,      SpectacleAugmentKind.Area };
+        yield return new object[] { SpectacleDefinitions.FeedbackLoop,   SpectacleAugmentKind.Reload };
+        yield return new object[] { SpectacleDefinitions.ChainReaction,  SpectacleAugmentKind.Area };
+        yield return new object[] { SpectacleDefinitions.BlastCore,      SpectacleAugmentKind.Area };
+        yield return new object[] { SpectacleDefinitions.Wildfire,       SpectacleAugmentKind.Area };
+        yield return new object[] { SpectacleDefinitions.ReaperProtocol, SpectacleAugmentKind.Strike };
     }
 
     public static IEnumerable<object[]> AugmentModIds()

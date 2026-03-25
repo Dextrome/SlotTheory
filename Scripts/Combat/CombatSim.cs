@@ -458,9 +458,9 @@ public class CombatSim
                             _state.TrackSpectacleChainDepth(bounces);
                             if (bounces > 0)
                             {
-                                float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(bounces);
                                 float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
-                                GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, chainEventDamage);
+                                GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction,
+                                    SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ChainReaction), chainEventDamage);
                             }
                         }
                         else
@@ -661,7 +661,8 @@ public class CombatSim
                 {
                     var ownerTower = _state.Slots[enemy.BurnOwnerSlotIndex].Tower;
                     if (ownerTower != null)
-                        GameController.Instance?.RegisterSpectacleProc(ownerTower, "wildfire", 1.2f, dealt);
+                        GameController.Instance?.RegisterSpectacleProc(ownerTower, "wildfire",
+                            SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.Wildfire), dealt);
                 }
 
                 // Damage numbers for burn ticks -- small scale to distinguish from primary hits.
@@ -728,7 +729,8 @@ public class CombatSim
                     {
                         var ownerTower = _state.Slots[trail.OwnerSlotIndex].Tower;
                         if (ownerTower != null)
-                            GameController.Instance?.RegisterSpectacleProc(ownerTower, "wildfire", 0.8f, dealt);
+                            GameController.Instance?.RegisterSpectacleProc(ownerTower, "wildfire",
+                            SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.Wildfire), dealt);
                     }
                 }
 
@@ -1263,10 +1265,8 @@ public class CombatSim
                     plantedMiniMines++;
             }
             if (plantedMiniMines > 0)
-            {
-                float splitScalar = SpectacleDefinitions.SplitShotEventScalar(plantedMiniMines);
-                GameController.Instance?.RegisterSpectacleProc(owner, SpectacleDefinitions.SplitShot, splitScalar, damage);
-            }
+                GameController.Instance?.RegisterSpectacleProc(owner, SpectacleDefinitions.SplitShot,
+                    SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.SplitShot), damage);
         }
 
         if (finalPop && mineChainDepth > 0)
@@ -1296,11 +1296,8 @@ public class CombatSim
                     chainSource: true,
                     chainHop: chainHop + 1,
                     forceFinalPop: true);
-                GameController.Instance?.RegisterSpectacleProc(
-                    owner,
-                    SpectacleDefinitions.ChainReaction,
-                    SpectacleDefinitions.ChainReactionEventScalar(1),
-                    damage);
+                GameController.Instance?.RegisterSpectacleProc(owner, SpectacleDefinitions.ChainReaction,
+                    SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ChainReaction), damage);
             }
         }
 
@@ -1377,10 +1374,8 @@ public class CombatSim
         _state.TrackSpectacleChainDepth(bounces);
 
         if (bounces > 0)
-        {
-            float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(bounces);
-            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, initialDamage);
-        }
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ChainReaction), initialDamage);
     }
 
     /// <summary>
@@ -1528,8 +1523,8 @@ public class CombatSim
 
         if (spawned > 0)
         {
-            float splitScalar = SpectacleDefinitions.SplitShotEventScalar(spawned);
-            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.SplitShot, splitScalar, splitDamage);
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.SplitShot,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.SplitShot), splitDamage);
         }
 
         return spawned;
@@ -1600,9 +1595,9 @@ public class CombatSim
         _state.TrackSpectacleChainDepth(bounces);
         if (bounces > 0)
         {
-            float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(bounces);
             float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
-            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, chainEventDamage);
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ChainReaction), chainEventDamage);
         }
 
         return bounces;
@@ -1649,9 +1644,9 @@ public class CombatSim
 
         if (bounces > 0)
         {
-            float chainScalar = SpectacleDefinitions.ChainReactionEventScalar(bounces);
             float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
-            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction, chainScalar, chainEventDamage);
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ChainReaction), chainEventDamage);
         }
     }
 
@@ -1663,8 +1658,8 @@ public class CombatSim
         if (spawned > 0)
         {
             float splitDamage = tower.BaseDamage * Balance.SplitShotDamageRatio;
-            float splitScalar = SpectacleDefinitions.SplitShotEventScalar(spawned);
-            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.SplitShot, splitScalar, splitDamage);
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.SplitShot,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.SplitShot), splitDamage);
         }
     }
 

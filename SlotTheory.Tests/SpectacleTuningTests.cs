@@ -189,9 +189,5 @@ public class SpectacleTuningTests
         var profile = new SpectacleTuningProfile();
 
         Assert.Equal(0.94f, profile.ResolveGainMultiplier(SpectacleDefinitions.ChainReaction), 3);
-        Assert.Equal(
-            profile.EventScalarMultiplier * 0.68f,
-            profile.ResolveEventScalarMultiplier(SpectacleDefinitions.ChainReaction),
-            3);
     }
 }

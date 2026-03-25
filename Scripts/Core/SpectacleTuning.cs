@@ -23,31 +23,14 @@ public sealed class SpectacleTuningProfile
     public float OverkillBloomDamageScaleMultiplier { get; set; } = 0.7532f;
     [JsonPropertyName("overkill_bloom_radius_multiplier")]
     public float OverkillBloomRadiusMultiplier { get; set; } = 0.9387f;
-    [JsonPropertyName("overkill_bloom_threshold_multiplier")]
-    public float OverkillBloomThresholdMultiplier { get; set; } = 1.0709f;
-    [JsonPropertyName("overkill_bloom_max_targets_multiplier")]
-    public float OverkillBloomMaxTargetsMultiplier { get; set; } = 1.0245f;
 
     [JsonPropertyName("detonation_max_targets_multiplier")]
     public float DetonationMaxTargetsMultiplier { get; set; } = 1.0799f;
-    [JsonPropertyName("detonation_stagger_multiplier")]
-    public float DetonationStaggerMultiplier { get; set; } = 0.9043f;
     [JsonPropertyName("status_detonation_damage_multiplier")]
     public float StatusDetonationDamageMultiplier { get; set; } = 1.2506f;
 
-    [JsonPropertyName("residue_duration_multiplier")]
-    public float ResidueDurationMultiplier { get; set; } = 1.2161f;
-    [JsonPropertyName("residue_potency_multiplier")]
-    public float ResiduePotencyMultiplier { get; set; } = 1.1563f;
     [JsonPropertyName("residue_damage_multiplier")]
     public float ResidueDamageMultiplier { get; set; } = 0.9283f;
-    [JsonPropertyName("residue_tick_interval_multiplier")]
-    public float ResidueTickIntervalMultiplier { get; set; } = 1f;
-    [JsonPropertyName("residue_max_active_multiplier")]
-    public float ResidueMaxActiveMultiplier { get; set; } = 0.9831f;
-
-    [JsonPropertyName("explosion_followup_damage_multiplier")]
-    public float ExplosionFollowUpDamageMultiplier { get; set; } = 0.9624f;
 
     [JsonPropertyName("meter_gain_multiplier")]
     public float MeterGainMultiplier { get; set; } = 1f;
@@ -69,10 +52,6 @@ public sealed class SpectacleTuningProfile
     public float InactivityDecayMultiplier { get; set; } = 1.2156f;
     [JsonPropertyName("copy_multiplier_scale")]
     public float CopyMultiplierScale { get; set; } = 0.8532f;
-    [JsonPropertyName("event_scalar_multiplier")]
-    public float EventScalarMultiplier { get; set; } = 1.0115f;
-    [JsonPropertyName("second_stage_power_threshold")]
-    public float SecondStagePowerThreshold { get; set; } = 0.95f;
     // Easy mode base difficulty (was hardcoded 1.0x; now tunable so optimizer can hit ~90% win target).
     [JsonPropertyName("easy_enemy_hp_multiplier")]
     public float EasyEnemyHpMultiplier { get; set; } = 1f;
@@ -151,17 +130,6 @@ public sealed class SpectacleTuningProfile
         ["blast_core"] = 0.88f,
     };
 
-    [JsonPropertyName("event_scalar_multipliers")]
-    public Dictionary<string, float> EventScalarMultipliers { get; set; } = new(StringComparer.Ordinal)
-    {
-        ["chain_reaction"] = 0.68f,
-        ["split_shot"]     = 1.2471f,
-        ["feedback_loop"]  = 0.9835f,
-        ["hair_trigger"]   = 0.7396f,
-        // Blast core: AoE kills amplify event intensity.
-        ["blast_core"]     = 1.15f,
-    };
-
     [JsonPropertyName("tower_meter_gain_multipliers")]
     public Dictionary<string, float> TowerMeterGainMultipliers { get; set; } = new(StringComparer.Ordinal)
     {
@@ -195,17 +163,9 @@ public sealed class SpectacleTuningProfile
         EnableResidue = true,
         OverkillBloomDamageScaleMultiplier = 1f,
         OverkillBloomRadiusMultiplier = 1f,
-        OverkillBloomThresholdMultiplier = 1f,
-        OverkillBloomMaxTargetsMultiplier = 1f,
         DetonationMaxTargetsMultiplier = 1f,
-        DetonationStaggerMultiplier = 1f,
         StatusDetonationDamageMultiplier = 1f,
-        ResidueDurationMultiplier = 1f,
-        ResiduePotencyMultiplier = 1f,
         ResidueDamageMultiplier = 1f,
-        ResidueTickIntervalMultiplier = 1f,
-        ResidueMaxActiveMultiplier = 1f,
-        ExplosionFollowUpDamageMultiplier = 1f,
         MeterGainMultiplier = 1f,
         SurgeThresholdMultiplier = 1f,
         SurgeCooldownMultiplier = 1f,
@@ -216,8 +176,6 @@ public sealed class SpectacleTuningProfile
         InactivityGraceMultiplier = 1f,
         InactivityDecayMultiplier = 1f,
         CopyMultiplierScale = 1f,
-        EventScalarMultiplier = 1f,
-        SecondStagePowerThreshold = 0.95f,
         EasyTankyCountMultiplier = 1f,
         EasySwiftCountMultiplier = 1f,
         EasySplitterCountMultiplier = 1f,
@@ -234,7 +192,6 @@ public sealed class SpectacleTuningProfile
         NormalShieldDroneCountMultiplier = 1f,
         HardShieldDroneCountMultiplier = 1f,
         GainMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
-        EventScalarMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
         TowerMeterGainMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
         TowerSurgeThresholdMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
     };
@@ -248,15 +205,6 @@ public sealed class SpectacleTuningProfile
         if (GainMultipliers.TryGetValue(normalized, out float specific))
             return MathF.Max(0f, specific);
         return 1f;
-    }
-
-    public float ResolveEventScalarMultiplier(string modifierId)
-    {
-        string normalized = SpectacleDefinitions.NormalizeModId(modifierId ?? string.Empty);
-        float global = MathF.Max(0f, EventScalarMultiplier);
-        if (EventScalarMultipliers.TryGetValue(normalized, out float specific))
-            return global * MathF.Max(0f, specific);
-        return global;
     }
 
     public float ResolveTowerMeterGainMultiplier(string towerId)
@@ -284,17 +232,9 @@ public sealed class SpectacleTuningProfile
             EnableResidue = EnableResidue,
             OverkillBloomDamageScaleMultiplier = MathF.Max(0f, OverkillBloomDamageScaleMultiplier),
             OverkillBloomRadiusMultiplier = MathF.Max(0.1f, OverkillBloomRadiusMultiplier),
-            OverkillBloomThresholdMultiplier = MathF.Max(0.1f, OverkillBloomThresholdMultiplier),
-            OverkillBloomMaxTargetsMultiplier = MathF.Max(0.1f, OverkillBloomMaxTargetsMultiplier),
             DetonationMaxTargetsMultiplier = MathF.Max(0.1f, DetonationMaxTargetsMultiplier),
-            DetonationStaggerMultiplier = MathF.Max(0.1f, DetonationStaggerMultiplier),
             StatusDetonationDamageMultiplier = MathF.Max(0f, StatusDetonationDamageMultiplier),
-            ResidueDurationMultiplier = MathF.Max(0.1f, ResidueDurationMultiplier),
-            ResiduePotencyMultiplier = MathF.Max(0.1f, ResiduePotencyMultiplier),
             ResidueDamageMultiplier = MathF.Max(0f, ResidueDamageMultiplier),
-            ResidueTickIntervalMultiplier = MathF.Max(0.2f, ResidueTickIntervalMultiplier),
-            ResidueMaxActiveMultiplier = MathF.Max(0.1f, ResidueMaxActiveMultiplier),
-            ExplosionFollowUpDamageMultiplier = MathF.Max(0f, ExplosionFollowUpDamageMultiplier),
             MeterGainMultiplier = MathF.Max(0f, MeterGainMultiplier),
             SurgeThresholdMultiplier = MathF.Max(0.05f, SurgeThresholdMultiplier),
             SurgeCooldownMultiplier = MathF.Max(0f, SurgeCooldownMultiplier),
@@ -305,8 +245,6 @@ public sealed class SpectacleTuningProfile
             InactivityGraceMultiplier = MathF.Max(0f, InactivityGraceMultiplier),
             InactivityDecayMultiplier = MathF.Max(0f, InactivityDecayMultiplier),
             CopyMultiplierScale = MathF.Max(0f, CopyMultiplierScale),
-            EventScalarMultiplier = MathF.Max(0f, EventScalarMultiplier),
-            SecondStagePowerThreshold = Math.Clamp(SecondStagePowerThreshold, 0.05f, 3f),
             EasyEnemyHpMultiplier = Math.Clamp(EasyEnemyHpMultiplier, 0.1f, 5f),
             EasyEnemyCountMultiplier = Math.Clamp(EasyEnemyCountMultiplier, 0.1f, 5f),
             EasySpawnIntervalMultiplier = Math.Clamp(EasySpawnIntervalMultiplier, 0.2f, 3f),
@@ -335,7 +273,6 @@ public sealed class SpectacleTuningProfile
             NormalShieldDroneCountMultiplier = Math.Clamp(NormalShieldDroneCountMultiplier, 0.1f, 5f),
             HardShieldDroneCountMultiplier = Math.Clamp(HardShieldDroneCountMultiplier, 0.1f, 5f),
             GainMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
-            EventScalarMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
             TowerMeterGainMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
             TowerSurgeThresholdMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
         };
@@ -344,11 +281,6 @@ public sealed class SpectacleTuningProfile
         {
             string normalized = SpectacleDefinitions.NormalizeModId(kv.Key);
             clone.GainMultipliers[normalized] = MathF.Max(0f, kv.Value);
-        }
-        foreach (var kv in EventScalarMultipliers)
-        {
-            string normalized = SpectacleDefinitions.NormalizeModId(kv.Key);
-            clone.EventScalarMultipliers[normalized] = MathF.Max(0f, kv.Value);
         }
         foreach (var kv in TowerMeterGainMultipliers)
         {

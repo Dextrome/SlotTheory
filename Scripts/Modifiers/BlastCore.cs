@@ -111,9 +111,8 @@ public class BlastCore : Modifier
 
         ctx.SplashDamageDealt += totalDealt;
 
-        // Spectacle: splash hit count drives the event scalar.
-        float scalar = SpectacleDefinitions.BlastCoreEventScalar(candidates.Count);
-        GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId, scalar, totalDealt);
+        GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId,
+            SpectacleDefinitions.GetProcScalar(ModifierId), totalDealt);
 
         // Notify GameController for visuals, stats, and callout. No-op in bot/headless mode.
         GameController.Instance?.NotifyBlastCoreSplash(ctx.Attacker, origin, splashDamage, candidates, radius);

@@ -4198,7 +4198,7 @@ void fragment() {
 
 		// ── Group 1: immediate - gameplay payload + center visuals + hitstop/slowmo ──
 		ApplyGlobalSurgeGameplayPayload(info);
-		SpawnSpectacleBurstFx(center, globalColor, major: true, power: 2.15f, stageTwoKick: true);
+		SpawnSpectacleBurstFx(center, globalColor, major: true, power: 2.15f);
 		SpawnGlobalSurgeRipples(center, rippleColors, Mathf.Max(2, info.UniqueContributors), lingerMultiplier: globalDurationScale);
 		FlashSpectacleScreen(globalColor, peakAlpha: flashAlpha, rampSec: 0.09f, fadeSec: 0.62f * globalDurationScale);
 		// Sustained archetype tint - low-alpha linger keyed to feel
@@ -5018,161 +5018,42 @@ void fragment() {
 
 		var tower = info.Tower;
 		EnemyInstance? primary = seededTargets.FirstOrDefault(IsEnemyUsable);
-		float durationBase = augment.DurationSec > 0f ? augment.DurationSec : (isMajor ? 1.8f : 1.2f);
 
 		switch (augment.Kind)
 		{
-			case SpectacleAugmentKind.RampCap:
-			{
-				ReduceTowerCooldown(tower, 0.08f + 0.34f * aug);
-				if (primary != null)
-				{
-					float dmg = tower.BaseDamage * (0.20f + 0.80f * aug);
-					ApplySpectacleDamage(tower, primary, dmg, accent, heavyHit: isMajor);
-				}
-				break;
-			}
-			case SpectacleAugmentKind.SpillTransfer:
-			{
-				if (primary == null) break;
-				float splash = tower.BaseDamage * (0.18f + 0.65f * aug);
-				float radius = 120f + 70f * aug;
-				var neighbors = GetSpectacleTargets(primary.GlobalPosition, radius, isMajor ? 3 : 2, preferFront: false)
-					.Where(e => !ReferenceEquals(e, primary))
-					.ToList();
-				for (int i = 0; i < neighbors.Count; i++)
-				{
-					float falloff = Mathf.Max(0.55f, 1f - i * 0.18f);
-					ApplySpectacleDamage(tower, neighbors[i], splash * falloff, accent, heavyHit: false);
-				}
-				break;
-			}
-			case SpectacleAugmentKind.MarkedVulnerability:
-			{
-				float markDuration = durationBase + 1.2f + 1.8f * aug;
-				foreach (var enemy in GetSpectacleTargets(tower.GlobalPosition, tower.Range * 1.15f, isMajor ? 4 : 3, preferFront: true))
-				{
-					bool marked = enemy.IsMarked;
-					Statuses.ApplyMarked(enemy, markDuration);
-					if (marked)
-					{
-						float vuln = tower.BaseDamage * (0.20f + 0.70f * aug);
-						ApplySpectacleDamage(tower, enemy, vuln, accent, heavyHit: false);
-					}
-				}
-				break;
-			}
-			case SpectacleAugmentKind.BeamBurst:
-			{
-				var beamTarget = primary
-					?? GetSpectacleTargets(tower.GlobalPosition, tower.Range * 1.45f, 1, preferFront: true).FirstOrDefault();
-				if (beamTarget != null)
-				{
-					float beam = tower.BaseDamage * (0.42f + 1.35f * aug);
-					SpawnSpectacleArc(tower.GlobalPosition, beamTarget.GlobalPosition, accent, intensity: 1.26f, mineChainStyle: true);
-					ApplySpectacleDamage(tower, beamTarget, beam, accent, heavyHit: true, triggerHitStopOnKill: isMajor);
-				}
-				break;
-			}
-			case SpectacleAugmentKind.SlowIntensity:
-			{
-				float slowDuration = durationBase + 1.0f + 1.8f * aug;
-				float slowFactor = Mathf.Clamp(0.82f - 0.62f * aug, 0.22f, 0.80f);
-				foreach (var enemy in GetSpectacleTargets(tower.GlobalPosition, tower.Range * 1.10f, isMajor ? 4 : 3, preferFront: true))
-					Statuses.ApplySlow(enemy, slowDuration, slowFactor);
-				break;
-			}
-			case SpectacleAugmentKind.RangePulse:
-			{
-				float pulse = tower.BaseDamage * (0.24f + 0.78f * aug);
-				float reach = Mathf.Max(320f, tower.Range * 1.48f);
-				var farTargets = _runState.EnemiesAlive
-					.Where(IsEnemyUsable)
-					.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= reach)
-					.OrderByDescending(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
-					.ThenByDescending(e => e.ProgressRatio)
-					.Take(isMajor ? 3 : 2)
-					.ToList();
-				for (int i = 0; i < farTargets.Count; i++)
-				{
-					float falloff = Mathf.Max(0.60f, 1f - i * 0.16f);
-					ApplySpectacleDamage(tower, farTargets[i], pulse * falloff, accent, heavyHit: false);
-				}
-				break;
-			}
-			case SpectacleAugmentKind.AttackSpeed:
-			{
-				ReduceTowerCooldown(tower, 0.12f + 0.42f * aug);
-				break;
-			}
-			case SpectacleAugmentKind.SplitVolley:
+			case SpectacleAugmentKind.Area:
 			{
 				Vector2 center = primary?.GlobalPosition ?? tower.GlobalPosition;
-				int extraCount = 2 + Mathf.FloorToInt(aug * 4f);
-				float volley = tower.BaseDamage * (0.18f + 0.52f * aug);
-				var extras = GetSpectacleTargets(center, Balance.SplitShotRange * 1.28f, extraCount, preferFront: false)
-					.Where(e => primary == null || !ReferenceEquals(e, primary))
-					.ToList();
-				for (int i = 0; i < extras.Count; i++)
+				float radius = Mathf.Max(tower.Range * 1.25f, 220f);
+				float pulse = tower.BaseDamage * (0.20f + 0.60f * aug);
+				var targets = GetSpectacleTargets(center, radius, isMajor ? 4 : 2, preferFront: false);
+				for (int i = 0; i < targets.Count; i++)
 				{
-					float falloff = Mathf.Max(0.64f, 1f - i * 0.12f);
-					SpawnSpectacleArc(center, extras[i].GlobalPosition, accent, intensity: 0.90f + i * 0.05f);
-					ApplySpectacleDamage(tower, extras[i], volley * falloff, accent, heavyHit: false);
+					float falloff = Mathf.Max(0.55f, 1f - i * 0.18f);
+					SpawnSpectacleArc(center, targets[i].GlobalPosition, accent, intensity: 0.85f);
+					ApplySpectacleDamage(tower, targets[i], pulse * falloff, accent, heavyHit: false);
 				}
 				break;
 			}
-			case SpectacleAugmentKind.CooldownRefund:
+			case SpectacleAugmentKind.Strike:
 			{
-				// Matches the spec behavior: refund X% of current cooldown where X = augmentStrength.
-				ReduceTowerCooldown(tower, aug);
-				break;
-			}
-			case SpectacleAugmentKind.ChainBounces:
-			{
-				if (primary == null) break;
-				int bounces = 1 + Mathf.FloorToInt(aug * 4f);
-				float chain = tower.BaseDamage * (0.20f + 0.70f * aug);
-				ApplySpectacleChain(
-					tower,
-					primary,
-					maxBounces: bounces,
-					startDamage: chain,
-					decay: 0.74f,
-					linkRange: Mathf.Max(220f, tower.ChainRange * 1.08f),
-					accent,
-					heavy: isMajor);
-				break;
-			}
-			case SpectacleAugmentKind.ExecutionStrike:
-			{
-				// Heavy spike on the lowest-HP enemy in extended range; grants +1 life if it kills.
-				float reach = Mathf.Max(tower.Range * 1.30f, 280f);
-				var execTarget = _runState.EnemiesAlive
-					.Where(e => IsEnemyUsable(e) && tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= reach)
-					.OrderBy(e => e.Hp)
-					.FirstOrDefault();
-				if (execTarget == null) break;
-				float execDmg = tower.BaseDamage * (0.55f + 1.60f * aug);
-				SpawnSpectacleArc(tower.GlobalPosition, execTarget.GlobalPosition, accent, intensity: 1.28f, mineChainStyle: true);
-				ApplySpectacleDamage(tower, execTarget, execDmg, accent, heavyHit: true, triggerHitStopOnKill: isMajor);
-				if (execTarget.Hp <= 0f)
-					NotifyReaperProtocolKill(tower);
-				break;
-			}
-			case SpectacleAugmentKind.BurnAmplify:
-			{
-				// Flame Surge: chip + slow to enemies in range, scaled by augment strength.
-				float radius = Mathf.Max(tower.Range * 1.20f, 240f);
-				float chip   = tower.BaseDamage * (0.12f + 0.30f * aug);
-				var targets  = _runState.EnemiesAlive
-					.Where(e => IsEnemyUsable(e) && tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= radius)
-					.Take(isMajor ? 4 : 2)
-					.ToList();
-				foreach (var enemy in targets)
+				var target = primary
+					?? GetSpectacleTargets(tower.GlobalPosition, tower.Range * 1.45f, 1, preferFront: true).FirstOrDefault();
+				if (target != null)
 				{
-					Statuses.ApplySlow(enemy, 2.5f + 1.5f * aug, 0.75f);
-					SpawnSpectacleArc(tower.GlobalPosition, enemy.GlobalPosition, accent, intensity: 0.80f);
-					ApplySpectacleDamage(tower, enemy, chip, accent, heavyHit: false);
+					float beam = tower.BaseDamage * (0.40f + 1.30f * aug);
+					SpawnSpectacleArc(tower.GlobalPosition, target.GlobalPosition, accent, intensity: 1.25f, mineChainStyle: true);
+					ApplySpectacleDamage(tower, target, beam, accent, heavyHit: true, triggerHitStopOnKill: isMajor);
+				}
+				break;
+			}
+			case SpectacleAugmentKind.Reload:
+			{
+				ReduceTowerCooldown(tower, 0.10f + 0.36f * aug);
+				if (primary != null && tower.Cooldown <= Mathf.Max(0.06f, tower.AttackInterval * 0.10f))
+				{
+					float follow = tower.BaseDamage * (0.18f + 0.60f * aug);
+					ApplySpectacleDamage(tower, primary, follow, accent, heavyHit: false);
 				}
 				break;
 			}
@@ -5258,8 +5139,6 @@ void fragment() {
 		SpectacleDamageSource source = SpectacleDamageSource.SurgeCore)
 	{
 		float tunedDamage = damage;
-		if (source == SpectacleDamageSource.ExplosionFollowUp || source == SpectacleDamageSource.Residue)
-			tunedDamage *= Mathf.Max(0f, SpectacleTuning.Current.ExplosionFollowUpDamageMultiplier);
 		if (source == SpectacleDamageSource.Residue)
 			tunedDamage *= Mathf.Max(0f, SpectacleTuning.Current.ResidueDamageMultiplier);
 
@@ -5331,12 +5210,7 @@ void fragment() {
 				profile.VisualRadius * 0.82f,
 				accent,
 				maxTargets: Mathf.Clamp(3 + Mathf.FloorToInt(profile.OverflowVisualT * 4f), 3, 7));
-			SpawnSpectacleBurstFx(
-				origin,
-				accent,
-				major: true,
-				power: profile.BloomPower,
-				stageTwoKick: profile.StageTwoKick);
+			SpawnSpectacleBurstFx(origin, accent, major: true);
 			FlashSpectacleScreen(accent, peakAlpha: 0.09f + profile.OverflowVisualT * 0.06f, rampSec: 0.03f, fadeSec: 0.16f);
 			if (profile.BloomDamage >= 30f && TryCombatCallout("overkill_bloom", 5.2f))
 				SpawnCombatCallout("OVERKILL BLOOM", origin, accent, durationScale: 1.35f);
@@ -5992,10 +5866,10 @@ void fragment() {
 		}
 	}
 
-	private void SpawnSpectacleBurstFx(Vector2 worldPos, Color accent, bool major, float power = 1f, bool stageTwoKick = false)
+	private void SpawnSpectacleBurstFx(Vector2 worldPos, Color accent, bool major, float power = 1f)
 	{
 		bool mobileLite = IsMobileSpectacleLite();
-		bool emitSecondStage = SpectacleExplosionCore.ShouldEmitSecondStage(major, power)
+		bool emitSecondStage = SpectacleExplosionCore.ShouldEmitSecondStage(major)
 			&& (!mobileLite || major);
 		_runState?.TrackSpectacleExplosionBurst();
 		AppendBotTraceEvent(
@@ -6047,12 +5921,7 @@ void fragment() {
 			float stageTwoIntensity = intensity * (major ? 1.15f : 1.03f);
 			stageTwo.Initialize(stageTwoAccent, chainPop: true, intensity: stageTwoIntensity);
 
-			if (stageTwoKick && !reducedMotion && !mobileLite)
-			{
-				ShakeWorldMicro();
-				SoundManager.Instance?.Play("mine_chain_pop", pitchScale: major ? 0.92f : 0.98f);
 			}
-		}
 
 		if (reducedMotion)
 		{
@@ -6502,7 +6371,7 @@ void fragment() {
 
 		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
 		int baseMaxResidues = reducedMotion ? 7 : 12;
-		int maxResidues = Mathf.Max(1, Mathf.RoundToInt(baseMaxResidues * Mathf.Max(0.1f, SpectacleTuning.Current.ResidueMaxActiveMultiplier)));
+		int maxResidues = baseMaxResidues;
 		while (_explosionResidues.Count >= maxResidues)
 		{
 			ExplosionResidueState evicted = _explosionResidues[0];
@@ -6516,9 +6385,7 @@ void fragment() {
 			Origin = origin,
 			Radius = profile.Radius,
 			Remaining = profile.DurationSeconds,
-			TickInterval = Mathf.Max(
-				0.06f,
-				profile.TickIntervalSeconds * Mathf.Max(0.2f, SpectacleTuning.Current.ResidueTickIntervalMultiplier)),
+			TickInterval = Mathf.Max(0.06f, profile.TickIntervalSeconds),
 			TickRemaining = 0f,
 			Potency = profile.Potency,
 			Accent = accent,
@@ -6785,8 +6652,7 @@ void fragment() {
 				worldPos,
 				spillColor,
 				major: spillDamage >= 42f,
-				power: 0.86f + spillT * 0.72f,
-				stageTwoKick: spillDamage >= 34f);
+				power: 0.86f + spillT * 0.72f);
 		}
 
 		if (spillDamage < 34f) return;
@@ -6830,8 +6696,7 @@ void fragment() {
 			origin,
 			markColor,
 			major: false,
-			power: 0.92f + Mathf.Clamp(nearby.Count * 0.06f, 0f, 0.42f),
-			stageTwoKick: nearby.Count >= 3);
+			power: 0.92f + Mathf.Clamp(nearby.Count * 0.06f, 0f, 0.42f));
 
 		float baseDamage = sourceTower.BaseDamage * 0.24f;
 		for (int i = 0; i < nearby.Count; i++)

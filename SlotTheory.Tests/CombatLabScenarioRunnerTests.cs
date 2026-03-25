@@ -64,7 +64,7 @@ public class CombatLabScenarioRunnerTests
                 MajorSurges = 1,
                 StatusDetonationsMin = 4,
                 StatusDetonationsMax = 5,
-                ResidueCount = 3,
+                ResidueCount = 1,
                 MaxSimultaneousDetonations = 1,
             },
         };

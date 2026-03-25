@@ -65,13 +65,11 @@ public class SpectacleExplosionCoreTests
     }
 
     [Theory]
-    [InlineData(false, 0.94f, false)]
-    [InlineData(false, 0.95f, true)]
-    [InlineData(false, 1.25f, true)]
-    [InlineData(true, 0.10f, true)]
-    public void ShouldEmitSecondStage_FollowsMajorOrPowerRule(bool major, float power, bool expected)
+    [InlineData(false, false)]
+    [InlineData(true, true)]
+    public void ShouldEmitSecondStage_FollowsMajorFlag(bool major, bool expected)
     {
-        bool result = SpectacleExplosionCore.ShouldEmitSecondStage(major, power);
+        bool result = SpectacleExplosionCore.ShouldEmitSecondStage(major);
         Assert.Equal(expected, result);
     }
 
@@ -103,20 +101,20 @@ public class SpectacleExplosionCoreTests
     }
 
     [Fact]
-    public void GlobalSurgeWaveTiming_WaveSpeedScalesWithContributors()
+    public void GlobalSurgeWaveTiming_UsesFixedAverageSpeed()
     {
-        GlobalSurgeWaveTiming low = SpectacleExplosionCore.ResolveGlobalSurgeWaveTiming(
+        GlobalSurgeWaveTiming a = SpectacleExplosionCore.ResolveGlobalSurgeWaveTiming(
             distance: 200f,
             contributors: 1,
             reducedMotion: false);
-        GlobalSurgeWaveTiming high = SpectacleExplosionCore.ResolveGlobalSurgeWaveTiming(
+        GlobalSurgeWaveTiming b = SpectacleExplosionCore.ResolveGlobalSurgeWaveTiming(
             distance: 200f,
             contributors: 10,
             reducedMotion: false);
 
-        Assert.True(high.WaveSpeed > low.WaveSpeed);
-        Assert.Equal(SpectacleExplosionCore.GlobalSurgeWaveSpeedMin, low.WaveSpeed, 3);
-        Assert.Equal(SpectacleExplosionCore.GlobalSurgeWaveSpeedMax, high.WaveSpeed, 3);
+        float expectedSpeed = (SpectacleExplosionCore.GlobalSurgeWaveSpeedMin + SpectacleExplosionCore.GlobalSurgeWaveSpeedMax) * 0.5f;
+        Assert.Equal(expectedSpeed, a.WaveSpeed, 3);
+        Assert.Equal(a.WaveSpeed, b.WaveSpeed, 3); // contributors no longer affect speed
     }
 
     [Theory]
@@ -164,11 +162,11 @@ public class SpectacleExplosionCoreTests
     }
 
     [Theory]
-    [InlineData(ComboExplosionSkin.ChillShatter, false, 0, true, ExplosionResidueKind.FrostSlow, SpectacleExplosionCore.ResidueFrostSlowDurationSeconds)]
-    [InlineData(ComboExplosionSkin.SplitShrapnel, false, 0, true, ExplosionResidueKind.BurnPatch, SpectacleExplosionCore.ResidueBurnDurationSeconds)]
+    [InlineData(ComboExplosionSkin.ChillShatter, false, 0, true, ExplosionResidueKind.VulnerabilityZone, SpectacleExplosionCore.ResidueVulnerabilityDurationSeconds)]
+    [InlineData(ComboExplosionSkin.SplitShrapnel, false, 0, true, ExplosionResidueKind.VulnerabilityZone, SpectacleExplosionCore.ResidueVulnerabilityDurationSeconds)]
     [InlineData(ComboExplosionSkin.ChainArc, false, 0, true, ExplosionResidueKind.VulnerabilityZone, SpectacleExplosionCore.ResidueVulnerabilityDurationSeconds)]
-    [InlineData(ComboExplosionSkin.Default, false, 0, false, ExplosionResidueKind.None, 0f)]
-    public void ResolveResidueProfile_MapsExplosionFamilyToExpectedResidue(
+    [InlineData(ComboExplosionSkin.Default, false, 0, true, ExplosionResidueKind.VulnerabilityZone, SpectacleExplosionCore.ResidueVulnerabilityDurationSeconds)]
+    public void ResolveResidueProfile_AlwaysVulnerabilityZone_SkippedOnlyByChainIndexOrDisabledFlag(
         ComboExplosionSkin skin,
         bool globalSurge,
         int chainIndex,
@@ -188,27 +186,27 @@ public class SpectacleExplosionCoreTests
     }
 
     [Fact]
-    public void ResolveResidueProfile_UsesChainStrideToAvoidVisualClutter()
+    public void ResolveResidueProfile_NonGlobalChainIndexAboveZeroSkipsResidue()
     {
-        ExplosionResidueProfile nonGlobalSkip = SpectacleExplosionCore.ResolveResidueProfile(
+        ExplosionResidueProfile nonGlobalChain = SpectacleExplosionCore.ResolveResidueProfile(
             ComboExplosionSkin.ChainArc,
             globalSurge: false,
             surgePower: 1.0f,
             chainIndex: 1);
-        ExplosionResidueProfile nonGlobalSpawn = SpectacleExplosionCore.ResolveResidueProfile(
-            ComboExplosionSkin.ChainArc,
-            globalSurge: false,
-            surgePower: 1.0f,
-            chainIndex: 3);
-        ExplosionResidueProfile globalSpawn = SpectacleExplosionCore.ResolveResidueProfile(
+        ExplosionResidueProfile globalChain = SpectacleExplosionCore.ResolveResidueProfile(
             ComboExplosionSkin.ChainArc,
             globalSurge: true,
             surgePower: 1.0f,
             chainIndex: 2);
+        ExplosionResidueProfile nonGlobalZero = SpectacleExplosionCore.ResolveResidueProfile(
+            ComboExplosionSkin.ChainArc,
+            globalSurge: false,
+            surgePower: 1.0f,
+            chainIndex: 0);
 
-        Assert.False(nonGlobalSkip.ShouldSpawn);
-        Assert.True(nonGlobalSpawn.ShouldSpawn);
-        Assert.True(globalSpawn.ShouldSpawn);
+        Assert.False(nonGlobalChain.ShouldSpawn);
+        Assert.True(globalChain.ShouldSpawn);
+        Assert.True(nonGlobalZero.ShouldSpawn);
     }
 
     [Fact]
@@ -312,13 +310,13 @@ public class SpectacleExplosionCoreTests
     }
 
     [Fact]
-    public void ResolveLargeSurgeAfterimageStrength_OnlyTriggersForLargeOrGlobalMajorExplosions()
+    public void ResolveLargeSurgeAfterimageStrength_ZeroForNonMajor_HalfForMajorNonGlobal_FullForGlobal()
     {
-        float none = SpectacleExplosionCore.ResolveLargeSurgeAfterimageStrength(
+        float nonMajor = SpectacleExplosionCore.ResolveLargeSurgeAfterimageStrength(
             majorExplosion: false,
             globalSurge: false,
             surgePower: 2.0f);
-        float belowThreshold = SpectacleExplosionCore.ResolveLargeSurgeAfterimageStrength(
+        float majorNonGlobal = SpectacleExplosionCore.ResolveLargeSurgeAfterimageStrength(
             majorExplosion: true,
             globalSurge: false,
             surgePower: 1.2f);
@@ -327,8 +325,8 @@ public class SpectacleExplosionCoreTests
             globalSurge: true,
             surgePower: 1.0f);
 
-        Assert.Equal(0f, none, 3);
-        Assert.Equal(0f, belowThreshold, 3);
-        Assert.True(global > 0f);
+        Assert.Equal(0f, nonMajor, 3);
+        Assert.Equal(0.5f, majorNonGlobal, 3);
+        Assert.Equal(1.0f, global, 3);
     }
 }
