@@ -224,14 +224,16 @@ public class ModifierTests
     [Fact]
     public void Overkill_OnKill_SpillsExcessDamageToNextEnemy()
     {
+        var overkill = new Overkill(Def("overkill"));
         var tower = new FakeTower();
+        tower.Modifiers.Add(overkill); // overkillCount must be >= 1 for spill to fire
         var primary = new FakeEnemy { Hp = -40f, ProgressRatio = 0.5f }; // overkill by 40
         var next = new FakeEnemy { Hp = 100f, ProgressRatio = 0.3f };
         var enemies = new List<IEnemyView> { next };
 
-        new Overkill(Def("overkill")).OnKill(new DamageContext(tower, primary, 0, enemies));
+        overkill.OnKill(new DamageContext(tower, primary, 0, enemies));
 
-        // 40 * 0.60 = 24 spill damage
+        // 40 * OverkillSpillEfficiency spill damage
         Assert.Equal(100f - 40f * Balance.OverkillSpillEfficiency, next.Hp, precision: 2);
     }
 
