@@ -74,17 +74,21 @@
                                      "blast_core":  1
                                  },
     "tower_meter_gain_multipliers":  {
-                                         "rapid_shooter":  1,
-                                         "heavy_cannon":  1,
-                                         "marker_tower":  1,
-                                         "chain_tower":  1,
-                                         "rift_prism":  1
+                                         "rapid_shooter":  0.40,
+                                         "heavy_cannon":  3.50,
+                                         "marker_tower":  0.70,
+                                         "chain_tower":  1.20,
+                                         "rift_prism":  1.50,
+                                         "phase_splitter":  0.75,
+                                         "accordion_engine":  3.00
                                      },
     "tower_surge_threshold_multipliers":  {
-                                              "rapid_shooter":  1,
-                                              "heavy_cannon":  1,
-                                              "marker_tower":  1,
-                                              "chain_tower":  1,
-                                              "rift_prism":  1
+                                              "rapid_shooter":  1.50,
+                                              "heavy_cannon":  0.50,
+                                              "marker_tower":  1.00,
+                                              "chain_tower":  0.90,
+                                              "rift_prism":  0.90,
+                                              "phase_splitter":  1.00,
+                                              "accordion_engine":  0.55
                                           }
 }
