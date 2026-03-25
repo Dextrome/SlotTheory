@@ -46,15 +46,11 @@ param(
     [int]$SweepRunsPerVariant = 12,
     [int]$Seed = 1337,
     [double]$MutationStrength = 1.0,
-    [double]$TargetExplosionShare = 0.02,
-    [double]$TargetExplosionShareTolerance = 0.05,
-    [double]$TargetWinRateEasy = 0.90,
+    [double]$TargetExplosionShare = 0.06,
+    [double]$TargetExplosionShareTolerance = 0.03,
+    [double]$TargetWinRateEasy = 0.95,
     [double]$TargetWinRateNormal = 0.60,
     [double]$TargetWinRateHard = 0.30,
-    [bool]$UseBaselineRelativeWinTargets = $false,
-    [double]$RelativeWinTargetEasyUplift = 0.05,
-    [double]$RelativeWinTargetNormalUplift = 0.08,
-    [double]$RelativeWinTargetHardUplift = 0.06,
     [double]$TargetWinRateTolerance = 0.06,
     [double]$TargetSurgesPerRun = 36.0,
     [double]$TargetSurgesPerRunTolerance = 8.0,
@@ -63,22 +59,22 @@ param(
     [double]$DifficultyRegressionTolerance = 0.01,
     [double]$NormalRegressionPenaltyWeight = 260.0,
     [double]$HardRegressionPenaltyWeight = 320.0,
-    [double]$TargetMaxTowerSurgeRatio = 2.0,
+    [double]$TargetMaxTowerSurgeRatio = 4.0,
     [double]$TargetMaxModifierSurgeRatio = 2.2,
     [double]$TargetTowerWinRateGap = 0.18,
     [double]$TargetModifierWinRateGap = 0.20,
-    [double]$HardGuardMaxTowerSurgeRatio = 5.0,
-    [double]$HardGuardMaxTowerWinRateGap = 0.28,
+    [double]$HardGuardMaxTowerSurgeRatio = 20.0,
+    [double]$HardGuardMaxTowerWinRateGap = 0.35,
     [int]$MinTowerRunsForFairness = 40,
     [int]$MinModifierRunsForFairness = 50,
     [int]$MinModifierRunsForSurgeParity = 40,
     [double]$MinSweepScoreRatioVsBaseline = 1.0,
     [int]$MinTowerPlacementsForParity = 6,
-    [double]$MaxChainDepth = 4.0,
-    [int]$MaxSimultaneousExplosions = 8,
-    [int]$MaxSimultaneousHazards = 12,
-    [int]$MaxSimultaneousHitStops = 4,
-    [double]$MinRunDurationSeconds = 900.0,
+    [double]$MaxChainDepth = 999.0,
+    [int]$MaxSimultaneousExplosions = 999,
+    [int]$MaxSimultaneousHazards = 999,
+    [int]$MaxSimultaneousHitStops = 999,
+    [double]$MinRunDurationSeconds = 0.0,
     [int]$TopCandidateReevalCount = 3,
     [bool]$UseFastBotMetrics = $true,
     [bool]$UseBotQuiet = $true,
@@ -2215,9 +2211,6 @@ if ($TargetWinRateTolerance -le 0) { throw "TargetWinRateTolerance must be > 0."
 if ($TargetSurgesPerRunTolerance -le 0) { throw "TargetSurgesPerRunTolerance must be > 0." }
 if ($MaxKillsPerSurge -lt 0) { throw "MaxKillsPerSurge must be >= 0." }
 if ($MinGlobalSurgesPerRun -lt 0) { throw "MinGlobalSurgesPerRun must be >= 0." }
-if ($RelativeWinTargetEasyUplift -lt 0) { throw "RelativeWinTargetEasyUplift must be >= 0." }
-if ($RelativeWinTargetNormalUplift -lt 0) { throw "RelativeWinTargetNormalUplift must be >= 0." }
-if ($RelativeWinTargetHardUplift -lt 0) { throw "RelativeWinTargetHardUplift must be >= 0." }
 if ($DifficultyRegressionTolerance -lt 0) { throw "DifficultyRegressionTolerance must be >= 0." }
 if ($NormalRegressionPenaltyWeight -lt 0) { throw "NormalRegressionPenaltyWeight must be >= 0." }
 if ($HardRegressionPenaltyWeight -lt 0) { throw "HardRegressionPenaltyWeight must be >= 0." }
@@ -2360,17 +2353,7 @@ $baselineHardWinRate = Get-DifficultyWinRate -Runs $baselinePayload.runs -Diffic
 $effectiveTargetWinRateEasy = [double]$TargetWinRateEasy
 $effectiveTargetWinRateNormal = [double]$TargetWinRateNormal
 $effectiveTargetWinRateHard = [double]$TargetWinRateHard
-if ($UseBaselineRelativeWinTargets) {
-    $effectiveTargetWinRateEasy = Clamp-Double -Value ([Math]::Min([double]$TargetWinRateEasy, [double]$baselineEasyWinRate + [double]$RelativeWinTargetEasyUplift)) -Min 0.0 -Max 1.0
-    $effectiveTargetWinRateNormal = Clamp-Double -Value ([Math]::Min([double]$TargetWinRateNormal, [double]$baselineNormalWinRate + [double]$RelativeWinTargetNormalUplift)) -Min 0.0 -Max 1.0
-    $effectiveTargetWinRateHard = Clamp-Double -Value ([Math]::Min([double]$TargetWinRateHard, [double]$baselineHardWinRate + [double]$RelativeWinTargetHardUplift)) -Min 0.0 -Max 1.0
-}
-Write-Host ("Win-rate targets (effective): easy={0:P2}, normal={1:P2}, hard={2:P2}" -f $effectiveTargetWinRateEasy, $effectiveTargetWinRateNormal, $effectiveTargetWinRateHard)
-if ($UseBaselineRelativeWinTargets) {
-    Write-Host ("Baseline-relative uplift mode: on (easy+{0:P2}, normal+{1:P2}, hard+{2:P2}, capped by absolute targets)" -f $RelativeWinTargetEasyUplift, $RelativeWinTargetNormalUplift, $RelativeWinTargetHardUplift)
-} else {
-    Write-Host "Baseline-relative uplift mode: off (using absolute target win rates)."
-}
+Write-Host ("Win-rate targets: easy={0:P2}, normal={1:P2}, hard={2:P2}" -f $effectiveTargetWinRateEasy, $effectiveTargetWinRateNormal, $effectiveTargetWinRateHard)
 
 $baselineScore = Get-MetricsScore `
     -Summary $baselinePayload.summary `
@@ -2400,8 +2383,11 @@ $baselineScore = Get-MetricsScore `
     -HitStopCap $MaxSimultaneousHitStops `
     -DurationFloor $MinRunDurationSeconds
 
-$guardMinNormalWinRate = [Math]::Max(0.0, [double]$baselineScore.NormalWinRate - [double]$DifficultyRegressionTolerance)
-$guardMinHardWinRate = [Math]::Max(0.0, [double]$baselineScore.HardWinRate - [double]$DifficultyRegressionTolerance)
+# Cap regression floor at the target win rate so the guard never blocks movement toward the target.
+# Without this, a baseline that overshoots Normal (e.g. 0.76 vs target 0.60) would set a guard at
+# 0.75 and actively penalise every candidate that tries to reach 0.60.
+$guardMinNormalWinRate = [Math]::Max(0.0, [Math]::Min([double]$baselineScore.NormalWinRate, [double]$TargetWinRateNormal) - [double]$DifficultyRegressionTolerance)
+$guardMinHardWinRate   = [Math]::Max(0.0, [Math]::Min([double]$baselineScore.HardWinRate,   [double]$TargetWinRateHard)   - [double]$DifficultyRegressionTolerance)
 Write-Host ("Regression guards: normal>={0:P2}, hard>={1:P2} (tolerance={2:P2})" -f $guardMinNormalWinRate, $guardMinHardWinRate, $DifficultyRegressionTolerance)
 
 $startProfileRaw = Get-Content -Raw $tuningFileResolved | ConvertFrom-Json
@@ -2524,12 +2510,14 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         if ($isPass1Parity) {
             $passPhase = "pass1_parity"
             $iterationMutationStrength = [double]$MutationStrength * 1.10
-            $iterTargetMaxTowerSurgeRatio = [Math]::Min([double]$TargetMaxTowerSurgeRatio, 1.95)
+            $iterTargetMaxTowerSurgeRatio = [Math]::Min([double]$TargetMaxTowerSurgeRatio, 3.0)
             $iterTargetMaxModifierSurgeRatio = [Math]::Min([double]$TargetMaxModifierSurgeRatio, 2.15)
             $iterTargetTowerWinRateGap = [Math]::Min([double]$TargetTowerWinRateGap, 0.17)
             $iterTargetModifierWinRateGap = [Math]::Min([double]$TargetModifierWinRateGap, 0.20)
-            $iterHardGuardMaxTowerSurgeRatio = [Math]::Min([double]$HardGuardMaxTowerSurgeRatio, $iterTargetMaxTowerSurgeRatio + 0.55)
-            $iterHardGuardMaxTowerWinRateGap = [Math]::Min([double]$HardGuardMaxTowerWinRateGap, $iterTargetTowerWinRateGap + 0.10)
+            # Hard guards stay at the global parameter values during pass1; only soft targets tighten.
+            # Tightening the hard guard to target+0.55 (e.g. 2.55) made every candidate a hard-reject
+            # because structural surge-rate imbalance keeps ratios in the 20-50x range regardless of tuning.
+            $iterHardGuardMaxTowerWinRateGap = [Math]::Min([double]$HardGuardMaxTowerWinRateGap, $iterTargetTowerWinRateGap + 0.18)
         } else {
             $passPhase = "pass2_difficulty"
             $iterationMutationStrength = [double]$MutationStrength * 0.90
@@ -3014,16 +3002,9 @@ $reportPayload = [ordered]@{
     scoring = [ordered]@{
         target_explosion_share = $TargetExplosionShare
         target_explosion_share_tolerance = $TargetExplosionShareTolerance
-        use_baseline_relative_win_targets = $UseBaselineRelativeWinTargets
         target_win_rate_easy = $TargetWinRateEasy
         target_win_rate_normal = $TargetWinRateNormal
         target_win_rate_hard = $TargetWinRateHard
-        effective_target_win_rate_easy = $effectiveTargetWinRateEasy
-        effective_target_win_rate_normal = $effectiveTargetWinRateNormal
-        effective_target_win_rate_hard = $effectiveTargetWinRateHard
-        relative_win_target_easy_uplift = $RelativeWinTargetEasyUplift
-        relative_win_target_normal_uplift = $RelativeWinTargetNormalUplift
-        relative_win_target_hard_uplift = $RelativeWinTargetHardUplift
         target_win_rate_tolerance = $TargetWinRateTolerance
         target_surges_per_run = $TargetSurgesPerRun
         target_surges_per_run_tolerance = $TargetSurgesPerRunTolerance

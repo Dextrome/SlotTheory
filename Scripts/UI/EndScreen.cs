@@ -66,16 +66,27 @@ public partial class EndScreen : CanvasLayer
 		bg.Color = new Color(0f, 0f, 0f, BackgroundOverlayAlpha);
 		root.AddChild(bg);
 
+		var mainLayout = new VBoxContainer();
+		mainLayout.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		root.AddChild(mainLayout);
+
 		var scroll = new ScrollContainer();
-		scroll.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		scroll.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
 		scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
 		scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
 		TouchScrollHelper.EnableDragScroll(scroll);
-		root.AddChild(scroll);
+		mainLayout.AddChild(scroll);
 
 		var center = new CenterContainer();
-		center.CustomMinimumSize = GetViewport().GetVisibleRect().Size;
+		center.CustomMinimumSize = new Vector2(GetViewport().GetVisibleRect().Size.X, 0f);
 		scroll.AddChild(center);
+
+		var footer = new MarginContainer();
+		footer.AddThemeConstantOverride("margin_left", 16);
+		footer.AddThemeConstantOverride("margin_right", 16);
+		footer.AddThemeConstantOverride("margin_top", 8);
+		footer.AddThemeConstantOverride("margin_bottom", 12);
+		mainLayout.AddChild(footer);
 
 		_vbox = new VBoxContainer();
 		_vbox.AddThemeConstantOverride("separation", 14);
@@ -169,10 +180,9 @@ public partial class EndScreen : CanvasLayer
 		_goalLabel.Visible = false;
 		vbox.AddChild(_goalLabel);
 
-		// Shared button stack (slightly lifted so footer actions fit on shorter viewports).
+		// Shared button stack - lives in the sticky footer, always on-screen.
 		_buttonBlock = new MarginContainer();
-		_buttonBlock.AddThemeConstantOverride("margin_top", -14);
-		vbox.AddChild(_buttonBlock);
+		footer.AddChild(_buttonBlock);
 
 		var buttonStack = new VBoxContainer();
 		buttonStack.AddThemeConstantOverride("separation", 14);

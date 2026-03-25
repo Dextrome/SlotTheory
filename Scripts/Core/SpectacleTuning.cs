@@ -133,23 +133,25 @@ public sealed class SpectacleTuningProfile
     [JsonPropertyName("tower_meter_gain_multipliers")]
     public Dictionary<string, float> TowerMeterGainMultipliers { get; set; } = new(StringComparer.Ordinal)
     {
-        ["rapid_shooter"] = 0.7929f,
-        ["heavy_cannon"] = 1.0601f,
-        ["marker_tower"] = 1f,
-        ["chain_tower"] = 0.96f,
-        ["rift_prism"] = 1.091f,
-        ["phase_splitter"] = 1f,
+        ["rapid_shooter"]    = 0.40f,   // fires 4+/s: heavy per-hit dampening to reduce over-surging
+        ["heavy_cannon"]     = 3.50f,   // fires slowly: needs large per-hit boost to compete
+        ["marker_tower"]     = 0.70f,   // slightly above average fire rate, trim down
+        ["chain_tower"]      = 1.20f,   // moderate rate, small boost
+        ["rift_prism"]       = 1.50f,   // mine pops are infrequent, boost per-proc
+        ["phase_splitter"]   = 0.75f,   // hits 2 targets per shot (double proc rate), trim
+        ["accordion_engine"] = 3.00f,   // 3.2s pulse interval, needs large per-hit boost
     };
 
     [JsonPropertyName("tower_surge_threshold_multipliers")]
     public Dictionary<string, float> TowerSurgeThresholdMultipliers { get; set; } = new(StringComparer.Ordinal)
     {
-        ["rapid_shooter"] = 1.0759f,
-        ["heavy_cannon"] = 1f,
-        ["marker_tower"] = 0.9755f,
-        ["chain_tower"] = 1.18f,
-        ["rift_prism"] = 1.0673f,
-        ["phase_splitter"] = 1f,
+        ["rapid_shooter"]    = 1.50f,   // raise bar to further slow surge cadence
+        ["heavy_cannon"]     = 0.50f,   // lower bar so slow fire rate can still reach threshold
+        ["marker_tower"]     = 1.00f,
+        ["chain_tower"]      = 0.90f,   // slight ease to offset reduced gain from chain bounce rate
+        ["rift_prism"]       = 0.90f,   // slight ease to match mine-pop infrequency
+        ["phase_splitter"]   = 1.00f,
+        ["accordion_engine"] = 0.55f,   // low bar to compensate for the very slow pulse interval
     };
 
     /// <summary>
