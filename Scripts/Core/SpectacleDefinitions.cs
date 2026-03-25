@@ -24,6 +24,22 @@ public enum SpectacleAugmentKind
     ChainBounces,
 }
 
+/// <summary>
+/// Gameplay payload family for a modifier. Determines how the modifier
+/// contributes to the combo finisher. Two modifiers in the same family
+/// share a dispatch path; only 18 primitive pairs replace the previous
+/// 45 hand-written combo cases.
+/// </summary>
+public enum SurgePrimitive
+{
+    Burst,    // Area/falloff damage (Overkill, Overreach, BlastCore)
+    Chain,    // Chain arc bounces (ChainReaction)
+    Beam,     // Heavy single-target strike (FocusLens)
+    Status,   // Mark or slow application (ExploitWeakness, ChillShot)
+    Reload,   // Cooldown reduction + follow-up (Momentum, HairTrigger, FeedbackLoop)
+    Scatter,  // Multi-target split fire (SplitShot)
+}
+
 public readonly record struct SpectacleSingleDef(string EffectId, string Name);
 public readonly record struct SpectacleComboDef(string EffectId, string Name);
 public readonly record struct SpectacleTriadAugmentDef(
@@ -221,6 +237,27 @@ public static class SpectacleDefinitions
             return 1f;
         return MathF.Max(0f, SpectacleTuning.Current.ResolveTowerMeterGainMultiplier(towerId));
     }
+
+    /// <summary>
+    /// Returns the gameplay primitive family for the given modifier.
+    /// Used by the combo finisher to dispatch by primitive pair (18 cases)
+    /// rather than by explicit modifier pair (was 45 cases).
+    /// </summary>
+    public static SurgePrimitive PrimitiveOf(string modId) => NormalizeModId(modId) switch
+    {
+        Overkill         => SurgePrimitive.Burst,
+        Overreach        => SurgePrimitive.Burst,
+        BlastCore        => SurgePrimitive.Burst,
+        ChainReaction    => SurgePrimitive.Chain,
+        FocusLens        => SurgePrimitive.Beam,
+        ExploitWeakness  => SurgePrimitive.Status,
+        ChillShot        => SurgePrimitive.Status,
+        Momentum         => SurgePrimitive.Reload,
+        HairTrigger      => SurgePrimitive.Reload,
+        FeedbackLoop     => SurgePrimitive.Reload,
+        SplitShot        => SurgePrimitive.Scatter,
+        _                => SurgePrimitive.Burst,
+    };
 
     public static string GetDisplayName(string modifierId)
         => DisplayNames.GetValueOrDefault(NormalizeModId(modifierId), modifierId);
