@@ -34,21 +34,6 @@ public readonly record struct GlobalSurgeTriggerInfo(float MeterAfter, int Uniqu
 
 public sealed class SpectacleSystem
 {
-    private readonly struct SurgeContribution
-    {
-        public float Time { get; }
-        public ITowerView Tower { get; }
-        /// <summary>Primary mod ID locked at the moment the surge fired. Avoids re-deriving from post-surge state.</summary>
-        public string PrimaryModId { get; }
-
-        public SurgeContribution(float time, ITowerView tower, string primaryModId)
-        {
-            Time = time;
-            Tower = tower;
-            PrimaryModId = primaryModId;
-        }
-    }
-
     private sealed class TowerState
     {
         public float Meter;
@@ -87,7 +72,9 @@ public sealed class SpectacleSystem
     };
 
     private readonly Dictionary<ITowerView, TowerState> _towerStates = new();
-    private readonly Queue<SurgeContribution> _surgeContributions = new();
+    // Cycle-accumulated scores: count how many times each primaryModId led a surge during the current global cycle.
+    private readonly Dictionary<string, int> _globalCycleScores = new(StringComparer.Ordinal);
+    private readonly HashSet<ITowerView> _globalCycleContributors = new();
     private float _time;
     private float _globalMeter;
 
@@ -137,7 +124,8 @@ public sealed class SpectacleSystem
     public void Reset()
     {
         _towerStates.Clear();
-        _surgeContributions.Clear();
+        _globalCycleScores.Clear();
+        _globalCycleContributors.Clear();
         _time = 0f;
         _globalMeter = 0f;
     }
@@ -145,16 +133,7 @@ public sealed class SpectacleSystem
     public void RemoveTower(ITowerView tower)
     {
         _towerStates.Remove(tower);
-        if (_surgeContributions.Count == 0)
-            return;
-
-        int count = _surgeContributions.Count;
-        for (int i = 0; i < count; i++)
-        {
-            var contribution = _surgeContributions.Dequeue();
-            if (!ReferenceEquals(contribution.Tower, tower))
-                _surgeContributions.Enqueue(contribution);
-        }
+        _globalCycleContributors.Remove(tower);
     }
 
     public void Update(float delta)
@@ -193,7 +172,6 @@ public sealed class SpectacleSystem
 
         }
 
-        PruneGlobalContributions();
     }
 
     public SpectacleVisualState GetVisualState(ITowerView tower)
@@ -291,25 +269,30 @@ public sealed class SpectacleSystem
             state.PulseHold = Max(state.PulseHold, 0.42f);
 
             _globalMeter = Clamp(_globalMeter + SpectacleDefinitions.ResolveGlobalMeterPerSurge(), 0f, globalThreshold);
-            _surgeContributions.Enqueue(new SurgeContribution(_time, tower, signature.PrimaryModId));
-            PruneGlobalContributions();
+
+            // Accumulate cycle scores: track which mods drove surges during this global cycle.
+            if (!string.IsNullOrEmpty(signature.PrimaryModId))
+                _globalCycleScores[signature.PrimaryModId] = _globalCycleScores.GetValueOrDefault(signature.PrimaryModId, 0) + 1;
+            _globalCycleContributors.Add(tower);
 
             OnSurgeTriggered?.Invoke(new SpectacleTriggerInfo(tower, IsSurge: true, signature, state.Meter));
 
             if (_globalMeter >= globalThreshold && !IsGlobalSurgeReady)
             {
                 // Meter is full - arm for player activation rather than firing immediately.
-                int uniqueContributors = Math.Max(1, CountUniqueGlobalContributors());
                 string[] dominantMods = ResolveDominantGlobalMods();
                 _pendingGlobalSurge = new GlobalSurgeTriggerInfo(
                     MeterAfter: SpectacleDefinitions.ResolveGlobalMeterAfterTrigger(),
-                    UniqueContributors: uniqueContributors,
+                    UniqueContributors: Math.Max(1, _globalCycleContributors.Count),
                     EffectId: "G_SPECTACLE_CATHARSIS",
                     EffectName: "Catastrophe",
                     DominantModIds: dominantMods);
                 _hasPendingGlobalSurge = true;
                 IsGlobalSurgeReady = true;
                 OnGlobalSurgeReady?.Invoke(SurgeDifferentiation.ResolveLabel(dominantMods));
+                // Reset cycle state so the next cycle starts fresh.
+                _globalCycleScores.Clear();
+                _globalCycleContributors.Clear();
             }
 
             return;
@@ -496,45 +479,15 @@ public sealed class SpectacleSystem
         return count;
     }
 
-    private void PruneGlobalContributions()
-    {
-        float cutoff = _time - SpectacleDefinitions.ResolveGlobalContributionWindowSeconds();
-        while (_surgeContributions.Count > 0 && _surgeContributions.Peek().Time < cutoff)
-            _surgeContributions.Dequeue();
-    }
-
-    private int CountUniqueGlobalContributors()
-    {
-        if (_surgeContributions.Count == 0)
-            return 0;
-
-        var set = new HashSet<ITowerView>();
-        foreach (var c in _surgeContributions)
-            set.Add(c.Tower);
-        return set.Count;
-    }
-
     /// <summary>
-    /// Returns up to 3 mod IDs ordered by how frequently they were the primary mod
-    /// in towers that surged recently (within the global contribution window).
-    /// Used to drive dynamic global surge visuals and labels.
+    /// Returns up to 3 mod IDs ordered by how frequently they led surges during the current global cycle.
+    /// The archetype is determined by the full cycle pattern, not a narrow recent window.
     /// </summary>
     private string[] ResolveDominantGlobalMods()
     {
-        if (_surgeContributions.Count == 0)
+        if (_globalCycleScores.Count == 0)
             return System.Array.Empty<string>();
-
-        float cutoff = _time - SpectacleDefinitions.ResolveGlobalContributionWindowSeconds();
-        var modCounts = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var contrib in _surgeContributions)
-        {
-            if (contrib.Time < cutoff) continue;
-            if (string.IsNullOrEmpty(contrib.PrimaryModId)) continue;
-            modCounts[contrib.PrimaryModId] = modCounts.GetValueOrDefault(contrib.PrimaryModId, 0) + 1;
-        }
-        if (modCounts.Count == 0)
-            return System.Array.Empty<string>();
-        return modCounts
+        return _globalCycleScores
             .OrderByDescending(kv => kv.Value)
             .ThenBy(kv => CanonicalRank(kv.Key))
             .Take(3)

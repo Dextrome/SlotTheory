@@ -62,8 +62,6 @@ public sealed class SpectacleTuningProfile
     public float GlobalThresholdMultiplier { get; set; } = 1.1049f;
     [JsonPropertyName("global_meter_after_trigger_multiplier")]
     public float GlobalMeterAfterTriggerMultiplier { get; set; } = 0.9987f;
-    [JsonPropertyName("global_contribution_window_multiplier")]
-    public float GlobalContributionWindowMultiplier { get; set; } = 1.008f;
     [JsonPropertyName("inactivity_grace_multiplier")]
     public float InactivityGraceMultiplier { get; set; } = 0.9151f;
     [JsonPropertyName("inactivity_decay_multiplier")]
@@ -214,7 +212,6 @@ public sealed class SpectacleTuningProfile
         GlobalMeterPerSurgeMultiplier = 1f,
         GlobalThresholdMultiplier = 1f,
         GlobalMeterAfterTriggerMultiplier = 1f,
-        GlobalContributionWindowMultiplier = 1f,
         InactivityGraceMultiplier = 1f,
         InactivityDecayMultiplier = 1f,
         CopyMultiplierScale = 1f,
@@ -304,7 +301,6 @@ public sealed class SpectacleTuningProfile
             GlobalMeterPerSurgeMultiplier = MathF.Max(0f, GlobalMeterPerSurgeMultiplier),
             GlobalThresholdMultiplier = MathF.Max(0.05f, GlobalThresholdMultiplier),
             GlobalMeterAfterTriggerMultiplier = MathF.Max(0f, GlobalMeterAfterTriggerMultiplier),
-            GlobalContributionWindowMultiplier = MathF.Max(0.05f, GlobalContributionWindowMultiplier),
             InactivityGraceMultiplier = MathF.Max(0f, InactivityGraceMultiplier),
             InactivityDecayMultiplier = MathF.Max(0f, InactivityDecayMultiplier),
             CopyMultiplierScale = MathF.Max(0f, CopyMultiplierScale),

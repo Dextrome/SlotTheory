@@ -71,7 +71,6 @@ public static class SpectacleDefinitions
     public const float GlobalMeterPerSurge = 10f;
     public const float GlobalThreshold = 200f;
     public const float GlobalMeterAfterTrigger = 0f;
-    public const float GlobalContributionWindowSeconds = 6f;
     public const float InactivityGraceSeconds = 2f;
     public const float InactivityDecayPerSecond = 3f;
     // Fill is intentionally slower so spectacle pacing is easier to read:
@@ -218,9 +217,6 @@ public static class SpectacleDefinitions
 
     public static float ResolveGlobalMeterAfterTrigger()
         => MathF.Max(0f, GlobalMeterAfterTrigger * MathF.Max(0f, SpectacleTuning.Current.GlobalMeterAfterTriggerMultiplier));
-
-    public static float ResolveGlobalContributionWindowSeconds()
-        => MathF.Max(0.05f, GlobalContributionWindowSeconds * MathF.Max(0.05f, SpectacleTuning.Current.GlobalContributionWindowMultiplier));
 
     public static float ResolveInactivityGraceSeconds()
         => MathF.Max(0f, InactivityGraceSeconds * MathF.Max(0f, SpectacleTuning.Current.InactivityGraceMultiplier));

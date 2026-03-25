@@ -292,16 +292,15 @@ public class SurgeDifferentiationTests
     }
 
     [Fact]
-    public void GlobalTrigger_DominantModIds_EmptyWhenNoRecentContributions()
+    public void GlobalTrigger_DominantModIds_ReflectsFullCyclePattern()
     {
         SpectacleTuning.Reset();
         try
         {
-            // Very short contribution window so contributions expire quickly
+            // Lower threshold so the global fires after two surges.
             SpectacleTuning.Apply(new SpectacleTuningProfile
             {
                 GlobalThresholdMultiplier = 0.10f,
-                GlobalContributionWindowMultiplier = 0.001f, // nearly zero window
             }, "test");
 
             var system = new SpectacleSystem();
@@ -315,15 +314,17 @@ public class SurgeDifferentiationTests
             float scalarForSurge = (surgeThreshold / (baseGain * SpectacleDefinitions.GetCopyMultiplier(1)
                 * SpectacleDefinitions.ResolveMeterGainScale())) + 1f;
 
-            // Fire surge, then advance time past the contribution window so contributions expire
+            // Fire surge, advance time (contributions no longer expire), fire second surge to arm global.
             system.RegisterProc(tower, SpectacleDefinitions.Momentum, scalarForSurge);
-            system.Update(SpectacleDefinitions.GlobalContributionWindowSeconds * 10f); // way past window
-            system.RegisterProc(tower, SpectacleDefinitions.Momentum, scalarForSurge); // this arms global
+            system.Update(SpectacleDefinitions.SurgeCooldownSeconds + 0.1f);
+            system.RegisterProc(tower, SpectacleDefinitions.Momentum, scalarForSurge);
             system.ActivateGlobalSurge();
 
-            // If DominantModIds is empty, the label should fall back to default
-            if (result?.DominantModIds?.Length == 0)
-                Assert.Equal("GLOBAL SURGE", SurgeDifferentiation.ResolveLabel(result.Value.DominantModIds));
+            // Both surges contributed Momentum during the cycle - it must appear as dominant.
+            Assert.NotNull(result);
+            Assert.NotNull(result!.Value.DominantModIds);
+            Assert.NotEmpty(result.Value.DominantModIds);
+            Assert.Equal(SpectacleDefinitions.Momentum, result.Value.DominantModIds[0]);
         }
         finally
         {

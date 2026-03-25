@@ -3856,7 +3856,7 @@ void fragment() {
 		}
 		// Surge chain counter - accumulates while global meter is building
 		_surgeChainCount++;
-		_surgeChainResetTimer = SpectacleDefinitions.ResolveGlobalContributionWindowSeconds();
+		_surgeChainResetTimer = SpectacleDefinitions.SurgeCooldownSeconds;
 		if (_surgeChainCount >= 2)
 			SpawnSurgeChainCallout(_surgeChainCount, ResolveSpectacleColor(info.Signature.PrimaryModId));
 
