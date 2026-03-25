@@ -1,4 +1,4 @@
-﻿# run_tuning_pipeline.ps1
+# run_tuning_pipeline.ps1
 #
 # Automated tuning pipeline with true iterative optimization:
 # 1) Baseline bot metrics (once)
@@ -41,7 +41,7 @@ param(
     # Number of parallel shards per candidate eval (splits N runs across K Godot processes).
     # 0 = inherit from CandidateParallelism (legacy behaviour). Set independently to decouple
     # candidate-level concurrency from per-eval shard concurrency, e.g.:
-    #   -CandidateParallelism 2 -EvalShardParallelism 4  => 2 candidates × 4 shards = 8 processes
+    #   -CandidateParallelism 2 -EvalShardParallelism 4  => 2 candidates � 4 shards = 8 processes
     [int]$EvalShardParallelism = 0,
     [int]$SweepRunsPerVariant = 12,
     [int]$Seed = 1337,
@@ -59,11 +59,9 @@ param(
     [double]$DifficultyRegressionTolerance = 0.01,
     [double]$NormalRegressionPenaltyWeight = 260.0,
     [double]$HardRegressionPenaltyWeight = 320.0,
-    [double]$TargetMaxTowerSurgeRatio = 4.0,
     [double]$TargetMaxModifierSurgeRatio = 2.2,
     [double]$TargetTowerWinRateGap = 0.18,
     [double]$TargetModifierWinRateGap = 0.20,
-    [double]$HardGuardMaxTowerSurgeRatio = 20.0,
     [double]$HardGuardMaxTowerWinRateGap = 0.35,
     [int]$MinTowerRunsForFairness = 40,
     [int]$MinModifierRunsForFairness = 50,
@@ -258,18 +256,22 @@ function New-NeutralTuningProfile {
             blast_core = 1.0
         }
         tower_meter_gain_multipliers = [PSCustomObject]@{
-            rapid_shooter = 1.0
-            heavy_cannon = 1.0
-            marker_tower = 1.0
-            chain_tower = 1.0
-            rift_prism = 1.0
+            rapid_shooter    = 1.0
+            heavy_cannon     = 1.0
+            marker_tower     = 1.0
+            chain_tower      = 1.0
+            rift_prism       = 1.0
+            phase_splitter   = 1.0
+            accordion_engine = 1.0
         }
         tower_surge_threshold_multipliers = [PSCustomObject]@{
-            rapid_shooter = 1.0
-            heavy_cannon = 1.0
-            marker_tower = 1.0
-            chain_tower = 1.0
-            rift_prism = 1.0
+            rapid_shooter    = 1.0
+            heavy_cannon     = 1.0
+            marker_tower     = 1.0
+            chain_tower      = 1.0
+            rift_prism       = 1.0
+            phase_splitter   = 1.0
+            accordion_engine = 1.0
         }
     }
 }
@@ -431,10 +433,10 @@ function Normalize-TuningProfile {
         $p.event_scalar_multipliers.$name = [Math]::Round((Clamp-Double -Value $p.event_scalar_multipliers.$name -Min 0.0 -Max 4.0), 4)
     }
     foreach ($name in $p.tower_meter_gain_multipliers.PSObject.Properties.Name) {
-        $p.tower_meter_gain_multipliers.$name = [Math]::Round((Clamp-Double -Value $p.tower_meter_gain_multipliers.$name -Min 0.3 -Max 2.5), 4)
+        $p.tower_meter_gain_multipliers.$name = [Math]::Round((Clamp-Double -Value $p.tower_meter_gain_multipliers.$name -Min 0.2 -Max 4.0), 4)
     }
     foreach ($name in $p.tower_surge_threshold_multipliers.PSObject.Properties.Name) {
-        $p.tower_surge_threshold_multipliers.$name = [Math]::Round((Clamp-Double -Value $p.tower_surge_threshold_multipliers.$name -Min 0.6 -Max 1.8), 4)
+        $p.tower_surge_threshold_multipliers.$name = [Math]::Round((Clamp-Double -Value $p.tower_surge_threshold_multipliers.$name -Min 0.3 -Max 2.0), 4)
     }
 
     # Guardrail: keep core spectacle systems enabled.
@@ -705,11 +707,9 @@ function Get-MetricsScore {
         [double]$TargetSurgesPerRunTolerance,
         [double]$MaxKillsPerSurge,
         [double]$MinGlobalSurgesPerRun,
-        [double]$TargetMaxTowerSurgeRatio,
         [double]$TargetMaxModifierSurgeRatio = 2.2,
         [double]$TargetTowerWinRateGap,
         [double]$TargetModifierWinRateGap,
-        [double]$HardGuardMaxTowerSurgeRatio = 9999.0,
         [double]$HardGuardMaxTowerWinRateGap = 1.0,
         [double]$MinNormalWinRate = -1.0,
         [double]$MinHardWinRate = -1.0,
@@ -829,10 +829,8 @@ function Get-MetricsScore {
 
     $hardRejected = $false
     $hardRejectReason = ""
-    if ($towerSurgeRates.Count -ge 2 -and $towerSurgeRatio -gt $HardGuardMaxTowerSurgeRatio) {
-        $hardRejected = $true
-        $hardRejectReason = "tower_surge_ratio_exceeded"
-    }
+    # Tower surge ratio is NOT a hard guard: attack-rate differences between towers mean
+    # rapid_shooter will always surge more than heavy_cannon regardless of tuning.
     if (-not $hardRejected -and $towerWinRateEligible -ge 2 -and $towerWinRateGap -gt $HardGuardMaxTowerWinRateGap) {
         $hardRejected = $true
         $hardRejectReason = "tower_win_rate_gap_exceeded"
@@ -904,24 +902,8 @@ function Get-MetricsScore {
         $shareReward = [Math]::Max(0.0, 1.0 - ($shareError / $TargetShareTolerance)) * 12.0
         $score += $shareReward
     }
-    if ($towerSurgeRates.Count -ge 2) {
-        if ($towerSurgeRatio -le $TargetMaxTowerSurgeRatio) {
-            $ratioDenom = [Math]::Max(0.0001, $TargetMaxTowerSurgeRatio - 1.0)
-            $ratioFit = [Math]::Max(0.0, 1.0 - (($towerSurgeRatio - 1.0) / $ratioDenom))
-            $score += $ratioFit * 30.0
-        } else {
-            $score -= ($towerSurgeRatio - $TargetMaxTowerSurgeRatio) * 45.0
-        }
-    }
-    if ($towerRechargeRates.Count -ge 2) {
-        if ($towerRechargeRatio -le $TargetMaxTowerSurgeRatio) {
-            $rechargeRatioDenom = [Math]::Max(0.0001, $TargetMaxTowerSurgeRatio - 1.0)
-            $rechargeRatioFit = [Math]::Max(0.0, 1.0 - (($towerRechargeRatio - 1.0) / $rechargeRatioDenom))
-            $score += $rechargeRatioFit * 10.0
-        } else {
-            $score -= ($towerRechargeRatio - $TargetMaxTowerSurgeRatio) * 16.0
-        }
-    }
+    # Tower surge ratio and recharge ratio removed from scoring: attack-rate differences
+    # between towers are a game design fact, not a tunable property.
     if ($modifierSurgeParityEligible -ge 2) {
         if ($modifierSurgeRatio -le $TargetMaxModifierSurgeRatio) {
             $modRatioDenom = [Math]::Max(0.0001, $TargetMaxModifierSurgeRatio - 1.0)
@@ -1274,12 +1256,12 @@ function New-MutatedTuningProfile {
         }
     }
 
-    $towerIds = @("rapid_shooter", "heavy_cannon", "marker_tower", "chain_tower", "rift_prism")
+    $towerIds = @("rapid_shooter", "heavy_cannon", "marker_tower", "chain_tower", "rift_prism", "phase_splitter", "accordion_engine")
     $mutateTowerSurgeLevers = $SpectacleOnlyMode -or (-not $FreezeSpectacleParams)
     if ($mutateTowerSurgeLevers) {
         foreach ($towerId in $towerIds) {
-            $changed += Apply-Mutation -Obj $candidate.tower_meter_gain_multipliers -Name $towerId -Step (0.12 * $scale) -Min 0.3 -Max 2.5 -Chance 0.55
-            $changed += Apply-Mutation -Obj $candidate.tower_surge_threshold_multipliers -Name $towerId -Step (0.08 * $scale) -Min 0.6 -Max 1.8 -Chance 0.55
+            $changed += Apply-Mutation -Obj $candidate.tower_meter_gain_multipliers -Name $towerId -Step (0.12 * $scale) -Min 0.2 -Max 4.0 -Chance 0.55
+            $changed += Apply-Mutation -Obj $candidate.tower_surge_threshold_multipliers -Name $towerId -Step (0.08 * $scale) -Min 0.3 -Max 2.0 -Chance 0.55
         }
     }
 
@@ -2215,11 +2197,9 @@ if ($DifficultyRegressionTolerance -lt 0) { throw "DifficultyRegressionTolerance
 if ($NormalRegressionPenaltyWeight -lt 0) { throw "NormalRegressionPenaltyWeight must be >= 0." }
 if ($HardRegressionPenaltyWeight -lt 0) { throw "HardRegressionPenaltyWeight must be >= 0." }
 if ($MinSweepScoreRatioVsBaseline -lt 0) { throw "MinSweepScoreRatioVsBaseline must be >= 0." }
-if ($TargetMaxTowerSurgeRatio -lt 1.0) { throw "TargetMaxTowerSurgeRatio must be >= 1.0." }
 if ($TargetMaxModifierSurgeRatio -lt 1.0) { throw "TargetMaxModifierSurgeRatio must be >= 1.0." }
 if ($TargetTowerWinRateGap -lt 0) { throw "TargetTowerWinRateGap must be >= 0." }
 if ($TargetModifierWinRateGap -lt 0) { throw "TargetModifierWinRateGap must be >= 0." }
-if ($HardGuardMaxTowerSurgeRatio -lt 1.0) { throw "HardGuardMaxTowerSurgeRatio must be >= 1.0." }
 if ($HardGuardMaxTowerWinRateGap -lt 0) { throw "HardGuardMaxTowerWinRateGap must be >= 0." }
 if ($TopCandidateReevalCount -lt 0) { throw "TopCandidateReevalCount must be >= 0." }
 if ($MinTowerPlacementsForParity -lt 1) { throw "MinTowerPlacementsForParity must be >= 1." }
@@ -2368,11 +2348,9 @@ $baselineScore = Get-MetricsScore `
     -TargetSurgesPerRunTolerance $TargetSurgesPerRunTolerance `
     -MaxKillsPerSurge $MaxKillsPerSurge `
     -MinGlobalSurgesPerRun $MinGlobalSurgesPerRun `
-    -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
     -TargetMaxModifierSurgeRatio $TargetMaxModifierSurgeRatio `
     -TargetTowerWinRateGap $TargetTowerWinRateGap `
     -TargetModifierWinRateGap $TargetModifierWinRateGap `
-    -HardGuardMaxTowerSurgeRatio $HardGuardMaxTowerSurgeRatio `
     -HardGuardMaxTowerWinRateGap $HardGuardMaxTowerWinRateGap `
     -MinTowerPlacementsForParity $MinTowerPlacementsForParity `
     -MinTowerRunsForFairness $MinTowerRunsForFairness `
@@ -2411,11 +2389,9 @@ $seedScore = Get-MetricsScore `
     -TargetSurgesPerRunTolerance $TargetSurgesPerRunTolerance `
     -MaxKillsPerSurge $MaxKillsPerSurge `
     -MinGlobalSurgesPerRun $MinGlobalSurgesPerRun `
-    -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
     -TargetMaxModifierSurgeRatio $TargetMaxModifierSurgeRatio `
     -TargetTowerWinRateGap $TargetTowerWinRateGap `
     -TargetModifierWinRateGap $TargetModifierWinRateGap `
-    -HardGuardMaxTowerSurgeRatio $HardGuardMaxTowerSurgeRatio `
     -HardGuardMaxTowerWinRateGap $HardGuardMaxTowerWinRateGap `
     -MinNormalWinRate $guardMinNormalWinRate `
     -MinHardWinRate $guardMinHardWinRate `
@@ -2498,11 +2474,9 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
     $passPhase = "single"
     $iterationMutationStrength = [double]$MutationStrength
     $iterationRuns = [int]$Runs
-    $iterTargetMaxTowerSurgeRatio = [double]$TargetMaxTowerSurgeRatio
     $iterTargetMaxModifierSurgeRatio = [double]$TargetMaxModifierSurgeRatio
     $iterTargetTowerWinRateGap = [double]$TargetTowerWinRateGap
     $iterTargetModifierWinRateGap = [double]$TargetModifierWinRateGap
-    $iterHardGuardMaxTowerSurgeRatio = [double]$HardGuardMaxTowerSurgeRatio
     $iterHardGuardMaxTowerWinRateGap = [double]$HardGuardMaxTowerWinRateGap
 
     if ($TwoPassMode) {
@@ -2510,7 +2484,6 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         if ($isPass1Parity) {
             $passPhase = "pass1_parity"
             $iterationMutationStrength = [double]$MutationStrength * 1.10
-            $iterTargetMaxTowerSurgeRatio = [Math]::Min([double]$TargetMaxTowerSurgeRatio, 3.0)
             $iterTargetMaxModifierSurgeRatio = [Math]::Min([double]$TargetMaxModifierSurgeRatio, 2.15)
             $iterTargetTowerWinRateGap = [Math]::Min([double]$TargetTowerWinRateGap, 0.17)
             $iterTargetModifierWinRateGap = [Math]::Min([double]$TargetModifierWinRateGap, 0.20)
@@ -2599,11 +2572,9 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             -TargetSurgesPerRunTolerance $TargetSurgesPerRunTolerance `
             -MaxKillsPerSurge $MaxKillsPerSurge `
             -MinGlobalSurgesPerRun $MinGlobalSurgesPerRun `
-            -TargetMaxTowerSurgeRatio $iterTargetMaxTowerSurgeRatio `
             -TargetMaxModifierSurgeRatio $iterTargetMaxModifierSurgeRatio `
             -TargetTowerWinRateGap $iterTargetTowerWinRateGap `
             -TargetModifierWinRateGap $iterTargetModifierWinRateGap `
-            -HardGuardMaxTowerSurgeRatio $iterHardGuardMaxTowerSurgeRatio `
             -HardGuardMaxTowerWinRateGap $iterHardGuardMaxTowerWinRateGap `
             -MinNormalWinRate $guardMinNormalWinRate `
             -MinHardWinRate $guardMinHardWinRate `
@@ -2714,11 +2685,9 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
                 -TargetSurgesPerRunTolerance $TargetSurgesPerRunTolerance `
                 -MaxKillsPerSurge $MaxKillsPerSurge `
                 -MinGlobalSurgesPerRun $MinGlobalSurgesPerRun `
-                -TargetMaxTowerSurgeRatio $iterTargetMaxTowerSurgeRatio `
                 -TargetMaxModifierSurgeRatio $iterTargetMaxModifierSurgeRatio `
                 -TargetTowerWinRateGap $iterTargetTowerWinRateGap `
                 -TargetModifierWinRateGap $iterTargetModifierWinRateGap `
-                -HardGuardMaxTowerSurgeRatio $iterHardGuardMaxTowerSurgeRatio `
                 -HardGuardMaxTowerWinRateGap $iterHardGuardMaxTowerWinRateGap `
                 -MinNormalWinRate $guardMinNormalWinRate `
                 -MinHardWinRate $guardMinHardWinRate `
@@ -2750,11 +2719,9 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
                 -TargetSurgesPerRunTolerance $TargetSurgesPerRunTolerance `
                 -MaxKillsPerSurge $MaxKillsPerSurge `
                 -MinGlobalSurgesPerRun $MinGlobalSurgesPerRun `
-                -TargetMaxTowerSurgeRatio $iterTargetMaxTowerSurgeRatio `
                 -TargetMaxModifierSurgeRatio $iterTargetMaxModifierSurgeRatio `
                 -TargetTowerWinRateGap $iterTargetTowerWinRateGap `
                 -TargetModifierWinRateGap $iterTargetModifierWinRateGap `
-                -HardGuardMaxTowerSurgeRatio $iterHardGuardMaxTowerSurgeRatio `
                 -HardGuardMaxTowerWinRateGap $iterHardGuardMaxTowerWinRateGap `
                 -MinNormalWinRate $guardMinNormalWinRate `
                 -MinHardWinRate $guardMinHardWinRate `
@@ -2914,11 +2881,9 @@ $tunedScore = Get-MetricsScore `
     -TargetSurgesPerRunTolerance $TargetSurgesPerRunTolerance `
     -MaxKillsPerSurge $MaxKillsPerSurge `
     -MinGlobalSurgesPerRun $MinGlobalSurgesPerRun `
-    -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
     -TargetMaxModifierSurgeRatio $TargetMaxModifierSurgeRatio `
     -TargetTowerWinRateGap $TargetTowerWinRateGap `
     -TargetModifierWinRateGap $TargetModifierWinRateGap `
-    -HardGuardMaxTowerSurgeRatio $HardGuardMaxTowerSurgeRatio `
     -HardGuardMaxTowerWinRateGap $HardGuardMaxTowerWinRateGap `
     -MinNormalWinRate $guardMinNormalWinRate `
     -MinHardWinRate $guardMinHardWinRate `
@@ -2952,11 +2917,9 @@ if (-not $SkipAllStrategyValidation -and -not [string]::IsNullOrWhiteSpace($allS
             -TargetSurgesPerRunTolerance $TargetSurgesPerRunTolerance `
             -MaxKillsPerSurge $MaxKillsPerSurge `
             -MinGlobalSurgesPerRun $MinGlobalSurgesPerRun `
-            -TargetMaxTowerSurgeRatio $TargetMaxTowerSurgeRatio `
             -TargetMaxModifierSurgeRatio $TargetMaxModifierSurgeRatio `
             -TargetTowerWinRateGap $TargetTowerWinRateGap `
             -TargetModifierWinRateGap $TargetModifierWinRateGap `
-            -HardGuardMaxTowerSurgeRatio $HardGuardMaxTowerSurgeRatio `
             -HardGuardMaxTowerWinRateGap $HardGuardMaxTowerWinRateGap `
             -MinNormalWinRate $guardMinNormalWinRate `
             -MinHardWinRate $guardMinHardWinRate `
@@ -3014,9 +2977,7 @@ $reportPayload = [ordered]@{
         normal_regression_penalty_weight = $NormalRegressionPenaltyWeight
         hard_regression_penalty_weight = $HardRegressionPenaltyWeight
         min_sweep_score_ratio_vs_baseline = $MinSweepScoreRatioVsBaseline
-        target_max_tower_surge_ratio = $TargetMaxTowerSurgeRatio
         target_max_modifier_surge_ratio = $TargetMaxModifierSurgeRatio
-        hard_guard_max_tower_surge_ratio = $HardGuardMaxTowerSurgeRatio
         hard_guard_max_tower_win_rate_gap = $HardGuardMaxTowerWinRateGap
         min_tower_placements_for_parity = $MinTowerPlacementsForParity
         target_tower_win_rate_gap = $TargetTowerWinRateGap

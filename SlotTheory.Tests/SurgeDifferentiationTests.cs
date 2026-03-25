@@ -65,16 +65,16 @@ public class SurgeDifferentiationTests
     // ── SurgeDifferentiation.ResolveLabel ──────────────────────────────────────
 
     [Theory]
-    [InlineData(SpectacleDefinitions.Momentum,        "MOMENTUM SURGE")]
-    [InlineData(SpectacleDefinitions.Overkill,        "OVERKILL SURGE")]
-    [InlineData(SpectacleDefinitions.ExploitWeakness, "EXPLOIT SURGE")]
-    [InlineData(SpectacleDefinitions.FocusLens,       "FOCUS SURGE")]
-    [InlineData(SpectacleDefinitions.ChillShot,       "CHILL SURGE")]
-    [InlineData(SpectacleDefinitions.Overreach,       "OVERREACH SURGE")]
-    [InlineData(SpectacleDefinitions.HairTrigger,     "HAIR TRIGGER SURGE")]
-    [InlineData(SpectacleDefinitions.SplitShot,       "SPLIT SHOT SURGE")]
-    [InlineData(SpectacleDefinitions.FeedbackLoop,    "FEEDBACK SURGE")]
-    [InlineData(SpectacleDefinitions.ChainReaction,   "CHAIN SURGE")]
+    [InlineData(SpectacleDefinitions.Momentum,        "Momentum")]
+    [InlineData(SpectacleDefinitions.Overkill,        "Overkill")]
+    [InlineData(SpectacleDefinitions.ExploitWeakness, "Exploit")]
+    [InlineData(SpectacleDefinitions.FocusLens,       "Focus")]
+    [InlineData(SpectacleDefinitions.ChillShot,       "Chill")]
+    [InlineData(SpectacleDefinitions.Overreach,       "Overreach")]
+    [InlineData(SpectacleDefinitions.HairTrigger,     "Hair Trigger")]
+    [InlineData(SpectacleDefinitions.SplitShot,       "Split Shot")]
+    [InlineData(SpectacleDefinitions.FeedbackLoop,    "Feedback")]
+    [InlineData(SpectacleDefinitions.ChainReaction,   "Chain")]
     public void ResolveLabel_KnownModId_ReturnsExpectedLabel(string modId, string expected)
     {
         string label = SurgeDifferentiation.ResolveLabel(new[] { modId });
@@ -98,7 +98,7 @@ public class SurgeDifferentiationTests
     {
         // Even if the array has multiple entries, label is driven by [0].
         string[] mods = { SpectacleDefinitions.FocusLens, SpectacleDefinitions.Momentum };
-        Assert.Equal("FOCUS SURGE", SurgeDifferentiation.ResolveLabel(mods));
+        Assert.Equal("Focus", SurgeDifferentiation.ResolveLabel(mods));
     }
 
     [Fact]
@@ -202,7 +202,7 @@ public class SurgeDifferentiationTests
     public void GlobalTrigger_DominantModIds_MostFrequentModComesFirst()
     {
         var system = new SpectacleSystem();
-        // towerA contributes momentum surges (2×)
+        // towerA contributes Momentum surges (2×)
         var towerA = TowerWith(SpectacleDefinitions.Momentum);
         // towerB contributes chain_reaction surge (1×)
         var towerB = TowerWith(SpectacleDefinitions.ChainReaction);
@@ -216,7 +216,7 @@ public class SurgeDifferentiationTests
         float scale = SpectacleDefinitions.ResolveMeterGainScale();
         float scalarForSurge = (surgeThreshold / (baseGain * copy * scale)) + 1f;
 
-        // Two momentum surges from towerA
+        // Two Momentum surges from towerA
         system.RegisterProc(towerA, SpectacleDefinitions.Momentum, scalarForSurge);
         system.Update(SpectacleDefinitions.SurgeCooldownSeconds + 0.1f);
         system.RegisterProc(towerA, SpectacleDefinitions.Momentum, scalarForSurge);

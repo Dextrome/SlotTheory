@@ -8,12 +8,12 @@ Slot Theory's spectacle system is a two-tier excitement engine layered on top of
 
 - Every tower has a Surge Meter that fills as it deals damage. When full, it triggers a Surge.
 - **1 mod = core surge** from that primary mod.
-- **2 mods = core surge + one mutation** from the secondary mod.
-- **3 mods = core surge + one bonus** from the third mod: **Pulse**, **Strike**, or **Recharge**.
+- **2 mods = core surge + one mutation** from the secondary mod (its normal trait, now riding the surge).
+- **3 mods = core surge + one bonus** from the third mod: **Pulse** (area), **Strike** (heavy hit), or **Recharge** (instant refire).
 - Each tower surge fills the shared Global Surge bar.
-- The Global Surge label shows the mod family your surges have leaned toward **since the last Global Surge**.
+- The Global Surge label shows the dominant surge type your build has leaned toward **since the last Global Surge**.
 
-UI teaching is intentionally minimal: `Primary Surge`, `+ Secondary mutation`, `+ Pulse/Strike/Recharge bonus`.
+UI teaching is intentionally minimal: `Surge`, `Twist`, `Bonus`, and `Global Surge`.
 
 ---
 
@@ -257,9 +257,9 @@ When `meter >= threshold` AND `surgeCooldown <= 0`:
 ### Player-facing naming (UI)
 Combat UI surfaces (tooltips + callouts) use this structure:
 
-- `[Primary Display Name] Surge`
-- `+ [Secondary Display Name] mutation` (when 2+ unique mods)
-- `+ [Pulse|Strike|Recharge] bonus` (when 3+ unique mods)
+- `Surge: [Primary Display Name]`
+- `Twist: [Secondary Display Name]` + short trait hint (when 2+ unique mods)
+- `Bonus: [Pulse|Strike|Recharge]` + short behavior hint (when 3+ unique mods)
 
 Players are not required to learn internal effect IDs or mode taxonomy to read surges.
 
@@ -365,19 +365,19 @@ This replaces the previous 6-second time-windowed `Queue<SurgeContribution>` app
 
 | Dominant Mod | Global Label | Feel |
 |---|---|---|
-| momentum | MOMENTUM SURGE | Pressure |
-| overkill | OVERKILL SURGE | Detonation |
-| exploit_weakness | EXPLOIT SURGE | Neutral |
-| focus_lens | FOCUS SURGE | Detonation |
-| slow (chill) | CHILL SURGE | Pressure |
-| overreach | OVERREACH SURGE | Pressure |
-| hair_trigger | HAIR TRIGGER SURGE | Detonation |
-| split_shot | SPLIT SHOT SURGE | Neutral |
-| feedback_loop | FEEDBACK SURGE | Detonation |
-| chain_reaction | CHAIN SURGE | Neutral |
-| blast_core | BLAST SURGE | Detonation |
-| wildfire | WILDFIRE SURGE | Detonation |
-| reaper_protocol | REAPER SURGE | Neutral |
+| momentum | Momentum | Pressure |
+| overkill | Overkill | Detonation |
+| exploit_weakness | Exploit | Neutral |
+| focus_lens | Focus | Detonation |
+| slow (chill) | Chill | Pressure |
+| overreach | Overreach | Pressure |
+| hair_trigger | Hair Trigger | Detonation |
+| split_shot | Split Shot | Neutral |
+| feedback_loop | Feedback | Detonation |
+| chain_reaction | Chain | Neutral |
+| blast_core | Blast | Detonation |
+| wildfire | Wildfire | Detonation |
+| reaper_protocol | Reaper | Neutral |
 
 ### Visual Feel Classification
 - **Detonation** -- spike/burst builds; bright flash

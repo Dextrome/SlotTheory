@@ -27,7 +27,7 @@ public partial class HudPanel : CanvasLayer
 	private ColorRect _speedToastStreak = null!;
 	private Panel _globalSpectaclePanel = null!;
 	private ColorRect[] _surgePips = System.Array.Empty<ColorRect>();
-	private Label _surgeNameLabel = null!;  // shows "GLOBAL SURGE" normally, archetype name when building
+	private Label _surgeNameLabel = null!;  // shows "GLOBAL SURGE" normally, dominant label when building
 	private Label _surgeMeterHint = null!;
 	private Tween? _surgeMeterPulseTween;
 	private PanelContainer _teachingHintPanel = null!;
@@ -898,7 +898,7 @@ public partial class HudPanel : CanvasLayer
 	}
 
 	public void RefreshGlobalSurgeMeter(float meter, float threshold, bool visible,
-		string archetypePreview = "", float previewAlpha = 0f)
+		string surgePreview = "", float previewAlpha = 0f)
 	{
 		if (!GodotObject.IsInstanceValid(_globalSpectaclePanel)
 			|| !GodotObject.IsInstanceValid(_surgeNameLabel))
@@ -913,7 +913,7 @@ public partial class HudPanel : CanvasLayer
 		if (wasHidden && !_surgeMeterIntroShown)
 		{
 			_surgeMeterIntroShown = true;
-			ShowSurgeMicroHint("Tower surges fill this bar", holdSeconds: 2.6f);
+			ShowSurgeMicroHint("Tower surges build this Global Surge bar", holdSeconds: 2.6f);
 		}
 
 		float fill = Mathf.Clamp(meter / Mathf.Max(1f, threshold), 0f, 1f);
@@ -943,16 +943,16 @@ public partial class HudPanel : CanvasLayer
 
 		if (!string.IsNullOrEmpty(_lockedSurgeName))
 		{
-			// Surge is ready and waiting for activation - hold the archetype name.
-			_surgeNameLabel.Text = _lockedSurgeName;
+			// Surge is ready and waiting for activation - hold the resolved surge label.
+			_surgeNameLabel.Text = BuildGlobalSurgeLabel(_lockedSurgeName);
 			_surgeNameLabel.Modulate = new Color(1.00f, 0.92f, 0.60f, 1f);
 		}
 		else
 		{
-			bool hasPreview = !string.IsNullOrEmpty(archetypePreview) && previewAlpha > 0.01f;
+			bool hasPreview = !string.IsNullOrEmpty(surgePreview) && previewAlpha > 0.01f;
 			if (hasPreview)
 			{
-				_surgeNameLabel.Text = archetypePreview;
+				_surgeNameLabel.Text = BuildGlobalSurgeLabel(surgePreview);
 				_surgeNameLabel.Modulate = new Color(1.00f, 0.92f, 0.60f, 0.60f + previewAlpha * 0.40f);
 			}
 			else
@@ -961,6 +961,15 @@ public partial class HudPanel : CanvasLayer
 				_surgeNameLabel.Modulate = new Color(1.00f, 0.95f, 0.76f, 1f);
 			}
 		}
+	}
+
+	private static string BuildGlobalSurgeLabel(string surgeLabel)
+	{
+		if (string.IsNullOrWhiteSpace(surgeLabel))
+			return "GLOBAL SURGE";
+		return surgeLabel.StartsWith("GLOBAL SURGE", StringComparison.Ordinal)
+			? surgeLabel
+			: $"GLOBAL SURGE: {surgeLabel}";
 	}
 
 	/// <summary>

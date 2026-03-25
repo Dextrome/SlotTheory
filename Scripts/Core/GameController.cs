@@ -609,20 +609,20 @@ public partial class GameController : Node
 		{
 			float globalThreshold = SpectacleDefinitions.ResolveGlobalThreshold();
 			float globalFill = globalThreshold > 0f ? _spectacleSystem.GlobalMeter / globalThreshold : 0f;
-			string archetypePreview = "";
+			string surgePreview = "";
 			float previewAlpha = 0f;
 			string[] peekMods = System.Array.Empty<string>();
-			// Ghost archetype label materialises from 70% fill, fully opaque at 100%.
+			// Ghost Global Surge label materialises from 70% fill, fully opaque at 100%.
 			if (globalFill >= 0.70f && _botRunner == null)
 			{
 				peekMods = _spectacleSystem.PeekDominantMods();
-				archetypePreview = SurgeDifferentiation.ResolveLabel(peekMods);
+				surgePreview = SurgeDifferentiation.ResolveLabel(peekMods);
 				previewAlpha = Mathf.Clamp((globalFill - 0.70f) / 0.30f, 0f, 1f) * 0.80f;
 			}
-			// Screen-edge vignette intensifies as meter approaches full
+			// Screen-edge shimmer intensifies late in the global meter buildup.
 			if (_botRunner == null && !_autoDraftMode && GodotObject.IsInstanceValid(_vignetteRect))
 			{
-				float vigIntensity = Mathf.Clamp((globalFill - 0.70f) / 0.30f, 0f, 1f);
+				float vigIntensity = Mathf.Clamp((globalFill - 0.78f) / 0.22f, 0f, 1f);
 				if (vigIntensity > 0f)
 				{
 					Color vigColor = peekMods.Length > 0
@@ -630,7 +630,8 @@ public partial class GameController : Node
 						: new Color(1f, 0.90f, 0.56f);
 					_vignetteRect.Visible = true;
 					var vmat = (ShaderMaterial)_vignetteRect.Material;
-					vmat.SetShaderParameter("intensity", vigIntensity * 0.85f);
+					float eased = Mathf.Pow(vigIntensity, 1.25f);
+					vmat.SetShaderParameter("intensity", eased * 0.52f);
 					// Boost saturation so low-alpha tints read as their true hue rather than washed-out yellow
 				float vigR = Mathf.Clamp(vigColor.R * 1.4f - vigColor.G * 0.2f, 0f, 1f);
 				float vigG = Mathf.Clamp(vigColor.G * 0.7f, 0f, 1f);
@@ -646,7 +647,7 @@ public partial class GameController : Node
 				_spectacleSystem.GlobalMeter,
 				globalThreshold,
 				showGlobalSurgeMeter,
-				archetypePreview,
+				surgePreview,
 				previewAlpha);
 			hudPanel.RefreshSpeedLabelFromActual((float)Engine.TimeScale);
 		}
@@ -3053,35 +3054,81 @@ public partial class GameController : Node
 
 		string primary = BuildPrimarySurgeLabel(sig);
 		string mutation = BuildSecondaryMutationLabel(sig);
+		string mutationHint = BuildSecondaryMutationHint(sig);
 		string bonus = BuildBonusSurgeLabel(sig);
+		string bonusHint = BuildBonusSurgeHint(sig);
+		string twistLine = string.IsNullOrEmpty(mutationHint)
+			? $"Twist: {mutation}"
+			: $"Twist: {mutation} ({mutationHint})";
+		string bonusLine = string.IsNullOrEmpty(bonusHint)
+			? $"Bonus: {bonus}"
+			: $"Bonus: {bonus} ({bonusHint})";
 
 		return sig.Mode switch
 		{
 			SpectacleMode.Single => $"Surge: {primary}",
-			SpectacleMode.Combo  => $"Surge: {primary}\n  + {mutation}",
-			_                    => $"Surge: {primary}\n  + {mutation}\n  + {bonus}",
+			SpectacleMode.Combo  => $"Surge: {primary}\n{twistLine}",
+			_                    => $"Surge: {primary}\n{twistLine}\n{bonusLine}",
 		};
 	}
 
 	private static string BuildPrimarySurgeLabel(SpectacleSignature sig)
 	{
 		if (string.IsNullOrWhiteSpace(sig.PrimaryModId))
-			return "Surge";
-		return $"{SpectacleDefinitions.GetDisplayName(sig.PrimaryModId)} Surge";
+			return "Unknown";
+		return SpectacleDefinitions.GetDisplayName(sig.PrimaryModId);
 	}
 
 	private static string BuildSecondaryMutationLabel(SpectacleSignature sig)
 	{
 		if (string.IsNullOrWhiteSpace(sig.SecondaryModId))
-			return "Secondary mutation";
-		return $"{SpectacleDefinitions.GetDisplayName(sig.SecondaryModId)} mutation";
+			return "Unknown";
+		return SpectacleDefinitions.GetDisplayName(sig.SecondaryModId);
+	}
+
+	private static string BuildSecondaryMutationHint(SpectacleSignature sig)
+	{
+		if (string.IsNullOrWhiteSpace(sig.SecondaryModId))
+			return string.Empty;
+
+		return SpectacleDefinitions.NormalizeModId(sig.SecondaryModId) switch
+		{
+			"momentum" => "ramp scaling",
+			"overkill" => "spill damage",
+			"exploit_weakness" => "mark detonation",
+			"focus_lens" => "beam focus",
+			"slow" => "slow/freeze",
+			"overreach" => "range extension",
+			"hair_trigger" => "rapid extra shots",
+			"split_shot" => "scatter fan",
+			"feedback_loop" => "instant refire",
+			"chain_reaction" => "bounce chain",
+			"blast_core" => "blast radius",
+			"wildfire" => "burning trails",
+			"reaper_protocol" => "execute finisher",
+			_ => string.Empty,
+		};
 	}
 
 	private static string BuildBonusSurgeLabel(SpectacleSignature sig)
 	{
 		if (string.IsNullOrWhiteSpace(sig.AugmentName))
-			return "Bonus";
-		return $"{sig.AugmentName} bonus";
+			return "Unknown";
+		return sig.AugmentName;
+	}
+
+	private static string BuildBonusSurgeHint(SpectacleSignature sig)
+	{
+		if (string.IsNullOrWhiteSpace(sig.AugmentName))
+			return string.Empty;
+
+		return sig.AugmentName switch
+		{
+			"Pulse" => "area hit",
+			"Strike" => "heavy hit",
+			"Recharge" => "instant refire",
+			_ => string.Empty,
+		};
 	}
 	// -- Bot multi-step simulation -------------------------------------------------
 
@@ -3328,7 +3375,7 @@ public partial class GameController : Node
 		_lingerTint.MouseFilter = Control.MouseFilterEnum.Ignore;
 		anchor.AddChild(_lingerTint);
 
-		// Screen-edge vignette - intensifies during final 30% of global meter buildup
+		// Screen-edge shimmer - subtle, glossy buildup toward Global Surge readiness.
 		_vignetteRect = new ColorRect();
 		_vignetteRect.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		_vignetteRect.Visible = false;
@@ -3337,12 +3384,18 @@ public partial class GameController : Node
 		var vignetteShader = new Shader();
 		vignetteShader.Code = @"
 shader_type canvas_item;
+render_mode blend_add;
 uniform float intensity : hint_range(0.0, 1.0) = 0.0;
 uniform vec3 tint : source_color = vec3(1.0, 0.2, 0.1);
 void fragment() {
-    float dist = max(abs(UV.x - 0.5), abs(UV.y - 0.5)) * 2.0;
-    float edge = smoothstep(0.65, 1.0, dist);
-    COLOR = vec4(tint, edge * intensity * 0.09);
+    vec2 centered = UV - vec2(0.5);
+    float squareDist = max(abs(centered.x), abs(centered.y)) * 2.0;
+    float edge = smoothstep(0.70, 1.05, squareDist);
+    float rim = smoothstep(0.62, 1.00, length(centered) * 1.45);
+    float shimmer = 0.65 + 0.35 * sin(TIME * 2.6 + (UV.x + UV.y) * 10.0);
+    float shine = edge * (0.42 + 0.48 * shimmer) + rim * 0.25;
+    vec3 glow = mix(tint * 0.55, vec3(1.0), 0.26 * shine);
+    COLOR = vec4(glow, intensity * (0.020 + 0.035 * shine));
 }";
 		vignetteMat.Shader = vignetteShader;
 		_vignetteRect.Material = vignetteMat;
@@ -3624,6 +3677,8 @@ void fragment() {
 			return null;
 		var callout = new CombatCallout();
 		_worldNode.AddChild(callout);
+		callout.ZAsRelative = false;
+		callout.ZIndex = 60; // Ensure surge callouts render above lane props like Rift Sapper mines.
 		callout.GlobalPosition = worldPos + new Vector2(0f, yOffset);
 		callout.Initialize(
 			text,
@@ -3876,7 +3931,7 @@ void fragment() {
 				_hudPanel.PulseGlobalSurgeMeter(0.85f);
 			TryShowSurgeMicroHint(
 				SurgeHintId.GlobalContribution,
-				"Tower surges fill this bar",
+				"Tower surges build this Global Surge bar",
 				anchorToGlobalBar: true,
 				holdSeconds: 2.2f,
 				barPulseStrength: 1.0f);
@@ -3934,18 +3989,23 @@ void fragment() {
 		if (sourceTower is TowerInstance towerForArchetype && !mobileLite)
 			SpawnTowerArchetypeFx(towerForArchetype, accent, drama: 0.28f);
 
-		string surgeCalloutUpper = BuildPrimarySurgeLabel(info.Signature).ToUpperInvariant();
+		string surgeCalloutUpper = $"SURGE: {BuildPrimarySurgeLabel(info.Signature).ToUpperInvariant()}";
 		float surgeCalloutDurationScale = SurgeUxTiming.ResolveSurgeCalloutDurationScale(2.8f);
 		float surgeCalloutHoldPortion = SurgeUxTiming.ResolveSurgeCalloutHoldPortion(0.68f);
 		bool hasSecondaryMutation = info.Signature.Mode != SpectacleMode.Single
 			&& !string.IsNullOrWhiteSpace(info.Signature.SecondaryModId);
 		bool hasSurgeAugment = info.Signature.Mode == SpectacleMode.Triad
 			&& !string.IsNullOrEmpty(info.Signature.AugmentName);
+		// Fixed lanes to prevent overlap:
+		// 3-line: BONUS (top) -> SURGE (mid) -> TWIST (bottom, but still above tower body).
+		// 2-line: SURGE (top) -> TWIST (bottom).
 		float surgePrimaryYOffset = hasSecondaryMutation && hasSurgeAugment
-			? -52f
-			: hasSecondaryMutation || hasSurgeAugment
-				? -44f
-				: -34f;
+			? -60f
+			: hasSecondaryMutation
+				? -48f
+				: hasSurgeAugment
+					? -52f
+					: -32f;
 		Vector2 surgeCalloutOrigin = sourceTower.GlobalPosition + new Vector2(6f, 0f);
 		CombatCallout? surgeCallout = SpawnCombatCallout(
 			surgeCalloutUpper,
@@ -3959,8 +4019,9 @@ void fragment() {
 
 		if (hasSecondaryMutation)
 		{
-			Color mutationAccent = ResolveSpectacleColor(info.Signature.SecondaryModId);
-			string mutationLine = $"+ {BuildSecondaryMutationLabel(info.Signature).ToUpperInvariant()}";
+			Color mutationAccent = ResolveSpectacleColor(info.Signature.SecondaryModId)
+				.Lerp(new Color(0.82f, 0.84f, 0.90f), 0.35f);
+			string mutationLine = $"TWIST: {BuildSecondaryMutationLabel(info.Signature).ToUpperInvariant()}";
 			GetTree().CreateTimer(0.16f, true, false, true).Timeout += () =>
 			{
 				if (!GodotObject.IsInstanceValid(this)) return;
@@ -3972,18 +4033,19 @@ void fragment() {
 					surgeCalloutOrigin,
 					mutationAccent,
 					durationScale: SurgeUxTiming.ResolveSurgeCalloutDurationScale(2.9f),
-					yOffset: -36f,
+					yOffset: hasSurgeAugment ? -42f : -30f,
 					drift: false,
 					holdPortion: surgeCalloutHoldPortion,
-					sizeOverride: 16);
+					sizeOverride: 15);
 			};
 		}
 
 		if (hasSurgeAugment)
 		{
 			var capturedOrigin = surgeCalloutOrigin;
-			Color augAccent = ResolveSpectacleColor(info.Signature.AugmentEffectId);
-			string augLine = $"+ {BuildBonusSurgeLabel(info.Signature).ToUpperInvariant()}";
+			Color augAccent = ResolveSpectacleColor(info.Signature.AugmentEffectId)
+				.Lerp(new Color(0.84f, 0.86f, 0.90f), 0.55f);
+			string augLine = $"BONUS: {BuildBonusSurgeLabel(info.Signature).ToUpperInvariant()}";
 			GetTree().CreateTimer(0.24f, true, false, true).Timeout += () =>
 			{
 				if (!GodotObject.IsInstanceValid(this)) return;
@@ -3995,10 +4057,10 @@ void fragment() {
 					capturedOrigin,
 					augAccent,
 					durationScale: SurgeUxTiming.ResolveSurgeCalloutDurationScale(3.0f),
-					yOffset: -30f,
+					yOffset: hasSecondaryMutation ? -78f : -74f,
 					drift: false,
 					holdPortion: surgeCalloutHoldPortion,
-					sizeOverride: 16);
+					sizeOverride: 14);
 				FlashSpectacleScreen(augAccent, peakAlpha: 0.10f, rampSec: 0.04f, fadeSec: 0.20f);
 			};
 		}
@@ -4048,10 +4110,10 @@ void fragment() {
 
 		_hudPanel.SetGlobalSurgeReady(true, surgeLabel);
 		if (_tutorialManager == null)
-			_hudPanel.SetPersistentSurgeHint("Global ready: click this bar");
+			_hudPanel.SetPersistentSurgeHint("Global Surge ready: click this bar");
 		TryShowSurgeMicroHint(
 			SurgeHintId.GlobalActivate,
-			"Global ready: click this bar",
+			"Global Surge ready: click this bar",
 			anchorToGlobalBar: true,
 			holdSeconds: 2.4f,
 			barPulseStrength: 1.05f);
@@ -4207,7 +4269,7 @@ void fragment() {
 
 		// ── Banner subtitle: mechanical summary of the payload ─────────────────────
 		int subContribs = Mathf.Max(2, info.UniqueContributors);
-		int refundPct = Mathf.RoundToInt(Mathf.Clamp(0.24f + 0.04f * subContribs, 0.24f, 0.46f) * 100f);
+		int refundPct = Mathf.RoundToInt(Mathf.Clamp(0.28f + 0.045f * subContribs, 0.28f, 0.52f) * 100f);
 		string surgeSubtitle = $"Towers −{refundPct}% reload · Enemies marked & slowed";
 
 		GD.Print($"[GlobalSurge] label={surgeLabel}  feel={feel}  dominantMods=[{string.Join(", ", dominantMods)}]  contributors={info.UniqueContributors}");
@@ -4341,8 +4403,8 @@ void fragment() {
 			return;
 
 		int contributors = Mathf.Max(2, info.UniqueContributors);
-		float perTowerScale = Mathf.Clamp(0.72f + 0.08f * contributors, 0.72f, 1.08f);
-		float cooldownRefund = Mathf.Clamp(0.24f + 0.04f * contributors, 0.24f, 0.46f);
+		float perTowerScale = Mathf.Clamp(0.78f + 0.09f * contributors, 0.78f, 1.16f);
+		float cooldownRefund = Mathf.Clamp(0.28f + 0.045f * contributors, 0.28f, 0.52f);
 
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
@@ -4360,9 +4422,9 @@ void fragment() {
 				effectScale: perTowerScale);
 		}
 
-		float markDuration = 2.2f + 0.28f * contributors;
-		float slowDuration = 1.8f + 0.24f * contributors;
-		float slowFactor = Mathf.Clamp(0.88f - 0.06f * contributors, 0.58f, 0.90f);
+		float markDuration = 2.4f + 0.32f * contributors;
+		float slowDuration = 2.0f + 0.28f * contributors;
+		float slowFactor = Mathf.Clamp(0.86f - 0.065f * contributors, 0.54f, 0.88f);
 		foreach (var enemy in _runState.EnemiesAlive)
 		{
 			if (!IsEnemyUsable(enemy))
@@ -6325,6 +6387,8 @@ void fragment() {
 		Vector2 worldPos = ScreenToWorld(screenCenter) + new Vector2(0f, 60f);
 		var callout = new CombatCallout();
 		_worldNode.AddChild(callout);
+		callout.ZAsRelative = false;
+		callout.ZIndex = 60;
 		callout.GlobalPosition = worldPos;
 		callout.Initialize(
 			$"SURGE ×{chainCount}",
@@ -7698,7 +7762,7 @@ void fragment() {
 
 		var body = new Label
 		{
-			Text = "Combat fills Tower Surge.\nWhen a tower ring is full, it triggers a Surge.\nFull towers charge the Global Surge bar.\nWhen that bar is full, click it to trigger Global Surge.",
+			Text = "Combat fills Tower Surge.\nTwist = 2nd mod trait added to your Surge (slow, chain, blast, etc).\nBonus = Pulse (area), Strike (heavy), or Recharge (instant refire).\nFull towers charge the Global Surge bar. When full, click it to trigger Global Surge.",
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 			CustomMinimumSize = new Vector2(520f, 0f),
 		};
@@ -7825,7 +7889,7 @@ void fragment() {
 
 		var body = new Label
 		{
-			Text = "Global Surge is ready.\nClick the glowing bar below to trigger it.\nIt refunds all tower cooldowns and hits every enemy on the lane.\nClick it now to continue tutorial.",
+			Text = "Global Surge is ready.\nClick the glowing Global Surge bar below to trigger it.\nIt refunds all tower cooldowns and hits every enemy on the lane.\nClick it now to continue tutorial.",
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 			CustomMinimumSize = new Vector2(520f, 0f),
 		};

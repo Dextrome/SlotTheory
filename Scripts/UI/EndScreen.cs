@@ -560,8 +560,8 @@ public partial class EndScreen : CanvasLayer
 			return;
 		}
 		_surgeProfileLabel.Text = count == 1
-			? $"Dominant surge label: {surgeLabel}"
-			: $"Dominant surge label: {surgeLabel}  x{count}";
+			? $"Dominant Global Surge: {surgeLabel}"
+			: $"Dominant Global Surge: {surgeLabel}  x{count}";
 		_surgeProfileLabel.Visible = true;
 	}
 	public void SetGoalHint(string hint)

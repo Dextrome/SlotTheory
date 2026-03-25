@@ -479,7 +479,8 @@ public partial class DraftPanel : CanvasLayer
             _bannerHeader.Text = "SURGES";
             _bannerBody.Text =
                 "Modifiers generate charge as they activate (hits, kills, procs). When a tower's meter fills, it triggers a Surge: a powerful mid-wave effect.\n" +
-                "Each Surge adds to a global meter. Fill it enough and a Global Surge fires, refunding all cooldowns and hitting every enemy on the lane.";
+                "Twist = the 2nd mod's trait added to that Surge. Bonus = Pulse (area), Strike (heavy), or Recharge (instant refire).\n" +
+                "Each Surge adds to the Global Surge bar. Fill it and click the ready bar to activate a Global Surge, refunding cooldowns and hitting every enemy on the lane.";
             _bannerNext.Text = "Got it";
             _bannerHowTo.Visible = true;
         }

@@ -229,124 +229,131 @@ public partial class HowToPlay : Node
 
     private static void BuildBasicsSection(VBoxContainer vbox)
     {
-        AddHeader(vbox, "CORE LOOP");
-        AddLine(vbox, "Before each wave, draft 1 card (5 options if slots are free; 4 if all slots are occupied).");
-        AddLine(vbox, "Waves run automatically - you do not manually fire or place towers during waves.");
-        AddLine(vbox, "Survive all 20 waves to win.");
-        AddLine(vbox, "An enemy reaching the exit costs 1 life. You have 10 lives.");
-        AddSpacer(vbox, 8);
+        var loopCard = AddSurgeCard(vbox, "CORE LOOP", new Color(0.52f, 0.90f, 1.00f, 0.92f));
+        AddSurgeRuleRow(loopCard, "DRAFT", "Pick 1 card before each wave (5 if free slots exist, 4 if all occupied).", new Color(0.64f, 0.92f, 1.00f, 0.92f));
+        AddSurgeRuleRow(loopCard, "WAVE", "Combat runs automatically. You do not manually fire during waves.", new Color(0.64f, 0.92f, 1.00f, 0.92f));
+        AddSurgeRuleRow(loopCard, "WIN", "Survive all 20 waves.", new Color(0.92f, 0.86f, 0.46f, 0.92f));
+        AddSurgeRuleRow(loopCard, "LIVES", "Leaks cost life. You start with 10.", new Color(0.96f, 0.74f, 0.48f, 0.92f));
+        AddSpacer(vbox, 10);
 
-        AddHeader(vbox, "CONTROLS");
-        AddRow(vbox, "Pick a draft card", "Left-click the card");
-        AddRow(vbox, "Assign tower / modifier", "Click target to preview, click same target again to confirm");
-        AddRow(vbox, "Cycle targeting mode", "Left-click a tower during a wave");
-        AddRow(vbox, "Pause / unpause", "Esc / Space / HUD Pause button");
-        AddRow(vbox, "Speed", "Click speed button to cycle available game-speed steps");
-        AddSpacer(vbox, 8);
+        var controlsCard = AddSurgeCard(vbox, "CONTROLS", new Color(0.48f, 0.88f, 1.00f, 0.92f));
+        AddRow(controlsCard, "Pick a draft card", "Left-click the card");
+        AddRow(controlsCard, "Assign tower / modifier", "Click target to preview, click same target again to confirm");
+        AddRow(controlsCard, "Cycle targeting mode", "Left-click a tower during a wave");
+        AddRow(controlsCard, "Pause / unpause", "Esc / Space / HUD Pause button");
+        AddRow(controlsCard, "Speed", "Click speed button to cycle available game-speed steps");
+        AddSpacer(vbox, 10);
 
-        AddHeader(vbox, "TOWERS");
-        AddTowerRow(vbox, "rapid_shooter", "Rapid Shooter", "10 dmg, 0.45 s, 285 px range",
+        var towersCard = AddSurgeCard(vbox, "TOWERS", new Color(0.68f, 0.86f, 0.20f, 0.92f));
+        AddTowerRow(towersCard, "rapid_shooter", "Rapid Shooter", "10 dmg, 0.45 s, 285 px range",
             "High rate of fire, low damage per hit. Shines with Momentum and Hair Trigger.");
-        AddTowerRow(vbox, "heavy_cannon", "Heavy Cannon", "56 dmg, 2.0 s, 238 px range",
+        AddTowerRow(towersCard, "heavy_cannon", "Heavy Cannon", "56 dmg, 2.0 s, 238 px range",
             "Slow but hits hard. Great with Overkill and Focus Lens.");
-        AddTowerRow(vbox, "marker_tower", "Marker Tower", "7 dmg, 1.0 s, 333 px range",
+        AddTowerRow(towersCard, "marker_tower", "Marker Tower", "7 dmg, 1.0 s, 333 px range",
             "Applies Mark on every hit. Synergises with Exploit Weakness.");
-        AddTowerRow(vbox, "chain_tower", "Arc Emitter (unlock)", "18 dmg, 1.2 s, 257 px range",
+        AddTowerRow(towersCard, "chain_tower", "Arc Emitter (unlock)", "18 dmg, 1.2 s, 257 px range",
             "Unlock by beating the first campaign map. Chains to 2 nearby enemies per shot (60% damage decay per bounce).");
-        AddTowerRow(vbox, "rift_prism", "Rift Sapper (unlock)", "22 dmg, 0.98 s, 230 px range",
+        AddTowerRow(towersCard, "rift_prism", "Rift Sapper (unlock)", "22 dmg, 0.98 s, 230 px range",
             "Unlock by beating the third campaign map. Plants up to 7 mines with 3 charges each; final charge causes the big pop. Wave start gets rapid seeding for 2.4s. Split Shot seeds mini-mines (35% scale) on final pops only.");
-        AddTowerRow(vbox, "phase_splitter", "Phase Splitter", "20 dmg, 0.95 s, 275 px range",
+        AddTowerRow(towersCard, "phase_splitter", "Phase Splitter", "20 dmg, 0.95 s, 275 px range",
             "Each attack hits both the first and last enemy in range at 65% damage each. Strong versus blockers/backline pressure, weaker into dense mid-pack clusters.");
-        AddSpacer(vbox, 8);
+        AddSpacer(vbox, 10);
 
-        AddHeader(vbox, "TARGETING MODES  (click a tower mid-wave to cycle)");
-        AddLine(vbox, "The same icon badge appears beside each tower during combat.");
-        AddTargetModeRow(vbox, TargetingMode.First, "First", "Enemy furthest along the path");
-        AddTargetModeRow(vbox, TargetingMode.Strongest, "Strongest", "Enemy with the most current HP");
-        AddTargetModeRow(vbox, TargetingMode.LowestHp, "Lowest HP", "Enemy closest to death");
-        AddTargetModeRow(vbox, TargetingMode.Last, "Last", "Enemy least far along the path (trailing enemy)");
-        AddLine(vbox, "Rift Sapper uses its own targeting set (same cycle keybind):");
-        AddTargetModeRow(vbox, TargetingMode.First, "Random", "Place mines at random valid lane points within range.", TargetModeIconSet.RiftSapper);
-        AddTargetModeRow(vbox, TargetingMode.Strongest, "Closest", "Place mines at the closest valid lane point within range.", TargetModeIconSet.RiftSapper);
-        AddTargetModeRow(vbox, TargetingMode.LowestHp, "Furthest", "Place mines at the furthest valid lane point within range.", TargetModeIconSet.RiftSapper);
-        AddSpacer(vbox, 8);
+        var targetingCard = AddSurgeCard(vbox, "TARGETING MODES", new Color(0.62f, 0.88f, 1.00f, 0.92f));
+        AddSurgeCardLine(targetingCard, "Click a tower mid-wave to cycle targeting.");
+        AddTargetModeRow(targetingCard, TargetingMode.First, "First", "Enemy furthest along the path");
+        AddTargetModeRow(targetingCard, TargetingMode.Strongest, "Strongest", "Enemy with the most current HP");
+        AddTargetModeRow(targetingCard, TargetingMode.LowestHp, "Lowest HP", "Enemy closest to death");
+        AddTargetModeRow(targetingCard, TargetingMode.Last, "Last", "Enemy least far along the path (trailing enemy)");
+        AddSpacer(targetingCard, 4);
+        AddSurgeCardLine(targetingCard, "Rift Sapper uses its own targeting set:");
+        AddTargetModeRow(targetingCard, TargetingMode.First, "Random", "Place mines at random valid lane points within range.", TargetModeIconSet.RiftSapper);
+        AddTargetModeRow(targetingCard, TargetingMode.Strongest, "Closest", "Place mines at the closest valid lane point within range.", TargetModeIconSet.RiftSapper);
+        AddTargetModeRow(targetingCard, TargetingMode.LowestHp, "Furthest", "Place mines at the furthest valid lane point within range.", TargetModeIconSet.RiftSapper);
+        AddSpacer(vbox, 10);
 
-        AddHeader(vbox, "MODIFIERS  (max 3 per tower)");
-        AddModRowWithIcon(vbox, "momentum",         "Momentum",            "+16% damage per consecutive hit on same target, up to x1.8. Resets on target switch.");
-        AddModRowWithIcon(vbox, "overkill",         "Overkill",            "Excess damage from a kill spills to the next enemy in the lane.");
-        AddModRowWithIcon(vbox, "exploit_weakness", "Exploit Weakness",    "+45% damage to Marked enemies. Pairs with Marker Tower.");
-        AddModRowWithIcon(vbox, "focus_lens",       "Focus Lens",          "+140% damage, +85% attack interval. Big hits, slow fire - ideal for Overkill combos.");
-        AddModRowWithIcon(vbox, "slow",             "Chill Shot",          "On hit: -30% move speed for 6 s. Keeps enemies in range longer.");
-        AddModRowWithIcon(vbox, "overreach",        "Overreach",           "+45% range, -10% damage. Wider coverage with a light damage tradeoff.");
-        AddModRowWithIcon(vbox, "hair_trigger",     "Hair Trigger",        "+30% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
-        AddModRowWithIcon(vbox, "split_shot",       "Split Shot (unlock)", "Unlock by beating the second campaign map. On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
-        AddModRowWithIcon(vbox, "feedback_loop",    "Feedback Loop",       "Killing an enemy instantly resets this tower's cooldown to zero. Fire again immediately after each kill.");
-        AddModRowWithIcon(vbox, "chain_reaction",   "Chain Reaction",      "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
+        var modifiersCard = AddSurgeCard(vbox, "MODIFIERS (MAX 3 PER TOWER)", new Color(0.82f, 0.84f, 0.98f, 0.92f));
+        AddModRowWithIcon(modifiersCard, "momentum",         "Momentum",            "+16% damage per consecutive hit on same target, up to x1.8. Resets on target switch.");
+        AddModRowWithIcon(modifiersCard, "overkill",         "Overkill",            "Excess damage from a kill spills to the next enemy in the lane.");
+        AddModRowWithIcon(modifiersCard, "exploit_weakness", "Exploit Weakness",    "+45% damage to Marked enemies. Pairs with Marker Tower.");
+        AddModRowWithIcon(modifiersCard, "focus_lens",       "Focus Lens",          "+140% damage, +85% attack interval. Big hits, slow fire - ideal for Overkill combos.");
+        AddModRowWithIcon(modifiersCard, "slow",             "Chill Shot",          "On hit: -30% move speed for 6 s. Keeps enemies in range longer.");
+        AddModRowWithIcon(modifiersCard, "overreach",        "Overreach",           "+45% range, -10% damage. Wider coverage with a light damage tradeoff.");
+        AddModRowWithIcon(modifiersCard, "hair_trigger",     "Hair Trigger",        "+30% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
+        AddModRowWithIcon(modifiersCard, "split_shot",       "Split Shot (unlock)", "Unlock by beating the second campaign map. On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
+        AddModRowWithIcon(modifiersCard, "feedback_loop",    "Feedback Loop",       "Killing an enemy instantly resets this tower's cooldown to zero. Fire again immediately after each kill.");
+        AddModRowWithIcon(modifiersCard, "chain_reaction",   "Chain Reaction",      "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
         if (!Balance.IsDemo)
-            AddModRowWithIcon(vbox, "reaper_protocol", "Reaper Protocol (full game, wave 10+)",
+            AddModRowWithIcon(modifiersCard, "reaper_protocol", "Reaper Protocol (full game, wave 10+)",
                 $"Kill (primary hits only): the first {Balance.ReaperProtocolKillCap} kills each wave restore 1 life, up to your starting life total. Available from wave 10. Invaluable in Endless runs where lives become scarce.");
-        AddSpacer(vbox, 8);
+        AddSpacer(vbox, 10);
 
-        AddHeader(vbox, "ENEMIES");
-        AddLine(vbox, $"Basic Walker: {Balance.BaseEnemyHp:0} HP on wave 1, x{Balance.HpGrowthPerWave:0.00} per wave. Speed: {Balance.BaseEnemySpeed:0} px/s. Leaks cost 1 life.");
-        AddLine(vbox, $"Armored Walker: {Balance.TankyHpMultiplier:0.#}x HP, half speed ({Balance.TankyEnemySpeed:0} px/s). Leaks cost 2 lives. First appears wave 6.");
-        AddLine(vbox, $"Swift Walker: {Balance.SwiftHpMultiplier:0.#}x HP, double speed ({Balance.SwiftEnemySpeed:0} px/s). Leaks cost 1 life. Appears in mid-game surge waves.");
-        AddLine(vbox, $"Reverse Walker (full game): {Balance.ReverseWalkerHpMultiplier:0.#}x HP, {Balance.ReverseWalkerSpeed:0} px/s. Single hit >= {Balance.ReverseWalkerTriggerDamageRatio * 100f:0}% max HP can rewind it a short distance. Cooldown-gated and capped per enemy. First appears wave 11.");
-        AddLine(vbox, $"Shield Drone (full game): {Balance.ShieldDroneHpMultiplier:0.#}x HP, {Balance.ShieldDroneSpeed:0} px/s. Projects {Balance.ShieldDroneProtectionReduction * 100f:0}% damage reduction to nearby allies within {Balance.ShieldDroneAuraRadius:0}px. Kill it first.");
-        AddLine(vbox, $"Splitter: {Balance.SplitterHpMultiplier:0.#}x HP, {Balance.SplitterSpeed:0} px/s. Splits into {Balance.SplitterShardCount} fast shards on death. Leaking one risks 3 lives total. Waves 9-15.");
-        AddLine(vbox, "Enemy count scales with map and difficulty; late waves can exceed 40 total enemies on harder settings.");
-        AddSpacer(vbox, 8);
+        var enemiesCard = AddSurgeCard(vbox, "ENEMIES", new Color(0.96f, 0.78f, 0.46f, 0.94f));
+        AddSurgeCardLine(enemiesCard, $"Basic Walker: {Balance.BaseEnemyHp:0} HP on wave 1, x{Balance.HpGrowthPerWave:0.00} per wave. Speed: {Balance.BaseEnemySpeed:0} px/s. Leaks cost 1 life.");
+        AddSurgeCardLine(enemiesCard, $"Armored Walker: {Balance.TankyHpMultiplier:0.#}x HP, half speed ({Balance.TankyEnemySpeed:0} px/s). Leaks cost 2 lives. First appears wave 6.");
+        AddSurgeCardLine(enemiesCard, $"Swift Walker: {Balance.SwiftHpMultiplier:0.#}x HP, double speed ({Balance.SwiftEnemySpeed:0} px/s). Leaks cost 1 life. Appears in mid-game surge waves.");
+        AddSurgeCardLine(enemiesCard, $"Reverse Walker (full game): {Balance.ReverseWalkerHpMultiplier:0.#}x HP, {Balance.ReverseWalkerSpeed:0} px/s. Single hit >= {Balance.ReverseWalkerTriggerDamageRatio * 100f:0}% max HP can rewind it a short distance. Cooldown-gated and capped per enemy. First appears wave 11.");
+        AddSurgeCardLine(enemiesCard, $"Shield Drone (full game): {Balance.ShieldDroneHpMultiplier:0.#}x HP, {Balance.ShieldDroneSpeed:0} px/s. Projects {Balance.ShieldDroneProtectionReduction * 100f:0}% damage reduction to nearby allies within {Balance.ShieldDroneAuraRadius:0}px. Kill it first.");
+        AddSurgeCardLine(enemiesCard, $"Splitter: {Balance.SplitterHpMultiplier:0.#}x HP, {Balance.SplitterSpeed:0} px/s. Splits into {Balance.SplitterShardCount} fast shards on death. Leaking one risks 3 lives total. Waves 9-15.");
+        AddSurgeCardLine(enemiesCard, "Enemy count scales with map and difficulty; late waves can exceed 40 total enemies on harder settings.");
+        AddSpacer(vbox, 10);
 
-        AddHeader(vbox, "TIPS");
-        AddLine(vbox, "Rapid Shooter + Momentum - devastating DPS on enemies that take many hits to kill.");
-        AddLine(vbox, "Marker Tower + Exploit Weakness - marks the target then bursts it for x2.03 total damage.");
-        AddLine(vbox, "Heavy Cannon + Overkill - chain-kills tightly packed groups; spill damage carries forward.");
-        AddLine(vbox, "Arc Emitter + Chain Reaction - each copy adds a bounce; with 3 copies, Arc Emitter can hit 6 targets per shot.");
-        AddLine(vbox, "Set your Marker Tower to First so it tags the lead enemy before damage towers fire.");
+        var tipsCard = AddSurgeCard(vbox, "BUILD TIPS", new Color(0.60f, 0.96f, 0.74f, 0.94f));
+        AddSurgeChipLine(tipsCard, "Rapid + Momentum", "devastating DPS on enemies that take many hits to kill.", new Color(0.70f, 0.98f, 0.74f, 0.92f));
+        AddSurgeChipLine(tipsCard, "Marker + Exploit", "marks the target then bursts it for x2.03 total damage.", new Color(0.66f, 0.96f, 0.92f, 0.92f));
+        AddSurgeChipLine(tipsCard, "Heavy + Overkill", "chain-kills tightly packed groups; spill damage carries forward.", new Color(0.94f, 0.78f, 0.50f, 0.92f));
+        AddSurgeChipLine(tipsCard, "Arc + Chain", "with 3 copies, Arc Emitter can hit 6 targets per shot.", new Color(0.66f, 0.92f, 1.00f, 0.92f));
+        AddSurgeChipLine(tipsCard, "Targeting", "set Marker Tower to First so it tags the lead enemy before damage towers fire.", new Color(0.84f, 0.90f, 0.98f, 0.92f));
     }
 
     private static void BuildSurgesSection(VBoxContainer vbox)
     {
-        AddHeader(vbox, "HOW SURGES WORK");
-        AddLine(vbox, "Every tower has a Surge Meter that fills as it deals damage.");
-        AddLine(vbox, "When full, the tower fires a Surge -- a bonus effect on top of its normal attack.");
-        AddLine(vbox, "The meter drops to a partial value after firing (not zero), so the next surge builds quickly.");
-        AddLine(vbox, "Each tower surge fills the shared Global Surge bar. When full, a READY banner pulses -- click it to fire a Global Surge.");
-        AddSpacer(vbox, 8);
+        var modelCard = AddSurgeCard(vbox, "SURGE MODEL", new Color(0.48f, 0.90f, 1.00f, 0.92f));
+        AddSurgeCardLine(modelCard, "Fast read in combat: Surge / Twist / Bonus / Global Surge.", new Color(0.90f, 0.96f, 1.00f), 16);
+        AddSpacer(modelCard, 2);
+        AddSurgeRuleRow(modelCard, "1 MOD", "Core Surge from the primary mod.", new Color(0.95f, 0.62f, 0.18f, 0.95f));
+        AddSurgeRuleRow(modelCard, "2 MODS", "Core Surge + one Twist from the second mod.", new Color(0.44f, 0.94f, 0.86f, 0.92f));
+        AddSurgeRuleRow(modelCard, "3 MODS", "Core Surge + one Bonus from the third mod.", new Color(0.90f, 0.88f, 0.98f, 0.92f));
+        AddSurgeRuleRow(modelCard, "GLOBAL", "Bar fills from tower surges. Click READY to trigger Global Surge.", new Color(0.88f, 0.96f, 0.56f, 0.92f));
+        AddSpacer(vbox, 10);
 
-        AddHeader(vbox, "READ THIS MODEL");
-        AddLine(vbox, "  1 mod  ->  [Primary] Surge (core effect from that mod).");
-        AddLine(vbox, "  2 mods ->  same core surge + one mutation from the second mod.");
-        AddLine(vbox, "  3 mods ->  same core + one simple bonus from the third mod (Pulse / Strike / Recharge).");
-        AddLine(vbox, "  Global label -> the mod family your surges have leaned toward since the last Global Surge.");
-        AddSpacer(vbox, 4);
-        AddLine(vbox, "What a mutation means: the 2nd mod adds its signature trait to the core.");
-        AddLine(vbox, "  Chill Shot mutation -> adds slow/freeze pressure.");
-        AddLine(vbox, "  Chain Reaction mutation -> adds bounce chaining.");
-        AddLine(vbox, "  Feedback Loop mutation -> adds cooldown reset follow-up.");
-        AddSpacer(vbox, 4);
-        AddLine(vbox, "What a bonus means (3rd mod):");
-        AddLine(vbox, "  Pulse -> hit all nearby enemies.");
-        AddLine(vbox, "  Strike -> one heavy single-target hit.");
-        AddLine(vbox, "  Recharge -> reset cooldown and fire again.");
-        AddSpacer(vbox, 4);
-        AddLine(vbox, "Example: Focus Lens + Chill Shot = Focus Lens Surge + Chill Shot mutation.");
-        AddLine(vbox, "Example: add Feedback Loop as a third mod = + Recharge bonus.");
-        AddSpacer(vbox, 8);
+        Control behaviorLayout = MobileOptimization.IsMobile()
+            ? new VBoxContainer()
+            : new HBoxContainer();
+        if (behaviorLayout is BoxContainer behaviorBox)
+            behaviorBox.AddThemeConstantOverride("separation", 10);
+        behaviorLayout.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        vbox.AddChild(behaviorLayout);
 
-        AddHeader(vbox, "PRIMARY MOD -> CORE SURGE BEHAVIOR");
+        var twistCard = AddSurgeCardContainer(behaviorLayout, "TWIST (2nd MOD)", new Color(0.44f, 0.94f, 0.86f, 0.92f));
+        AddSurgeCardLine(twistCard, "Adds the second mod's trait to your Surge.", new Color(0.88f, 0.96f, 0.98f), 15);
+        AddSpacer(twistCard, 2);
+        AddSurgeChipLine(twistCard, "Chill Shot", "adds slow/freeze pressure", new Color(0.48f, 0.90f, 1.00f, 0.90f));
+        AddSurgeChipLine(twistCard, "Chain Reaction", "adds bounce chaining", new Color(0.54f, 0.96f, 0.92f, 0.90f));
+        AddSurgeChipLine(twistCard, "Feedback Loop", "adds cooldown reset follow-up", new Color(0.70f, 0.96f, 0.72f, 0.90f));
+
+        var bonusCard = AddSurgeCardContainer(behaviorLayout, "BONUS (3rd MOD)", new Color(0.86f, 0.84f, 0.98f, 0.92f));
+        AddSurgeCardLine(bonusCard, "Exactly one bonus type is added:", new Color(0.90f, 0.93f, 1.00f), 15);
+        AddSpacer(bonusCard, 2);
+        AddSurgeChipLine(bonusCard, "Pulse", "hit all nearby enemies", new Color(0.92f, 0.78f, 0.46f, 0.92f));
+        AddSurgeChipLine(bonusCard, "Strike", "one heavy single-target hit", new Color(0.96f, 0.70f, 0.42f, 0.92f));
+        AddSurgeChipLine(bonusCard, "Recharge", "reset cooldown and fire again", new Color(0.74f, 0.96f, 0.66f, 0.92f));
+        AddSpacer(vbox, 10);
+
+        var tableCard = AddSurgeCard(vbox, "PRIMARY MOD -> CORE SURGE BEHAVIOR", new Color(0.69f, 0.86f, 0.16f, 0.92f));
         foreach (string modId in CanonicalSurgeMods)
         {
             if (modId == SpectacleDefinitions.ReaperProtocol && Balance.IsDemo) continue;
             string modName = SpectacleDefinitions.GetDisplayName(modId);
-            AddModRowWithIcon(vbox, modId, modName.ToUpperInvariant(), DescribeSingleEffect(modId));
+            AddModRowWithIcon(tableCard, modId, modName.ToUpperInvariant(), DescribeSingleEffect(modId));
         }
-        AddSpacer(vbox, 8);
+        AddSpacer(vbox, 10);
 
-        AddHeader(vbox, "GLOBAL SURGE");
-        AddLine(vbox, "Activating a Global Surge fires all placed towers simultaneously and marks + slows all alive enemies.");
-        AddLine(vbox, "The label on the bar shows which primary mod family has led most surges since the last Global Surge.");
-        AddLine(vbox, "If you want a specific label, stack that mod across more towers.");
+        var globalCard = AddSurgeCard(vbox, "GLOBAL SURGE", new Color(0.95f, 0.86f, 0.36f, 0.94f));
+        AddSurgeCardLine(globalCard, "When the bar is full, click READY to fire Global Surge.", new Color(0.96f, 0.95f, 0.88f), 15);
+        AddSurgeCardLine(globalCard, "Global Surge activates all towers and marks + slows all living enemies.");
+        AddSurgeCardLine(globalCard, "Display format: Global Surge: Momentum / Chain / Blast / ...");
+        AddSurgeCardLine(globalCard, "To bias the label, stack more of that mod across towers.");
     }
     private static string DescribeSingleEffect(string modId) => SpectacleDefinitions.NormalizeModId(modId) switch
     {
@@ -593,6 +600,134 @@ public partial class HowToPlay : Node
         descLbl.AutowrapMode = TextServer.AutowrapMode.WordSmart;
         descLbl.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         hbox.AddChild(descLbl);
+    }
+
+    private static VBoxContainer AddSurgeCard(VBoxContainer parent, string title, Color accent)
+        => AddSurgeCardContainer(parent, title, accent);
+
+    private static VBoxContainer AddSurgeCardContainer(Node parent, string title, Color accent)
+    {
+        var panel = new PanelContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        panel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.06f, 0.07f, 0.16f, 0.96f),
+            border: new Color(accent.R, accent.G, accent.B, 0.78f),
+            corners: 10,
+            borderWidth: 2,
+            padH: 12,
+            padV: 10));
+        UITheme.AddTopAccent(panel, new Color(accent.R, accent.G, accent.B, 0.72f));
+        parent.AddChild(panel);
+
+        var body = new VBoxContainer();
+        body.AddThemeConstantOverride("separation", 6);
+        panel.AddChild(body);
+
+        var titleLabel = new Label
+        {
+            Text = title,
+        };
+        UITheme.ApplyFont(titleLabel, semiBold: true, size: MobileOptimization.IsMobile() ? 15 : 17);
+        titleLabel.Modulate = accent;
+        body.AddChild(titleLabel);
+
+        return body;
+    }
+
+    private static void AddSurgeCardLine(VBoxContainer body, string text, Color? color = null, int size = 14)
+    {
+        var lbl = new Label
+        {
+            Text = text,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        };
+        UITheme.ApplyFont(lbl, size: MobileOptimization.IsMobile() ? size - 1 : size);
+        lbl.Modulate = color ?? new Color(0.80f, 0.84f, 0.92f);
+        body.AddChild(lbl);
+    }
+
+    private static void AddSurgeRuleRow(VBoxContainer body, string tag, string text, Color accent)
+    {
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 8);
+        body.AddChild(row);
+
+        var chip = new PanelContainer
+        {
+            CustomMinimumSize = new Vector2(MobileOptimization.IsMobile() ? 68f : 78f, 24f),
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin,
+        };
+        chip.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.10f, 0.12f, 0.24f, 0.96f),
+            border: new Color(accent.R, accent.G, accent.B, 0.90f),
+            corners: 7,
+            borderWidth: 1,
+            padH: 8,
+            padV: 3));
+        row.AddChild(chip);
+
+        var chipLbl = new Label
+        {
+            Text = tag,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        UITheme.ApplyFont(chipLbl, semiBold: true, size: MobileOptimization.IsMobile() ? 11 : 12);
+        chipLbl.Modulate = new Color(0.94f, 0.98f, 1.00f);
+        chip.AddChild(chipLbl);
+
+        var textLbl = new Label
+        {
+            Text = text,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        UITheme.ApplyFont(textLbl, size: MobileOptimization.IsMobile() ? 13 : 14);
+        textLbl.Modulate = new Color(0.82f, 0.86f, 0.93f);
+        row.AddChild(textLbl);
+    }
+
+    private static void AddSurgeChipLine(VBoxContainer body, string chipText, string description, Color chipColor)
+    {
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 8);
+        body.AddChild(row);
+
+        var chip = new PanelContainer
+        {
+            CustomMinimumSize = new Vector2(MobileOptimization.IsMobile() ? 86f : 102f, 24f),
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin,
+        };
+        chip.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.10f, 0.11f, 0.20f, 0.96f),
+            border: new Color(chipColor.R, chipColor.G, chipColor.B, 0.92f),
+            corners: 7,
+            borderWidth: 1,
+            padH: 8,
+            padV: 3));
+        row.AddChild(chip);
+
+        var chipLbl = new Label
+        {
+            Text = chipText,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        UITheme.ApplyFont(chipLbl, semiBold: true, size: MobileOptimization.IsMobile() ? 12 : 13);
+        chipLbl.Modulate = chipColor;
+        chip.AddChild(chipLbl);
+
+        var desc = new Label
+        {
+            Text = description,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        UITheme.ApplyFont(desc, size: MobileOptimization.IsMobile() ? 13 : 14);
+        desc.Modulate = new Color(0.78f, 0.83f, 0.90f);
+        row.AddChild(desc);
     }
 
     private static void AddSpacer(VBoxContainer vbox, int px)
