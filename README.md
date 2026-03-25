@@ -405,4 +405,132 @@ It can also run tower/modifier benchmark prescreens before full bot metrics (`-S
 
 ---
 
+## Tuning Pipeline (`run_tuning_pipeline.ps1`)
+
+Iterative optimizer: generates candidate tuning profiles, scores them against bot win-rate + spectacle targets, keeps the best, and writes the result to `Data/best_tuning_full.json` (or `best_tuning_demo.json` with `-Demo`).
+
+### Quick examples
+
+```powershell
+# Default run (200 runs, 4 iterations, optimization strategy set)
+powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1
+
+# Demo build tuning (no Shield Drone / Reverse Walker)
+powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -Demo
+
+# Fast exploratory pass
+powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -Runs 60 -Iterations 3 -CandidatesPerIteration 4 -SkipBuild -SkipTrace
+
+# Difficulty-only tuning (freeze spectacle params, Normal only)
+powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -NormalOnlyMode -Runs 120
+
+# High-parallelism run (2 candidates × 4 shards = 8 Godot processes)
+powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -CandidateParallelism 2 -EvalShardParallelism 4
+
+# Two-pass search: surge parity first, then difficulty
+powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -TwoPassMode -Runs 300 -Iterations 6
+
+# Spectacle-only tuning pass
+powershell -ExecutionPolicy Bypass -File .\run_tuning_pipeline.ps1 -SpectacleOnlyMode -StrategySet spectacle
+```
+
+### Core run controls
+
+| Parameter | Default | Description |
+|---|---|---|
+| `-Runs` | `200` | Bot runs per candidate evaluation |
+| `-Iterations` | `4` | Number of optimization iterations |
+| `-CandidatesPerIteration` | `3` | Candidate profiles generated per iteration |
+| `-CandidateParallelism` | `1` | Candidates evaluated in parallel |
+| `-EvalShardParallelism` | `0` | Parallel Godot shards per candidate eval (0 = inherit from CandidateParallelism) |
+| `-TopCandidateReevalCount` | `3` | Top candidates re-evaluated before finalizing iteration best |
+| `-SweepRunsPerVariant` | `12` | Runs per variant in the sweep comparison |
+| `-Seed` | `1337` | RNG seed for mutation |
+| `-MutationStrength` | `1.0` | Scales mutation step sizes across all params |
+
+### Search mode switches
+
+| Flag | Description |
+|---|---|
+| `-DifficultyOnlyMode` | Mutate only difficulty params (HP/count/spawn + tanky/swift counts); freeze spectacle |
+| `-NormalOnlyMode` | Mutate only Normal-difficulty params; freeze Hard curve. Implies `-DifficultyOnlyMode` |
+| `-SpectacleOnlyMode` | Mutate only spectacle params; win-rate targets are guardrails only |
+| `-FreezeSpectacleParams` | Freeze spectacle params during mutation (subset of `-DifficultyOnlyMode`) |
+| `-TwoPassMode` | Pass 1 targets surge parity/fairness; pass 2 re-optimizes difficulty and win-rate |
+| `-TwoPassPhaseSplitPercent` | `50` - % of iterations allocated to pass 1 |
+| `-TwoPassPass2RunsMultiplier` | `1.5` - multiplies run count during pass 2 only |
+| `-Demo` | Sim demo build conditions; writes result to `Data/best_tuning_demo.json` |
+
+### Win-rate targets
+
+| Parameter | Default | Description |
+|---|---|---|
+| `-TargetWinRateEasy` | `0.90` | Target bot win rate on Easy |
+| `-TargetWinRateNormal` | `0.60` | Target bot win rate on Normal |
+| `-TargetWinRateHard` | `0.30` | Target bot win rate on Hard |
+| `-TargetWinRateTolerance` | `0.06` | Acceptable deviation from win-rate targets |
+| `-UseBaselineRelativeWinTargets` | `false` | Derive targets relative to baseline rather than using absolute values |
+| `-RelativeWinTargetEasyUplift` | `0.05` | Uplift above baseline for Easy when using relative targets |
+| `-RelativeWinTargetNormalUplift` | `0.08` | Uplift above baseline for Normal |
+| `-RelativeWinTargetHardUplift` | `0.06` | Uplift above baseline for Hard |
+
+### Spectacle targets
+
+| Parameter | Default | Description |
+|---|---|---|
+| `-TargetSurgesPerRun` | `36.0` | Target surge trigger count per run |
+| `-TargetSurgesPerRunTolerance` | `8.0` | Acceptable deviation |
+| `-MaxKillsPerSurge` | `0.70` | Guards against surge-carried wins |
+| `-MinGlobalSurgesPerRun` | `1.20` | Minimum global surge triggers per run |
+| `-TargetExplosionShare` | `0.02` | Target share of damage from explosions |
+| `-TargetExplosionShareTolerance` | `0.05` | Acceptable deviation |
+
+### Fairness / parity guards
+
+| Parameter | Default | Description |
+|---|---|---|
+| `-TargetMaxTowerSurgeRatio` | `2.0` | Max allowed surge ratio between best/worst tower |
+| `-TargetMaxModifierSurgeRatio` | `2.2` | Max allowed surge ratio between best/worst modifier |
+| `-TargetTowerWinRateGap` | `0.18` | Max allowed win-rate gap between towers |
+| `-TargetModifierWinRateGap` | `0.20` | Max allowed win-rate gap between modifiers |
+| `-HardGuardMaxTowerSurgeRatio` | `5.0` | Hard ceiling on tower surge ratio (blocks candidates) |
+| `-HardGuardMaxTowerWinRateGap` | `0.28` | Hard ceiling on tower win-rate gap |
+| `-MinTowerRunsForFairness` | `40` | Min runs before applying tower fairness scoring |
+| `-MinModifierRunsForFairness` | `50` | Min runs before applying modifier fairness scoring |
+| `-MinModifierRunsForSurgeParity` | `40` | Min runs before applying surge parity scoring |
+| `-MinTowerPlacementsForParity` | `6` | Min placements per tower to include in parity check |
+| `-MinSweepScoreRatioVsBaseline` | `1.0` | Candidate must score at least this ratio vs baseline sweep |
+| `-DifficultyRegressionTolerance` | `0.01` | Max allowed win-rate regression from iteration to iteration |
+| `-NormalRegressionPenaltyWeight` | `260.0` | Scoring penalty weight for Normal regression |
+| `-HardRegressionPenaltyWeight` | `320.0` | Scoring penalty weight for Hard regression |
+| `-MaxChainDepth` | `4.0` | Guard: max chain bounce depth |
+| `-MaxSimultaneousExplosions` | `8` | Guard: max simultaneous explosion events |
+| `-MaxSimultaneousHazards` | `12` | Guard: max simultaneous hazard events |
+| `-MaxSimultaneousHitStops` | `4` | Guard: max simultaneous hit-stop events |
+| `-MinRunDurationSeconds` | `900.0` | Guard: discard runs shorter than this (likely crashes) |
+
+### Skip flags
+
+| Flag | Description |
+|---|---|
+| `-SkipBuild` | Skip `dotnet build` at start (use when code hasn't changed) |
+| `-SkipTrace` | Skip final live bot trace capture |
+| `-SkipTowerBenchmark` | Skip tower benchmark prescreen |
+| `-SkipModifierBenchmark` | Skip modifier benchmark prescreen |
+| `-SkipAllStrategyValidation` | Skip final all-strategy validation pass |
+
+### Strategy and paths
+
+| Parameter | Default | Description |
+|---|---|---|
+| `-StrategySet` | `"optimization"` | Bot strategy pool: `optimization`, `all`, `edge`, `spectacle` |
+| `-GodotPath` | *(auto-detected)* | Override Godot executable path |
+| `-TuningFile` | *(auto-generated seed)* | Seed tuning JSON to start from |
+| `-ScenarioFile` | `Data/combat_lab/core_scenarios.json` | Scenario suite file |
+| `-TowerBenchmarkFile` | `Data/combat_lab/tower_benchmark_core.json` | Tower benchmark file |
+| `-ModifierBenchmarkFile` | `Data/combat_lab/modifier_benchmark_core.json` | Modifier benchmark file |
+| `-OutputRoot` | `release/tuning_pipeline` | Directory for all pipeline output |
+
+---
+
 Engine: Godot 4.6 + .NET 8

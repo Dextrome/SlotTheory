@@ -222,15 +222,14 @@ Tuned per-tower surge threshold multipliers:
 | phase_splitter | 1.0× |
 
 When `meter >= threshold` AND `surgeCooldown <= 0`:
-1. Resolve the `SpectacleSignature` from locked roles
+1. Resolve the `SpectacleSignature` from the current loadout
 2. Reset meter to `10 × SurgeMeterAfterTriggerMultiplier` (≈10.8, i.e. partial carry-over)
 3. Apply surge cooldown: `6.0s × SurgeCooldownMultiplier` (≈5.9s)
 4. Set visual pulse to 1.0, hold for 0.42s (then decays at 0.72/s)
-5. Unlock roles (cleared for fresh accumulation)
-6. Add `10 × GlobalMeterPerSurgeMultiplier` (≈10.78) to the global meter
-7. Increment `_globalCycleScores[PrimaryModId]` (cycle-accumulated score for global attribution)
-8. Fire `OnSurgeTriggered` event with the full `SpectacleTriggerInfo`
-9. Check if global meter is now full (see §13)
+5. Add `10 × GlobalMeterPerSurgeMultiplier` (≈10.78) to the global meter
+6. Increment `_globalCycleScores[PrimaryModId]` (cycle-accumulated score for global attribution)
+7. Fire `OnSurgeTriggered` event with the full `SpectacleTriggerInfo`
+8. Check if global meter is now full (see §13)
 
 ---
 
