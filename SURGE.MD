@@ -21,7 +21,8 @@ Only the following modifier IDs are tracked by the spectacle system:
 | `feedback_loop` | Feedback Loop |
 | `chain_reaction` | Chain Reaction |
 | `blast_core` | Blast Core |
-| `wildfire` | Wildfire (global surge label only; no base gain entry) |
+| `wildfire` | Wildfire |
+| `reaper_protocol` | Reaper Protocol |
 
 Supported tower IDs: `rapid_shooter`, `heavy_cannon`, `marker_tower`, `chain_tower`, `rift_prism`, `phase_splitter`.
 
@@ -37,12 +38,9 @@ Each tower tracked by the system has a private `TowerState` containing:
 - `SurgeCooldown` -- remaining lockout after a surge (seconds)
 - `InactivityTime` -- time since last proc (for decay)
 - `Pulse` / `PulseHold` -- visual pulse animation state
-- `Tokens[modId]` -- rate-limiting token bucket per modifier
-- `ContributionWindow[modId]` -- recent meter gain per modifier (rolling window)
-- `ContributionSamples` -- queue of timestamped gain samples for window pruning
+- `ModCooldowns[modId]` -- per-mod-per-tower cooldown timer; prevents same mod from contributing more than once per `ModProcCooldownSeconds` (0.25s)
 - `ShotTimes` -- queue of shot timestamps for HairTrigger streak measurement
 - `LoadoutSignature` -- hash of current modifier loadout; if this changes, the entire state resets
-- `RolesLocked` / `LockedPrimary/Secondary/Tertiary` -- role lock once meter reaches threshold
 
 State resets automatically when the tower's modifier loadout changes (new mod drafted onto the tower).
 
@@ -67,54 +65,30 @@ Capped at 2.0
 
 ---
 
-## 4. Token Rate Limiter
+## 4. Mod Proc Rate Limiter
 
-Before computing meter gain, each proc checks a token bucket for its modifier:
+Before computing meter gain, each proc checks a per-mod-per-tower cooldown:
 
-| Modifier | Cap | Regen/s |
-|---|---|---|
-| momentum | 5.0 | 6.0 |
-| overkill | 4.0 | 4.0 |
-| exploit_weakness | 3.0 | 3.0 |
-| focus_lens | 4.0 | 4.0 |
-| slow (chill) | 4.0 | 5.0 |
-| overreach | 4.0 | 4.0 |
-| hair_trigger | 4.0 | 5.0 |
-| split_shot | 3.0 | 4.0 |
-| feedback_loop | 2.0 | 2.0 |
-| chain_reaction | 3.0 | 4.0 |
-| blast_core | 3.0 | 4.0 |
-
-All values are further multiplied by `TokenCapMultiplier` (global) and per-mod `TokenCapMultipliers` / `TokenRegenMultipliers` from the active tuning profile.
-
-**Gate logic:**
 ```
-gate = Clamp(currentTokens, 0, 1)
-tokens -= 1.0
-if gate <= 0.0001 → skip proc (no meter gain)
+if ModCooldowns[modId] > 0 → skip proc (no meter gain)
+ModCooldowns[modId] = ModProcCooldownSeconds   (0.25s)
 ```
 
-So a full bucket (e.g. 5 tokens for Momentum) gives gate=1 on the first proc. After 5 rapid procs the bucket is at 0 and further procs are gated out until regen kicks in. A partial bucket (e.g. 0.4 remaining) gives gate=0.4, scaling down the gain proportionally.
+The same mod on the same tower can contribute at most once every 0.25 seconds. There is no per-mod cap or regen curve -- the gate is a simple flat cooldown applied uniformly to all mods.
 
 ---
 
 ## 5. Meter Gain Formula
 
-When a proc passes the token gate, meter gain is:
+When a proc passes the mod cooldown gate, meter gain is:
 
 ```
-intervalScale = Clamp(tower.AttackInterval / 1.0s, 0.65, 1.5)
-
 gain = BaseGain(mod)
      × eventScalar
      × CopyMultiplier(copies)
-     × gate
-     × DiversityMultiplier(uniqueSupportedMods)
      × MeterGainScale                          -- (0.75 / 1.30 ≈ 0.577)
      × MeterGainMultiplier                     -- tuning, default 1.0
      × TowerMeterGainMultiplier(towerId)       -- per-tower tuning
-     × DamageMeterMultiplier(eventDamage)
-     × intervalScale
 ```
 
 ### Base Gain per Modifier
@@ -131,8 +105,10 @@ gain = BaseGain(mod)
 | feedback_loop | 3.1 |
 | chain_reaction | 2.2 |
 | blast_core | 2.3 |
+| wildfire | 2.2 |
+| reaper_protocol | 3.2 |
 
-Per-mod `GainMultipliers` from the tuning profile multiply these (currently: overkill ×0.879, split_shot ×0.872, chain_reaction ×0.94, blast_core ×0.88).
+Per-mod `GainMultipliers` from the tuning profile multiply these.
 
 ### Copy Multiplier
 Rewards stacking the same modifier:
@@ -143,37 +119,6 @@ copies ≥ 3 → 2.70×
 (all × CopyMultiplierScale, default 0.8532)
 ```
 Effective at tuned defaults: 1×=0.853, 2×=1.638, 3+=2.304.
-
-### Diversity Multiplier
-Small bonus for having multiple *different* supported mods on a tower:
-```
-unique = 1 → 1.00×
-unique = 2 → 1.08×
-unique ≥ 3 → 1.16×
-(all × DiversityMultiplierScale, default 0.867)
-```
-
-### Interval Scale
-Normalizes fire-rate so fast towers don't dominate surge count:
-```
-intervalScale = Clamp(attackInterval / 1.0, 0.65, 1.5)
-```
-- Fast tower (0.3s interval): scale = 0.65 (floor)
-- 1s tower: scale = 1.0
-- Slow tower (1.5s+ interval): scale = 1.5 (cap)
-
-### Damage Meter Multiplier
-Scales gain by how hard the hit was relative to a reference damage:
-```
-reference = 20 × MeterDamageReferenceMultiplier   (default: 20 × 0.8279 ≈ 16.56)
-weight    = Clamp(0.90 × MeterDamageWeightMultiplier, 0, 1)
-normalized = Clamp(eventDamage / reference, 0.10, 4.0)
-blended   = (1 - weight) + weight × normalized
-result    = Clamp(blended, MeterDamageMinMultiplier × minScale,
-                            MeterDamageMaxMultiplier × maxScale)
-          = Clamp(blended, 0.45, ~2.18)
-```
-If `eventDamage` is not provided (≤ 0 or invalid), multiplier = 1.0 (neutral).
 
 ### Per-Tower Meter Gain Multipliers (tuned defaults)
 | Tower | Multiplier |
@@ -204,6 +149,8 @@ Each modifier computes an `eventScalar` that reflects how impactful the specific
 | Feedback Loop | `Clamp(0.90 + 1.20 × refundFrac, 0.90, 2.00)` | 0.90 | 2.00 |
 | Chain Reaction | `Clamp(0.75 + 0.18 × bounces, 0.75, 1.85)` | 0.75 | 1.85 |
 | Blast Core | `Clamp(0.70 + 0.22 × splashHits, 0.70, 1.60)` | 0.70 | 1.60 |
+| Wildfire | `Clamp(0.75 + 0.35 × Clamp(burnDpsScalar, 0, 2), 0.75, 1.70)` | 0.75 | 1.70 |
+| Reaper Protocol | `Clamp(0.80 + 0.25 × livesRestoredThisWave, 0.80, 1.80)` | 0.80 | 1.80 |
 
 **Notes on inputs:**
 - `stackNorm`: Momentum's current stack divided by max (normalized 0–1)
@@ -217,8 +164,8 @@ Each modifier computes an `eventScalar` that reflects how impactful the specific
 - `refundFrac`: fraction of cooldown refunded (1.0 = full instant refund)
 - `bounces`: number of chain bounces achieved
 - `splashHits`: number of enemies caught by the Blast Core AoE
-
-Current tuned per-mod event scalar multipliers: chain_reaction ×0.68, split_shot ×1.247, feedback_loop ×0.984, hair_trigger ×0.740, blast_core ×1.15. All others use global EventScalarMultiplier (1.0115).
+- `burnDpsScalar`: `burnDps × 0.5`, passed from Wildfire.OnHit and CombatSim burn/trail procs; higher effective burn = richer payout
+- `livesRestoredThisWave`: cumulative Reaper Protocol life gains on this tower this wave
 
 ---
 
@@ -234,23 +181,17 @@ Meter clamps to 0; decay stops when a new proc fires or meter hits zero.
 
 ---
 
-## 8. Role System and Contribution Window
+## 8. Role Resolution
 
-The **contribution window** tracks how much total meter gain each mod has contributed in the last `ContributionWindowSeconds` (20s × 0.8148 ≈ 16.3s effective). This is maintained as a rolling queue of timestamped samples; samples older than the window are pruned and subtracted.
+Roles are computed fresh on every surge trigger from the tower's current modifier loadout. There is no contribution window, no role lock, and no separate tracking per mod.
 
 ### Role Resolution Order
-Mods present on the tower are sorted by:
-1. **Copy count** (primary key, weight 100) -- more copies = higher priority
-2. **Recent contribution** (secondary key, weight 0.01) -- tiebreak by who filled the meter most lately
-3. **Canonical order** (tiebreak) -- deterministic fallback
-4. **Alphabetical** (final tiebreak)
+Supported mods on the tower are sorted by:
+1. **Copy count** (descending) -- more copies = higher priority
+2. **Canonical order** (tiebreak) -- deterministic fallback
+3. **Alphabetical** (final tiebreak)
 
 Result: `r1` (Primary), `r2` (Secondary), `r3` (Tertiary).
-
-### Role Lock
-Once the meter reaches `20 × RoleLockMeterThresholdMultiplier` (≈ 22.6), roles are locked until the next surge fires. This prevents the mod assignments from changing during the final charge-up, ensuring the surge effect matches what the player was building toward.
-
-Roles unlock on every surge trigger.
 
 ### Weight Shares
 Used for SurgePower calculation:
@@ -324,7 +265,7 @@ When `meter >= threshold` AND `surgeCooldown <= 0`:
 4. Set visual pulse to 1.0, hold for 0.42s (then decays at 0.72/s)
 5. Unlock roles (cleared for fresh accumulation)
 6. Add `10 × GlobalMeterPerSurgeMultiplier` (≈10.78) to the global meter
-7. Log surge contribution for global mod attribution
+7. Increment `_globalCycleScores[PrimaryModId]` (cycle-accumulated score for global attribution)
 8. Fire `OnSurgeTriggered` event with the full `SpectacleTriggerInfo`
 9. Check if global meter is now full (see §13)
 
@@ -348,6 +289,8 @@ Each mod has one named Single effect:
 | feedback_loop | S_FEEDBACK_REBOOT_STORM | Reboot Storm |
 | chain_reaction | S_CHAIN_GRID_OVERLOAD | Grid Overload |
 | blast_core | S_BLAST_DETONATION_ZONE | Detonation Zone |
+| wildfire | S_WILDFIRE_CONFLAGRATION | Conflagration |
+| reaper_protocol | S_REAPER_DEATH_DECREE | Death Decree |
 
 ### Combo Mode (2 unique mods)
 Named pairings (order-independent). Selected pairs (full list in `SpectacleDefinitions.BuildComboDefs()`):
@@ -409,6 +352,29 @@ Named pairings (order-independent). Selected pairs (full list in `SpectacleDefin
 | Blast Core + Split Shot | Shrapnel Burst |
 | Blast Core + Feedback Loop | Detonation Loop |
 | Blast Core + Chain Reaction | Shockwave Propagation |
+| Reaper Protocol + Momentum | Death Tempo |
+| Reaper Protocol + Overkill | Grim Overflow |
+| Reaper Protocol + Exploit Weakness | Marked for Death |
+| Reaper Protocol + Focus Lens | Lethal Prism |
+| Reaper Protocol + Chill Shot | Cryo Harvest |
+| Reaper Protocol + Overreach | Death Horizon |
+| Reaper Protocol + Hair Trigger | Kill Surge |
+| Reaper Protocol + Split Shot | Harvest Bloom |
+| Reaper Protocol + Feedback Loop | Death Loop |
+| Reaper Protocol + Chain Reaction | Grim Lattice |
+| Reaper Protocol + Blast Core | Lethal Detonation |
+| Wildfire + Momentum | Scorched Escalation |
+| Wildfire + Overkill | Inferno Spill |
+| Wildfire + Exploit Weakness | Marked Combustion |
+| Wildfire + Focus Lens | Prism Ignition |
+| Wildfire + Chill Shot | Boiling Point |
+| Wildfire + Overreach | Wildfire Sweep |
+| Wildfire + Hair Trigger | Firestorm Cycler |
+| Wildfire + Split Shot | Ember Bloom |
+| Wildfire + Feedback Loop | Phoenix Loop |
+| Wildfire + Chain Reaction | Inferno Cascade |
+| Wildfire + Blast Core | Blast Furnace |
+| Wildfire + Reaper Protocol | Death Pyre |
 
 Unmatched pairs fall back to `"ModA x ModB"`.
 
@@ -432,6 +398,8 @@ The surge name is `"[combo name] + [augment name]"` where:
 | Feedback Loop | Cooldown Reclaim | CooldownRefund | 0.35 | instant |
 | Chain Reaction | Chain Charge | ChainBounces | 0.28 | 1.8s |
 | Blast Core | Blast Radius | RangePulse | 0.22 | 1.8s |
+| Wildfire | Flame Surge | BurnAmplify | 0.24 | 2.5s |
+| Reaper Protocol | Death Mark | ExecutionStrike | 0.28 | instant |
 
 The augment's `Coefficient × AugmentStrength` determines intensity. `AugmentStrength = w3 × SurgePower`.
 
@@ -469,21 +437,23 @@ In bot mode, activation is immediate (no player input needed).
 
 ## 14. Dominant Mod Attribution (Global Surge)
 
-Each tower surge logs a `SurgeContribution` with a timestamp and the `PrimaryModId` locked at surge time. These are retained for `GlobalContributionWindowSeconds` (6s × 1.008 ≈ 6.05s).
+The system maintains `_globalCycleScores: Dictionary<string, int>` -- a count of how many tower surges each `PrimaryModId` has led since the last global surge armed. Every tower surge increments the score for its primary mod by 1.
 
-When the global surge fires, `ResolveDominantGlobalMods()`:
-1. Collect all contributions within the window
-2. Count how many times each `PrimaryModId` appears
-3. Sort descending by count, then by canonical order for tiebreaks
-4. Return top 3 mod IDs
+When the global meter fills and arms, `ResolveDominantGlobalMods()`:
+1. Read `_globalCycleScores` (already accumulated over the entire cycle)
+2. Sort descending by score, then by canonical order for tiebreaks
+3. Return top 3 mod IDs
+4. Clear `_globalCycleScores` and `_globalCycleContributors` (reset for next cycle)
 
-Only `dominantModIds[0]` (the most frequent primary mod in recent surges) determines the archetype label and feel.
+Only `dominantModIds[0]` (the highest-score primary mod across the whole cycle) determines the archetype label and feel.
+
+This replaces the previous 6-second time-windowed `Queue<SurgeContribution>` approach. Cycle-accumulated scoring is O(1) per surge and produces deterministic outcomes based on the full build pattern since the last global surge.
 
 ---
 
 ## 15. Surge Differentiation -- Labels and Feel
 
-`SurgeDifferentiation.ResolveLabel(dominantModIds)` maps the dominant mod to one of 12 named archetypes. The banner on screen displays this label. Falls back to `"GLOBAL SURGE"` if no match.
+`SurgeDifferentiation.ResolveLabel(dominantModIds)` maps the dominant mod to one of 13 named archetypes. The banner on screen displays this label. Falls back to `"GLOBAL SURGE"` if no match.
 
 | Dominant Mod | Global Surge Label | Feel |
 |---|---|---|
@@ -499,6 +469,7 @@ Only `dominantModIds[0]` (the most frequent primary mod in recent surges) determ
 | chain_reaction | CHAIN STORM | Neutral |
 | blast_core | BLAST WAVE | Detonation |
 | wildfire | INFERNO SURGE | Detonation |
+| reaper_protocol | GRIM TIDE | Neutral |
 
 ### Visual Feel Classification
 - **Detonation** -- spike/burst builds; bright flash
@@ -650,7 +621,7 @@ Per-tower pulse used for glowing/pulsing UI:
 `GetVisualState(tower)` returns:
 - `MeterNormalized` = `Clamp(meter / threshold, 0, 1)`
 - `Pulse` = current pulse value
-- `PrimaryModId` = current primary mod (from locked roles if locked)
+- `PrimaryModId` = current primary mod (resolved fresh from loadout)
 
 ---
 

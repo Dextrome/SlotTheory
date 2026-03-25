@@ -63,6 +63,9 @@ public class SpectacleSystemTests
         yield return new object[] { SpectacleDefinitions.SplitShot, SpectacleAugmentKind.SplitVolley };
         yield return new object[] { SpectacleDefinitions.FeedbackLoop, SpectacleAugmentKind.CooldownRefund };
         yield return new object[] { SpectacleDefinitions.ChainReaction, SpectacleAugmentKind.ChainBounces };
+        yield return new object[] { SpectacleDefinitions.BlastCore, SpectacleAugmentKind.RangePulse };
+        yield return new object[] { SpectacleDefinitions.Wildfire, SpectacleAugmentKind.BurnAmplify };
+        yield return new object[] { SpectacleDefinitions.ReaperProtocol, SpectacleAugmentKind.ExecutionStrike };
     }
 
     public static IEnumerable<object[]> AugmentModIds()
@@ -352,15 +355,15 @@ public class SpectacleSystemTests
         IDictionary combos = ReadPrivateStaticDictionary("ComboDefs");
         IDictionary augments = ReadPrivateStaticDictionary("TriadAugments");
 
-        // N*(N-1)/2 combos where N = number of supported modifiers (11 as of Blast Core addition).
-        Assert.Equal(55, combos.Count);
-        Assert.Equal(11, augments.Count);
+        // N*(N-1)/2 combos where N = number of supported modifiers (13 as of Wildfire+Reaper addition).
+        Assert.Equal(78, combos.Count);
+        Assert.Equal(13, augments.Count);
 
         var comboIds = combos.Values.Cast<SpectacleComboDef>().Select(def => def.EffectId).ToArray();
         var augmentIds = augments.Values.Cast<SpectacleTriadAugmentDef>().Select(def => def.EffectId).ToArray();
 
-        Assert.Equal(55, comboIds.Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(11, augmentIds.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(78, comboIds.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(13, augmentIds.Distinct(StringComparer.Ordinal).Count());
     }
 
     [Theory]

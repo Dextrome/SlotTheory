@@ -28,6 +28,9 @@ public partial class HowToPlay : Node
         SpectacleDefinitions.SplitShot,
         SpectacleDefinitions.FeedbackLoop,
         SpectacleDefinitions.ChainReaction,
+        SpectacleDefinitions.BlastCore,
+        SpectacleDefinitions.Wildfire,
+        SpectacleDefinitions.ReaperProtocol,
     };
 
     /// <summary>
@@ -304,18 +307,20 @@ public partial class HowToPlay : Node
 
     private static void BuildSurgesSection(VBoxContainer vbox)
     {
-        AddHeader(vbox, "SURGES OVERVIEW");
-        AddLine(vbox, "Combat fills Tower Surge.");
-        AddLine(vbox, "A full tower ring means Surge Ready.");
-        AddLine(vbox, "Full towers charge the Global Surge bar.");
-        AddLine(vbox, "Click Global Surge when the bar is full.");
-        AddLine(vbox, "2+ mods unlock Combo Surge. 3 mods add a Triad augment.");
-        AddLine(vbox, $"Tower surge triggers at {SpectacleDefinitions.SurgeThreshold:0} meter, then resets to {SpectacleDefinitions.SurgeMeterAfterTrigger:0}.");
-        AddLine(vbox, $"Each tower surge adds +{SpectacleDefinitions.GlobalMeterPerSurge:0} to the global meter. Global surge triggers at {SpectacleDefinitions.GlobalThreshold:0}, then resets to {SpectacleDefinitions.GlobalMeterAfterTrigger:0}.");
-        AddLine(vbox, "A tower with 1 surge-capable mod fires a Single Surge. Two mods: Combo Surge. Three mods: Triad (Combo payload + Augment bonus).");
+        AddHeader(vbox, "HOW SURGES WORK");
+        AddLine(vbox, "Dealing damage fills each tower's surge meter. When full, the tower automatically fires a Surge -- a powerful bonus effect on top of its normal attack.");
+        AddLine(vbox, $"After firing, the meter resets to {SpectacleDefinitions.SurgeMeterAfterTrigger:0} (not zero), so towers return to ready quickly.");
+        AddLine(vbox, "Every tower surge feeds the shared Global Surge bar. When the bar fills, a READY banner pulses -- click it to trigger a Global Surge.");
         AddSpacer(vbox, 8);
 
-        AddHeader(vbox, "SINGLE SURGE TYPES (10)");
+        AddHeader(vbox, "SURGE PAYLOAD TIERS");
+        AddLine(vbox, "The surge payload a tower fires depends on how many surge-capable mods it carries:");
+        AddLine(vbox, "  1 mod  →  Single Surge: the mod's signature burst effect.");
+        AddLine(vbox, "  2 mods →  Combo Surge: a hybrid payload blending both mod roles. 45 unique pairings.");
+        AddLine(vbox, "  3 mods →  Triad: same Combo core, plus a bonus Augment effect from the third mod.");
+        AddSpacer(vbox, 8);
+
+        AddHeader(vbox, "SINGLE SURGE TYPES (13)");
         foreach (string modId in CanonicalSurgeMods)
         {
             var single = SpectacleDefinitions.GetSingle(modId);
@@ -324,11 +329,7 @@ public partial class HowToPlay : Node
         }
         AddSpacer(vbox, 8);
 
-        AddHeader(vbox, "COMBO SURGES");
-        AddLine(vbox, "Towers with 2 surge-capable mods fire Combo Surges - a hybrid payload blending both mod roles. 45 unique combinations exist, one for every modifier pairing.");
-        AddSpacer(vbox, 8);
-
-        AddHeader(vbox, "TRIAD AUGMENT TYPES (10)");
+        AddHeader(vbox, "TRIAD AUGMENT TYPES (13)");
         foreach (string modId in CanonicalSurgeMods)
         {
             var aug = SpectacleDefinitions.GetTriadAugment(modId);
@@ -336,13 +337,12 @@ public partial class HowToPlay : Node
             string duration = aug.DurationSec > 0f ? $"{aug.DurationSec:0.0}s" : "instant";
             AddModRowWithIcon(vbox, modId, aug.Name.ToUpperInvariant(), $"{modName}: {DescribeAugmentKind(aug.Kind)}. Coef {aug.Coefficient * 100f:0}% ({duration}).");
         }
-        AddLine(vbox, "Every Triad Surge fires one Combo core payload plus one Augment effect.");
         AddSpacer(vbox, 8);
 
         AddHeader(vbox, "GLOBAL SURGE");
-        AddLine(vbox, "When it triggers, every placed tower gets a cooldown refund and fires its own major surge payload.");
-        AddLine(vbox, "All alive enemies are marked and slowed for a short window.");
-        AddLine(vbox, "The banner names your build archetype based on which mods drove the most surges. Ripple colors reflect the top contributing mods (up to 3 colors for diverse builds).");
+        AddLine(vbox, "Triggering a Global Surge fires every placed tower's major surge payload simultaneously and marks + slows all alive enemies for a short window.");
+        AddLine(vbox, $"Each tower surge contributes +{SpectacleDefinitions.GlobalMeterPerSurge:0} to the global meter. Global surge arms at {SpectacleDefinitions.GlobalThreshold:0}, then resets to {SpectacleDefinitions.GlobalMeterAfterTrigger:0}.");
+        AddLine(vbox, "The archetype banner names your build based on which mod drove the most tower surges since the last global surge. Ripple colors show the top contributing mods (up to 3).");
         AddSpacer(vbox, 10);
 
         AddHeader(vbox, "GLOBAL SURGE ARCHETYPES (10)");
@@ -377,6 +377,9 @@ public partial class HowToPlay : Node
         "split_shot" => "Fractal spread burst across nearby enemies.",
         "feedback_loop" => "Reboot burst with strong cooldown tempo value.",
         "chain_reaction" => "Arc overload bouncing through linked targets.",
+        "blast_core" => "Detonation zone that blasts all enemies in an extended radius.",
+        "wildfire" => "Conflagration: chip damage and scorched slow across enemies in range.",
+        "reaper_protocol" => "Execution strike on the lowest-HP enemy in range. Grants +1 life if it kills.",
         _ => "Modifier-specific primary surge payload.",
     };
 
@@ -392,6 +395,8 @@ public partial class HowToPlay : Node
         SpectacleAugmentKind.SplitVolley => "Amplifies split-volley burst",
         SpectacleAugmentKind.CooldownRefund => "Increases cooldown reclaim",
         SpectacleAugmentKind.ChainBounces => "Adds chain-bounce pressure",
+        SpectacleAugmentKind.ExecutionStrike => "Execution spike on lowest-HP enemy; +1 life on kill",
+        SpectacleAugmentKind.BurnAmplify => "Flame surge: chip + scorched slow to enemies in range",
         _ => "Triad augment package",
     };
 

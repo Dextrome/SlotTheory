@@ -69,6 +69,9 @@ public sealed class SpectacleSystem
         SpectacleDefinitions.SplitShot,
         SpectacleDefinitions.FeedbackLoop,
         SpectacleDefinitions.ChainReaction,
+        SpectacleDefinitions.BlastCore,
+        SpectacleDefinitions.Wildfire,
+        SpectacleDefinitions.ReaperProtocol,
     };
 
     private readonly Dictionary<ITowerView, TowerState> _towerStates = new();

@@ -4955,6 +4955,42 @@ void fragment() {
 				}
 				break;
 			}
+			case SpectacleDefinitions.Wildfire:
+			{
+				// Conflagration: ignite enemies in extended range with chip damage and scorched slow.
+				float burnRadius = tower.Range * (isMajor ? 1.35f : 1.15f);
+				float chip       = tower.BaseDamage * (isMajor ? 0.28f : 0.15f) * p;
+				float slowFactor = isMajor ? 0.68f : 0.80f;
+				var burnTargets  = _runState.EnemiesAlive
+					.Where(e => IsEnemyUsable(e) && tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= burnRadius)
+					.Take(isMajor ? 5 : 3)
+					.ToList();
+				foreach (var enemy in burnTargets)
+				{
+					Statuses.ApplySlow(enemy, isMajor ? 3.5f : 2.0f, slowFactor);
+					SpawnSpectacleArc(tower.GlobalPosition, enemy.GlobalPosition, accent, intensity: 0.85f);
+					ApplySpectacleDamage(tower, enemy, chip, accent, heavyHit: false);
+				}
+				break;
+			}
+			case SpectacleDefinitions.ReaperProtocol:
+			{
+				// Execution strike: heavy hit on the lowest-HP enemy in extended range.
+				// Grants +1 life (capped at ReaperMaxLives) if the strike kills.
+				float reach = tower.Range * (isMajor ? 1.45f : 1.20f);
+				var execTarget = _runState.EnemiesAlive
+					.Where(e => IsEnemyUsable(e) && tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= reach)
+					.OrderBy(e => e.Hp)
+					.FirstOrDefault();
+				if (execTarget == null) break;
+				float strike = tower.BaseDamage * (isMajor ? 2.4f : 1.5f) * p;
+				SpawnSpectacleArc(tower.GlobalPosition, execTarget.GlobalPosition, accent, intensity: 1.35f, mineChainStyle: true);
+				ApplySpectacleDamage(tower, execTarget, strike, accent, heavyHit: true, triggerHitStopOnKill: isMajor);
+				// Life gain if the strike killed -- bypasses the per-wave kill cap (surge is its own payoff)
+				if (execTarget.Hp <= 0f)
+					NotifyReaperProtocolKill(tower);
+				break;
+			}
 		}
 	}
 
@@ -5105,6 +5141,39 @@ void fragment() {
 					linkRange: Mathf.Max(220f, tower.ChainRange * 1.08f),
 					accent,
 					heavy: isMajor);
+				break;
+			}
+			case SpectacleAugmentKind.ExecutionStrike:
+			{
+				// Heavy spike on the lowest-HP enemy in extended range; grants +1 life if it kills.
+				float reach = Mathf.Max(tower.Range * 1.30f, 280f);
+				var execTarget = _runState.EnemiesAlive
+					.Where(e => IsEnemyUsable(e) && tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= reach)
+					.OrderBy(e => e.Hp)
+					.FirstOrDefault();
+				if (execTarget == null) break;
+				float execDmg = tower.BaseDamage * (0.55f + 1.60f * aug);
+				SpawnSpectacleArc(tower.GlobalPosition, execTarget.GlobalPosition, accent, intensity: 1.28f, mineChainStyle: true);
+				ApplySpectacleDamage(tower, execTarget, execDmg, accent, heavyHit: true, triggerHitStopOnKill: isMajor);
+				if (execTarget.Hp <= 0f)
+					NotifyReaperProtocolKill(tower);
+				break;
+			}
+			case SpectacleAugmentKind.BurnAmplify:
+			{
+				// Flame Surge: chip + slow to enemies in range, scaled by augment strength.
+				float radius = Mathf.Max(tower.Range * 1.20f, 240f);
+				float chip   = tower.BaseDamage * (0.12f + 0.30f * aug);
+				var targets  = _runState.EnemiesAlive
+					.Where(e => IsEnemyUsable(e) && tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= radius)
+					.Take(isMajor ? 4 : 2)
+					.ToList();
+				foreach (var enemy in targets)
+				{
+					Statuses.ApplySlow(enemy, 2.5f + 1.5f * aug, 0.75f);
+					SpawnSpectacleArc(tower.GlobalPosition, enemy.GlobalPosition, accent, intensity: 0.80f);
+					ApplySpectacleDamage(tower, enemy, chip, accent, heavyHit: false);
+				}
 				break;
 			}
 		}
@@ -6802,8 +6871,8 @@ void fragment() {
 	{
 		if (CurrentPhase != GamePhase.Wave) return;
 
-		// No overheal: cannot exceed the difficulty-determined starting lives
-		if (_runState.Lives >= _runState.MaxLives) return;
+		// Reaper Protocol can accumulate lives beyond the starting cap, up to ReaperMaxLives
+		if (_runState.Lives >= Balance.ReaperMaxLives) return;
 
 		_runState.Lives++;
 
