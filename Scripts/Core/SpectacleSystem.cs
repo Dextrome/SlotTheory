@@ -34,35 +34,6 @@ public readonly record struct GlobalSurgeTriggerInfo(float MeterAfter, int Uniqu
 
 public sealed class SpectacleSystem
 {
-    private readonly struct ContributionSample
-    {
-        public float Time { get; }
-        public string ModId { get; }
-        public float Value { get; }
-
-        public ContributionSample(float time, string modId, float value)
-        {
-            Time = time;
-            ModId = modId;
-            Value = value;
-        }
-    }
-
-    private readonly struct SurgeContribution
-    {
-        public float Time { get; }
-        public ITowerView Tower { get; }
-        /// <summary>Primary mod ID locked at the moment the surge fired. Avoids re-deriving from post-surge state.</summary>
-        public string PrimaryModId { get; }
-
-        public SurgeContribution(float time, ITowerView tower, string primaryModId)
-        {
-            Time = time;
-            Tower = tower;
-            PrimaryModId = primaryModId;
-        }
-    }
-
     private sealed class TowerState
     {
         public float Meter;
@@ -71,13 +42,7 @@ public sealed class SpectacleSystem
         public float Pulse;
         public float PulseHold;
         public string LoadoutSignature = string.Empty;
-        public bool RolesLocked;
-        public string LockedPrimary = string.Empty;
-        public string LockedSecondary = string.Empty;
-        public string LockedTertiary = string.Empty;
-        public readonly Dictionary<string, float> Tokens = new(StringComparer.Ordinal);
-        public readonly Dictionary<string, float> ContributionWindow = new(StringComparer.Ordinal);
-        public readonly Queue<ContributionSample> ContributionSamples = new();
+        public readonly Dictionary<string, float> ModCooldowns = new(StringComparer.Ordinal);
         public readonly Queue<float> ShotTimes = new();
 
         public void Clear()
@@ -87,13 +52,7 @@ public sealed class SpectacleSystem
             InactivityTime = 0f;
             Pulse = 0f;
             PulseHold = 0f;
-            RolesLocked = false;
-            LockedPrimary = string.Empty;
-            LockedSecondary = string.Empty;
-            LockedTertiary = string.Empty;
-            Tokens.Clear();
-            ContributionWindow.Clear();
-            ContributionSamples.Clear();
+            ModCooldowns.Clear();
             ShotTimes.Clear();
         }
     }
@@ -110,10 +69,15 @@ public sealed class SpectacleSystem
         SpectacleDefinitions.SplitShot,
         SpectacleDefinitions.FeedbackLoop,
         SpectacleDefinitions.ChainReaction,
+        SpectacleDefinitions.BlastCore,
+        SpectacleDefinitions.Wildfire,
+        SpectacleDefinitions.ReaperProtocol,
     };
 
     private readonly Dictionary<ITowerView, TowerState> _towerStates = new();
-    private readonly Queue<SurgeContribution> _surgeContributions = new();
+    // Cycle-accumulated scores: count how many times each primaryModId led a surge during the current global cycle.
+    private readonly Dictionary<string, int> _globalCycleScores = new(StringComparer.Ordinal);
+    private readonly HashSet<ITowerView> _globalCycleContributors = new();
     private float _time;
     private float _globalMeter;
 
@@ -155,7 +119,7 @@ public sealed class SpectacleSystem
     }
 
     /// <summary>
-    /// Returns the current dominant mod IDs based on recent surge contributions,
+    /// Returns the current dominant mod IDs from cycle-accumulated surge scores,
     /// without mutating any state. Safe to call every frame for preview purposes.
     /// </summary>
     public string[] PeekDominantMods() => ResolveDominantGlobalMods();
@@ -163,7 +127,8 @@ public sealed class SpectacleSystem
     public void Reset()
     {
         _towerStates.Clear();
-        _surgeContributions.Clear();
+        _globalCycleScores.Clear();
+        _globalCycleContributors.Clear();
         _time = 0f;
         _globalMeter = 0f;
     }
@@ -171,16 +136,7 @@ public sealed class SpectacleSystem
     public void RemoveTower(ITowerView tower)
     {
         _towerStates.Remove(tower);
-        if (_surgeContributions.Count == 0)
-            return;
-
-        int count = _surgeContributions.Count;
-        for (int i = 0; i < count; i++)
-        {
-            var contribution = _surgeContributions.Dequeue();
-            if (!ReferenceEquals(contribution.Tower, tower))
-                _surgeContributions.Enqueue(contribution);
-        }
+        _globalCycleContributors.Remove(tower);
     }
 
     public void Update(float delta)
@@ -201,15 +157,24 @@ public sealed class SpectacleSystem
             {
                 state.Pulse = Max(0f, state.Pulse - delta * 0.72f);
             }
-            RegenerateTokens(state, delta);
+            if (state.ModCooldowns.Count > 0)
+            {
+                var cdKeys = state.ModCooldowns.Keys.ToArray();
+                foreach (string k in cdKeys)
+                {
+                    float next = state.ModCooldowns[k] - delta;
+                    if (next <= 0f)
+                        state.ModCooldowns.Remove(k);
+                    else
+                        state.ModCooldowns[k] = next;
+                }
+            }
             state.InactivityTime += delta;
             if (state.InactivityTime >= SpectacleDefinitions.ResolveInactivityGraceSeconds() && state.Meter > 0f)
                 state.Meter = Max(0f, state.Meter - SpectacleDefinitions.ResolveInactivityDecayPerSecond() * delta);
 
-            PruneContributionWindow(state);
         }
 
-        PruneGlobalContributions();
     }
 
     public SpectacleVisualState GetVisualState(ITowerView tower)
@@ -217,7 +182,7 @@ public sealed class SpectacleSystem
         if (!_towerStates.TryGetValue(tower, out var state))
             return new SpectacleVisualState(0f, 0f, string.Empty);
 
-        var signature = ResolveSignature(state, tower, useLockedRoles: true);
+        var signature = ResolveSignature(tower);
         return new SpectacleVisualState(
             MeterNormalized: Clamp(state.Meter / SpectacleDefinitions.ResolveSurgeThreshold(tower.TowerId), 0f, 1f),
             Pulse: state.Pulse,
@@ -226,15 +191,14 @@ public sealed class SpectacleSystem
 
     public SpectacleSignature PreviewSignature(ITowerView tower)
     {
-        var state = EnsureTowerState(tower);
-        return ResolveSignature(state, tower, useLockedRoles: false);
+        EnsureTowerState(tower);
+        return ResolveSignature(tower);
     }
 
     public void RegisterShotFired(ITowerView tower)
     {
         if (tower == null) return;
         var state = EnsureTowerState(tower);
-        EnsureTokenBuckets(state);
 
         state.ShotTimes.Enqueue(_time);
         while (state.ShotTimes.Count > 0 && state.ShotTimes.Peek() < _time - 1f)
@@ -260,7 +224,6 @@ public sealed class SpectacleSystem
             return;
 
         var state = EnsureTowerState(tower);
-        EnsureTokenBuckets(state);
         RegisterProcInternal(tower, state, modId, eventScalar, eventDamage);
     }
 
@@ -268,43 +231,23 @@ public sealed class SpectacleSystem
     {
         if (!float.IsFinite(eventScalar) || eventScalar <= 0f)
             return;
-        if (!float.IsFinite(eventDamage))
-            eventDamage = -1f;
 
         int copies = CountCopies(tower, modId);
         if (copies <= 0)
             return;
 
-        int uniqueCount = CountUniqueSupportedMods(tower);
-        if (uniqueCount <= 0)
+        // Per-mod-per-tower cooldown gate: prevents the same mod from contributing
+        // more than once per ModProcCooldownSeconds on the same tower.
+        if (state.ModCooldowns.TryGetValue(modId, out float remaining) && remaining > 0f)
             return;
+        state.ModCooldowns[modId] = SpectacleDefinitions.ModProcCooldownSeconds;
 
-        if (!state.Tokens.TryGetValue(modId, out float tokens))
-            tokens = SpectacleDefinitions.GetTokenConfig(modId).Cap;
-
-        float gate = Clamp(tokens, 0f, 1f);
-        state.Tokens[modId] = Max(0f, tokens - 1f);
-
-        if (gate <= 0.0001f)
-            return;
-
-        // Scale meter gain by attack interval relative to 1s reference:
-        // - Fast towers (< 1s interval) earn less per proc so high fire rate doesn't dominate surge count.
-        // - Slow towers (> 1s interval) earn a bonus (up to 1.5×) so heavy hitters remain surge-relevant.
-        // - Floor (MeterIntervalMinScale) prevents very fast towers (e.g. Rapid Shooter + Hair Trigger)
-        //   from being double-penalized into near-impossible surge fill.
-        float intervalScale = MathF.Min(1.5f, MathF.Max(SpectacleDefinitions.MeterIntervalMinScale,
-            tower.AttackInterval / SpectacleDefinitions.MeterIntervalReference));
-
+        // Meter gain: base gain × event intensity × copy bonus × global scale × per-tower bias.
         float gain = SpectacleDefinitions.GetBaseGain(modId)
             * eventScalar
             * SpectacleDefinitions.GetCopyMultiplier(copies)
-            * gate
-            * SpectacleDefinitions.GetDiversityMultiplier(uniqueCount)
             * SpectacleDefinitions.ResolveMeterGainScale()
-            * SpectacleDefinitions.ResolveTowerMeterGainMultiplier(tower.TowerId)
-            * SpectacleDefinitions.ResolveDamageMeterMultiplier(eventDamage)
-            * intervalScale;
+            * SpectacleDefinitions.ResolveTowerMeterGainMultiplier(tower.TowerId);
 
         if (!float.IsFinite(gain) || gain <= 0.0001f)
             return;
@@ -312,10 +255,6 @@ public sealed class SpectacleSystem
         state.InactivityTime = 0f;
         float surgeThreshold = SpectacleDefinitions.ResolveSurgeThreshold(tower.TowerId);
         state.Meter = Clamp(state.Meter + gain, 0f, surgeThreshold);
-        AddContribution(state, modId, gain);
-
-        if (!state.RolesLocked && state.Meter >= SpectacleDefinitions.ResolveRoleLockMeterThreshold())
-            LockRoles(state, tower);
 
         TryTriggerEvents(tower, state);
     }
@@ -326,55 +265,44 @@ public sealed class SpectacleSystem
         float globalThreshold = SpectacleDefinitions.ResolveGlobalThreshold();
         if (state.Meter >= surgeThreshold && state.SurgeCooldown <= 0f)
         {
-            var signature = ResolveSignature(state, tower, useLockedRoles: true);
+            var signature = ResolveSignature(tower);
             state.Meter = SpectacleDefinitions.ResolveSurgeMeterAfterTrigger();
             state.SurgeCooldown = SpectacleDefinitions.ResolveSurgeCooldownSeconds();
             state.Pulse = Max(state.Pulse, 1.0f);
             state.PulseHold = Max(state.PulseHold, 0.42f);
-            state.RolesLocked = false;
-            state.LockedPrimary = string.Empty;
-            state.LockedSecondary = string.Empty;
-            state.LockedTertiary = string.Empty;
 
             _globalMeter = Clamp(_globalMeter + SpectacleDefinitions.ResolveGlobalMeterPerSurge(), 0f, globalThreshold);
-            _surgeContributions.Enqueue(new SurgeContribution(_time, tower, signature.PrimaryModId));
-            PruneGlobalContributions();
+
+            // Accumulate cycle scores: track which mods drove surges during this global cycle.
+            if (!string.IsNullOrEmpty(signature.PrimaryModId))
+                _globalCycleScores[signature.PrimaryModId] = _globalCycleScores.GetValueOrDefault(signature.PrimaryModId, 0) + 1;
+            _globalCycleContributors.Add(tower);
 
             OnSurgeTriggered?.Invoke(new SpectacleTriggerInfo(tower, IsSurge: true, signature, state.Meter));
 
             if (_globalMeter >= globalThreshold && !IsGlobalSurgeReady)
             {
                 // Meter is full - arm for player activation rather than firing immediately.
-                int uniqueContributors = Math.Max(1, CountUniqueGlobalContributors());
                 string[] dominantMods = ResolveDominantGlobalMods();
                 _pendingGlobalSurge = new GlobalSurgeTriggerInfo(
                     MeterAfter: SpectacleDefinitions.ResolveGlobalMeterAfterTrigger(),
-                    UniqueContributors: uniqueContributors,
+                    UniqueContributors: Math.Max(1, _globalCycleContributors.Count),
                     EffectId: "G_SPECTACLE_CATHARSIS",
                     EffectName: "Catastrophe",
                     DominantModIds: dominantMods);
                 _hasPendingGlobalSurge = true;
                 IsGlobalSurgeReady = true;
                 OnGlobalSurgeReady?.Invoke(SurgeDifferentiation.ResolveLabel(dominantMods));
+                // Reset cycle state so the next cycle starts fresh.
+                _globalCycleScores.Clear();
+                _globalCycleContributors.Clear();
             }
 
             return;
         }
     }
 
-    private void LockRoles(TowerState state, ITowerView tower)
-    {
-        var signature = ResolveSignature(state, tower, useLockedRoles: false);
-        if (string.IsNullOrEmpty(signature.PrimaryModId))
-            return;
-
-        state.RolesLocked = true;
-        state.LockedPrimary = signature.PrimaryModId;
-        state.LockedSecondary = signature.SecondaryModId;
-        state.LockedTertiary = signature.TertiaryModId;
-    }
-
-    private SpectacleSignature ResolveSignature(TowerState state, ITowerView tower, bool useLockedRoles)
+    private static SpectacleSignature ResolveSignature(ITowerView tower)
     {
         var counts = BuildCopyCountMap(tower);
         if (counts.Count == 0)
@@ -397,27 +325,17 @@ public sealed class SpectacleSystem
                 AugmentName: string.Empty);
         }
 
-        string r1;
-        string r2;
-        string r3;
-        if (useLockedRoles && state.RolesLocked && !string.IsNullOrEmpty(state.LockedPrimary))
-        {
-            r1 = state.LockedPrimary;
-            r2 = state.LockedSecondary;
-            r3 = state.LockedTertiary;
-        }
-        else
-        {
-            var ranked = counts.Keys
-                .OrderByDescending(modId => 100f * counts[modId] + 0.01f * state.ContributionWindow.GetValueOrDefault(modId, 0f))
-                .ThenBy(modId => CanonicalRank(modId))
-                .ThenBy(modId => modId, StringComparer.Ordinal)
-                .ToList();
+        // Roles determined purely by loadout: highest copy count first,
+        // ties broken by canonical order, then lexicographic.
+        var ranked = counts.Keys
+            .OrderByDescending(modId => counts[modId])
+            .ThenBy(modId => CanonicalRank(modId))
+            .ThenBy(modId => modId, StringComparer.Ordinal)
+            .ToList();
 
-            r1 = ranked.Count > 0 ? ranked[0] : string.Empty;
-            r2 = ranked.Count > 1 ? ranked[1] : string.Empty;
-            r3 = ranked.Count > 2 ? ranked[2] : string.Empty;
-        }
+        string r1 = ranked.Count > 0 ? ranked[0] : string.Empty;
+        string r2 = ranked.Count > 1 ? ranked[1] : string.Empty;
+        string r3 = ranked.Count > 2 ? ranked[2] : string.Empty;
 
         int unique = counts.Count;
         int n = tower.Modifiers.Count;
@@ -509,7 +427,6 @@ public sealed class SpectacleSystem
         {
             state.Clear();
             state.LoadoutSignature = sig;
-            EnsureTokenBuckets(state);
         }
 
         return state;
@@ -565,102 +482,15 @@ public sealed class SpectacleSystem
         return count;
     }
 
-    private static int CountUniqueSupportedMods(ITowerView tower)
-    {
-        var set = new HashSet<string>(StringComparer.Ordinal);
-        foreach (var mod in tower.Modifiers)
-        {
-            string id = SpectacleDefinitions.NormalizeModId(mod.ModifierId);
-            if (SpectacleDefinitions.IsSupported(id))
-                set.Add(id);
-        }
-        return set.Count;
-    }
-
-    private static void EnsureTokenBuckets(TowerState state)
-    {
-        foreach (string modId in SpectacleDefinitions.SupportedModIds)
-        {
-            if (!state.Tokens.ContainsKey(modId))
-                state.Tokens[modId] = SpectacleDefinitions.GetTokenConfig(modId).Cap;
-        }
-    }
-
-    private static void RegenerateTokens(TowerState state, float delta)
-    {
-        var ids = state.Tokens.Keys.ToArray();
-        foreach (string modId in ids)
-        {
-            var cfg = SpectacleDefinitions.GetTokenConfig(modId);
-            float next = state.Tokens[modId] + cfg.RegenPerSecond * delta;
-            state.Tokens[modId] = Clamp(next, 0f, cfg.Cap);
-        }
-    }
-
-    private void AddContribution(TowerState state, string modId, float value)
-    {
-        state.ContributionSamples.Enqueue(new ContributionSample(_time, modId, value));
-        state.ContributionWindow.TryGetValue(modId, out float current);
-        state.ContributionWindow[modId] = current + value;
-        PruneContributionWindow(state);
-    }
-
-    private void PruneContributionWindow(TowerState state)
-    {
-        float cutoff = _time - SpectacleDefinitions.ResolveContributionWindowSeconds();
-        while (state.ContributionSamples.Count > 0 && state.ContributionSamples.Peek().Time < cutoff)
-        {
-            var sample = state.ContributionSamples.Dequeue();
-            if (!state.ContributionWindow.TryGetValue(sample.ModId, out float current))
-                continue;
-
-            float next = current - sample.Value;
-            if (next <= 0.0001f)
-                state.ContributionWindow.Remove(sample.ModId);
-            else
-                state.ContributionWindow[sample.ModId] = next;
-        }
-    }
-
-    private void PruneGlobalContributions()
-    {
-        float cutoff = _time - SpectacleDefinitions.ResolveGlobalContributionWindowSeconds();
-        while (_surgeContributions.Count > 0 && _surgeContributions.Peek().Time < cutoff)
-            _surgeContributions.Dequeue();
-    }
-
-    private int CountUniqueGlobalContributors()
-    {
-        if (_surgeContributions.Count == 0)
-            return 0;
-
-        var set = new HashSet<ITowerView>();
-        foreach (var c in _surgeContributions)
-            set.Add(c.Tower);
-        return set.Count;
-    }
-
     /// <summary>
-    /// Returns up to 3 mod IDs ordered by how frequently they were the primary mod
-    /// in towers that surged recently (within the global contribution window).
-    /// Used to drive dynamic global surge visuals and labels.
+    /// Returns up to 3 mod IDs ordered by how frequently they led surges during the current global cycle.
+    /// The archetype is determined by the full cycle pattern, not a narrow recent window.
     /// </summary>
     private string[] ResolveDominantGlobalMods()
     {
-        if (_surgeContributions.Count == 0)
+        if (_globalCycleScores.Count == 0)
             return System.Array.Empty<string>();
-
-        float cutoff = _time - SpectacleDefinitions.ResolveGlobalContributionWindowSeconds();
-        var modCounts = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var contrib in _surgeContributions)
-        {
-            if (contrib.Time < cutoff) continue;
-            if (string.IsNullOrEmpty(contrib.PrimaryModId)) continue;
-            modCounts[contrib.PrimaryModId] = modCounts.GetValueOrDefault(contrib.PrimaryModId, 0) + 1;
-        }
-        if (modCounts.Count == 0)
-            return System.Array.Empty<string>();
-        return modCounts
+        return _globalCycleScores
             .OrderByDescending(kv => kv.Value)
             .ThenBy(kv => CanonicalRank(kv.Key))
             .Take(3)

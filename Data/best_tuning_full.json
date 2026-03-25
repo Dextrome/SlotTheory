@@ -1,4 +1,4 @@
-﻿{
+{
     "enable_overkill_bloom":  true,
     "enable_status_detonation":  true,
     "enable_residue":  true,
@@ -22,19 +22,9 @@
     "global_meter_per_surge_multiplier":  1,
     "global_threshold_multiplier":  1,
     "global_meter_after_trigger_multiplier":  1,
-    "global_contribution_window_multiplier":  1,
     "inactivity_grace_multiplier":  1,
     "inactivity_decay_multiplier":  1,
-    "contribution_window_multiplier":  1,
-    "role_lock_meter_threshold_multiplier":  1,
-    "meter_damage_reference_multiplier":  1,
-    "meter_damage_weight_multiplier":  1,
-    "meter_damage_min_clamp_multiplier":  1,
-    "meter_damage_max_clamp_multiplier":  1,
-    "token_cap_multiplier":  1,
-    "token_regen_multiplier":  1,
     "copy_multiplier_scale":  1,
-    "diversity_multiplier_scale":  1,
     "event_scalar_multiplier":  1,
     "second_stage_power_threshold":  1,
     "easy_enemy_hp_multiplier":  1.00,
@@ -67,7 +57,8 @@
     "gain_multipliers":  {
                              "overkill":  1,
                              "chain_reaction":  1,
-                             "split_shot":  1
+                             "split_shot":  1,
+                             "blast_core":  1
                          },
     "event_scalar_multipliers":  {
                                      "overkill":  1,
@@ -79,32 +70,9 @@
                                      "exploit_weakness":  1,
                                      "focus_lens":  1,
                                      "momentum":  1,
-                                     "overreach":  1
+                                     "overreach":  1,
+                                     "blast_core":  1
                                  },
-    "token_cap_multipliers":  {
-                                  "overkill":  1,
-                                  "chain_reaction":  1,
-                                  "split_shot":  1,
-                                  "feedback_loop":  1,
-                                  "hair_trigger":  1,
-                                  "slow":  1,
-                                  "exploit_weakness":  1,
-                                  "focus_lens":  1,
-                                  "momentum":  1,
-                                  "overreach":  1
-                              },
-    "token_regen_multipliers":  {
-                                    "overkill":  1,
-                                    "chain_reaction":  1,
-                                    "split_shot":  1,
-                                    "feedback_loop":  1,
-                                    "hair_trigger":  1,
-                                    "slow":  1,
-                                    "exploit_weakness":  1,
-                                    "focus_lens":  1,
-                                    "momentum":  1,
-                                    "overreach":  1
-                                },
     "tower_meter_gain_multipliers":  {
                                          "rapid_shooter":  1,
                                          "heavy_cannon":  1,

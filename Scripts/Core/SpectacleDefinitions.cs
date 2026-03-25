@@ -22,6 +22,24 @@ public enum SpectacleAugmentKind
     SplitVolley,
     CooldownRefund,
     ChainBounces,
+    ExecutionStrike,
+    BurnAmplify,
+}
+
+/// <summary>
+/// Gameplay payload family for a modifier. Determines how the modifier
+/// contributes to the combo finisher. Two modifiers in the same family
+/// share a dispatch path; only 18 primitive pairs replace the previous
+/// 45 hand-written combo cases.
+/// </summary>
+public enum SurgePrimitive
+{
+    Burst,    // Area/falloff damage (Overkill, Overreach, BlastCore)
+    Chain,    // Chain arc bounces (ChainReaction)
+    Beam,     // Heavy single-target strike (FocusLens)
+    Status,   // Mark or slow application (ExploitWeakness, ChillShot)
+    Reload,   // Cooldown reduction + follow-up (Momentum, HairTrigger, FeedbackLoop)
+    Scatter,  // Multi-target split fire (SplitShot)
 }
 
 public readonly record struct SpectacleSingleDef(string EffectId, string Name);
@@ -32,8 +50,6 @@ public readonly record struct SpectacleTriadAugmentDef(
     float Coefficient,
     float DurationSec,
     SpectacleAugmentKind Kind);
-public readonly record struct SpectacleTokenConfig(float Cap, float RegenPerSecond);
-
 public static class SpectacleDefinitions
 {
     // Canonical mod IDs used by runtime systems.
@@ -48,8 +64,9 @@ public static class SpectacleDefinitions
     public const string SplitShot = "split_shot";
     public const string FeedbackLoop = "feedback_loop";
     public const string ChainReaction = "chain_reaction";
-    public const string BlastCore = "blast_core";
-    public const string Wildfire  = "wildfire";
+    public const string BlastCore      = "blast_core";
+    public const string Wildfire       = "wildfire";
+    public const string ReaperProtocol = "reaper_protocol";
 
     public const float SurgeThreshold = 150f;
     public const float SurgeCooldownSeconds = 6.0f;
@@ -57,28 +74,13 @@ public static class SpectacleDefinitions
     public const float GlobalMeterPerSurge = 10f;
     public const float GlobalThreshold = 200f;
     public const float GlobalMeterAfterTrigger = 0f;
-    public const float GlobalContributionWindowSeconds = 6f;
     public const float InactivityGraceSeconds = 2f;
     public const float InactivityDecayPerSecond = 3f;
-    public const float ContributionWindowSeconds = 20f;
-    public const float RoleLockMeterThreshold = 20f;
     // Fill is intentionally slower so spectacle pacing is easier to read:
     // ~30% longer than baseline (rate = baseline / 1.3).
     public const float MeterGainScale = 0.75f / 1.30f;
-    // Damage-aware meter gain normalization so surge pacing is less dominated by hit frequency alone.
-    public const float MeterDamageReference = 20f;
-    // Attack-interval scaling reference (1 second). Per-proc meter gain is multiplied by
-    // Clamp(AttackInterval / MeterIntervalReference, 0, 1.5):
-    //   fast towers (< 1s)  → scale < 1.0  (less per proc, prevents fire-rate dominance)
-    //   1s towers           → scale = 1.0  (neutral)
-    //   slow towers (> 1s)  → scale up to 1.5× (bonus so heavy hitters stay surge-relevant)
-    public const float MeterIntervalReference = 1.0f;
-    // Minimum intervalScale floor so very fast towers (Rapid Shooter, RS+Hair Trigger) aren't
-    // penalized into near-impossible surge fill. At 0.65 RS base earns ~same per-proc as a 0.65s tower.
-    public const float MeterIntervalMinScale = 0.65f;
-    public const float MeterDamageWeight = 0.90f;
-    public const float MeterDamageMinMultiplier = 0.45f;
-    public const float MeterDamageMaxMultiplier = 2.40f;
+    // Per-mod-per-tower cooldown: minimum seconds between contributions from the same mod on the same tower.
+    public const float ModProcCooldownSeconds = 0.25f;
 
     private static readonly HashSet<string> Supported = new(StringComparer.Ordinal)
     {
@@ -94,6 +96,7 @@ public static class SpectacleDefinitions
         ChainReaction,
         BlastCore,
         Wildfire,
+        ReaperProtocol,
     };
 
     private static readonly HashSet<string> SupportedTowers = new(StringComparer.Ordinal)
@@ -119,22 +122,11 @@ public static class SpectacleDefinitions
         [SplitShot] = 2.1f,
         [FeedbackLoop] = 3.1f,
         [ChainReaction] = 2.2f,
-        [BlastCore] = 2.3f,
-    };
-
-    private static readonly Dictionary<string, SpectacleTokenConfig> TokenConfig = new(StringComparer.Ordinal)
-    {
-        [Momentum] = new SpectacleTokenConfig(5f, 6.0f),
-        [Overkill] = new SpectacleTokenConfig(4f, 4.0f),
-        [ExploitWeakness] = new SpectacleTokenConfig(3f, 3.0f),
-        [FocusLens] = new SpectacleTokenConfig(4f, 4.0f),
-        [ChillShot] = new SpectacleTokenConfig(4f, 5.0f),
-        [Overreach] = new SpectacleTokenConfig(4f, 4.0f),
-        [HairTrigger] = new SpectacleTokenConfig(4f, 5.0f),
-        [SplitShot] = new SpectacleTokenConfig(3f, 4.0f),
-        [FeedbackLoop] = new SpectacleTokenConfig(2f, 2.0f),
-        [ChainReaction] = new SpectacleTokenConfig(3f, 4.0f),
-        [BlastCore] = new SpectacleTokenConfig(3f, 4.0f),
+        [BlastCore]      = 2.3f,
+        // Wildfire: gains per ignition hit -- moderate frequency, trail procs add up
+        [Wildfire]       = 2.2f,
+        // Reaper: gains per kill event -- infrequent but high-value
+        [ReaperProtocol] = 3.2f,
     };
 
     private static readonly Dictionary<string, string> DisplayNames = new(StringComparer.Ordinal)
@@ -148,8 +140,10 @@ public static class SpectacleDefinitions
         [HairTrigger] = "Hair Trigger",
         [SplitShot] = "Split Shot",
         [FeedbackLoop] = "Feedback Loop",
-        [ChainReaction] = "Chain Reaction",
-        [BlastCore] = "Blast Core",
+        [ChainReaction]  = "Chain Reaction",
+        [BlastCore]      = "Blast Core",
+        [Wildfire]       = "Wildfire",
+        [ReaperProtocol] = "Reaper Protocol",
     };
 
     private static readonly Dictionary<string, SpectacleSingleDef> SingleDefs = new(StringComparer.Ordinal)
@@ -164,7 +158,9 @@ public static class SpectacleDefinitions
         [SplitShot] = new SpectacleSingleDef("S_SPLIT_FRACTAL_BLOOM", "Fractal Bloom"),
         [FeedbackLoop] = new SpectacleSingleDef("S_FEEDBACK_REBOOT_STORM", "Reboot Storm"),
         [ChainReaction] = new SpectacleSingleDef("S_CHAIN_GRID_OVERLOAD", "Grid Overload"),
-        [BlastCore] = new SpectacleSingleDef("S_BLAST_DETONATION_ZONE", "Detonation Zone"),
+        [BlastCore]      = new SpectacleSingleDef("S_BLAST_DETONATION_ZONE",   "Detonation Zone"),
+        [Wildfire]       = new SpectacleSingleDef("S_WILDFIRE_CONFLAGRATION",  "Conflagration"),
+        [ReaperProtocol] = new SpectacleSingleDef("S_REAPER_DEATH_DECREE",    "Death Decree"),
     };
 
     private static readonly Dictionary<string, SpectacleComboDef> ComboDefs = BuildComboDefs();
@@ -181,7 +177,9 @@ public static class SpectacleDefinitions
         [SplitShot] = new SpectacleTriadAugmentDef("T_AUG_SPLIT", "Split Volley", 0.30f, 0.0f, SpectacleAugmentKind.SplitVolley),
         [FeedbackLoop] = new SpectacleTriadAugmentDef("T_AUG_FEEDBACK", "Cooldown Reclaim", 0.35f, 0.0f, SpectacleAugmentKind.CooldownRefund),
         [ChainReaction] = new SpectacleTriadAugmentDef("T_AUG_CHAIN", "Chain Charge", 0.28f, 1.8f, SpectacleAugmentKind.ChainBounces),
-        [BlastCore] = new SpectacleTriadAugmentDef("T_AUG_BLAST", "Blast Radius", 0.22f, 1.8f, SpectacleAugmentKind.RangePulse),
+        [BlastCore]      = new SpectacleTriadAugmentDef("T_AUG_BLAST",    "Blast Radius",    0.22f, 1.8f, SpectacleAugmentKind.RangePulse),
+        [Wildfire]       = new SpectacleTriadAugmentDef("T_AUG_WILDFIRE", "Flame Surge",     0.24f, 2.5f, SpectacleAugmentKind.BurnAmplify),
+        [ReaperProtocol] = new SpectacleTriadAugmentDef("T_AUG_REAPER",  "Death Mark",      0.28f, 0.0f, SpectacleAugmentKind.ExecutionStrike),
     };
 
     public static IReadOnlyCollection<string> SupportedModIds => Supported;
@@ -234,20 +232,11 @@ public static class SpectacleDefinitions
     public static float ResolveGlobalMeterAfterTrigger()
         => MathF.Max(0f, GlobalMeterAfterTrigger * MathF.Max(0f, SpectacleTuning.Current.GlobalMeterAfterTriggerMultiplier));
 
-    public static float ResolveGlobalContributionWindowSeconds()
-        => MathF.Max(0.05f, GlobalContributionWindowSeconds * MathF.Max(0.05f, SpectacleTuning.Current.GlobalContributionWindowMultiplier));
-
     public static float ResolveInactivityGraceSeconds()
         => MathF.Max(0f, InactivityGraceSeconds * MathF.Max(0f, SpectacleTuning.Current.InactivityGraceMultiplier));
 
     public static float ResolveInactivityDecayPerSecond()
         => MathF.Max(0f, InactivityDecayPerSecond * MathF.Max(0f, SpectacleTuning.Current.InactivityDecayMultiplier));
-
-    public static float ResolveContributionWindowSeconds()
-        => MathF.Max(0.05f, ContributionWindowSeconds * MathF.Max(0.05f, SpectacleTuning.Current.ContributionWindowMultiplier));
-
-    public static float ResolveRoleLockMeterThreshold()
-        => MathF.Max(0f, RoleLockMeterThreshold * MathF.Max(0f, SpectacleTuning.Current.RoleLockMeterThresholdMultiplier));
 
     public static float ResolveMeterGainScale()
         => MeterGainScale * MathF.Max(0f, SpectacleTuning.Current.MeterGainMultiplier);
@@ -259,36 +248,28 @@ public static class SpectacleDefinitions
         return MathF.Max(0f, SpectacleTuning.Current.ResolveTowerMeterGainMultiplier(towerId));
     }
 
-    public static float ResolveDamageMeterMultiplier(float eventDamage)
+    /// <summary>
+    /// Returns the gameplay primitive family for the given modifier.
+    /// Used by the combo finisher to dispatch by primitive pair (18 cases)
+    /// rather than by explicit modifier pair (was 45 cases).
+    /// </summary>
+    public static SurgePrimitive PrimitiveOf(string modId) => NormalizeModId(modId) switch
     {
-        if (!float.IsFinite(eventDamage) || eventDamage <= 0f)
-            return 1f;
-
-        float refMul = MathF.Max(0.05f, SpectacleTuning.Current.MeterDamageReferenceMultiplier);
-        float weightMul = MathF.Max(0f, SpectacleTuning.Current.MeterDamageWeightMultiplier);
-        float minMulScale = MathF.Max(0f, SpectacleTuning.Current.MeterDamageMinClampMultiplier);
-        float maxMulScale = MathF.Max(0f, SpectacleTuning.Current.MeterDamageMaxClampMultiplier);
-
-        float reference = MathF.Max(0.001f, MeterDamageReference * refMul);
-        float weight = Clamp(MeterDamageWeight * weightMul, 0f, 1f);
-        float minClamp = MathF.Max(0f, MeterDamageMinMultiplier * minMulScale);
-        float maxClamp = MathF.Max(minClamp, MeterDamageMaxMultiplier * maxMulScale);
-
-        float normalized = Clamp(eventDamage / reference, 0.10f, 4.0f);
-        float blended = (1f - weight) + weight * normalized;
-        return Clamp(blended, minClamp, maxClamp);
-    }
-
-    public static SpectacleTokenConfig GetTokenConfig(string modifierId)
-    {
-        string normalized = NormalizeModId(modifierId);
-        SpectacleTokenConfig baseline = TokenConfig.GetValueOrDefault(normalized, new SpectacleTokenConfig(0f, 0f));
-        float capMultiplier = SpectacleTuning.Current.ResolveTokenCapMultiplier(normalized);
-        float regenMultiplier = SpectacleTuning.Current.ResolveTokenRegenMultiplier(normalized);
-        return new SpectacleTokenConfig(
-            Cap: MathF.Max(0f, baseline.Cap * capMultiplier),
-            RegenPerSecond: MathF.Max(0f, baseline.RegenPerSecond * regenMultiplier));
-    }
+        Overkill         => SurgePrimitive.Burst,
+        Overreach        => SurgePrimitive.Burst,
+        BlastCore        => SurgePrimitive.Burst,
+        ChainReaction    => SurgePrimitive.Chain,
+        FocusLens        => SurgePrimitive.Beam,
+        ExploitWeakness  => SurgePrimitive.Status,
+        ChillShot        => SurgePrimitive.Status,
+        Momentum         => SurgePrimitive.Reload,
+        HairTrigger      => SurgePrimitive.Reload,
+        FeedbackLoop     => SurgePrimitive.Reload,
+        SplitShot        => SurgePrimitive.Scatter,
+        Wildfire         => SurgePrimitive.Status,
+        ReaperProtocol   => SurgePrimitive.Reload,
+        _                => SurgePrimitive.Burst,
+    };
 
     public static string GetDisplayName(string modifierId)
         => DisplayNames.GetValueOrDefault(NormalizeModId(modifierId), modifierId);
@@ -300,13 +281,6 @@ public static class SpectacleDefinitions
         2 => 1.92f,
         _ => 2.70f,
     } * MathF.Max(0f, SpectacleTuning.Current.CopyMultiplierScale);
-
-    public static float GetDiversityMultiplier(int uniqueCount) => uniqueCount switch
-    {
-        <= 1 => 1.00f,
-        2 => 1.08f,
-        _ => 1.16f,
-    } * MathF.Max(0f, SpectacleTuning.Current.DiversityMultiplierScale);
 
     public static float GetModeBase(SpectacleMode mode) => mode switch
     {
@@ -366,6 +340,14 @@ public static class SpectacleDefinitions
     /// <summary>Scales with enemies hit by splash (more clustered enemies = higher spectacle payout).</summary>
     public static float BlastCoreEventScalar(int splashHits)
         => Clamp(0.70f + 0.22f * splashHits, 0.70f, 1.60f) * ResolveEventScalarMultiplier(BlastCore);
+
+    /// <summary>Scales with effective burn DPS delivered (higher burn = richer spectacle payout).</summary>
+    public static float WildfireEventScalar(float burnDpsScalar)
+        => Clamp(0.75f + 0.35f * Clamp(burnDpsScalar, 0f, 2f), 0.75f, 1.70f) * ResolveEventScalarMultiplier(Wildfire);
+
+    /// <summary>Scales with lives restored this wave (peak payout when Reaper is actively recovering HP).</summary>
+    public static float ReaperProtocolEventScalar(int livesRestoredThisWave)
+        => Clamp(0.80f + 0.25f * livesRestoredThisWave, 0.80f, 1.80f) * ResolveEventScalarMultiplier(ReaperProtocol);
 
     private static float ResolveEventScalarMultiplier(string modifierId)
         => MathF.Max(0f, SpectacleTuning.Current.ResolveEventScalarMultiplier(modifierId));
@@ -435,6 +417,33 @@ public static class SpectacleDefinitions
         Add(map, SplitShot, FeedbackLoop, "C_SPLIT_FEEDBACK", "Recursive Bloom");
         Add(map, SplitShot, ChainReaction, "C_SPLIT_CHAIN", "Fractal Overload");
         Add(map, FeedbackLoop, ChainReaction, "C_FEEDBACK_CHAIN", "Reactor Grid");
+
+        // Reaper Protocol combos
+        Add(map, ReaperProtocol, Momentum,        "C_REAPER_MOMENTUM",  "Death Tempo");
+        Add(map, ReaperProtocol, Overkill,        "C_REAPER_OVERKILL",  "Grim Overflow");
+        Add(map, ReaperProtocol, ExploitWeakness, "C_REAPER_EXPLOIT",   "Marked for Death");
+        Add(map, ReaperProtocol, FocusLens,       "C_REAPER_FOCUS",     "Lethal Prism");
+        Add(map, ReaperProtocol, ChillShot,       "C_REAPER_CHILL",     "Cryo Harvest");
+        Add(map, ReaperProtocol, Overreach,       "C_REAPER_OVERREACH", "Death Horizon");
+        Add(map, ReaperProtocol, HairTrigger,     "C_REAPER_HAIR",      "Kill Surge");
+        Add(map, ReaperProtocol, SplitShot,       "C_REAPER_SPLIT",     "Harvest Bloom");
+        Add(map, ReaperProtocol, FeedbackLoop,    "C_REAPER_FEEDBACK",  "Death Loop");
+        Add(map, ReaperProtocol, ChainReaction,   "C_REAPER_CHAIN",     "Grim Lattice");
+        Add(map, ReaperProtocol, BlastCore,       "C_REAPER_BLAST",     "Lethal Detonation");
+
+        // Wildfire combos
+        Add(map, Wildfire, Momentum,        "C_WILDFIRE_MOMENTUM",  "Scorched Escalation");
+        Add(map, Wildfire, Overkill,        "C_WILDFIRE_OVERKILL",  "Inferno Spill");
+        Add(map, Wildfire, ExploitWeakness, "C_WILDFIRE_EXPLOIT",   "Marked Combustion");
+        Add(map, Wildfire, FocusLens,       "C_WILDFIRE_FOCUS",     "Prism Ignition");
+        Add(map, Wildfire, ChillShot,       "C_WILDFIRE_CHILL",     "Boiling Point");
+        Add(map, Wildfire, Overreach,       "C_WILDFIRE_OVERREACH", "Wildfire Sweep");
+        Add(map, Wildfire, HairTrigger,     "C_WILDFIRE_HAIR",      "Firestorm Cycler");
+        Add(map, Wildfire, SplitShot,       "C_WILDFIRE_SPLIT",     "Ember Bloom");
+        Add(map, Wildfire, FeedbackLoop,    "C_WILDFIRE_FEEDBACK",  "Phoenix Loop");
+        Add(map, Wildfire, ChainReaction,   "C_WILDFIRE_CHAIN",     "Inferno Cascade");
+        Add(map, Wildfire, BlastCore,       "C_WILDFIRE_BLAST",     "Blast Furnace");
+        Add(map, Wildfire, ReaperProtocol,  "C_WILDFIRE_REAPER",    "Death Pyre");
 
         // Blast Core combos
         Add(map, BlastCore, Momentum,        "C_BLAST_MOMENTUM",  "Impact Escalation");

@@ -6,8 +6,9 @@ namespace SlotTheory.Core;
 
 /// <summary>
 /// Runtime tuning overrides used by automation, sweeps, and combat lab scenarios.
-/// Defaults reflect the tuned best_tuning profile (20260321_000207 pipeline run).
-/// All multipliers are applied on top of Balance.cs constants - Reset() returns to these same defaults.
+/// Defaults are used when no best_tuning JSON file is present. Production values are
+/// loaded from Data/best_tuning_full.json or best_tuning_demo.json at startup.
+/// All multipliers are applied on top of Balance.cs constants - Reset() returns to hardcoded defaults.
 /// </summary>
 public sealed class SpectacleTuningProfile
 {
@@ -62,32 +63,12 @@ public sealed class SpectacleTuningProfile
     public float GlobalThresholdMultiplier { get; set; } = 1.1049f;
     [JsonPropertyName("global_meter_after_trigger_multiplier")]
     public float GlobalMeterAfterTriggerMultiplier { get; set; } = 0.9987f;
-    [JsonPropertyName("global_contribution_window_multiplier")]
-    public float GlobalContributionWindowMultiplier { get; set; } = 1.008f;
     [JsonPropertyName("inactivity_grace_multiplier")]
     public float InactivityGraceMultiplier { get; set; } = 0.9151f;
     [JsonPropertyName("inactivity_decay_multiplier")]
     public float InactivityDecayMultiplier { get; set; } = 1.2156f;
-    [JsonPropertyName("contribution_window_multiplier")]
-    public float ContributionWindowMultiplier { get; set; } = 0.8148f;
-    [JsonPropertyName("role_lock_meter_threshold_multiplier")]
-    public float RoleLockMeterThresholdMultiplier { get; set; } = 1.1286f;
-    [JsonPropertyName("meter_damage_reference_multiplier")]
-    public float MeterDamageReferenceMultiplier { get; set; } = 0.8279f;
-    [JsonPropertyName("meter_damage_weight_multiplier")]
-    public float MeterDamageWeightMultiplier { get; set; } = 1.1475f;
-    [JsonPropertyName("meter_damage_min_clamp_multiplier")]
-    public float MeterDamageMinClampMultiplier { get; set; } = 1f;
-    [JsonPropertyName("meter_damage_max_clamp_multiplier")]
-    public float MeterDamageMaxClampMultiplier { get; set; } = 0.9065f;
-    [JsonPropertyName("token_cap_multiplier")]
-    public float TokenCapMultiplier { get; set; } = 1.1632f;
-    [JsonPropertyName("token_regen_multiplier")]
-    public float TokenRegenMultiplier { get; set; } = 1f;
     [JsonPropertyName("copy_multiplier_scale")]
     public float CopyMultiplierScale { get; set; } = 0.8532f;
-    [JsonPropertyName("diversity_multiplier_scale")]
-    public float DiversityMultiplierScale { get; set; } = 0.867f;
     [JsonPropertyName("event_scalar_multiplier")]
     public float EventScalarMultiplier { get; set; } = 1.0115f;
     [JsonPropertyName("second_stage_power_threshold")]
@@ -181,20 +162,6 @@ public sealed class SpectacleTuningProfile
         ["blast_core"]     = 1.15f,
     };
 
-    [JsonPropertyName("token_cap_multipliers")]
-    public Dictionary<string, float> TokenCapMultipliers { get; set; } = new(StringComparer.Ordinal)
-    {
-        ["chain_reaction"] = 0.92f,
-        ["split_shot"]     = 0.9327f,
-    };
-
-    [JsonPropertyName("token_regen_multipliers")]
-    public Dictionary<string, float> TokenRegenMultipliers { get; set; } = new(StringComparer.Ordinal)
-    {
-        ["overkill"]   = 1.1516f,
-        ["split_shot"] = 0.8316f,
-    };
-
     [JsonPropertyName("tower_meter_gain_multipliers")]
     public Dictionary<string, float> TowerMeterGainMultipliers { get; set; } = new(StringComparer.Ordinal)
     {
@@ -246,19 +213,9 @@ public sealed class SpectacleTuningProfile
         GlobalMeterPerSurgeMultiplier = 1f,
         GlobalThresholdMultiplier = 1f,
         GlobalMeterAfterTriggerMultiplier = 1f,
-        GlobalContributionWindowMultiplier = 1f,
         InactivityGraceMultiplier = 1f,
         InactivityDecayMultiplier = 1f,
-        ContributionWindowMultiplier = 1f,
-        RoleLockMeterThresholdMultiplier = 1f,
-        MeterDamageReferenceMultiplier = 1f,
-        MeterDamageWeightMultiplier = 1f,
-        MeterDamageMinClampMultiplier = 1f,
-        MeterDamageMaxClampMultiplier = 1f,
-        TokenCapMultiplier = 1f,
-        TokenRegenMultiplier = 1f,
         CopyMultiplierScale = 1f,
-        DiversityMultiplierScale = 1f,
         EventScalarMultiplier = 1f,
         SecondStagePowerThreshold = 0.95f,
         EasyTankyCountMultiplier = 1f,
@@ -278,8 +235,6 @@ public sealed class SpectacleTuningProfile
         HardShieldDroneCountMultiplier = 1f,
         GainMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
         EventScalarMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
-        TokenCapMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
-        TokenRegenMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
         TowerMeterGainMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
         TowerSurgeThresholdMultipliers = new System.Collections.Generic.Dictionary<string, float>(StringComparer.Ordinal),
     };
@@ -300,24 +255,6 @@ public sealed class SpectacleTuningProfile
         string normalized = SpectacleDefinitions.NormalizeModId(modifierId ?? string.Empty);
         float global = MathF.Max(0f, EventScalarMultiplier);
         if (EventScalarMultipliers.TryGetValue(normalized, out float specific))
-            return global * MathF.Max(0f, specific);
-        return global;
-    }
-
-    public float ResolveTokenCapMultiplier(string modifierId)
-    {
-        string normalized = SpectacleDefinitions.NormalizeModId(modifierId ?? string.Empty);
-        float global = MathF.Max(0f, TokenCapMultiplier);
-        if (TokenCapMultipliers.TryGetValue(normalized, out float specific))
-            return global * MathF.Max(0f, specific);
-        return global;
-    }
-
-    public float ResolveTokenRegenMultiplier(string modifierId)
-    {
-        string normalized = SpectacleDefinitions.NormalizeModId(modifierId ?? string.Empty);
-        float global = MathF.Max(0f, TokenRegenMultiplier);
-        if (TokenRegenMultipliers.TryGetValue(normalized, out float specific))
             return global * MathF.Max(0f, specific);
         return global;
     }
@@ -365,19 +302,9 @@ public sealed class SpectacleTuningProfile
             GlobalMeterPerSurgeMultiplier = MathF.Max(0f, GlobalMeterPerSurgeMultiplier),
             GlobalThresholdMultiplier = MathF.Max(0.05f, GlobalThresholdMultiplier),
             GlobalMeterAfterTriggerMultiplier = MathF.Max(0f, GlobalMeterAfterTriggerMultiplier),
-            GlobalContributionWindowMultiplier = MathF.Max(0.05f, GlobalContributionWindowMultiplier),
             InactivityGraceMultiplier = MathF.Max(0f, InactivityGraceMultiplier),
             InactivityDecayMultiplier = MathF.Max(0f, InactivityDecayMultiplier),
-            ContributionWindowMultiplier = MathF.Max(0.05f, ContributionWindowMultiplier),
-            RoleLockMeterThresholdMultiplier = MathF.Max(0f, RoleLockMeterThresholdMultiplier),
-            MeterDamageReferenceMultiplier = MathF.Max(0.05f, MeterDamageReferenceMultiplier),
-            MeterDamageWeightMultiplier = MathF.Max(0f, MeterDamageWeightMultiplier),
-            MeterDamageMinClampMultiplier = MathF.Max(0f, MeterDamageMinClampMultiplier),
-            MeterDamageMaxClampMultiplier = MathF.Max(0f, MeterDamageMaxClampMultiplier),
-            TokenCapMultiplier = MathF.Max(0f, TokenCapMultiplier),
-            TokenRegenMultiplier = MathF.Max(0f, TokenRegenMultiplier),
             CopyMultiplierScale = MathF.Max(0f, CopyMultiplierScale),
-            DiversityMultiplierScale = MathF.Max(0f, DiversityMultiplierScale),
             EventScalarMultiplier = MathF.Max(0f, EventScalarMultiplier),
             SecondStagePowerThreshold = Math.Clamp(SecondStagePowerThreshold, 0.05f, 3f),
             EasyEnemyHpMultiplier = Math.Clamp(EasyEnemyHpMultiplier, 0.1f, 5f),
@@ -409,8 +336,6 @@ public sealed class SpectacleTuningProfile
             HardShieldDroneCountMultiplier = Math.Clamp(HardShieldDroneCountMultiplier, 0.1f, 5f),
             GainMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
             EventScalarMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
-            TokenCapMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
-            TokenRegenMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
             TowerMeterGainMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
             TowerSurgeThresholdMultipliers = new Dictionary<string, float>(StringComparer.Ordinal),
         };
@@ -424,16 +349,6 @@ public sealed class SpectacleTuningProfile
         {
             string normalized = SpectacleDefinitions.NormalizeModId(kv.Key);
             clone.EventScalarMultipliers[normalized] = MathF.Max(0f, kv.Value);
-        }
-        foreach (var kv in TokenCapMultipliers)
-        {
-            string normalized = SpectacleDefinitions.NormalizeModId(kv.Key);
-            clone.TokenCapMultipliers[normalized] = MathF.Max(0f, kv.Value);
-        }
-        foreach (var kv in TokenRegenMultipliers)
-        {
-            string normalized = SpectacleDefinitions.NormalizeModId(kv.Key);
-            clone.TokenRegenMultipliers[normalized] = MathF.Max(0f, kv.Value);
         }
         foreach (var kv in TowerMeterGainMultipliers)
         {

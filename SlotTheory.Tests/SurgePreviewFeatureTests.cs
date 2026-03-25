@@ -36,9 +36,7 @@ public class SurgePreviewFeatureTests
         float threshold = SpectacleDefinitions.ResolveSurgeThreshold();
         float perGain = SpectacleDefinitions.GetBaseGain(modId)
             * SpectacleDefinitions.GetCopyMultiplier(1)
-            * SpectacleDefinitions.GetDiversityMultiplier(1)
-            * SpectacleDefinitions.ResolveMeterGainScale()
-            * SpectacleDefinitions.ResolveDamageMeterMultiplier(-1f);
+            * SpectacleDefinitions.ResolveMeterGainScale();
         Assert.True(perGain > 0f);
         return (threshold / perGain) + 1f;
     }
@@ -110,9 +108,7 @@ public class SurgePreviewFeatureTests
         var towerB = TowerWith(SpectacleDefinitions.FocusLens);
         float scalar = ScalarForSurge(SpectacleDefinitions.Momentum);
 
-        // Two Momentum surges, one FocusLens surge.
-        // Advance by exactly SurgeCooldownSeconds (no extra) so the first contribution
-        // remains inside the GlobalContributionWindowSeconds boundary (same value as cooldown).
+        // Two Momentum surges, one FocusLens surge. Advance past surge cooldown between towerA surges.
         system.RegisterProc(towerA, SpectacleDefinitions.Momentum, scalar);
         system.Update(SpectacleDefinitions.SurgeCooldownSeconds);
         system.RegisterProc(towerA, SpectacleDefinitions.Momentum, scalar);
@@ -148,7 +144,6 @@ public class SurgePreviewFeatureTests
         for (int i = 0; i < surgesNeeded - 1; i++)
         {
             system.RegisterProc(tower, SpectacleDefinitions.ChainReaction, scalar);
-            // Use exact cooldown (no extra) so contributions stay within the window.
             system.Update(SpectacleDefinitions.SurgeCooldownSeconds);
         }
 

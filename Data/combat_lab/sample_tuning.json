@@ -22,19 +22,9 @@
   "global_meter_per_surge_multiplier": 1.0,
   "global_threshold_multiplier": 1.0,
   "global_meter_after_trigger_multiplier": 1.0,
-  "global_contribution_window_multiplier": 1.0,
   "inactivity_grace_multiplier": 1.0,
   "inactivity_decay_multiplier": 1.0,
-  "contribution_window_multiplier": 1.0,
-  "role_lock_meter_threshold_multiplier": 1.0,
-  "meter_damage_reference_multiplier": 1.0,
-  "meter_damage_weight_multiplier": 1.0,
-  "meter_damage_min_clamp_multiplier": 1.0,
-  "meter_damage_max_clamp_multiplier": 1.0,
-  "token_cap_multiplier": 1.0,
-  "token_regen_multiplier": 1.0,
   "copy_multiplier_scale": 1.0,
-  "diversity_multiplier_scale": 1.0,
   "event_scalar_multiplier": 1.0,
   "second_stage_power_threshold": 0.95,
   "normal_enemy_hp_multiplier": 1.24,
@@ -46,21 +36,27 @@
   "gain_multipliers": {
     "overkill": 1.0,
     "chain_reaction": 1.0,
-    "split_shot": 1.0
+    "split_shot": 1.0,
+    "blast_core": 1.0
   },
   "event_scalar_multipliers": {
     "overkill": 1.0,
     "chain_reaction": 1.0,
-    "split_shot": 1.0
+    "split_shot": 1.0,
+    "blast_core": 1.0
   },
-  "token_cap_multipliers": {
-    "overkill": 1.0,
-    "chain_reaction": 1.0,
-    "split_shot": 1.0
+  "tower_meter_gain_multipliers": {
+    "rapid_shooter": 1.0,
+    "heavy_cannon": 1.0,
+    "marker_tower": 1.0,
+    "chain_tower": 1.0,
+    "rift_prism": 1.0
   },
-  "token_regen_multipliers": {
-    "overkill": 1.0,
-    "chain_reaction": 1.0,
-    "split_shot": 1.0
+  "tower_surge_threshold_multipliers": {
+    "rapid_shooter": 1.0,
+    "heavy_cannon": 1.0,
+    "marker_tower": 1.0,
+    "chain_tower": 1.0,
+    "rift_prism": 1.0
   }
 }

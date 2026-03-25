@@ -28,6 +28,7 @@ public static class SurgeDifferentiation
         new(SpectacleDefinitions.ChainReaction,   "CHAIN STORM",     GlobalSurgeFeel.Neutral),
         new(SpectacleDefinitions.BlastCore,       "BLAST WAVE",      GlobalSurgeFeel.Detonation),
         new(SpectacleDefinitions.Wildfire,        "INFERNO SURGE",   GlobalSurgeFeel.Detonation),
+        new(SpectacleDefinitions.ReaperProtocol,  "GRIM TIDE",       GlobalSurgeFeel.Neutral),
     };
 
     /// <summary>

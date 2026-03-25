@@ -3856,7 +3856,7 @@ void fragment() {
 		}
 		// Surge chain counter - accumulates while global meter is building
 		_surgeChainCount++;
-		_surgeChainResetTimer = SpectacleDefinitions.ResolveGlobalContributionWindowSeconds();
+		_surgeChainResetTimer = SpectacleDefinitions.SurgeCooldownSeconds;
 		if (_surgeChainCount >= 2)
 			SpawnSurgeChainCallout(_surgeChainCount, ResolveSpectacleColor(info.Signature.PrimaryModId));
 
@@ -4440,6 +4440,26 @@ void fragment() {
 		}
 	}
 
+	// ── Combo finisher helpers ────────────────────────────────────────────────
+
+	/// <summary>
+	/// CDR amount for a Reload-family modifier used as a finisher rider.
+	/// FeedbackLoop > HairTrigger > Momentum, preserving identity within the family.
+	/// </summary>
+	private static float ResolveReloadCdr(string a, string b, float finisherPower)
+	{
+		bool hasFeedback = a == SpectacleDefinitions.FeedbackLoop || b == SpectacleDefinitions.FeedbackLoop;
+		bool hasHair     = a == SpectacleDefinitions.HairTrigger  || b == SpectacleDefinitions.HairTrigger;
+		float baseAmt    = hasFeedback ? 0.22f : hasHair ? 0.18f : 0.10f;
+		float scaledAmt  = hasFeedback ? 0.15f : hasHair ? 0.13f : 0.12f;
+		return baseAmt + scaledAmt * finisherPower;
+	}
+
+	/// <summary>
+	/// Applies the combo finisher effect for a Combo or Triad surge.
+	/// Dispatches on the primitive-family pair of r1 × r2 (18 cases) rather
+	/// than on explicit modifier-pair string keys (was 45 cases).
+	/// </summary>
 	private void ApplyComboSpectacleFinisher(
 		SpectacleTriggerInfo info,
 		List<EnemyInstance> seededTargets,
@@ -4451,7 +4471,6 @@ void fragment() {
 
 		string a = SpectacleDefinitions.NormalizeModId(info.Signature.PrimaryModId);
 		string b = SpectacleDefinitions.NormalizeModId(info.Signature.SecondaryModId);
-		string key = BuildModPairKey(a, b);
 		var tower = info.Tower;
 		EnemyInstance? primary = seededTargets.FirstOrDefault(IsEnemyUsable);
 		if (primary == null)
@@ -4460,28 +4479,15 @@ void fragment() {
 		float finisherPower = Mathf.Clamp(power * (isMajor ? 0.80f : 0.54f), 0.22f, 2.4f);
 		Color secondaryColor = ResolveSpectacleColor(info.Signature.SecondaryModId);
 
+		// ── Local helpers ───────────────────────────────────────────────────
 		List<EnemyInstance> PickTargets(Vector2 center, float radius, int count, bool preferFront = false)
 			=> GetSpectacleTargets(center, radius, count, preferFront).Where(IsEnemyUsable).ToList();
 
-		EnemyInstance? FindFarthestInRange(float radius)
-			=> _runState.EnemiesAlive
-				.Where(IsEnemyUsable)
-				.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= radius)
-				.OrderByDescending(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
-				.ThenByDescending(e => e.ProgressRatio)
-				.FirstOrDefault();
-
 		void ApplyMarkMany(IEnumerable<EnemyInstance> targets, float duration)
-		{
-			foreach (var e in targets)
-				Statuses.ApplyMarked(e, duration);
-		}
+		{ foreach (var e in targets) Statuses.ApplyMarked(e, duration); }
 
 		void ApplySlowMany(IEnumerable<EnemyInstance> targets, float duration, float factor)
-		{
-			foreach (var e in targets)
-				Statuses.ApplySlow(e, duration, factor);
-		}
+		{ foreach (var e in targets) Statuses.ApplySlow(e, duration, factor); }
 
 		void DamageWave(
 			IReadOnlyList<EnemyInstance> targets,
@@ -4495,116 +4501,49 @@ void fragment() {
 			{
 				float falloff = Mathf.Max(0.56f, 1f - i * falloffPerStep);
 				if (arcOrigin.HasValue)
-				{
-					SpawnSpectacleArc(
-						arcOrigin.Value,
-						targets[i].GlobalPosition,
-						color,
-						intensity: 0.92f + i * 0.06f,
-						mineChainStyle: heavy);
-				}
+					SpawnSpectacleArc(arcOrigin.Value, targets[i].GlobalPosition, color, intensity: 0.92f + i * 0.06f, mineChainStyle: heavy);
 				ApplySpectacleDamage(tower, targets[i], baseDamage * falloff, color, heavyHit: heavy);
 			}
 		}
 
-		switch (key)
+		// ── Primitive-pair dispatch ─────────────────────────────────────────
+		SurgePrimitive pa = SpectacleDefinitions.PrimitiveOf(a);
+		SurgePrimitive pb = SpectacleDefinitions.PrimitiveOf(b);
+		// Normalize to (lo ≤ hi) so each pair has one canonical switch arm.
+		SurgePrimitive lo = pa <= pb ? pa : pb;
+		SurgePrimitive hi = pa <= pb ? pb : pa;
+
+		// Per-pair modifiers that need mod-specific sub-selection.
+		bool isMark   = a == SpectacleDefinitions.ExploitWeakness || b == SpectacleDefinitions.ExploitWeakness;
+		bool isFarBurst = a == SpectacleDefinitions.Overreach || b == SpectacleDefinitions.Overreach;
+
+		switch (lo, hi)
 		{
-			case "momentum|overkill":
+			// ── Burst + Burst: wide reach wave (overkill|overreach) ─────────
+			case (SurgePrimitive.Burst, SurgePrimitive.Burst):
 			{
-				ReduceTowerCooldown(tower, 0.10f + 0.12f * finisherPower);
-				var blast = PickTargets(primary.GlobalPosition, 150f + 50f * finisherPower, isMajor ? 4 : 3);
-				DamageWave(blast, tower.BaseDamage * (isMajor ? 0.78f : 0.44f) * finisherPower, 0.14f, secondaryColor, isMajor, primary.GlobalPosition);
-				break;
-			}
-			case "exploit_weakness|momentum":
-			{
-				bool wasMarked = primary.IsMarked;
-				Statuses.ApplyMarked(primary, (isMajor ? 3.8f : 2.6f) + 1.2f * finisherPower);
-				float execute = tower.BaseDamage * (wasMarked ? (isMajor ? 1.02f : 0.60f) : (isMajor ? 0.66f : 0.40f)) * finisherPower;
-				ApplySpectacleDamage(tower, primary, execute, secondaryColor, heavyHit: isMajor, triggerHitStopOnKill: wasMarked && isMajor);
-				ReduceTowerCooldown(tower, 0.06f + 0.08f * finisherPower);
-				break;
-			}
-			case "focus_lens|momentum":
-			{
-				float beam = tower.BaseDamage * (isMajor ? 1.10f : 0.70f) * finisherPower;
-				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.20f, mineChainStyle: true);
-				ApplySpectacleDamage(tower, primary, beam, secondaryColor, heavyHit: true, triggerHitStopOnKill: isMajor);
-				ReduceTowerCooldown(tower, 0.10f + 0.08f * finisherPower);
-				break;
-			}
-			case "momentum|slow":
-			{
-				var pack = PickTargets(primary.GlobalPosition, 180f + 30f * finisherPower, isMajor ? 4 : 3);
-				float slowFactor = isMajor
-					? Mathf.Clamp(0.66f - 0.10f * finisherPower, 0.26f, 0.78f)
-					: Mathf.Clamp(0.78f - 0.08f * finisherPower, 0.36f, 0.88f);
-				ApplySlowMany(pack, (isMajor ? 3.4f : 2.4f) + 0.9f * finisherPower, slowFactor);
-				DamageWave(pack, tower.BaseDamage * (isMajor ? 0.64f : 0.38f) * finisherPower, 0.13f, secondaryColor, false);
-				break;
-			}
-			case "momentum|overreach":
-			{
-				var far = _runState.EnemiesAlive
+				var targets = _runState.EnemiesAlive
 					.Where(IsEnemyUsable)
-					.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= tower.Range * 1.45f)
-					.OrderByDescending(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
-					.Take(isMajor ? 4 : 3)
-					.ToList();
-				DamageWave(far, tower.BaseDamage * (isMajor ? 0.74f : 0.42f) * finisherPower, 0.15f, secondaryColor, isMajor);
+					.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= Mathf.Max(320f, tower.Range * 1.44f))
+					.OrderByDescending(e => e.ProgressRatio)
+					.Take(isMajor ? 4 : 3).ToList();
+				DamageWave(targets, tower.BaseDamage * (isMajor ? 0.76f : 0.42f) * finisherPower, 0.14f, secondaryColor, isMajor, tower.GlobalPosition);
 				break;
 			}
-			case "hair_trigger|momentum":
+			// ── Burst + Chain: spill then chain ─────────────────────────────
+			case (SurgePrimitive.Burst, SurgePrimitive.Chain):
 			{
-				ReduceTowerCooldown(tower, 0.16f + 0.14f * finisherPower);
-				float hit = tower.BaseDamage * (isMajor ? 0.54f : 0.32f) * finisherPower;
-				int bursts = isMajor ? 3 : 2;
-				for (int i = 0; i < bursts; i++)
-				{
-					float falloff = Mathf.Pow(0.72f, i);
-					ApplySpectacleDamage(tower, primary, hit * falloff, secondaryColor, heavyHit: false);
-				}
+				var spill = PickTargets(primary.GlobalPosition, 145f, isMajor ? 3 : 2).Where(e => !ReferenceEquals(e, primary)).ToList();
+				DamageWave(spill, tower.BaseDamage * (isMajor ? 0.44f : 0.26f) * finisherPower, 0.18f, secondaryColor, false);
+				ApplySpectacleChain(tower, primary,
+					maxBounces: isMajor ? 4 : 2,
+					startDamage: tower.BaseDamage * (isMajor ? 0.52f : 0.30f) * finisherPower,
+					decay: 0.72f, linkRange: Mathf.Max(220f, tower.ChainRange * 1.10f),
+					secondaryColor, heavy: isMajor);
 				break;
 			}
-			case "momentum|split_shot":
-			{
-				var targets = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.25f, isMajor ? 5 : 3)
-					.Where(e => !ReferenceEquals(e, primary))
-					.ToList();
-				DamageWave(targets, tower.BaseDamage * (isMajor ? 0.70f : 0.44f) * finisherPower, 0.12f, secondaryColor, false, primary.GlobalPosition);
-				break;
-			}
-			case "feedback_loop|momentum":
-			{
-				ReduceTowerCooldown(tower, 0.24f + 0.16f * finisherPower);
-				float burst = tower.BaseDamage * (isMajor ? 0.82f : 0.52f) * finisherPower;
-				ApplySpectacleDamage(tower, primary, burst, secondaryColor, heavyHit: isMajor);
-				if (tower.Cooldown <= Mathf.Max(0.06f, tower.AttackInterval * 0.08f))
-					ApplySpectacleDamage(tower, primary, burst * 0.58f, secondaryColor, heavyHit: false);
-				break;
-			}
-			case "chain_reaction|momentum":
-			{
-				ReduceTowerCooldown(tower, 0.08f + 0.08f * finisherPower);
-				ApplySpectacleChain(
-					tower,
-					primary,
-					maxBounces: (isMajor ? 4 : 2) + Mathf.FloorToInt(finisherPower),
-					startDamage: tower.BaseDamage * (isMajor ? 0.62f : 0.36f) * finisherPower,
-					decay: 0.74f,
-					linkRange: Mathf.Max(220f, tower.ChainRange * 1.12f),
-					secondaryColor,
-					heavy: isMajor);
-				break;
-			}
-			case "exploit_weakness|overkill":
-			{
-				var markedPack = PickTargets(primary.GlobalPosition, 170f, isMajor ? 4 : 3, preferFront: true);
-				ApplyMarkMany(markedPack, (isMajor ? 3.6f : 2.5f) + 1.0f * finisherPower);
-				DamageWave(markedPack, tower.BaseDamage * (isMajor ? 0.70f : 0.40f) * finisherPower, 0.16f, secondaryColor, isMajor, primary.GlobalPosition);
-				break;
-			}
-			case "focus_lens|overkill":
+			// ── Burst + Beam: heavy beam strike then area spill ─────────────
+			case (SurgePrimitive.Burst, SurgePrimitive.Beam):
 			{
 				float beam = tower.BaseDamage * (isMajor ? 1.24f : 0.80f) * finisherPower;
 				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.26f, mineChainStyle: true);
@@ -4613,408 +4552,215 @@ void fragment() {
 				DamageWave(spill, tower.BaseDamage * (isMajor ? 0.44f : 0.26f) * finisherPower, 0.20f, secondaryColor, false);
 				break;
 			}
-			case "overkill|slow":
+			// ── Burst + Status: mark/slow pack then damage wave ─────────────
+			case (SurgePrimitive.Burst, SurgePrimitive.Status):
 			{
-				var pack = PickTargets(primary.GlobalPosition, 190f, isMajor ? 4 : 3);
-				ApplySlowMany(pack, (isMajor ? 3.2f : 2.2f) + 0.8f * finisherPower, Mathf.Clamp(0.74f - 0.10f * finisherPower, 0.30f, 0.86f));
-				DamageWave(pack, tower.BaseDamage * (isMajor ? 0.58f : 0.34f) * finisherPower, 0.15f, secondaryColor, false);
+				float radius = isFarBurst ? Mathf.Max(300f, tower.Range * 1.38f) : 170f + 20f * finisherPower;
+				int count = isMajor ? 4 : 3;
+				var pack = isFarBurst
+					? _runState.EnemiesAlive.Where(IsEnemyUsable)
+						.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= radius)
+						.OrderByDescending(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
+						.ThenByDescending(e => e.ProgressRatio).Take(count).ToList()
+					: PickTargets(primary.GlobalPosition, radius, count, preferFront: true);
+				if (isMark)
+					ApplyMarkMany(pack, (isMajor ? 3.6f : 2.5f) + 1.0f * finisherPower);
+				else
+					ApplySlowMany(pack, (isMajor ? 3.2f : 2.2f) + 0.8f * finisherPower,
+						Mathf.Clamp(0.74f - 0.10f * finisherPower, 0.30f, 0.86f));
+				DamageWave(pack, tower.BaseDamage * (isMajor ? 0.68f : 0.40f) * finisherPower, 0.15f,
+					secondaryColor, isMajor, primary.GlobalPosition);
 				break;
 			}
-			case "overkill|overreach":
+			// ── Burst + Reload: CDR then area wave ──────────────────────────
+			case (SurgePrimitive.Burst, SurgePrimitive.Reload):
 			{
-				var line = _runState.EnemiesAlive
-					.Where(IsEnemyUsable)
-					.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= tower.Range * 1.44f)
-					.OrderByDescending(e => e.ProgressRatio)
-					.Take(isMajor ? 4 : 3)
-					.ToList();
-				DamageWave(line, tower.BaseDamage * (isMajor ? 0.76f : 0.42f) * finisherPower, 0.14f, secondaryColor, isMajor, tower.GlobalPosition);
+				ReduceTowerCooldown(tower, ResolveReloadCdr(a, b, finisherPower));
+				float radius = isFarBurst ? Mathf.Max(300f, tower.Range * 1.44f) : 150f + 50f * finisherPower;
+				var targets = isFarBurst
+					? _runState.EnemiesAlive.Where(IsEnemyUsable)
+						.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= radius)
+						.OrderByDescending(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
+						.Take(isMajor ? 4 : 3).ToList()
+					: PickTargets(primary.GlobalPosition, radius, isMajor ? 4 : 3);
+				DamageWave(targets, tower.BaseDamage * (isMajor ? 0.76f : 0.44f) * finisherPower,
+					0.14f, secondaryColor, isMajor, primary.GlobalPosition);
 				break;
 			}
-			case "hair_trigger|overkill":
+			// ── Burst + Scatter: shards from primary ────────────────────────
+			case (SurgePrimitive.Burst, SurgePrimitive.Scatter):
 			{
-				ReduceTowerCooldown(tower, 0.14f + 0.14f * finisherPower);
-				float burst = tower.BaseDamage * (isMajor ? 0.66f : 0.38f) * finisherPower;
-				ApplySpectacleDamage(tower, primary, burst, secondaryColor, heavyHit: isMajor);
-				var extra = PickTargets(primary.GlobalPosition, 150f, isMajor ? 2 : 1).Where(e => !ReferenceEquals(e, primary)).ToList();
-				DamageWave(extra, burst * 0.82f, 0.18f, secondaryColor, false, primary.GlobalPosition);
+				var shards = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.30f,
+					isMajor ? 5 : 3, preferFront: false)
+					.Where(e => !ReferenceEquals(e, primary)).ToList();
+				DamageWave(shards, tower.BaseDamage * (isMajor ? 0.74f : 0.44f) * finisherPower,
+					0.12f, secondaryColor, false, primary.GlobalPosition);
 				break;
 			}
-			case "overkill|split_shot":
+			// ── Beam + Status: mark/slow then heavy strike ──────────────────
+			case (SurgePrimitive.Beam, SurgePrimitive.Status):
 			{
-				var shards = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.22f, isMajor ? 5 : 3, preferFront: false)
-					.Where(e => !ReferenceEquals(e, primary))
-					.ToList();
-				DamageWave(shards, tower.BaseDamage * (isMajor ? 0.74f : 0.46f) * finisherPower, 0.13f, secondaryColor, false, primary.GlobalPosition);
-				break;
-			}
-			case "feedback_loop|overkill":
-			{
-				ReduceTowerCooldown(tower, 0.20f + 0.14f * finisherPower);
-				float before = primary.Hp;
-				float slam = tower.BaseDamage * (isMajor ? 0.94f : 0.56f) * finisherPower;
-				ApplySpectacleDamage(tower, primary, slam, secondaryColor, heavyHit: isMajor);
-				if (before <= slam * 1.08f)
+				if (isMark)
+					Statuses.ApplyMarked(primary, (isMajor ? 4.1f : 2.9f) + 1.2f * finisherPower);
+				float beam = tower.BaseDamage * (isMajor ? 1.10f : 0.68f) * finisherPower;
+				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.22f, mineChainStyle: true);
+				ApplySpectacleDamage(tower, primary, beam, secondaryColor, heavyHit: true, triggerHitStopOnKill: isMajor && isMark);
+				if (!isMark)
 				{
-					var over = PickTargets(primary.GlobalPosition, 165f, isMajor ? 3 : 2).Where(e => !ReferenceEquals(e, primary)).ToList();
-					DamageWave(over, slam * 0.52f, 0.18f, secondaryColor, false, primary.GlobalPosition);
+					var aura = PickTargets(primary.GlobalPosition, 165f, isMajor ? 4 : 3);
+					ApplySlowMany(aura, (isMajor ? 3.0f : 2.2f) + 0.8f * finisherPower,
+						Mathf.Clamp(0.72f - 0.10f * finisherPower, 0.26f, 0.86f));
 				}
 				break;
 			}
-			case "chain_reaction|overkill":
+			// ── Beam + Reload: CDR then heavy strike with follow-up ─────────
+			case (SurgePrimitive.Beam, SurgePrimitive.Reload):
 			{
-				var spill = PickTargets(primary.GlobalPosition, 145f, isMajor ? 3 : 2).Where(e => !ReferenceEquals(e, primary)).ToList();
-				DamageWave(spill, tower.BaseDamage * (isMajor ? 0.44f : 0.26f) * finisherPower, 0.18f, secondaryColor, false);
-				ApplySpectacleChain(
-					tower,
-					primary,
-					maxBounces: isMajor ? 4 : 2,
-					startDamage: tower.BaseDamage * (isMajor ? 0.52f : 0.30f) * finisherPower,
-					decay: 0.72f,
-					linkRange: Mathf.Max(220f, tower.ChainRange * 1.10f),
-					secondaryColor,
-					heavy: isMajor);
-				break;
-			}
-			case "exploit_weakness|focus_lens":
-			{
-				Statuses.ApplyMarked(primary, (isMajor ? 4.1f : 2.9f) + 1.2f * finisherPower);
-				float beam = tower.BaseDamage * (isMajor ? 1.12f : 0.70f) * finisherPower;
-				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.24f, mineChainStyle: true);
+				ReduceTowerCooldown(tower, ResolveReloadCdr(a, b, finisherPower));
+				float beam = tower.BaseDamage * (isMajor ? 1.06f : 0.66f) * finisherPower;
+				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.20f, mineChainStyle: true);
 				ApplySpectacleDamage(tower, primary, beam, secondaryColor, heavyHit: true, triggerHitStopOnKill: isMajor);
-				break;
-			}
-			case "exploit_weakness|slow":
-			{
-				var hunted = PickTargets(primary.GlobalPosition, 185f, isMajor ? 4 : 3, preferFront: true);
-				ApplyMarkMany(hunted, (isMajor ? 3.4f : 2.2f) + 1.0f * finisherPower);
-				ApplySlowMany(hunted, (isMajor ? 2.8f : 2.0f) + 0.8f * finisherPower, Mathf.Clamp(0.76f - 0.10f * finisherPower, 0.28f, 0.86f));
-				DamageWave(hunted, tower.BaseDamage * (isMajor ? 0.52f : 0.30f) * finisherPower, 0.15f, secondaryColor, false);
-				break;
-			}
-			case "exploit_weakness|overreach":
-			{
-				var far = FindFarthestInRange(tower.Range * 1.45f);
-				if (far == null) break;
-				Statuses.ApplyMarked(far, (isMajor ? 4.2f : 3.0f) + 1.2f * finisherPower);
-				SpawnSpectacleArc(tower.GlobalPosition, far.GlobalPosition, secondaryColor, intensity: 1.16f, mineChainStyle: isMajor);
-				ApplySpectacleDamage(tower, far, tower.BaseDamage * (isMajor ? 1.04f : 0.64f) * finisherPower, secondaryColor, heavyHit: isMajor);
-				break;
-			}
-			case "exploit_weakness|hair_trigger":
-			{
-				Statuses.ApplyMarked(primary, (isMajor ? 3.6f : 2.4f) + 0.9f * finisherPower);
-				ReduceTowerCooldown(tower, 0.16f + 0.12f * finisherPower);
-				float tick = tower.BaseDamage * (isMajor ? 0.58f : 0.36f) * finisherPower;
-				ApplySpectacleDamage(tower, primary, tick, secondaryColor, heavyHit: false);
-				ApplySpectacleDamage(tower, primary, tick * 0.82f, secondaryColor, heavyHit: false);
-				if (isMajor)
-					ApplySpectacleDamage(tower, primary, tick * 0.56f, secondaryColor, heavyHit: false);
-				break;
-			}
-			case "exploit_weakness|split_shot":
-			{
-				var marked = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.30f, isMajor ? 5 : 3, preferFront: true);
-				ApplyMarkMany(marked, (isMajor ? 3.1f : 2.2f) + 0.8f * finisherPower);
-				DamageWave(marked, tower.BaseDamage * (isMajor ? 0.54f : 0.32f) * finisherPower, 0.12f, secondaryColor, false, primary.GlobalPosition);
-				break;
-			}
-			case "exploit_weakness|feedback_loop":
-			{
-				Statuses.ApplyMarked(primary, (isMajor ? 4.0f : 2.8f) + 1.1f * finisherPower);
-				ReduceTowerCooldown(tower, 0.24f + 0.16f * finisherPower);
-				float execute = tower.BaseDamage * (isMajor ? 0.94f : 0.60f) * finisherPower;
-				ApplySpectacleDamage(tower, primary, execute, secondaryColor, heavyHit: isMajor);
-				break;
-			}
-			case "chain_reaction|exploit_weakness":
-			{
-				var markSet = PickTargets(primary.GlobalPosition, 220f, isMajor ? 4 : 3, preferFront: true);
-				ApplyMarkMany(markSet, (isMajor ? 3.6f : 2.4f) + 0.8f * finisherPower);
-				ApplySpectacleChain(
-					tower,
-					primary,
-					maxBounces: isMajor ? 4 : 2,
-					startDamage: tower.BaseDamage * (isMajor ? 0.50f : 0.30f) * finisherPower,
-					decay: 0.75f,
-					linkRange: Mathf.Max(220f, tower.ChainRange * 1.08f),
-					secondaryColor,
-					heavy: isMajor);
-				break;
-			}
-			case "focus_lens|slow":
-			{
-				float beam = tower.BaseDamage * (isMajor ? 1.08f : 0.66f) * finisherPower;
-				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.18f, mineChainStyle: true);
-				ApplySpectacleDamage(tower, primary, beam, secondaryColor, heavyHit: true);
-				var aura = PickTargets(primary.GlobalPosition, 165f, isMajor ? 4 : 3);
-				ApplySlowMany(aura, (isMajor ? 3.0f : 2.2f) + 0.8f * finisherPower, Mathf.Clamp(0.72f - 0.10f * finisherPower, 0.26f, 0.86f));
-				break;
-			}
-			case "focus_lens|overreach":
-			{
-				var far = FindFarthestInRange(tower.Range * 1.55f);
-				if (far == null) break;
-				float rail = tower.BaseDamage * (isMajor ? 1.06f : 0.70f) * finisherPower;
-				SpawnSpectacleArc(tower.GlobalPosition, far.GlobalPosition, secondaryColor, intensity: 1.22f, mineChainStyle: true);
-				ApplySpectacleDamage(tower, far, rail, secondaryColor, heavyHit: true, triggerHitStopOnKill: isMajor);
-				var pierce = PickTargets(far.GlobalPosition, 150f, isMajor ? 2 : 1, preferFront: true).Where(e => !ReferenceEquals(e, far)).ToList();
-				DamageWave(pierce, rail * 0.46f, 0.20f, secondaryColor, false, far.GlobalPosition);
-				break;
-			}
-			case "focus_lens|hair_trigger":
-			{
-				ReduceTowerCooldown(tower, 0.18f + 0.14f * finisherPower);
-				float beam = tower.BaseDamage * (isMajor ? 0.84f : 0.54f) * finisherPower;
-				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.12f, mineChainStyle: true);
-				ApplySpectacleDamage(tower, primary, beam, secondaryColor, heavyHit: isMajor);
-				ApplySpectacleDamage(tower, primary, beam * 0.72f, secondaryColor, heavyHit: false);
-				break;
-			}
-			case "focus_lens|split_shot":
-			{
-				var prism = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.34f, isMajor ? 6 : 4, preferFront: false)
-					.Where(e => !ReferenceEquals(e, primary))
-					.ToList();
-				DamageWave(prism, tower.BaseDamage * (isMajor ? 0.66f : 0.40f) * finisherPower, 0.11f, secondaryColor, false, primary.GlobalPosition);
-				break;
-			}
-			case "feedback_loop|focus_lens":
-			{
-				ReduceTowerCooldown(tower, 0.20f + 0.14f * finisherPower);
-				float beam = tower.BaseDamage * (isMajor ? 1.00f : 0.64f) * finisherPower;
-				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.22f, mineChainStyle: true);
-				ApplySpectacleDamage(tower, primary, beam, secondaryColor, heavyHit: true);
 				if (tower.Cooldown <= Mathf.Max(0.06f, tower.AttackInterval * 0.08f))
-					ApplySpectacleDamage(tower, primary, beam * 0.46f, secondaryColor, heavyHit: false);
+					ApplySpectacleDamage(tower, primary, beam * 0.50f, secondaryColor, heavyHit: false);
 				break;
 			}
-			case "chain_reaction|focus_lens":
+			// ── Beam + Chain: lance strike then chain from target ───────────
+			case (SurgePrimitive.Beam, SurgePrimitive.Chain):
 			{
 				float lance = tower.BaseDamage * (isMajor ? 0.96f : 0.60f) * finisherPower;
 				SpawnSpectacleArc(tower.GlobalPosition, primary.GlobalPosition, secondaryColor, intensity: 1.18f, mineChainStyle: true);
 				ApplySpectacleDamage(tower, primary, lance, secondaryColor, heavyHit: true);
-				ApplySpectacleChain(
-					tower,
-					primary,
+				ApplySpectacleChain(tower, primary,
+					maxBounces: isMajor ? 4 : 2, startDamage: lance * 0.62f,
+					decay: 0.76f, linkRange: Mathf.Max(220f, tower.ChainRange * 1.12f),
+					secondaryColor, heavy: isMajor);
+				break;
+			}
+			// ── Beam + Scatter: prism scatter from primary ──────────────────
+			case (SurgePrimitive.Beam, SurgePrimitive.Scatter):
+			{
+				var prism = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.34f,
+					isMajor ? 6 : 4, preferFront: false)
+					.Where(e => !ReferenceEquals(e, primary)).ToList();
+				DamageWave(prism, tower.BaseDamage * (isMajor ? 0.66f : 0.40f) * finisherPower,
+					0.11f, secondaryColor, false, primary.GlobalPosition);
+				break;
+			}
+			// ── Status + Status: dual mark+slow pack (exploit|slow) ─────────
+			case (SurgePrimitive.Status, SurgePrimitive.Status):
+			{
+				var hunted = PickTargets(primary.GlobalPosition, 185f, isMajor ? 4 : 3, preferFront: true);
+				ApplyMarkMany(hunted, (isMajor ? 3.4f : 2.2f) + 1.0f * finisherPower);
+				ApplySlowMany(hunted, (isMajor ? 2.8f : 2.0f) + 0.8f * finisherPower,
+					Mathf.Clamp(0.76f - 0.10f * finisherPower, 0.28f, 0.86f));
+				DamageWave(hunted, tower.BaseDamage * (isMajor ? 0.52f : 0.30f) * finisherPower,
+					0.15f, secondaryColor, false);
+				break;
+			}
+			// ── Status + Reload: CDR + mark execute or slow-bonus wave ──────
+			case (SurgePrimitive.Status, SurgePrimitive.Reload):
+			{
+				float cdr = ResolveReloadCdr(a, b, finisherPower);
+				if (isMark)
+				{
+					bool wasMarked = primary.IsMarked;
+					Statuses.ApplyMarked(primary, (isMajor ? 3.8f : 2.6f) + 1.2f * finisherPower);
+					float execute = tower.BaseDamage * (wasMarked
+						? (isMajor ? 1.00f : 0.60f)
+						: (isMajor ? 0.64f : 0.38f)) * finisherPower;
+					ApplySpectacleDamage(tower, primary, execute, secondaryColor,
+						heavyHit: isMajor, triggerHitStopOnKill: wasMarked && isMajor);
+				}
+				else
+				{
+					var frosted = PickTargets(primary.GlobalPosition, 180f, isMajor ? 4 : 3, preferFront: true);
+					float sloFact = Mathf.Clamp(0.70f - 0.10f * finisherPower, 0.26f, 0.84f);
+					float sloDur  = (isMajor ? 3.4f : 2.4f) + 0.9f * finisherPower;
+					foreach (var e in frosted)
+					{
+						bool wasSlowed = e.SlowRemaining > 0f;
+						Statuses.ApplySlow(e, sloDur, sloFact);
+						float dmg = tower.BaseDamage * (wasSlowed
+							? (isMajor ? 0.64f : 0.40f)
+							: (isMajor ? 0.44f : 0.28f)) * finisherPower;
+						ApplySpectacleDamage(tower, e, dmg, secondaryColor, heavyHit: false);
+					}
+				}
+				ReduceTowerCooldown(tower, cdr);
+				break;
+			}
+			// ── Status + Chain: status pack then chain arc ──────────────────
+			case (SurgePrimitive.Status, SurgePrimitive.Chain):
+			{
+				float dur = (isMajor ? 3.6f : 2.4f) + 0.9f * finisherPower;
+				if (isMark)
+					ApplyMarkMany(PickTargets(primary.GlobalPosition, 220f, isMajor ? 4 : 3, preferFront: true), dur);
+				else
+					Statuses.ApplySlow(primary, dur, Mathf.Clamp(0.72f - 0.10f * finisherPower, 0.28f, 0.86f));
+				ApplySpectacleChain(tower, primary,
 					maxBounces: isMajor ? 4 : 2,
-					startDamage: lance * 0.62f,
-					decay: 0.76f,
-					linkRange: Mathf.Max(220f, tower.ChainRange * 1.12f),
-					secondaryColor,
-					heavy: isMajor);
+					startDamage: tower.BaseDamage * (isMajor ? 0.52f : 0.32f) * finisherPower,
+					decay: 0.75f, linkRange: Mathf.Max(220f, tower.ChainRange * 1.10f),
+					secondaryColor, heavy: isMajor);
 				break;
 			}
-			case "overreach|slow":
+			// ── Status + Scatter: status scatter wave ───────────────────────
+			case (SurgePrimitive.Status, SurgePrimitive.Scatter):
 			{
-				float radius = Mathf.Max(320f, tower.Range * 1.36f);
-				var targets = _runState.EnemiesAlive
-					.Where(IsEnemyUsable)
-					.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= radius)
-					.OrderByDescending(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
-					.ThenByDescending(e => e.ProgressRatio)
-					.Take(isMajor ? 4 : 3)
-					.ToList();
-				float dmg = tower.BaseDamage * (isMajor ? 0.62f : 0.36f) * finisherPower;
-				float slowFactor = isMajor
-					? Mathf.Clamp(0.60f - 0.12f * finisherPower, 0.24f, 0.80f)
-					: Mathf.Clamp(0.74f - 0.10f * finisherPower, 0.34f, 0.88f);
-				float slowDuration = (isMajor ? 3.8f : 2.6f) + 1.1f * finisherPower;
-				for (int i = 0; i < targets.Count; i++)
-				{
-					float falloff = Mathf.Max(0.62f, 1f - i * 0.14f);
-					Statuses.ApplySlow(targets[i], slowDuration, slowFactor);
-					ApplySpectacleDamage(tower, targets[i], dmg * falloff, secondaryColor, heavyHit: isMajor);
-				}
+				float range = Balance.SplitShotRange * 1.32f;
+				float dur   = (isMajor ? 3.1f : 2.2f) + 0.8f * finisherPower;
+				var targets = PickTargets(primary.GlobalPosition, range, isMajor ? 5 : 3, preferFront: true);
+				if (isMark)
+					ApplyMarkMany(targets, dur);
+				else
+					ApplySlowMany(targets, dur, Mathf.Clamp(0.72f - 0.08f * finisherPower, 0.30f, 0.88f));
+				DamageWave(targets, tower.BaseDamage * (isMajor ? 0.56f : 0.32f) * finisherPower,
+					0.12f, secondaryColor, false, primary.GlobalPosition);
 				break;
 			}
-			case "hair_trigger|slow":
-			{
-				ReduceTowerCooldown(tower, 0.20f + 0.14f * finisherPower);
-				var chill = PickTargets(primary.GlobalPosition, 170f, isMajor ? 4 : 3, preferFront: false);
-				ApplySlowMany(chill, (isMajor ? 2.9f : 2.1f) + 0.8f * finisherPower, Mathf.Clamp(0.70f - 0.09f * finisherPower, 0.28f, 0.86f));
-				DamageWave(chill, tower.BaseDamage * (isMajor ? 0.66f : 0.40f) * finisherPower, 0.14f, secondaryColor, false, primary.GlobalPosition);
-				break;
-			}
-			case "slow|split_shot":
-			{
-				var bloom = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.36f, isMajor ? 6 : 4, preferFront: false);
-				ApplySlowMany(bloom, (isMajor ? 2.8f : 2.0f) + 0.7f * finisherPower, Mathf.Clamp(0.72f - 0.08f * finisherPower, 0.30f, 0.88f));
-				DamageWave(bloom, tower.BaseDamage * (isMajor ? 0.58f : 0.34f) * finisherPower, 0.11f, secondaryColor, false, primary.GlobalPosition);
-				break;
-			}
-			case "feedback_loop|slow":
-			{
-				ReduceTowerCooldown(tower, 0.22f + 0.15f * finisherPower);
-				var frosted = PickTargets(primary.GlobalPosition, 180f, isMajor ? 4 : 3, preferFront: true);
-				float slowDuration = (isMajor ? 3.4f : 2.4f) + 0.9f * finisherPower;
-				foreach (var e in frosted)
-				{
-					bool wasSlowed = e.SlowRemaining > 0f;
-					Statuses.ApplySlow(e, slowDuration, Mathf.Clamp(0.70f - 0.10f * finisherPower, 0.26f, 0.84f));
-					float dmg = tower.BaseDamage * (wasSlowed ? (isMajor ? 0.66f : 0.40f) : (isMajor ? 0.46f : 0.28f)) * finisherPower;
-					ApplySpectacleDamage(tower, e, dmg, secondaryColor, heavyHit: false);
-				}
-				break;
-			}
-			case "chain_reaction|slow":
-			{
-				Statuses.ApplySlow(primary, (isMajor ? 3.4f : 2.3f) + 0.9f * finisherPower, Mathf.Clamp(0.72f - 0.10f * finisherPower, 0.28f, 0.86f));
-				ApplySpectacleChain(
-					tower,
-					primary,
-					maxBounces: (isMajor ? 4 : 2) + Mathf.FloorToInt(finisherPower * 0.8f),
-					startDamage: tower.BaseDamage * (isMajor ? 0.56f : 0.34f) * finisherPower,
-					decay: 0.76f,
-					linkRange: Mathf.Max(220f, tower.ChainRange * 1.10f),
-					secondaryColor,
-					heavy: isMajor);
-				break;
-			}
-			case "hair_trigger|overreach":
-			{
-				ReduceTowerCooldown(tower, 0.20f + 0.12f * finisherPower);
-				var far = _runState.EnemiesAlive
-					.Where(IsEnemyUsable)
-					.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= tower.Range * 1.50f)
-					.OrderByDescending(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
-					.Take(isMajor ? 5 : 3)
-					.ToList();
-				DamageWave(far, tower.BaseDamage * (isMajor ? 0.70f : 0.40f) * finisherPower, 0.13f, secondaryColor, false);
-				break;
-			}
-			case "overreach|split_shot":
-			{
-				var frontline = _runState.EnemiesAlive
-					.Where(IsEnemyUsable)
-					.OrderByDescending(e => e.ProgressRatio)
-					.ThenBy(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
-					.FirstOrDefault();
-				var center = frontline ?? primary;
-				var wide = PickTargets(center.GlobalPosition, Balance.SplitShotRange * 1.42f, isMajor ? 6 : 4, preferFront: true);
-				float baseDamage = tower.BaseDamage * (isMajor ? 0.78f : 0.46f) * finisherPower;
-				float floorDamage = tower.BaseDamage
-					* (isMajor ? 0.18f : 0.11f)
-					* Mathf.Clamp(finisherPower, 0.70f, 1.60f);
-				for (int i = 0; i < wide.Count; i++)
-				{
-					float falloff = Mathf.Max(0.62f, 1f - i * 0.11f);
-					float damage = Mathf.Max(baseDamage * falloff, floorDamage * falloff);
-					SpawnSpectacleArc(center.GlobalPosition, wide[i].GlobalPosition, secondaryColor, intensity: 1.00f + i * 0.06f, mineChainStyle: false);
-					ApplySpectacleDamage(tower, wide[i], damage, secondaryColor, heavyHit: false);
-				}
-				break;
-			}
-			case "feedback_loop|overreach":
-			{
-				ReduceTowerCooldown(tower, (isMajor ? 0.20f : 0.12f) + 0.16f * finisherPower);
-				float radius = Mathf.Max(300f, tower.Range * 1.34f);
-				var far = _runState.EnemiesAlive
-					.Where(IsEnemyUsable)
-					.Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= radius)
-					.OrderByDescending(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition))
-					.FirstOrDefault();
-				if (far != null)
-				{
-					float dmg = tower.BaseDamage * (isMajor ? 0.88f : 0.52f) * finisherPower;
-					SpawnSpectacleArc(tower.GlobalPosition, far.GlobalPosition, secondaryColor, intensity: 1.16f, mineChainStyle: true);
-					ApplySpectacleDamage(tower, far, dmg, secondaryColor, heavyHit: true);
-				}
-				break;
-			}
-			case "chain_reaction|overreach":
-			{
-				var seed = FindFarthestInRange(tower.Range * 1.44f) ?? primary;
-				ApplySpectacleChain(
-					tower,
-					seed,
-					maxBounces: isMajor ? 5 : 3,
-					startDamage: tower.BaseDamage * (isMajor ? 0.62f : 0.36f) * finisherPower,
-					decay: 0.78f,
-					linkRange: Mathf.Max(230f, tower.ChainRange * 1.14f),
-					secondaryColor,
-					heavy: isMajor);
-				break;
-			}
-			case "hair_trigger|split_shot":
-			{
-				Vector2 center = primary.GlobalPosition;
-				int extraCount = isMajor ? 5 : 3;
-				float volley = tower.BaseDamage * (isMajor ? 0.58f : 0.34f) * finisherPower;
-				var extras = GetSpectacleTargets(center, Balance.SplitShotRange * 1.34f, extraCount, preferFront: false)
-					.Where(e => !ReferenceEquals(e, primary))
-					.ToList();
-				for (int i = 0; i < extras.Count; i++)
-				{
-					float falloff = Mathf.Max(0.68f, 1f - i * 0.10f);
-					SpawnSpectacleArc(center, extras[i].GlobalPosition, secondaryColor, intensity: 0.96f + 0.05f * i);
-					ApplySpectacleDamage(tower, extras[i], volley * falloff, secondaryColor, heavyHit: false);
-				}
-				ReduceTowerCooldown(tower, (isMajor ? 0.18f : 0.11f) + 0.10f * finisherPower);
-				break;
-			}
-			case "feedback_loop|hair_trigger":
+			// ── Reload + Reload: double CDR + heavy double-hit ──────────────
+			case (SurgePrimitive.Reload, SurgePrimitive.Reload):
 			{
 				ReduceTowerCooldown(tower, 0.30f + 0.16f * finisherPower);
 				float burst = tower.BaseDamage * (isMajor ? 0.74f : 0.44f) * finisherPower;
 				ApplySpectacleDamage(tower, primary, burst, secondaryColor, heavyHit: isMajor);
-				ApplySpectacleDamage(tower, primary, burst * 0.66f, secondaryColor, heavyHit: false);
+				ApplySpectacleDamage(tower, primary, burst * 0.64f, secondaryColor, heavyHit: false);
 				break;
 			}
-			case "chain_reaction|hair_trigger":
+			// ── Reload + Chain: CDR then chain arc ──────────────────────────
+			case (SurgePrimitive.Reload, SurgePrimitive.Chain):
 			{
-				ReduceTowerCooldown(tower, 0.14f + 0.10f * finisherPower);
-				ApplySpectacleChain(
-					tower,
-					primary,
+				ReduceTowerCooldown(tower, ResolveReloadCdr(a, b, finisherPower));
+				ApplySpectacleChain(tower, primary,
 					maxBounces: (isMajor ? 4 : 2) + Mathf.FloorToInt(finisherPower),
-					startDamage: tower.BaseDamage * (isMajor ? 0.58f : 0.34f) * finisherPower,
-					decay: 0.74f,
-					linkRange: Mathf.Max(220f, tower.ChainRange * 1.08f),
-					secondaryColor,
-					heavy: isMajor);
+					startDamage: tower.BaseDamage * (isMajor ? 0.60f : 0.35f) * finisherPower,
+					decay: 0.74f, linkRange: Mathf.Max(220f, tower.ChainRange * 1.12f),
+					secondaryColor, heavy: isMajor);
 				break;
 			}
-			case "feedback_loop|split_shot":
+			// ── Reload + Scatter: CDR then scatter wave ──────────────────────
+			case (SurgePrimitive.Reload, SurgePrimitive.Scatter):
 			{
-				ReduceTowerCooldown(tower, 0.24f + 0.14f * finisherPower);
-				var bloom = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.38f, isMajor ? 6 : 4, preferFront: false)
-					.Where(e => !ReferenceEquals(e, primary))
-					.ToList();
-				DamageWave(bloom, tower.BaseDamage * (isMajor ? 0.62f : 0.36f) * finisherPower, 0.11f, secondaryColor, false, primary.GlobalPosition);
+				ReduceTowerCooldown(tower, ResolveReloadCdr(a, b, finisherPower));
+				var bloom = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.38f,
+					isMajor ? 6 : 4, preferFront: false)
+					.Where(e => !ReferenceEquals(e, primary)).ToList();
+				DamageWave(bloom, tower.BaseDamage * (isMajor ? 0.64f : 0.37f) * finisherPower,
+					0.11f, secondaryColor, false, primary.GlobalPosition);
 				break;
 			}
-			case "chain_reaction|split_shot":
+			// ── Chain + Scatter: chain then split scatter ────────────────────
+			case (SurgePrimitive.Chain, SurgePrimitive.Scatter):
 			{
-				int bounces = (isMajor ? 4 : 2) + Mathf.FloorToInt(finisherPower);
-				float startDamage = tower.BaseDamage * (isMajor ? 0.52f : 0.31f) * finisherPower;
-				ApplySpectacleChain(
-					tower,
-					primary,
-					maxBounces: bounces,
-					startDamage,
-					decay: 0.76f,
-					linkRange: Mathf.Max(220f, tower.ChainRange * 1.15f),
-					secondaryColor,
-					heavy: isMajor);
-				var extras = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.30f, isMajor ? 4 : 2, preferFront: false)
-					.Where(e => !ReferenceEquals(e, primary))
-					.ToList();
-				DamageWave(extras, startDamage * 0.52f, 0.14f, secondaryColor, false, primary.GlobalPosition);
-				break;
-			}
-			case "chain_reaction|feedback_loop":
-			{
-				ReduceTowerCooldown(tower, 0.22f + 0.12f * finisherPower);
-				ApplySpectacleChain(
-					tower,
-					primary,
-					maxBounces: isMajor ? 5 : 3,
-					startDamage: tower.BaseDamage * (isMajor ? 0.56f : 0.34f) * finisherPower,
-					decay: 0.74f,
-					linkRange: Mathf.Max(230f, tower.ChainRange * 1.14f),
-					secondaryColor,
-					heavy: isMajor);
+				int bounces   = (isMajor ? 4 : 2) + Mathf.FloorToInt(finisherPower);
+				float chainDmg = tower.BaseDamage * (isMajor ? 0.52f : 0.31f) * finisherPower;
+				ApplySpectacleChain(tower, primary, maxBounces: bounces, startDamage: chainDmg,
+					decay: 0.76f, linkRange: Mathf.Max(220f, tower.ChainRange * 1.15f),
+					secondaryColor, heavy: isMajor);
+				var extras = PickTargets(primary.GlobalPosition, Balance.SplitShotRange * 1.30f,
+					isMajor ? 4 : 2, preferFront: false)
+					.Where(e => !ReferenceEquals(e, primary)).ToList();
+				DamageWave(extras, chainDmg * 0.52f, 0.14f, secondaryColor, false, primary.GlobalPosition);
 				break;
 			}
 			default:
@@ -5192,6 +4938,59 @@ void fragment() {
 					heavy: isMajor);
 				break;
 			}
+			case SpectacleDefinitions.BlastCore:
+			{
+				if (primary == null)
+					break;
+				float blast = tower.BaseDamage * (isMajor ? 0.62f : 0.34f) * p;
+				float blastRadius = (isMajor ? 130f : 100f) + 40f * p;
+				var blastTargets = GetSpectacleTargets(primary.GlobalPosition, blastRadius, isMajor ? 4 : 3, preferFront: false)
+					.Where(e => !ReferenceEquals(e, primary))
+					.ToList();
+				for (int i = 0; i < blastTargets.Count; i++)
+				{
+					float falloff = Mathf.Max(0.50f, 1f - i * 0.20f);
+					SpawnSpectacleArc(primary.GlobalPosition, blastTargets[i].GlobalPosition, accent, intensity: 0.92f + 0.08f * i);
+					ApplySpectacleDamage(tower, blastTargets[i], blast * falloff, accent, heavyHit: isMajor);
+				}
+				break;
+			}
+			case SpectacleDefinitions.Wildfire:
+			{
+				// Conflagration: ignite enemies in extended range with chip damage and scorched slow.
+				float burnRadius = tower.Range * (isMajor ? 1.35f : 1.15f);
+				float chip       = tower.BaseDamage * (isMajor ? 0.28f : 0.15f) * p;
+				float slowFactor = isMajor ? 0.68f : 0.80f;
+				var burnTargets  = _runState.EnemiesAlive
+					.Where(e => IsEnemyUsable(e) && tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= burnRadius)
+					.Take(isMajor ? 5 : 3)
+					.ToList();
+				foreach (var enemy in burnTargets)
+				{
+					Statuses.ApplySlow(enemy, isMajor ? 3.5f : 2.0f, slowFactor);
+					SpawnSpectacleArc(tower.GlobalPosition, enemy.GlobalPosition, accent, intensity: 0.85f);
+					ApplySpectacleDamage(tower, enemy, chip, accent, heavyHit: false);
+				}
+				break;
+			}
+			case SpectacleDefinitions.ReaperProtocol:
+			{
+				// Execution strike: heavy hit on the lowest-HP enemy in extended range.
+				// Grants +1 life (capped at ReaperMaxLives) if the strike kills.
+				float reach = tower.Range * (isMajor ? 1.45f : 1.20f);
+				var execTarget = _runState.EnemiesAlive
+					.Where(e => IsEnemyUsable(e) && tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= reach)
+					.OrderBy(e => e.Hp)
+					.FirstOrDefault();
+				if (execTarget == null) break;
+				float strike = tower.BaseDamage * (isMajor ? 2.4f : 1.5f) * p;
+				SpawnSpectacleArc(tower.GlobalPosition, execTarget.GlobalPosition, accent, intensity: 1.35f, mineChainStyle: true);
+				ApplySpectacleDamage(tower, execTarget, strike, accent, heavyHit: true, triggerHitStopOnKill: isMajor);
+				// Life gain if the strike killed -- bypasses the per-wave kill cap (surge is its own payoff)
+				if (execTarget.Hp <= 0f)
+					NotifyReaperProtocolKill(tower);
+				break;
+			}
 		}
 	}
 
@@ -5342,6 +5141,39 @@ void fragment() {
 					linkRange: Mathf.Max(220f, tower.ChainRange * 1.08f),
 					accent,
 					heavy: isMajor);
+				break;
+			}
+			case SpectacleAugmentKind.ExecutionStrike:
+			{
+				// Heavy spike on the lowest-HP enemy in extended range; grants +1 life if it kills.
+				float reach = Mathf.Max(tower.Range * 1.30f, 280f);
+				var execTarget = _runState.EnemiesAlive
+					.Where(e => IsEnemyUsable(e) && tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= reach)
+					.OrderBy(e => e.Hp)
+					.FirstOrDefault();
+				if (execTarget == null) break;
+				float execDmg = tower.BaseDamage * (0.55f + 1.60f * aug);
+				SpawnSpectacleArc(tower.GlobalPosition, execTarget.GlobalPosition, accent, intensity: 1.28f, mineChainStyle: true);
+				ApplySpectacleDamage(tower, execTarget, execDmg, accent, heavyHit: true, triggerHitStopOnKill: isMajor);
+				if (execTarget.Hp <= 0f)
+					NotifyReaperProtocolKill(tower);
+				break;
+			}
+			case SpectacleAugmentKind.BurnAmplify:
+			{
+				// Flame Surge: chip + slow to enemies in range, scaled by augment strength.
+				float radius = Mathf.Max(tower.Range * 1.20f, 240f);
+				float chip   = tower.BaseDamage * (0.12f + 0.30f * aug);
+				var targets  = _runState.EnemiesAlive
+					.Where(e => IsEnemyUsable(e) && tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= radius)
+					.Take(isMajor ? 4 : 2)
+					.ToList();
+				foreach (var enemy in targets)
+				{
+					Statuses.ApplySlow(enemy, 2.5f + 1.5f * aug, 0.75f);
+					SpawnSpectacleArc(tower.GlobalPosition, enemy.GlobalPosition, accent, intensity: 0.80f);
+					ApplySpectacleDamage(tower, enemy, chip, accent, heavyHit: false);
+				}
 				break;
 			}
 		}
@@ -7039,8 +6871,8 @@ void fragment() {
 	{
 		if (CurrentPhase != GamePhase.Wave) return;
 
-		// No overheal: cannot exceed the difficulty-determined starting lives
-		if (_runState.Lives >= _runState.MaxLives) return;
+		// Reaper Protocol can accumulate lives beyond the starting cap, up to ReaperMaxLives
+		if (_runState.Lives >= Balance.ReaperMaxLives) return;
 
 		_runState.Lives++;
 

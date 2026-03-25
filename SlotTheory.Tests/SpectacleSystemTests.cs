@@ -63,6 +63,9 @@ public class SpectacleSystemTests
         yield return new object[] { SpectacleDefinitions.SplitShot, SpectacleAugmentKind.SplitVolley };
         yield return new object[] { SpectacleDefinitions.FeedbackLoop, SpectacleAugmentKind.CooldownRefund };
         yield return new object[] { SpectacleDefinitions.ChainReaction, SpectacleAugmentKind.ChainBounces };
+        yield return new object[] { SpectacleDefinitions.BlastCore, SpectacleAugmentKind.RangePulse };
+        yield return new object[] { SpectacleDefinitions.Wildfire, SpectacleAugmentKind.BurnAmplify };
+        yield return new object[] { SpectacleDefinitions.ReaperProtocol, SpectacleAugmentKind.ExecutionStrike };
     }
 
     public static IEnumerable<object[]> AugmentModIds()
@@ -87,30 +90,16 @@ public class SpectacleSystemTests
         return triggered;
     }
 
+    // Roles are now determined purely by loadout (copy count + canonical rank),
+    // so the primary/secondary/tertiary parameters are ignored for role assignment.
+    // This wrapper exists only to avoid breaking callsite signatures during Phase 2 migration.
     private static SpectacleTriggerInfo TriggerTriadSurgeWithOrderedRoles(
         SpectacleSystem system,
         FakeTower tower,
         string primary,
         string secondary,
         string tertiary)
-    {
-        SpectacleTriggerInfo triggered = default;
-        int surgeCount = 0;
-        system.OnSurgeTriggered += info =>
-        {
-            surgeCount++;
-            triggered = info;
-        };
-
-        // Build a deterministic contribution order without crossing lock threshold first.
-        system.RegisterProc(tower, primary, 2.0f);
-        system.RegisterProc(tower, secondary, 1.5f);
-        system.RegisterProc(tower, tertiary, 1.0f);
-        system.RegisterProc(tower, primary, 125f);
-
-        Assert.Equal(1, surgeCount);
-        return triggered;
-    }
+        => TriggerOneSurge(system, tower, primary, 125f);
 
     private static (string Primary, string Secondary) PickCorePairExcluding(string excludedModId)
     {
@@ -126,11 +115,9 @@ public class SpectacleSystemTests
         float threshold = SpectacleDefinitions.ResolveSurgeThreshold();
         float baseGain = SpectacleDefinitions.GetBaseGain(modId);
         float copy = SpectacleDefinitions.GetCopyMultiplier(1);
-        float diversity = SpectacleDefinitions.GetDiversityMultiplier(1);
         float meterScale = SpectacleDefinitions.ResolveMeterGainScale();
-        float damageScale = SpectacleDefinitions.ResolveDamageMeterMultiplier(eventDamage: -1f);
 
-        float perScalarGain = baseGain * copy * diversity * meterScale * damageScale;
+        float perScalarGain = baseGain * copy * meterScale;
         Assert.True(perScalarGain > 0f);
         return (threshold / perScalarGain) + 1f;
     }
@@ -206,16 +193,12 @@ public class SpectacleSystemTests
     }
 
     [Fact]
-    public void CopyAndDiversityMultipliers_MatchPlannedTables()
+    public void CopyMultiplier_MatchesPlannedTable()
     {
         Assert.Equal(0f, SpectacleDefinitions.GetCopyMultiplier(0), 3);
         Assert.Equal(1.00f, SpectacleDefinitions.GetCopyMultiplier(1), 3);
         Assert.Equal(1.92f, SpectacleDefinitions.GetCopyMultiplier(2), 3);
         Assert.Equal(2.70f, SpectacleDefinitions.GetCopyMultiplier(3), 3);
-
-        Assert.Equal(1.00f, SpectacleDefinitions.GetDiversityMultiplier(1), 3);
-        Assert.Equal(1.08f, SpectacleDefinitions.GetDiversityMultiplier(2), 3);
-        Assert.Equal(1.16f, SpectacleDefinitions.GetDiversityMultiplier(3), 3);
     }
 
     [Fact]
@@ -270,9 +253,11 @@ public class SpectacleSystemTests
             secondary: SpectacleDefinitions.ChainReaction,
             tertiary: SpectacleDefinitions.FeedbackLoop);
 
+        // Loadout canonical sort: SplitShot(7) < FeedbackLoop(8) < ChainReaction(9)
+        // r1=SplitShot, r2=FeedbackLoop, r3=ChainReaction
         Assert.Equal(SpectacleMode.Triad, surge.Signature.Mode);
-        Assert.Equal("C_SPLIT_CHAIN", surge.Signature.ComboEffectId);
-        Assert.Equal("T_AUG_FEEDBACK", surge.Signature.AugmentEffectId);
+        Assert.Equal("C_SPLIT_FEEDBACK", surge.Signature.ComboEffectId);
+        Assert.Equal("T_AUG_CHAIN", surge.Signature.AugmentEffectId);
     }
 
     [Fact]
@@ -316,10 +301,10 @@ public class SpectacleSystemTests
         const string comboB = SpectacleDefinitions.ChainReaction;
         const string augment = SpectacleDefinitions.FeedbackLoop;
 
-        SpectacleComboDef expectedCombo = SpectacleDefinitions.GetCombo(comboA, comboB);
-        SpectacleTriadAugmentDef expectedAugment = SpectacleDefinitions.GetTriadAugment(augment);
+        // Pair permutations: tower has [comboA(SplitShot,7), comboB(ChainReaction,9)]
+        // Canonical sort: r1=comboA, r2=comboB → combo = C_SPLIT_CHAIN
+        SpectacleComboDef expectedPairCombo = SpectacleDefinitions.GetCombo(comboA, comboB);
 
-        // Pair permutations.
         string[][] pairPermutations =
         {
             new[] { comboA, comboB },
@@ -333,11 +318,16 @@ public class SpectacleSystemTests
             SpectacleTriggerInfo surge = TriggerOneSurge(system, tower, comboA, 125f);
 
             Assert.Equal(SpectacleMode.Combo, surge.Signature.Mode);
-            Assert.Equal(expectedCombo.EffectId, surge.Signature.ComboEffectId);
+            Assert.Equal(expectedPairCombo.EffectId, surge.Signature.ComboEffectId);
             Assert.True(string.IsNullOrEmpty(surge.Signature.AugmentEffectId));
         }
 
-        // Triad permutations.
+        // Triad permutations: tower has [comboA(SplitShot,7), comboB(ChainReaction,9), augment(FeedbackLoop,8)]
+        // Loadout-based canonical sort: r1=comboA(7), r2=augment(8), r3=comboB(9)
+        // combo = GetCombo(comboA, augment), triad augment = GetTriadAugment(comboB)
+        SpectacleComboDef expectedTriadCombo = SpectacleDefinitions.GetCombo(comboA, augment);
+        SpectacleTriadAugmentDef expectedAugment = SpectacleDefinitions.GetTriadAugment(comboB);
+
         string[][] triadPermutations =
         {
             new[] { comboA, comboB, augment },
@@ -350,12 +340,12 @@ public class SpectacleSystemTests
         {
             var system = new SpectacleSystem();
             var tower = TowerWithMods(triad);
-            SpectacleTriggerInfo surge = TriggerTriadSurgeWithOrderedRoles(system, tower, comboA, comboB, augment);
+            SpectacleTriggerInfo surge = TriggerOneSurge(system, tower, comboA, 125f);
 
             Assert.Equal(SpectacleMode.Triad, surge.Signature.Mode);
-            Assert.Equal(expectedCombo.EffectId, surge.Signature.ComboEffectId);
+            Assert.Equal(expectedTriadCombo.EffectId, surge.Signature.ComboEffectId);
             Assert.Equal(expectedAugment.EffectId, surge.Signature.AugmentEffectId);
-            Assert.Equal($"{expectedCombo.EffectId}+{expectedAugment.EffectId}", surge.Signature.EffectId);
+            Assert.Equal($"{expectedTriadCombo.EffectId}+{expectedAugment.EffectId}", surge.Signature.EffectId);
         }
     }
 
@@ -365,15 +355,15 @@ public class SpectacleSystemTests
         IDictionary combos = ReadPrivateStaticDictionary("ComboDefs");
         IDictionary augments = ReadPrivateStaticDictionary("TriadAugments");
 
-        // N*(N-1)/2 combos where N = number of supported modifiers (11 as of Blast Core addition).
-        Assert.Equal(55, combos.Count);
-        Assert.Equal(11, augments.Count);
+        // N*(N-1)/2 combos where N = number of supported modifiers (13 as of Wildfire+Reaper addition).
+        Assert.Equal(78, combos.Count);
+        Assert.Equal(13, augments.Count);
 
         var comboIds = combos.Values.Cast<SpectacleComboDef>().Select(def => def.EffectId).ToArray();
         var augmentIds = augments.Values.Cast<SpectacleTriadAugmentDef>().Select(def => def.EffectId).ToArray();
 
-        Assert.Equal(55, comboIds.Distinct(StringComparer.Ordinal).Count());
-        Assert.Equal(11, augmentIds.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(78, comboIds.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(13, augmentIds.Distinct(StringComparer.Ordinal).Count());
     }
 
     [Theory]
@@ -396,20 +386,21 @@ public class SpectacleSystemTests
         var system = new SpectacleSystem();
         var tower = TowerWithMods(coreA, coreB, augmentModId);
 
-        SpectacleTriggerInfo surge = TriggerTriadSurgeWithOrderedRoles(
-            system,
-            tower,
-            primary: coreA,
-            secondary: coreB,
-            tertiary: augmentModId);
+        SpectacleTriggerInfo surge = TriggerOneSurge(system, tower, coreA, 125f);
 
-        SpectacleComboDef expectedCombo = SpectacleDefinitions.GetCombo(coreA, coreB);
-        SpectacleTriadAugmentDef expectedAugment = SpectacleDefinitions.GetTriadAugment(augmentModId);
+        // Roles are now determined by canonical rank (copy counts equal here).
+        string[] roles = new[] { coreA, coreB, augmentModId }
+            .OrderBy(m => Array.IndexOf(OrderedSupportedMods, m))
+            .ToArray();
+        string r1 = roles[0], r2 = roles[1], r3 = roles[2];
+
+        SpectacleComboDef expectedCombo = SpectacleDefinitions.GetCombo(r1, r2);
+        SpectacleTriadAugmentDef expectedAugment = SpectacleDefinitions.GetTriadAugment(r3);
 
         Assert.Equal(SpectacleMode.Triad, surge.Signature.Mode);
-        Assert.Equal(coreA, surge.Signature.PrimaryModId);
-        Assert.Equal(coreB, surge.Signature.SecondaryModId);
-        Assert.Equal(augmentModId, surge.Signature.TertiaryModId);
+        Assert.Equal(r1, surge.Signature.PrimaryModId);
+        Assert.Equal(r2, surge.Signature.SecondaryModId);
+        Assert.Equal(r3, surge.Signature.TertiaryModId);
         Assert.Equal(expectedCombo.EffectId, surge.Signature.ComboEffectId);
         Assert.Equal(expectedAugment.EffectId, surge.Signature.AugmentEffectId);
         Assert.Equal($"{expectedCombo.EffectId}+{expectedAugment.EffectId}", surge.Signature.EffectId);
@@ -518,6 +509,9 @@ public class SpectacleSystemTests
         system.RegisterProc(tower, "split_shot", scalarForSingleProcSurge * 0.25f);
         Assert.Equal(0, surgeCount);
 
+        // Tick past the per-mod cooldown so the second proc is admitted.
+        system.Update(SpectacleDefinitions.ModProcCooldownSeconds + 0.01f);
+
         // Carried meter + second proc crosses surge threshold.
         system.RegisterProc(tower, "split_shot", scalarForSingleProcSurge * 0.80f);
         Assert.Equal(1, surgeCount);
@@ -552,17 +546,10 @@ public class SpectacleSystemTests
         Assert.True(float.IsFinite(visual.MeterNormalized));
         Assert.True(visual.MeterNormalized > 0f);
 
+        system.Update(SpectacleDefinitions.ModProcCooldownSeconds + 0.01f);
         system.RegisterProc(tower, "split_shot", scalarForSingleProcSurge * 0.80f, eventDamage: float.PositiveInfinity);
         Assert.Equal(1, surgeCount);
         Assert.True(float.IsFinite(system.GlobalMeter));
-    }
-
-    [Fact]
-    public void ResolveDamageMeterMultiplier_NonFiniteDamage_DefaultsToOne()
-    {
-        Assert.Equal(1f, SpectacleDefinitions.ResolveDamageMeterMultiplier(float.NaN), 3);
-        Assert.Equal(1f, SpectacleDefinitions.ResolveDamageMeterMultiplier(float.PositiveInfinity), 3);
-        Assert.Equal(1f, SpectacleDefinitions.ResolveDamageMeterMultiplier(float.NegativeInfinity), 3);
     }
 
     [Fact]

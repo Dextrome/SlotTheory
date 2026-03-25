@@ -57,6 +57,7 @@ public static class Balance
         DifficultyMode.Hard   => 15,
         _                     => StartingLives,
     };
+    public const int ReaperMaxLives = 100;
     public const int MaxModifiersPerTower = 3;
     public const int DraftOptionsCount = 5;
     public const int DraftTowerOptions = 2;             // when free slots exist
