@@ -309,19 +309,23 @@ public partial class MapEditorPanel : Node
         if (slots.Count != 6)
             errors.Add($"Exactly 6 tower slots required (currently {slots.Count}).");
 
-        // Out-of-bounds check
-        const float minX = 0f, maxX = 1280f, minY = 0f, maxY = 720f;
+        // Out-of-bounds check (match editor/runtime authored-map limits).
+        const float minX = MapBounds.EditableMinX;
+        const float maxX = MapBounds.EditableMaxX;
+        const float minY = MapBounds.EditableMinY;
+        const float maxY = MapBounds.EditableMaxY;
+        string boundsText = $"({minX:0}-{maxX:0}, {minY:0}-{maxY:0})";
         for (int i = 0; i < waypoints.Count; i++)
         {
             var wp = waypoints[i];
             if (wp.X < minX || wp.X > maxX || wp.Y < minY || wp.Y > maxY)
-                errors.Add($"Waypoint {i + 1} is outside the game world (0–1280, 0–720).");
+                errors.Add($"Waypoint {i + 1} is outside the editable map area {boundsText}.");
         }
         for (int i = 0; i < slots.Count; i++)
         {
             var sl = slots[i];
             if (sl.X < minX || sl.X > maxX || sl.Y < minY || sl.Y > maxY)
-                errors.Add($"Slot {i + 1} is outside the game world (0–1280, 0–720).");
+                errors.Add($"Slot {i + 1} is outside the editable map area {boundsText}.");
         }
 
         // Adjacent duplicate waypoints

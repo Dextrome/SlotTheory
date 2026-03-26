@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Godot;
+using SlotTheory.Core;
 
 namespace SlotTheory.UI;
 
@@ -51,8 +52,8 @@ public partial class MapEditorCanvas : Control
     private static readonly Color ErrorHighlight = new(1.00f,  0.22f,  0.22f,  0.70f);
 
     // ── World dimensions (matches GameController playfield) ────────────────
-    private const float WorldW = 1280f;
-    private const float WorldH = 720f;
+    private const float WorldW = MapBounds.WorldMaxX;
+    private const float WorldH = MapBounds.WorldMaxY;
 
     // ── Public state ───────────────────────────────────────────────────────
     public EditorMode Mode { get; private set; } = EditorMode.Waypoint;
@@ -185,7 +186,7 @@ public partial class MapEditorCanvas : Control
 
     private void HandleMouseButton(InputEventMouseButton mb)
     {
-        Vector2 worldPos   = ClampToWorld(SnapIfNeeded(ToWorld(mb.Position)));
+        Vector2 worldPos   = ClampToEditable(SnapIfNeeded(ToWorld(mb.Position)));
         Vector2 canvasPos  = mb.Position;
 
         if (mb.ButtonIndex == MouseButton.Left)
@@ -272,11 +273,11 @@ public partial class MapEditorCanvas : Control
 
     private void HandleMouseMotion(InputEventMouseMotion mm)
     {
-        _hoverWorld = ClampToWorld(SnapIfNeeded(ToWorld(mm.Position)));
+        _hoverWorld = ClampToEditable(SnapIfNeeded(ToWorld(mm.Position)));
 
         if (_isDragging)
         {
-            Vector2 snappedPos = ClampToWorld(SnapIfNeeded(ToWorld(mm.Position)));
+            Vector2 snappedPos = ClampToEditable(SnapIfNeeded(ToWorld(mm.Position)));
             if (_dragIsSlot)
                 _slots[_dragIdx] = snappedPos;
             else
@@ -345,8 +346,7 @@ public partial class MapEditorCanvas : Control
                       MathF.Round(world.Y / SnapSize) * SnapSize)
         : world;
 
-    private static Vector2 ClampToWorld(Vector2 world) =>
-        new(Mathf.Clamp(world.X, 0f, WorldW), Mathf.Clamp(world.Y, 0f, WorldH));
+    private static Vector2 ClampToEditable(Vector2 world) => MapBounds.ClampToEditable(world);
 
     // ── Drawing ────────────────────────────────────────────────────────────
 
@@ -360,7 +360,14 @@ public partial class MapEditorCanvas : Control
         if (GridVisible) DrawGrid(size);
 
         // World bounds indicator
-        DrawRect(new Rect2(Vector2.Zero, size), BoundsBorder, filled: false, width: 1.5f);
+        DrawRect(new Rect2(Vector2.Zero, size),
+                 new Color(BoundsBorder.R, BoundsBorder.G, BoundsBorder.B, 0.40f),
+                 filled: false, width: 1.2f);
+
+        // Editable placement bounds (matches authored map limits).
+        Vector2 editMin = ToCanvas(new Vector2(MapBounds.EditableMinX, MapBounds.EditableMinY));
+        Vector2 editMax = ToCanvas(new Vector2(MapBounds.EditableMaxX, MapBounds.EditableMaxY));
+        DrawRect(new Rect2(editMin, editMax - editMin), BoundsBorder, filled: false, width: 1.8f);
 
         DrawPath();
         DrawSlots();

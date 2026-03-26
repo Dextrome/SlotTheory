@@ -132,9 +132,11 @@ public partial class Settings : Node
         _fullscreenBtn = AddSettingRow(vbox, "Display Mode",
             isFs ? "Fullscreen" : "Windowed", isOn: isFs, OnToggleFullscreen);
 
-        bool isCb = sm?.ColorblindMode ?? false;
-        _colorblindBtn = AddSettingRow(vbox, "Colorblind Mode",
-            OnOffText(isCb), isOn: isCb, OnToggleColorblind);
+        var cbProfile = sm?.ColorblindProfileType ?? ColorblindProfile.Off;
+        _colorblindBtn = AddSettingRow(vbox, "Colorblind Profile",
+            SettingsManager.GetColorblindProfileLabel(cbProfile),
+            isOn: cbProfile != ColorblindProfile.Off,
+            OnCycleColorblindProfile);
 
         bool isRm = sm?.ReducedMotion ?? false;
         _reducedMotionBtn = AddSettingRow(vbox, "Reduced Motion",
@@ -309,11 +311,15 @@ public partial class Settings : Node
         UpdateValueButton(_fullscreenBtn, isFs ? "Fullscreen" : "Windowed", isOn: isFs);
     }
 
-    private void OnToggleColorblind()
+    private void OnCycleColorblindProfile()
     {
-        bool next = !(SettingsManager.Instance?.ColorblindMode ?? false);
-        SettingsManager.Instance?.SetColorblindMode(next);
-        UpdateValueButton(_colorblindBtn, OnOffText(next), next);
+        int current = (int)(SettingsManager.Instance?.ColorblindProfileType ?? ColorblindProfile.Off);
+        var next = (ColorblindProfile)((current + 1) % 4);
+        SettingsManager.Instance?.SetColorblindProfile(next);
+        UpdateValueButton(
+            _colorblindBtn,
+            SettingsManager.GetColorblindProfileLabel(next),
+            next != ColorblindProfile.Off);
     }
 
     private void OnToggleReducedMotion()

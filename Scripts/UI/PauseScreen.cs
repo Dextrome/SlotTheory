@@ -66,6 +66,8 @@ public partial class PauseScreen : CanvasLayer
 
     private void BuildMainPanel(VBoxContainer parent)
     {
+        bool isPlaytestRun = MapEditorState.IsPlaytesting;
+
         var card = new PanelContainer();
         card.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
             bg: new Color(0.04f, 0.04f, 0.12f),
@@ -92,13 +94,24 @@ public partial class PauseScreen : CanvasLayer
 
         AddSpacer(vbox, 2);
         AddBtn(vbox, "Restart Run",  OnRestart);
-        AddBtn(vbox, "Settings",     OnOpenSettings);
-        AddBtn(vbox, "How to Play",  OnHowToPlay);
-        AddBtn(vbox, "Achievements", OnAchievements);
-        AddBtn(vbox, "Slot Codex",   OnSlotCodex);
-        AddSpacer(vbox, 2);
-        AddSeparatorLine(vbox);
-        AddSpacer(vbox, 2);
+        if (isPlaytestRun)
+        {
+            AddBtn(vbox, "Back to Editor", OnBackToEditor);
+            AddSpacer(vbox, 2);
+            AddSeparatorLine(vbox);
+            AddSpacer(vbox, 2);
+            AddBtn(vbox, "Settings", OnOpenSettings);
+        }
+        else
+        {
+            AddBtn(vbox, "Settings",     OnOpenSettings);
+            AddBtn(vbox, "How to Play",  OnHowToPlay);
+            AddBtn(vbox, "Achievements", OnAchievements);
+            AddBtn(vbox, "Slot Codex",   OnSlotCodex);
+            AddSpacer(vbox, 2);
+            AddSeparatorLine(vbox);
+            AddSpacer(vbox, 2);
+        }
 
         var mmBtn = MakePauseBtn("Main Menu", 260, 38, 20);
         UITheme.ApplyCyanStyle(mmBtn);
@@ -184,10 +197,10 @@ public partial class PauseScreen : CanvasLayer
         AddSpacer(vbox, 6);
 
         var sm = SettingsManager.Instance;
-        AddPauseVolumeRow(vbox, "Master",  sm?.MasterVolume ?? 80f, v => SettingsManager.Instance?.SetVolume(v));
-        AddPauseVolumeRow(vbox, "Music",   sm?.MusicVolume  ?? 80f, v => SettingsManager.Instance?.SetMusicVolume(v));
-        AddPauseVolumeRow(vbox, "Game FX", sm?.FxVolume     ?? 80f, v => SettingsManager.Instance?.SetFxVolume(v));
-        AddPauseVolumeRow(vbox, "UI FX",   sm?.UiFxVolume   ?? 80f, v => SettingsManager.Instance?.SetUiFxVolume(v));
+        AddPauseVolumeRow(vbox, "Master",  sm?.MasterVolume ?? 80f, v => { SettingsManager.Instance?.SetVolume(v);      ApplyRuntimeSettingsNow(); });
+        AddPauseVolumeRow(vbox, "Music",   sm?.MusicVolume  ?? 80f, v => { SettingsManager.Instance?.SetMusicVolume(v); ApplyRuntimeSettingsNow(); });
+        AddPauseVolumeRow(vbox, "Game FX", sm?.FxVolume     ?? 80f, v => { SettingsManager.Instance?.SetFxVolume(v);    ApplyRuntimeSettingsNow(); });
+        AddPauseVolumeRow(vbox, "UI FX",   sm?.UiFxVolume   ?? 80f, v => { SettingsManager.Instance?.SetUiFxVolume(v);  ApplyRuntimeSettingsNow(); });
 
         AddSpacer(vbox, 4);
         AddPauseSectionHeader(vbox, "DISPLAY");
@@ -199,15 +212,22 @@ public partial class PauseScreen : CanvasLayer
                 SettingsManager.Instance?.ToggleFullscreen();
                 bool v = SettingsManager.Instance?.Fullscreen ?? false;
                 UpdatePauseValueBtn(_pauseFsBtn, v ? "Fullscreen" : "Windowed", v);
+                ApplyRuntimeSettingsNow();
             });
 
-        bool isCb = sm?.ColorblindMode ?? false;
-        _pauseCbBtn = AddPauseSettingRow(vbox, "Colorblind Mode",
-            OnOffText(isCb), isOn: isCb, () =>
+        var cbProfile = sm?.ColorblindProfileType ?? ColorblindProfile.Off;
+        _pauseCbBtn = AddPauseSettingRow(vbox, "Colorblind Profile",
+            SettingsManager.GetColorblindProfileLabel(cbProfile),
+            isOn: cbProfile != ColorblindProfile.Off, () =>
             {
-                bool next = !(SettingsManager.Instance?.ColorblindMode ?? false);
-                SettingsManager.Instance?.SetColorblindMode(next);
-                UpdatePauseValueBtn(_pauseCbBtn, OnOffText(next), next);
+                int current = (int)(SettingsManager.Instance?.ColorblindProfileType ?? ColorblindProfile.Off);
+                var next = (ColorblindProfile)((current + 1) % 4);
+                SettingsManager.Instance?.SetColorblindProfile(next);
+                UpdatePauseValueBtn(
+                    _pauseCbBtn,
+                    SettingsManager.GetColorblindProfileLabel(next),
+                    next != ColorblindProfile.Off);
+                ApplyRuntimeSettingsNow();
             });
 
         bool isRm = sm?.ReducedMotion ?? false;
@@ -217,6 +237,7 @@ public partial class PauseScreen : CanvasLayer
                 bool next = !(SettingsManager.Instance?.ReducedMotion ?? false);
                 SettingsManager.Instance?.SetReducedMotion(next);
                 UpdatePauseValueBtn(_pauseRmBtn, OnOffText(next), next);
+                ApplyRuntimeSettingsNow();
             });
 
         bool isPostFx = sm?.PostFxEnabled ?? true;
@@ -226,6 +247,7 @@ public partial class PauseScreen : CanvasLayer
                 bool next = !(SettingsManager.Instance?.PostFxEnabled ?? true);
                 SettingsManager.Instance?.SetPostFxEnabled(next);
                 UpdatePauseValueBtn(_pausePostFxBtn, OnOffText(next), next);
+                ApplyRuntimeSettingsNow();
             });
 
         AddSpacer(vbox, 4);
@@ -239,6 +261,7 @@ public partial class PauseScreen : CanvasLayer
                 SettingsManager.Instance?.SetScreenFilterEnabled(next);
                 SettingsManager.Instance?.SetPhosphorGridEnabled(next);
                 UpdatePauseValueBtn(_pauseScreenFilterBtn, OnOffText(next), next);
+                ApplyRuntimeSettingsNow();
             });
 
         bool isVhs = sm?.VhsGlitchEnabled ?? false;
@@ -248,6 +271,7 @@ public partial class PauseScreen : CanvasLayer
                 bool next = !(SettingsManager.Instance?.VhsGlitchEnabled ?? false);
                 SettingsManager.Instance?.SetVhsGlitchEnabled(next);
                 UpdatePauseValueBtn(_pauseVhsGlitchBtn, OnOffText(next), next);
+                ApplyRuntimeSettingsNow();
             });
 
         AddSpacer(vbox, 4);
@@ -260,6 +284,7 @@ public partial class PauseScreen : CanvasLayer
                 bool next = !(SettingsManager.Instance?.LayeredEnemyRendering ?? true);
                 SettingsManager.Instance?.SetLayeredEnemyRendering(next);
                 UpdatePauseValueBtn(_pauseEnemyLayeredBtn, OnOffText(next), next);
+                ApplyRuntimeSettingsNow();
             });
 
         bool emissive = sm?.EnemyEmissiveLines ?? true;
@@ -269,6 +294,7 @@ public partial class PauseScreen : CanvasLayer
                 bool next = !(SettingsManager.Instance?.EnemyEmissiveLines ?? true);
                 SettingsManager.Instance?.SetEnemyEmissiveLines(next);
                 UpdatePauseValueBtn(_pauseEnemyEmissiveBtn, OnOffText(next), next);
+                ApplyRuntimeSettingsNow();
             });
 
         bool damage = sm?.EnemyDamageMaterial ?? true;
@@ -278,6 +304,7 @@ public partial class PauseScreen : CanvasLayer
                 bool next = !(SettingsManager.Instance?.EnemyDamageMaterial ?? true);
                 SettingsManager.Instance?.SetEnemyDamageMaterial(next);
                 UpdatePauseValueBtn(_pauseEnemyDamageBtn, OnOffText(next), next);
+                ApplyRuntimeSettingsNow();
             });
 
         bool bloom = sm?.EnemyBloomHighlights ?? !MobileOptimization.IsMobile();
@@ -287,6 +314,7 @@ public partial class PauseScreen : CanvasLayer
                 bool next = !(SettingsManager.Instance?.EnemyBloomHighlights ?? !MobileOptimization.IsMobile());
                 SettingsManager.Instance?.SetEnemyBloomHighlights(next);
                 UpdatePauseValueBtn(_pauseEnemyBloomBtn, OnOffText(next), next);
+                ApplyRuntimeSettingsNow();
             });
 
         if (sm?.DevMode == true)
@@ -530,11 +558,21 @@ public partial class PauseScreen : CanvasLayer
 
     private void OnResume()  => Unpause();
     private void OnRestart() { Unpause(); GameController.Instance.RestartRun(); }
+    private void OnBackToEditor()
+    {
+        Engine.TimeScale = 1.0;
+        GetTree().Paused = false;
+        GameController.Instance.AbandonRun();
+        MapEditorState.ClearPlaytest();
+        SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MapEditor.tscn");
+    }
 	private void OnMainMenu()
 	{
 		Engine.TimeScale = 1.0;
 		GetTree().Paused = false;
 		GameController.Instance.AbandonRun();
+        if (MapEditorState.IsPlaytesting)
+            MapEditorState.ClearPlaytest();
 		SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 	}
     private void OnQuit()    => GetTree().Quit();
@@ -576,6 +614,16 @@ public partial class PauseScreen : CanvasLayer
     {
         _settingsPanel.Visible = false;
         _mainPanel.Visible     = true;
+    }
+
+    private static void ApplyRuntimeSettingsNow()
+    {
+        Transition.Instance?.RefreshPostFxFromSettings();
+
+        if (!GodotObject.IsInstanceValid(GameController.Instance))
+            return;
+
+        GameController.Instance.RefreshInGameSettingVisuals();
     }
 
     // ── Pause settings helpers (mirror Settings.cs 2-column style) ────────────

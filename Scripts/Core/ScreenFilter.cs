@@ -30,10 +30,13 @@ public partial class ScreenFilter : Node
         _baseRect     = MakeLayer(128, BaseShader(),     sm?.ScreenFilterEnabled ?? true,  out _baseMat);
         _vhsRect      = MakeLayer(130, VhsShader(),      sm?.VhsGlitchEnabled    ?? false, out _vhsMat);
         _phosphorRect = MakeLayer(131, PhosphorShader(), sm?.PhosphorGridEnabled  ?? false, out _phosphorMat);
+        _baseMat.SetShaderParameter("u_colorblind_profile", (float)(int)(sm?.ColorblindProfileType ?? ColorblindProfile.Off));
 
         SettingsManager.ScreenFilterChanged  += on => _baseRect.Visible     = on;
         SettingsManager.VhsGlitchChanged     += on => _vhsRect.Visible      = on;
         SettingsManager.PhosphorGridChanged  += on => _phosphorRect.Visible = on;
+        SettingsManager.ColorblindProfileChanged += profile =>
+            _baseMat.SetShaderParameter("u_colorblind_profile", (float)(int)profile);
     }
 
     /// <summary>
@@ -92,6 +95,33 @@ uniform float scanline_opacity : hint_range(0.0, 0.5)    = 0.15;
 uniform float saturation       : hint_range(0.5, 2.0)    = 1.18;
 uniform float brightness       : hint_range(0.8, 1.3)    = 1.03;
 uniform float u_time           : hint_range(0.0, 1000.0) = 0.0;
+uniform float u_colorblind_profile : hint_range(0.0, 3.0) = 0.0;
+
+vec3 cb_sim(vec3 src, float profile) {
+    if (profile < 1.5) {
+        // Deuteranopia simulation
+        return vec3(
+            dot(src, vec3(0.62500, 0.37500, 0.00000)),
+            dot(src, vec3(0.70000, 0.30000, 0.00000)),
+            dot(src, vec3(0.00000, 0.30000, 0.70000))
+        );
+    }
+    if (profile < 2.5) {
+        // Protanopia simulation
+        return vec3(
+            dot(src, vec3(0.56667, 0.43333, 0.00000)),
+            dot(src, vec3(0.55833, 0.44167, 0.00000)),
+            dot(src, vec3(0.00000, 0.24167, 0.75833))
+        );
+    }
+
+    // Tritanopia simulation
+    return vec3(
+        dot(src, vec3(0.95000, 0.05000, 0.00000)),
+        dot(src, vec3(0.00000, 0.43333, 0.56667)),
+        dot(src, vec3(0.00000, 0.47500, 0.52500))
+    );
+}
 void fragment() {
     vec2 uv = SCREEN_UV;
     vec3 color = texture(SCREEN_TEXTURE, uv).rgb;
@@ -106,6 +136,39 @@ void fragment() {
     color *= brightness;
     float shimmer = 1.0 + sin(u_time * 0.7 + uv.y * 220.0) * 0.002;
     color *= shimmer;
+
+    if (u_colorblind_profile > 0.5) {
+        // Daltonization-style correction tailored per profile.
+        vec3 sim = cb_sim(color, u_colorblind_profile);
+        vec3 err = color - sim;
+        vec3 corr;
+
+        if (u_colorblind_profile < 1.5) {
+            corr = vec3(
+                0.0,
+                err.r * 0.60 + err.g * 0.40,
+                err.r * 0.55 + err.b * 0.45
+            );
+        } else if (u_colorblind_profile < 2.5) {
+            corr = vec3(
+                0.0,
+                err.r * 0.72 + err.g * 0.28,
+                err.r * 0.72 + err.b * 0.28
+            );
+        } else {
+            corr = vec3(
+                err.b * 0.76 + err.r * 0.24,
+                err.b * 0.60 + err.g * 0.40,
+                0.0
+            );
+        }
+
+        vec3 cb = clamp(color + corr, 0.0, 1.0);
+        float cbLum = dot(cb, vec3(0.299, 0.587, 0.114));
+        cb = clamp((cb - cbLum) * 1.06 + cbLum, 0.0, 1.0);
+        color = mix(color, cb, 0.92);
+    }
+
     COLOR = vec4(color, 1.0);
 }";
 

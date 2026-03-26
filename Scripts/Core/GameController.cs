@@ -8330,6 +8330,44 @@ void fragment() {
 		}
 	}
 
+	/// <summary>
+	/// Applies settings-driven visual refreshes to the currently running scene
+	/// so pause-menu setting changes are reflected immediately without restart.
+	/// </summary>
+	public void RefreshInGameSettingVisuals()
+	{
+		if (_runState?.Slots == null)
+			return;
+
+		for (int i = 0; i < _runState.Slots.Length; i++)
+		{
+			RefreshModPips(i);
+
+			var towerNode = _runState.Slots[i].TowerNode;
+			if (GodotObject.IsInstanceValid(towerNode))
+				towerNode.QueueRedraw();
+		}
+
+		foreach (var enemy in _runState.EnemiesAlive)
+		{
+			if (GodotObject.IsInstanceValid(enemy))
+				enemy.QueueRedraw();
+		}
+
+		if (GodotObject.IsInstanceValid(_previewModifierIcon) && _draftPanel != null)
+		{
+			string pendingModifierId = _draftPanel.PendingModifierId;
+			if (!string.IsNullOrWhiteSpace(pendingModifierId))
+			{
+				_previewModifierIcon.IconColor = ModifierVisuals.GetAccent(pendingModifierId);
+				_previewModifierIcon.QueueRedraw();
+			}
+		}
+
+		if (_draftSynergyHintModifierId.Length > 0)
+			UpdateDraftSynergyHighlights(0f);
+	}
+
 	private void UpdateTowerPlacementPreviewGhost(float delta)
 	{
 		if (!_draftPanel.HasTowerPreview || !_draftPanel.IsAwaitingSlot)

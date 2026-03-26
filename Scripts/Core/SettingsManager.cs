@@ -3,6 +3,14 @@ using System;
 
 namespace SlotTheory.Core;
 
+public enum ColorblindProfile
+{
+    Off = 0,
+    Deuteranopia = 1,
+    Protanopia = 2,
+    Tritanopia = 3,
+}
+
 /// <summary>
 /// Autoload singleton. Loads, persists, and applies audio/display settings.
 /// Creates Music and FX audio buses (children of Master) on first run.
@@ -18,6 +26,8 @@ public partial class SettingsManager : Node
     public static event System.Action<bool>? ScreenFilterChanged;
     public static event System.Action<bool>? VhsGlitchChanged;
     public static event System.Action<bool>? PhosphorGridChanged;
+    public static event System.Action<bool>? ColorblindModeChanged;
+    public static event System.Action<ColorblindProfile>? ColorblindProfileChanged;
 
     private const string SavePath        = "user://settings.cfg";
     private const string DisplaySavePath = "user://display.cfg";
@@ -34,7 +44,8 @@ public partial class SettingsManager : Node
     public float FxVolume      { get; private set; } = 80f;
     public float UiFxVolume    { get; private set; } = 80f;
     public int   MenuMusicStyle { get; private set; } = 0;  // 0=Mars, 1=Ambient, 2=Zool
-    public bool  ColorblindMode { get; private set; } = false;
+    public ColorblindProfile ColorblindProfileType { get; private set; } = ColorblindProfile.Off;
+    public bool  ColorblindMode => ColorblindProfileType != ColorblindProfile.Off;
     public bool  ReducedMotion  { get; private set; } = false;
     // Hidden per-profile capability flag (not exposed in user-facing settings UI).
     public bool  DevMode        { get; private set; } = false;
@@ -119,9 +130,28 @@ public partial class SettingsManager : Node
 
     public void SetColorblindMode(bool enabled)
     {
-        ColorblindMode = enabled;
+        SetColorblindProfile(enabled ? ColorblindProfile.Deuteranopia : ColorblindProfile.Off);
+    }
+
+    public void SetColorblindProfile(ColorblindProfile profile)
+    {
+        var normalized = NormalizeColorblindProfile((int)profile);
+        if (ColorblindProfileType == normalized)
+            return;
+
+        ColorblindProfileType = normalized;
+        ColorblindModeChanged?.Invoke(ColorblindMode);
+        ColorblindProfileChanged?.Invoke(normalized);
         SaveAccount();
     }
+
+    public static string GetColorblindProfileLabel(ColorblindProfile profile) => profile switch
+    {
+        ColorblindProfile.Deuteranopia => "Deuteranopia",
+        ColorblindProfile.Protanopia => "Protanopia",
+        ColorblindProfile.Tritanopia => "Tritanopia",
+        _ => "Off",
+    };
 
     public void SetReducedMotion(bool enabled)
     {
@@ -328,7 +358,12 @@ public partial class SettingsManager : Node
                 MenuMusicStyle = (int)cfg.GetValue(SecAudio, "menu_music_style", 0);
             else if (cfg.HasSectionKey(SecAudio, "alt_menu_music"))
                 MenuMusicStyle = ((bool)cfg.GetValue(SecAudio, "alt_menu_music", false)) ? 1 : 0;
-            ColorblindMode = (bool) cfg.GetValue(SecDisp,  "colorblind",    false);
+            if (cfg.HasSectionKey(SecDisp, "colorblind_profile"))
+                ColorblindProfileType = NormalizeColorblindProfile((int)cfg.GetValue(SecDisp, "colorblind_profile", 0));
+            else
+                ColorblindProfileType = ((bool)cfg.GetValue(SecDisp, "colorblind", false))
+                    ? ColorblindProfile.Deuteranopia
+                    : ColorblindProfile.Off;
             ReducedMotion  = (bool) cfg.GetValue(SecDisp,  "reduced_motion", false);
             int rawDifficulty = (int)cfg.GetValue("gameplay", "difficulty", (int)DifficultyMode.Easy);
             Difficulty = rawDifficulty switch
@@ -385,6 +420,7 @@ public partial class SettingsManager : Node
         cfg.SetValue(SecAudio, "ui_fx_volume",   UiFxVolume);
         cfg.SetValue(SecAudio, "menu_music_style", MenuMusicStyle);
         cfg.SetValue(SecDisp,  "colorblind",     ColorblindMode);
+        cfg.SetValue(SecDisp,  "colorblind_profile", (int)ColorblindProfileType);
         cfg.SetValue(SecDisp,  "reduced_motion", ReducedMotion);
         if (cfg.HasSectionKey(SecDisp, LegacyDevModeKey))
             cfg.EraseSectionKey(SecDisp, LegacyDevModeKey);
@@ -437,6 +473,14 @@ public partial class SettingsManager : Node
 
     private static string BuildHiddenDevModeProfileKey(string playerId)
         => string.IsNullOrWhiteSpace(playerId) ? "dev_mode_default" : $"dev_mode_{playerId}";
+
+    private static ColorblindProfile NormalizeColorblindProfile(int raw) => raw switch
+    {
+        (int)ColorblindProfile.Deuteranopia => ColorblindProfile.Deuteranopia,
+        (int)ColorblindProfile.Protanopia => ColorblindProfile.Protanopia,
+        (int)ColorblindProfile.Tritanopia => ColorblindProfile.Tritanopia,
+        _ => ColorblindProfile.Off,
+    };
 
     private void LoadSurgeHintProfile(ConfigFile cfg)
     {
