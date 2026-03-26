@@ -110,3 +110,6 @@ screenshots3/
 screenshots4/
 screenshots5/
 .nuget_packages/
+.dotnet_home/.dotnet/.workloadAdvertisingManifestSentinel10.0.100
+.dotnet_home/.dotnet/sdk-advertising/10.0.100/microsoft.net.workloads/10.0.105/microsoft.net.workloads.workloadset.json
+TowerEvolution.MD

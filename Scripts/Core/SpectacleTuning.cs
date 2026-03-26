@@ -41,9 +41,9 @@ public sealed class SpectacleTuningProfile
     [JsonPropertyName("surge_meter_after_trigger_multiplier")]
     public float SurgeMeterAfterTriggerMultiplier { get; set; } = 1.0825f;
     [JsonPropertyName("global_meter_per_surge_multiplier")]
-    public float GlobalMeterPerSurgeMultiplier { get; set; } = 1.0778f;
+    public float GlobalMeterPerSurgeMultiplier { get; set; } = 1.15f;
     [JsonPropertyName("global_threshold_multiplier")]
-    public float GlobalThresholdMultiplier { get; set; } = 1.1049f;
+    public float GlobalThresholdMultiplier { get; set; } = 0.70f;
     [JsonPropertyName("global_meter_after_trigger_multiplier")]
     public float GlobalMeterAfterTriggerMultiplier { get; set; } = 0.9987f;
     [JsonPropertyName("inactivity_grace_multiplier")]
