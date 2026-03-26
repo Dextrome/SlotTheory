@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Godot;
 using SlotTheory.Core;
@@ -7,12 +8,100 @@ using SlotTheory.UI;
 namespace SlotTheory.Entities;
 
 public enum TargetingMode { First, Strongest, LowestHp, Last }
+public enum TowerVisualTier { Tier0, Tier1, Tier2, Tier3 }
+public enum FocalAccentShape { Crest, Lens, Bracket, Spike, Chain }
+public enum AccentChannel { None, Top, Left, Base, Inner }
+
+public readonly struct ModVisualRecipe
+{
+    public int VisualPriority { get; }
+    public FocalAccentShape FocalShape { get; }
+
+    public ModVisualRecipe(int visualPriority, FocalAccentShape focalShape)
+    {
+        VisualPriority = visualPriority;
+        FocalShape = focalShape;
+    }
+}
+
+public readonly struct TowerVisualEvolutionState
+{
+    public int EquippedModifierCount { get; }
+    public TowerVisualTier Tier { get; }
+    public bool HasFocalAccent { get; }
+    public string FocalModId { get; }
+    public FocalAccentShape FocalShape { get; }
+    public bool HasSupportAccent { get; }
+    public string SupportModId { get; }
+    public FocalAccentShape SupportShape { get; }
+    public AccentChannel SupportChannel { get; }
+    public bool SupportReinforced { get; }
+    public bool HasTertiaryHint { get; }
+    public string TertiaryModId { get; }
+    public FocalAccentShape TertiaryShape { get; }
+    public AccentChannel TertiaryChannel { get; }
+    public bool TertiaryReinforced { get; }
+
+    public TowerVisualEvolutionState(
+        TowerVisualTier tier,
+        int equippedModifierCount,
+        bool hasFocalAccent,
+        string focalModId,
+        FocalAccentShape focalShape,
+        bool hasSupportAccent,
+        string supportModId,
+        FocalAccentShape supportShape,
+        AccentChannel supportChannel,
+        bool supportReinforced,
+        bool hasTertiaryHint,
+        string tertiaryModId,
+        FocalAccentShape tertiaryShape,
+        AccentChannel tertiaryChannel,
+        bool tertiaryReinforced)
+    {
+        EquippedModifierCount = equippedModifierCount;
+        Tier = tier;
+        HasFocalAccent = hasFocalAccent;
+        FocalModId = focalModId;
+        FocalShape = focalShape;
+        HasSupportAccent = hasSupportAccent;
+        SupportModId = supportModId;
+        SupportShape = supportShape;
+        SupportChannel = supportChannel;
+        SupportReinforced = supportReinforced;
+        HasTertiaryHint = hasTertiaryHint;
+        TertiaryModId = tertiaryModId;
+        TertiaryShape = tertiaryShape;
+        TertiaryChannel = tertiaryChannel;
+        TertiaryReinforced = tertiaryReinforced;
+    }
+}
 
 /// <summary>
 /// Tower node. Positioned as a child of its Slot node so GlobalPosition is correct for range checks.
 /// </summary>
 public partial class TowerInstance : Node2D, ITowerView
 {
+    // Recipe metadata defines accent shape language. Focal ownership itself is driven by
+    // equip order (first-equipped modifier), not spectacle ordering.
+    private static readonly Dictionary<string, ModVisualRecipe> ModVisualRecipes = new(StringComparer.Ordinal)
+    {
+        ["focus_lens"]       = new(100, FocalAccentShape.Lens),
+        ["blast_core"]       = new(96, FocalAccentShape.Spike),
+        ["chain_reaction"]   = new(92, FocalAccentShape.Chain),
+        ["split_shot"]       = new(90, FocalAccentShape.Chain),
+        ["wildfire"]         = new(88, FocalAccentShape.Spike),
+        ["overkill"]         = new(86, FocalAccentShape.Spike),
+        ["feedback_loop"]    = new(84, FocalAccentShape.Crest),
+        ["reaper_protocol"]  = new(82, FocalAccentShape.Lens),
+        ["exploit_weakness"] = new(80, FocalAccentShape.Bracket),
+        ["momentum"]         = new(78, FocalAccentShape.Crest),
+        ["overreach"]        = new(76, FocalAccentShape.Lens),
+        ["slow"]             = new(74, FocalAccentShape.Bracket),
+        ["hair_trigger"]     = new(72, FocalAccentShape.Spike),
+    };
+    private static readonly ModVisualRecipe DefaultModRecipe = new(0, FocalAccentShape.Crest);
+
     public string TowerId { get; set; } = string.Empty;
     public float BaseDamage { get; set; }
     public float AttackInterval { get; set; }
@@ -54,8 +143,38 @@ public partial class TowerInstance : Node2D, ITowerView
     private float _lastSpectacleMeter = 0f;
     private float _teachingHighlightRemaining = 0f;
     private float _teachingHighlightDuration = 0f;
+    private TowerVisualEvolutionState _visualEvolution = new(
+        TowerVisualTier.Tier0,
+        equippedModifierCount: 0,
+        hasFocalAccent: false,
+        focalModId: string.Empty,
+        focalShape: FocalAccentShape.Crest,
+        hasSupportAccent: false,
+        supportModId: string.Empty,
+        supportShape: FocalAccentShape.Crest,
+        supportChannel: AccentChannel.None,
+        supportReinforced: false,
+        hasTertiaryHint: false,
+        tertiaryModId: string.Empty,
+        tertiaryShape: FocalAccentShape.Crest,
+        tertiaryChannel: AccentChannel.None,
+        tertiaryReinforced: false);
+    private int _visualEvolutionHash = int.MinValue;
+    private float _evolutionTransitionRemaining = 0f;
+    private float _evolutionTransitionDuration = 0f;
+    private float _evolutionTransitionIntensity = 0f;
+    private float _shellAssemblyBoost = 0f;
+    private float _accentLockBoost = 0f;
+    private float _channelSurgeBoost = 0f;
+    private AccentChannel _transitionChannel = AccentChannel.None;
+    private Color _transitionAccent = Colors.White;
     private const float ShotAttackSeconds = 0.030f;
     private const float ShotDecaySeconds = 0.18f;
+
+    public override void _Ready()
+    {
+        RebuildEvolutionVisuals(allowTransition: false);
+    }
 
     /// <summary>Rebuilds the range circle fill and border to match the tower's current Range value.</summary>
     public void RefreshRangeCircle()
@@ -86,6 +205,17 @@ public partial class TowerInstance : Node2D, ITowerView
             _spectacleChargePulse = Mathf.Max(0f, _spectacleChargePulse - dt * 1.8f);
         if (_teachingHighlightRemaining > 0f)
             _teachingHighlightRemaining = Mathf.Max(0f, _teachingHighlightRemaining - dt);
+        if (_evolutionTransitionRemaining > 0f)
+        {
+            _evolutionTransitionRemaining = Mathf.Max(0f, _evolutionTransitionRemaining - dt);
+            UpdateEvolutionTransitionEnvelope();
+        }
+        else if (_shellAssemblyBoost > 0f || _accentLockBoost > 0f || _channelSurgeBoost > 0f)
+        {
+            _shellAssemblyBoost = 0f;
+            _accentLockBoost = 0f;
+            _channelSurgeBoost = 0f;
+        }
 
         float spectacleMeter = Mathf.Clamp(SpectacleMeterNormalized, 0f, 1f);
         if (spectacleMeter > _lastSpectacleMeter + 0.03f)
@@ -105,7 +235,7 @@ public partial class TowerInstance : Node2D, ITowerView
                 Rotation = Mathf.LerpAngle(Rotation, targetAngle, turnLerp);
             }
         }
-        if (AttackInterval > 0f || spectacleMeter > 0f || _spectacleChargePulse > 0f || _teachingHighlightRemaining > 0f)
+        if (AttackInterval > 0f || spectacleMeter > 0f || _spectacleChargePulse > 0f || _teachingHighlightRemaining > 0f || _evolutionTransitionRemaining > 0f)
             QueueRedraw();
     }
 
@@ -250,9 +380,62 @@ public partial class TowerInstance : Node2D, ITowerView
             ModeIconControl.Mode = TargetingMode;
     }
 
+    public void RebuildEvolutionVisuals(bool allowTransition = true)
+    {
+        int hash = ComputeEvolutionHash();
+        if (hash == _visualEvolutionHash)
+            return;
+
+        int previousCount = _visualEvolution.EquippedModifierCount;
+        _visualEvolutionHash = hash;
+
+        var tier = ResolveVisualTier(Modifiers.Count);
+        ResolveOrderedModIds(out string focalModId, out string supportModId, out string tertiaryModId);
+        bool hasFocal = focalModId.Length > 0;
+        var focalRecipe = hasFocal ? ResolveModRecipe(focalModId) : DefaultModRecipe;
+
+        bool hasSupport = tier >= TowerVisualTier.Tier2 && supportModId.Length > 0;
+        var supportRecipe = hasSupport ? ResolveModRecipe(supportModId) : DefaultModRecipe;
+        AccentChannel supportChannel = hasSupport
+            ? ResolveSupportChannel(focalRecipe.FocalShape, supportRecipe.FocalShape)
+            : AccentChannel.None;
+        bool supportReinforced = hasSupport && StringComparer.OrdinalIgnoreCase.Equals(supportModId, focalModId);
+
+        bool hasTertiary = tier >= TowerVisualTier.Tier3 && tertiaryModId.Length > 0;
+        var tertiaryRecipe = hasTertiary ? ResolveModRecipe(tertiaryModId) : DefaultModRecipe;
+        AccentChannel tertiaryChannel = hasTertiary
+            ? ResolveTertiaryChannel(focalRecipe.FocalShape, supportChannel, tertiaryRecipe.FocalShape)
+            : AccentChannel.None;
+        bool tertiaryReinforced = hasTertiary && (
+            StringComparer.OrdinalIgnoreCase.Equals(tertiaryModId, focalModId) ||
+            (hasSupport && StringComparer.OrdinalIgnoreCase.Equals(tertiaryModId, supportModId)));
+
+        _visualEvolution = new TowerVisualEvolutionState(
+            tier,
+            equippedModifierCount: Modifiers.Count,
+            hasFocalAccent: hasFocal,
+            focalModId,
+            focalRecipe.FocalShape,
+            hasSupportAccent: hasSupport,
+            supportModId,
+            supportRecipe.FocalShape,
+            supportChannel,
+            supportReinforced,
+            hasTertiaryHint: hasTertiary,
+            tertiaryModId,
+            tertiaryRecipe.FocalShape,
+            tertiaryChannel,
+            tertiaryReinforced);
+
+        if (allowTransition && Modifiers.Count > previousCount)
+            StartEvolutionTransition(previousCount, _visualEvolution);
+
+        QueueRedraw();
+    }
+
     public override void _Draw()
     {
-        // Draw cooldown ring first so tower/barrel geometry sits on top.
+        // Draw cooldown ring base first so tower/barrel geometry sits on top.
         DrawChargeArc();
         DrawSpectacleArc();
         DrawTeachingHighlight();
@@ -268,8 +451,502 @@ public partial class TowerInstance : Node2D, ITowerView
             case "phase_splitter":   DrawPhaseSplitter();   break;
             default: DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f)); break;
         }
+
+        DrawTierShell();
+        DrawEvolutionTransitionFx();
+        DrawTertiaryModHint();
+        DrawSupportModAccent();
+        DrawFocalModAccent();
         DrawReadabilityAccent();
+        DrawChargeArc(overlayPass: true);
         DrawTargetLockLine();
+    }
+
+    private static TowerVisualTier ResolveVisualTier(int modCount) => modCount switch
+    {
+        <= 0 => TowerVisualTier.Tier0,
+        1 => TowerVisualTier.Tier1,
+        2 => TowerVisualTier.Tier2,
+        _ => TowerVisualTier.Tier3,
+    };
+
+    private int ComputeEvolutionHash()
+    {
+        unchecked
+        {
+            int h = 17;
+            h = h * 31 + Modifiers.Count;
+            for (int i = 0; i < Modifiers.Count; i++)
+            {
+                string id = Modifiers[i]?.ModifierId ?? string.Empty;
+                h = h * 31 + StringComparer.Ordinal.GetHashCode(id);
+            }
+            return h;
+        }
+    }
+
+    private static ModVisualRecipe ResolveModRecipe(string modId)
+    {
+        if (string.IsNullOrWhiteSpace(modId))
+            return DefaultModRecipe;
+
+        if (ModVisualRecipes.TryGetValue(modId, out var recipe))
+            return recipe;
+
+        string normalized = modId.Trim().ToLowerInvariant();
+        if (ModVisualRecipes.TryGetValue(normalized, out recipe))
+            return recipe;
+
+        return DefaultModRecipe;
+    }
+
+    private void ResolveOrderedModIds(out string focalModId, out string supportModId, out string tertiaryModId)
+    {
+        focalModId = string.Empty;
+        supportModId = string.Empty;
+        tertiaryModId = string.Empty;
+
+        for (int i = 0; i < Modifiers.Count; i++)
+        {
+            string id = Modifiers[i]?.ModifierId ?? string.Empty;
+            if (id.Length == 0)
+                continue;
+
+            if (focalModId.Length == 0)
+            {
+                // Preserve continuity: first equipped modifier owns focal identity.
+                focalModId = id;
+                continue;
+            }
+
+            if (supportModId.Length == 0)
+            {
+                supportModId = id;
+                continue;
+            }
+
+            tertiaryModId = id;
+            break;
+        }
+    }
+
+    private static AccentChannel ResolveSupportChannel(FocalAccentShape focalShape, FocalAccentShape supportShape)
+    {
+        AccentChannel preferred = supportShape switch
+        {
+            FocalAccentShape.Lens => AccentChannel.Base,
+            FocalAccentShape.Bracket => AccentChannel.Base,
+            _ => AccentChannel.Left,
+        };
+
+        if (!IsBlockedByFocal(preferred, focalShape))
+            return preferred;
+
+        AccentChannel fallback = preferred == AccentChannel.Left ? AccentChannel.Base : AccentChannel.Left;
+        if (!IsBlockedByFocal(fallback, focalShape))
+            return fallback;
+
+        return AccentChannel.Base;
+    }
+
+    private static AccentChannel ResolveTertiaryChannel(FocalAccentShape focalShape, AccentChannel supportChannel, FocalAccentShape tertiaryShape)
+    {
+        AccentChannel[] order = tertiaryShape switch
+        {
+            FocalAccentShape.Spike => new[] { AccentChannel.Base, AccentChannel.Inner, AccentChannel.Left },
+            FocalAccentShape.Chain => new[] { AccentChannel.Base, AccentChannel.Left, AccentChannel.Inner },
+            FocalAccentShape.Bracket => new[] { AccentChannel.Inner, AccentChannel.Base, AccentChannel.Left },
+            FocalAccentShape.Lens => new[] { AccentChannel.Inner, AccentChannel.Base, AccentChannel.Left },
+            _ => new[] { AccentChannel.Inner, AccentChannel.Left, AccentChannel.Base },
+        };
+
+        for (int i = 0; i < order.Length; i++)
+        {
+            AccentChannel channel = order[i];
+            if (channel == supportChannel)
+                continue;
+            if (IsBlockedByFocal(channel, focalShape))
+                continue;
+            return channel;
+        }
+
+        return AccentChannel.Inner;
+    }
+
+    private static bool IsBlockedByFocal(AccentChannel channel, FocalAccentShape focalShape)
+    {
+        // Focal owns the prime top channel. Keep support/micro away from it.
+        if (channel == AccentChannel.Top)
+            return true;
+
+        // Bracket focal accents occupy both flanks, so avoid left channel overlap.
+        if (channel == AccentChannel.Left && focalShape == FocalAccentShape.Bracket)
+            return true;
+
+        return false;
+    }
+
+    private void StartEvolutionTransition(int previousCount, in TowerVisualEvolutionState next)
+    {
+        int nextCount = next.EquippedModifierCount;
+        if (nextCount <= previousCount || nextCount <= 0)
+            return;
+
+        bool reducedMotion = IsReducedMotionEnabled();
+        _evolutionTransitionDuration = reducedMotion ? 0.24f : 0.42f;
+        _evolutionTransitionRemaining = _evolutionTransitionDuration;
+        _evolutionTransitionIntensity = reducedMotion ? 0.62f : 1f;
+        _transitionChannel = ResolveGainedChannel(nextCount, next);
+        _transitionAccent = ResolveGainedAccent(nextCount, next);
+        UpdateEvolutionTransitionEnvelope();
+    }
+
+    private static AccentChannel ResolveGainedChannel(int nextCount, in TowerVisualEvolutionState state)
+    {
+        return nextCount switch
+        {
+            1 => AccentChannel.Top,
+            2 => state.SupportChannel != AccentChannel.None ? state.SupportChannel : AccentChannel.Base,
+            _ => state.TertiaryChannel != AccentChannel.None ? state.TertiaryChannel : AccentChannel.Inner,
+        };
+    }
+
+    private static Color ResolveGainedAccent(int nextCount, in TowerVisualEvolutionState state)
+    {
+        string modId = nextCount switch
+        {
+            1 => state.FocalModId,
+            2 => state.SupportModId,
+            _ => state.TertiaryModId,
+        };
+        return modId.Length > 0 ? ModifierVisuals.GetAccent(modId) : Colors.White;
+    }
+
+    private void UpdateEvolutionTransitionEnvelope()
+    {
+        if (_evolutionTransitionDuration <= 0f || _evolutionTransitionRemaining <= 0f)
+        {
+            _shellAssemblyBoost = 0f;
+            _accentLockBoost = 0f;
+            _channelSurgeBoost = 0f;
+            return;
+        }
+
+        float t = 1f - (_evolutionTransitionRemaining / _evolutionTransitionDuration);
+        float intensity = _evolutionTransitionIntensity;
+
+        // Phase 3 transition grammar:
+        // 1) shell assembly pulse, 2) accent lock-in, 3) channel surge, 4) settle.
+        _shellAssemblyBoost = intensity * WindowPulse(t, 0.00f, 0.16f, 0.48f);
+        _accentLockBoost = intensity * WindowPulse(t, 0.14f, 0.34f, 0.70f);
+        _channelSurgeBoost = intensity * WindowPulse(t, 0.24f, 0.44f, 0.84f);
+    }
+
+    private static float WindowPulse(float t, float start, float peak, float end)
+    {
+        if (t <= start || t >= end)
+            return 0f;
+        if (t < peak)
+            return Mathf.Clamp((t - start) / Mathf.Max(0.0001f, peak - start), 0f, 1f);
+        return Mathf.Clamp(1f - ((t - peak) / Mathf.Max(0.0001f, end - peak)), 0f, 1f);
+    }
+
+    private bool IsReducedMotionEnabled() => SettingsManager.Instance?.ReducedMotion == true;
+
+    private void DrawTierShell()
+    {
+        if (_visualEvolution.Tier == TowerVisualTier.Tier0)
+            return;
+
+        float shellPulse = 0.5f + 0.5f * Mathf.Sin(_idleTime * 2.2f);
+        float transitionBoost = _shellAssemblyBoost;
+        Color shell = new Color(BodyColor.R, BodyColor.G, BodyColor.B, 1f);
+
+        switch (_visualEvolution.Tier)
+        {
+            case TowerVisualTier.Tier1:
+            {
+                // Light infusion cue: small, partial top shell.
+                float alpha = 0.22f + shellPulse * 0.10f + transitionBoost * 0.24f;
+                DrawArc(Vector2.Zero, 18.4f, -2.28f, -0.86f, 20, new Color(shell.R, shell.G, shell.B, alpha), 1.6f + transitionBoost * 0.55f);
+                DrawCircle(new Vector2(0f, -18.2f), 1.6f + transitionBoost * 0.30f, new Color(shell.R, shell.G, shell.B, 0.30f + shellPulse * 0.16f + transitionBoost * 0.18f));
+                break;
+            }
+            case TowerVisualTier.Tier2:
+            {
+                // Clear structural escalation: segmented frame + dual-node crest.
+                float alpha = 0.36f + shellPulse * 0.12f + transitionBoost * 0.22f;
+                var c = new Color(shell.R, shell.G, shell.B, alpha);
+                DrawArc(Vector2.Zero, 21.2f, -2.80f, -0.34f, 24, c, 2.4f + transitionBoost * 0.60f);
+                DrawArc(Vector2.Zero, 21.2f, 0.34f, 2.80f, 24, c, 2.4f + transitionBoost * 0.60f);
+                DrawLine(new Vector2(-16.6f, -7.0f), new Vector2(-16.6f, 7.2f), new Color(shell.R, shell.G, shell.B, alpha * 0.92f), 2.3f + transitionBoost * 0.45f);
+                DrawLine(new Vector2(16.6f, -7.0f), new Vector2(16.6f, 7.2f), new Color(shell.R, shell.G, shell.B, alpha * 0.92f), 2.3f + transitionBoost * 0.45f);
+                DrawLine(new Vector2(-5.0f, -20.6f), new Vector2(5.0f, -20.6f), new Color(shell.R, shell.G, shell.B, alpha * 0.94f), 1.9f + transitionBoost * 0.28f);
+                DrawCircle(new Vector2(-5.0f, -20.6f), 2.0f + transitionBoost * 0.24f, new Color(shell.R, shell.G, shell.B, alpha * (0.90f + shellPulse * 0.08f)));
+                DrawCircle(new Vector2(5.0f, -20.6f), 2.0f + transitionBoost * 0.24f, new Color(shell.R, shell.G, shell.B, alpha * (0.90f + shellPulse * 0.08f)));
+                DrawLine(new Vector2(0f, -17.2f), new Vector2(0f, -20.2f), new Color(shell.R, shell.G, shell.B, alpha * 0.86f), 1.7f + transitionBoost * 0.22f);
+                break;
+            }
+            case TowerVisualTier.Tier3:
+            {
+                // Unmistakable maxed state: complete frame + triad anchors + inner lock ring.
+                float alpha = 0.46f + shellPulse * 0.14f + transitionBoost * 0.20f;
+                var c = new Color(shell.R, shell.G, shell.B, alpha);
+                DrawArc(Vector2.Zero, 22.8f, 0f, Mathf.Tau, 48, c, 3.0f + transitionBoost * 0.60f);
+                DrawArc(Vector2.Zero, 17.2f, 0f, Mathf.Tau, 40, new Color(shell.R, shell.G, shell.B, alpha * 0.78f), 2.0f + transitionBoost * 0.42f);
+                DrawArc(Vector2.Zero, 12.6f, 0f, Mathf.Tau, 32, new Color(shell.R, shell.G, shell.B, alpha * 0.58f), 1.6f + transitionBoost * 0.28f);
+                for (int i = 0; i < 3; i++)
+                {
+                    float a = -Mathf.Pi / 2f + i * Mathf.Tau / 3f;
+                    var outer = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 22.8f;
+                    var inner = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * 16.0f;
+                    DrawCircle(outer, 2.9f + transitionBoost * 0.24f, new Color(shell.R, shell.G, shell.B, alpha * (0.86f + shellPulse * 0.10f)));
+                    DrawLine(inner, outer, new Color(shell.R, shell.G, shell.B, alpha * 0.80f), 1.9f + transitionBoost * 0.30f);
+                }
+                DrawLine(new Vector2(-8.6f, -24.0f), new Vector2(8.6f, -24.0f), new Color(shell.R, shell.G, shell.B, alpha * 0.86f), 1.9f + transitionBoost * 0.24f);
+                DrawCircle(new Vector2(-8.6f, -24.0f), 1.9f + transitionBoost * 0.16f, new Color(shell.R, shell.G, shell.B, alpha * 0.92f));
+                DrawCircle(new Vector2(0f, -25.4f), 2.1f + transitionBoost * 0.20f, new Color(shell.R, shell.G, shell.B, alpha * 0.96f));
+                DrawCircle(new Vector2(8.6f, -24.0f), 1.9f + transitionBoost * 0.16f, new Color(shell.R, shell.G, shell.B, alpha * 0.92f));
+                DrawCircle(Vector2.Zero, 2.0f + transitionBoost * 0.18f, new Color(shell.R, shell.G, shell.B, alpha * 0.84f));
+                break;
+            }
+        }
+    }
+
+    private void DrawFocalModAccent()
+    {
+        if (!_visualEvolution.HasFocalAccent || _visualEvolution.FocalModId.Length == 0)
+            return;
+
+        bool reducedMotion = IsReducedMotionEnabled();
+        float motionScale = reducedMotion ? 0.45f : 1f;
+        Color accent = ModifierVisuals.GetAccent(_visualEvolution.FocalModId);
+        float pulse = 0.5f + 0.5f * Mathf.Sin(_idleTime * 5.1f * motionScale);
+        float tierStrength = _visualEvolution.Tier switch
+        {
+            TowerVisualTier.Tier1 => 0.92f,
+            TowerVisualTier.Tier2 => 1.00f,
+            TowerVisualTier.Tier3 => 1.08f,
+            _ => 0.88f,
+        };
+        float pulseStrength = reducedMotion ? 0.18f : 0.30f;
+        float alpha = Mathf.Clamp((0.50f + pulse * pulseStrength + _accentLockBoost * 0.22f) * tierStrength, 0f, 1f);
+
+        switch (_visualEvolution.FocalShape)
+        {
+            case FocalAccentShape.Lens:
+                DrawArc(Vector2.Zero, 8.0f, 0f, Mathf.Tau, 24, new Color(accent.R, accent.G, accent.B, alpha), 1.8f);
+                DrawArc(Vector2.Zero, 11.2f, -2.05f, -1.10f, 10, new Color(accent.R, accent.G, accent.B, alpha * 0.78f), 1.6f);
+                DrawLine(new Vector2(0f, -7.2f), new Vector2(0f, -13.8f), new Color(accent.R, accent.G, accent.B, alpha * 0.72f), 1.5f);
+                break;
+
+            case FocalAccentShape.Bracket:
+                DrawLine(new Vector2(-11.5f, -3.4f), new Vector2(-15.2f, -3.4f), new Color(accent.R, accent.G, accent.B, alpha), 1.8f);
+                DrawLine(new Vector2(-15.2f, -3.4f), new Vector2(-15.2f, 2.6f), new Color(accent.R, accent.G, accent.B, alpha), 1.8f);
+                DrawLine(new Vector2(11.5f, -3.4f), new Vector2(15.2f, -3.4f), new Color(accent.R, accent.G, accent.B, alpha), 1.8f);
+                DrawLine(new Vector2(15.2f, -3.4f), new Vector2(15.2f, 2.6f), new Color(accent.R, accent.G, accent.B, alpha), 1.8f);
+                DrawCircle(new Vector2(0f, -9.2f), 1.8f, new Color(accent.R, accent.G, accent.B, alpha * 0.85f));
+                break;
+
+            case FocalAccentShape.Spike:
+            {
+                var tip = new Vector2(0f, -19.8f);
+                var left = new Vector2(-3.5f, -12.6f);
+                var right = new Vector2(3.5f, -12.6f);
+                DrawPolygon(new[] { tip, right, left }, new[] { new Color(accent.R, accent.G, accent.B, alpha * 0.95f) });
+                DrawLine(new Vector2(-7.4f, -10.8f), new Vector2(-11.8f, -7.6f), new Color(accent.R, accent.G, accent.B, alpha * 0.72f), 1.5f);
+                DrawLine(new Vector2(7.4f, -10.8f), new Vector2(11.8f, -7.6f), new Color(accent.R, accent.G, accent.B, alpha * 0.72f), 1.5f);
+                break;
+            }
+
+            case FocalAccentShape.Chain:
+            {
+                var p0 = new Vector2(-6.2f, -12.0f);
+                var p1 = new Vector2(0f, -15.0f);
+                var p2 = new Vector2(6.2f, -12.0f);
+                var c = new Color(accent.R, accent.G, accent.B, alpha * 0.88f);
+                DrawLine(p0, p1, c, 1.6f);
+                DrawLine(p1, p2, c, 1.6f);
+                DrawCircle(p0, 1.8f, c);
+                DrawCircle(p1, 2.1f, c);
+                DrawCircle(p2, 1.8f, c);
+                break;
+            }
+
+            default:
+                DrawArc(Vector2.Zero, 12.2f, -2.40f, -0.74f, 18, new Color(accent.R, accent.G, accent.B, alpha), 1.9f);
+                DrawCircle(new Vector2(0f, -13.2f), 2.0f, new Color(accent.R, accent.G, accent.B, alpha * 0.88f));
+                break;
+        }
+    }
+
+    private void DrawSupportModAccent()
+    {
+        if (!_visualEvolution.HasSupportAccent || _visualEvolution.SupportModId.Length == 0)
+            return;
+
+        bool reducedMotion = IsReducedMotionEnabled();
+        float motionScale = reducedMotion ? 0.42f : 1f;
+        Color baseAccent = ModifierVisuals.GetAccent(_visualEvolution.SupportModId);
+        float pulse = 0.5f + 0.5f * Mathf.Sin(_idleTime * 4.0f * motionScale + 0.6f);
+        float pulseStrength = reducedMotion ? 0.06f : 0.10f;
+        float alpha = 0.24f + pulse * pulseStrength + _accentLockBoost * 0.13f;
+        if (_visualEvolution.SupportReinforced)
+            alpha += 0.06f;
+        if (_visualEvolution.Tier == TowerVisualTier.Tier3)
+            alpha += 0.03f;
+
+        Color accent = BlendAccentWithBody(baseAccent, bodyMix: 0.32f, alpha: Mathf.Clamp(alpha, 0f, 1f));
+        Vector2 anchor = ResolveSupportAnchor(_visualEvolution.SupportChannel);
+        float scale = _visualEvolution.SupportReinforced ? 1.08f : 1.0f;
+        float width = 1.2f + pulse * 0.16f;
+
+        switch (_visualEvolution.SupportShape)
+        {
+            case FocalAccentShape.Lens:
+                DrawArc(anchor, 3.6f * scale, 0f, Mathf.Tau, 14, accent, width);
+                DrawLine(anchor + new Vector2(-2.3f, 0f) * scale, anchor + new Vector2(2.3f, 0f) * scale, new Color(accent.R, accent.G, accent.B, accent.A * 0.78f), width * 0.86f);
+                break;
+
+            case FocalAccentShape.Bracket:
+                DrawLine(anchor + new Vector2(-2.5f, -1.8f) * scale, anchor + new Vector2(-4.4f, -1.8f) * scale, accent, width);
+                DrawLine(anchor + new Vector2(-4.4f, -1.8f) * scale, anchor + new Vector2(-4.4f, 1.6f) * scale, accent, width);
+                DrawLine(anchor + new Vector2(2.5f, -1.8f) * scale, anchor + new Vector2(4.4f, -1.8f) * scale, accent, width);
+                DrawLine(anchor + new Vector2(4.4f, -1.8f) * scale, anchor + new Vector2(4.4f, 1.6f) * scale, accent, width);
+                break;
+
+            case FocalAccentShape.Spike:
+            {
+                var tip = anchor + new Vector2(0f, -4.6f) * scale;
+                var left = anchor + new Vector2(-2.1f, -0.4f) * scale;
+                var right = anchor + new Vector2(2.1f, -0.4f) * scale;
+                DrawPolygon(new[] { tip, right, left }, new[] { new Color(accent.R, accent.G, accent.B, accent.A * 0.90f) });
+                DrawLine(anchor + new Vector2(0f, -0.4f) * scale, anchor + new Vector2(0f, 2.2f) * scale, new Color(accent.R, accent.G, accent.B, accent.A * 0.72f), width * 0.88f);
+                break;
+            }
+
+            case FocalAccentShape.Chain:
+            {
+                var p0 = anchor + new Vector2(-3.0f, -1.0f) * scale;
+                var p1 = anchor + new Vector2(0f, -2.4f) * scale;
+                var p2 = anchor + new Vector2(3.0f, -1.0f) * scale;
+                var c = new Color(accent.R, accent.G, accent.B, accent.A * 0.92f);
+                DrawLine(p0, p1, c, width * 0.90f);
+                DrawLine(p1, p2, c, width * 0.90f);
+                DrawCircle(p0, 1.1f * scale, c);
+                DrawCircle(p2, 1.1f * scale, c);
+                break;
+            }
+
+            default:
+                DrawArc(anchor, 4.3f * scale, -2.42f, -0.74f, 12, accent, width);
+                DrawCircle(anchor + new Vector2(0f, -4.0f) * scale, 1.1f * scale, new Color(accent.R, accent.G, accent.B, accent.A * 0.82f));
+                break;
+        }
+    }
+
+    private void DrawTertiaryModHint()
+    {
+        if (!_visualEvolution.HasTertiaryHint || _visualEvolution.TertiaryModId.Length == 0)
+            return;
+
+        bool reducedMotion = IsReducedMotionEnabled();
+        float motionScale = reducedMotion ? 0.40f : 1f;
+        Color baseAccent = ModifierVisuals.GetAccent(_visualEvolution.TertiaryModId);
+        float pulse = 0.5f + 0.5f * Mathf.Sin(_idleTime * 3.4f * motionScale + 1.4f);
+        float pulseStrength = reducedMotion ? 0.04f : 0.06f;
+        float alpha = 0.17f + pulse * pulseStrength + _accentLockBoost * 0.07f;
+        if (_visualEvolution.TertiaryReinforced)
+            alpha += 0.04f;
+
+        Color accent = BlendAccentWithBody(baseAccent, bodyMix: 0.56f, alpha: Mathf.Clamp(alpha, 0f, 1f));
+        Vector2 anchor = ResolveTertiaryAnchor(_visualEvolution.TertiaryChannel);
+        float scale = _visualEvolution.TertiaryReinforced ? 1.08f : 1.0f;
+
+        switch (_visualEvolution.TertiaryShape)
+        {
+            case FocalAccentShape.Lens:
+                DrawArc(anchor, 1.8f * scale, 0f, Mathf.Tau, 10, accent, 0.95f);
+                DrawCircle(anchor, 0.85f * scale, new Color(accent.R, accent.G, accent.B, accent.A * 0.82f));
+                break;
+
+            case FocalAccentShape.Bracket:
+                DrawLine(anchor + new Vector2(-1.3f, -1.1f) * scale, anchor + new Vector2(-1.3f, 1.1f) * scale, accent, 1.0f);
+                DrawLine(anchor + new Vector2(-1.3f, 1.1f) * scale, anchor + new Vector2(1.1f, 1.1f) * scale, accent, 1.0f);
+                break;
+
+            case FocalAccentShape.Spike:
+            {
+                var tip = anchor + new Vector2(0f, -2.4f) * scale;
+                var left = anchor + new Vector2(-1.2f, -0.2f) * scale;
+                var right = anchor + new Vector2(1.2f, -0.2f) * scale;
+                DrawPolygon(new[] { tip, right, left }, new[] { new Color(accent.R, accent.G, accent.B, accent.A * 0.90f) });
+                break;
+            }
+
+            case FocalAccentShape.Chain:
+            {
+                var p0 = anchor + new Vector2(-1.5f, 0f) * scale;
+                var p1 = anchor + new Vector2(1.5f, 0f) * scale;
+                DrawLine(p0, p1, accent, 0.95f);
+                DrawCircle(p0, 0.75f * scale, accent);
+                DrawCircle(p1, 0.75f * scale, accent);
+                break;
+            }
+
+            default:
+                DrawArc(anchor, 2.0f * scale, -2.45f, -0.72f, 10, accent, 0.95f);
+                break;
+        }
+    }
+
+    private Vector2 ResolveSupportAnchor(AccentChannel channel) => channel switch
+    {
+        AccentChannel.Base => new Vector2(0f, 15.8f),
+        AccentChannel.Inner => new Vector2(-5.8f, 8.8f),
+        AccentChannel.Top => new Vector2(0f, -18.4f),
+        _ => new Vector2(-12.8f, -9.4f),
+    };
+
+    private Vector2 ResolveTertiaryAnchor(AccentChannel channel) => channel switch
+    {
+        AccentChannel.Base => new Vector2(-1.0f, 18.4f),
+        AccentChannel.Left => new Vector2(-9.2f, 11.2f),
+        AccentChannel.Top => new Vector2(-4.0f, -17.2f),
+        _ => new Vector2(-3.8f, 9.8f),
+    };
+
+    private void DrawEvolutionTransitionFx()
+    {
+        if (_channelSurgeBoost <= 0.001f || _transitionChannel == AccentChannel.None)
+            return;
+
+        Vector2 anchor = ResolveTransitionAnchor(_transitionChannel);
+        float strength = _channelSurgeBoost;
+        Color surge = new Color(_transitionAccent.R, _transitionAccent.G, _transitionAccent.B, 0.06f + strength * 0.30f);
+        float width = 1.0f + strength * 1.5f;
+
+        DrawLine(Vector2.Zero, anchor, surge, width);
+        DrawCircle(anchor, 1.1f + strength * 1.8f, new Color(surge.R, surge.G, surge.B, 0.18f + strength * 0.42f));
+        DrawCircle(Vector2.Zero, 1.6f + strength * 1.0f, new Color(surge.R, surge.G, surge.B, 0.10f + strength * 0.22f));
+    }
+
+    private Vector2 ResolveTransitionAnchor(AccentChannel channel) => channel switch
+    {
+        AccentChannel.Top => new Vector2(0f, -18.8f),
+        AccentChannel.Left => new Vector2(-12.2f, -8.8f),
+        AccentChannel.Base => new Vector2(0f, 17.0f),
+        AccentChannel.Inner => new Vector2(-3.8f, 9.2f),
+        _ => Vector2.Zero,
+    };
+
+    private Color BlendAccentWithBody(Color accent, float bodyMix, float alpha)
+    {
+        return new Color(
+            Mathf.Lerp(accent.R, BodyColor.R, bodyMix),
+            Mathf.Lerp(accent.G, BodyColor.G, bodyMix),
+            Mathf.Lerp(accent.B, BodyColor.B, bodyMix),
+            alpha);
     }
 
     private void DrawTargetLockLine()
@@ -280,27 +957,60 @@ public partial class TowerInstance : Node2D, ITowerView
         var c = new Color(BodyColor.R, BodyColor.G, BodyColor.B, 0.10f + 0.20f * t);
         DrawLine(Vector2.Zero, localTo, c, 1.6f);
     }
-
-    private void DrawChargeArc()
+    private void DrawChargeArc(bool overlayPass = false)
     {
         if (AttackInterval <= 0f) return;
-        float fill   = Mathf.Clamp(1f - Cooldown / AttackInterval, 0f, 1f);
-        const float r = 21f;
+
+        int tierLevel = _visualEvolution.Tier switch
+        {
+            TowerVisualTier.Tier1 => 1,
+            TowerVisualTier.Tier2 => 2,
+            TowerVisualTier.Tier3 => 3,
+            _ => 0,
+        };
+        if (overlayPass && tierLevel <= 0)
+            return;
+
+        float fill = Mathf.Clamp(1f - Cooldown / AttackInterval, 0f, 1f);
+        float radius = overlayPass ? (22.6f + tierLevel * 0.9f) : 21f;
 
         // When full (mine cap reached or pre-fire), draw the background ring brighter
-        // and skip the charge arc: drawing from -π/2 to -π/2+2π causes a seam artifact
+        // and skip the charge arc: drawing from -PI/2 to -PI/2+2PI causes a seam artifact
         // at the top where the arc start and end points coincide.
         bool atFull = fill >= 0.999f;
-        DrawArc(Vector2.Zero, r, 0f, Mathf.Tau, 48,
-            new Color(BodyColor.R, BodyColor.G, BodyColor.B, atFull ? 0.50f : 0.16f), 2f);
+
+        float ringAlpha;
+        float ringWidth;
+        Color ringColor;
+        if (overlayPass)
+        {
+            float lift = 0.28f;
+            ringAlpha = 0.16f + tierLevel * 0.07f + (atFull ? 0.10f : 0f);
+            ringWidth = 1.55f + tierLevel * 0.22f;
+            ringColor = new Color(
+                Mathf.Lerp(BodyColor.R, 1f, lift),
+                Mathf.Lerp(BodyColor.G, 1f, lift),
+                Mathf.Lerp(BodyColor.B, 1f, lift),
+                ringAlpha);
+        }
+        else
+        {
+            ringAlpha = atFull ? 0.50f : 0.16f;
+            ringWidth = 2f;
+            ringColor = new Color(BodyColor.R, BodyColor.G, BodyColor.B, ringAlpha);
+        }
+
+        DrawArc(Vector2.Zero, radius, 0f, Mathf.Tau, 48, ringColor, ringWidth);
 
         // Filled charge arc - clockwise from top (only when not fully charged)
         if (fill > 0.01f && !atFull)
         {
             float start = -Mathf.Pi / 2f;
-            float end   = start + fill * Mathf.Tau;
-            DrawArc(Vector2.Zero, r, start, end, 48,
-                new Color(BodyColor.R, BodyColor.G, BodyColor.B, 0.88f), 2.5f);
+            float end = start + fill * Mathf.Tau;
+            float arcAlpha = overlayPass ? (0.64f + tierLevel * 0.06f) : 0.88f;
+            float arcWidth = overlayPass ? (1.95f + tierLevel * 0.24f) : 2.5f;
+            DrawArc(Vector2.Zero, radius, start, end, 48,
+                new Color(ringColor.R, ringColor.G, ringColor.B, arcAlpha), arcWidth);
         }
     }
 
@@ -627,3 +1337,4 @@ public partial class TowerInstance : Node2D, ITowerView
         DrawCircle(Vector2.Zero, 1.6f, new Color(1f, 1f, 1f, coreAlpha));
     }
 }
+

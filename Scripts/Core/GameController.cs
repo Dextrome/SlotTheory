@@ -995,6 +995,9 @@ public partial class GameController : Node
 					_draftSystem.ApplyModifier(modifierId, tower);
 				}
 
+				if (tower is TowerInstance visualTower)
+					visualTower.RebuildEvolutionVisuals(allowTransition: false);
+
 				RefreshModPips(slot.SlotIndex);
 			}
 		}
@@ -1395,6 +1398,8 @@ public partial class GameController : Node
 				if (tower != null)
 				{
 					_draftSystem.ApplyModifier(option.Id, tower);
+					if (tower is TowerInstance visualTower)
+						visualTower.RebuildEvolutionVisuals(allowTransition: _botRunner == null);
 					if (_botRunner == null)
 					{
 						RefreshModPips(targetSlotIndex);
@@ -1661,6 +1666,7 @@ public partial class GameController : Node
 
 		_slotNodes[slotIndex].AddChild(tower);
 		_runState.Slots[slotIndex].Tower = tower;
+		tower.RebuildEvolutionVisuals(allowTransition: _botRunner == null);
 
 		// Placement bounce - scale from 0 ? 1.15 ? 1.0
 		if (_botRunner == null && !_isRestoringSnapshot)
