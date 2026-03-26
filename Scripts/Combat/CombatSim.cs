@@ -1119,13 +1119,21 @@ public class CombatSim
         RiftMineVisual? visual = null;
         if (!BotMode && LanePath != null)
         {
+            ResolveOrderedModifierIds(owner, out string focalModId, out string supportModId, out string tertiaryModId);
             visual = new RiftMineVisual
             {
                 ZIndex = 9,
             };
             LanePath.GetParent().AddChild(visual);
             visual.GlobalPosition = worldPos;
-            visual.Initialize(owner.ProjectileColor, damageScale, isMiniMine);
+            visual.Initialize(
+                owner.ProjectileColor,
+                damageScale,
+                isMiniMine,
+                modCount: owner.Modifiers.Count,
+                focalModId: focalModId,
+                supportModId: supportModId,
+                tertiaryModId: tertiaryModId);
             visual.SetCharges(initialCharges, initialCharges);
             visual.SetArmed(armTime <= 0f);
         }
@@ -1144,6 +1152,39 @@ public class CombatSim
             Visual = visual
         });
         return true;
+    }
+
+    private static void ResolveOrderedModifierIds(
+        TowerInstance owner,
+        out string focalModId,
+        out string supportModId,
+        out string tertiaryModId)
+    {
+        focalModId = string.Empty;
+        supportModId = string.Empty;
+        tertiaryModId = string.Empty;
+
+        for (int i = 0; i < owner.Modifiers.Count; i++)
+        {
+            string id = owner.Modifiers[i]?.ModifierId ?? string.Empty;
+            if (id.Length == 0)
+                continue;
+
+            if (focalModId.Length == 0)
+            {
+                focalModId = id;
+                continue;
+            }
+
+            if (supportModId.Length == 0)
+            {
+                supportModId = id;
+                continue;
+            }
+
+            tertiaryModId = id;
+            break;
+        }
     }
 
     private int CountActiveBaseMinesFor(TowerInstance owner)

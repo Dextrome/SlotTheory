@@ -274,7 +274,18 @@ public partial class SoundManager : Node
         Reg("ui_select",       Tone(740f, 0.05f, vol: 0.26f, shape: 's', env: 'f'));
         Reg("tower_place",     Seq(new[] { 380f, 560f }, gapMs: 10, noteLen: 0.07f, vol: 0.46f));
         Reg("ui_hover",        Tone(900f, 0.025f, vol: 0.18f, shape: 's', env: 'f'));
-        Reg("low_heartbeat",   Seq(new[] { 74f, 58f }, gapMs: 40, noteLen: 0.10f, vol: 0.30f));
+        // Low-lives heartbeat: "lub-dub" (strong first beat, softer second beat) with
+        // subtle high click texture so it reads as a heartbeat, not pure bass thump.
+        Reg("low_heartbeat", Layer(
+            // Low body
+            Seq(new[] { 66f, 0f }, gapMs: 76, noteLen: 0.085f, vol: 0.18f),
+            Seq(new[] { 0f, 72f }, gapMs: 76, noteLen: 0.070f, vol: 0.13f),
+            // Mid chest tone
+            Seq(new[] { 118f, 0f }, gapMs: 76, noteLen: 0.052f, vol: 0.12f),
+            Seq(new[] { 0f, 132f }, gapMs: 76, noteLen: 0.040f, vol: 0.08f),
+            // Valve click
+            Seq(new[] { 2100f, 0f }, gapMs: 76, noteLen: 0.012f, vol: 0.040f),
+            Seq(new[] { 0f, 1850f }, gapMs: 76, noteLen: 0.010f, vol: 0.028f)));
         Reg("wave_halfway_lift", Sweep(300f, 980f, 0.16f, vol: 0.26f));
         Reg("wave20_swell",    Sweep(90f, 480f, 0.56f, vol: 0.62f));
         // ── Achievement unlock: bright 4-note C major arpeggio + high shimmer ──

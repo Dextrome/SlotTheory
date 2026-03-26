@@ -101,6 +101,19 @@ public partial class TowerInstance : Node2D, ITowerView
         ["hair_trigger"]     = new(72, FocalAccentShape.Spike),
     };
     private static readonly ModVisualRecipe DefaultModRecipe = new(0, FocalAccentShape.Crest);
+    private static readonly HashSet<string> FlagshipTowerIds = new(StringComparer.Ordinal)
+    {
+        "heavy_cannon",
+        "chain_tower",
+        "phase_splitter",
+    };
+    private static readonly HashSet<string> FlagshipModIds = new(StringComparer.Ordinal)
+    {
+        "focus_lens",
+        "chain_reaction",
+        "blast_core",
+        "wildfire",
+    };
 
     public string TowerId { get; set; } = string.Empty;
     public float BaseDamage { get; set; }
@@ -453,6 +466,7 @@ public partial class TowerInstance : Node2D, ITowerView
         }
 
         DrawTierShell();
+        DrawFlagshipTowerSignature();
         DrawEvolutionTransitionFx();
         DrawTertiaryModHint();
         DrawSupportModAccent();
@@ -713,6 +727,86 @@ public partial class TowerInstance : Node2D, ITowerView
         }
     }
 
+    private void DrawFlagshipTowerSignature()
+    {
+        if (_visualEvolution.Tier < TowerVisualTier.Tier2 || !FlagshipTowerIds.Contains(TowerId))
+            return;
+
+        bool t3 = _visualEvolution.Tier == TowerVisualTier.Tier3;
+        float shot = ShotKick();
+        float pulse = 0.5f + 0.5f * Mathf.Sin(_idleTime * 2.9f);
+        float alpha = (t3 ? 0.34f : 0.24f) + pulse * (t3 ? 0.10f : 0.07f) + _shellAssemblyBoost * 0.16f;
+        Color shell = new Color(BodyColor.R, BodyColor.G, BodyColor.B, alpha);
+
+        switch (TowerId)
+        {
+            case "chain_tower":
+            {
+                float r = t3 ? 24.2f : 20.8f;
+                float innerR = t3 ? 18.8f : 15.8f;
+                for (int i = 0; i < 3; i++)
+                {
+                    float a = -Mathf.Pi / 2f + i * Mathf.Tau / 3f;
+                    float b = -Mathf.Pi / 2f + ((i + 1) % 3) * Mathf.Tau / 3f;
+                    var p0 = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * r;
+                    var p1 = new Vector2(Mathf.Cos(b), Mathf.Sin(b)) * r;
+                    var inner = new Vector2(Mathf.Cos(a), Mathf.Sin(a)) * innerR;
+                    DrawLine(p0, p1, shell, t3 ? 2.0f : 1.5f);
+                    DrawLine(inner, p0, new Color(shell.R, shell.G, shell.B, alpha * 0.78f), t3 ? 1.5f : 1.2f);
+                    DrawCircle(p0, t3 ? 2.3f : 1.8f, new Color(shell.R, shell.G, shell.B, alpha * 0.92f));
+                }
+
+                // Pair signature: chain tower + chain reaction resolves into a stabilized orbit.
+                if (t3 && StringComparer.OrdinalIgnoreCase.Equals(_visualEvolution.FocalModId, "chain_reaction"))
+                {
+                    DrawArc(Vector2.Zero, 27.0f, -2.72f, -1.46f, 20, new Color(shell.R, shell.G, shell.B, alpha * 0.80f), 1.6f);
+                    DrawArc(Vector2.Zero, 27.0f, -0.63f, 0.63f, 20, new Color(shell.R, shell.G, shell.B, alpha * 0.80f), 1.6f);
+                    DrawArc(Vector2.Zero, 27.0f, 1.46f, 2.72f, 20, new Color(shell.R, shell.G, shell.B, alpha * 0.80f), 1.6f);
+                }
+                break;
+            }
+            case "heavy_cannon":
+            {
+                float railY0 = -6.6f - shot * 1.2f;
+                float railY1 = 7.6f + shot * 0.8f;
+                float railX = t3 ? 19.6f : 17.8f;
+                DrawLine(new Vector2(-railX, railY0), new Vector2(-railX, railY1), shell, t3 ? 2.3f : 1.8f);
+                DrawLine(new Vector2(railX, railY0), new Vector2(railX, railY1), shell, t3 ? 2.3f : 1.8f);
+                DrawLine(new Vector2(-9.6f, -22.2f), new Vector2(9.6f, -22.2f), new Color(shell.R, shell.G, shell.B, alpha * 0.92f), t3 ? 2.1f : 1.6f);
+                DrawCircle(new Vector2(0f, -22.2f), t3 ? 2.3f : 1.7f, new Color(shell.R, shell.G, shell.B, alpha * 0.88f));
+
+                // Pair signature: heavy cannon + blast core gets an overbore muzzle collar.
+                if (t3 && StringComparer.OrdinalIgnoreCase.Equals(_visualEvolution.FocalModId, "blast_core"))
+                {
+                    DrawArc(Vector2.Zero, 26.8f, -2.15f, -0.98f, 18, new Color(shell.R, shell.G, shell.B, alpha * 0.84f), 1.9f);
+                    DrawLine(new Vector2(-6.6f, -24.4f), new Vector2(6.6f, -24.4f), new Color(shell.R, shell.G, shell.B, alpha * 0.88f), 1.7f);
+                }
+                break;
+            }
+            case "phase_splitter":
+            {
+                float arm = t3 ? 22.0f : 19.5f;
+                float cross = t3 ? 9.6f : 8.2f;
+                DrawLine(new Vector2(-cross, -arm), new Vector2(cross, -arm), shell, t3 ? 2.0f : 1.6f);
+                DrawLine(new Vector2(-cross, arm), new Vector2(cross, arm), shell, t3 ? 2.0f : 1.6f);
+                DrawLine(new Vector2(-cross, -arm), new Vector2(-cross, -11.0f), new Color(shell.R, shell.G, shell.B, alpha * 0.86f), 1.5f);
+                DrawLine(new Vector2(cross, -arm), new Vector2(cross, -11.0f), new Color(shell.R, shell.G, shell.B, alpha * 0.86f), 1.5f);
+                DrawLine(new Vector2(-cross, arm), new Vector2(-cross, 11.0f), new Color(shell.R, shell.G, shell.B, alpha * 0.86f), 1.5f);
+                DrawLine(new Vector2(cross, arm), new Vector2(cross, 11.0f), new Color(shell.R, shell.G, shell.B, alpha * 0.86f), 1.5f);
+                DrawCircle(new Vector2(0f, -arm), t3 ? 2.2f : 1.7f, new Color(shell.R, shell.G, shell.B, alpha * 0.92f));
+                DrawCircle(new Vector2(0f, arm), t3 ? 2.2f : 1.7f, new Color(shell.R, shell.G, shell.B, alpha * 0.92f));
+
+                // Pair signature: phase splitter + focus lens gets dual-lens gate caps.
+                if (t3 && StringComparer.OrdinalIgnoreCase.Equals(_visualEvolution.FocalModId, "focus_lens"))
+                {
+                    DrawArc(new Vector2(0f, -arm), 3.2f, 0f, Mathf.Tau, 14, new Color(shell.R, shell.G, shell.B, alpha * 0.86f), 1.4f);
+                    DrawArc(new Vector2(0f, arm), 3.2f, 0f, Mathf.Tau, 14, new Color(shell.R, shell.G, shell.B, alpha * 0.86f), 1.4f);
+                }
+                break;
+            }
+        }
+    }
+
     private void DrawFocalModAccent()
     {
         if (!_visualEvolution.HasFocalAccent || _visualEvolution.FocalModId.Length == 0)
@@ -776,6 +870,57 @@ public partial class TowerInstance : Node2D, ITowerView
             default:
                 DrawArc(Vector2.Zero, 12.2f, -2.40f, -0.74f, 18, new Color(accent.R, accent.G, accent.B, alpha), 1.9f);
                 DrawCircle(new Vector2(0f, -13.2f), 2.0f, new Color(accent.R, accent.G, accent.B, alpha * 0.88f));
+                break;
+        }
+
+        DrawFlagshipFocalSignature();
+    }
+
+    private void DrawFlagshipFocalSignature()
+    {
+        string modId = _visualEvolution.FocalModId;
+        if (!FlagshipModIds.Contains(modId))
+            return;
+
+        bool t3 = _visualEvolution.Tier == TowerVisualTier.Tier3;
+        bool reducedMotion = IsReducedMotionEnabled();
+        float pulse = 0.5f + 0.5f * Mathf.Sin(_idleTime * (reducedMotion ? 2.0f : 4.2f));
+        float alpha = (t3 ? 0.46f : 0.34f) + pulse * (t3 ? 0.16f : 0.10f);
+        Color accent = ModifierVisuals.GetAccent(modId);
+        Color c = BlendAccentWithBody(accent, bodyMix: 0.16f, alpha: Mathf.Clamp(alpha, 0f, 1f));
+
+        switch (modId)
+        {
+            case "focus_lens":
+                DrawArc(Vector2.Zero, 5.8f, 0f, Mathf.Tau, 18, c, 1.3f);
+                DrawLine(new Vector2(-4.4f, 0f), new Vector2(4.4f, 0f), new Color(c.R, c.G, c.B, c.A * 0.82f), 1.1f);
+                DrawLine(new Vector2(0f, -4.4f), new Vector2(0f, 4.4f), new Color(c.R, c.G, c.B, c.A * 0.82f), 1.1f);
+                if (t3)
+                    DrawArc(Vector2.Zero, 9.0f, -2.00f, -1.14f, 10, new Color(c.R, c.G, c.B, c.A * 0.72f), 1.1f);
+                break;
+
+            case "chain_reaction":
+            {
+                Vector2 p0 = new Vector2(-9.8f, -2.6f);
+                Vector2 p1 = new Vector2(-6.2f, 1.2f);
+                Vector2 p2 = new Vector2(-2.8f, 4.2f);
+                DrawLine(p0, p1, c, 1.2f);
+                DrawLine(p1, p2, c, 1.2f);
+                DrawCircle(p0, 1.3f, c);
+                DrawCircle(p1, 1.5f, c);
+                DrawCircle(p2, 1.2f, c);
+                break;
+            }
+
+            case "blast_core":
+                DrawArc(Vector2.Zero, 18.8f, -2.18f, -0.96f, 16, c, 1.6f);
+                DrawLine(new Vector2(-4.8f, -20.0f), new Vector2(4.8f, -20.0f), new Color(c.R, c.G, c.B, c.A * 0.82f), 1.3f);
+                break;
+
+            case "wildfire":
+                DrawCircle(new Vector2(-3.6f, 12.6f), 1.2f, new Color(c.R, c.G, c.B, c.A * 0.92f));
+                DrawCircle(new Vector2(0f, 14.2f), 1.5f, new Color(c.R, c.G, c.B, c.A * 0.88f));
+                DrawCircle(new Vector2(3.6f, 12.6f), 1.2f, new Color(c.R, c.G, c.B, c.A * 0.92f));
                 break;
         }
     }
@@ -843,6 +988,8 @@ public partial class TowerInstance : Node2D, ITowerView
                 DrawCircle(anchor + new Vector2(0f, -4.0f) * scale, 1.1f * scale, new Color(accent.R, accent.G, accent.B, accent.A * 0.82f));
                 break;
         }
+
+        DrawFlagshipSupportSignature(anchor, scale, accent);
     }
 
     private void DrawTertiaryModHint()
@@ -896,6 +1043,76 @@ public partial class TowerInstance : Node2D, ITowerView
 
             default:
                 DrawArc(anchor, 2.0f * scale, -2.45f, -0.72f, 10, accent, 0.95f);
+                break;
+        }
+
+        DrawFlagshipTertiarySignature(anchor, scale, accent);
+    }
+
+    private void DrawFlagshipSupportSignature(Vector2 anchor, float scale, Color accent)
+    {
+        string modId = _visualEvolution.SupportModId;
+        if (!FlagshipModIds.Contains(modId))
+            return;
+
+        float a = Mathf.Clamp(accent.A * 0.84f, 0f, 1f);
+        Color c = new Color(accent.R, accent.G, accent.B, a);
+        switch (modId)
+        {
+            case "focus_lens":
+                DrawArc(anchor, 2.2f * scale, 0f, Mathf.Tau, 10, c, 0.95f);
+                DrawLine(anchor + new Vector2(-1.2f, 0f) * scale, anchor + new Vector2(1.2f, 0f) * scale, c, 0.9f);
+                break;
+            case "chain_reaction":
+                DrawLine(anchor + new Vector2(-2.4f, 0.9f) * scale, anchor + new Vector2(2.4f, 0.9f) * scale, c, 0.95f);
+                DrawCircle(anchor + new Vector2(-2.4f, 0.9f) * scale, 0.8f * scale, c);
+                DrawCircle(anchor + new Vector2(2.4f, 0.9f) * scale, 0.8f * scale, c);
+                break;
+            case "blast_core":
+                DrawPolygon(new[]
+                {
+                    anchor + new Vector2(0f, -2.2f) * scale,
+                    anchor + new Vector2(1.7f, 0.8f) * scale,
+                    anchor + new Vector2(-1.7f, 0.8f) * scale,
+                }, new[] { new Color(c.R, c.G, c.B, c.A * 0.86f) });
+                break;
+            case "wildfire":
+                DrawCircle(anchor + new Vector2(-1.2f, 1.4f) * scale, 0.8f * scale, c);
+                DrawCircle(anchor + new Vector2(1.2f, 1.2f) * scale, 0.7f * scale, new Color(c.R, c.G, c.B, c.A * 0.90f));
+                break;
+        }
+    }
+
+    private void DrawFlagshipTertiarySignature(Vector2 anchor, float scale, Color accent)
+    {
+        string modId = _visualEvolution.TertiaryModId;
+        if (!FlagshipModIds.Contains(modId))
+            return;
+
+        float a = Mathf.Clamp(accent.A * 0.72f, 0f, 1f);
+        Color c = new Color(accent.R, accent.G, accent.B, a);
+        switch (modId)
+        {
+            case "focus_lens":
+                DrawCircle(anchor, 0.62f * scale, c);
+                DrawArc(anchor, 1.25f * scale, 0f, Mathf.Tau, 8, c, 0.8f);
+                break;
+            case "chain_reaction":
+                DrawLine(anchor + new Vector2(-1.2f, 0f) * scale, anchor + new Vector2(1.2f, 0f) * scale, c, 0.85f);
+                DrawCircle(anchor + new Vector2(-1.2f, 0f) * scale, 0.52f * scale, c);
+                DrawCircle(anchor + new Vector2(1.2f, 0f) * scale, 0.52f * scale, c);
+                break;
+            case "blast_core":
+                DrawPolygon(new[]
+                {
+                    anchor + new Vector2(0f, -1.4f) * scale,
+                    anchor + new Vector2(1.0f, 0.7f) * scale,
+                    anchor + new Vector2(-1.0f, 0.7f) * scale,
+                }, new[] { new Color(c.R, c.G, c.B, c.A * 0.90f) });
+                break;
+            case "wildfire":
+                DrawCircle(anchor + new Vector2(-0.7f, 0.5f) * scale, 0.52f * scale, c);
+                DrawCircle(anchor + new Vector2(0.7f, 0.5f) * scale, 0.52f * scale, c);
                 break;
         }
     }

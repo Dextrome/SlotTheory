@@ -3556,11 +3556,38 @@ void fragment() {
 			return;
 		}
 
+		int aliveThreats = 0;
+		float maxProgress = 0f;
+		foreach (var enemy in _runState.EnemiesAlive)
+		{
+			if (!GodotObject.IsInstanceValid(enemy) || enemy.Hp <= 0f || enemy.ProgressRatio >= 1f)
+				continue;
+			aliveThreats++;
+			if (enemy.ProgressRatio > maxProgress)
+				maxProgress = enemy.ProgressRatio;
+		}
+
+		// No active threats on lane: keep the heartbeat silent.
+		if (aliveThreats == 0)
+		{
+			_lowLivesHeartbeatTimer = 0f;
+			return;
+		}
+
+		// Threat ramps as enemies approach leak end of lane.
+		float threat = Mathf.InverseLerp(0.45f, 0.95f, maxProgress);
+		float cadence = _runState.Lives <= 1
+			? Mathf.Lerp(1.28f, 0.76f, threat)
+			: Mathf.Lerp(1.70f, 1.04f, threat);
+		float pitch = _runState.Lives <= 1
+			? Mathf.Lerp(0.88f, 1.03f, threat)
+			: Mathf.Lerp(0.84f, 0.98f, threat);
+
 		_lowLivesHeartbeatTimer -= delta;
 		if (_lowLivesHeartbeatTimer > 0f) return;
 
-		SoundManager.Instance?.Play("low_heartbeat");
-		_lowLivesHeartbeatTimer = _runState.Lives <= 1 ? 0.62f : 0.86f;
+		SoundManager.Instance?.Play("low_heartbeat", pitchScale: pitch);
+		_lowLivesHeartbeatTimer = cadence;
 	}
 
 	private void ShowClutchToast(string text)
