@@ -542,9 +542,12 @@ public partial class PauseScreen : CanvasLayer
     private void OnHowToPlay()
     {
         _mainPanel.Visible = false;
-        var howTo = new HowToPlay();
-        howTo.OnBack = () => _mainPanel.Visible = true;
-        AddChild(howTo);
+        var panel = new SlotCodexPanel
+        {
+            BackOverride = () => _mainPanel.Visible = true,
+            StartTab = SlotCodexPanel.CodexStartTab.HowToPlay,
+        };
+        AddChild(panel);
     }
 
     private void OnAchievements()

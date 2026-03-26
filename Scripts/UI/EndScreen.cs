@@ -846,7 +846,8 @@ public partial class EndScreen : CanvasLayer
 	private void OnHowToPlayPressed()
 	{
 		SoundManager.Instance?.Play("ui_select");
-		Transition.Instance?.FadeToScene("res://Scenes/HowToPlay.tscn");
+		SlotCodexPanel.PendingSceneStartTab = SlotCodexPanel.CodexStartTab.HowToPlay;
+		Transition.Instance?.FadeToScene("res://Scenes/SlotCodex.tscn");
 	}
 
 	private static string FormatTime(float seconds)

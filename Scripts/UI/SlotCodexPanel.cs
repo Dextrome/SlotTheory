@@ -13,22 +13,30 @@ namespace SlotTheory.UI;
 public partial class SlotCodexPanel : Node
 {
     public Action? BackOverride { get; set; }
+    public enum CodexStartTab { Towers, Modifiers, Enemies, HowToPlay, Surges }
+    public static CodexStartTab? PendingSceneStartTab { get; set; }
+    public CodexStartTab StartTab { get; set; } = CodexStartTab.Towers;
 
-    private enum CodexTab { Towers, Mods, Enemies }
+    private enum CodexTab { Towers, Mods, Enemies, HowToPlay, Surges }
 
     private ScrollContainer _towerScroll = null!;
     private ScrollContainer _modScroll = null!;
     private ScrollContainer _enemyScroll = null!;
+    private ScrollContainer _howToScroll = null!;
+    private ScrollContainer _surgesScroll = null!;
     private GridContainer _towerGrid = null!;
     private GridContainer _modGrid = null!;
     private GridContainer _enemyGrid = null!;
     private Button _towerTabBtn = null!;
     private Button _modTabBtn = null!;
     private Button _enemyTabBtn = null!;
-    private ColorRect _tabIndicator = null!;
+    private Button _howToTabBtn = null!;
+    private Button _surgesTabBtn = null!;
+    private PanelContainer _headerPanel = null!;
     private CodexTab _activeTab = CodexTab.Towers;
     private Label _progressLabel = null!;
     private float _lastWidth = -1f;
+    private float _lastHeaderCapX = float.NaN;
 
     public override void _Ready()
     {
@@ -77,6 +85,7 @@ public partial class SlotCodexPanel : Node
         margin.AddChild(root);
 
         var headerPanel = new PanelContainer();
+        _headerPanel = headerPanel;
         headerPanel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         UITheme.ApplyGlassChassisPanel(
             headerPanel,
@@ -100,7 +109,7 @@ public partial class SlotCodexPanel : Node
 
         var subtitle = new Label
         {
-            Text = "Tower, modifier, and enemy encyclopedia",
+            Text = "Tower, modifier, enemy, and gameplay guide codex",
             HorizontalAlignment = HorizontalAlignment.Center
         };
         subtitle.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 14 : 16);
@@ -115,30 +124,53 @@ public partial class SlotCodexPanel : Node
         _progressLabel.Modulate = new Color(0.73f, 0.88f, 1.00f, 0.92f);
         headerBody.AddChild(_progressLabel);
 
-        var tabs = new HBoxContainer();
-        tabs.Alignment = BoxContainer.AlignmentMode.Center;
-        tabs.AddThemeConstantOverride("separation", 12);
-        headerBody.AddChild(tabs);
+        HBoxContainer tabs;
+        if (MobileOptimization.IsMobile())
+        {
+            var tabScroll = new ScrollContainer
+            {
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+                HorizontalScrollMode = ScrollContainer.ScrollMode.Auto,
+                VerticalScrollMode = ScrollContainer.ScrollMode.Disabled,
+                CustomMinimumSize = new Vector2(0f, 44f)
+            };
+            TouchScrollHelper.EnableDragScroll(tabScroll);
+            headerBody.AddChild(tabScroll);
 
-        tabs.AddChild(BuildTabEntry("Towers",  () => SetActiveTab(CodexTab.Towers),  out _towerTabBtn));
-        tabs.AddChild(BuildTabEntry("Mods",    () => SetActiveTab(CodexTab.Mods),    out _modTabBtn));
+            tabs = new HBoxContainer();
+            tabs.Alignment = BoxContainer.AlignmentMode.Center;
+            tabs.AddThemeConstantOverride("separation", 8);
+            tabScroll.AddChild(tabs);
+        }
+        else
+        {
+            var tabCenter = new CenterContainer
+            {
+                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+                SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+                CustomMinimumSize = new Vector2(0f, 46f)
+            };
+            headerBody.AddChild(tabCenter);
+
+            tabs = new HBoxContainer();
+            tabs.Alignment = BoxContainer.AlignmentMode.Center;
+            tabs.AddThemeConstantOverride("separation", 12);
+            tabCenter.AddChild(tabs);
+        }
+
+        tabs.AddChild(BuildTabEntry("Towers", () => SetActiveTab(CodexTab.Towers), out _towerTabBtn));
+        tabs.AddChild(BuildTabEntry("Modifiers", () => SetActiveTab(CodexTab.Mods), out _modTabBtn));
         tabs.AddChild(BuildTabEntry("Enemies", () => SetActiveTab(CodexTab.Enemies), out _enemyTabBtn));
 
-        // Single sliding indicator -- repositioned under the active tab on each switch.
-        var indicatorRow = new Control
-        {
-            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-            CustomMinimumSize = new Vector2(0f, 3f),
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-        };
-        headerBody.AddChild(indicatorRow);
-        _tabIndicator = new ColorRect
-        {
-            Color = UITheme.Lime,
-            MouseFilter = Control.MouseFilterEnum.Ignore,
-            Size = new Vector2(MobileOptimization.IsMobile() ? 106f : 158f, 3f),
-        };
-        indicatorRow.AddChild(_tabIndicator);
+        var divider = new Label { Text = "|" };
+        divider.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 18 : 20);
+        divider.Modulate = new Color(0.38f, 0.48f, 0.64f, 0.90f);
+        divider.VerticalAlignment = VerticalAlignment.Center;
+        tabs.AddChild(divider);
+
+        tabs.AddChild(BuildTabEntry("How To Play", () => SetActiveTab(CodexTab.HowToPlay), out _howToTabBtn));
+        tabs.AddChild(BuildTabEntry("Surges", () => SetActiveTab(CodexTab.Surges), out _surgesTabBtn));
 
         var contentFrame = new PanelContainer
         {
@@ -169,11 +201,15 @@ public partial class SlotCodexPanel : Node
         _towerScroll  = BuildCardScroll(contentHolder, out _towerGrid);
         _modScroll    = BuildCardScroll(contentHolder, out _modGrid);
         _enemyScroll  = BuildCardScroll(contentHolder, out _enemyGrid);
+        _howToScroll  = BuildGuideScroll(contentHolder, out VBoxContainer howToGuide);
+        _surgesScroll = BuildGuideScroll(contentHolder, out VBoxContainer surgesGuide);
 
         PopulateTowerCards();
         PopulateModifierCards();
         PopulateEnemyCards();
-        SetActiveTab(CodexTab.Towers);
+        HowToPlay.BuildBasicsSection(howToGuide);
+        HowToPlay.BuildSurgesSection(surgesGuide);
+        SetActiveTab(ResolveStartTab());
         RefreshGridColumns(force: true);
 
         var backCenter = new CenterContainer
@@ -199,6 +235,7 @@ public partial class SlotCodexPanel : Node
     {
         _ = delta;
         RefreshGridColumns(force: false);
+        UpdateHeaderCapMarker();
     }
 
     public override void _Notification(int what)
@@ -231,7 +268,7 @@ public partial class SlotCodexPanel : Node
 
     private Control BuildTabEntry(string label, Action onPressed, out Button btn)
     {
-        float btnW = MobileOptimization.IsMobile() ? 106f : 158f;
+        float btnW = MobileOptimization.IsMobile() ? 122f : 174f;
         float btnH = MobileOptimization.IsMobile() ? 40f : 42f;
 
         btn = new Button
@@ -241,20 +278,42 @@ public partial class SlotCodexPanel : Node
         };
         btn.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 16 : 18);
 
-        // Flat uniform style -- no border swap, no BG color change
-        var style = new StyleBoxFlat
+        var normal = new StyleBoxFlat
         {
-            BgColor = new Color(0.07f, 0.08f, 0.17f, 0.0f),
-            BorderWidthTop = 0, BorderWidthBottom = 0, BorderWidthLeft = 0, BorderWidthRight = 0,
-            ContentMarginLeft = 6, ContentMarginRight = 6, ContentMarginTop = 4, ContentMarginBottom = 4
+            BgColor = new Color(0.03f, 0.08f, 0.12f, 0.62f),
+            BorderColor = new Color(0.20f, 0.44f, 0.60f, 0.72f),
+            BorderWidthLeft = 1,
+            BorderWidthRight = 1,
+            BorderWidthTop = 1,
+            BorderWidthBottom = 1,
+            CornerRadiusTopLeft = 8,
+            CornerRadiusTopRight = 8,
+            CornerRadiusBottomLeft = 8,
+            CornerRadiusBottomRight = 8,
+            ContentMarginLeft = 8,
+            ContentMarginRight = 8,
+            ContentMarginTop = 4,
+            ContentMarginBottom = 4
         };
-        btn.AddThemeStyleboxOverride("normal", style);
-        btn.AddThemeStyleboxOverride("hover",  style);
-        btn.AddThemeStyleboxOverride("pressed", style);
-        btn.AddThemeStyleboxOverride("focus",   new StyleBoxEmpty());
-        btn.AddThemeColorOverride("font_color", new Color(0.48f, 0.58f, 0.76f));
-        btn.AddThemeColorOverride("font_hover_color", new Color(0.65f, 0.75f, 0.92f));
-        btn.AddThemeColorOverride("font_pressed_color", new Color(0.48f, 0.58f, 0.76f));
+        var hover = (StyleBoxFlat)normal.Duplicate();
+        hover.BgColor = new Color(0.04f, 0.13f, 0.18f, 0.76f);
+        hover.BorderColor = new Color(0.38f, 0.86f, 0.98f, 0.90f);
+        hover.ShadowColor = new Color(0.24f, 0.86f, 1.00f, 0.18f);
+        hover.ShadowSize = 5;
+        hover.ShadowOffset = Vector2.Zero;
+
+        var pressed = (StyleBoxFlat)hover.Duplicate();
+        pressed.BgColor = new Color(0.03f, 0.10f, 0.14f, 0.82f);
+        pressed.BorderColor = new Color(0.30f, 0.70f, 0.84f, 0.92f);
+
+        btn.AddThemeStyleboxOverride("normal", normal);
+        btn.AddThemeStyleboxOverride("hover", hover);
+        btn.AddThemeStyleboxOverride("pressed", pressed);
+        btn.AddThemeStyleboxOverride("focus", hover);
+        UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, topAlpha: 0.07f, bottomAlpha: 0.10f);
+        btn.AddThemeColorOverride("font_color", new Color(0.60f, 0.74f, 0.90f));
+        btn.AddThemeColorOverride("font_hover_color", Colors.White);
+        btn.AddThemeColorOverride("font_pressed_color", new Color(0.80f, 0.96f, 1.00f));
 
         btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         btn.Pressed += () =>
@@ -299,6 +358,41 @@ public partial class SlotCodexPanel : Node
         grid.AddThemeConstantOverride("h_separation", 10);
         grid.AddThemeConstantOverride("v_separation", 10);
         inner.AddChild(grid);
+
+        return scroll;
+    }
+
+    private ScrollContainer BuildGuideScroll(Control parent, out VBoxContainer guideBody)
+    {
+        var scroll = new ScrollContainer
+        {
+            AnchorRight = 1f,
+            AnchorBottom = 1f,
+            OffsetRight = 0f,
+            OffsetBottom = 0f,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
+            VerticalScrollMode = ScrollContainer.ScrollMode.Auto,
+            HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled
+        };
+        TouchScrollHelper.EnableDragScroll(scroll);
+        parent.AddChild(scroll);
+
+        var inner = new MarginContainer();
+        inner.AddThemeConstantOverride("margin_left", 10);
+        inner.AddThemeConstantOverride("margin_right", 6);
+        inner.AddThemeConstantOverride("margin_top", 8);
+        inner.AddThemeConstantOverride("margin_bottom", 8);
+        inner.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        inner.MouseFilter = Control.MouseFilterEnum.Pass;
+        scroll.AddChild(inner);
+
+        guideBody = new VBoxContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+        };
+        guideBody.AddThemeConstantOverride("separation", 6);
+        inner.AddChild(guideBody);
 
         return scroll;
     }
@@ -588,40 +682,70 @@ public partial class SlotCodexPanel : Node
         _towerScroll.Visible  = tab == CodexTab.Towers;
         _modScroll.Visible    = tab == CodexTab.Mods;
         _enemyScroll.Visible  = tab == CodexTab.Enemies;
+        _howToScroll.Visible  = tab == CodexTab.HowToPlay;
+        _surgesScroll.Visible = tab == CodexTab.Surges;
         ApplyTabButtonState(_towerTabBtn, tab == CodexTab.Towers);
         ApplyTabButtonState(_modTabBtn,   tab == CodexTab.Mods);
         ApplyTabButtonState(_enemyTabBtn, tab == CodexTab.Enemies);
+        ApplyTabButtonState(_howToTabBtn, tab == CodexTab.HowToPlay);
+        ApplyTabButtonState(_surgesTabBtn, tab == CodexTab.Surges);
         RefreshProgressLabel(tab);
-        CallDeferred(nameof(RepositionIndicator));
+        CallDeferred(nameof(UpdateHeaderCapMarker));
+    }
+
+    private Button GetActiveTabButton() => _activeTab switch
+    {
+        CodexTab.Towers => _towerTabBtn,
+        CodexTab.Mods => _modTabBtn,
+        CodexTab.Enemies => _enemyTabBtn,
+        CodexTab.HowToPlay => _howToTabBtn,
+        CodexTab.Surges => _surgesTabBtn,
+        _ => _towerTabBtn,
+    };
+
+    private CodexTab ResolveStartTab()
+    {
+        CodexStartTab requested = PendingSceneStartTab ?? StartTab;
+        PendingSceneStartTab = null;
+        return requested switch
+        {
+            CodexStartTab.Modifiers => CodexTab.Mods,
+            CodexStartTab.Enemies => CodexTab.Enemies,
+            CodexStartTab.HowToPlay => CodexTab.HowToPlay,
+            CodexStartTab.Surges => CodexTab.Surges,
+            _ => CodexTab.Towers,
+        };
+    }
+
+    private void UpdateHeaderCapMarker()
+    {
+        if (!GodotObject.IsInstanceValid(_headerPanel))
+            return;
+
+        Button activeButton = GetActiveTabButton();
+        if (!GodotObject.IsInstanceValid(activeButton))
+            return;
+
+        float centerX = activeButton.GlobalPosition.X + activeButton.Size.X * 0.5f - _headerPanel.GlobalPosition.X;
+        if (!float.IsNaN(_lastHeaderCapX) && Mathf.Abs(centerX - _lastHeaderCapX) < 0.25f)
+            return;
+
+        _lastHeaderCapX = centerX;
+        _headerPanel.SetMeta("glass_cap_center_x", centerX);
+        _headerPanel.QueueRedraw();
     }
 
     private static void ApplyTabButtonState(Button btn, bool active)
     {
         btn.AddThemeColorOverride("font_color",
-            active ? UITheme.Lime : new Color(0.48f, 0.58f, 0.76f));
+            active ? UITheme.Lime : new Color(0.60f, 0.74f, 0.90f));
         btn.AddThemeColorOverride("font_hover_color",
-            active ? UITheme.Lime : new Color(0.65f, 0.75f, 0.92f));
+            active ? Colors.White : Colors.White);
         btn.AddThemeColorOverride("font_pressed_color",
-            active ? UITheme.Lime : new Color(0.48f, 0.58f, 0.76f));
-    }
-
-    private void RepositionIndicator()
-    {
-        if (!GodotObject.IsInstanceValid(_tabIndicator)) return;
-        Button activeBtn = _activeTab switch
-        {
-            CodexTab.Towers  => _towerTabBtn,
-            CodexTab.Mods    => _modTabBtn,
-            _                => _enemyTabBtn,
-        };
-        if (!GodotObject.IsInstanceValid(activeBtn)) return;
-        var row = _tabIndicator.GetParent<Control>();
-        if (!GodotObject.IsInstanceValid(row)) return;
-
-        float x = activeBtn.GlobalPosition.X - row.GlobalPosition.X;
-        float w = activeBtn.Size.X;
-        _tabIndicator.Position = new Vector2(x, 0f);
-        _tabIndicator.Size     = new Vector2(w, 3f);
+            active ? UITheme.Lime : new Color(0.80f, 0.96f, 1.00f));
+        btn.Modulate = active
+            ? new Color(1f, 1f, 1f, 1f)
+            : new Color(0.86f, 0.90f, 0.98f, 0.96f);
     }
 
     private void RefreshGridColumns(bool force)
@@ -647,15 +771,17 @@ public partial class SlotCodexPanel : Node
         int modUnlocked = DataLoader.GetAllModifierIds(includeLocked: true).Count(Unlocks.IsModifierUnlocked);
         int enemyTotal = Balance.IsDemo ? 5 : 7;
 
-        _towerTabBtn.Text = $"{towerUnlocked}/{towerTotal} Towers";
-        _modTabBtn.Text   = $"{modUnlocked}/{modTotal} Mods";
-        _enemyTabBtn.Text = $"{enemyTotal} Enemies";
-
-        _progressLabel.Text = (Balance.IsDemo && tab != CodexTab.Enemies)
-            ? "Full game has more content"
-            : (Balance.IsDemo && tab == CodexTab.Enemies)
-            ? "2 more enemy types in the full game"
-            : "";
+        _progressLabel.Text = tab switch
+        {
+            CodexTab.Towers => $"{towerUnlocked}/{towerTotal} towers unlocked",
+            CodexTab.Mods => $"{modUnlocked}/{modTotal} modifiers unlocked",
+            CodexTab.Enemies => Balance.IsDemo
+                ? $"{enemyTotal} enemy types shown  -  2 more in full game"
+                : $"{enemyTotal} enemy types",
+            CodexTab.HowToPlay => "Core rules, controls, and build fundamentals.",
+            CodexTab.Surges => "Surge / Twist / Bonus / Global Surge reference.",
+            _ => ""
+        };
     }
 
     private static Control BuildFullGameCard(string note)

@@ -284,7 +284,6 @@ public partial class MainMenu : Node
 		AddNavButton(cardVbox, "Achievements", OnAchievements);
 		AddNavButton(cardVbox, "Slot Codex", OnSlotCodex);
 		AddNavButton(cardVbox, "Map Editor", OnMapEditor);
-		AddNavButton(cardVbox, "How to Play", OnHowToPlay);
 		AddNavButton(cardVbox, "Settings", OnSettings);
 
 		if (Balance.IsDemo && Balance.FullGameSteamAppId != 0u)
@@ -388,7 +387,6 @@ public partial class MainMenu : Node
 	private void OnAchievements() => Transition.Instance?.FadeToScene("res://Scenes/Achievements.tscn");
 	private void OnSlotCodex() => Transition.Instance?.FadeToScene("res://Scenes/SlotCodex.tscn");
 	private void OnMapEditor() => Transition.Instance?.FadeToScene("res://Scenes/MapEditor.tscn");
-	private void OnHowToPlay() => Transition.Instance?.FadeToScene("res://Scenes/HowToPlay.tscn");
 	private void OnSettings() => Transition.Instance?.FadeToScene("res://Scenes/Settings.tscn");
 	private void OnQuit() => GetTree().Quit();
 

@@ -243,7 +243,10 @@ public static class UITheme
             panel.DrawLine(new Vector2(9f, 4f), new Vector2(w - 9f, 4f), new Color(edge.R, edge.G, edge.B, 0.20f), 1f);
 
             float capW = Mathf.Clamp(w * 0.16f, 40f, 70f);
-            float capX = (w - capW) * 0.5f;
+            float capCenterX = w * 0.5f;
+            if (panel.HasMeta("glass_cap_center_x"))
+                capCenterX = (float)panel.GetMeta("glass_cap_center_x");
+            float capX = Mathf.Clamp(capCenterX - capW * 0.5f, 8f, Mathf.Max(8f, w - capW - 8f));
             panel.DrawRect(new Rect2(capX, h - 5f, capW, 2f), new Color(edge.R, edge.G, edge.B, 0.30f));
             panel.DrawRect(new Rect2(capX + 4f, h - 7f, capW - 8f, 2f), new Color(0.88f, 0.97f, 1.00f, 0.14f));
 

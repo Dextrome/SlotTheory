@@ -4032,6 +4032,7 @@ void fragment() {
 		// Fixed lanes to prevent overlap:
 		// 3-line: BONUS (top) -> SURGE (mid) -> TWIST (bottom, but still above tower body).
 		// 2-line: SURGE (top) -> TWIST (bottom).
+		const float surgeCalloutCloserOffset = 10f;
 		float surgePrimaryYOffset = hasSecondaryMutation && hasSurgeAugment
 			? -60f
 			: hasSecondaryMutation
@@ -4039,6 +4040,7 @@ void fragment() {
 				: hasSurgeAugment
 					? -52f
 					: -32f;
+		surgePrimaryYOffset += surgeCalloutCloserOffset;
 		Vector2 surgeCalloutOrigin = sourceTower.GlobalPosition + new Vector2(6f, 0f);
 		CombatCallout? surgeCallout = SpawnCombatCallout(
 			surgeCalloutUpper,
@@ -4066,7 +4068,7 @@ void fragment() {
 					surgeCalloutOrigin,
 					mutationAccent,
 					durationScale: SurgeUxTiming.ResolveSurgeCalloutDurationScale(2.9f),
-					yOffset: hasSurgeAugment ? -42f : -30f,
+					yOffset: (hasSurgeAugment ? -42f : -30f) + surgeCalloutCloserOffset,
 					drift: false,
 					holdPortion: surgeCalloutHoldPortion,
 					sizeOverride: 15);
@@ -4090,7 +4092,7 @@ void fragment() {
 					capturedOrigin,
 					augAccent,
 					durationScale: SurgeUxTiming.ResolveSurgeCalloutDurationScale(3.0f),
-					yOffset: hasSecondaryMutation ? -78f : -74f,
+					yOffset: (hasSecondaryMutation ? -78f : -74f) + surgeCalloutCloserOffset,
 					drift: false,
 					holdPortion: surgeCalloutHoldPortion,
 					sizeOverride: 14);

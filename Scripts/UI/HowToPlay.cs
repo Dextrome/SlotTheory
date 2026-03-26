@@ -227,7 +227,7 @@ public partial class HowToPlay : Node
         }
     }
 
-    private static void BuildBasicsSection(VBoxContainer vbox)
+    public static void BuildBasicsSection(VBoxContainer vbox)
     {
         var loopCard = AddSurgeCard(vbox, "CORE LOOP", new Color(0.52f, 0.90f, 1.00f, 0.92f));
         AddSurgeRuleRow(loopCard, "DRAFT", "Pick 1 card before each wave (5 if free slots exist, 4 if all occupied).", new Color(0.64f, 0.92f, 1.00f, 0.92f));
@@ -288,6 +288,17 @@ public partial class HowToPlay : Node
                 $"Kill (primary hits only): the first {Balance.ReaperProtocolKillCap} kills each wave restore 1 life, up to your starting life total. Available from wave 10. Invaluable in Endless runs where lives become scarce.");
         AddSpacer(vbox, 10);
 
+        var evolutionCard = AddSurgeCard(vbox, "TOWER EVOLUTION VISUALS", new Color(0.62f, 0.90f, 0.98f, 0.92f));
+        AddSurgeCardLine(evolutionCard, "Visual hierarchy is readability-first: count tier first, exact mod identity second.", new Color(0.90f, 0.97f, 1.00f), 15);
+        AddSpacer(evolutionCard, 2);
+        AddSurgeRuleRow(evolutionCard, "0 MODS", "Base tower silhouette only.", new Color(0.70f, 0.84f, 0.98f, 0.90f));
+        AddSurgeRuleRow(evolutionCard, "1 MOD", "First equipped mod becomes the stable focal accent/theme.", new Color(0.95f, 0.62f, 0.18f, 0.95f));
+        AddSurgeRuleRow(evolutionCard, "2 MODS", "Focal stays the same; shell steps up and one support accent appears.", new Color(0.44f, 0.94f, 0.86f, 0.92f));
+        AddSurgeRuleRow(evolutionCard, "3 MODS", "Final shell form + restrained tertiary hint: fully loaded at a glance.", new Color(0.90f, 0.88f, 0.98f, 0.92f));
+        AddSurgeCardLine(evolutionCard, "Rift Sapper mines inherit this tier/focal read from their parent tower.");
+        AddSurgeCardLine(evolutionCard, "Slot pips/icons remain the exact source of truth for full loadout details.");
+        AddSpacer(vbox, 10);
+
         var enemiesCard = AddSurgeCard(vbox, "ENEMIES", new Color(0.96f, 0.78f, 0.46f, 0.94f));
         AddSurgeCardLine(enemiesCard, $"Basic Walker: {Balance.BaseEnemyHp:0} HP on wave 1, x{Balance.HpGrowthPerWave:0.00} per wave. Speed: {Balance.BaseEnemySpeed:0} px/s. Leaks cost 1 life.");
         AddSurgeCardLine(enemiesCard, $"Armored Walker: {Balance.TankyHpMultiplier:0.#}x HP, half speed ({Balance.TankyEnemySpeed:0} px/s). Leaks cost 2 lives. First appears wave 6.");
@@ -306,7 +317,7 @@ public partial class HowToPlay : Node
         AddSurgeChipLine(tipsCard, "Targeting", "set Marker Tower to First so it tags the lead enemy before damage towers fire.", new Color(0.84f, 0.90f, 0.98f, 0.92f));
     }
 
-    private static void BuildSurgesSection(VBoxContainer vbox)
+    public static void BuildSurgesSection(VBoxContainer vbox)
     {
         var modelCard = AddSurgeCard(vbox, "SURGE MODEL", new Color(0.48f, 0.90f, 1.00f, 0.92f));
         AddSurgeCardLine(modelCard, "Fast read in combat: Surge / Twist / Bonus / Global Surge.", new Color(0.90f, 0.96f, 1.00f), 16);

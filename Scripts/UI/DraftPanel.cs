@@ -523,10 +523,12 @@ public partial class DraftPanel : CanvasLayer
     private void OnBannerHowToPressed()
     {
         SoundManager.Instance?.Play("ui_select");
-        var howTo = new HowToPlay();
-        howTo.StartOnSurgesTab = true;
-        howTo.OnBack = () => { /* tutorial banner still visible underneath */ };
-        GetTree().Root.AddChild(howTo);
+        var codex = new SlotCodexPanel
+        {
+            StartTab = SlotCodexPanel.CodexStartTab.Surges,
+            BackOverride = () => { /* tutorial banner remains visible underneath */ },
+        };
+        GetTree().Root.AddChild(codex);
     }
 
     public override void _Process(double delta)
