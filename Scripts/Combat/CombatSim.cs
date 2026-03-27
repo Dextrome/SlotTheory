@@ -274,7 +274,7 @@ public class CombatSim
             existing.DelayRemaining = delay;
             existing.DelayTotal = delay;
             if (!BotMode && existing.Visual != null && GodotObject.IsInstanceValid(existing.Visual))
-                existing.Visual.Reset(worldPos, delay, ResolveAfterimageRadius(tower, copies), ResolveAfterimageTint(tower));
+                existing.Visual.Reset(worldPos, delay, ResolveAfterimageRadius(tower, copies), ResolveAfterimageTint(tower), tower.TowerId, copies);
             Sounds?.Play("afterimage_seed", pitchScale: ResolveAfterimageSeedPitch(tower));
             return;
         }
@@ -298,7 +298,8 @@ public class CombatSim
                 delay,
                 ResolveAfterimageRadius(tower, copies),
                 ResolveAfterimageTint(tower),
-                tower.TowerId);
+                tower.TowerId,
+                copies);
             imprint.Visual = visual;
         }
 
@@ -1588,7 +1589,7 @@ public class CombatSim
                         .OrderBy(e => imprint.Position.DistanceTo(e.GlobalPosition))
                         .FirstOrDefault();
                     if (bonus != null && imprint.Position.DistanceTo(bonus.GlobalPosition) <= radius * 0.65f)
-                        ApplyAfterimageDirectHit(tower, bonus, baseDamage * 0.46f, tint, numberScale: 0.74f);
+                        ApplyAfterimageDirectHit(tower, bonus, baseDamage * 0.46f, tint, numberScale: 0.86f);
                 }
                 break;
         }
@@ -1630,9 +1631,9 @@ public class CombatSim
         {
             Color c = node.ProjectileColor;
             return new Color(
-                Mathf.Clamp(c.R * 0.68f + 0.32f, 0f, 1f),
-                Mathf.Clamp(c.G * 0.72f + 0.28f, 0f, 1f),
-                Mathf.Clamp(c.B * 0.92f + 0.18f, 0f, 1f),
+                Mathf.Clamp(c.R * 0.84f + 0.16f, 0f, 1f),
+                Mathf.Clamp(c.G * 0.88f + 0.12f, 0f, 1f),
+                Mathf.Clamp(c.B * 0.94f + 0.08f, 0f, 1f),
                 1f);
         }
         return AfterimageColor;
@@ -1689,7 +1690,7 @@ public class CombatSim
         EnemyInstance target,
         float damage,
         Color color,
-        float numberScale = 0.80f)
+        float numberScale = 0.92f)
     {
         if (!GodotObject.IsInstanceValid(target) || target.Hp <= 0f || damage <= 0f)
             return 0f;
@@ -1709,12 +1710,28 @@ public class CombatSim
 
         if (!BotMode)
         {
-            SpawnDamageNumber(target.GlobalPosition, MathF.Max(1f, dealt), target.Hp <= 0f, tower.TowerId, color, scale: numberScale);
+            Color numberColor = new(
+                Mathf.Clamp(color.R * 0.78f + 0.22f, 0f, 1f),
+                Mathf.Clamp(color.G * 0.78f + 0.22f, 0f, 1f),
+                Mathf.Clamp(color.B * 0.78f + 0.22f, 0f, 1f),
+                1f);
+            Vector2 offset = ResolveAfterimageNumberOffset(target, tower);
+            SpawnDamageNumber(target.GlobalPosition + offset, MathF.Max(1f, dealt), target.Hp <= 0f, tower.TowerId, numberColor, scale: numberScale);
             if (target.Hp > 0f && GodotObject.IsInstanceValid(target))
                 target.FlashHit();
         }
 
         return dealt;
+    }
+
+    private static Vector2 ResolveAfterimageNumberOffset(EnemyInstance target, ITowerView tower)
+    {
+        ulong id = target.GetInstanceId();
+        int towerHash = (tower.TowerId ?? string.Empty).GetHashCode() & 0x7fffffff;
+        float normalized = (float)((id % 53UL) + (ulong)(towerHash % 29)) / 82f;
+        float angle = normalized * Mathf.Tau;
+        float radius = 9f + (float)(id % 3UL);
+        return new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius + new Vector2(0f, -5f);
     }
 
     private void ApplyAfterimageBurst(
@@ -1740,7 +1757,7 @@ public class CombatSim
                 continue;
 
             float falloff = applyFalloff ? Mathf.Lerp(1f, 0.72f, dist / MathF.Max(1f, radius)) : 1f;
-            float dealt = ApplyAfterimageDirectHit(tower, enemy, baseDamage * falloff, color, numberScale: 0.76f);
+            float dealt = ApplyAfterimageDirectHit(tower, enemy, baseDamage * falloff, color, numberScale: 0.88f);
             if (dealt > 0f)
                 hits++;
         }
@@ -1769,7 +1786,7 @@ public class CombatSim
             if (!GodotObject.IsInstanceValid(current) || current.Hp <= 0f)
                 break;
 
-            float dealt = ApplyAfterimageDirectHit(tower, current, damage, color, numberScale: 0.78f);
+            float dealt = ApplyAfterimageDirectHit(tower, current, damage, color, numberScale: 0.90f);
             if (dealt <= 0f)
                 break;
 
@@ -1801,7 +1818,7 @@ public class CombatSim
     {
         EnemyInstance? primary = SelectAfterimagePrimaryTarget(tower, origin, candidates);
         if (primary != null)
-            ApplyAfterimageDirectHit(tower, primary, baseDamage, color, numberScale: 0.78f);
+        ApplyAfterimageDirectHit(tower, primary, baseDamage, color, numberScale: 0.90f);
 
         foreach (EnemyInstance enemy in candidates)
         {
@@ -1824,10 +1841,10 @@ public class CombatSim
         EnemyInstance? back = candidates.OrderBy(e => e.Progress).FirstOrDefault();
 
         if (front != null)
-            ApplyAfterimageDirectHit(tower, front, baseDamage, color, numberScale: 0.76f);
+            ApplyAfterimageDirectHit(tower, front, baseDamage, color, numberScale: 0.88f);
 
         if (back != null && !ReferenceEquals(back, front))
-            ApplyAfterimageDirectHit(tower, back, baseDamage, color, numberScale: 0.76f);
+            ApplyAfterimageDirectHit(tower, back, baseDamage, color, numberScale: 0.88f);
     }
 
     private void ApplyAfterimageUndertowPulse(

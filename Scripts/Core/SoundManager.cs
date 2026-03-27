@@ -223,9 +223,9 @@ public partial class SoundManager : Node
         Reg("shoot_rapid_cold", Tone(420f, 0.07f, vol: 0.24f, shape: 's', env: 'f'));  // Chill Shot variant: softer, icier
         Reg("shoot_heavy",      Tone( 72f, 0.24f, vol: 0.72f, shape: 's', env: 'f'));
         Reg("shoot_rocket",     Layer(
-            Sweep(1050f, 190f, 0.19f, vol: 0.46f),
-            Tone(88f, 0.15f, vol: 0.30f, shape: 'q', env: 'f'),
-            Tone(2200f, 0.05f, vol: 0.10f, shape: 'n', env: 'f')));
+            Sweep(1050f, 190f, 0.19f, vol: 0.414f),
+            Tone(88f, 0.15f, vol: 0.27f, shape: 'q', env: 'f'),
+            Tone(2200f, 0.05f, vol: 0.09f, shape: 'n', env: 'f')));
         Reg("shoot_marker",     Tone(360f, 0.07f, vol: 0.32f, shape: 's', env: 'f'));
         Reg("shoot_accordion",  Layer(
             Sweep(860f, 140f, 0.22f, vol: 0.58f),                        // compression fold: high-to-low crunch
@@ -250,9 +250,9 @@ public partial class SoundManager : Node
         // ── Enemy events ─────────────────────────────────────────────────
         Reg("hit",          Tone(520f, 0.03f, vol: 0.16f, shape: 'n', env: 'f'));
         Reg("hit_rocket",   Layer(
-            Sweep(340f, 70f, 0.21f, vol: 0.62f),
-            Tone(112f, 0.15f, vol: 0.22f, shape: 'q', env: 'f'),
-            Tone(2800f, 0.05f, vol: 0.08f, shape: 'n', env: 'f')));
+            Sweep(340f, 70f, 0.21f, vol: 0.558f),
+            Tone(112f, 0.15f, vol: 0.198f, shape: 'q', env: 'f'),
+            Tone(2800f, 0.05f, vol: 0.072f, shape: 'n', env: 'f')));
         Reg("hit_phase_splitter", Layer(
             Tone(760f, 0.035f, vol: 0.11f, shape: 's', env: 'f'),
             Tone(1400f, 0.022f, vol: 0.06f, shape: 'n', env: 'f')));
