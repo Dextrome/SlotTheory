@@ -33,6 +33,23 @@ public record WaveConfig(
     int ShieldDroneCount = 0    // support drones: project 35% damage reduction aura to nearby allies
 );
 
+public record WaveAdjustmentFile(
+    WaveAdjustmentEntry[] Entries
+);
+
+public record WaveAdjustmentEntry(
+    string MapId,
+    string Difficulty,
+    int? Wave = null,               // 1-based wave number; null = apply to all waves
+    int EnemyCountDelta = 0,
+    float SpawnIntervalDelta = 0f,
+    int TankyDelta = 0,
+    int SwiftDelta = 0,
+    int SplitterDelta = 0,
+    int ReverseDelta = 0,
+    int ShieldDroneDelta = 0
+);
+
 public record Vector2Def(float X, float Y);
 
 public record SlotDef(int Id, float X, float Y);

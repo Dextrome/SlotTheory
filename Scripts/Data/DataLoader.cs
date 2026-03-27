@@ -17,6 +17,7 @@ public static class DataLoader
     // Custom maps are stored separately so they survive repeated LoadAll() calls.
     private static readonly Dictionary<string, MapDef> _customMaps = new();
     private static string _campaignFinalCompletionText = "";
+    private static CompiledWaveAdjustment[] _waveAdjustments = System.Array.Empty<CompiledWaveAdjustment>();
 
     private static readonly JsonSerializerOptions _opts = new()
     {
@@ -30,6 +31,7 @@ public static class DataLoader
         _modifiers = Load<Dictionary<string, ModifierDef>>("res://Data/modifiers.json");
         _waves = Load<WaveConfig[]>("res://Data/waves.json");
         LoadMaps();
+        LoadWaveAdjustments();
         LoadCampaignStages();
         // Re-merge custom maps so GetMapDef works for playtests after a scene reload.
         foreach (var kv in _customMaps)
@@ -106,6 +108,7 @@ public static class DataLoader
             // Shield Drone is a full-game enemy. Zero it out in demo builds.
             baseWave = baseWave with { ShieldDroneCount = 0 };
         }
+
         if (difficulty == DifficultyMode.Easy)
             return ApplyMapDifficultyTuning(index, baseWave, mapId, difficulty);
 
@@ -190,6 +193,141 @@ public static class DataLoader
         return JsonSerializer.Deserialize<T>(json, _opts)!;
     }
 
+    private static void LoadWaveAdjustments()
+    {
+        const string path = "res://Data/wave_adjustments.json";
+        _waveAdjustments = System.Array.Empty<CompiledWaveAdjustment>();
+
+        if (!FileAccess.FileExists(path))
+            return;
+
+        try
+        {
+            var root = Load<WaveAdjustmentFile>(path);
+            if (root.Entries == null || root.Entries.Length == 0)
+                return;
+
+            var parsed = new List<CompiledWaveAdjustment>();
+            for (int i = 0; i < root.Entries.Length; i++)
+            {
+                if (!TryCompileWaveAdjustment(root.Entries[i], i + 1, _waves.Length, logErrors: true, out var compiled))
+                    continue;
+
+                parsed.Add(compiled);
+            }
+
+            _waveAdjustments = parsed.ToArray();
+        }
+        catch (System.Exception ex)
+        {
+            GD.PrintErr($"[WaveAdjustments] Failed to load wave_adjustments.json: {ex.Message}");
+            _waveAdjustments = System.Array.Empty<CompiledWaveAdjustment>();
+        }
+    }
+
+    internal static WaveConfig ApplyWaveAdjustmentsForTesting(
+        int waveIndex,
+        WaveConfig wave,
+        string? mapId,
+        DifficultyMode difficulty,
+        System.Collections.Generic.IEnumerable<WaveAdjustmentEntry> entries,
+        int maxWaveCount = Balance.TotalWaves)
+    {
+        var compiled = new List<CompiledWaveAdjustment>();
+        int row = 1;
+        foreach (var entry in entries)
+        {
+            if (TryCompileWaveAdjustment(entry, row, maxWaveCount, logErrors: false, out var parsed))
+                compiled.Add(parsed);
+            row++;
+        }
+
+        return ApplyCompiledWaveAdjustments(waveIndex, wave, mapId, difficulty, compiled);
+    }
+
+    private static bool TryCompileWaveAdjustment(
+        WaveAdjustmentEntry entry,
+        int row,
+        int maxWaveCount,
+        bool logErrors,
+        out CompiledWaveAdjustment compiled)
+    {
+        compiled = default;
+
+        if (string.IsNullOrWhiteSpace(entry.MapId))
+        {
+            if (logErrors)
+                GD.PrintErr($"[WaveAdjustments] Entry #{row} ignored: MapId is required.");
+            return false;
+        }
+
+        string mapFilter = entry.MapId.Trim();
+        if (mapFilter != "*" && mapFilter.Equals("random_map", System.StringComparison.OrdinalIgnoreCase))
+        {
+            if (logErrors)
+                GD.PrintErr($"[WaveAdjustments] Entry #{row} ignored: random_map is procedural and does not support fixed adjustments.");
+            return false;
+        }
+
+        DifficultyMode? difficultyFilter = null;
+        if (!string.IsNullOrWhiteSpace(entry.Difficulty))
+        {
+            string difficultyText = entry.Difficulty.Trim();
+            if (difficultyText != "*")
+            {
+                if (!System.Enum.TryParse(difficultyText, ignoreCase: true, out DifficultyMode parsedDifficulty))
+                {
+                    if (logErrors)
+                        GD.PrintErr($"[WaveAdjustments] Entry #{row} ignored: unknown difficulty '{entry.Difficulty}'.");
+                    return false;
+                }
+
+                difficultyFilter = parsedDifficulty;
+            }
+        }
+
+        int? waveIndexFilter = null;
+        if (entry.Wave.HasValue)
+        {
+            int waveNumber = entry.Wave.Value;
+            if (waveNumber < 1 || waveNumber > maxWaveCount)
+            {
+                if (logErrors)
+                    GD.PrintErr($"[WaveAdjustments] Entry #{row} ignored: wave must be between 1 and {maxWaveCount}.");
+                return false;
+            }
+
+            waveIndexFilter = waveNumber - 1;
+        }
+
+        bool hasAnyDelta =
+            entry.EnemyCountDelta != 0 ||
+            entry.TankyDelta != 0 ||
+            entry.SwiftDelta != 0 ||
+            entry.SplitterDelta != 0 ||
+            entry.ReverseDelta != 0 ||
+            entry.ShieldDroneDelta != 0 ||
+            !Mathf.IsZeroApprox(entry.SpawnIntervalDelta);
+
+        if (!hasAnyDelta)
+            return false;
+
+        compiled = new CompiledWaveAdjustment(
+            MapIdFilter: mapFilter == "*" ? null : mapFilter,
+            DifficultyFilter: difficultyFilter,
+            WaveIndexFilter: waveIndexFilter,
+            EnemyCountDelta: entry.EnemyCountDelta,
+            SpawnIntervalDelta: entry.SpawnIntervalDelta,
+            TankyDelta: entry.TankyDelta,
+            SwiftDelta: entry.SwiftDelta,
+            SplitterDelta: entry.SplitterDelta,
+            ReverseDelta: entry.ReverseDelta,
+            ShieldDroneDelta: entry.ShieldDroneDelta
+        );
+
+        return true;
+    }
+
     private static void LoadCampaignStages()
     {
         try
@@ -208,31 +346,83 @@ public static class DataLoader
 
     private static WaveConfig ApplyMapDifficultyTuning(int waveIndex, WaveConfig wave, string? mapId, DifficultyMode difficulty)
     {
+        return ApplyCompiledWaveAdjustments(waveIndex, wave, mapId, difficulty, _waveAdjustments);
+    }
+
+    private static WaveConfig ApplyCompiledWaveAdjustments(
+        int waveIndex,
+        WaveConfig wave,
+        string? mapId,
+        DifficultyMode difficulty,
+        System.Collections.Generic.IReadOnlyList<CompiledWaveAdjustment> adjustments)
+    {
         if (string.IsNullOrWhiteSpace(mapId) || mapId == "random_map")
             return wave;
 
         int enemyCount = wave.EnemyCount;
         int tankyCount = wave.TankyCount;
         int swiftCount = wave.SwiftCount;
+        int splitterCount = wave.SplitterCount;
         int reverseCount = wave.ReverseCount;
+        int shieldDroneCount = wave.ShieldDroneCount;
         float spawnInterval = wave.SpawnInterval;
 
-        // 0-based wave indices: 17=wave18, 18=wave19, 19=wave20.
-        // Map-specific tuning can be added here once calibrated.
-        _ = waveIndex;
-        _ = mapId;
-        _ = difficulty;
+        for (int i = 0; i < adjustments.Count; i++)
+        {
+            var adjustment = adjustments[i];
+            if (!adjustment.Matches(mapId!, difficulty, waveIndex))
+                continue;
 
+            enemyCount += adjustment.EnemyCountDelta;
+            tankyCount += adjustment.TankyDelta;
+            swiftCount += adjustment.SwiftDelta;
+            splitterCount += adjustment.SplitterDelta;
+            reverseCount += adjustment.ReverseDelta;
+            shieldDroneCount += adjustment.ShieldDroneDelta;
+            spawnInterval += adjustment.SpawnIntervalDelta;
+        }
+
+        enemyCount = Mathf.Max(0, enemyCount);
+        tankyCount = Mathf.Max(0, tankyCount);
+        swiftCount = Mathf.Max(0, swiftCount);
+        splitterCount = Mathf.Max(0, splitterCount);
+        reverseCount = Mathf.Max(0, reverseCount);
+        shieldDroneCount = Mathf.Max(0, shieldDroneCount);
         spawnInterval = Mathf.Clamp(spawnInterval, 0.85f, 3.0f);
+
         return new WaveConfig(
             EnemyCount: enemyCount,
             SpawnInterval: spawnInterval,
             TankyCount: tankyCount,
             ClumpArmored: wave.ClumpArmored,
             SwiftCount: swiftCount,
-            SplitterCount: wave.SplitterCount,
+            SplitterCount: splitterCount,
             ReverseCount: reverseCount,
-            ShieldDroneCount: wave.ShieldDroneCount
+            ShieldDroneCount: shieldDroneCount
         );
+    }
+
+    private readonly record struct CompiledWaveAdjustment(
+        string? MapIdFilter,
+        DifficultyMode? DifficultyFilter,
+        int? WaveIndexFilter,
+        int EnemyCountDelta,
+        float SpawnIntervalDelta,
+        int TankyDelta,
+        int SwiftDelta,
+        int SplitterDelta,
+        int ReverseDelta,
+        int ShieldDroneDelta)
+    {
+        public bool Matches(string mapId, DifficultyMode difficulty, int waveIndex)
+        {
+            if (MapIdFilter != null && !MapIdFilter.Equals(mapId, System.StringComparison.OrdinalIgnoreCase))
+                return false;
+            if (DifficultyFilter.HasValue && DifficultyFilter.Value != difficulty)
+                return false;
+            if (WaveIndexFilter.HasValue && WaveIndexFilter.Value != waveIndex)
+                return false;
+            return true;
+        }
     }
 }
