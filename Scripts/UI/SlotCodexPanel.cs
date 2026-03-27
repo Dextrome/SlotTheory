@@ -419,9 +419,6 @@ public partial class SlotCodexPanel : Node
 
     private Control BuildTowerCard(string towerId, TowerDef def, bool unlocked)
     {
-        var panel = BuildCardShell(unlocked, GetTowerAccent(towerId));
-        var body = BuildCardBody(panel);
-
         if (!unlocked)
         {
             bool isFullGameOnly = Balance.IsDemo && (
@@ -429,11 +426,17 @@ public partial class SlotCodexPanel : Node
                 string.Equals(towerId, Unlocks.PhaseSplitterTowerId,    StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(towerId, Unlocks.RocketLauncherTowerId,   StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(towerId, Unlocks.UndertowEngineTowerId,   StringComparison.OrdinalIgnoreCase));
-            BuildCardBack(body,
-                isFullGameOnly ? "FULL GAME"               : "UNREVEALED TOWER",
-                isFullGameOnly ? "Available in full release." : GetUnlockGateNote(towerId));
-            return panel;
+            if (isFullGameOnly)
+                return BuildFullGameLockedTowerCard(towerId, def);
+
+            var lockedPanel = BuildCardShell(unlocked: false, GetTowerAccent(towerId));
+            var lockedBody = BuildCardBody(lockedPanel);
+            BuildCardBack(lockedBody, "UNREVEALED TOWER", GetUnlockGateNote(towerId));
+            return lockedPanel;
         }
+
+        var panel = BuildCardShell(unlocked: true, GetTowerAccent(towerId));
+        var body = BuildCardBody(panel);
 
         var top = new HBoxContainer();
         top.AddThemeConstantOverride("separation", 10);
@@ -485,20 +488,23 @@ public partial class SlotCodexPanel : Node
 
     private Control BuildModifierCard(string modifierId, ModifierDef def, bool unlocked)
     {
-        var panel = BuildCardShell(unlocked, ModifierVisuals.GetAccent(modifierId));
-        var body = BuildCardBody(panel);
-
         if (!unlocked)
         {
             bool isFullGameOnly = Balance.IsDemo && (
                 string.Equals(modifierId, Unlocks.BlastCoreModifierId,       StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(modifierId, Unlocks.WildfireModifierId,        StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(modifierId, Unlocks.ReaperProtocolModifierId,  StringComparison.OrdinalIgnoreCase));
-            BuildCardBack(body,
-                isFullGameOnly ? "FULL GAME"        : "UNREVEALED MOD",
-                isFullGameOnly ? "Available in full release." : GetUnlockGateNote(modifierId));
-            return panel;
+            if (isFullGameOnly)
+                return BuildFullGameLockedModifierCard(modifierId, def);
+
+            var lockedPanel = BuildCardShell(unlocked: false, ModifierVisuals.GetAccent(modifierId));
+            var lockedBody = BuildCardBody(lockedPanel);
+            BuildCardBack(lockedBody, "UNREVEALED MOD", GetUnlockGateNote(modifierId));
+            return lockedPanel;
         }
+
+        var panel = BuildCardShell(unlocked: true, ModifierVisuals.GetAccent(modifierId));
+        var body = BuildCardBody(panel);
 
         var top = new HBoxContainer();
         top.AddThemeConstantOverride("separation", 10);
@@ -538,6 +544,151 @@ public partial class SlotCodexPanel : Node
         body.AddChild(desc);
 
         return panel;
+    }
+
+    private Control BuildFullGameLockedTowerCard(string towerId, TowerDef def)
+    {
+        Color accent = GetTowerAccent(towerId);
+        Color dimAccent = new Color(accent.R * 0.40f, accent.G * 0.40f, accent.B * 0.40f, 0.55f);
+
+        var panel = new PanelContainer
+        {
+            CustomMinimumSize = new Vector2(290f, 166f),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+        };
+        if (MobileOptimization.IsMobile())
+            panel.MouseFilter = Control.MouseFilterEnum.Ignore;
+
+        panel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.05f, 0.06f, 0.10f),
+            border: new Color(0.20f, 0.22f, 0.35f, 0.50f),
+            corners: 10,
+            borderWidth: 1,
+            padH: 12,
+            padV: 10));
+
+        var body = new VBoxContainer();
+        body.AddThemeConstantOverride("separation", 8);
+        panel.AddChild(body);
+
+        var top = new HBoxContainer();
+        top.AddThemeConstantOverride("separation", 10);
+        body.AddChild(top);
+
+        var icon = new TowerIconFull
+        {
+            TowerId = towerId,
+            CustomMinimumSize = new Vector2(52f, 52f),
+            Size = new Vector2(52f, 52f),
+            Modulate = new Color(0.32f, 0.32f, 0.38f, 0.50f)
+        };
+        top.AddChild(icon);
+
+        var titleCol = new VBoxContainer();
+        titleCol.AddThemeConstantOverride("separation", 2);
+        titleCol.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        top.AddChild(titleCol);
+
+        var nameLabel = new Label { Text = def.Name };
+        UITheme.ApplyFont(nameLabel, semiBold: true, size: 18);
+        nameLabel.Modulate = new Color(0.40f, 0.42f, 0.54f);
+        titleCol.AddChild(nameLabel);
+
+        var typeLabel = new Label { Text = "TOWER" };
+        typeLabel.AddThemeFontSizeOverride("font_size", 12);
+        typeLabel.Modulate = dimAccent;
+        titleCol.AddChild(typeLabel);
+
+        AddFullGameLockedFooter(body);
+        return panel;
+    }
+
+    private Control BuildFullGameLockedModifierCard(string modifierId, ModifierDef def)
+    {
+        Color accent = ModifierVisuals.GetAccent(modifierId);
+        Color dimAccent = new Color(accent.R * 0.40f, accent.G * 0.40f, accent.B * 0.40f, 0.55f);
+
+        var panel = new PanelContainer
+        {
+            CustomMinimumSize = new Vector2(290f, 166f),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+        };
+        if (MobileOptimization.IsMobile())
+            panel.MouseFilter = Control.MouseFilterEnum.Ignore;
+
+        panel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.05f, 0.06f, 0.10f),
+            border: new Color(0.20f, 0.22f, 0.35f, 0.50f),
+            corners: 10,
+            borderWidth: 1,
+            padH: 12,
+            padV: 10));
+
+        var body = new VBoxContainer();
+        body.AddThemeConstantOverride("separation", 8);
+        panel.AddChild(body);
+
+        var top = new HBoxContainer();
+        top.AddThemeConstantOverride("separation", 10);
+        body.AddChild(top);
+
+        var icon = new ModifierIcon
+        {
+            ModifierId = modifierId,
+            IconColor = ModifierVisuals.GetAccent(modifierId),
+            CustomMinimumSize = new Vector2(50f, 50f),
+            Size = new Vector2(50f, 50f),
+            Modulate = new Color(0.32f, 0.32f, 0.38f, 0.50f)
+        };
+        top.AddChild(icon);
+
+        var titleCol = new VBoxContainer();
+        titleCol.AddThemeConstantOverride("separation", 2);
+        titleCol.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        top.AddChild(titleCol);
+
+        var nameLabel = new Label { Text = def.Name };
+        UITheme.ApplyFont(nameLabel, semiBold: true, size: 18);
+        nameLabel.Modulate = new Color(0.40f, 0.42f, 0.54f);
+        titleCol.AddChild(nameLabel);
+
+        var typeLabel = new Label { Text = "MODIFIER" };
+        typeLabel.AddThemeFontSizeOverride("font_size", 12);
+        typeLabel.Modulate = dimAccent;
+        titleCol.AddChild(typeLabel);
+
+        AddFullGameLockedFooter(body);
+        return panel;
+    }
+
+    private static void AddFullGameLockedFooter(VBoxContainer body)
+    {
+        var sep = new ColorRect
+        {
+            CustomMinimumSize = new Vector2(0f, 1f),
+            Color = new Color(0.25f, 0.28f, 0.42f, 0.35f),
+            MouseFilter = Control.MouseFilterEnum.Ignore
+        };
+        body.AddChild(sep);
+
+        var fullGameLabel = new Label
+        {
+            Text = "FULL GAME",
+            HorizontalAlignment = HorizontalAlignment.Center
+        };
+        UITheme.ApplyFont(fullGameLabel, semiBold: true, size: 17);
+        fullGameLabel.Modulate = new Color(0.60f, 0.68f, 0.90f, 0.88f);
+        body.AddChild(fullGameLabel);
+
+        var noteLabel = new Label
+        {
+            Text = "Available in the full release.",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart
+        };
+        noteLabel.AddThemeFontSizeOverride("font_size", 13);
+        noteLabel.Modulate = new Color(0.40f, 0.46f, 0.60f, 0.70f);
+        body.AddChild(noteLabel);
     }
 
     private PanelContainer BuildCardShell(bool unlocked, Color accent)

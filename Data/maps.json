@@ -150,7 +150,7 @@
     {
       "id": "orbit",
       "name": "Orbit",
-      "description": "Spiral-in then slingshot-out. One interior slot gets multi-pass value; edge slots are early bait.",
+      "description": "Spiral-in then slingshot-out. Three interior slots get multi-pass value; edge slots are early bait.",
       "displayOrder": 0,
       "path": [
         { "x": 160, "y": 96 },
