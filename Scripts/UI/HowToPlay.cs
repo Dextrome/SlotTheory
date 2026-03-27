@@ -227,7 +227,7 @@ public partial class HowToPlay : Node
         }
     }
 
-    public static void BuildBasicsSection(VBoxContainer vbox)
+    public static void BuildBasicsSection(VBoxContainer vbox, bool includeReferenceSections = true)
     {
         var loopCard = AddSurgeCard(vbox, "CORE LOOP", new Color(0.52f, 0.90f, 1.00f, 0.92f));
         AddSurgeRuleRow(loopCard, "DRAFT", "Pick 1 card before each wave (5 if free slots exist, 4 if all occupied).", new Color(0.64f, 0.92f, 1.00f, 0.92f));
@@ -244,20 +244,27 @@ public partial class HowToPlay : Node
         AddRow(controlsCard, "Speed", "Click speed button to cycle available game-speed steps");
         AddSpacer(vbox, 10);
 
-        var towersCard = AddSurgeCard(vbox, "TOWERS", new Color(0.68f, 0.86f, 0.20f, 0.92f));
-        AddTowerRow(towersCard, "rapid_shooter", "Rapid Shooter", "10 dmg, 0.45 s, 285 px range",
-            "High rate of fire, low damage per hit. Shines with Momentum and Hair Trigger.");
-        AddTowerRow(towersCard, "heavy_cannon", "Heavy Cannon", "56 dmg, 2.0 s, 238 px range",
-            "Slow but hits hard. Great with Overkill and Focus Lens.");
-        AddTowerRow(towersCard, "marker_tower", "Marker Tower", "7 dmg, 1.0 s, 333 px range",
-            "Applies Mark on every hit. Synergises with Exploit Weakness.");
-        AddTowerRow(towersCard, "chain_tower", "Arc Emitter (unlock)", "18 dmg, 1.2 s, 257 px range",
-            "Unlock by beating the first campaign map. Chains to 2 nearby enemies per shot (60% damage decay per bounce).");
-        AddTowerRow(towersCard, "rift_prism", "Rift Sapper (unlock)", "22 dmg, 0.98 s, 230 px range",
-            "Unlock by beating the third campaign map. Plants up to 7 mines with 3 charges each; final charge causes the big pop. Wave start gets rapid seeding for 2.4s. Split Shot seeds mini-mines (35% scale) on final pops only.");
-        AddTowerRow(towersCard, "phase_splitter", "Phase Splitter", "20 dmg, 0.95 s, 275 px range",
-            "Each attack hits both the first and last enemy in range at 65% damage each. Strong versus blockers/backline pressure, weaker into dense mid-pack clusters.");
-        AddSpacer(vbox, 10);
+        if (includeReferenceSections)
+        {
+            var towersCard = AddSurgeCard(vbox, "TOWERS", new Color(0.68f, 0.86f, 0.20f, 0.92f));
+            AddTowerRow(towersCard, "rapid_shooter", "Rapid Shooter", "10 dmg, 0.45 s, 285 px range",
+                "High rate of fire, low damage per hit. Shines with Momentum and Hair Trigger.");
+            AddTowerRow(towersCard, "heavy_cannon", "Heavy Cannon", "56 dmg, 2.0 s, 238 px range",
+                "Slow but hits hard. Great with Overkill and Focus Lens.");
+            AddTowerRow(towersCard, "marker_tower", "Marker Tower", "7 dmg, 1.0 s, 333 px range",
+                "Applies Mark on every hit. Synergises with Exploit Weakness.");
+            AddTowerRow(towersCard, "chain_tower", "Arc Emitter (unlock)", "18 dmg, 1.2 s, 257 px range",
+                "Unlock by beating the first campaign map. Chains to 2 nearby enemies per shot (60% damage decay per bounce).");
+            AddTowerRow(towersCard, "rift_prism", "Rift Sapper (unlock)", "22 dmg, 0.98 s, 230 px range",
+                "Unlock by beating the third campaign map. Plants up to 7 mines with 3 charges each; final charge causes the big pop. Wave start gets rapid seeding for 2.4s. Split Shot seeds mini-mines (35% scale) on final pops only.");
+            AddTowerRow(towersCard, "phase_splitter", "Phase Splitter", "20 dmg, 0.95 s, 275 px range",
+                "Each attack hits both the first and last enemy in range at 65% damage each. Strong versus blockers/backline pressure, weaker into dense mid-pack clusters.");
+            AddTowerRow(towersCard, "rocket_launcher", "Rocket Launcher", "34 dmg, 1.45 s, 248 px range",
+                "Rocket Launcher fires explosive rockets that damage the target and nearby enemies. Burst Core further expands the blast radius.");
+            AddTowerRow(towersCard, "undertow_engine", "Undertow Engine", "8 dmg, 2.35 s, 265 px range",
+                "Undertow Engine drags enemies backward so they spend longer inside your defenses. It heavily slows the pulled target and can lightly re-clump nearby enemies.");
+            AddSpacer(vbox, 10);
+        }
 
         var targetingCard = AddSurgeCard(vbox, "TARGETING MODES", new Color(0.62f, 0.88f, 1.00f, 0.92f));
         AddSurgeCardLine(targetingCard, "Click a tower mid-wave to cycle targeting.");
@@ -272,21 +279,24 @@ public partial class HowToPlay : Node
         AddTargetModeRow(targetingCard, TargetingMode.LowestHp, "Furthest", "Place mines at the furthest valid lane point within range.", TargetModeIconSet.RiftSapper);
         AddSpacer(vbox, 10);
 
-        var modifiersCard = AddSurgeCard(vbox, "MODIFIERS (MAX 3 PER TOWER)", new Color(0.82f, 0.84f, 0.98f, 0.92f));
-        AddModRowWithIcon(modifiersCard, "momentum",         "Momentum",            "+16% damage per consecutive hit on same target, up to x1.8. Resets on target switch.");
-        AddModRowWithIcon(modifiersCard, "overkill",         "Overkill",            "Excess damage from a kill spills to the next enemy in the lane.");
-        AddModRowWithIcon(modifiersCard, "exploit_weakness", "Exploit Weakness",    "+45% damage to Marked enemies. Pairs with Marker Tower.");
-        AddModRowWithIcon(modifiersCard, "focus_lens",       "Focus Lens",          "+140% damage, +85% attack interval. Big hits, slow fire - ideal for Overkill combos.");
-        AddModRowWithIcon(modifiersCard, "slow",             "Chill Shot",          "On hit: -30% move speed for 6 s. Keeps enemies in range longer.");
-        AddModRowWithIcon(modifiersCard, "overreach",        "Overreach",           "+45% range, -10% damage. Wider coverage with a light damage tradeoff.");
-        AddModRowWithIcon(modifiersCard, "hair_trigger",     "Hair Trigger",        "+30% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
-        AddModRowWithIcon(modifiersCard, "split_shot",       "Split Shot (unlock)", "Unlock by beating the second campaign map. On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
-        AddModRowWithIcon(modifiersCard, "feedback_loop",    "Feedback Loop",       "Killing an enemy instantly resets this tower's cooldown to zero. Fire again immediately after each kill.");
-        AddModRowWithIcon(modifiersCard, "chain_reaction",   "Chain Reaction",      "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
-        if (!Balance.IsDemo)
-            AddModRowWithIcon(modifiersCard, "reaper_protocol", "Reaper Protocol (full game, wave 10+)",
-                $"Kill (primary hits only): the first {Balance.ReaperProtocolKillCap} kills each wave restore 1 life, up to your starting life total. Available from wave 10. Invaluable in Endless runs where lives become scarce.");
-        AddSpacer(vbox, 10);
+        if (includeReferenceSections)
+        {
+            var modifiersCard = AddSurgeCard(vbox, "MODIFIERS (MAX 3 PER TOWER)", new Color(0.82f, 0.84f, 0.98f, 0.92f));
+            AddModRowWithIcon(modifiersCard, "momentum",         "Momentum",            "+16% damage per consecutive hit on same target, up to x1.8. Resets on target switch.");
+            AddModRowWithIcon(modifiersCard, "overkill",         "Overkill",            "Excess damage from a kill spills to the next enemy in the lane.");
+            AddModRowWithIcon(modifiersCard, "exploit_weakness", "Exploit Weakness",    "+45% damage to Marked enemies. Pairs with Marker Tower.");
+            AddModRowWithIcon(modifiersCard, "focus_lens",       "Focus Lens",          "+140% damage, +85% attack interval. Big hits, slow fire - ideal for Overkill combos.");
+            AddModRowWithIcon(modifiersCard, "slow",             "Chill Shot",          "On hit: -30% move speed for 6 s. Keeps enemies in range longer.");
+            AddModRowWithIcon(modifiersCard, "overreach",        "Overreach",           "+45% range, -10% damage. Wider coverage with a light damage tradeoff.");
+            AddModRowWithIcon(modifiersCard, "hair_trigger",     "Hair Trigger",        "+30% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
+            AddModRowWithIcon(modifiersCard, "split_shot",       "Split Shot (unlock)", "Unlock by beating the second campaign map. On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
+            AddModRowWithIcon(modifiersCard, "feedback_loop",    "Feedback Loop",       "Killing an enemy instantly resets this tower's cooldown to zero. Fire again immediately after each kill.");
+            AddModRowWithIcon(modifiersCard, "chain_reaction",   "Chain Reaction",      "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
+            if (!Balance.IsDemo)
+                AddModRowWithIcon(modifiersCard, "reaper_protocol", "Reaper Protocol (full game, wave 10+)",
+                    $"Kill (primary hits only): the first {Balance.ReaperProtocolKillCap} kills each wave restore 1 life, up to your starting life total. Available from wave 10. Invaluable in Endless runs where lives become scarce.");
+            AddSpacer(vbox, 10);
+        }
 
         var evolutionCard = AddSurgeCard(vbox, "TOWER EVOLUTION VISUALS", new Color(0.62f, 0.90f, 0.98f, 0.92f));
         AddSurgeCardLine(evolutionCard, "Visual hierarchy is readability-first: count tier first, exact mod identity second.", new Color(0.90f, 0.97f, 1.00f), 15);
@@ -299,15 +309,18 @@ public partial class HowToPlay : Node
         AddSurgeCardLine(evolutionCard, "Slot pips/icons remain the exact source of truth for full loadout details.");
         AddSpacer(vbox, 10);
 
-        var enemiesCard = AddSurgeCard(vbox, "ENEMIES", new Color(0.96f, 0.78f, 0.46f, 0.94f));
-        AddSurgeCardLine(enemiesCard, $"Basic Walker: {Balance.BaseEnemyHp:0} HP on wave 1, x{Balance.HpGrowthPerWave:0.00} per wave. Speed: {Balance.BaseEnemySpeed:0} px/s. Leaks cost 1 life.");
-        AddSurgeCardLine(enemiesCard, $"Armored Walker: {Balance.TankyHpMultiplier:0.#}x HP, half speed ({Balance.TankyEnemySpeed:0} px/s). Leaks cost 2 lives. First appears wave 6.");
-        AddSurgeCardLine(enemiesCard, $"Swift Walker: {Balance.SwiftHpMultiplier:0.#}x HP, double speed ({Balance.SwiftEnemySpeed:0} px/s). Leaks cost 1 life. Appears in mid-game surge waves.");
-        AddSurgeCardLine(enemiesCard, $"Reverse Walker (full game): {Balance.ReverseWalkerHpMultiplier:0.#}x HP, {Balance.ReverseWalkerSpeed:0} px/s. Single hit >= {Balance.ReverseWalkerTriggerDamageRatio * 100f:0}% max HP can rewind it a short distance. Cooldown-gated and capped per enemy. First appears wave 11.");
-        AddSurgeCardLine(enemiesCard, $"Shield Drone (full game): {Balance.ShieldDroneHpMultiplier:0.#}x HP, {Balance.ShieldDroneSpeed:0} px/s. Projects {Balance.ShieldDroneProtectionReduction * 100f:0}% damage reduction to nearby allies within {Balance.ShieldDroneAuraRadius:0}px. Kill it first.");
-        AddSurgeCardLine(enemiesCard, $"Splitter: {Balance.SplitterHpMultiplier:0.#}x HP, {Balance.SplitterSpeed:0} px/s. Splits into {Balance.SplitterShardCount} fast shards on death. Leaking one risks 3 lives total. Waves 9-15.");
-        AddSurgeCardLine(enemiesCard, "Enemy count scales with map and difficulty; late waves can exceed 40 total enemies on harder settings.");
-        AddSpacer(vbox, 10);
+        if (includeReferenceSections)
+        {
+            var enemiesCard = AddSurgeCard(vbox, "ENEMIES", new Color(0.96f, 0.78f, 0.46f, 0.94f));
+            AddSurgeCardLine(enemiesCard, $"Basic Walker: {Balance.BaseEnemyHp:0} HP on wave 1, x{Balance.HpGrowthPerWave:0.00} per wave. Speed: {Balance.BaseEnemySpeed:0} px/s. Leaks cost 1 life.");
+            AddSurgeCardLine(enemiesCard, $"Armored Walker: {Balance.TankyHpMultiplier:0.#}x HP, half speed ({Balance.TankyEnemySpeed:0} px/s). Leaks cost 2 lives. First appears wave 6.");
+            AddSurgeCardLine(enemiesCard, $"Swift Walker: {Balance.SwiftHpMultiplier:0.#}x HP, double speed ({Balance.SwiftEnemySpeed:0} px/s). Leaks cost 1 life. Appears in mid-game surge waves.");
+            AddSurgeCardLine(enemiesCard, $"Reverse Walker (full game): {Balance.ReverseWalkerHpMultiplier:0.#}x HP, {Balance.ReverseWalkerSpeed:0} px/s. Single hit >= {Balance.ReverseWalkerTriggerDamageRatio * 100f:0}% max HP can rewind it a short distance. Cooldown-gated and capped per enemy. First appears wave 11.");
+            AddSurgeCardLine(enemiesCard, $"Shield Drone (full game): {Balance.ShieldDroneHpMultiplier:0.#}x HP, {Balance.ShieldDroneSpeed:0} px/s. Projects {Balance.ShieldDroneProtectionReduction * 100f:0}% damage reduction to nearby allies within {Balance.ShieldDroneAuraRadius:0}px. Kill it first.");
+            AddSurgeCardLine(enemiesCard, $"Splitter: {Balance.SplitterHpMultiplier:0.#}x HP, {Balance.SplitterSpeed:0} px/s. Splits into {Balance.SplitterShardCount} fast shards on death. Leaking one risks 3 lives total. Waves 9-15.");
+            AddSurgeCardLine(enemiesCard, "Enemy count scales with map and difficulty; late waves can exceed 40 total enemies on harder settings.");
+            AddSpacer(vbox, 10);
+        }
 
         var tipsCard = AddSurgeCard(vbox, "BUILD TIPS", new Color(0.60f, 0.96f, 0.74f, 0.94f));
         AddSurgeChipLine(tipsCard, "Rapid + Momentum", "devastating DPS on enemies that take many hits to kill.", new Color(0.70f, 0.98f, 0.74f, 0.92f));

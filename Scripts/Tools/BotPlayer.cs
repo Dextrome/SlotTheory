@@ -102,7 +102,7 @@ public class BotPlayer
         if (empty.Count == 0)
             return null;
 
-        var forcedTower = FindTowerOption(opts, "marker_tower", "rapid_shooter", "chain_tower", "heavy_cannon", "rift_prism")
+        var forcedTower = FindTowerOption(opts, "marker_tower", "rapid_shooter", "chain_tower", "rocket_launcher", "undertow_engine", "heavy_cannon", "rift_prism")
                        ?? Towers(opts).FirstOrDefault();
         if (forcedTower == null)
             return null;
@@ -129,7 +129,7 @@ public class BotPlayer
         towerId is "rapid_shooter" or "chain_tower" or "rift_prism" or "phase_splitter";
 
     private static bool IsOpenerTower(string? towerId) =>
-        towerId is "rapid_shooter" or "chain_tower" or "heavy_cannon" or "phase_splitter";
+        towerId is "rapid_shooter" or "chain_tower" or "rocket_launcher" or "heavy_cannon" or "phase_splitter";
 
     private static bool IsWildfireAnchorTower(string? towerId) =>
         towerId is "rapid_shooter" or "rift_prism" or "accordion_engine" or "phase_splitter";
@@ -184,6 +184,8 @@ public class BotPlayer
     {
         "rapid_shooter",
         "phase_splitter",
+        "rocket_launcher",
+        "undertow_engine",
         "marker_tower",   // provides Marked status - status-primes enemies for detonation
         "chain_tower",
         "heavy_cannon",
@@ -271,7 +273,9 @@ public class BotPlayer
     {
         "rapid_shooter" => 4,
         "phase_splitter"=> 3,
+        "rocket_launcher" => 2,
         "chain_tower"   => 2,
+        "undertow_engine" => 1,
         "rift_prism"    => 1,
         "heavy_cannon"  => 1,
         _               => 0
@@ -280,9 +284,11 @@ public class BotPlayer
     private static int ScoreBurstTowerForSnap(string? towerId) => towerId switch
     {
         "heavy_cannon"  => 4,
+        "rocket_launcher" => 3,
         "phase_splitter"=> 3,
         "rapid_shooter" => 2,
         "chain_tower"   => 2,
+        "undertow_engine" => 1,
         "rift_prism"    => 1,
         _               => 0
     };
@@ -290,11 +296,37 @@ public class BotPlayer
     private static int ScoreBacklineTower(string? towerId) => towerId switch
     {
         "phase_splitter" => 4,
+        "undertow_engine" => 4,
+        "rocket_launcher" => 2,
         "chain_tower"    => 3,
         "rapid_shooter"  => 2,
         "rift_prism"     => 2,
         "heavy_cannon"  => 1,
         _               => 0
+    };
+
+    private static int ScoreControlTowerForReposition(string? towerId) => towerId switch
+    {
+        "undertow_engine" => 5,
+        "rocket_launcher" => 3,
+        "chain_tower" => 3,
+        "phase_splitter" => 2,
+        "rift_prism" => 2,
+        "rapid_shooter" => 2,
+        "heavy_cannon" => 1,
+        _ => 0,
+    };
+
+    private static int ScoreFeedbackTower(string? towerId) => towerId switch
+    {
+        "undertow_engine" => 4,
+        "rocket_launcher" => 3,
+        "rapid_shooter" => 3,
+        "phase_splitter" => 3,
+        "chain_tower" => 2,
+        "rift_prism" => 1,
+        "heavy_cannon" => 1,
+        _ => 0,
     };
 
     private int CountStabilityMods(RunState s) =>
@@ -372,26 +404,31 @@ public class BotPlayer
                     .FirstOrDefault(-1),
 
                 "feedback_loop" => eligible
-                    .Where(i => IsFastTower(s.Slots[i].Tower?.TowerId) && !SlotHasModifier(s.Slots[i], "feedback_loop"))
-                    .OrderByDescending(i => ScoreFastTowerForCadence(s.Slots[i].Tower?.TowerId))
+                    .Where(i => (IsFastTower(s.Slots[i].Tower?.TowerId) || s.Slots[i].Tower?.TowerId == "undertow_engine")
+                                && !SlotHasModifier(s.Slots[i], "feedback_loop"))
+                    .OrderByDescending(i => ScoreFeedbackTower(s.Slots[i].Tower?.TowerId))
+                    .ThenByDescending(i => ScoreFastTowerForCadence(s.Slots[i].Tower?.TowerId))
                     .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
                     .FirstOrDefault(-1),
 
                 "focus_lens" => eligible
                     .Where(i => s.Slots[i].Tower?.TowerId != "marker_tower" && !SlotHasModifier(s.Slots[i], "focus_lens"))
-                    .OrderByDescending(i => ScoreBurstTowerForSnap(s.Slots[i].Tower?.TowerId))
+                    .OrderByDescending(i => ScoreControlTowerForReposition(s.Slots[i].Tower?.TowerId))
+                    .ThenByDescending(i => ScoreBurstTowerForSnap(s.Slots[i].Tower?.TowerId))
                     .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
                     .FirstOrDefault(-1),
 
                 "slow" => eligible
                     .Where(i => s.Slots[i].Tower?.TowerId != "marker_tower" && !SlotHasModifier(s.Slots[i], "slow"))
-                    .OrderByDescending(i => ScoreFastTowerForCadence(s.Slots[i].Tower?.TowerId))
+                    .OrderByDescending(i => ScoreControlTowerForReposition(s.Slots[i].Tower?.TowerId))
+                    .ThenByDescending(i => ScoreFastTowerForCadence(s.Slots[i].Tower?.TowerId))
                     .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
                     .FirstOrDefault(-1),
 
                 "overreach" => eligible
                     .Where(i => s.Slots[i].Tower?.TowerId != "marker_tower" && !SlotHasModifier(s.Slots[i], "overreach"))
-                    .OrderBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .OrderByDescending(i => ScoreControlTowerForReposition(s.Slots[i].Tower?.TowerId))
+                    .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
                     .FirstOrDefault(-1),
 
                 _ => -1
@@ -428,8 +465,8 @@ public class BotPlayer
             return panicMod;
 
         return allowRiftTower
-            ? TryPickPriorityTower(opts, empty, "rapid_shooter", "chain_tower", "heavy_cannon", "marker_tower", "rift_prism")
-            : TryPickPriorityTower(opts, empty, "rapid_shooter", "chain_tower", "heavy_cannon", "marker_tower");
+            ? TryPickPriorityTower(opts, empty, "rapid_shooter", "chain_tower", "rocket_launcher", "undertow_engine", "heavy_cannon", "marker_tower", "rift_prism")
+            : TryPickPriorityTower(opts, empty, "rapid_shooter", "chain_tower", "rocket_launcher", "undertow_engine", "heavy_cannon", "marker_tower");
     }
 
     private DraftPick? TryPickSpectacleSurvivalGate(
@@ -446,7 +483,7 @@ public class BotPlayer
         int towerCount = s.Slots.Count(sl => sl.Tower != null);
         if (towerCount < 2)
         {
-            var tower = TryPickPriorityTower(opts, empty, "rapid_shooter", "chain_tower", "marker_tower", "heavy_cannon", "rift_prism");
+            var tower = TryPickPriorityTower(opts, empty, "rapid_shooter", "chain_tower", "rocket_launcher", "undertow_engine", "marker_tower", "heavy_cannon", "rift_prism");
             if (tower != null) return tower;
         }
 
@@ -457,7 +494,7 @@ public class BotPlayer
             IsHardPanicState(s, difficulty, picksSoFar) ? HardPanicModPriority : SurvivalStabilityModPriority);
         if (modPick != null) return modPick;
 
-        return TryPickPriorityTower(opts, empty, "rapid_shooter", "chain_tower", "marker_tower", "heavy_cannon", "rift_prism");
+        return TryPickPriorityTower(opts, empty, "rapid_shooter", "chain_tower", "rocket_launcher", "undertow_engine", "marker_tower", "heavy_cannon", "rift_prism");
     }
 
     private int PickMostCenteredEmptySlot(RunState s)
@@ -570,7 +607,10 @@ public class BotPlayer
             {
                 int slot = eligible
                     .Where(i => !s.Slots[i].Tower!.Modifiers.Any(m => m.ModifierId == "blast_core"))
-                    .OrderByDescending(i => s.Slots[i].Tower!.Modifiers.Count) // stack on busiest tower
+                    .OrderByDescending(i => s.Slots[i].Tower?.TowerId == "rocket_launcher" ? 3 :
+                                            s.Slots[i].Tower?.TowerId == "accordion_engine" ? 2 :
+                                            s.Slots[i].Tower?.TowerId == "chain_tower" ? 1 : 0)
+                    .ThenByDescending(i => s.Slots[i].Tower!.Modifiers.Count) // stack on busiest tower
                     .FirstOrDefault(-1);
                 if (slot >= 0) return new DraftPick(blastCore, slot);
             }
@@ -690,7 +730,7 @@ public class BotPlayer
             // Open with an early damage tower.
             if (towerCount == 0)
             {
-                var opener = FindTowerOption(opts, "phase_splitter", "rapid_shooter", "chain_tower", "heavy_cannon");
+            var opener = FindTowerOption(opts, "phase_splitter", "rocket_launcher", "rapid_shooter", "chain_tower", "heavy_cannon");
                 if (opener != null) return new DraftPick(opener, empty[0]);
             }
 
@@ -718,7 +758,7 @@ public class BotPlayer
                 }
             }
 
-            var preferredTower = FindTowerOption(opts, "phase_splitter", "accordion_engine", "rift_prism", "rapid_shooter", "heavy_cannon", "chain_tower");
+            var preferredTower = FindTowerOption(opts, "phase_splitter", "rocket_launcher", "accordion_engine", "rift_prism", "rapid_shooter", "heavy_cannon", "chain_tower");
             if (preferredTower != null) return new DraftPick(preferredTower, empty[0]);
         }
 
@@ -795,7 +835,9 @@ public class BotPlayer
                     int slot = eligible
                         .Where(i => s.Slots[i].Tower?.TowerId != "accordion_engine" &&
                                     !s.Slots[i].Tower!.Modifiers.Any(m => m.ModifierId == "blast_core"))
-                        .OrderByDescending(i => s.Slots[i].Tower!.BaseDamage)
+                        .OrderByDescending(i => s.Slots[i].Tower?.TowerId == "rocket_launcher" ? 2 :
+                                                s.Slots[i].Tower?.TowerId == "phase_splitter" ? 1 : 0)
+                        .ThenByDescending(i => s.Slots[i].Tower!.BaseDamage)
                         .FirstOrDefault(-1);
                     if (slot >= 0) return new DraftPick(blastCore, slot);
                 }
@@ -820,7 +862,7 @@ public class BotPlayer
 
         if (empty.Count > 0)
         {
-            var dmgTower = FindTowerOption(opts, "phase_splitter", "heavy_cannon", "rapid_shooter", "chain_tower");
+            var dmgTower = FindTowerOption(opts, "phase_splitter", "rocket_launcher", "heavy_cannon", "rapid_shooter", "chain_tower");
             if (dmgTower != null) return new DraftPick(dmgTower, empty[0]);
         }
 
@@ -850,7 +892,7 @@ public class BotPlayer
         // Priority 1: fill empty slots - heavy cannon first, then arc emitter, then rapid shooter.
         if (empty.Count > 0)
         {
-            var tower = FindTowerOption(opts, "heavy_cannon", "chain_tower", "rapid_shooter");
+            var tower = FindTowerOption(opts, "heavy_cannon", "rocket_launcher", "chain_tower", "rapid_shooter");
             if (tower != null) return new DraftPick(tower, empty[0]);
         }
 
@@ -933,7 +975,7 @@ public class BotPlayer
 
         if (empty.Count > 0)
         {
-            var tower = FindTowerOption(opts, "phase_splitter", "rapid_shooter", "heavy_cannon", "chain_tower", "rift_prism", "marker_tower");
+            var tower = FindTowerOption(opts, "phase_splitter", "rocket_launcher", "rapid_shooter", "heavy_cannon", "chain_tower", "rift_prism", "marker_tower");
             if (tower != null) return new DraftPick(tower, empty[0]);
         }
 
@@ -1008,7 +1050,8 @@ public class BotPlayer
                     // Heavy-synergy mods: prefer heavy_cannon (big base damage)
                     "focus_lens" or "overkill" or "blast_core" =>
                         eligible.OrderByDescending(i =>
-                            s.Slots[i].Tower?.TowerId == "heavy_cannon" ? 1 : 0)
+                            s.Slots[i].Tower?.TowerId == "heavy_cannon" ? 2 :
+                            s.Slots[i].Tower?.TowerId == "rocket_launcher" ? 1 : 0)
                         .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count).First(),
                     "split_shot" =>
                         eligible.OrderByDescending(i => ScoreBacklineTower(s.Slots[i].Tower?.TowerId))
@@ -1664,7 +1707,7 @@ public class BotPlayer
 
             if (mapFallbackActive && !readyForFirstRift && riftCount == 0)
             {
-                var safetyOpener = FindTowerOption(opts, "phase_splitter", "rapid_shooter", "chain_tower", "heavy_cannon", "marker_tower");
+            var safetyOpener = FindTowerOption(opts, "phase_splitter", "rocket_launcher", "rapid_shooter", "chain_tower", "heavy_cannon", "marker_tower");
                 if (safetyOpener != null) return new DraftPick(safetyOpener, empty[0]);
             }
 
@@ -1902,7 +1945,7 @@ public class BotPlayer
             // Wave 1: rapid_shooter opener - heavy alone can't cover early waves
             if (towerCount == 0)
             {
-                var opener = FindTowerOption(opts, "phase_splitter", "rapid_shooter", "chain_tower");
+            var opener = FindTowerOption(opts, "phase_splitter", "rocket_launcher", "rapid_shooter", "chain_tower");
                 if (opener != null) return new DraftPick(opener, empty[0]);
             }
 

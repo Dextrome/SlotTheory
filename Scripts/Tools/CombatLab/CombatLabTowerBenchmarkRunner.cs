@@ -85,6 +85,21 @@ public sealed class CombatLabTowerBenchmarkRunner
         public float DamagePerSecond { get; init; }
     }
 
+    private sealed class BenchmarkUndertowEffect
+    {
+        public BenchmarkTower Tower { get; init; } = null!;
+        public BenchmarkEnemy Target { get; init; } = null!;
+        public float TotalDuration { get; init; }
+        public float Remaining { get; set; }
+        public float TotalPullDistance { get; init; }
+        public float PulledDistance { get; set; }
+        public float SlowFactor { get; init; }
+        public bool IsSecondary { get; init; }
+        public bool IsFollowup { get; init; }
+        public bool EnableEndpointPulse { get; init; }
+        public float DelayRemaining { get; set; }
+    }
+
     private sealed class TrialMetrics
     {
         public float TotalDamage;
@@ -342,6 +357,9 @@ public sealed class CombatLabTowerBenchmarkRunner
         SpectacleSystem? spectacle = liveRules ? new SpectacleSystem() : null;
         var residues = new List<ResidueZone>();
         var wildfireTrails = new List<WildfireTrail>();
+        var activeUndertows = new List<BenchmarkUndertowEffect>();
+        var undertowRecentRemaining = new Dictionary<int, float>();
+        var undertowRetargetLockoutRemaining = new Dictionary<int, float>();
         bool pendingGlobal = false;
         float globalReadyAt = -1f;
         float simTime = 0f;
@@ -388,6 +406,7 @@ public sealed class CombatLabTowerBenchmarkRunner
             }
 
             UpdateEnemyStatuses(enemies, dt);
+            UpdateActiveUndertows(activeUndertows, undertowRecentRemaining, undertowRetargetLockoutRemaining, enemies, dt);
             UpdateWildfireBurnAndTrails(wildfireTrails, enemies, tower, dt, metrics);
             UpdateResidues(residues, enemies, tower, dt, metrics);
             MoveEnemies(enemies, dt, metrics);
@@ -499,63 +518,126 @@ public sealed class CombatLabTowerBenchmarkRunner
                 }
                 else
                 {
-                    BenchmarkEnemy? target = Targeting.SelectTarget(tower, activeEnemies, ignoreRange: false);
-                    if (target != null)
+                    if (tower.TowerId == "undertow_engine")
                     {
-                        firedThisStep = true;
-                        metrics.Shots++;
-                        metrics.FiredSteps++;
-
-                        float effectiveInterval = tower.AttackInterval;
-                        foreach (Modifier mod in tower.Modifiers)
-                            mod.ModifyAttackInterval(ref effectiveInterval, tower);
-                        tower.Cooldown = Math.Max(0.01f, effectiveInterval);
-
-                        if (spectacle != null)
-                            spectacle.RegisterShotFired(tower);
-
-                        bool targetMarkedBefore = target.IsMarked;
-                        DamageContext primaryCtx = ApplyHitAndCollect(tower, target, activeEnemies, metrics, state: null, isChain: false);
-                        RegisterLiveProcForHit(spectacle, tower, targetMarkedBefore, target, primaryCtx.DamageDealt);
-
-                        int chainHits = CombatResolution.ApplyChainHits(
+                        BenchmarkEnemy? primaryTarget = SelectUndertowPrimaryTarget(
                             tower,
-                            target,
-                            waveIndex: 0,
                             activeEnemies,
-                            state: null,
-                            onHit: ctx =>
-                            {
-                                ApplyContextToMetrics(ctx, metrics);
-                                RegisterLiveProcForHit(spectacle, tower, ctx.Target.IsMarked, ctx.Target, ctx.DamageDealt);
-                            });
-                        if (chainHits > 0 && spectacle != null)
+                            activeUndertows,
+                            undertowRetargetLockoutRemaining);
+                        if (primaryTarget != null)
                         {
-                            float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
-                            spectacle.RegisterProc(tower, SpectacleDefinitions.ChainReaction,
-                                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ChainReaction), chainEventDamage);
-                        }
+                            firedThisStep = true;
+                            metrics.Shots++;
+                            metrics.FiredSteps++;
 
-                        int splitHits = CombatResolution.ApplySplitHits(
-                            tower,
-                            target,
-                            waveIndex: 0,
-                            activeEnemies,
-                            state: null,
-                            onHit: ctx =>
+                            float effectiveInterval = tower.AttackInterval;
+                            foreach (Modifier mod in tower.Modifiers)
+                                mod.ModifyAttackInterval(ref effectiveInterval, tower);
+                            tower.Cooldown = Math.Max(0.01f, effectiveInterval);
+
+                            if (spectacle != null)
+                                spectacle.RegisterShotFired(tower);
+
+                            bool markedBefore = primaryTarget.IsMarked;
+                            DamageContext primaryCtx = ApplyHitAndCollect(tower, primaryTarget, activeEnemies, metrics, state: null, isChain: false);
+                            RegisterLiveProcForHit(spectacle, tower, markedBefore, primaryTarget, primaryCtx.DamageDealt);
+
+                            int undertowTargets = 1;
+                            bool startedPrimary = TryStartUndertowEffect(
+                                tower,
+                                primaryTarget,
+                                strengthMultiplier: 1f,
+                                isSecondary: false,
+                                isFollowup: false,
+                                enableEndpointPulse: true,
+                                activeUndertows,
+                                undertowRecentRemaining,
+                                undertowRetargetLockoutRemaining);
+                            if (startedPrimary)
                             {
-                                ApplyContextToMetrics(ctx, metrics);
-                                RegisterLiveProcForHit(spectacle, tower, ctx.Target.IsMarked, ctx.Target, ctx.DamageDealt);
-                            });
-                        if (splitHits > 0 && spectacle != null)
-                        {
-                            float splitDamage = tower.BaseDamage * Balance.SplitShotDamageRatio;
-                            spectacle.RegisterProc(tower, SpectacleDefinitions.SplitShot,
-                                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.SplitShot), splitDamage);
-                        }
+                                undertowTargets += ApplyUndertowSecondaryTugs(
+                                    tower,
+                                    primaryTarget,
+                                    activeEnemies,
+                                    activeUndertows,
+                                    undertowRecentRemaining,
+                                    undertowRetargetLockoutRemaining);
+                                ScheduleUndertowFeedbackFollowup(
+                                    tower,
+                                    primaryTarget,
+                                    rng,
+                                    activeUndertows,
+                                    undertowRecentRemaining,
+                                    undertowRetargetLockoutRemaining);
+                            }
 
-                        metrics.TargetsHitTotal += 1 + chainHits + splitHits;
-                        MarkNewDeaths(enemies, metrics);
+                            metrics.TargetsHitTotal += undertowTargets;
+                            MarkNewDeaths(enemies, metrics);
+                        }
+                    }
+                    else
+                    {
+                        BenchmarkEnemy? target = tower.TowerId == "rocket_launcher"
+                            ? SelectRocketSplashTarget(tower, activeEnemies)
+                            : Targeting.SelectTarget(tower, activeEnemies, ignoreRange: false);
+                        if (target != null)
+                        {
+                            firedThisStep = true;
+                            metrics.Shots++;
+                            metrics.FiredSteps++;
+
+                            float effectiveInterval = tower.AttackInterval;
+                            foreach (Modifier mod in tower.Modifiers)
+                                mod.ModifyAttackInterval(ref effectiveInterval, tower);
+                            tower.Cooldown = Math.Max(0.01f, effectiveInterval);
+
+                            if (spectacle != null)
+                                spectacle.RegisterShotFired(tower);
+
+                            bool targetMarkedBefore = target.IsMarked;
+                            DamageContext primaryCtx = ApplyHitAndCollect(tower, target, activeEnemies, metrics, state: null, isChain: false);
+                            RegisterLiveProcForHit(spectacle, tower, targetMarkedBefore, target, primaryCtx.DamageDealt);
+
+                            int chainHits = CombatResolution.ApplyChainHits(
+                                tower,
+                                target,
+                                waveIndex: 0,
+                                activeEnemies,
+                                state: null,
+                                onHit: ctx =>
+                                {
+                                    ApplyContextToMetrics(ctx, metrics);
+                                    RegisterLiveProcForHit(spectacle, tower, ctx.Target.IsMarked, ctx.Target, ctx.DamageDealt);
+                                });
+                            if (chainHits > 0 && spectacle != null)
+                            {
+                                float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
+                                spectacle.RegisterProc(tower, SpectacleDefinitions.ChainReaction,
+                                    SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ChainReaction), chainEventDamage);
+                            }
+
+                            int splitHits = CombatResolution.ApplySplitHits(
+                                tower,
+                                target,
+                                waveIndex: 0,
+                                activeEnemies,
+                                state: null,
+                                onHit: ctx =>
+                                {
+                                    ApplyContextToMetrics(ctx, metrics);
+                                    RegisterLiveProcForHit(spectacle, tower, ctx.Target.IsMarked, ctx.Target, ctx.DamageDealt);
+                                });
+                            if (splitHits > 0 && spectacle != null)
+                            {
+                                float splitDamage = tower.BaseDamage * Balance.SplitShotDamageRatio;
+                                spectacle.RegisterProc(tower, SpectacleDefinitions.SplitShot,
+                                    SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.SplitShot), splitDamage);
+                            }
+
+                            metrics.TargetsHitTotal += 1 + chainHits + splitHits;
+                            MarkNewDeaths(enemies, metrics);
+                        }
                     }
                 }
             }
@@ -763,6 +845,504 @@ public sealed class CombatLabTowerBenchmarkRunner
                 metrics.Leaks++;
                 metrics.LeakedHp += Math.Max(0f, enemy.Hp);
             }
+        }
+    }
+
+    private static void TickUndertowTimers(Dictionary<int, float> timers, float dt)
+    {
+        if (timers.Count == 0 || dt <= 0f)
+            return;
+
+        List<int> keys = timers.Keys.ToList();
+        foreach (int id in keys)
+        {
+            float remaining = timers[id] - dt;
+            if (remaining <= 0f)
+                timers.Remove(id);
+            else
+                timers[id] = remaining;
+        }
+    }
+
+    private static bool IsUsableUndertowTarget(BenchmarkEnemy enemy)
+        => enemy.Spawned && !enemy.Resolved && enemy.Hp > 0f;
+
+    private static bool IsInUndertowRange(BenchmarkTower tower, BenchmarkEnemy enemy)
+        => tower.GlobalPosition.DistanceTo(enemy.GlobalPosition) <= tower.Range;
+
+    private static BenchmarkEnemy? SelectRocketSplashTarget(BenchmarkTower tower, List<BenchmarkEnemy> enemies)
+    {
+        List<BenchmarkEnemy> inRange = enemies
+            .Where(e => e.Spawned && !e.Resolved && e.Hp > 0f)
+            .Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= tower.Range)
+            .ToList();
+        if (inRange.Count == 0)
+            return null;
+
+        int blastCoreCopies = CountMod(tower, SpectacleDefinitions.BlastCore);
+        float splashRadius = Balance.RocketLauncherSplashRadius
+            + blastCoreCopies * Balance.RocketLauncherBlastCoreRadiusPerCopy;
+
+        BenchmarkEnemy best = inRange[0];
+        int bestCluster = -1;
+        foreach (BenchmarkEnemy candidate in inRange)
+        {
+            int cluster = 0;
+            foreach (BenchmarkEnemy enemy in enemies)
+            {
+                if (!enemy.Spawned || enemy.Resolved || enemy.Hp <= 0f)
+                    continue;
+                if (candidate.GlobalPosition.DistanceTo(enemy.GlobalPosition) <= splashRadius)
+                    cluster++;
+            }
+
+            if (cluster > bestCluster)
+            {
+                best = candidate;
+                bestCluster = cluster;
+                continue;
+            }
+
+            if (cluster == bestCluster && PreferTargetByMode(candidate, best, tower.TargetingMode))
+                best = candidate;
+        }
+
+        return best;
+    }
+
+    private static bool PreferTargetByMode(BenchmarkEnemy candidate, BenchmarkEnemy current, TargetingMode mode)
+    {
+        switch (mode)
+        {
+            case TargetingMode.Strongest:
+                if (MathF.Abs(candidate.Hp - current.Hp) > 0.001f)
+                    return candidate.Hp > current.Hp;
+                if (MathF.Abs(candidate.PathDistance - current.PathDistance) > 0.001f)
+                    return candidate.PathDistance > current.PathDistance;
+                break;
+            case TargetingMode.LowestHp:
+                if (MathF.Abs(candidate.Hp - current.Hp) > 0.001f)
+                    return candidate.Hp < current.Hp;
+                if (MathF.Abs(candidate.PathDistance - current.PathDistance) > 0.001f)
+                    return candidate.PathDistance > current.PathDistance;
+                break;
+            case TargetingMode.Last:
+                if (MathF.Abs(candidate.PathDistance - current.PathDistance) > 0.001f)
+                    return candidate.PathDistance < current.PathDistance;
+                if (MathF.Abs(candidate.Hp - current.Hp) > 0.001f)
+                    return candidate.Hp > current.Hp;
+                break;
+            default:
+                if (MathF.Abs(candidate.PathDistance - current.PathDistance) > 0.001f)
+                    return candidate.PathDistance > current.PathDistance;
+                if (MathF.Abs(candidate.Hp - current.Hp) > 0.001f)
+                    return candidate.Hp > current.Hp;
+                break;
+        }
+
+        return candidate.Id < current.Id;
+    }
+
+    private static float ResolveUndertowResistance(BenchmarkEnemy target)
+    {
+        string group = (target.GroupId ?? string.Empty).Trim().ToLowerInvariant();
+        if (group.Contains("armored", StringComparison.Ordinal) || group.Contains("shield", StringComparison.Ordinal))
+            return Balance.UndertowArmoredResistanceMultiplier;
+        if (target.IsTank || group.Contains("elite", StringComparison.Ordinal) || group.Contains("heavy", StringComparison.Ordinal))
+            return Balance.UndertowHeavyResistanceMultiplier;
+        return 1f;
+    }
+
+    private static float ResolveUndertowRecentMultiplier(
+        Dictionary<int, float> undertowRecentRemaining,
+        BenchmarkEnemy target)
+    {
+        if (!undertowRecentRemaining.TryGetValue(target.Id, out float remaining))
+            return 1f;
+
+        float t = Mathf.Clamp(remaining / MathF.Max(0.0001f, Balance.UndertowRecentWindow), 0f, 1f);
+        return Mathf.Lerp(1f, Balance.UndertowRecentMinMultiplier, t);
+    }
+
+    private static float ResolveUndertowSlowFactor(BenchmarkTower tower, bool isSecondary, bool isFollowup)
+    {
+        float factor = Balance.UndertowSlowFactor;
+        int chillCopies = CountMod(tower, "slow");
+        int focusCopies = CountMod(tower, "focus_lens");
+        factor -= chillCopies * Balance.UndertowSlowPerChillCopy;
+        factor -= focusCopies * Balance.UndertowFocusLensSlowPerCopy;
+        if (isSecondary)
+            factor = Mathf.Lerp(factor, 1f, 0.35f);
+        if (isFollowup)
+            factor = Mathf.Lerp(factor, 1f, 0.24f);
+        return Mathf.Clamp(factor, 0.12f, 0.95f);
+    }
+
+    private static void RegisterUndertowAffect(
+        Dictionary<int, float> undertowRecentRemaining,
+        Dictionary<int, float> undertowRetargetLockoutRemaining,
+        BenchmarkEnemy target)
+    {
+        undertowRecentRemaining.TryGetValue(target.Id, out float currentRecent);
+        undertowRecentRemaining[target.Id] = MathF.Max(currentRecent, Balance.UndertowRecentWindow);
+
+        undertowRetargetLockoutRemaining.TryGetValue(target.Id, out float currentLockout);
+        undertowRetargetLockoutRemaining[target.Id] = MathF.Max(currentLockout, Balance.UndertowRetargetLockout);
+    }
+
+    private static void UpdateActiveUndertows(
+        List<BenchmarkUndertowEffect> activeUndertows,
+        Dictionary<int, float> undertowRecentRemaining,
+        Dictionary<int, float> undertowRetargetLockoutRemaining,
+        List<BenchmarkEnemy> enemies,
+        float dt)
+    {
+        TickUndertowTimers(undertowRecentRemaining, dt);
+        TickUndertowTimers(undertowRetargetLockoutRemaining, dt);
+        if (activeUndertows.Count == 0 || dt <= 0f)
+            return;
+
+        var activeCountByEnemy = new Dictionary<int, int>();
+        foreach (BenchmarkUndertowEffect effect in activeUndertows)
+        {
+            if (effect.DelayRemaining > 0f || !IsUsableUndertowTarget(effect.Target))
+                continue;
+            activeCountByEnemy.TryGetValue(effect.Target.Id, out int count);
+            activeCountByEnemy[effect.Target.Id] = count + 1;
+        }
+
+        for (int i = activeUndertows.Count - 1; i >= 0; i--)
+        {
+            BenchmarkUndertowEffect effect = activeUndertows[i];
+            if (!IsUsableUndertowTarget(effect.Target))
+            {
+                activeUndertows.RemoveAt(i);
+                continue;
+            }
+
+            if (effect.DelayRemaining > 0f)
+            {
+                effect.DelayRemaining = MathF.Max(0f, effect.DelayRemaining - dt);
+                if (effect.DelayRemaining > 0f)
+                    continue;
+
+                RegisterUndertowAffect(undertowRecentRemaining, undertowRetargetLockoutRemaining, effect.Target);
+                Statuses.ApplySlow(effect.Target, MathF.Max(0.12f, effect.TotalDuration), effect.SlowFactor);
+            }
+
+            float remainingDistance = MathF.Max(0f, effect.TotalPullDistance - effect.PulledDistance);
+            if (remainingDistance <= 0.01f || effect.Remaining <= 0f)
+            {
+                CompleteUndertowEffect(effect, enemies, undertowRecentRemaining);
+                activeUndertows.RemoveAt(i);
+                continue;
+            }
+
+            Statuses.ApplySlow(effect.Target, MathF.Max(0.10f, dt + 0.05f), effect.SlowFactor);
+
+            float stepPull = effect.TotalDuration <= 0.001f
+                ? remainingDistance
+                : effect.TotalPullDistance * (dt / effect.TotalDuration);
+            stepPull = MathF.Min(stepPull, remainingDistance);
+
+            if (activeCountByEnemy.TryGetValue(effect.Target.Id, out int concurrent) && concurrent > 1)
+            {
+                float concurrentScale = 1f;
+                for (int c = 1; c < concurrent; c++)
+                    concurrentScale *= Balance.UndertowConcurrentExtraDecay;
+                stepPull *= concurrentScale;
+            }
+
+            float startDistance = effect.Target.PathDistance;
+            float endDistance = MathF.Max(0f, startDistance - stepPull);
+            float applied = startDistance - endDistance;
+            if (applied > 0f)
+            {
+                effect.Target.PathDistance = endDistance;
+                effect.PulledDistance += applied;
+            }
+
+            effect.Remaining -= dt;
+            if (effect.Remaining <= 0f || effect.PulledDistance >= effect.TotalPullDistance - 0.01f)
+            {
+                CompleteUndertowEffect(effect, enemies, undertowRecentRemaining);
+                activeUndertows.RemoveAt(i);
+            }
+        }
+    }
+
+    private static BenchmarkEnemy? SelectUndertowPrimaryTarget(
+        BenchmarkTower tower,
+        List<BenchmarkEnemy> enemies,
+        List<BenchmarkUndertowEffect> activeUndertows,
+        Dictionary<int, float> undertowRetargetLockoutRemaining)
+    {
+        List<BenchmarkEnemy> candidates = enemies
+            .Where(IsUsableUndertowTarget)
+            .Where(e => IsInUndertowRange(tower, e))
+            .ToList();
+        if (candidates.Count == 0)
+            return null;
+
+        bool PreferCandidate(BenchmarkEnemy a, BenchmarkEnemy b)
+        {
+            bool aActive = activeUndertows.Any(u => u.DelayRemaining <= 0f && ReferenceEquals(u.Target, a));
+            bool bActive = activeUndertows.Any(u => u.DelayRemaining <= 0f && ReferenceEquals(u.Target, b));
+            if (aActive != bActive)
+                return !aActive;
+
+            bool aLocked = undertowRetargetLockoutRemaining.TryGetValue(a.Id, out float aLock) && aLock > 0f;
+            bool bLocked = undertowRetargetLockoutRemaining.TryGetValue(b.Id, out float bLock) && bLock > 0f;
+            if (aLocked != bLocked)
+                return !aLocked;
+
+            if (MathF.Abs(a.PathDistance - b.PathDistance) > 0.001f)
+                return a.PathDistance > b.PathDistance;
+            if (MathF.Abs(a.Hp - b.Hp) > 0.001f)
+                return a.Hp > b.Hp;
+            return a.Id < b.Id;
+        }
+
+        BenchmarkEnemy best = candidates[0];
+        for (int i = 1; i < candidates.Count; i++)
+        {
+            BenchmarkEnemy candidate = candidates[i];
+            if (PreferCandidate(candidate, best))
+                best = candidate;
+        }
+        return best;
+    }
+
+    private static bool TryStartUndertowEffect(
+        BenchmarkTower tower,
+        BenchmarkEnemy target,
+        float strengthMultiplier,
+        bool isSecondary,
+        bool isFollowup,
+        bool enableEndpointPulse,
+        List<BenchmarkUndertowEffect> activeUndertows,
+        Dictionary<int, float> undertowRecentRemaining,
+        Dictionary<int, float> undertowRetargetLockoutRemaining,
+        float delaySeconds = 0f)
+    {
+        if (!IsUsableUndertowTarget(target))
+            return false;
+
+        float pull = Balance.UndertowPullDistance;
+        pull *= (1f + CountMod(tower, "focus_lens") * Balance.UndertowFocusLensPullPerCopy);
+        if (target.IsMarked || target.DamageAmpRemaining > 0f || target.SlowRemaining > 0f)
+            pull *= (1f + Balance.UndertowMarkedSusceptibilityBonus);
+
+        pull *= ResolveUndertowResistance(target);
+        pull *= ResolveUndertowRecentMultiplier(undertowRecentRemaining, target);
+        pull *= MathF.Max(0f, strengthMultiplier);
+        if (isFollowup)
+            pull *= Balance.UndertowFeedbackFollowupMultiplier;
+        pull = MathF.Min(Balance.UndertowPullDistanceCap, pull);
+        pull = MathF.Min(pull, target.PathDistance);
+        if (pull < Balance.UndertowMinEffectivePull)
+            return false;
+
+        float duration = Balance.UndertowDuration;
+        if (isSecondary)
+            duration *= Balance.UndertowSecondaryDurationMultiplier;
+        if (isFollowup)
+            duration *= 0.82f;
+        duration = MathF.Max(0.12f, duration);
+
+        var effect = new BenchmarkUndertowEffect
+        {
+            Tower = tower,
+            Target = target,
+            TotalDuration = duration,
+            Remaining = duration,
+            TotalPullDistance = pull,
+            PulledDistance = 0f,
+            SlowFactor = ResolveUndertowSlowFactor(tower, isSecondary, isFollowup),
+            IsSecondary = isSecondary,
+            IsFollowup = isFollowup,
+            EnableEndpointPulse = enableEndpointPulse,
+            DelayRemaining = MathF.Max(0f, delaySeconds),
+        };
+
+        activeUndertows.Add(effect);
+        if (effect.DelayRemaining <= 0f)
+        {
+            RegisterUndertowAffect(undertowRecentRemaining, undertowRetargetLockoutRemaining, target);
+            Statuses.ApplySlow(target, MathF.Max(0.12f, duration), effect.SlowFactor);
+        }
+        return true;
+    }
+
+    private static BenchmarkEnemy? SelectUndertowSecondaryTarget(
+        BenchmarkTower tower,
+        BenchmarkEnemy primary,
+        List<BenchmarkEnemy> enemies,
+        HashSet<BenchmarkEnemy> excluded,
+        float searchRadius)
+    {
+        BenchmarkEnemy? best = null;
+        float bestDistance = searchRadius;
+        foreach (BenchmarkEnemy enemy in enemies)
+        {
+            if (!IsUsableUndertowTarget(enemy) || ReferenceEquals(enemy, primary) || excluded.Contains(enemy))
+                continue;
+            if (!IsInUndertowRange(tower, enemy))
+                continue;
+
+            float distance = primary.GlobalPosition.DistanceTo(enemy.GlobalPosition);
+            if (distance > searchRadius)
+                continue;
+
+            if (best == null
+                || distance < bestDistance - 0.001f
+                || (MathF.Abs(distance - bestDistance) <= 0.001f && enemy.Id < best.Id))
+            {
+                best = enemy;
+                bestDistance = distance;
+            }
+        }
+        return best;
+    }
+
+    private static int ApplyUndertowSecondaryTugs(
+        BenchmarkTower tower,
+        BenchmarkEnemy primaryTarget,
+        List<BenchmarkEnemy> enemies,
+        List<BenchmarkUndertowEffect> activeUndertows,
+        Dictionary<int, float> undertowRecentRemaining,
+        Dictionary<int, float> undertowRetargetLockoutRemaining)
+    {
+        int applied = 0;
+        var excluded = new HashSet<BenchmarkEnemy> { primaryTarget };
+
+        if (tower.SplitCount > 0)
+        {
+            BenchmarkEnemy? splitTarget = SelectUndertowSecondaryTarget(
+                tower,
+                primaryTarget,
+                enemies,
+                excluded,
+                Balance.UndertowSecondarySearchRadius);
+            if (splitTarget != null && TryStartUndertowEffect(
+                tower,
+                splitTarget,
+                Balance.UndertowSplitSecondaryMultiplier,
+                isSecondary: true,
+                isFollowup: false,
+                enableEndpointPulse: false,
+                activeUndertows,
+                undertowRecentRemaining,
+                undertowRetargetLockoutRemaining))
+            {
+                applied++;
+                excluded.Add(splitTarget);
+            }
+        }
+
+        if (tower.ChainCount > 0)
+        {
+            BenchmarkEnemy? chainTarget = SelectUndertowSecondaryTarget(
+                tower,
+                primaryTarget,
+                enemies,
+                excluded,
+                MathF.Max(Balance.UndertowSecondarySearchRadius, tower.ChainRange));
+            if (chainTarget != null && TryStartUndertowEffect(
+                tower,
+                chainTarget,
+                Balance.UndertowChainSecondaryMultiplier,
+                isSecondary: true,
+                isFollowup: false,
+                enableEndpointPulse: false,
+                activeUndertows,
+                undertowRecentRemaining,
+                undertowRetargetLockoutRemaining))
+            {
+                applied++;
+            }
+        }
+
+        return applied;
+    }
+
+    private static void ScheduleUndertowFeedbackFollowup(
+        BenchmarkTower tower,
+        BenchmarkEnemy primaryTarget,
+        Random rng,
+        List<BenchmarkUndertowEffect> activeUndertows,
+        Dictionary<int, float> undertowRecentRemaining,
+        Dictionary<int, float> undertowRetargetLockoutRemaining)
+    {
+        int feedbackCopies = CountMod(tower, "feedback_loop");
+        if (feedbackCopies <= 0)
+            return;
+
+        float chance = Mathf.Clamp(feedbackCopies * Balance.UndertowFeedbackFollowupChance, 0f, 0.72f);
+        if (rng.NextDouble() > chance)
+            return;
+
+        TryStartUndertowEffect(
+            tower,
+            primaryTarget,
+            strengthMultiplier: 1f,
+            isSecondary: true,
+            isFollowup: true,
+            enableEndpointPulse: false,
+            activeUndertows,
+            undertowRecentRemaining,
+            undertowRetargetLockoutRemaining,
+            delaySeconds: Balance.UndertowFeedbackFollowupDelay);
+    }
+
+    private static void CompleteUndertowEffect(
+        BenchmarkUndertowEffect effect,
+        List<BenchmarkEnemy> enemies,
+        Dictionary<int, float> undertowRecentRemaining)
+    {
+        if (!IsUsableUndertowTarget(effect.Target))
+            return;
+        if (effect.PulledDistance <= 0.01f)
+            return;
+        if (!effect.EnableEndpointPulse)
+            return;
+
+        ApplyUndertowEndpointCompression(effect, enemies, undertowRecentRemaining);
+    }
+
+    private static void ApplyUndertowEndpointCompression(
+        BenchmarkUndertowEffect effect,
+        List<BenchmarkEnemy> enemies,
+        Dictionary<int, float> undertowRecentRemaining)
+    {
+        int blastCopies = CountMod(effect.Tower, "blast_core");
+        float radius = Balance.UndertowEndpointBaseRadius + blastCopies * Balance.UndertowEndpointRadiusPerBlastCore;
+        float basePull = Balance.UndertowEndpointBasePull + blastCopies * Balance.UndertowEndpointPullPerBlastCore;
+        if (radius <= 0f || basePull <= 0f)
+            return;
+
+        foreach (BenchmarkEnemy enemy in enemies)
+        {
+            if (!IsUsableUndertowTarget(enemy))
+                continue;
+            if (enemy.GlobalPosition.DistanceTo(effect.Target.GlobalPosition) > radius)
+                continue;
+
+            float pull = basePull;
+            if (!ReferenceEquals(enemy, effect.Target))
+                pull *= 0.72f;
+            pull *= ResolveUndertowResistance(enemy);
+            pull *= ResolveUndertowRecentMultiplier(undertowRecentRemaining, enemy);
+
+            float start = enemy.PathDistance;
+            float end = MathF.Max(0f, start - pull);
+            float moved = start - end;
+            if (moved <= 0.001f)
+                continue;
+
+            enemy.PathDistance = end;
+            if (!ReferenceEquals(enemy, effect.Target))
+                Statuses.ApplySlow(enemy, Balance.UndertowEndpointSlowDuration, Balance.UndertowEndpointSlowFactor);
         }
     }
 
@@ -1388,10 +1968,12 @@ public sealed class CombatLabTowerBenchmarkRunner
         {
             "rapid_shooter" => 95f,
             "heavy_cannon" => 130f,
+            "rocket_launcher" => 124f,
             "marker_tower" => 90f,
             "chain_tower" => 115f,
             "rift_prism" => 120f,
             "phase_splitter" => 122f,
+            "undertow_engine" => 118f,
             _ => 100f
         };
     }
@@ -1405,10 +1987,12 @@ public sealed class CombatLabTowerBenchmarkRunner
         {
             "rapid_shooter" => new[] { "anti_swarm", "generalist" },
             "heavy_cannon" => new[] { "anti_tank", "burst" },
+            "rocket_launcher" => new[] { "anti_swarm", "pack_control", "generalist" },
             "marker_tower" => new[] { "support", "control" },
             "chain_tower" => new[] { "anti_swarm", "control" },
             "rift_prism" => new[] { "area_denial", "anti_tank" },
             "phase_splitter" => new[] { "backline_pressure", "control", "generalist" },
+            "undertow_engine" => new[] { "control", "support", "backline_pressure" },
             _ => Array.Empty<string>()
         };
     }

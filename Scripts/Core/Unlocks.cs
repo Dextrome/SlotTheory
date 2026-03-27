@@ -18,6 +18,8 @@ public static class Unlocks
     public const string RiftPrismAchievementId = "RIFT_UNSEALED";
     public const string AccordionEngineTowerId = "accordion_engine";
     public const string AccordionEngineAchievementId = "ACCORDION_UNSEALED";
+    public const string RocketLauncherTowerId = "rocket_launcher";
+    public const string UndertowEngineTowerId = "undertow_engine";
     public const string BlastCoreModifierId = "blast_core";
     public const string BlastCoreAchievementId = "BLAST_UNSEALED";
     public const string WildfireModifierId = "wildfire";
@@ -164,11 +166,14 @@ public static class Unlocks
 
     public static bool IsTowerUnlocked(string towerId)
     {
-        // Accordion Engine and Phase Splitter unlock on full-game-only maps --
-        // demo players can never reach them, so exclude from demo regardless of bot mode.
+        // Full-game-only towers are excluded from demo regardless of bot mode.
         if (Balance.IsDemo && string.Equals(towerId, AccordionEngineTowerId, StringComparison.OrdinalIgnoreCase))
             return false;
         if (Balance.IsDemo && string.Equals(towerId, PhaseSplitterTowerId, StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (Balance.IsDemo && string.Equals(towerId, RocketLauncherTowerId, StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (Balance.IsDemo && string.Equals(towerId, UndertowEngineTowerId, StringComparison.OrdinalIgnoreCase))
             return false;
 
         // Bot simulations evaluate full content balance regardless of player progression.

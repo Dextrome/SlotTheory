@@ -15,12 +15,12 @@ public partial class ProjectileVisual : Node2D
 {
     private EnemyInstance? _target;
     private TowerInstance? _tower;
-    private int   _waveIndex;
+    private int _waveIndex;
     private List<EnemyInstance>? _enemies;
     private SlotTheory.Core.RunState? _runState;
     private float _speed;
     private Color _color;
-    private bool  _isSplitProjectile;
+    private bool _isSplitProjectile;
     private float _damageOverride = -1f;
 
     private const int TrailMax = 14;
@@ -31,34 +31,62 @@ public partial class ProjectileVisual : Node2D
                            SlotTheory.Core.RunState? runState = null,
                            bool isSplitProjectile = false, float damageOverride = -1f)
     {
-        GlobalPosition      = fromGlobal;
-        _target             = target;
-        _tower              = tower;
-        _waveIndex          = waveIndex;
-        _enemies            = enemies;
-        _runState           = runState;
-        _speed              = speed;
-        _color              = color;
-        _isSplitProjectile  = isSplitProjectile;
-        _damageOverride     = damageOverride;
+        GlobalPosition = fromGlobal;
+        _target = target;
+        _tower = tower;
+        _waveIndex = waveIndex;
+        _enemies = enemies;
+        _runState = runState;
+        _speed = speed;
+        _color = color;
+        _isSplitProjectile = isSplitProjectile;
+        _damageOverride = damageOverride;
     }
 
     public override void _Draw()
     {
-        // Trail â€” taper from thin/transparent at tail to full at head
+        bool rocket = _tower?.TowerId == "rocket_launcher";
+
+        // Trail taper from thin/transparent at tail to full at head.
         for (int i = 1; i < _trail.Count; i++)
         {
             float t = i / (float)_trail.Count;
+            float width = rocket ? (2.0f + t * 5.8f) : (1.2f + t * 4.2f);
             DrawLine(ToLocal(_trail[i - 1]), ToLocal(_trail[i]),
-                new Color(_color.R, _color.G, _color.B, t * 0.82f),
-                1.2f + t * 4.2f);
+                new Color(_color.R, _color.G, _color.B, t * (rocket ? 0.88f : 0.82f)),
+                width);
         }
 
-        // Glow bloom behind diamond head
+        if (rocket)
+        {
+            DrawCircle(new Vector2(0f, 7.5f), 6.0f, new Color(1f, 0.55f, 0.12f, 0.36f));
+            DrawCircle(new Vector2(0f, 9.8f), 3.6f, new Color(1f, 0.86f, 0.40f, 0.42f));
+            DrawRect(new Rect2(-2.8f, -8.2f, 5.6f, 12.4f), _color);
+            DrawPolygon(new[]
+            {
+                new Vector2(0f, -11.0f),
+                new Vector2(3.3f, -5.5f),
+                new Vector2(-3.3f, -5.5f),
+            }, new[] { new Color(1f, 0.90f, 0.68f, 0.95f) });
+            DrawPolygon(new[]
+            {
+                new Vector2(-2.8f, 3.2f),
+                new Vector2(-5.9f, 7.0f),
+                new Vector2(-1.2f, 6.4f),
+            }, new[] { new Color(_color.R, _color.G, _color.B, 0.85f) });
+            DrawPolygon(new[]
+            {
+                new Vector2(2.8f, 3.2f),
+                new Vector2(5.9f, 7.0f),
+                new Vector2(1.2f, 6.4f),
+            }, new[] { new Color(_color.R, _color.G, _color.B, 0.85f) });
+            DrawCircle(new Vector2(0f, -2.5f), 1.5f, new Color(1f, 1f, 1f, 0.90f));
+            return;
+        }
+
+        // Default projectile look.
         DrawCircle(Vector2.Zero, 10f, new Color(_color.R, _color.G, _color.B, 0.30f));
         DrawCircle(Vector2.Zero, 5f, new Color(1f, 1f, 1f, 0.25f));
-
-        // Diamond head
         DrawPolygon(
             new[] { new Vector2(0f, -5f), new Vector2(5f, 0f), new Vector2(0f, 5f), new Vector2(-5f, 0f) },
             new[] { _color });
@@ -67,25 +95,28 @@ public partial class ProjectileVisual : Node2D
 
     public override void _Process(double delta)
     {
-        // Target already dead or freed â€” dissolve
+        // Target already dead or freed - dissolve.
         if (_target == null || !GodotObject.IsInstanceValid(_target) || _target.Hp <= 0)
         {
             QueueFree();
             return;
         }
 
-        // Store position before moving (trail grows from oldest to newest)
+        // Store position before moving (trail grows from oldest to newest).
         _trail.Add(GlobalPosition);
         if (_trail.Count > TrailMax)
             _trail.RemoveAt(0);
         QueueRedraw();
 
-        var   toTarget = _target.GlobalPosition - GlobalPosition;
-        float dist     = toTarget.Length();
+        var toTarget = _target.GlobalPosition - GlobalPosition;
+        float dist = toTarget.Length();
+
+        if (_tower?.TowerId == "rocket_launcher" && dist > 0.0001f)
+            Rotation = toTarget.Angle() + Mathf.Pi * 0.5f;
 
         if (dist <= _speed * (float)delta)
         {
-            // Arrived â€” apply primary damage
+            // Arrived - apply primary damage.
             if (_tower != null && _enemies != null && _target.Hp > 0)
             {
                 float hpBefore = _target.Hp;
@@ -94,31 +125,34 @@ public partial class ProjectileVisual : Node2D
                                         isChain: false, damageOverride: _damageOverride)
                     : new DamageContext(_tower, _target, _waveIndex, _enemies, _runState);
                 DamageModel.Apply(ctx);
-                SlotTheory.Core.SoundManager.Instance?.Play("hit");
+
+                string hitSound = _tower.TowerId == "rocket_launcher" ? "hit_rocket" : "hit";
+                SlotTheory.Core.SoundManager.Instance?.Play(hitSound);
 
                 float dealt = hpBefore - _target.Hp;
                 if (dealt > 0f)
                 {
                     bool isKill = _target.Hp <= 0;
                     SpawnDamageNumber(_target.GlobalPosition, dealt, isKill, _tower?.TowerId ?? "");
-                    SpawnImpactSparks(_target.GlobalPosition, heavy: _tower?.TowerId == "heavy_cannon");
+                    bool heavyImpact = _tower?.TowerId is "heavy_cannon" or "rocket_launcher";
+                    SpawnImpactSparks(_target.GlobalPosition, heavy: heavyImpact);
                     if (isKill)
                     {
-                        bool heavy = _tower?.TowerId == "heavy_cannon";
+                        bool heavy = _tower?.TowerId is "heavy_cannon" or "rocket_launcher";
                         GameController.Instance?.TriggerHitStop(
-                            realDuration: heavy ? 0.055f : 0.040f,
-                            slowScale: heavy ? 0.16f : 0.22f);
+                            realDuration: heavy ? 0.053f : 0.040f,
+                            slowScale: heavy ? 0.18f : 0.22f);
                     }
                     if (!isKill && GodotObject.IsInstanceValid(_target))
                         _target.FlashHit();
                 }
 
-                // Chain bounces first (hitscan) â€” split shot then picks from surviving enemies
-                if (_tower!.IsChainTower && !_isSplitProjectile)
+                // Chain bounces first (hitscan) - split shot then picks from surviving enemies.
+                if (_tower.IsChainTower && !_isSplitProjectile)
                     ApplyChainHits(_target.GlobalPosition);
 
-                // Split Shot â€” fires at enemies that weren't already killed by chain
-                if (_tower!.SplitCount > 0 && !_isSplitProjectile)
+                // Split Shot - fires at enemies that weren't already killed by chain.
+                if (_tower.SplitCount > 0 && !_isSplitProjectile)
                     SpawnSplitProjectiles(_target.GlobalPosition);
             }
             QueueFree();
@@ -133,13 +167,13 @@ public partial class ProjectileVisual : Node2D
         var tower = _tower;
         if (tower == null || _enemies == null) return;
 
-        var alreadyHit = new System.Collections.Generic.HashSet<EnemyInstance>();
+        var alreadyHit = new HashSet<EnemyInstance>();
         if (GodotObject.IsInstanceValid(_target) && _target != null)
             alreadyHit.Add(_target);
 
         Vector2 chainFrom = startWorldPos;
-        float   damage    = tower.BaseDamage * tower.ChainDamageDecay;
-        int     bounceHits = 0;
+        float damage = tower.BaseDamage * tower.ChainDamageDecay;
+        int bounceHits = 0;
 
         for (int bounce = 0; bounce < tower.ChainCount; bounce++)
         {
@@ -178,7 +212,7 @@ public partial class ProjectileVisual : Node2D
 
             alreadyHit.Add(chainTarget);
             chainFrom = chainTarget.GlobalPosition;
-            damage   *= tower.ChainDamageDecay;
+            damage *= tower.ChainDamageDecay;
             bounceHits++;
         }
 

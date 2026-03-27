@@ -283,6 +283,42 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
     public const int   AccordionMinEnemiesForCompression = 2;      // need at least 2 in range to compress
     public const float PhaseSplitterDamageRatio          = 0.65f;  // each dual-end primary hit deals 65% base damage
 
+    // Rocket Launcher tower (direct explosive hits with built-in radial splash)
+    public const float RocketLauncherSplashRadius            = 88f;  // base built-in splash radius
+    public const float RocketLauncherSplashDamageRatio       = 0.55f; // splash damage as fraction of primary FinalDamage
+    public const float RocketLauncherBlastCoreRadiusPerCopy = 24f;  // extra splash radius per Blast Core copy
+    public const float RocketLauncherProjectileSpeed         = 620f; // px/s, readable but punchy rocket travel
+
+    // Undertow Engine tower (battlefield control via path-progress pull)
+    public const float UndertowDuration                    = 0.78f;  // active drag time
+    public const float UndertowPullDistance                = 84f;    // baseline pull distance along path progress
+    public const float UndertowPullDistanceCap             = 112f;   // hard cap before resist/DR
+    public const float UndertowMinEffectivePull            = 12f;    // skip tiny pulls that read as jitter
+    public const float UndertowSlowFactor                  = 0.28f;  // dragged target speed while active
+    public const float UndertowSlowPerChillCopy            = 0.08f;  // extra slow strength per Chill Shot copy
+    public const float UndertowFocusLensPullPerCopy        = 0.22f;  // stronger pull per Focus Lens copy
+    public const float UndertowFocusLensSlowPerCopy        = 0.06f;  // stronger slow per Focus Lens copy
+    public const float UndertowMarkedSusceptibilityBonus   = 0.12f;  // marked/debuffed targets are slightly easier to drag
+    public const float UndertowRecentWindow                = 3.0f;   // DR timer after an undertow application
+    public const float UndertowRecentMinMultiplier         = 0.42f;  // minimum pull multiplier under fresh DR
+    public const float UndertowRetargetLockout             = 0.85f;  // short anti-stack lockout for same target
+    public const float UndertowConcurrentExtraDecay        = 0.36f;  // additional multiplier per extra active undertow on same target
+    public const float UndertowArmoredResistanceMultiplier = 0.62f;  // armored walkers resist pull
+    public const float UndertowHeavyResistanceMultiplier   = 0.76f;  // reverse/shield/splitter heavies resist pull
+    public const float UndertowSecondarySearchRadius       = 156f;   // nearby enemy search for split/chain secondary tug
+    public const float UndertowSplitSecondaryMultiplier    = 0.46f;  // split-shot secondary tug strength
+    public const float UndertowChainSecondaryMultiplier    = 0.56f;  // chain-reaction secondary tug strength
+    public const float UndertowSecondaryDurationMultiplier = 0.72f;  // secondary tug is shorter than primary
+    public const float UndertowEndpointBaseRadius          = 68f;    // tiny base endpoint compression pulse
+    public const float UndertowEndpointRadiusPerBlastCore  = 26f;    // additional radius per Blast Core copy
+    public const float UndertowEndpointBasePull            = 14f;    // tiny endpoint tug without Blast Core
+    public const float UndertowEndpointPullPerBlastCore    = 12f;    // endpoint tug increase per Blast Core copy
+    public const float UndertowEndpointSlowDuration        = 0.72f;  // short lingering slow from endpoint compression
+    public const float UndertowEndpointSlowFactor          = 0.80f;  // mild endpoint slow
+    public const float UndertowFeedbackFollowupChance      = 0.22f;  // chance per Feedback Loop copy for delayed tug
+    public const float UndertowFeedbackFollowupDelay       = 0.38f;  // delayed follow-up tug timing
+    public const float UndertowFeedbackFollowupMultiplier  = 0.40f;  // follow-up tug strength
+
     // Wildfire modifier
     // Burn DPS = tower.BaseDamage × WildfireBurnDpsRatio (intentionally does NOT scale with FinalDamage
     // so Focus Lens / Momentum amplification doesn't create runaway burn values).

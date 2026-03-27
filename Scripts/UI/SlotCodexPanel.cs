@@ -207,7 +207,7 @@ public partial class SlotCodexPanel : Node
         PopulateTowerCards();
         PopulateModifierCards();
         PopulateEnemyCards();
-        HowToPlay.BuildBasicsSection(howToGuide);
+        HowToPlay.BuildBasicsSection(howToGuide, includeReferenceSections: false);
         HowToPlay.BuildSurgesSection(surgesGuide);
         SetActiveTab(ResolveStartTab());
         RefreshGridColumns(force: true);
@@ -426,7 +426,9 @@ public partial class SlotCodexPanel : Node
         {
             bool isFullGameOnly = Balance.IsDemo && (
                 string.Equals(towerId, Unlocks.AccordionEngineTowerId,  StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(towerId, Unlocks.PhaseSplitterTowerId,    StringComparison.OrdinalIgnoreCase));
+                string.Equals(towerId, Unlocks.PhaseSplitterTowerId,    StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(towerId, Unlocks.RocketLauncherTowerId,   StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(towerId, Unlocks.UndertowEngineTowerId,   StringComparison.OrdinalIgnoreCase));
             BuildCardBack(body,
                 isFullGameOnly ? "FULL GAME"               : "UNREVEALED TOWER",
                 isFullGameOnly ? "Available in full release." : GetUnlockGateNote(towerId));
@@ -840,11 +842,13 @@ public partial class SlotCodexPanel : Node
     {
         "rapid_shooter" => new Color(0.30f, 0.90f, 1.00f),
         "heavy_cannon" => new Color(1.00f, 0.55f, 0.00f),
+        "rocket_launcher" => new Color(1.00f, 0.54f, 0.14f),
         "marker_tower" => new Color(1.00f, 0.15f, 0.60f),
         "chain_tower"      => new Color(0.50f, 0.85f, 1.00f),
         "rift_prism"       => new Color(0.60f, 1.00f, 0.58f),
         "accordion_engine" => new Color(0.72f, 0.20f, 1.00f),
         "phase_splitter"   => new Color(0.45f, 1.00f, 0.95f),
+        "undertow_engine"  => new Color(0.08f, 0.64f, 0.86f),
         _ => new Color(0.82f, 0.88f, 1.00f),
     };
 
@@ -852,11 +856,13 @@ public partial class SlotCodexPanel : Node
     {
         "rapid_shooter" => "High cadence chip tower. Great for stacking Momentum, Feedback Loop, and Chill pressure.",
         "heavy_cannon" => "Burst cannon with huge per-shot impact. Best when paired with Overkill or Focus Lens.",
+        "rocket_launcher" => "Rocket Launcher fires explosive rockets that damage the target and nearby enemies. Burst Core further expands the blast radius.",
         "marker_tower" => "Applies Mark to amplify team damage. Core enabler for Exploit Weakness strategies.",
         "chain_tower"      => "Built-in chain bounces for dense waves and lane clear. Excellent in clustered path sections.",
         "rift_prism"       => "Plants charged lane mines. Final charge detonates harder, with rapid wave-start seeding for early trap setup.",
         "accordion_engine" => "Emits compression pulses that physically squeeze enemy spacing along the lane. Not a slow or stun -- it edits wave formation topology. Packed enemies become better targets for Blast Core, Arc Emitter chains, and Rift Sapper mines.",
         "phase_splitter"   => "Dual-end striker. Each shot hits both the first and last enemy in range at reduced damage. Strong against blocking frontlines and backline runners, but weaker than Arc Emitter in dense mid packs.",
+        "undertow_engine"  => "Undertow Engine drags enemies backward so they spend longer inside your defenses. It is a control tower first: extend dwell time, force re-entry into traps/mines/splash, and tighten formations for follow-up damage.",
         _ => "Tower entry."
     };
 

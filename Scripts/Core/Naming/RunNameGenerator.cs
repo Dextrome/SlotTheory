@@ -72,6 +72,11 @@ public static class RunNameGenerator
             "Cannon", "Driver", "Siegebreaker", "Mortar", "Hammer", "Slugger", "Railmaw", "Anvil",
             "Breaker", "Crusher", "Bastion", "Bombard"
         ],
+        ["rocket_launcher"] =
+        [
+            "Launcher", "Warhead", "Payload", "Blasttube", "Bombardier", "Impactline", "Firetrail", "Salvo",
+            "Shockring", "Siegeshot", "Burstshell", "Detonator"
+        ],
         ["marker_tower"] =
         [
             "Beacon", "Painter", "Tracer", "Signaler", "Tagger", "Locator", "Brander", "Targeter",
@@ -91,6 +96,11 @@ public static class RunNameGenerator
         [
             "Splitter", "Bifurcator", "Twinphase", "Dualgate", "Mirrornode", "Phasefork", "Backline",
             "Forkline", "Echoedge", "Polarity", "Seamcutter", "Dualcore"
+        ],
+        ["undertow_engine"] =
+        [
+            "Undertow", "Backflow", "Ripcurrent", "Dragline", "Reflux", "Currentlock", "Sinkline",
+            "Gripwell", "Tidewell", "Undercore", "Backwash", "Tethervoid"
         ],
     };
 
@@ -313,10 +323,12 @@ public static class RunNameGenerator
         {
             "rapid_shooter" => new Color(0.25f, 0.92f, 1.00f),
             "heavy_cannon" => new Color(1.00f, 0.60f, 0.18f),
+            "rocket_launcher" => new Color(1.00f, 0.54f, 0.14f),
             "marker_tower" => new Color(1.00f, 0.30f, 0.72f),
             "chain_tower" => new Color(0.62f, 0.90f, 1.00f),
             "rift_prism" => new Color(0.62f, 1.00f, 0.58f),
             "phase_splitter" => new Color(0.45f, 1.00f, 0.95f),
+            "undertow_engine" => new Color(0.08f, 0.64f, 0.86f),
             _ => new Color(0.84f, 0.92f, 1.00f),
         };
 
@@ -416,7 +428,9 @@ public static class RunNameGenerator
         {
             "chain_tower" => "MultiTarget",
             "rift_prism" => "Utility",
+            "undertow_engine" => "Utility",
             "phase_splitter" => "MultiTarget",
+            "rocket_launcher" => "MultiTarget",
             "marker_tower" => "StatusSynergy",
             "rapid_shooter" => "DamageScaling",
             "heavy_cannon" => "DamageScaling",

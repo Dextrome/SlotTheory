@@ -42,6 +42,23 @@ public class CombatSim
         public RiftMineVisual? Visual { get; init; }
     }
 
+    private sealed class ActiveUndertow
+    {
+        public ITowerView SourceTower { get; init; } = null!;
+        public TowerInstance? SourceNode { get; init; }
+        public EnemyInstance Target { get; init; } = null!;
+        public float TotalDuration { get; init; }
+        public float Remaining { get; set; }
+        public float TotalPullDistance { get; init; }
+        public float PulledDistance { get; set; }
+        public float SlowFactor { get; init; }
+        public bool IsSecondary { get; init; }
+        public bool EnableEndpointPulse { get; init; }
+        public bool IsFollowup { get; init; }
+        public float DelayRemaining { get; set; }
+        public UndertowTetherVfx? TetherVfx { get; set; }
+    }
+
     private readonly RunState _state;
     private float _spawnTimer = 0f;
     private readonly Queue<string> _spawnQueue = new();
@@ -54,6 +71,9 @@ public class CombatSim
     private readonly Dictionary<ulong, int> _riftBurstFastPlantsUsed = new();
     private ulong _nextMineId = 1;
     private readonly Random _mineRng;
+    private readonly List<ActiveUndertow> _activeUndertows = new();
+    private readonly Dictionary<ulong, float> _undertowRecentRemaining = new();
+    private readonly Dictionary<ulong, float> _undertowRetargetLockoutRemaining = new();
 
     // Wildfire fire trail segments -- managed like active mines but simpler (no charges, no targeting)
     private sealed class FireTrailSegment
@@ -103,6 +123,7 @@ public class CombatSim
         _riftBurstFastPlantsUsed.Clear();
         ClearMines();
         ClearFireTrails();
+        ClearUndertowEffects();
         RebuildMineAnchors();
     }
 
@@ -117,6 +138,7 @@ public class CombatSim
         _riftBurstFastPlantsUsed.Clear();
         ClearMines();
         ClearFireTrails();
+        ClearUndertowEffects();
         RebuildMineAnchors();
 
         int walkers   = ws.GetWalkerCount();
@@ -229,6 +251,10 @@ public class CombatSim
             _spawnTimer = NextSpawnInterval(typeId, waveSystem.GetSpawnInterval());
         }
 
+        // 1.5. Undertow active effects tick every frame so progress rewinds are smooth and
+        // happen through path progress (safe on curved/snake/zigzag maps).
+        UpdateActiveUndertows(delta, state.EnemiesAlive);
+
         // 2. Leaked enemies - each one costs a life; return Loss when lives run out
         var leaked = state.EnemiesAlive.FindAll(e => e.ProgressRatio >= 1.0f);
         foreach (var e in leaked)
@@ -253,6 +279,7 @@ public class CombatSim
         {
             ClearMines();
             ClearFireTrails();
+            ClearUndertowEffects();
             return WaveResult.Loss;
         }
 
@@ -512,7 +539,75 @@ public class CombatSim
                 continue;
             }
 
-            var target = Targeting.SelectTarget(tower, state.EnemiesAlive, ignoreRange: false);
+            if (tower.TowerId == "undertow_engine")
+            {
+                float interval = tower.AttackInterval;
+                foreach (var mod in tower.Modifiers)
+                    mod.ModifyAttackInterval(ref interval, tower);
+
+                EnemyInstance? primaryTarget = SelectUndertowPrimaryTarget(tower, state.EnemiesAlive);
+                if (primaryTarget == null)
+                {
+                    tower.Cooldown = 0.12f;
+                    continue;
+                }
+
+                if (BotMode) state.SlotFiredSteps[si]++;
+                tower.Cooldown = MathF.Max(0.01f, interval);
+                GameController.Instance?.RegisterSpectacleShotFired(tower);
+
+                if (!BotMode && towerNode != null)
+                {
+                    towerNode.LastTargetPosition = primaryTarget.GlobalPosition;
+                    towerNode.OnShotFired(primaryTarget);
+                    towerNode.FlashAttack();
+                    towerNode.KickRecoil(4.2f);
+                }
+
+                float hpBefore = primaryTarget.Hp;
+                var primaryCtx = new DamageContext(tower, primaryTarget, state.WaveIndex, state.EnemiesAlive, _state, isChain: false);
+                DamageModel.Apply(primaryCtx);
+                if (!BotMode)
+                {
+                    float dealt = hpBefore - primaryTarget.Hp;
+                    if (dealt > 0.01f)
+                    {
+                        bool isKill = primaryTarget.Hp <= 0f;
+                        SpawnDamageNumber(primaryTarget.GlobalPosition, MathF.Max(1f, dealt), isKill, tower.TowerId, towerNode?.ProjectileColor ?? Colors.Yellow);
+                        if (!isKill && GodotObject.IsInstanceValid(primaryTarget))
+                            primaryTarget.FlashHit();
+                    }
+                }
+
+                bool startedPrimary = TryStartUndertowEffect(
+                    tower,
+                    towerNode,
+                    primaryTarget,
+                    strengthMultiplier: 1f,
+                    isSecondary: false,
+                    isFollowup: false,
+                    enableEndpointPulse: true);
+
+                if (startedPrimary)
+                {
+                    ApplyUndertowSecondaryTugs(
+                        tower,
+                        towerNode,
+                        primaryTarget,
+                        state.EnemiesAlive);
+                    ScheduleUndertowFeedbackFollowup(
+                        tower,
+                        towerNode,
+                        primaryTarget);
+                }
+
+                Sounds?.Play("shoot_undertow", pitchScale: ComputeShootPitch(tower) * 0.94f);
+                continue;
+            }
+
+            EnemyInstance? target = tower.TowerId == "rocket_launcher"
+                ? SelectRocketSplashTarget(tower, state.EnemiesAlive)
+                : Targeting.SelectTarget(tower, state.EnemiesAlive, ignoreRange: false);
             if (target == null) continue;
 
             if (BotMode) state.SlotFiredSteps[si]++;
@@ -537,23 +632,30 @@ public class CombatSim
             {
                 towerNode.OnShotFired(target);
                 towerNode.FlashAttack();
-                float recoilPx = tower.TowerId == "heavy_cannon" ? 6.4f : 3.5f;
+                float recoilPx = tower.TowerId switch
+                {
+                    "heavy_cannon" => 6.4f,
+                    "rocket_launcher" => 5.2f,
+                    _ => 3.5f,
+                };
                 towerNode.KickRecoil(recoilPx);
             }
 
             string shootId = tower.TowerId switch
             {
                 "heavy_cannon"  => "shoot_heavy",
+                "rocket_launcher" => "shoot_rocket",
                 "marker_tower"  => "shoot_marker",
                 "chain_tower"   => "shoot_rapid",
                 "phase_splitter"=> "shoot_phase_splitter",
+                "undertow_engine" => "shoot_undertow",
                 _               => "shoot_rapid",
             };
             // Chill Shot gives rapid-fire towers a softer, icier sound
             if (shootId == "shoot_rapid" && tower.Modifiers.Any(m => m.ModifierId == "slow"))
                 shootId = "shoot_rapid_cold";
             Sounds?.Play(shootId, pitchScale: ComputeShootPitch(tower));
-            if (tower.TowerId == "heavy_cannon")
+            if (tower.TowerId is "heavy_cannon" or "rocket_launcher")
                 Sounds?.DuckMusic(1.9f, 0.11f);
         }
 
@@ -590,6 +692,7 @@ public class CombatSim
         {
             ClearMines();
             ClearFireTrails();
+            ClearUndertowEffects();
             return WaveResult.WaveComplete;
         }
 
@@ -614,6 +717,503 @@ public class CombatSim
                 trail.Visual.QueueFree();
         }
         _activeFireTrails.Clear();
+    }
+
+    private void ClearUndertowEffects()
+    {
+        foreach (var effect in _activeUndertows)
+        {
+            if (effect.TetherVfx != null && GodotObject.IsInstanceValid(effect.TetherVfx))
+                effect.TetherVfx.QueueFree();
+        }
+        _activeUndertows.Clear();
+        _undertowRecentRemaining.Clear();
+        _undertowRetargetLockoutRemaining.Clear();
+    }
+
+    private static void TickTimerDict(Dictionary<ulong, float> timers, float delta)
+    {
+        if (timers.Count == 0 || delta <= 0f)
+            return;
+
+        var keys = timers.Keys.ToArray();
+        foreach (ulong key in keys)
+        {
+            float remaining = timers[key] - delta;
+            if (remaining <= 0f)
+                timers.Remove(key);
+            else
+                timers[key] = remaining;
+        }
+    }
+
+    private void UpdateActiveUndertows(float delta, List<EnemyInstance> enemies)
+    {
+        TickTimerDict(_undertowRecentRemaining, delta);
+        TickTimerDict(_undertowRetargetLockoutRemaining, delta);
+
+        if (_activeUndertows.Count == 0 || delta <= 0f)
+            return;
+
+        var activeCountByEnemy = new Dictionary<ulong, int>();
+        foreach (var effect in _activeUndertows)
+        {
+            if (effect.DelayRemaining > 0f)
+                continue;
+            if (!GodotObject.IsInstanceValid(effect.Target) || effect.Target.Hp <= 0f)
+                continue;
+
+            ulong id = effect.Target.GetInstanceId();
+            activeCountByEnemy.TryGetValue(id, out int count);
+            activeCountByEnemy[id] = count + 1;
+        }
+
+        for (int i = _activeUndertows.Count - 1; i >= 0; i--)
+        {
+            ActiveUndertow effect = _activeUndertows[i];
+            if (!GodotObject.IsInstanceValid(effect.Target) || effect.Target.Hp <= 0f)
+            {
+                if (effect.TetherVfx != null && GodotObject.IsInstanceValid(effect.TetherVfx))
+                    effect.TetherVfx.QueueFree();
+                _activeUndertows.RemoveAt(i);
+                continue;
+            }
+
+            if (effect.DelayRemaining > 0f)
+            {
+                effect.DelayRemaining = MathF.Max(0f, effect.DelayRemaining - delta);
+                if (effect.DelayRemaining > 0f)
+                    continue;
+
+                RegisterUndertowAffect(effect.Target);
+                Statuses.ApplySlow(effect.Target, MathF.Max(0.12f, effect.TotalDuration), effect.SlowFactor);
+                if (!BotMode && effect.SourceNode != null && GodotObject.IsInstanceValid(effect.SourceNode) && LanePath != null)
+                {
+                    var tether = new UndertowTetherVfx();
+                    LanePath.GetParent().AddChild(tether);
+                    tether.GlobalPosition = Vector2.Zero;
+                    tether.Initialize(effect.SourceNode, effect.Target, effect.SourceNode.ProjectileColor, effect.TotalDuration, effect.IsSecondary || effect.IsFollowup);
+                    effect.TetherVfx = tether;
+                }
+            }
+
+            float remainingDistance = MathF.Max(0f, effect.TotalPullDistance - effect.PulledDistance);
+            if (remainingDistance <= 0.01f || effect.Remaining <= 0f)
+            {
+                CompleteUndertowEffect(effect, enemies);
+                if (effect.TetherVfx != null && GodotObject.IsInstanceValid(effect.TetherVfx))
+                    effect.TetherVfx.QueueFree();
+                _activeUndertows.RemoveAt(i);
+                continue;
+            }
+
+            Statuses.ApplySlow(effect.Target, MathF.Max(0.10f, delta + 0.05f), effect.SlowFactor);
+
+            float stepPull = effect.TotalDuration <= 0.001f
+                ? remainingDistance
+                : effect.TotalPullDistance * (delta / effect.TotalDuration);
+            stepPull = MathF.Min(stepPull, remainingDistance);
+
+            ulong targetId = effect.Target.GetInstanceId();
+            if (activeCountByEnemy.TryGetValue(targetId, out int concurrent) && concurrent > 1)
+            {
+                float concurrentScale = 1f;
+                for (int c = 1; c < concurrent; c++)
+                    concurrentScale *= Balance.UndertowConcurrentExtraDecay;
+                stepPull *= concurrentScale;
+            }
+
+            float startProgress = effect.Target.Progress;
+            float endProgress = MathF.Max(0f, startProgress - stepPull);
+            float applied = startProgress - endProgress;
+            if (applied > 0f)
+            {
+                effect.Target.Progress = endProgress;
+                effect.PulledDistance += applied;
+            }
+
+            effect.Remaining -= delta;
+            if (effect.TetherVfx != null && GodotObject.IsInstanceValid(effect.TetherVfx))
+            {
+                float t = 1f - (MathF.Max(0f, effect.Remaining) / MathF.Max(0.0001f, effect.TotalDuration));
+                effect.TetherVfx.SetProgress(Mathf.Clamp(t, 0f, 1f));
+            }
+
+            if (effect.Remaining <= 0f || effect.PulledDistance >= effect.TotalPullDistance - 0.01f)
+            {
+                CompleteUndertowEffect(effect, enemies);
+                if (effect.TetherVfx != null && GodotObject.IsInstanceValid(effect.TetherVfx))
+                    effect.TetherVfx.QueueFree();
+                _activeUndertows.RemoveAt(i);
+            }
+        }
+    }
+
+    private static bool IsUsableUndertowTarget(EnemyInstance enemy)
+        => GodotObject.IsInstanceValid(enemy) && enemy.Hp > 0f;
+
+    private static bool IsInRange(ITowerView tower, EnemyInstance enemy)
+        => tower.GlobalPosition.DistanceTo(enemy.GlobalPosition) <= tower.Range;
+
+    private EnemyInstance? SelectUndertowPrimaryTarget(ITowerView tower, List<EnemyInstance> enemies)
+    {
+        var candidates = enemies
+            .Where(IsUsableUndertowTarget)
+            .Where(e => IsInRange(tower, e))
+            .ToList();
+        if (candidates.Count == 0)
+            return null;
+
+        bool PreferCandidate(EnemyInstance a, EnemyInstance b)
+        {
+            // Prefer targets not currently under active undertow to avoid degenerate lock loops.
+            bool aActive = _activeUndertows.Any(u => u.DelayRemaining <= 0f && ReferenceEquals(u.Target, a));
+            bool bActive = _activeUndertows.Any(u => u.DelayRemaining <= 0f && ReferenceEquals(u.Target, b));
+            if (aActive != bActive)
+                return !aActive;
+
+            bool aLocked = _undertowRetargetLockoutRemaining.TryGetValue(a.GetInstanceId(), out float aLock) && aLock > 0f;
+            bool bLocked = _undertowRetargetLockoutRemaining.TryGetValue(b.GetInstanceId(), out float bLock) && bLock > 0f;
+            if (aLocked != bLocked)
+                return !aLocked;
+
+            switch (tower.TargetingMode)
+            {
+                case TargetingMode.Strongest:
+                    if (MathF.Abs(a.Hp - b.Hp) > 0.001f) return a.Hp > b.Hp;
+                    if (MathF.Abs(a.Progress - b.Progress) > 0.001f) return a.Progress > b.Progress;
+                    break;
+                case TargetingMode.LowestHp:
+                    if (MathF.Abs(a.Hp - b.Hp) > 0.001f) return a.Hp < b.Hp;
+                    if (MathF.Abs(a.Progress - b.Progress) > 0.001f) return a.Progress > b.Progress;
+                    break;
+                case TargetingMode.Last:
+                    if (MathF.Abs(a.Progress - b.Progress) > 0.001f) return a.Progress < b.Progress;
+                    if (MathF.Abs(a.Hp - b.Hp) > 0.001f) return a.Hp > b.Hp;
+                    break;
+                default:
+                    // Default identity: aggressively prefer the furthest-progressed target.
+                    if (MathF.Abs(a.Progress - b.Progress) > 0.001f) return a.Progress > b.Progress;
+                    if (MathF.Abs(a.Hp - b.Hp) > 0.001f) return a.Hp > b.Hp;
+                    break;
+            }
+
+            return a.GetInstanceId() < b.GetInstanceId();
+        }
+
+        EnemyInstance best = candidates[0];
+        for (int i = 1; i < candidates.Count; i++)
+        {
+            EnemyInstance c = candidates[i];
+            if (PreferCandidate(c, best))
+                best = c;
+        }
+        return best;
+    }
+
+    private static int CountModifierCopies(ITowerView tower, string modifierId)
+    {
+        int count = 0;
+        foreach (var mod in tower.Modifiers)
+        {
+            if (mod.ModifierId == modifierId)
+                count++;
+        }
+        return count;
+    }
+
+    private float ResolveUndertowRecentMultiplier(EnemyInstance target)
+    {
+        if (!_undertowRecentRemaining.TryGetValue(target.GetInstanceId(), out float remaining))
+            return 1f;
+
+        float t = Mathf.Clamp(remaining / MathF.Max(0.0001f, Balance.UndertowRecentWindow), 0f, 1f);
+        return Mathf.Lerp(1f, Balance.UndertowRecentMinMultiplier, t);
+    }
+
+    private static float ResolveUndertowResistance(EnemyInstance target)
+    {
+        return target.EnemyTypeId switch
+        {
+            "armored_walker" => Balance.UndertowArmoredResistanceMultiplier,
+            "reverse_walker" or "shield_drone" or "splitter_walker" => Balance.UndertowHeavyResistanceMultiplier,
+            _ => 1f
+        };
+    }
+
+    private float ResolveUndertowSlowFactor(ITowerView tower, bool isSecondary, bool isFollowup)
+    {
+        float factor = Balance.UndertowSlowFactor;
+        int chillCopies = CountModifierCopies(tower, "slow");
+        int focusCopies = CountModifierCopies(tower, "focus_lens");
+        factor -= chillCopies * Balance.UndertowSlowPerChillCopy;
+        factor -= focusCopies * Balance.UndertowFocusLensSlowPerCopy;
+        if (isSecondary)
+            factor = Mathf.Lerp(factor, 1f, 0.35f);
+        if (isFollowup)
+            factor = Mathf.Lerp(factor, 1f, 0.24f);
+        return Mathf.Clamp(factor, 0.12f, 0.95f);
+    }
+
+    private void RegisterUndertowAffect(EnemyInstance target)
+    {
+        ulong id = target.GetInstanceId();
+        _undertowRecentRemaining.TryGetValue(id, out float currentRecent);
+        _undertowRecentRemaining[id] = MathF.Max(currentRecent, Balance.UndertowRecentWindow);
+
+        _undertowRetargetLockoutRemaining.TryGetValue(id, out float currentLockout);
+        _undertowRetargetLockoutRemaining[id] = MathF.Max(currentLockout, Balance.UndertowRetargetLockout);
+    }
+
+    private bool TryStartUndertowEffect(
+        ITowerView tower,
+        TowerInstance? towerNode,
+        EnemyInstance target,
+        float strengthMultiplier,
+        bool isSecondary,
+        bool isFollowup,
+        bool enableEndpointPulse,
+        float delaySeconds = 0f)
+    {
+        if (!IsUsableUndertowTarget(target))
+            return false;
+
+        float pull = Balance.UndertowPullDistance;
+        pull *= (1f + CountModifierCopies(tower, "focus_lens") * Balance.UndertowFocusLensPullPerCopy);
+        if (target.IsMarked || target.DamageAmpRemaining > 0f || target.SlowRemaining > 0f)
+            pull *= (1f + Balance.UndertowMarkedSusceptibilityBonus);
+
+        pull *= ResolveUndertowResistance(target);
+        pull *= ResolveUndertowRecentMultiplier(target);
+        pull *= MathF.Max(0f, strengthMultiplier);
+        if (isFollowup)
+            pull *= Balance.UndertowFeedbackFollowupMultiplier;
+        pull = MathF.Min(Balance.UndertowPullDistanceCap, pull);
+        pull = MathF.Min(pull, target.Progress);
+        if (pull < Balance.UndertowMinEffectivePull)
+            return false;
+
+        float duration = Balance.UndertowDuration;
+        if (isSecondary)
+            duration *= Balance.UndertowSecondaryDurationMultiplier;
+        if (isFollowup)
+            duration *= 0.82f;
+        duration = MathF.Max(0.12f, duration);
+
+        var effect = new ActiveUndertow
+        {
+            SourceTower = tower,
+            SourceNode = towerNode,
+            Target = target,
+            TotalDuration = duration,
+            Remaining = duration,
+            TotalPullDistance = pull,
+            PulledDistance = 0f,
+            SlowFactor = ResolveUndertowSlowFactor(tower, isSecondary, isFollowup),
+            IsSecondary = isSecondary,
+            EnableEndpointPulse = enableEndpointPulse,
+            IsFollowup = isFollowup,
+            DelayRemaining = MathF.Max(0f, delaySeconds),
+        };
+
+        _activeUndertows.Add(effect);
+        if (effect.DelayRemaining <= 0f)
+        {
+            RegisterUndertowAffect(target);
+            Statuses.ApplySlow(target, MathF.Max(0.12f, duration), effect.SlowFactor);
+            if (!BotMode && towerNode != null && GodotObject.IsInstanceValid(towerNode) && LanePath != null)
+            {
+                var tether = new UndertowTetherVfx();
+                LanePath.GetParent().AddChild(tether);
+                tether.GlobalPosition = Vector2.Zero;
+                tether.Initialize(towerNode, target, towerNode.ProjectileColor, duration, isSecondary || isFollowup);
+                effect.TetherVfx = tether;
+            }
+        }
+
+        return true;
+    }
+
+    private EnemyInstance? SelectUndertowSecondaryTarget(
+        ITowerView tower,
+        EnemyInstance primary,
+        List<EnemyInstance> enemies,
+        HashSet<EnemyInstance> excluded,
+        float searchRadius)
+    {
+        EnemyInstance? best = null;
+        float bestDist = searchRadius;
+        foreach (EnemyInstance enemy in enemies)
+        {
+            if (!IsUsableUndertowTarget(enemy) || ReferenceEquals(enemy, primary) || excluded.Contains(enemy))
+                continue;
+            if (!IsInRange(tower, enemy))
+                continue;
+
+            float d = primary.GlobalPosition.DistanceTo(enemy.GlobalPosition);
+            if (d > searchRadius)
+                continue;
+
+            if (best == null
+                || d < bestDist - 0.001f
+                || (MathF.Abs(d - bestDist) <= 0.001f && enemy.GetInstanceId() < best.GetInstanceId()))
+            {
+                best = enemy;
+                bestDist = d;
+            }
+        }
+        return best;
+    }
+
+    private int ApplyUndertowSecondaryTugs(
+        ITowerView tower,
+        TowerInstance? towerNode,
+        EnemyInstance primaryTarget,
+        List<EnemyInstance> enemies)
+    {
+        int applied = 0;
+        var excluded = new HashSet<EnemyInstance> { primaryTarget };
+
+        if (tower.SplitCount > 0)
+        {
+            EnemyInstance? splitTarget = SelectUndertowSecondaryTarget(
+                tower,
+                primaryTarget,
+                enemies,
+                excluded,
+                Balance.UndertowSecondarySearchRadius);
+            if (splitTarget != null && TryStartUndertowEffect(
+                tower,
+                towerNode,
+                splitTarget,
+                Balance.UndertowSplitSecondaryMultiplier,
+                isSecondary: true,
+                isFollowup: false,
+                enableEndpointPulse: false))
+            {
+                applied++;
+                excluded.Add(splitTarget);
+                GameController.Instance?.RegisterSpectacleProc(
+                    tower,
+                    SpectacleDefinitions.SplitShot,
+                    SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.SplitShot),
+                    tower.BaseDamage * Balance.UndertowSplitSecondaryMultiplier);
+            }
+        }
+
+        if (tower.ChainCount > 0)
+        {
+            EnemyInstance? chainTarget = SelectUndertowSecondaryTarget(
+                tower,
+                primaryTarget,
+                enemies,
+                excluded,
+                MathF.Max(Balance.UndertowSecondarySearchRadius, tower.ChainRange));
+            if (chainTarget != null && TryStartUndertowEffect(
+                tower,
+                towerNode,
+                chainTarget,
+                Balance.UndertowChainSecondaryMultiplier,
+                isSecondary: true,
+                isFollowup: false,
+                enableEndpointPulse: false))
+            {
+                applied++;
+                if (!BotMode && towerNode != null)
+                {
+                    SpawnChainArc(primaryTarget.GlobalPosition, chainTarget.GlobalPosition, towerNode.ProjectileColor, intensity: 0.94f);
+                }
+                GameController.Instance?.RegisterSpectacleProc(
+                    tower,
+                    SpectacleDefinitions.ChainReaction,
+                    SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ChainReaction),
+                    tower.BaseDamage * Balance.UndertowChainSecondaryMultiplier);
+            }
+        }
+
+        return applied;
+    }
+
+    private void ScheduleUndertowFeedbackFollowup(
+        ITowerView tower,
+        TowerInstance? towerNode,
+        EnemyInstance primaryTarget)
+    {
+        int feedbackCopies = CountModifierCopies(tower, "feedback_loop");
+        if (feedbackCopies <= 0)
+            return;
+
+        float chance = Mathf.Clamp(feedbackCopies * Balance.UndertowFeedbackFollowupChance, 0f, 0.72f);
+        if (_mineRng.NextDouble() > chance)
+            return;
+
+        TryStartUndertowEffect(
+            tower,
+            towerNode,
+            primaryTarget,
+            strengthMultiplier: 1f,
+            isSecondary: true,
+            isFollowup: true,
+            enableEndpointPulse: false,
+            delaySeconds: Balance.UndertowFeedbackFollowupDelay);
+    }
+
+    private void CompleteUndertowEffect(ActiveUndertow effect, List<EnemyInstance> enemies)
+    {
+        if (!IsUsableUndertowTarget(effect.Target))
+            return;
+        if (effect.PulledDistance <= 0.01f)
+            return;
+
+        if (effect.EnableEndpointPulse)
+            ApplyUndertowEndpointCompression(effect, enemies);
+
+        if (!BotMode && effect.PulledDistance >= Balance.UndertowMinEffectivePull)
+        {
+            Sounds?.Play("undertow_release", pitchScale: 0.95f + (float)(_mineRng.NextDouble() - 0.5) * 0.08f);
+        }
+    }
+
+    private void ApplyUndertowEndpointCompression(ActiveUndertow effect, List<EnemyInstance> enemies)
+    {
+        int blastCopies = CountModifierCopies(effect.SourceTower, "blast_core");
+        float radius = Balance.UndertowEndpointBaseRadius + blastCopies * Balance.UndertowEndpointRadiusPerBlastCore;
+        float basePull = Balance.UndertowEndpointBasePull + blastCopies * Balance.UndertowEndpointPullPerBlastCore;
+        if (radius <= 0f || basePull <= 0f)
+            return;
+
+        foreach (EnemyInstance enemy in enemies)
+        {
+            if (!IsUsableUndertowTarget(enemy))
+                continue;
+            if (enemy.GlobalPosition.DistanceTo(effect.Target.GlobalPosition) > radius)
+                continue;
+
+            float pull = basePull;
+            if (!ReferenceEquals(enemy, effect.Target))
+                pull *= 0.72f;
+            pull *= ResolveUndertowResistance(enemy);
+            pull *= ResolveUndertowRecentMultiplier(enemy);
+
+            float start = enemy.Progress;
+            float end = MathF.Max(0f, start - pull);
+            float moved = start - end;
+            if (moved <= 0.001f)
+                continue;
+
+            enemy.Progress = end;
+            if (!ReferenceEquals(enemy, effect.Target))
+                Statuses.ApplySlow(enemy, Balance.UndertowEndpointSlowDuration, Balance.UndertowEndpointSlowFactor);
+        }
+
+        if (!BotMode && LanePath != null)
+        {
+            var pulse = new UndertowReleaseVfx();
+            LanePath.GetParent().AddChild(pulse);
+            pulse.GlobalPosition = effect.Target.GlobalPosition;
+            Color pulseColor = effect.SourceNode?.ProjectileColor ?? new Color(0.08f, 0.64f, 0.86f);
+            pulse.Initialize(pulseColor, radius, blastCopies > 0);
+        }
     }
 
     /// <summary>
@@ -1644,6 +2244,80 @@ public class CombatSim
         return bounces;
     }
 
+    private EnemyInstance? SelectRocketSplashTarget(ITowerView tower, List<EnemyInstance> enemies)
+    {
+        var inRange = enemies
+            .Where(e => GodotObject.IsInstanceValid(e) && e.Hp > 0f)
+            .Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= tower.Range)
+            .ToList();
+        if (inRange.Count == 0)
+            return null;
+
+        int blastCoreCopies = CountModifierCopies(tower, SpectacleDefinitions.BlastCore);
+        float splashRadius = Balance.RocketLauncherSplashRadius
+            + blastCoreCopies * Balance.RocketLauncherBlastCoreRadiusPerCopy;
+
+        EnemyInstance best = inRange[0];
+        int bestCluster = -1;
+
+        foreach (EnemyInstance candidate in inRange)
+        {
+            int cluster = 0;
+            foreach (EnemyInstance enemy in enemies)
+            {
+                if (!GodotObject.IsInstanceValid(enemy) || enemy.Hp <= 0f)
+                    continue;
+                if (candidate.GlobalPosition.DistanceTo(enemy.GlobalPosition) <= splashRadius)
+                    cluster++;
+            }
+
+            if (cluster > bestCluster)
+            {
+                best = candidate;
+                bestCluster = cluster;
+                continue;
+            }
+
+            if (cluster == bestCluster && PreferTargetByMode(candidate, best, tower.TargetingMode))
+                best = candidate;
+        }
+
+        return best;
+    }
+
+    private static bool PreferTargetByMode(EnemyInstance candidate, EnemyInstance current, TargetingMode mode)
+    {
+        switch (mode)
+        {
+            case TargetingMode.Strongest:
+                if (MathF.Abs(candidate.Hp - current.Hp) > 0.001f)
+                    return candidate.Hp > current.Hp;
+                if (MathF.Abs(candidate.Progress - current.Progress) > 0.001f)
+                    return candidate.Progress > current.Progress;
+                break;
+            case TargetingMode.LowestHp:
+                if (MathF.Abs(candidate.Hp - current.Hp) > 0.001f)
+                    return candidate.Hp < current.Hp;
+                if (MathF.Abs(candidate.Progress - current.Progress) > 0.001f)
+                    return candidate.Progress > current.Progress;
+                break;
+            case TargetingMode.Last:
+                if (MathF.Abs(candidate.Progress - current.Progress) > 0.001f)
+                    return candidate.Progress < current.Progress;
+                if (MathF.Abs(candidate.Hp - current.Hp) > 0.001f)
+                    return candidate.Hp > current.Hp;
+                break;
+            default:
+                if (MathF.Abs(candidate.Progress - current.Progress) > 0.001f)
+                    return candidate.Progress > current.Progress;
+                if (MathF.Abs(candidate.Hp - current.Hp) > 0.001f)
+                    return candidate.Hp > current.Hp;
+                break;
+        }
+
+        return candidate.GetInstanceId() < current.GetInstanceId();
+    }
+
     private void SpawnPhaseSplitVfx(Vector2 source, Vector2? frontTargetPos, Vector2? backTargetPos, Color color)
     {
         if (BotMode || LanePath == null)
@@ -1673,7 +2347,10 @@ public class CombatSim
         if (LanePath == null) return;
         var proj = new ProjectileVisual();
         LanePath.GetParent().AddChild(proj);
-        proj.Initialize(fromGlobal, target, color, speed: 500f, (TowerInstance)tower, waveIndex, enemies, _state);
+        float speed = tower.TowerId == "rocket_launcher"
+            ? Balance.RocketLauncherProjectileSpeed
+            : 500f;
+        proj.Initialize(fromGlobal, target, color, speed, (TowerInstance)tower, waveIndex, enemies, _state);
     }
 
     private void ApplyChainBotMode(ITowerView tower, EnemyInstance primary,

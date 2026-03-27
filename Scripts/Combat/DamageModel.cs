@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using Godot;
 using SlotTheory.Core;
 using SlotTheory.Entities;
 
@@ -103,6 +105,10 @@ public static class DamageModel
             }
         }
 
+        // Rocket Launcher has a native built-in splash on primary impacts.
+        if (ctx.Attacker.TowerId == "rocket_launcher" && !ctx.IsChain)
+            ApplyRocketLauncherSplash(ctx);
+
         if (ctx.Attacker.AppliesMark)
             Statuses.ApplyMarked(ctx.Target, Balance.MarkedDuration);
 
@@ -117,6 +123,58 @@ public static class DamageModel
                     GameController.Instance?.NotifyModifierProc(ctx.Attacker, mod.ModifierId);
             }
         }
+    }
+
+    private static void ApplyRocketLauncherSplash(DamageContext ctx)
+    {
+        float splashDamage = ctx.FinalDamage * Balance.RocketLauncherSplashDamageRatio;
+        if (splashDamage <= 0f)
+            return;
+
+        int blastCoreCopies = CountModifier(ctx.Attacker, SpectacleDefinitions.BlastCore);
+        float radius = Balance.RocketLauncherSplashRadius
+            + blastCoreCopies * Balance.RocketLauncherBlastCoreRadiusPerCopy;
+        Vector2 origin = ctx.Target.GlobalPosition;
+
+        var splashTargets = new List<IEnemyView>();
+        foreach (IEnemyView enemy in ctx.EnemiesAlive)
+        {
+            if (ReferenceEquals(enemy, ctx.Target))
+                continue;
+            if (enemy.Hp <= 0f)
+                continue;
+            if (origin.DistanceTo(enemy.GlobalPosition) <= radius)
+                splashTargets.Add(enemy);
+        }
+
+        int attackerSlotIndex = -1;
+        if (ctx.State != null)
+            attackerSlotIndex = FindTowerSlotIndex(ctx.State, ctx.Attacker);
+        float totalDealt = 0f;
+        foreach (IEnemyView enemy in splashTargets)
+        {
+            float damage = splashDamage;
+            if (enemy.IsShieldProtected)
+                damage *= (1f - Balance.ShieldDroneProtectionReduction);
+
+            float hpBefore = enemy.Hp;
+            enemy.Hp = MathF.Max(0f, enemy.Hp - damage);
+            float dealt = hpBefore - enemy.Hp;
+            totalDealt += dealt;
+
+            if (dealt > 0f && ctx.State != null)
+                ctx.State.TrackBaseAttackDamage(attackerSlotIndex, (int)dealt, isKill: enemy.Hp <= 0f, enemy.ProgressRatio);
+        }
+
+        ctx.SplashDamageDealt += totalDealt;
+
+        GameController.Instance?.NotifyRocketSplash(
+            ctx.Attacker,
+            origin,
+            splashDamage,
+            splashTargets,
+            radius,
+            burstCoreEnhanced: blastCoreCopies > 0);
     }
 
     private static void RegisterSpectacleDamageProcs(DamageContext ctx, float damageDealt, bool isKill)

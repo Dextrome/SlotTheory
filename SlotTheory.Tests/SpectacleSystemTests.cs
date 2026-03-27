@@ -768,6 +768,12 @@ public class SpectacleSystemTests
                     ["rapid_shooter"] = 1.6f,
                     ["heavy_cannon"] = 0.6f,
                 },
+                // Keep threshold bias neutral so this test isolates meter-gain behavior only.
+                TowerSurgeThresholdMultipliers =
+                {
+                    ["rapid_shooter"] = 1f,
+                    ["heavy_cannon"] = 1f,
+                },
             }, "test");
 
             var system = new SpectacleSystem();
@@ -797,6 +803,12 @@ public class SpectacleSystemTests
         {
             SpectacleTuning.Apply(new SpectacleTuningProfile
             {
+                // Keep gain bias neutral so this test isolates threshold normalization behavior only.
+                TowerMeterGainMultipliers =
+                {
+                    ["rapid_shooter"] = 1f,
+                    ["heavy_cannon"] = 1f,
+                },
                 TowerSurgeThresholdMultipliers =
                 {
                     ["rapid_shooter"] = 0.8f,

@@ -64,16 +64,17 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 
 ## 2. Tower Roster
 
-7 towers total. 4 available from the start; 3 unlockable via campaign progression.
+9 towers total. 5 available from the start; 4 unlockable via campaign progression.
 
 ### Base Towers
 
 | Tower | Internal ID | Damage | Interval | Range | Notes |
 |---|---|---:|---:|---:|---|
 | Rapid Shooter | `rapid_shooter` | 10 | 0.45 s | 285 px | Fast single-target fire |
-| Heavy Cannon | `heavy_cannon` | 56 | 2.0 s | 238 px | Slow, high-burst hitscan |
+| Heavy Cannon | `heavy_cannon` | 56 | 2.0 s | 238 px | Slow, high-burst impact shots |
 | Marker Tower | `marker_tower` | 7 | 1.0 s | 333 px | Applies Marked status on hit (+40% damage taken, 4 s) |
-| Phase Splitter | `phase_splitter` | 20 | 0.95 s | 275 px | Each shot hits first + last in range at 65% each; strong front/back pressure, weaker mid-pack density |
+| Rocket Launcher | `rocket_launcher` | 34 | 1.45 s | 248 px | Visible rocket projectile; full primary hit + built-in radial splash |
+| Undertow Engine | `undertow_engine` | 8 | 2.35 s | 265 px | Pull/control tower that drags enemies backward in path progress |
 
 ### Unlockable Towers
 
@@ -82,11 +83,12 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 | Arc Emitter | `chain_tower` | 17.25 | 1.26 s | 257 px | ARC_UNSEALED (1st campaign map) |
 | Rift Sapper | `rift_prism` | 22 | 0.98 s | 230 px | RIFT_UNSEALED (3rd campaign map) |
 | Accordion Engine | `accordion_engine` | 14 | 3.2 s | 290 px | ACCORDION_UNSEALED (Double Back map) |
+| Phase Splitter | `phase_splitter` | 20 | 0.95 s | 275 px | PHASE_UNSEALED (7th campaign map / `threshold` fallback) |
 
 ### Arc Emitter (chain_tower) -- Chain Mechanics
 - Primary target receives full hit
 - Bounces to 2 additional enemies within **400 px** chain range
-- Each bounce: `0.5x` damage carry (50% decay per bounce)
+- Each bounce: `0.6x` damage carry (40% decay per bounce)
 - Chain targets receive `isChain: true` -- Blast Core and Overkill OnHit are skipped on them
 
 ### Rift Sapper (rift_prism) -- Mine Mechanics
@@ -126,6 +128,50 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 - Visual/audio identity:
   - one phase-split emission event with linked dual-end beams (`PhaseSplitVfx`)
   - shared linked impact cue (not two unrelated projectile shots)
+
+### Rocket Launcher (rocket_launcher) -- Built-In Splash Identity
+- Fires a visible rocket projectile toward a target in range
+- On impact:
+  - primary target takes full hit damage
+  - nearby enemies take built-in splash damage
+- Native splash profile:
+  - base splash radius: `88 px`
+  - splash damage: `55%` of the final primary hit damage
+- Blast Core synergy:
+  - each Blast Core copy adds `+24 px` to Rocket Launcher native splash radius
+- Splash is part of the base kit and applies on primary hits only (`isChain: false`)
+
+### Undertow Engine (undertow_engine) -- Reverse-Current Control Mechanics
+- Core identity: positional control via path-progress rewind, not DPS racing
+- Primary target selection:
+  - candidate pool: alive enemies in range
+  - default behavior strongly prefers highest Progress (lead enemy)
+  - deterministic ties: HP, then instance-id
+- Primary activation:
+  - applies normal primary-hit damage context (for modifier compatibility)
+  - starts undertow drag with heavy slow while active
+  - drag rewinds **Progress** directly (safe on curves/zigzags; no world-space push hack)
+- Base control profile (`Balance.cs`):
+  - duration: `0.78 s`
+  - pull distance: `84 px`
+  - hard cap: `112 px`
+  - min effective pull: `12 px` (tiny pulls are discarded)
+  - slow factor during drag: `x0.28`
+- Anti-abuse safeguards:
+  - recent-target diminishing returns window: `3.0 s` (down to `0.42x` pull)
+  - short retarget lockout: `0.85 s`
+  - concurrent overlap decay: extra undertow stacks on same target multiply by `0.36x` each
+  - resistance multipliers on heavy archetypes (armored/reverse/shield/splitter classes)
+  - pull always clamped to valid path range (`Progress >= 0`)
+- Secondary/control interactions:
+  - Split Shot: optional nearby secondary tug at `0.46x` strength
+  - Chain Reaction: optional nearby linked tug at `0.56x` strength
+  - Feedback Loop: chance for delayed follow-up tug (`0.38 s` delay, `0.40x` strength)
+  - Blast Core: strengthens endpoint compression pulse (radius + pull)
+  - Focus Lens / Chill Shot: strengthen undertow pull and/or slow profile
+- Endpoint compression:
+  - at drag completion, optional local pulse tugs nearby enemies backward and applies a short lingering slow to secondaries
+  - this creates re-clumping pressure without hard stuns
 
 ---
 
@@ -227,7 +273,7 @@ If a tower or modifier is locked (`Unlocks.IsTowerUnlocked` / `Unlocks.IsModifie
 
 ### Damage Pipeline (`DamageModel.Apply`)
 
-A `DamageContext` flows through four stages:
+A `DamageContext` flows through five stages:
 
 1. **`ModifyAttackInterval`** -- stat modifiers adjust the interval (applied at cooldown reset, not here)
 2. **`ModifyDamage`** -- stat/conditional damage multipliers (Momentum stacks, Exploit Weakness vs Marked, Focus Lens)
@@ -235,7 +281,10 @@ A `DamageContext` flows through four stages:
 4. **`OnHit`** -- on-hit effects (Chill Shot slow, Blast Core splash, Overkill spill, Chain Reaction bounce) -- skipped per-modifier if `IsChain && !mod.ApplyToChainTargets`
 5. **`OnKill`** -- on-kill effects (Feedback Loop cooldown reset) -- always run regardless of bounce type
 
-All damage is hitscan (instant, no projectile nodes).
+Combat timing is mixed:
+- Most standard tower shots spawn `ProjectileVisual` and apply damage on impact.
+- Specialized towers (Rift Sapper mines, Accordion Engine pulses, Phase Splitter endpoint hits, Undertow tugs) resolve directly in sim logic.
+- Bot mode resolves instantly without spawning visual projectiles for deterministic throughput.
 
 ### isChain Flag
 
@@ -346,10 +395,11 @@ Unlock gates live in `Unlocks.cs`. All unlocks require winning a run on the spec
 | Rift Sapper | Tower | pinch_bleed (Stage 3) | `RIFT_UNSEALED` | 3rd non-random map |
 | Blast Core | Modifier | ridgeback (Stage 4 / Iron Mandate) | `BLAST_UNSEALED` | 4th non-random map |
 | Accordion Engine | Tower | double_back (skirmish only) | `ACCORDION_UNSEALED` | 5th non-random map |
+| Phase Splitter | Tower | threshold (fallback) | `PHASE_UNSEALED` | 7th non-random map |
 
 **Map order** is determined by `displayOrder` field in `maps.json`, filtered to non-random maps. Fallback IDs are hardcoded in `Unlocks.cs` for cases where DataLoader is unavailable.
 
-**Demo gating:** Blast Core and Wildfire are always locked in demo builds regardless of achievement state. Accordion Engine is similarly locked in demo (it requires ridgeback/double_back which are not in the demo map pool).
+**Demo gating:** Blast Core and Wildfire are always locked in demo builds regardless of achievement state. Accordion Engine and Phase Splitter are similarly locked in demo (they unlock on full-game map progression).
 
 **Unlock reveal flow:** On winning a run that triggers an unlock, `GameController.EnqueueUnlockReveals()` queues `UnlockRevealScreen` panels that show sequentially. Each panel uses `ShowTowerUnlock` or `ShowModifierUnlock` based on content type.
 
@@ -733,9 +783,11 @@ All combat logic lives in C# systems, not scene node behaviors. The scene tree p
 
 `EnemyInstance` extends `PathFollow2D`. Enemies self-move via `_Process()`: `Progress += Speed * delta`. Never move enemies manually in `CombatSim`. Assigning `Progress` automatically updates `GlobalPosition`.
 
-### No Projectiles
+### Projectile & Resolution Model
 
-All tower attacks are hitscan -- instant damage on attack. No projectile nodes spawned for standard shots (chain arcs, mine burst VFX, and Blast Core ring are visual-only and do not affect gameplay timing).
+- Most standard tower attacks spawn `ProjectileVisual` nodes and apply damage on impact.
+- Rocket Launcher uses this path explicitly with Rocket-specific projectile speed and impact/splash readability cues.
+- Sim-native mechanics (Rift Sapper mines, Accordion Engine pulses, Phase Splitter endpoint hits, Undertow pull effects) resolve directly in combat systems without projectile travel.
 
 ### Data-Driven Modifiers
 
@@ -755,13 +807,14 @@ All tower attacks are hitscan -- instant damage on attack. No projectile nodes s
 
 ### Unit Tests
 
-`SlotTheory.Tests` (xUnit, 490 tests as of current build). All pure-logic tests; no Godot engine initialization required.
+`SlotTheory.Tests` (xUnit, 523 tests as of current build). All pure-logic tests; no Godot engine initialization required.
 
 Key test suites:
 - `ModifierTests.cs` -- all 11 modifiers
 - `AccordionEngineTests.cs` -- formation compression math + isChain differentiation
 - `ShieldDroneTests.cs` -- damage reduction and HP scaling
 - `DamageModelStatusTests.cs` -- Marked and DamageAmp interactions
+- `RocketLauncherTests.cs` -- built-in Rocket splash behavior and Blast Core radius synergy
 - `SurgeDifferentiationTests.cs` -- 35 archetype label tests
 - `DraftAntiBrickTests.cs` -- anti-brick draft coverage
 - `WaveSystemTests.cs` -- wave configuration and enemy scaling

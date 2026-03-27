@@ -1495,10 +1495,13 @@ public partial class DraftPanel : CanvasLayer
     {
         "rapid_shooter" => new Color(0.25f, 0.92f, 1.00f),
         "heavy_cannon" => new Color(1.00f, 0.60f, 0.18f),
+        "rocket_launcher" => new Color(1.00f, 0.54f, 0.14f),
         "marker_tower" => new Color(1.00f, 0.30f, 0.72f),
         "chain_tower" => new Color(0.62f, 0.90f, 1.00f),
         "rift_prism" => new Color(0.60f, 1.00f, 0.58f),
+        "accordion_engine" => new Color(0.78f, 0.40f, 1.00f),
         "phase_splitter" => new Color(0.45f, 1.00f, 0.95f),
+        "undertow_engine" => new Color(0.08f, 0.64f, 0.86f),
         _ => new Color(0.75f, 0.85f, 1.00f),
     };
 
@@ -1506,10 +1509,13 @@ public partial class DraftPanel : CanvasLayer
     {
         "rapid_shooter" => "RS",
         "heavy_cannon" => "HC",
+        "rocket_launcher" => "RL",
         "marker_tower" => "MK",
         "chain_tower" => "AR",
         "rift_prism" => "SA",
+        "accordion_engine" => "AC",
         "phase_splitter" => "PS",
+        "undertow_engine" => "UT",
         _ => "TW",
     };
 
@@ -1517,10 +1523,12 @@ public partial class DraftPanel : CanvasLayer
     {
         "rapid_shooter" => "Fast single-target pressure.",
         "heavy_cannon" => "Slow burst shots with heavy hits.",
+        "rocket_launcher" => "Explosive rockets punish clustered enemy packs.",
         "marker_tower" => "Applies mark to amplify team damage.",
         "chain_tower" => "Bounces into grouped enemy packs.",
         "rift_prism" => "Plants charged mines along the lane. Final charge pops harder; rapid seeding at wave start.",
         "phase_splitter" => "Hits front and back enemies in range at reduced damage.",
+        "undertow_engine" => "Pulls lead enemies backward to extend kill-zone time.",
         _ => "Generalist tower.",
     };
 

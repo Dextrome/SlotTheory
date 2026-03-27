@@ -75,10 +75,12 @@ Modifier assignment uses `Preview -> Confirm`:
 | Rapid Shooter | 10 | 0.45 s | 285 px | Fast single-target fire |
 | Heavy Cannon | 56 | 2.0 s | 238 px | Heavy burst hits |
 | Marker Tower | 7 | 1.0 s | 333 px | Applies Marked on hit |
-| Arc Emitter | 18 | 1.2 s | 257 px | Chains to 2 extra enemies, 400 px chain range, 50% damage decay per bounce |
+| Arc Emitter | 17.25 | 1.26 s | 257 px | Chains to 2 extra enemies, 400 px chain range, 60% damage carry per bounce |
 | Rift Sapper | 22 | 0.98 s | 230 px | Charged lane-mine trap tower with wave-start rapid seeding |
 | Accordion Engine | 14 | 3.2 s | 290 px | Pulses all in-range enemies simultaneously; compresses their progress spacing |
 | Phase Splitter | 20 | 0.95 s | 275 px | One shot hits first and last enemies in range at 65% per target; backline/frontline pressure specialist |
+| Rocket Launcher | 34 | 1.45 s | 248 px | Rocket Launcher fires explosive rockets that damage the target and nearby enemies. Burst Core further expands the blast radius. |
+| Undertow Engine | 8 | 2.35 s | 265 px | Pull/control specialist that drags enemies backward in path progress |
 
 Unlock flow (via Campaign mode):
 - Arc Emitter: beat the first campaign map on Normal or Hard (`ARC_UNSEALED`)
@@ -86,6 +88,43 @@ Unlock flow (via Campaign mode):
 - Rift Sapper: beat the third campaign map on Normal or Hard (`RIFT_UNSEALED`)
 - Blast Core modifier: beat the fourth campaign map - Ridgeback / Iron Mandate (`BLAST_UNSEALED`)
 - Accordion Engine: beat the fifth map - Double Back (`ACCORDION_UNSEALED`)
+
+Rocket Launcher and Undertow Engine are available from the start.
+
+### Rocket Launcher Mechanics
+
+- Internal tower ID: `rocket_launcher` (display name: Rocket Launcher)
+- Rocket Launcher fires explosive rockets that damage the target and nearby enemies.
+- Burst Core further expands the blast radius.
+- Fires a visible rocket projectile toward a target in range
+- On impact:
+  - primary target takes full hit damage
+  - nearby enemies take built-in splash damage (`55%` of the final primary hit)
+- Base splash radius: `88 px`
+- Blast Core synergy: each Blast Core copy increases Rocket Launcher splash radius by `+24 px`
+- Splash is native to the base tower and does not require any modifier to function
+
+### Undertow Engine Mechanics
+
+- Internal tower ID: `undertow_engine` (display name: Undertow Engine)
+- Role: battlefield control, not raw DPS
+- Default target behavior strongly prefers the furthest-progressed enemy in range
+- On activation:
+  - applies a heavy slow during the drag
+  - rewinds the enemy by reducing **path progress** (safe on curved/snake/zigzag maps)
+- Optional endpoint compression pulse:
+  - tiny base tug at pull completion
+  - strengthened by Blast Core copies
+- Secondary interactions:
+  - Split Shot: weaker tug on one nearby secondary target
+  - Chain Reaction: weaker linked tug on one nearby target
+  - Feedback Loop: chance for a delayed follow-up tug
+- Anti-abuse safeguards:
+  - hard pull-distance cap
+  - diminishing returns on recently-pulled targets
+  - short retarget lockout window
+  - concurrent-stack decay if multiple Undertow effects overlap the same target
+  - resistance multipliers on heavy/elite archetypes
 
 ### Rift Sapper Mechanics
 
@@ -123,7 +162,7 @@ Unlock flow (via Campaign mode):
 | Split Shot | Fires 2 split projectiles at 28% damage each; each extra copy adds +1 projectile |
 | Feedback Loop | On kill: instantly reset cooldown + 20% attack speed for 4 s |
 | Chain Reaction | +1 chain bounce per copy, 50% damage carry per bounce |
-| Blast Core | On hit: 45% splash in 140 px radius; each extra copy adds +25 px radius |
+| Blast Core | On hit: 45% splash in 140 px radius; each extra copy adds +25 px radius. On Rocket Launcher, also expands native rocket splash radius by +24 px per copy |
 | Wildfire | On primary hit: ignite for 4 s burn at 25% BaseDamage/s; burning enemies drop fire trail segments (2.2 s, 30 px radius, 40% burn DPS to overlapping enemies); stacks add burn DPS |
 
 Max modifiers per tower: 3
@@ -320,7 +359,7 @@ The game is available on Steam. Store page: [Slot Theory on Steam](https://store
 
 Steam features:
 - **Global leaderboards**: per map/difficulty, all runs stored (not just personal best)
-- **Achievements**: all 16 achievements forwarded to Steam
+- **Achievements**: all 27 achievements forwarded to Steam
 - **Steam Cloud**: settings and high scores sync across devices
 
 ---
@@ -343,7 +382,7 @@ Bot rotates strategies across maps and difficulties and prints summary stats.
 
 Current strategy set (12 strategies):
 - `Random`, `TowerFirst`, `GreedyDps`, `MarkerSynergy`, `ChainFocus`, `SplitFocus`, `HeavyStack`, `RiftPrismFocus`
-- `SpectacleSingleStack`, `SpectacleComboPairing`, `SpectacleTriadDiversity`, `PlayerStyleKenny`
+- `SpectacleSingleStack`, `AccordionEngine`, `PlayerStyleKenny`, `HeavyOverkill`
 
 Optional strategy pool selection:
 
@@ -386,6 +425,8 @@ Run modifier benchmark prescreen (baseline vs modified delta analysis, JSON + CS
 ```text
 --scene res://Scenes/Main.tscn -- --lab_modifier_benchmark Data/combat_lab/modifier_benchmark_core.json --lab_out release/combat_lab_modifier_benchmark.json
 ```
+
+Tower benchmark modeling now includes Undertow control behavior (path-progress pull, anti-abuse decay rules, and control-role scoring), so utility towers are evaluated beyond raw DPS.
 
 `Data/combat_lab/tower_benchmark_core.json` is the starter suite for:
 - single tank target

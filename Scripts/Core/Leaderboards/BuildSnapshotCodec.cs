@@ -18,6 +18,8 @@ public static class BuildSnapshotCodec
         ["rift_prism"] = 5,
         ["accordion_engine"] = 6,
         ["phase_splitter"] = 7,
+        ["undertow_engine"] = 8,
+        ["rocket_launcher"] = 9,
     };
 
     private static readonly Dictionary<int, string> CodeToTower = TowerToCode.ToDictionary(kv => kv.Value, kv => kv.Key);

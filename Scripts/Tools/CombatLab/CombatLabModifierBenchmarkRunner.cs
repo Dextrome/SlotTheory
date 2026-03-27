@@ -954,6 +954,8 @@ public sealed class CombatLabModifierBenchmarkRunner
         return towerId switch
         {
             "heavy_cannon" => "strongest",
+            "rocket_launcher" => "first",
+            "undertow_engine" => "first",
             _ => "first",
         };
     }
@@ -964,10 +966,12 @@ public sealed class CombatLabModifierBenchmarkRunner
         {
             "rapid_shooter" => 95f,
             "heavy_cannon" => 130f,
+            "rocket_launcher" => 124f,
             "marker_tower" => 90f,
             "chain_tower" => 115f,
             "rift_prism" => 120f,
             "phase_splitter" => 122f,
+            "undertow_engine" => 118f,
             _ => 100f,
         };
     }

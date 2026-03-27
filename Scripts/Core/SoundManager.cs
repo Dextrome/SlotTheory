@@ -111,14 +111,17 @@ public partial class SoundManager : Node
         // Rapid-fire tower shots: tight throttle prevents distortion stacking on mobile CPUs.
         ["shoot_rapid"]       = 45,
         ["shoot_marker"]      = 60,
+        ["shoot_rocket"]      = 82,
         ["shoot_accordion"]   = 80,
         ["shoot_phase_splitter"] = 70,
+        ["shoot_undertow"]    = 78,
         // Heavy impacts: longer cooldown since they're loud and infrequent by design.
         ["shoot_heavy"]       = 90,
         ["mine_pop"]       = 55,
         ["mine_chain_pop"] = 85,
         // Per-frame hit ticks: 35ms floor keeps them audible without drowning other SFX.
         ["hit"]            = 35,
+        ["hit_rocket"]     = 58,
         ["kill_confirm"]   = 40,   // layered kill tick - throttled to avoid pile-up on mass kills
         // Death sounds: slightly longer gap so the mix breathes between kills.
         ["die_basic"]      = 55,
@@ -126,6 +129,7 @@ public partial class SoundManager : Node
         ["die_swift"]      = 45,
         ["die_reverse"]    = 45,
         ["enemy_rewind"]   = 85,
+        ["undertow_release"] = 90,
         // Critical events: long cooldowns since these punctuate the mix, not fill it.
         ["leak"]           = 120,
         ["wave20_swell"]   = 600,
@@ -138,16 +142,20 @@ public partial class SoundManager : Node
     {
         // Per-frame hits: very short to feel responsive; throttle only kicks in at high speed.
         ["hit"]            = 12,
+        ["hit_rocket"]     = 36,
         ["kill_confirm"]   = 15,   // matches hit cadence; both fire on the same combat frame
         ["shoot_rapid"]       = 20,
+        ["shoot_rocket"]      = 66,
         ["shoot_accordion"]   = 60,
         ["shoot_phase_splitter"] = 50,
+        ["shoot_undertow"]    = 62,
         // Death sounds: 60–100ms keeps individual kills audibly distinct at ×2/×3.
         ["die_basic"]      = 60,
         ["die_armored"]    = 100,
         ["die_swift"]      = 50,
         ["die_reverse"]    = 55,
         ["enemy_rewind"]   = 80,
+        ["undertow_release"] = 78,
         // Mine events: longer gap since chain-pop can cascade many in a single frame.
         ["mine_pop"]       = 60,
         ["mine_chain_pop"] = 90,
@@ -201,6 +209,10 @@ public partial class SoundManager : Node
         Reg("shoot_rapid",      Tone(680f, 0.05f, vol: 0.26f, shape: 't', env: 'f'));
         Reg("shoot_rapid_cold", Tone(420f, 0.07f, vol: 0.24f, shape: 's', env: 'f'));  // Chill Shot variant: softer, icier
         Reg("shoot_heavy",      Tone( 72f, 0.24f, vol: 0.72f, shape: 's', env: 'f'));
+        Reg("shoot_rocket",     Layer(
+            Sweep(1050f, 190f, 0.19f, vol: 0.46f),
+            Tone(88f, 0.15f, vol: 0.30f, shape: 'q', env: 'f'),
+            Tone(2200f, 0.05f, vol: 0.10f, shape: 'n', env: 'f')));
         Reg("shoot_marker",     Tone(360f, 0.07f, vol: 0.32f, shape: 's', env: 'f'));
         Reg("shoot_accordion",  Layer(
             Sweep(860f, 140f, 0.22f, vol: 0.58f),                        // compression fold: high-to-low crunch
@@ -210,9 +222,17 @@ public partial class SoundManager : Node
             Sweep(1500f, 520f, 0.14f, vol: 0.36f),                       // phase discharge
             Sweep(420f, 980f, 0.11f, vol: 0.16f),                        // spatial split shimmer
             Tone(110f, 0.11f, vol: 0.18f, shape: 'q', env: 'f')));       // core thump
+        Reg("shoot_undertow", Layer(
+            Sweep(1180f, 220f, 0.20f, vol: 0.40f),                       // suction drop
+            Tone(86f, 0.18f, vol: 0.30f, shape: 'q', env: 'f'),          // low vacuum body
+            Tone(2400f, 0.05f, vol: 0.09f, shape: 'n', env: 'f')));      // tether latch
 
         // ── Enemy events ─────────────────────────────────────────────────
         Reg("hit",          Tone(520f, 0.03f, vol: 0.16f, shape: 'n', env: 'f'));
+        Reg("hit_rocket",   Layer(
+            Sweep(340f, 70f, 0.21f, vol: 0.62f),
+            Tone(112f, 0.15f, vol: 0.22f, shape: 'q', env: 'f'),
+            Tone(2800f, 0.05f, vol: 0.08f, shape: 'n', env: 'f')));
         Reg("hit_phase_splitter", Layer(
             Tone(760f, 0.035f, vol: 0.11f, shape: 's', env: 'f'),
             Tone(1400f, 0.022f, vol: 0.06f, shape: 'n', env: 'f')));
@@ -226,6 +246,10 @@ public partial class SoundManager : Node
         Reg("enemy_rewind", Layer(
             Sweep(1650f, 620f, 0.16f, vol: 0.30f),
             Tone(2900f, 0.07f, vol: 0.11f, shape: 'n', env: 'f')));
+        Reg("undertow_release", Layer(
+            Sweep(240f, 980f, 0.16f, vol: 0.22f),
+            Tone(120f, 0.10f, vol: 0.16f, shape: 'q', env: 'f'),
+            Tone(2100f, 0.035f, vol: 0.07f, shape: 'n', env: 'f')));
         Reg("leak",         Sweep(230f,  90f, 0.34f, vol: 0.60f));
         // life_gain: soft rising two-note chime + high shimmer -- "soul collect" feel.
         // Fires up to 5x per wave; pitch is randomized at call site to avoid monotony.

@@ -135,11 +135,13 @@ public sealed class SpectacleTuningProfile
     {
         ["rapid_shooter"]    = 0.40f,   // fires 4+/s: heavy per-hit dampening to reduce over-surging
         ["heavy_cannon"]     = 3.50f,   // fires slowly: needs large per-hit boost to compete
+        ["rocket_launcher"]  = 1.45f,   // moderate cadence AoE shot should gain steadily, not explosively
         ["marker_tower"]     = 0.70f,   // slightly above average fire rate, trim down
         ["chain_tower"]      = 1.20f,   // moderate rate, small boost
         ["rift_prism"]       = 1.50f,   // mine pops are infrequent, boost per-proc
         ["phase_splitter"]   = 0.75f,   // hits 2 targets per shot (double proc rate), trim
         ["accordion_engine"] = 3.00f,   // 3.2s pulse interval, needs large per-hit boost
+        ["undertow_engine"]  = 2.40f,   // low cadence control shot, meter gain needs support
     };
 
     [JsonPropertyName("tower_surge_threshold_multipliers")]
@@ -147,11 +149,13 @@ public sealed class SpectacleTuningProfile
     {
         ["rapid_shooter"]    = 1.50f,   // raise bar to further slow surge cadence
         ["heavy_cannon"]     = 0.50f,   // lower bar so slow fire rate can still reach threshold
+        ["rocket_launcher"]  = 0.82f,   // explosive pack hits should reach surge reliably on clumped waves
         ["marker_tower"]     = 1.00f,
         ["chain_tower"]      = 0.90f,   // slight ease to offset reduced gain from chain bounce rate
         ["rift_prism"]       = 0.90f,   // slight ease to match mine-pop infrequency
         ["phase_splitter"]   = 1.00f,
         ["accordion_engine"] = 0.55f,   // low bar to compensate for the very slow pulse interval
+        ["undertow_engine"]  = 0.70f,   // control cadence should still access surges in a run
     };
 
     /// <summary>

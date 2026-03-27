@@ -50,5 +50,19 @@
                            "AttackInterval":  0.95,
                            "Range":  275.0,
                            "AppliesMark":  false
+                        },
+    "rocket_launcher":  {
+                            "Name":  "Rocket Launcher",
+                            "BaseDamage":  34.0,
+                            "AttackInterval":  1.45,
+                            "Range":  248.0,
+                            "AppliesMark":  false
+                        },
+    "undertow_engine":  {
+                            "Name":  "Undertow Engine",
+                            "BaseDamage":  8.0,
+                            "AttackInterval":  2.35,
+                            "Range":  265.0,
+                            "AppliesMark":  false
                          }
 }

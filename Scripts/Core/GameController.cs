@@ -1688,11 +1688,13 @@ public partial class GameController : Node
 	{
 		"rapid_shooter" => new Color(0.30f, 0.90f, 1.00f),  // cyan
 		"heavy_cannon"  => new Color(1.00f, 0.55f, 0.00f),  // orange
+		"rocket_launcher" => new Color(1.00f, 0.58f, 0.14f),  // hot orange
 		"marker_tower"  => new Color(0.75f, 0.30f, 1.00f),  // purple
 		"chain_tower"      => new Color(0.55f, 0.90f, 1.00f),  // electric blue
 		"rift_prism"       => new Color(0.70f, 1.00f, 0.56f),  // lime
 		"accordion_engine" => new Color(0.78f, 0.40f, 1.00f),  // bright violet
 		"phase_splitter"   => new Color(0.45f, 1.00f, 0.95f),  // aqua phase beam
+		"undertow_engine"  => new Color(0.08f, 0.64f, 0.86f),  // reverse-current teal
 		_                  => Colors.Yellow,
 	};
 
@@ -1700,11 +1702,13 @@ public partial class GameController : Node
 	{
 		"rapid_shooter" => new Color(0.15f, 0.65f, 1.00f),
 		"heavy_cannon"  => new Color(1.00f, 0.55f, 0.00f),
+		"rocket_launcher" => new Color(0.96f, 0.36f, 0.10f),
 		"marker_tower"  => new Color(1.00f, 0.15f, 0.60f),
 		"chain_tower"      => new Color(0.50f, 0.85f, 1.00f),
 		"rift_prism"       => new Color(0.58f, 0.98f, 0.50f),
 		"accordion_engine" => new Color(0.72f, 0.20f, 1.00f),
 		"phase_splitter"   => new Color(0.36f, 0.92f, 0.88f),
+		"undertow_engine"  => new Color(0.02f, 0.56f, 0.78f),
 		_                  => new Color(0.20f, 0.50f, 1.00f),
 	};
 
@@ -2921,6 +2925,18 @@ public partial class GameController : Node
 				text += $"hits front + back in range at {(int)(Balance.PhaseSplitterDamageRatio * 100)}% damage per target\n";
 				text += "strong lane-edge pressure, weaker into dense mid packs\n";
 			}
+			if (tower.TowerId == "rocket_launcher")
+			{
+				text += $"explodes on hit: full primary + {(int)(Balance.RocketLauncherSplashDamageRatio * 100)}% splash in {Balance.RocketLauncherSplashRadius:0}px\n";
+				text += "Rocket Launcher fires explosive rockets that damage the target and nearby enemies.\n";
+				if (tower.Modifiers.Any(m => m.ModifierId == "blast_core"))
+					text += "Burst Core further expands the blast radius.\n";
+			}
+			if (tower.TowerId == "undertow_engine")
+			{
+				text += $"drags the lead enemy backward for {Balance.UndertowDuration:0.##}s while heavily slowing it\n";
+				text += "Undertow Engine drags enemies backward so they spend longer inside your defenses.\n";
+			}
 			if (tower.IsChainTower)
 				text += $"chains x{tower.ChainCount}  ({(int)(tower.ChainDamageDecay * 100)}% per bounce)  range {(int)tower.ChainRange} px\n";
 			if (tower.SplitCount > 0)
@@ -3783,11 +3799,13 @@ void fragment() {
 		{
 			case "chain_tower":      SpawnArchetypeChainArcs(tower, accent, drama); break;
 			case "heavy_cannon":     SpawnArchetypeCannonRing(tower.GlobalPosition, accent, drama); break;
+			case "rocket_launcher":  SpawnArchetypeRocketRing(tower.GlobalPosition, accent, drama); break;
 			case "rapid_shooter":    SpawnArchetypeSparks(tower.GlobalPosition, accent, drama); break;
 			case "marker_tower":     SpawnArchetypeMarkedFlash(accent, drama); break;
 			case "rift_prism":       SpawnArchetypeRiftRing(tower.GlobalPosition, accent, drama); break;
 			case "accordion_engine": SpawnArchetypeAccordionRing(tower.GlobalPosition, accent, drama); break;
 			case "phase_splitter":   SpawnArchetypePhaseRing(tower.GlobalPosition, accent, drama); break;
+			case "undertow_engine":  SpawnArchetypeUndertowRing(tower.GlobalPosition, accent, drama); break;
 		}
 	}
 
@@ -3798,6 +3816,22 @@ void fragment() {
 		float duration = Mathf.Lerp(0.22f, 0.34f, Mathf.Clamp(drama, 0f, 1f));
 		EmitSignatureRing(worldPos, new Color(accent.R, accent.G, accent.B, 0.84f), radiusA, duration, 3.1f);
 		EmitSignatureRing(worldPos, new Color(accent.R, accent.G, accent.B, 0.56f), radiusB, duration * 0.8f, 2.0f);
+	}
+
+	private void SpawnArchetypeUndertowRing(Vector2 worldPos, Color accent, float drama)
+	{
+		float radius = Mathf.Lerp(76f, 168f, Mathf.Clamp(drama, 0f, 1f));
+		float duration = Mathf.Lerp(0.24f, 0.36f, Mathf.Clamp(drama, 0f, 1f));
+		EmitSignatureRing(worldPos, new Color(accent.R, accent.G, accent.B, 0.86f), radius, duration, 2.8f);
+		EmitSignatureRing(worldPos, new Color(accent.R, accent.G, accent.B, 0.54f), radius * 0.62f, duration * 0.86f, 1.8f);
+	}
+
+	private void SpawnArchetypeRocketRing(Vector2 worldPos, Color accent, float drama)
+	{
+		float radius = Mathf.Lerp(84f, 192f, Mathf.Clamp(drama, 0f, 1f));
+		float duration = Mathf.Lerp(0.22f, 0.33f, Mathf.Clamp(drama, 0f, 1f));
+		EmitSignatureRing(worldPos, new Color(accent.R, accent.G, accent.B, 0.86f), radius, duration, 3.2f);
+		EmitSignatureRing(worldPos, new Color(1f, 0.92f, 0.72f, 0.46f), radius * 0.66f, duration * 0.82f, 2.0f);
 	}
 
 	private void SpawnArchetypeChainArcs(TowerInstance tower, Color accent, float drama)
@@ -6676,10 +6710,13 @@ void fragment() {
 			{
 				"rapid_shooter" => new Color(0.25f, 0.92f, 1.00f),
 				"heavy_cannon" => new Color(1.00f, 0.60f, 0.18f),
+				"rocket_launcher" => new Color(1.00f, 0.54f, 0.14f),
 				"marker_tower" => new Color(1.00f, 0.30f, 0.72f),
 				"chain_tower" => new Color(0.62f, 0.90f, 1.00f),
 				"rift_prism" => new Color(0.60f, 1.00f, 0.58f),
+				"accordion_engine" => new Color(0.78f, 0.40f, 1.00f),
 				"phase_splitter" => new Color(0.45f, 1.00f, 0.95f),
+				"undertow_engine" => new Color(0.08f, 0.64f, 0.86f),
 				_ => new Color(0.75f, 0.85f, 1.00f),
 			};
 
@@ -6703,10 +6740,13 @@ void fragment() {
 				{
 					"rapid_shooter" => "RS",
 					"heavy_cannon" => "HC",
+					"rocket_launcher" => "RL",
 					"marker_tower" => "MK",
 					"chain_tower" => "AR",
 					"rift_prism" => "SA",
+					"accordion_engine" => "AC",
 					"phase_splitter" => "PS",
+					"undertow_engine" => "UT",
 					_ => "TW",
 				},
 				HorizontalAlignment = HorizontalAlignment.Center,
@@ -6962,6 +7002,54 @@ void fragment() {
 		// Combat callout when blast catches 2+ enemies.
 		if (splashTargets.Count >= 2 && TryCombatCallout("blast_core", 5.5f))
 			SpawnCombatCallout("BLAST CORE", origin, blastColor);
+	}
+
+	/// <summary>
+	/// Called by Rocket Launcher native splash after radial damage is applied.
+	/// Handles ring/readability feedback and secondary hit numbers.
+	/// </summary>
+	public void NotifyRocketSplash(
+		ITowerView sourceTower,
+		Vector2 origin,
+		float splashDamage,
+		System.Collections.Generic.IReadOnlyList<IEnemyView> splashTargets,
+		float mechanicalRadius,
+		bool burstCoreEnhanced)
+	{
+		if (CurrentPhase != GamePhase.Wave)
+			return;
+
+		Color blastColor = sourceTower is TowerInstance towerNode
+			? towerNode.ProjectileColor
+			: new Color(1.00f, 0.56f, 0.16f);
+		float power = Mathf.Clamp(splashDamage / 45f, 0f, 1f);
+
+		if (_botRunner == null && GodotObject.IsInstanceValid(_worldNode))
+		{
+			SpawnBlastCoreRing(origin, blastColor, mechanicalRadius, power);
+		}
+
+		if (splashTargets == null || splashTargets.Count == 0)
+			return;
+
+		float totalSplash = splashDamage * splashTargets.Count;
+		TrackSpectacleDamage(sourceTower, totalSplash, isKill: false, SpectacleDamageSource.ExplosionFollowUp);
+
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+
+		SpawnSpectacleImpactSparks(origin, blastColor, heavy: true);
+		foreach (IEnemyView target in splashTargets)
+		{
+			if (target is EnemyInstance enemy && GodotObject.IsInstanceValid(enemy))
+			{
+				SpawnSpectacleImpactSparks(enemy.GlobalPosition, blastColor, heavy: false);
+				SpawnSecondaryDamageNumber(enemy.GlobalPosition, splashDamage, enemy.Hp <= 0f, blastColor);
+			}
+		}
+
+		if (burstCoreEnhanced && splashTargets.Count >= 2 && TryCombatCallout("rocket_launcher_blast", 6.0f))
+			SpawnCombatCallout("ROCKET BLAST", origin, blastColor);
 	}
 
 	public void PlayModifierLockInFx(int slotIndex, string modifierId, System.Action? onComplete = null)
@@ -8062,10 +8150,13 @@ void fragment() {
 			"exploit_weakness" => tower.AppliesMark || tower.TowerId == "marker_tower",
 			"chain_reaction"   => tower.IsChainTower,
 			"overkill" or "focus_lens" => tower.TowerId == "heavy_cannon"
+				|| tower.TowerId == "rocket_launcher"
 				|| tower.Modifiers.Any(m => m.ModifierId == "focus_lens")
 				|| tower.BaseDamage >= 40f,
-			// Overreach extends the accordion compression zone; blast_core rewards the packed formation it creates
-			"overreach" or "blast_core" => tower.TowerId == "accordion_engine",
+			// Overreach expands control radius; Blast Core capitalizes on re-clumped enemies after control effects.
+			"overreach" => tower.TowerId == "accordion_engine" || tower.TowerId == "undertow_engine" || tower.TowerId == "rocket_launcher",
+			"blast_core" => tower.TowerId == "accordion_engine" || tower.TowerId == "undertow_engine" || tower.TowerId == "rocket_launcher",
+			"slow" => tower.TowerId == "undertow_engine" || tower.TowerId == "chain_tower" || tower.TowerId == "rapid_shooter",
 			"wildfire" => tower.TowerId == "phase_splitter" || tower.TowerId == "rapid_shooter" || tower.TowerId == "rift_prism",
 			_ => false,
 		};

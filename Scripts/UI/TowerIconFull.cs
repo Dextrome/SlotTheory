@@ -39,11 +39,13 @@ public partial class TowerIconFull : Control
         {
             "rapid_shooter"    => (24f, -5.5f),   // barrel top ~-23, base bottom ~+12
             "heavy_cannon"     => (24f, -9.0f),   // barrel top ~-32 (scaled), base bottom ~+14
+            "rocket_launcher"  => (24f, -7.5f),   // nose tip ~-31, core bottom ~+14
             "marker_tower"     => (22f, -3.0f),   // antenna tip ~-22, diamond bottom ~+16
             "chain_tower"      => (20f,  0.0f),   // prong tips at ~r=19, symmetric
             "rift_prism"       => (23f,  0.0f),   // fins at ±22, symmetric
             "accordion_engine" => (23f,  0.0f),   // claw arm tips at ±18, symmetric
             "phase_splitter"   => (24f,  0.0f),   // mirrored emitters at ±16
+            "undertow_engine"  => (24f,  0.0f),   // reverse-current vanes at ~17
             _                  => (14f,  0.0f),
         };
 
@@ -58,11 +60,13 @@ public partial class TowerIconFull : Control
         {
             case "rapid_shooter":    DrawRapidShooter();    break;
             case "heavy_cannon":     DrawHeavyCannon();     break;
+            case "rocket_launcher":  DrawRocketLauncher();  break;
             case "marker_tower":     DrawMarkerTower();     break;
             case "chain_tower":      DrawChainTower();      break;
             case "rift_prism":       DrawRiftSapper();      break;
             case "accordion_engine": DrawAccordionEngine(); break;
             case "phase_splitter":   DrawPhaseSplitter();   break;
+            case "undertow_engine":  DrawUndertowEngine();  break;
             default:
                 DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f));
                 break;
@@ -119,6 +123,45 @@ public partial class TowerIconFull : Control
     }
 
     // ── Marker Tower ─────────────────────────────────────────────────────────
+
+    private void DrawRocketLauncher()
+    {
+        var ember = new Color(0.96f, 0.36f, 0.10f);
+        var dark = new Color(0.22f, 0.10f, 0.05f);
+        var glow = new Color(1.00f, 0.80f, 0.42f);
+
+        DrawCircle(Vector2.Zero, 24f, new Color(ember.R, ember.G, ember.B, 0.07f));
+        DrawCircle(Vector2.Zero, 17f, new Color(ember.R, ember.G, ember.B, 0.14f));
+
+        DrawPolygon(RegularPoly(8, 13.8f, 0f), new[] { ember });
+        DrawPolygon(RegularPoly(8, 11.2f, 0f), new[] { dark });
+        DrawCircle(Vector2.Zero, 3.4f, new Color(glow.R, glow.G, glow.B, 0.86f));
+
+        DrawRect(new Rect2(-4.9f, -24f, 9.8f, 18f), ember);
+        DrawRect(new Rect2(-3.1f, -22.7f, 6.2f, 15.4f), dark);
+        DrawPolygon(new[]
+        {
+            new Vector2(0f, -32.3f),
+            new Vector2(6.3f, -23.3f),
+            new Vector2(-6.3f, -23.3f),
+        }, new[] { glow });
+        DrawCircle(new Vector2(0f, -24.2f), 1.8f, new Color(1f, 0.94f, 0.78f, 0.95f));
+
+        DrawPolygon(new[]
+        {
+            new Vector2(-4.9f, -10.8f),
+            new Vector2(-8.7f, -5.2f),
+            new Vector2(-2.2f, -6.7f),
+        }, new[] { new Color(ember.R, ember.G, ember.B, 0.86f) });
+        DrawPolygon(new[]
+        {
+            new Vector2(4.9f, -10.8f),
+            new Vector2(8.7f, -5.2f),
+            new Vector2(2.2f, -6.7f),
+        }, new[] { new Color(ember.R, ember.G, ember.B, 0.86f) });
+
+        DrawCircle(new Vector2(0f, -5.7f), 3.2f, new Color(1f, 0.58f, 0.20f, 0.24f));
+    }
 
     private void DrawMarkerTower()
     {
@@ -277,6 +320,39 @@ public partial class TowerIconFull : Control
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    // -- Undertow Engine --
+
+    private void DrawUndertowEngine()
+    {
+        var sea = new Color(0.08f, 0.64f, 0.86f);
+        var deep = new Color(0.02f, 0.10f, 0.18f);
+        var foam = new Color(0.78f, 0.96f, 1.00f);
+
+        DrawCircle(Vector2.Zero, 25f, new Color(sea.R, sea.G, sea.B, 0.09f));
+        DrawCircle(Vector2.Zero, 17f, new Color(sea.R, sea.G, sea.B, 0.16f));
+
+        DrawPolygon(RegularPoly(10, 12.4f, Mathf.Pi / 10f), new[] { sea });
+        DrawPolygon(RegularPoly(10, 9.6f, Mathf.Pi / 10f), new[] { deep });
+
+        for (int i = 0; i < 4; i++)
+        {
+            float a = i * Mathf.Tau / 4f + Mathf.Pi * 0.15f;
+            Vector2 dir = new(Mathf.Cos(a), Mathf.Sin(a));
+            Vector2 perp = new(-dir.Y, dir.X);
+            Vector2 tip = dir * 17f;
+            DrawPolygon(new[]
+            {
+                tip + perp * 2.1f,
+                tip - perp * 2.1f,
+                tip - dir * 7.4f,
+            }, new[] { new Color(foam.R, foam.G, foam.B, 0.82f) });
+        }
+
+        DrawArc(Vector2.Zero, 16.5f, 0f, Mathf.Tau, 46, new Color(sea.R, sea.G, sea.B, 0.36f), 1.8f);
+        DrawArc(Vector2.Zero, 10.5f, 0f, Mathf.Tau, 32, new Color(foam.R, foam.G, foam.B, 0.32f), 1.3f);
+        DrawCircle(Vector2.Zero, 3.0f, new Color(1f, 1f, 1f, 0.90f));
+    }
 
     private static Vector2[] RegularPoly(int sides, float radius, float angleOffset)
     {

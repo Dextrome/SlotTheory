@@ -96,10 +96,13 @@ public static class SpectacleDefinitions
     {
         "rapid_shooter",
         "heavy_cannon",
+        "rocket_launcher",
         "marker_tower",
         "chain_tower",
         "rift_prism",
+        "accordion_engine",
         "phase_splitter",
+        "undertow_engine",
     };
 
     // Compressed gain spread to keep triad charge pacing more consistent across modifier groups.

@@ -104,6 +104,7 @@ public partial class TowerInstance : Node2D, ITowerView
     private static readonly HashSet<string> FlagshipTowerIds = new(StringComparer.Ordinal)
     {
         "heavy_cannon",
+        "rocket_launcher",
         "chain_tower",
         "phase_splitter",
     };
@@ -457,11 +458,13 @@ public partial class TowerInstance : Node2D, ITowerView
         {
             case "rapid_shooter":    DrawRapidShooter();    break;
             case "heavy_cannon":     DrawHeavyCannon();     break;
+            case "rocket_launcher":  DrawRocketLauncher();  break;
             case "marker_tower":     DrawMarkerTower();     break;
             case "chain_tower":      DrawChainTower();      break;
             case "rift_prism":       DrawRiftSapper();      break;
             case "accordion_engine": DrawAccordionEngine(); break;
             case "phase_splitter":   DrawPhaseSplitter();   break;
+            case "undertow_engine":  DrawUndertowEngine();  break;
             default: DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f)); break;
         }
 
@@ -781,6 +784,20 @@ public partial class TowerInstance : Node2D, ITowerView
                     DrawArc(Vector2.Zero, 26.8f, -2.15f, -0.98f, 18, new Color(shell.R, shell.G, shell.B, alpha * 0.84f), 1.9f);
                     DrawLine(new Vector2(-6.6f, -24.4f), new Vector2(6.6f, -24.4f), new Color(shell.R, shell.G, shell.B, alpha * 0.88f), 1.7f);
                 }
+                break;
+            }
+            case "rocket_launcher":
+            {
+                float ring = t3 ? 24.8f : 21.6f;
+                float tail = t3 ? 18.2f : 16.0f;
+                DrawArc(Vector2.Zero, ring, -2.32f, -0.90f, 24, shell, t3 ? 2.0f : 1.6f);
+                DrawArc(Vector2.Zero, ring, 0.90f, 2.32f, 24, shell, t3 ? 2.0f : 1.6f);
+                DrawLine(new Vector2(-7.2f, -24.4f), new Vector2(7.2f, -24.4f), new Color(shell.R, shell.G, shell.B, alpha * 0.90f), t3 ? 1.9f : 1.5f);
+                DrawLine(new Vector2(0f, -6.8f), new Vector2(0f, tail), new Color(shell.R, shell.G, shell.B, alpha * 0.82f), t3 ? 1.6f : 1.3f);
+                DrawCircle(new Vector2(0f, -24.4f), t3 ? 2.2f : 1.7f, new Color(shell.R, shell.G, shell.B, alpha * 0.92f));
+
+                if (t3 && StringComparer.OrdinalIgnoreCase.Equals(_visualEvolution.FocalModId, "blast_core"))
+                    DrawArc(Vector2.Zero, 28.0f, -2.74f, -0.40f, 26, new Color(shell.R, shell.G, shell.B, alpha * 0.82f), 1.6f);
                 break;
             }
             case "phase_splitter":
@@ -1349,6 +1366,54 @@ public partial class TowerInstance : Node2D, ITowerView
         }
     }
 
+    private void DrawRocketLauncher()
+    {
+        var ember = new Color(0.96f, 0.36f, 0.10f);
+        var dark = LiftInnerTone(new Color(0.20f, 0.08f, 0.04f));
+        var glow = new Color(1.00f, 0.80f, 0.42f);
+        float shot = ShotKick();
+        float sway = Mathf.Sin(_idleTime * 2.4f) * 0.8f;
+        float recoil = shot * 4.6f;
+        float tubeY = -24f + recoil;
+
+        DrawCircle(Vector2.Zero, 24f, new Color(ember.R, ember.G, ember.B, 0.07f));
+        DrawCircle(Vector2.Zero, 17f, new Color(ember.R, ember.G, ember.B, 0.14f));
+
+        DrawPolygon(RegularPoly(8, 13.8f, 0f), new[] { ember });
+        DrawPolygon(RegularPoly(8, 11.2f, 0f), new[] { dark });
+        DrawCircle(Vector2.Zero, 3.5f, new Color(glow.R, glow.G, glow.B, 0.84f));
+
+        DrawRect(new Rect2(-4.9f + sway, tubeY, 9.8f, 18f), ember);
+        DrawRect(new Rect2(-3.1f + sway, tubeY + 1.3f, 6.2f, 15.4f), dark);
+        DrawPolygon(new[]
+        {
+            new Vector2(0f + sway, tubeY - 8.3f),
+            new Vector2(6.3f + sway, tubeY + 0.7f),
+            new Vector2(-6.3f + sway, tubeY + 0.7f),
+        }, new[] { glow });
+        DrawCircle(new Vector2(0f + sway, tubeY - 0.2f), 1.8f, new Color(1f, 0.94f, 0.78f, 0.95f));
+
+        DrawPolygon(new[]
+        {
+            new Vector2(-4.9f + sway, tubeY + 13.2f),
+            new Vector2(-8.7f + sway, tubeY + 18.8f),
+            new Vector2(-2.2f + sway, tubeY + 17.3f),
+        }, new[] { new Color(ember.R, ember.G, ember.B, 0.86f) });
+        DrawPolygon(new[]
+        {
+            new Vector2(4.9f + sway, tubeY + 13.2f),
+            new Vector2(8.7f + sway, tubeY + 18.8f),
+            new Vector2(2.2f + sway, tubeY + 17.3f),
+        }, new[] { new Color(ember.R, ember.G, ember.B, 0.86f) });
+
+        if (shot > 0.02f)
+        {
+            var nozzle = new Vector2(0f + sway, tubeY + 18.3f);
+            DrawCircle(nozzle, 6.2f + shot * 4.6f, new Color(1f, 0.55f, 0.18f, 0.20f + shot * 0.20f));
+            DrawCircle(nozzle, 2.8f + shot * 2.2f, new Color(1f, 0.90f, 0.55f, 0.76f));
+        }
+    }
+
     private void DrawMarkerTower()
     {
         var pink = new Color(1.00f, 0.15f, 0.60f);
@@ -1467,6 +1532,45 @@ public partial class TowerInstance : Node2D, ITowerView
         // Core energy node
         DrawCircle(Vector2.Zero, 4.5f + compress * 0.8f, new Color(violet.R, violet.G, violet.B, 0.65f + 0.20f * shot));
         DrawCircle(Vector2.Zero, 2.5f + compress * 0.5f, new Color(1f, 0.85f, 1f, 0.90f));
+    }
+
+    private void DrawUndertowEngine()
+    {
+        var sea = new Color(0.08f, 0.64f, 0.86f);
+        var deep = LiftInnerTone(new Color(0.02f, 0.10f, 0.18f));
+        var foam = new Color(0.78f, 0.96f, 1.00f);
+        float shot = ShotKick();
+        float pulse = 0.58f + 0.42f * Mathf.Sin(_idleTime * 4.6f);
+        float drawIn = shot * 3.0f;
+        float swirl = _idleTime * 2.2f;
+
+        DrawCircle(Vector2.Zero, 25f, new Color(sea.R, sea.G, sea.B, 0.08f + 0.04f * pulse));
+        DrawCircle(Vector2.Zero, 17f, new Color(sea.R, sea.G, sea.B, 0.15f + 0.05f * pulse));
+
+        // Outer flow frame.
+        DrawPolygon(RegularPoly(10, 12.4f, Mathf.Pi / 10f), new[] { sea });
+        DrawPolygon(RegularPoly(10, 9.6f, Mathf.Pi / 10f), new[] { deep });
+
+        // Reverse-current vanes.
+        for (int i = 0; i < 4; i++)
+        {
+            float a = swirl + i * Mathf.Tau / 4f;
+            Vector2 dir = new(Mathf.Cos(a), Mathf.Sin(a));
+            Vector2 perp = new(-dir.Y, dir.X);
+            Vector2 tip = dir * (17f - drawIn);
+            DrawPolygon(new[]
+            {
+                tip + perp * 2.2f,
+                tip - perp * 2.2f,
+                tip - dir * 7.5f,
+            }, new[] { new Color(foam.R, foam.G, foam.B, 0.72f + shot * 0.16f) });
+        }
+
+        // Implosive rings.
+        float ringRadius = 16.5f - shot * 2.8f;
+        DrawArc(Vector2.Zero, ringRadius, 0f, Mathf.Tau, 46, new Color(sea.R, sea.G, sea.B, 0.34f + shot * 0.20f), 1.8f);
+        DrawArc(Vector2.Zero, ringRadius * 0.64f, 0f, Mathf.Tau, 32, new Color(foam.R, foam.G, foam.B, 0.30f + shot * 0.16f), 1.3f);
+        DrawCircle(Vector2.Zero, 3.0f + shot * 0.75f, new Color(1f, 1f, 1f, 0.90f));
     }
 
     private void DrawPhaseSplitter()

@@ -379,10 +379,13 @@ public partial class UnlockRevealScreen : CanvasLayer
     {
         "rapid_shooter" => new Color(0.30f, 0.90f, 1.00f),
         "heavy_cannon" => new Color(1.00f, 0.55f, 0.00f),
+        "rocket_launcher" => new Color(1.00f, 0.54f, 0.14f),
         "marker_tower" => new Color(1.00f, 0.15f, 0.60f),
         "chain_tower" => new Color(0.50f, 0.85f, 1.00f),
         "rift_prism" => new Color(0.60f, 1.00f, 0.58f),
+        "accordion_engine" => new Color(0.72f, 0.20f, 1.00f),
         "phase_splitter" => new Color(0.45f, 1.00f, 0.95f),
+        "undertow_engine" => new Color(0.08f, 0.64f, 0.86f),
         _ => new Color(0.82f, 0.88f, 1.00f),
     };
 
@@ -391,6 +394,8 @@ public partial class UnlockRevealScreen : CanvasLayer
         "chain_tower" => "Built-in chain bounces for dense packs and lane control.",
         "rift_prism" => "Plants charged lane mines that detonate on final charge.",
         "phase_splitter" => "Fires a split-phase blast that hits both front and back targets.",
+            "rocket_launcher" => "Rocket Launcher fires explosive rockets that damage the target and nearby enemies.",
+        "undertow_engine" => "Drags enemies backward so they spend longer inside your defenses.",
         _ => "Tower unlocked."
     };
 }
