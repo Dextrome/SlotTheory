@@ -312,7 +312,7 @@ public partial class MapSelectPanel : Node
 			{
 				bool fullGamePreviewOnly = Balance.IsDemo && mapDef.IsFullGame;
 				string description = fullGamePreviewOnly
-					? "Available in full release."
+					? ProductCopy.FullGameMapTeaseLine
 					: mapDef.Description;
 				_mapListContainer.AddChild(CreateMapButton(mapDef.Id, mapDef.Name, description, fullGamePreviewOnly));
 			}
@@ -350,7 +350,9 @@ public partial class MapSelectPanel : Node
 
 		var btn = new Button
 		{
-            Text = fullGamePreviewOnly ? "PREVIEW" : "CHOOSE",
+			Text = fullGamePreviewOnly
+				? ProductCopy.FullGameButtonLabel
+				: isSelected ? "SELECTED" : "CHOOSE",
 			CustomMinimumSize = new Vector2(80, 52),
 		};
 		if (fullGamePreviewOnly)
@@ -531,8 +533,8 @@ public partial class MapSelectPanel : Node
 
 		bool playable = IsSelectedMapPlayable();
 		_startRunButton.Disabled = !playable;
-        _startRunButton.Text = playable ? "Start Run" : "Full Game Map";
-		_startRunButton.TooltipText = playable ? string.Empty : "Available in full release.";
+		_startRunButton.Text = playable ? "Start Run" : ProductCopy.FullGameSectorLabel;
+		_startRunButton.TooltipText = playable ? string.Empty : ProductCopy.FullGameTooltip;
 		_startRunButton.Modulate = playable
 			? Colors.White
 			: new Color(0.62f, 0.66f, 0.78f, 0.90f);

@@ -673,7 +673,7 @@ public partial class SlotCodexPanel : Node
 
         var fullGameLabel = new Label
         {
-            Text = "FULL GAME",
+            Text = ProductCopy.FullGameButtonLabel,
             HorizontalAlignment = HorizontalAlignment.Center
         };
         UITheme.ApplyFont(fullGameLabel, semiBold: true, size: 17);
@@ -682,7 +682,7 @@ public partial class SlotCodexPanel : Node
 
         var noteLabel = new Label
         {
-            Text = "Available in the full release.",
+            Text = ProductCopy.FullGameTooltip,
             HorizontalAlignment = HorizontalAlignment.Center,
             AutowrapMode = TextServer.AutowrapMode.WordSmart
         };
@@ -929,7 +929,7 @@ public partial class SlotCodexPanel : Node
             CodexTab.Towers => $"{towerUnlocked}/{towerTotal} towers unlocked",
             CodexTab.Mods => $"{modUnlocked}/{modTotal} modifiers unlocked",
             CodexTab.Enemies => Balance.IsDemo
-                ? $"{enemyTotal} enemy types shown  -  2 more in full game"
+                ? $"{enemyTotal} enemy types shown | full game adds 2 more"
                 : $"{enemyTotal} enemy types",
             CodexTab.HowToPlay => "Core rules, controls, and build fundamentals.",
             CodexTab.Surges => "Surge / Twist / Bonus / Global Surge reference.",
@@ -961,7 +961,7 @@ public partial class SlotCodexPanel : Node
 
         var lockLabel = new Label
         {
-            Text = "FULL GAME",
+            Text = ProductCopy.FullGameButtonLabel,
             HorizontalAlignment = HorizontalAlignment.Center
         };
         UITheme.ApplyFont(lockLabel, semiBold: true, size: 17);
@@ -1154,7 +1154,7 @@ public partial class SlotCodexPanel : Node
 
         var fullGameLabel = new Label
         {
-            Text = "FULL GAME",
+            Text = ProductCopy.FullGameButtonLabel,
             HorizontalAlignment = HorizontalAlignment.Center
         };
         UITheme.ApplyFont(fullGameLabel, semiBold: true, size: 17);
@@ -1163,7 +1163,7 @@ public partial class SlotCodexPanel : Node
 
         var noteLabel = new Label
         {
-            Text = "Available in the full release.",
+            Text = ProductCopy.FullGameTooltip,
             HorizontalAlignment = HorizontalAlignment.Center,
             AutowrapMode = TextServer.AutowrapMode.WordSmart
         };

@@ -295,7 +295,7 @@ public partial class CampaignSelectPanel : Node
             : new Color(0.40f, 0.43f, 0.56f);
         textVbox.AddChild(nameLabel);
 
-        var subtitleLabel = new Label { Text = available ? stage.StageSubtitle : "Clear previous stage to unlock" };
+        var subtitleLabel = new Label { Text = available ? stage.StageSubtitle : ProductCopy.StageUnlockHint };
         subtitleLabel.AddThemeFontSizeOverride("font_size", 12);
         subtitleLabel.Modulate = available
             ? (selected ? new Color(0.78f, 0.84f, 0.70f) : new Color(0.55f, 0.60f, 0.70f))
@@ -322,9 +322,9 @@ public partial class CampaignSelectPanel : Node
         if (available && (easy || normal || hard))
         {
             string checks = "";
-            if (easy)   checks += "E✓ ";
-            if (normal) checks += "N✓ ";
-            if (hard)   checks += "H✓";
+            if (easy)   checks += "E\u2713 ";
+            if (normal) checks += "N\u2713 ";
+            if (hard)   checks += "H\u2713";
             var clearLabel = new Label { Text = checks.Trim() };
             clearLabel.AddThemeFontSizeOverride("font_size", 12);
             clearLabel.Modulate = new Color(0.40f, 0.92f, 0.50f, 0.90f);
@@ -368,6 +368,28 @@ public partial class CampaignSelectPanel : Node
         PopulateStageList();
         UpdateDifficultyVisuals();
         UpdateIntroLine();
+
+        if (_stageListContainer == null)
+            return;
+
+        foreach (var child in _stageListContainer.GetChildren())
+        {
+            if (child is not PanelContainer row || !row.HasMeta("stage_index"))
+                continue;
+            if (row.GetMeta("stage_index").AsInt32() != _selectedIndex)
+                continue;
+
+            row.Modulate = new Color(row.Modulate.R, row.Modulate.G, row.Modulate.B, 0f);
+            row.PivotOffset = row.Size / 2f;
+            row.Scale = new Vector2(0.97f, 0.97f);
+            var tw = row.CreateTween();
+            tw.SetParallel(true);
+            tw.TweenProperty(row, "modulate:a", 1f, 0.10f)
+                .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+            tw.TweenProperty(row, "scale", Vector2.One, 0.12f)
+                .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
+            break;
+        }
     }
 
     private void UpdateIntroLine()
@@ -394,7 +416,7 @@ public partial class CampaignSelectPanel : Node
         bool cleared    = CampaignProgress.IsCleared(stageIndex, mode);
         bool isSelected = _selectedDifficulty == mode;
 
-        btn.Text = cleared ? $"{baseLabel} ✓" : baseLabel;
+        btn.Text = cleared ? $"{baseLabel} \u2713" : baseLabel;
         Color color = isSelected
             ? new Color(1.0f, 0.85f, 0.25f)
             : cleared
@@ -441,3 +463,4 @@ public partial class CampaignSelectPanel : Node
         Transition.Instance?.FadeToScene("res://Scenes/ModeSelect.tscn");
     }
 }
+

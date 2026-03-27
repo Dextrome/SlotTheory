@@ -288,7 +288,7 @@ public partial class MainMenu : Node
 
 		if (Balance.IsDemo && Balance.FullGameSteamAppId != 0u)
 		{
-			var wishBtn = MakeMenuButton("Wishlist on Steam", 260, 40, 17);
+			var wishBtn = MakeMenuButton(ProductCopy.WishlistCta, 260, 40, 17);
 			UITheme.ApplyMutedStyle(wishBtn);
 			wishBtn.AddThemeColorOverride("font_color", new Color(0.85f, 0.65f, 1.0f));
 			AddButtonSurface(wishBtn, UITheme.Magenta, 0.10f, 0.16f);
@@ -571,7 +571,7 @@ public partial class MainMenu : Node
 
 		var heading = new Label
 		{
-			Text = "Demo complete!",
+			Text = ProductCopy.DemoCompleteTitle,
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
 		UITheme.ApplyFont(heading, semiBold: true, size: 17);
@@ -580,7 +580,7 @@ public partial class MainMenu : Node
 
 		var body = new Label
 		{
-			Text = "You've unlocked everything in the demo.\nThe full game features more maps, towers, and challenges.",
+			Text = ProductCopy.DemoCompleteBody,
 			HorizontalAlignment = HorizontalAlignment.Center,
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 		};
@@ -597,8 +597,8 @@ public partial class MainMenu : Node
 		{
 			var wishBtn = new Button
 			{
-				Text = "Wishlist",
-				CustomMinimumSize = new Vector2(110, 32),
+				Text = ProductCopy.WishlistCta,
+				CustomMinimumSize = new Vector2(140, 32),
 			};
 			wishBtn.AddThemeFontSizeOverride("font_size", 14);
 			UITheme.ApplyMutedStyle(wishBtn);

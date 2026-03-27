@@ -76,6 +76,7 @@ public partial class SoundManager : Node
     private float _gameSpeedScale = 1f;
     private readonly Dictionary<string, ulong> _mobileSfxLastPlayMs = new();
     private readonly Dictionary<string, ulong> _desktopSfxLastPlayMs = new();
+    private readonly Dictionary<string, ulong> _uiSfxLastPlayMs = new();
     private ulong[] _poolStopAtMs = Array.Empty<ulong>();
 
     // Music note pool - separate from the SFX pool; routed to the Music bus
@@ -159,6 +160,14 @@ public partial class SoundManager : Node
         // Mine events: longer gap since chain-pop can cascade many in a single frame.
         ["mine_pop"]       = 60,
         ["mine_chain_pop"] = 90,
+    };
+
+    // UI cadence shaping for high-frequency menu interactions.
+    // Keeps hover/select responsive while preventing chirpy repetition during rapid focus changes.
+    private static readonly Dictionary<string, int> UiSfxCooldownMs = new()
+    {
+        ["ui_hover"] = 45,
+        ["ui_select"] = 65,
     };
 
     public override void _Ready()
@@ -1493,6 +1502,7 @@ public partial class SoundManager : Node
         if (_headless) return;
         if (!_samples.TryGetValue(id, out var samples)) return;
         ulong nowMs = Time.GetTicksMsec();
+        if (ShouldSkipUiSfx(id, nowMs)) return;
         if (ShouldSkipMobileSfx(id, nowMs)) return;
         if (!_isMobileAudio && _gameSpeedScale > 1f && ShouldSkipDesktopSfx(id, nowMs)) return;
         float dur = _durations[id];
@@ -1907,6 +1917,17 @@ public partial class SoundManager : Node
             return true;
 
         _desktopSfxLastPlayMs[id] = nowMs;
+        return false;
+    }
+
+    private bool ShouldSkipUiSfx(string id, ulong nowMs)
+    {
+        if (!UiSfxCooldownMs.TryGetValue(id, out int cooldownMs))
+            return false;
+        if (_uiSfxLastPlayMs.TryGetValue(id, out ulong lastMs) && nowMs - lastMs < (ulong)cooldownMs)
+            return true;
+
+        _uiSfxLastPlayMs[id] = nowMs;
         return false;
     }
 

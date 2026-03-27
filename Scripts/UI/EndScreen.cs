@@ -209,7 +209,7 @@ public partial class EndScreen : CanvasLayer
 
 		_wishlistButton = new Button
 		{
-			Text = "\u2665  Wishlist Full Game",
+			Text = ProductCopy.WishlistCta,
 			CustomMinimumSize = new Vector2(0f, 42f),
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 			Visible = Balance.IsDemo && Balance.FullGameSteamAppId != 0u,
@@ -249,7 +249,7 @@ public partial class EndScreen : CanvasLayer
 
 		_continueEndlessButton = new Button
 		{
-			Text = "Continue · Endless",
+			Text = "Continue | Endless",
 			CustomMinimumSize = new Vector2(0f, 42f),
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 			Visible = false,
@@ -264,7 +264,7 @@ public partial class EndScreen : CanvasLayer
 
 		_nextCampaignButton = new Button
 		{
-			Text = "Next Stage  →",
+			Text = "Next Stage ->",
 			CustomMinimumSize = new Vector2(360f, 48f),
 			Visible = false,
 		};
@@ -298,7 +298,7 @@ public partial class EndScreen : CanvasLayer
 
 		_howToPlayButton = new Button
 		{
-			Text = "How to Play →",
+			Text = "How to Play ->",
 			CustomMinimumSize = new Vector2(360f, 38f),
 			Visible = false,
 		};
@@ -366,7 +366,7 @@ public partial class EndScreen : CanvasLayer
 		{
 			if (nextStage != null)
 			{
-				_nextCampaignButton.Text = $"Next Stage: {nextStage.StageName}  →";
+				_nextCampaignButton.Text = $"Next Stage: {nextStage.StageName} ->";
 				_nextCampaignButton.Visible = true;
 			}
 			else
@@ -398,9 +398,9 @@ public partial class EndScreen : CanvasLayer
 		_titleLabel.Text = _isPlaytestRun ? "VICTORY  [PLAYTEST]" : "VICTORY";
 		bool isHardWin = _leaderboardDifficulty == DifficultyMode.Hard;
 		_titleLabel.Modulate = isHardWin ? new Color(1.0f, 0.85f, 0.2f) : new Color(0.3f, 1.0f, 0.5f);
-		_subtitleLabel.Text = $"All {totalWaves} waves survived  ·  {livesRemaining} {(livesRemaining == 1 ? "life" : "lives")} remaining";
+		_subtitleLabel.Text = $"All {totalWaves} waves survived | {livesRemaining} {(livesRemaining == 1 ? "life" : "lives")} remaining";
 		ShowDifficultyLabel();
-		_statsLabel.Text = $"Enemies killed: {kills}  ·  Damage: {damageDealt:N0}  ·  Lives: {livesRemaining}/{maxLives}  ·  Time: {FormatTime(totalPlayTime)}";
+		_statsLabel.Text = $"Enemies killed: {kills} | Damage: {damageDealt:N0} | Lives: {livesRemaining}/{maxLives} | Time: {FormatTime(totalPlayTime)}";
 		_statsLabel.Visible = true;
 		SetRunNameGradient(runName, runStartColor, runEndColor);
 		_runNameLabel.Visible = runName.Length > 0;
@@ -419,8 +419,8 @@ public partial class EndScreen : CanvasLayer
 		{
 			_playAgainButton.Text = _leaderboardDifficulty switch
 			{
-				DifficultyMode.Easy   => "Play Again  ·  Try Normal →",
-				DifficultyMode.Normal => "Play Again  ·  Try Hard →",
+				DifficultyMode.Easy   => "Play Again | Try Normal ->",
+				DifficultyMode.Normal => "Play Again | Try Hard ->",
 				_                     => "Play Again",
 			};
 		}
@@ -435,10 +435,10 @@ public partial class EndScreen : CanvasLayer
 		_titleLabel.Text = _isPlaytestRun ? "GAME OVER  [PLAYTEST]" : "GAME OVER";
 		_titleLabel.Modulate = new Color(1.0f, 0.35f, 0.35f);
 		int wavesLeft = totalWaves - waveReached;
-		string wavesFromVictory = wavesLeft > 0 ? $"  ·  {wavesLeft} wave{(wavesLeft == 1 ? "" : "s")} from victory" : "";
-		_subtitleLabel.Text = $"{waveReached} / {totalWaves}{wavesFromVictory}  ·  Lives lost: {livesLost}";
+		string wavesFromVictory = wavesLeft > 0 ? $" | {wavesLeft} wave{(wavesLeft == 1 ? "" : "s")} from victory" : "";
+		_subtitleLabel.Text = $"{waveReached} / {totalWaves}{wavesFromVictory} | Lives lost: {livesLost}";
 		ShowDifficultyLabel();
-		_statsLabel.Text = $"Enemies killed: {kills}  ·  Total damage: {damageDealt:N0}  ·  Time: {FormatTime(totalPlayTime)}";
+		_statsLabel.Text = $"Enemies killed: {kills} | Total damage: {damageDealt:N0} | Time: {FormatTime(totalPlayTime)}";
 		_statsLabel.Visible = kills > 0 || damageDealt > 0;
 		SetRunNameGradient(runName, runStartColor, runEndColor);
 		_runNameLabel.Visible = runName.Length > 0;
@@ -934,6 +934,7 @@ public partial class EndScreen : CanvasLayer
 		return insights.Count > 0 ? string.Join("  |  ", insights) : "";
 	}
 }
+
 
 
 
