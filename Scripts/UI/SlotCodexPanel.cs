@@ -773,6 +773,8 @@ public partial class SlotCodexPanel : Node
                 Unlocks.RiftPrismTowerId         => Unlocks.GetRiftPrismUnlockMapId(),
                 Unlocks.AccordionEngineTowerId   => Unlocks.GetAccordionEngineUnlockMapId(),
                 Unlocks.PhaseSplitterTowerId     => Unlocks.GetPhaseSplitterUnlockMapId(),
+                Unlocks.RocketLauncherTowerId    => Unlocks.GetRocketLauncherUnlockMapId(),
+                Unlocks.UndertowEngineTowerId    => Unlocks.GetUndertowEngineUnlockMapId(),
                 Unlocks.SplitShotModifierId      => Unlocks.GetSplitShotUnlockMapId(),
                 Unlocks.BlastCoreModifierId      => Unlocks.GetBlastCoreUnlockMapId(),
                 Unlocks.WildfireModifierId       => Unlocks.GetWildfireUnlockMapId(),

@@ -180,13 +180,47 @@ public BotRunner(
         _quiet = quiet;
 		_maps = targetMap != null
 			? new[] { targetMap }
-			: Balance.IsDemo
-				? new[] { "crossroads", "pinch_bleed", "orbit" }
-				: new[] { "crossroads", "pinch_bleed", "orbit", "ridgeback", "double_back", "crossfire", "threshold", "switchback", "ziggurat" };
+			: ResolveBotMapPool();
 		// Filter difficulties if specific one requested
 		if (targetDifficulty.HasValue)
 			_difficulties = new[] { targetDifficulty.Value };
         StartNextRun();
+    }
+
+    private static string[] ResolveBotMapPool()
+    {
+        try
+        {
+            var mapIds = DataLoader.GetAllMapDefs()
+                .Where(m => !m.IsRandom && (!Balance.IsDemo || !m.IsFullGame))
+                .OrderBy(m => m.DisplayOrder)
+                .Select(m => m.Id)
+                .ToArray();
+            if (mapIds.Length > 0)
+                return mapIds;
+        }
+        catch
+        {
+            // Fall through to deterministic hardcoded fallback if data fails to load.
+        }
+
+        return Balance.IsDemo
+            ? new[] { "crossroads", "pinch_bleed", "orbit" }
+            : new[]
+            {
+                "orbit",
+                "crossroads",
+                "pinch_bleed",
+                "ridgeback",
+                "double_back",
+                "crossfire",
+                "threshold",
+                "switchback",
+                "ziggurat",
+                "hourglass",
+                "perimeter_lock",
+                "trident",
+            };
     }
 
     private static BotStrategy[] ResolveStrategyPool(string? strategySet, out string resolvedLabel)
@@ -362,7 +396,14 @@ public BotRunner(
             return;
         }
 
-        var allMaps = _results.Select(r => r.Map).Distinct().OrderBy(m => m).ToList();
+        var mapDefsById = DataLoader.GetAllMapDefs()
+            .ToDictionary(m => m.Id, m => m, StringComparer.Ordinal);
+        var allMaps = _results
+            .Select(r => r.Map)
+            .Distinct()
+            .OrderBy(mapId => mapDefsById.TryGetValue(mapId, out var def) ? def.DisplayOrder : int.MaxValue)
+            .ThenBy(mapId => mapId, StringComparer.Ordinal)
+            .ToList();
 
         GD.Print("");
         GD.Print("+==================================================================+");
@@ -412,19 +453,9 @@ public BotRunner(
             var mapResults = _results.Where(r => r.Map == mapId).ToList();
             int mapTotal = mapResults.Count;
             int mapWins = mapResults.Count(r => r.Won);
-            var mapName = mapId switch
-            {
-                "crossroads" => "Crossroads",
-                "pinch_bleed" => "Pinch & Bleed",
-                "orbit" => "Orbit",
-                "ridgeback" => "Ridgeback",
-                "double_back" => "Double Back",
-                "crossfire"   => "Crossfire",
-                "threshold"   => "Threshold",
-                "switchback"  => "Switchback",
-                "ziggurat"    => "Ziggurat",
-                _ => mapId
-            };
+            string mapName = mapDefsById.TryGetValue(mapId, out var mapDef)
+                ? mapDef.Name
+                : mapId;
 
             GD.Print($"");
             GD.Print($"+- {mapName.ToUpper()} ({mapId}) - {mapTotal} runs ({mapWins}/{mapTotal} wins, {mapWins * 100 / mapTotal}%) -+");

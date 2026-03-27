@@ -253,6 +253,106 @@
         { "id": 4, "x": 1040, "y": 400 },
         { "id": 5, "x": 720, "y": 480 }
       ]
+    },
+    {
+      "id": "hourglass",
+      "name": "Hourglass",
+      "description": "Twin outer wings funnel into a tight center pinch. Commit to choke control or draft for long wing pressure.",
+      "displayOrder": 10,
+      "isFullGame": true,
+      "path": [
+        { "x": 120, "y": 96 },
+        { "x": 400, "y": 96 },
+        { "x": 560, "y": 256 },
+        { "x": 720, "y": 256 },
+        { "x": 880, "y": 96 },
+        { "x": 1120, "y": 96 },
+        { "x": 1120, "y": 240 },
+        { "x": 880, "y": 336 },
+        { "x": 720, "y": 336 },
+        { "x": 880, "y": 432 },
+        { "x": 1120, "y": 576 },
+        { "x": 880, "y": 576 },
+        { "x": 720, "y": 416 },
+        { "x": 560, "y": 416 },
+        { "x": 400, "y": 576 },
+        { "x": 120, "y": 576 },
+        { "x": 120, "y": 432 },
+        { "x": 400, "y": 336 },
+        { "x": 560, "y": 336 },
+        { "x": 400, "y": 240 },
+        { "x": 120, "y": 240 },
+        { "x": 120, "y": 656 }
+      ],
+      "slots": [
+        { "id": 0, "x": 592, "y": 112 },
+        { "id": 1, "x": 688, "y": 576 },
+        { "id": 2, "x": 256, "y": 496 },
+        { "id": 3, "x": 960, "y": 224 },
+        { "id": 4, "x": 512, "y": 96 },
+        { "id": 5, "x": 768, "y": 576 }
+      ]
+    },
+    {
+      "id": "perimeter_lock",
+      "name": "Perimeter Lock",
+      "description": "The route rides the fortress border before a late inward breach. Edge anchors shine early; inner slots spike on timing.",
+      "displayOrder": 11,
+      "isFullGame": true,
+      "path": [
+        { "x": 1120, "y": 80 },
+        { "x": 80, "y": 80 },
+        { "x": 80, "y": 608 },
+        { "x": 1120, "y": 608 },
+        { "x": 1120, "y": 176 },
+        { "x": 880, "y": 176 },
+        { "x": 880, "y": 464 },
+        { "x": 320, "y": 464 },
+        { "x": 320, "y": 272 },
+        { "x": 720, "y": 272 },
+        { "x": 720, "y": 560 },
+        { "x": 560, "y": 560 },
+        { "x": 560, "y": 336 },
+        { "x": 1040, "y": 336 },
+        { "x": 1040, "y": 656 }
+      ],
+      "slots": [
+        { "id": 0, "x": 224, "y": 320 },
+        { "id": 1, "x": 960, "y": 256 },
+        { "id": 2, "x": 240, "y": 384 },
+        { "id": 3, "x": 416, "y": 368 },
+        { "id": 4, "x": 960, "y": 528 },
+        { "id": 5, "x": 352, "y": 192 }
+      ]
+    },
+    {
+      "id": "trident",
+      "name": "Trident",
+      "description": "Three long prongs tempt lane greed before converging into exit pressure. Balance lane specialists against cross-prong opportunists.",
+      "displayOrder": 12,
+      "isFullGame": true,
+      "path": [
+        { "x": 240, "y": 96 },
+        { "x": 240, "y": 544 },
+        { "x": 480, "y": 544 },
+        { "x": 480, "y": 160 },
+        { "x": 640, "y": 160 },
+        { "x": 640, "y": 544 },
+        { "x": 800, "y": 544 },
+        { "x": 800, "y": 96 },
+        { "x": 1040, "y": 96 },
+        { "x": 1040, "y": 544 },
+        { "x": 720, "y": 544 },
+        { "x": 640, "y": 656 }
+      ],
+      "slots": [
+        { "id": 0, "x": 720, "y": 208 },
+        { "id": 1, "x": 560, "y": 528 },
+        { "id": 2, "x": 352, "y": 336 },
+        { "id": 3, "x": 960, "y": 368 },
+        { "id": 4, "x": 560, "y": 240 },
+        { "id": 5, "x": 880, "y": 432 }
+      ]
     }
   ],
   "tutorial": {

@@ -18,6 +18,23 @@ Platforms: Windows (Steam), Android (phone and tablet)
 
 Starting lives: Easy 25 · Normal 20 · Hard 15
 
+## Handcrafted Skirmish Maps
+
+Current handcrafted map roster (in display order):
+
+- `orbit` - Spiral-in slingshot that rewards interior multi-pass coverage.
+- `crossroads` - Mid-lane crossover pressure with high-value center control.
+- `pinch_bleed` - Asymmetric choke map that punishes weak pinch setups.
+- `ridgeback` - Alternating ridge control with repeated handoffs in lane priority.
+- `double_back` - Pocket detours and return passes that reward crossing coverage.
+- `crossfire` - Diagonal slash geometry with high-value re-entry angles.
+- `threshold` - Long perimeter sweep with interior recapture opportunities.
+- `switchback` - Parallel channel descent with mirrored return pressure.
+- `ziggurat` - Apex crossing map with repeated diagonal convergence.
+- `hourglass` - Twin wing kill-zones feeding a narrow center pinch.
+- `perimeter_lock` - Fortress perimeter route with a late inward breach.
+- `trident` - Three long prongs that collapse into concentrated exit pressure.
+
 ---
 
 ## Controls
@@ -83,13 +100,13 @@ Modifier assignment uses `Preview -> Confirm`:
 | Undertow Engine | 8 | 2.35 s | 265 px | Pull/control specialist that drags enemies backward in path progress |
 
 Unlock flow (via Campaign mode):
-- Arc Emitter: beat the first campaign map on Normal or Hard (`ARC_UNSEALED`)
-- Split Shot modifier: beat the second campaign map on Normal or Hard (`SPLIT_UNSEALED`)
-- Rift Sapper: beat the third campaign map on Normal or Hard (`RIFT_UNSEALED`)
+- Arc Emitter: beat the first campaign map on any difficulty (`ARC_UNSEALED`)
+- Split Shot modifier: beat the second campaign map on any difficulty (`SPLIT_UNSEALED`)
+- Rift Sapper: beat the third campaign map on any difficulty (`RIFT_UNSEALED`)
 - Blast Core modifier: beat the fourth campaign map - Ridgeback / Iron Mandate (`BLAST_UNSEALED`)
 - Accordion Engine: beat the fifth map - Double Back (`ACCORDION_UNSEALED`)
-
-Rocket Launcher and Undertow Engine are available from the start.
+- Rocket Launcher: beat Hourglass on any difficulty (`ROCKET_UNSEALED`)
+- Undertow Engine: beat Trident on any difficulty (`UNDERTOW_UNSEALED`)
 
 ### Rocket Launcher Mechanics
 
@@ -319,7 +336,7 @@ Stages unlock sequentially. Per-stage clear state persisted per difficulty. Camp
 
 ## Achievements
 
-27 achievements tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`. Forwarded to Steam when available.
+32 achievements tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`. Forwarded to Steam when available.
 
 | ID | Name | Condition |
 |---|---|---|
@@ -338,6 +355,8 @@ Stages unlock sequentially. Per-stage clear state persisted per difficulty. Camp
 | RIFT_UNSEALED | Rift Unsealed | Beat the third campaign map (unlocks Rift Sapper) |
 | BLAST_UNSEALED | Blast Unsealed | Beat the fourth campaign map - Ridgeback (unlocks Blast Core) |
 | ACCORDION_UNSEALED | Accordion Unsealed | Beat the fifth map - Double Back (unlocks Accordion Engine) |
+| ROCKET_UNSEALED | Rocket Unsealed | Beat Hourglass (unlocks Rocket Launcher) |
+| UNDERTOW_UNSEALED | Undertow Unsealed | Beat Trident (unlocks Undertow Engine) |
 | TUTORIAL_COMPLETE | First Steps | Complete the tutorial run |
 | CAMPAIGN_CLEAR | The Circuit | Clear all four campaign stages |
 | CAMPAIGN_HARD_CLEAR | Iron Mandate | Clear all four campaign stages on Hard |
@@ -359,7 +378,7 @@ The game is available on Steam. Store page: [Slot Theory on Steam](https://store
 
 Steam features:
 - **Global leaderboards**: per map/difficulty, all runs stored (not just personal best)
-- **Achievements**: all 27 achievements forwarded to Steam
+- **Achievements**: all 32 achievements forwarded to Steam
 - **Steam Cloud**: settings and high scores sync across devices
 
 ---

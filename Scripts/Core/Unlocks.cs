@@ -19,7 +19,9 @@ public static class Unlocks
     public const string AccordionEngineTowerId = "accordion_engine";
     public const string AccordionEngineAchievementId = "ACCORDION_UNSEALED";
     public const string RocketLauncherTowerId = "rocket_launcher";
+    public const string RocketLauncherAchievementId = "ROCKET_UNSEALED";
     public const string UndertowEngineTowerId = "undertow_engine";
+    public const string UndertowEngineAchievementId = "UNDERTOW_UNSEALED";
     public const string BlastCoreModifierId = "blast_core";
     public const string BlastCoreAchievementId = "BLAST_UNSEALED";
     public const string WildfireModifierId = "wildfire";
@@ -36,6 +38,8 @@ public static class Unlocks
     private const string BlastCoreFallbackMapId = "ridgeback";
     private const string PhaseSplitterFallbackMapId = "threshold";
     private const string ReaperProtocolFallbackMapId = "switchback";
+    private const string RocketLauncherUnlockMapId = "hourglass";
+    private const string UndertowEngineUnlockMapId = "trident";
 
     public static bool ShouldUnlockArcEmitter(RunState state, DifficultyMode difficulty)
     {
@@ -93,6 +97,20 @@ public static class Unlocks
         return IsRunOnUnlockMap(state, unlockMapId);
     }
 
+    public static bool ShouldUnlockRocketLauncher(RunState state, DifficultyMode difficulty)
+    {
+        _ = difficulty;
+        string unlockMapId = GetRocketLauncherUnlockMapId();
+        return IsRunOnUnlockMap(state, unlockMapId);
+    }
+
+    public static bool ShouldUnlockUndertowEngine(RunState state, DifficultyMode difficulty)
+    {
+        _ = difficulty;
+        string unlockMapId = GetUndertowEngineUnlockMapId();
+        return IsRunOnUnlockMap(state, unlockMapId);
+    }
+
     /// <summary>
     /// Arc Emitter unlock follows the first non-random campaign map by display order.
     /// This keeps progression behavior correct even if map ordering changes.
@@ -142,6 +160,18 @@ public static class Unlocks
     public static string GetReaperProtocolUnlockMapId()
         => GetCampaignMapByOrder(order: 7, fallbackId: ReaperProtocolFallbackMapId);
 
+    /// <summary>
+    /// Rocket Launcher unlock is tied to Hourglass.
+    /// </summary>
+    public static string GetRocketLauncherUnlockMapId()
+        => RocketLauncherUnlockMapId;
+
+    /// <summary>
+    /// Undertow Engine unlock is tied to Trident.
+    /// </summary>
+    public static string GetUndertowEngineUnlockMapId()
+        => UndertowEngineUnlockMapId;
+
     private static string GetCampaignMapByOrder(int order, string fallbackId)
     {
         try
@@ -177,7 +207,9 @@ public static class Unlocks
             return false;
 
         // Bot simulations evaluate full content balance regardless of player progression.
-        if (OS.GetCmdlineUserArgs().Contains("--bot"))
+        // Restrict bypass to headless automation (or explicit opt-in) so an accidental
+        // "--bot" launch arg in desktop runs doesn't silently unlock everything.
+        if (ShouldBypassProgressionForBot())
             return true;
 
         if (string.Equals(towerId, ArcEmitterTowerId, StringComparison.OrdinalIgnoreCase))
@@ -191,6 +223,12 @@ public static class Unlocks
 
         if (string.Equals(towerId, PhaseSplitterTowerId, StringComparison.OrdinalIgnoreCase))
             return AchievementManager.Instance?.IsUnlocked(PhaseSplitterAchievementId) == true;
+
+        if (string.Equals(towerId, RocketLauncherTowerId, StringComparison.OrdinalIgnoreCase))
+            return AchievementManager.Instance?.IsUnlocked(RocketLauncherAchievementId) == true;
+
+        if (string.Equals(towerId, UndertowEngineTowerId, StringComparison.OrdinalIgnoreCase))
+            return AchievementManager.Instance?.IsUnlocked(UndertowEngineAchievementId) == true;
 
         return true;
     }
@@ -207,7 +245,7 @@ public static class Unlocks
             return false;
 
         // Keep bots fully unlocked for deterministic balance tests.
-        if (OS.GetCmdlineUserArgs().Contains("--bot"))
+        if (ShouldBypassProgressionForBot())
             return true;
 
         if (string.Equals(modifierId, SplitShotModifierId, StringComparison.OrdinalIgnoreCase))
@@ -227,4 +265,18 @@ public static class Unlocks
 
     private static bool IsRunOnUnlockMap(RunState state, string unlockMapId)
         => string.Equals(state.SelectedMapId, unlockMapId, StringComparison.OrdinalIgnoreCase);
+
+    private static bool ShouldBypassProgressionForBot()
+    {
+        string[] args = OS.GetCmdlineUserArgs();
+        if (!args.Contains("--bot"))
+            return false;
+
+        // Headless bot runs are the normal automation path.
+        if (string.Equals(DisplayServer.GetName(), "headless", StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        // Allow intentional non-headless bypass for tooling.
+        return args.Contains("--bot_unlocks");
+    }
 }

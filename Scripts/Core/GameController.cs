@@ -968,6 +968,12 @@ public partial class GameController : Node
 				case Unlocks.ReaperProtocolAchievementId:
 					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: false, Unlocks.ReaperProtocolModifierId));
 					break;
+				case Unlocks.RocketLauncherAchievementId:
+					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: true, Unlocks.RocketLauncherTowerId));
+					break;
+				case Unlocks.UndertowEngineAchievementId:
+					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: true, Unlocks.UndertowEngineTowerId));
+					break;
 			}
 		}
 
