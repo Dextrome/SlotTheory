@@ -1,4 +1,4 @@
-# run_tuning_pipeline.ps1
+﻿# run_tuning_pipeline.ps1
 #
 # Automated tuning pipeline with true iterative optimization:
 # 1) Baseline bot metrics (once)
@@ -41,7 +41,7 @@ param(
     # Number of parallel shards per candidate eval (splits N runs across K Godot processes).
     # 0 = inherit from CandidateParallelism (legacy behaviour). Set independently to decouple
     # candidate-level concurrency from per-eval shard concurrency, e.g.:
-    #   -CandidateParallelism 2 -EvalShardParallelism 4  => 2 candidates � 4 shards = 8 processes
+    #   -CandidateParallelism 2 -EvalShardParallelism 4  => 2 candidates × 4 shards = 8 processes
     [int]$EvalShardParallelism = 0,
     [int]$SweepRunsPerVariant = 12,
     [int]$Seed = 1337,
@@ -258,20 +258,24 @@ function New-NeutralTuningProfile {
         tower_meter_gain_multipliers = [PSCustomObject]@{
             rapid_shooter    = 1.0
             heavy_cannon     = 1.0
+            rocket_launcher  = 1.0
             marker_tower     = 1.0
             chain_tower      = 1.0
             rift_prism       = 1.0
             phase_splitter   = 1.0
             accordion_engine = 1.0
+            undertow_engine  = 1.0
         }
         tower_surge_threshold_multipliers = [PSCustomObject]@{
             rapid_shooter    = 1.0
             heavy_cannon     = 1.0
+            rocket_launcher  = 1.0
             marker_tower     = 1.0
             chain_tower      = 1.0
             rift_prism       = 1.0
             phase_splitter   = 1.0
             accordion_engine = 1.0
+            undertow_engine  = 1.0
         }
     }
 }
@@ -3078,5 +3082,6 @@ if (-not $SkipTrace) {
 }
 Write-Host "Delta report     : $deltaOut"
 Write-Host "Auto-tune report : $autoTuneReportOut"
+
 
 

@@ -1,4 +1,4 @@
-{
+﻿{
     "enable_overkill_bloom":  true,
     "enable_status_detonation":  true,
     "enable_residue":  true,
@@ -74,13 +74,15 @@
                                      "blast_core":  1
                                  },
     "tower_meter_gain_multipliers":  {
-                                         "rapid_shooter":  0.40,
-                                         "heavy_cannon":  3.50,
+                                         "rapid_shooter":  0.60,
+                                         "heavy_cannon":  5.50,
                                          "marker_tower":  0.70,
                                          "chain_tower":  1.20,
                                          "rift_prism":  1.50,
                                          "phase_splitter":  0.75,
-                                         "accordion_engine":  3.00
+                                         "accordion_engine":  3.00,
+                                         "rocket_launcher":  1.45,
+                                         "undertow_engine":  2.4
                                      },
     "tower_surge_threshold_multipliers":  {
                                               "rapid_shooter":  1.50,
@@ -89,6 +91,8 @@
                                               "chain_tower":  0.90,
                                               "rift_prism":  0.90,
                                               "phase_splitter":  1.00,
-                                              "accordion_engine":  0.55
+                                              "accordion_engine":  0.55,
+                                              "rocket_launcher":  0.82,
+                                              "undertow_engine":  0.7
                                           }
 }

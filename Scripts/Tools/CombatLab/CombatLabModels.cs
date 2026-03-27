@@ -175,6 +175,8 @@ public sealed class CombatLabTowerBenchmarkSuite
     public string Name { get; set; } = "tower_benchmark_suite";
     [JsonPropertyName("mode")]
     public string Mode { get; set; } = "base_combat_only";
+    [JsonPropertyName("surge_fill_only")]
+    public bool SurgeFillOnly { get; set; } = false;
     [JsonPropertyName("seed")]
     public int Seed { get; set; } = 1337;
     [JsonPropertyName("trials_per_scenario")]
@@ -394,6 +396,10 @@ public sealed class CombatLabTowerBenchmarkTowerResult
     public float SurgesTriggered { get; set; }
     [JsonPropertyName("global_surges_triggered")]
     public float GlobalSurgesTriggered { get; set; }
+    [JsonPropertyName("avg_first_surge_seconds")]
+    public float AvgFirstSurgeSeconds { get; set; }
+    [JsonPropertyName("first_surge_reach_rate")]
+    public float FirstSurgeReachRate { get; set; }
     [JsonPropertyName("edge_spike_rate")]
     public float EdgeSpikeRate { get; set; }
     [JsonPropertyName("normalized_global")]

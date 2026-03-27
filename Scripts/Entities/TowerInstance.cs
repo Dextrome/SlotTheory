@@ -157,6 +157,7 @@ public partial class TowerInstance : Node2D, ITowerView
     private float _lastSpectacleMeter = 0f;
     private float _teachingHighlightRemaining = 0f;
     private float _teachingHighlightDuration = 0f;
+    private float _visualChaosLoad = 0f;
     private TowerVisualEvolutionState _visualEvolution = new(
         TowerVisualTier.Tier0,
         equippedModifierCount: 0,
@@ -211,6 +212,7 @@ public partial class TowerInstance : Node2D, ITowerView
     {
         float dt = (float)delta;
         _idleTime += dt;
+        _visualChaosLoad = Mathf.Clamp(GameController.CombatVisualChaosLoad, 0f, 1f);
         if (_shotElapsed < ShotAttackSeconds + ShotDecaySeconds)
             _shotElapsed += dt;
         if (_lockLineRemaining > 0f)
@@ -449,6 +451,7 @@ public partial class TowerInstance : Node2D, ITowerView
 
     public override void _Draw()
     {
+        _visualChaosLoad = Mathf.Clamp(GameController.CombatVisualChaosLoad, 0f, 1f);
         // Draw cooldown ring base first so tower/barrel geometry sits on top.
         DrawChargeArc();
         DrawSpectacleArc();
@@ -947,6 +950,10 @@ public partial class TowerInstance : Node2D, ITowerView
         if (!_visualEvolution.HasSupportAccent || _visualEvolution.SupportModId.Length == 0)
             return;
 
+        float detailBudget = Mathf.Lerp(1f, 0.54f, _visualChaosLoad);
+        if (detailBudget <= 0.22f)
+            return;
+
         bool reducedMotion = IsReducedMotionEnabled();
         float motionScale = reducedMotion ? 0.42f : 1f;
         Color baseAccent = ModifierVisuals.GetAccent(_visualEvolution.SupportModId);
@@ -957,11 +964,12 @@ public partial class TowerInstance : Node2D, ITowerView
             alpha += 0.06f;
         if (_visualEvolution.Tier == TowerVisualTier.Tier3)
             alpha += 0.03f;
+        alpha *= detailBudget;
 
         Color accent = BlendAccentWithBody(baseAccent, bodyMix: 0.32f, alpha: Mathf.Clamp(alpha, 0f, 1f));
         Vector2 anchor = ResolveSupportAnchor(_visualEvolution.SupportChannel);
         float scale = _visualEvolution.SupportReinforced ? 1.08f : 1.0f;
-        float width = 1.2f + pulse * 0.16f;
+        float width = (1.2f + pulse * 0.16f) * Mathf.Lerp(1f, 0.88f, _visualChaosLoad);
 
         switch (_visualEvolution.SupportShape)
         {
@@ -1006,12 +1014,17 @@ public partial class TowerInstance : Node2D, ITowerView
                 break;
         }
 
-        DrawFlagshipSupportSignature(anchor, scale, accent);
+        if (_visualChaosLoad < 0.72f)
+            DrawFlagshipSupportSignature(anchor, scale, accent);
     }
 
     private void DrawTertiaryModHint()
     {
         if (!_visualEvolution.HasTertiaryHint || _visualEvolution.TertiaryModId.Length == 0)
+            return;
+
+        float detailBudget = Mathf.Lerp(1f, 0.18f, _visualChaosLoad);
+        if (detailBudget <= 0.26f)
             return;
 
         bool reducedMotion = IsReducedMotionEnabled();
@@ -1022,6 +1035,7 @@ public partial class TowerInstance : Node2D, ITowerView
         float alpha = 0.17f + pulse * pulseStrength + _accentLockBoost * 0.07f;
         if (_visualEvolution.TertiaryReinforced)
             alpha += 0.04f;
+        alpha *= detailBudget;
 
         Color accent = BlendAccentWithBody(baseAccent, bodyMix: 0.56f, alpha: Mathf.Clamp(alpha, 0f, 1f));
         Vector2 anchor = ResolveTertiaryAnchor(_visualEvolution.TertiaryChannel);
@@ -1063,7 +1077,8 @@ public partial class TowerInstance : Node2D, ITowerView
                 break;
         }
 
-        DrawFlagshipTertiarySignature(anchor, scale, accent);
+        if (_visualChaosLoad < 0.60f)
+            DrawFlagshipTertiarySignature(anchor, scale, accent);
     }
 
     private void DrawFlagshipSupportSignature(Vector2 anchor, float scale, Color accent)
@@ -1186,9 +1201,11 @@ public partial class TowerInstance : Node2D, ITowerView
     private void DrawTargetLockLine()
     {
         if (_lockLineRemaining <= 0f) return;
+        if (_visualChaosLoad >= 0.86f) return;
         var localTo = ToLocal(_lockLineTargetGlobal);
         float t = _lockLineRemaining / 0.15f;
-        var c = new Color(BodyColor.R, BodyColor.G, BodyColor.B, 0.10f + 0.20f * t);
+        float alpha = (0.10f + 0.20f * t) * Mathf.Lerp(1f, 0.56f, _visualChaosLoad);
+        var c = new Color(BodyColor.R, BodyColor.G, BodyColor.B, alpha);
         DrawLine(Vector2.Zero, localTo, c, 1.6f);
     }
     private void DrawChargeArc(bool overlayPass = false)
@@ -1233,6 +1250,8 @@ public partial class TowerInstance : Node2D, ITowerView
             ringWidth = 2f;
             ringColor = new Color(BodyColor.R, BodyColor.G, BodyColor.B, ringAlpha);
         }
+        if (atFull)
+            ringColor = new Color(ringColor.R, ringColor.G, ringColor.B, ringColor.A + 0.10f * _visualChaosLoad);
 
         DrawArc(Vector2.Zero, radius, 0f, Mathf.Tau, 48, ringColor, ringWidth);
 
@@ -1242,6 +1261,7 @@ public partial class TowerInstance : Node2D, ITowerView
             float start = -Mathf.Pi / 2f;
             float end = start + fill * Mathf.Tau;
             float arcAlpha = overlayPass ? (0.64f + tierLevel * 0.06f) : 0.88f;
+            arcAlpha *= overlayPass ? 1f : Mathf.Lerp(1f, 0.92f, _visualChaosLoad);
             float arcWidth = overlayPass ? (1.95f + tierLevel * 0.24f) : 2.5f;
             DrawArc(Vector2.Zero, radius, start, end, 48,
                 new Color(ringColor.R, ringColor.G, ringColor.B, arcAlpha), arcWidth);
@@ -1259,29 +1279,100 @@ public partial class TowerInstance : Node2D, ITowerView
         Color accent = string.IsNullOrEmpty(SpectacleAccent)
             ? BodyColor
             : ModifierVisuals.GetAccent(SpectacleAccent);
+        accent = EnsureReadableSpectacleAccent(accent);
         float nearFull = Mathf.InverseLerp(0.72f, 1f, meter);
         float readyPulse = meter >= 0.98f ? (0.5f + 0.5f * Mathf.Sin(_idleTime * 8.5f)) : 0f;
+        float auraBudget = Mathf.Lerp(1f, 0.60f, _visualChaosLoad);
+        float ringBudget = Mathf.Lerp(1f, 0.90f, _visualChaosLoad);
+        float meterRadius = 30f;
+        float meterPresence = Mathf.InverseLerp(0.05f, 0.20f, meter);
+        float persistentLane = Mathf.Max(meterPresence, pulse * 0.65f);
+        float laneVisibility = Mathf.Clamp(persistentLane, 0f, 1f);
+        float lowMeterFade = Mathf.InverseLerp(0.03f, 0.16f, meter);
         float glow = 0.08f + meter * 0.26f + pulse * 0.42f + chargePulse * 0.22f + nearFull * 0.10f + readyPulse * 0.20f;
-        float glowRadius = 28f + pulse * 3.0f + nearFull * 1.6f + readyPulse * 2.0f;
-        DrawCircle(Vector2.Zero, glowRadius, new Color(accent.R, accent.G, accent.B, glow * 0.62f));
+        float glowRadius = meterRadius + 6.4f + pulse * 2.4f + nearFull * 1.5f + readyPulse * 1.8f;
+        float haloAlpha = Mathf.Clamp(glow * 0.11f * auraBudget * (0.20f + lowMeterFade * 0.80f) * Mathf.Lerp(0.25f, 1f, laneVisibility), 0f, 0.15f);
+        if (haloAlpha > 0.001f)
+        {
+            DrawArc(
+                Vector2.Zero,
+                glowRadius,
+                0f,
+                Mathf.Tau,
+                52,
+                new Color(accent.R, accent.G, accent.B, haloAlpha),
+                1.6f + nearFull * 0.4f + chargePulse * 0.5f);
+            DrawArc(
+                Vector2.Zero,
+                glowRadius - 2.6f,
+                0f,
+                Mathf.Tau,
+                48,
+                new Color(accent.R, accent.G, accent.B, haloAlpha * 0.58f),
+                1.0f);
+        }
 
-        float ringAlpha = 0.24f + meter * 0.42f + pulse * 0.40f + chargePulse * 0.12f;
+        float ringAlpha = 0.34f + meter * 0.44f + pulse * 0.34f + chargePulse * 0.16f;
         float baseRingWidth = 2.1f + nearFull * 0.8f;
-        DrawArc(Vector2.Zero, 24f, 0f, Mathf.Tau, 48, new Color(accent.R, accent.G, accent.B, ringAlpha * (0.40f + nearFull * 0.24f)), baseRingWidth);
+        float baseReadAlpha = Mathf.Clamp(ringAlpha * ringBudget, 0.30f, 0.95f);
+
+        if (laneVisibility > 0.001f)
+        {
+            // Backplate only appears once the meter has established a visible lane.
+            // Keep this light-tinted to avoid a dark/black halo on neon maps.
+            Color plateTint = accent.Lerp(Colors.White, 0.62f);
+            float plateAlpha = (0.06f + meter * 0.05f + _visualChaosLoad * 0.03f) * (0.35f + lowMeterFade * 0.65f) * laneVisibility;
+            DrawArc(
+                Vector2.Zero,
+                meterRadius,
+                0f,
+                Mathf.Tau,
+                48,
+                new Color(plateTint.R, plateTint.G, plateTint.B, plateAlpha),
+                baseRingWidth + 0.9f);
+            DrawArc(
+                Vector2.Zero,
+                meterRadius,
+                0f,
+                Mathf.Tau,
+                48,
+                new Color(accent.R, accent.G, accent.B, baseReadAlpha * (0.46f + nearFull * 0.22f) * laneVisibility),
+                baseRingWidth);
+        }
 
         if (meter > 0.01f)
         {
             float start = -Mathf.Pi / 2f;
             float end = start + meter * Mathf.Tau;
-            DrawArc(Vector2.Zero, 24f, start, end, 48, new Color(accent.R, accent.G, accent.B, ringAlpha), 3.0f + nearFull * 1.2f + chargePulse * 0.6f);
+            Color arcColor = accent.Lerp(Colors.White, 0.22f + nearFull * 0.20f);
+            float arcAlpha = Mathf.Clamp(baseReadAlpha + 0.12f + nearFull * 0.10f, 0.44f, 1f);
+            float arcWidth = 3.2f + nearFull * 1.4f + chargePulse * 0.8f;
+            DrawArc(Vector2.Zero, meterRadius, start, end, 48, new Color(arcColor.R, arcColor.G, arcColor.B, arcAlpha), arcWidth);
+
+            // Arc head marker helps meter progress read instantly in chaos.
+            Vector2 tip = new Vector2(Mathf.Cos(end), Mathf.Sin(end)) * meterRadius;
+            float tipAlpha = Mathf.Clamp(0.48f + nearFull * 0.24f + chargePulse * 0.18f, 0f, 1f) * ringBudget;
+            DrawCircle(tip, 2.0f + nearFull * 1.0f, new Color(arcColor.R, arcColor.G, arcColor.B, tipAlpha));
         }
 
         if (nearFull > 0.001f)
         {
             float shimmer = 0.40f + 0.60f * (0.5f + 0.5f * Mathf.Sin(_idleTime * 10f));
-            float alpha = nearFull * (0.12f + 0.16f * shimmer);
-            DrawArc(Vector2.Zero, 27.5f, 0f, Mathf.Tau, 48, new Color(accent.R, accent.G, accent.B, alpha), 1.6f);
+            float alpha = nearFull * (0.12f + 0.16f * shimmer) * Mathf.Lerp(1f, 0.84f, _visualChaosLoad);
+            DrawArc(Vector2.Zero, meterRadius + 3.6f, 0f, Mathf.Tau, 48, new Color(accent.R, accent.G, accent.B, alpha * auraBudget), 1.6f);
         }
+    }
+
+    private static Color EnsureReadableSpectacleAccent(Color accent)
+    {
+        bool invalid = float.IsNaN(accent.R) || float.IsNaN(accent.G) || float.IsNaN(accent.B);
+        if (invalid)
+            return new Color(0.60f, 0.88f, 1.00f);
+
+        float luma = accent.R * 0.2126f + accent.G * 0.7152f + accent.B * 0.0722f;
+        if (luma < 0.12f)
+            return accent.Lerp(new Color(0.60f, 0.88f, 1.00f), 0.72f);
+        return accent;
     }
 
     private void DrawTeachingHighlight()
@@ -1652,7 +1743,9 @@ public partial class TowerInstance : Node2D, ITowerView
         bool mobile = MobileOptimization.IsMobile();
         float ringAlpha = mobile ? 0.58f : 0.42f;
         float ringWidth = mobile ? 1.7f : 1.45f;
-        float coreAlpha = mobile ? 0.78f : 0.62f;
+        ringAlpha += 0.10f * _visualChaosLoad;
+        ringWidth += 0.18f * _visualChaosLoad;
+        float coreAlpha = (mobile ? 0.78f : 0.62f) + 0.10f * _visualChaosLoad;
         var ring = new Color(BodyColor.R, BodyColor.G, BodyColor.B, ringAlpha);
         DrawArc(Vector2.Zero, 13.5f, 0f, Mathf.Tau, 36, ring, ringWidth);
         DrawCircle(Vector2.Zero, 1.6f, new Color(1f, 1f, 1f, coreAlpha));

@@ -18,6 +18,7 @@ public enum GamePhase { Boot, Draft, Wave, Win, Loss }
 public partial class GameController : Node
 {
 	public static GameController Instance { get; private set; } = null!;
+	public static float CombatVisualChaosLoad { get; private set; } = 0f;
 
 	public GamePhase CurrentPhase { get; private set; } = GamePhase.Boot;
 	public TutorialManager? ActiveTutorial => _tutorialManager;
@@ -79,6 +80,8 @@ public partial class GameController : Node
 	private ColorRect _spectaclePulse = null!;
 	private ColorRect _lingerTint = null!;
 	private ColorRect _vignetteRect = null!;
+	private double _lastSpectacleScreenFlashAt = -99d;
+	private double _lastSpectacleAfterimageAt = -99d;
 	private int   _surgeChainCount = 0;
 	private float _surgeChainResetTimer = 0f;
 	private Tween? _globalSurgeBannerTween;
@@ -243,6 +246,9 @@ public partial class GameController : Node
 	public override void _Ready()
 	{
 		Instance = this;
+		CombatVisualChaosLoad = 0f;
+		_lastSpectacleScreenFlashAt = -99d;
+		_lastSpectacleAfterimageAt = -99d;
 		SoundManager.Instance?.SetMenuAmbientEnabled(false);
 		_isMobilePlatform = MobileOptimization.IsMobile();
 		EnemyInstance.SetSpectacleSpeedMultiplier(1f);
@@ -586,13 +592,17 @@ public partial class GameController : Node
 		RefreshNonCriticalHintSuppression();
 		if (_runState == null || _combatSim == null || _waveSystem == null)
 		{
+			CombatVisualChaosLoad = 0f;
 			_cancelBtnShown = false;
 			return;
 		}
 
+		UpdateCombatVisualChaosLoad((float)delta);
+
 		// Fast bot path: skip HUD/tooltips/visual updates and only advance simulation.
 		if (_botRunner != null)
 		{
+			CombatVisualChaosLoad = 0f;
 			if (CurrentPhase != GamePhase.Wave)
 			{
 				_lowLivesHeartbeatTimer = 0f;
@@ -669,7 +679,10 @@ public partial class GameController : Node
 					_vignetteRect.Visible = true;
 					var vmat = (ShaderMaterial)_vignetteRect.Material;
 					float eased = Mathf.Pow(vigIntensity, 1.25f);
-					vmat.SetShaderParameter("intensity", eased * 0.52f);
+					float chaosGuard = Mathf.Lerp(1f, 0.68f, CombatVisualChaosLoad);
+					if (IsNonCriticalHintSuppressed())
+						chaosGuard *= 0.86f;
+					vmat.SetShaderParameter("intensity", eased * 0.52f * chaosGuard);
 					// Boost saturation so low-alpha tints read as their true hue rather than washed-out yellow
 				float vigR = Mathf.Clamp(vigColor.R * 1.4f - vigColor.G * 0.2f, 0f, 1f);
 				float vigG = Mathf.Clamp(vigColor.G * 0.7f, 0f, 1f);
@@ -4592,6 +4605,59 @@ void fragment() {
 		return true;
 	}
 
+	private void UpdateCombatVisualChaosLoad(float delta)
+	{
+		if (delta <= 0f)
+			return;
+
+		float target = 0f;
+		if (_botRunner == null && CurrentPhase == GamePhase.Wave && _runState != null)
+			target = ComputeCombatVisualChaosTarget();
+
+		float rate = target > CombatVisualChaosLoad ? 6.2f : 3.4f;
+		float t = Mathf.Clamp(delta * rate, 0.05f, 0.32f);
+		CombatVisualChaosLoad = Mathf.Lerp(CombatVisualChaosLoad, target, t);
+		if (CombatVisualChaosLoad < 0.001f)
+			CombatVisualChaosLoad = 0f;
+	}
+
+	private float ComputeCombatVisualChaosTarget()
+	{
+		float enemyDensity = Mathf.InverseLerp(7f, 30f, _runState.EnemiesAlive.Count);
+		float residueDensity = Mathf.InverseLerp(2f, 10f, _explosionResidues.Count);
+		float overlaySum = 0f;
+		overlaySum += ReadOverlayAlpha(_spectaclePulse) * 1.10f;
+		overlaySum += ReadOverlayAlpha(_spectacleAfterimage) * 0.90f;
+		overlaySum += ReadOverlayAlpha(_threatPulse) * 1.20f;
+		overlaySum += ReadOverlayAlpha(_waveClearFlash) * 0.95f;
+		overlaySum += ReadOverlayAlpha(_lingerTint) * 0.70f;
+		if (GodotObject.IsInstanceValid(_vignetteRect) && _vignetteRect.Visible)
+			overlaySum += 0.18f;
+
+		float overlayDensity = Mathf.Clamp(overlaySum / 1.45f, 0f, 1f);
+		float criticalBoost = IsNonCriticalHintSuppressed() ? 0.12f : 0f;
+		return Mathf.Clamp(
+			enemyDensity * 0.62f +
+			overlayDensity * 0.28f +
+			residueDensity * 0.18f +
+			criticalBoost,
+			0f, 1f);
+	}
+
+	private static float ReadOverlayAlpha(ColorRect? overlay)
+	{
+		if (!GodotObject.IsInstanceValid(overlay) || !overlay.Visible)
+			return 0f;
+		return Mathf.Clamp(overlay.Color.A, 0f, 1f);
+	}
+
+	private double ResolveVisualFxClock()
+	{
+		if (_runState != null)
+			return _runState.TotalPlayTime;
+		return Time.GetTicksUsec() / 1_000_000.0;
+	}
+
 	private bool TryShowSurgeMicroHint(
 		SurgeHintId id,
 		string text,
@@ -6818,6 +6884,19 @@ void fragment() {
 		if (_botRunner != null || _autoDraftMode || !GodotObject.IsInstanceValid(_spectaclePulse))
 			return;
 
+		float chaos = CombatVisualChaosLoad;
+		double now = ResolveVisualFxClock();
+		double minInterval = Mathf.Lerp(0.028f, 0.100f, chaos);
+		if (now - _lastSpectacleScreenFlashAt < minInterval)
+			return;
+		_lastSpectacleScreenFlashAt = now;
+
+		float chaosScale = Mathf.Lerp(1f, 0.76f, chaos);
+		if (IsNonCriticalHintSuppressed())
+			chaosScale *= 0.86f;
+		peakAlpha = Mathf.Max(0.012f, peakAlpha * chaosScale);
+		fadeSec = Mathf.Max(0.05f, fadeSec * Mathf.Lerp(1f, 0.88f, chaos));
+
 		_spectaclePulse.Visible = true;
 		_spectaclePulse.Color = new Color(accent.R, accent.G, accent.B, 0f);
 		var tw = _spectaclePulse.CreateTween();
@@ -6872,7 +6951,17 @@ void fragment() {
 		if (_botRunner != null || _autoDraftMode || !GodotObject.IsInstanceValid(_spectacleAfterimage))
 			return;
 
+		float chaos = CombatVisualChaosLoad;
+		double now = ResolveVisualFxClock();
+		double minInterval = Mathf.Lerp(0.11f, 0.30f, chaos);
+		if (now - _lastSpectacleAfterimageAt < minInterval)
+			return;
+		_lastSpectacleAfterimageAt = now;
+
 		float s = Mathf.Clamp(strength, 0f, 1f);
+		s *= Mathf.Lerp(1f, 0.72f, chaos);
+		if (IsNonCriticalHintSuppressed())
+			s *= 0.84f;
 		if (s <= 0f)
 			return;
 

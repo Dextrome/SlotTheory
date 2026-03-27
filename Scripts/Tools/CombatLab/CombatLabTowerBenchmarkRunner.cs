@@ -124,6 +124,7 @@ public sealed class CombatLabTowerBenchmarkRunner
         public float SimulatedSeconds;
         public int SurgesTriggered;
         public int GlobalSurgesTriggered;
+        public float FirstSurgeSeconds = -1f;
         public bool EdgeSpike;
         public float KillZoneEnemySeconds;
         public int TrapReentries;
@@ -184,9 +185,12 @@ public sealed class CombatLabTowerBenchmarkRunner
             throw new InvalidOperationException("Tower benchmark suite resolved zero towers to evaluate.");
 
         List<CombatLabTowerBenchmarkScenarioResult> scenarioResults = new();
+        bool surgeFillOnly = suite.SurgeFillOnly;
         foreach (CombatLabTowerBenchmarkScenario scenario in suite.Scenarios)
         {
-            ScenarioBaselineMetrics baseline = BuildScenarioBaselineMetrics(suite, scenario);
+            ScenarioBaselineMetrics baseline = surgeFillOnly
+                ? new ScenarioBaselineMetrics()
+                : BuildScenarioBaselineMetrics(suite, scenario);
             var scenarioResult = new CombatLabTowerBenchmarkScenarioResult
             {
                 ScenarioId = scenario.Id,
@@ -202,7 +206,8 @@ public sealed class CombatLabTowerBenchmarkRunner
                     scenario,
                     towerCase,
                     towerDefs[towerCase.TowerId],
-                    baseline);
+                    baseline,
+                    surgeFillOnly);
                 scenarioResult.Results.Add(towerResult);
             }
 
@@ -228,7 +233,7 @@ public sealed class CombatLabTowerBenchmarkRunner
     {
         var sb = new StringBuilder();
         sb.AppendLine(
-            "scenario_id,scenario_name,path_type,case_id,tower_id,cost,total_damage,effective_dps,cost_efficiency,leak_prevention_value,anti_swarm_performance,anti_tank_performance,reliability_variance,overkill_waste,average_targets_hit,uptime,idle_time_seconds,kill_count,leak_count,wave_clear_seconds,clear_rate,control_dwell_delta,control_reentry_delta,control_time_debt_seconds,control_pull_distance,control_cluster_gain,support_utility_score,surges_triggered,global_surges_triggered,edge_spike_rate,normalized_global,normalized_cost_band,normalized_role");
+            "scenario_id,scenario_name,path_type,case_id,tower_id,cost,total_damage,effective_dps,cost_efficiency,leak_prevention_value,anti_swarm_performance,anti_tank_performance,reliability_variance,overkill_waste,average_targets_hit,uptime,idle_time_seconds,kill_count,leak_count,wave_clear_seconds,clear_rate,control_dwell_delta,control_reentry_delta,control_time_debt_seconds,control_pull_distance,control_cluster_gain,support_utility_score,surges_triggered,global_surges_triggered,avg_first_surge_seconds,first_surge_reach_rate,edge_spike_rate,normalized_global,normalized_cost_band,normalized_role");
         foreach (CombatLabTowerBenchmarkScenarioResult scenario in report.ScenarioResults)
         {
             foreach (CombatLabTowerBenchmarkTowerResult row in scenario.Results.OrderBy(r => r.CaseId, StringComparer.Ordinal))
@@ -263,6 +268,8 @@ public sealed class CombatLabTowerBenchmarkRunner
                     Csv(row.SupportUtilityScore),
                     Csv(row.SurgesTriggered),
                     Csv(row.GlobalSurgesTriggered),
+                    Csv(row.AvgFirstSurgeSeconds),
+                    Csv(row.FirstSurgeReachRate),
                     Csv(row.EdgeSpikeRate),
                     Csv(row.NormalizedGlobal),
                     Csv(row.NormalizedCostBand),
@@ -324,7 +331,7 @@ public sealed class CombatLabTowerBenchmarkRunner
         for (int trial = 0; trial < trials; trial++)
         {
             int seed = ComposeSeed(suite.Seed, scenario.Id, baselineCase.CaseId, trial);
-            TrialMetrics result = RunTrial(suite, scenario, baselineCase, baselineDef, dt, seed);
+            TrialMetrics result = RunTrial(suite, scenario, baselineCase, baselineDef, dt, seed, collectControlMetrics: true);
             baselineTrialMetrics.Add(result);
         }
 
@@ -380,7 +387,8 @@ public sealed class CombatLabTowerBenchmarkRunner
         CombatLabTowerBenchmarkScenario scenario,
         TowerCase towerCase,
         TowerDef towerDef,
-        ScenarioBaselineMetrics baseline)
+        ScenarioBaselineMetrics baseline,
+        bool surgeFillOnly)
     {
         int trials = Math.Max(1, suite.TrialsPerScenario);
         float dt = Mathf.Clamp(suite.TimestepSeconds <= 0f ? 0.05f : suite.TimestepSeconds, 0.01f, 0.20f);
@@ -389,7 +397,14 @@ public sealed class CombatLabTowerBenchmarkRunner
         for (int trial = 0; trial < trials; trial++)
         {
             int seed = ComposeSeed(suite.Seed, scenario.Id, towerCase.CaseId, trial);
-            TrialMetrics result = RunTrial(suite, scenario, towerCase, towerDef, dt, seed);
+            TrialMetrics result = RunTrial(
+                suite,
+                scenario,
+                towerCase,
+                towerDef,
+                dt,
+                seed,
+                collectControlMetrics: !surgeFillOnly);
             trialMetrics.Add(result);
         }
 
@@ -408,6 +423,13 @@ public sealed class CombatLabTowerBenchmarkRunner
         float clearRate = (float)trialMetrics.Average(t => t.Cleared ? 1f : 0f);
         float avgSurges = (float)trialMetrics.Average(t => t.SurgesTriggered);
         float avgGlobalSurges = (float)trialMetrics.Average(t => t.GlobalSurgesTriggered);
+        int firstSurgeTrials = trialMetrics.Count(t => t.FirstSurgeSeconds >= 0f);
+        float firstSurgeReachRate = trialMetrics.Count > 0
+            ? (float)firstSurgeTrials / trialMetrics.Count
+            : 0f;
+        float avgFirstSurgeSeconds = firstSurgeTrials > 0
+            ? (float)trialMetrics.Where(t => t.FirstSurgeSeconds >= 0f).Average(t => t.FirstSurgeSeconds)
+            : Math.Max(1f, scenario.DurationSeconds);
         float edgeSpikeRate = (float)trialMetrics.Average(t => t.EdgeSpike ? 1f : 0f);
         float avgKillZoneEnemySeconds = (float)trialMetrics.Average(t => t.KillZoneEnemySeconds);
         float avgTrapReentries = (float)trialMetrics.Average(t => t.TrapReentries);
@@ -458,6 +480,8 @@ public sealed class CombatLabTowerBenchmarkRunner
             SupportUtilityScore = supportUtilityScore,
             SurgesTriggered = avgSurges,
             GlobalSurgesTriggered = avgGlobalSurges,
+            AvgFirstSurgeSeconds = avgFirstSurgeSeconds,
+            FirstSurgeReachRate = firstSurgeReachRate,
             EdgeSpikeRate = edgeSpikeRate,
         };
     }
@@ -468,7 +492,8 @@ public sealed class CombatLabTowerBenchmarkRunner
         TowerCase towerCase,
         TowerDef towerDef,
         float dt,
-        int seed)
+        int seed,
+        bool collectControlMetrics)
     {
         var rng = new Random(seed);
         var metrics = new TrialMetrics();
@@ -511,6 +536,8 @@ public sealed class CombatLabTowerBenchmarkRunner
             spectacle.OnSurgeTriggered += info =>
             {
                 metrics.SurgesTriggered++;
+                if (metrics.FirstSurgeSeconds < 0f)
+                    metrics.FirstSurgeSeconds = simTime;
                 ApplyLiveSurgeGameplay(tower, enemies, residues, info.Signature.SurgePower, globalSurge: false, metrics);
             };
 
@@ -554,15 +581,18 @@ public sealed class CombatLabTowerBenchmarkRunner
             List<BenchmarkEnemy> activeEnemies = enemies
                 .Where(e => e.Spawned && !e.Resolved && e.Hp > 0f)
                 .ToList();
-            UpdateControlProbeMetrics(
-                activeEnemies,
-                controlProbeStates,
-                controlCenter,
-                controlTrapCenter,
-                controlKillZoneRadius,
-                controlTrapRadius,
-                dt,
-                metrics);
+            if (collectControlMetrics)
+            {
+                UpdateControlProbeMetrics(
+                    activeEnemies,
+                    controlProbeStates,
+                    controlCenter,
+                    controlTrapCenter,
+                    controlKillZoneRadius,
+                    controlTrapRadius,
+                    dt,
+                    metrics);
+            }
 
             bool hasInRangeEnemy = activeEnemies.Any(e => e.GlobalPosition.DistanceTo(tower.GlobalPosition) <= tower.Range);
             if (hasInRangeEnemy)

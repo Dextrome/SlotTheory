@@ -74,21 +74,25 @@
                                      "blast_core":  1
                                  },
     "tower_meter_gain_multipliers":  {
-                                         "rapid_shooter":  0.3315,
-                                         "heavy_cannon":  3.4978,
-                                         "marker_tower":  0.6939,
-                                         "chain_tower":  1.2276,
-                                         "rift_prism":  1.4923,
-                                         "phase_splitter":  0.8732,
-                                         "accordion_engine":  2.8956
+                                         "rapid_shooter":  0.60,
+                                         "heavy_cannon":  5.50,
+                                         "marker_tower":  0.70,
+                                         "chain_tower":  1.20,
+                                         "rift_prism":  1.50,
+                                         "phase_splitter":  0.75,
+                                         "accordion_engine":  3.00,
+                                         "rocket_launcher":  1.45,
+                                         "undertow_engine":  2.4
                                      },
     "tower_surge_threshold_multipliers":  {
-                                              "rapid_shooter":  1.3912,
-                                              "heavy_cannon":  0.5098,
+                                              "rapid_shooter":  1,
+                                              "heavy_cannon":  0.6098,
                                               "marker_tower":  1.0512,
                                               "chain_tower":  0.9479,
                                               "rift_prism":  0.8725,
                                               "phase_splitter":  0.9528,
-                                              "accordion_engine":  0.5651
+                                              "accordion_engine":  0.5651,
+                                              "rocket_launcher":  0.82,
+                                              "undertow_engine":  0.7
                                           }
 }

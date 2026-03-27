@@ -93,6 +93,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
     private float _reverseJumpPulse;
     private Vector2 _reverseJumpFromWorld;
     private Vector2 _reverseJumpToWorld;
+    private float _visualChaosLoad;
 
     public override void _Ready()
     {
@@ -155,6 +156,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         _reverseJumpPulse = 0f;
         _reverseJumpFromWorld = GlobalPosition;
         _reverseJumpToWorld = GlobalPosition;
+        _visualChaosLoad = 0f;
     }
 
     public override void _Process(double delta)
@@ -168,6 +170,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         Vector2 worldAfter = GlobalPosition;
         _visualTime += dt;
         AdvanceCombatTimers(dt);
+        _visualChaosLoad = ResolveCombatVisualLoad();
 
         _hpRatio = MaxHp > 0f ? Mathf.Clamp(Hp / MaxHp, 0f, 1f) : 1f;
         _hitFlash = Mathf.Max(0f, _hitFlash - dt * 5.2f);
@@ -288,8 +291,17 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         return true;
     }
 
+    private float ResolveCombatVisualLoad()
+    {
+        float chaos = Mathf.Clamp(GameController.CombatVisualChaosLoad, 0f, 1f);
+        if (SettingsManager.Instance?.ReducedMotion == true)
+            chaos = Mathf.Clamp(chaos + 0.18f, 0f, 1f);
+        return chaos;
+    }
+
     public override void _Draw()
     {
+        _visualChaosLoad = ResolveCombatVisualLoad();
         DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
         DrawMotionTrail();
         DrawReverseJumpEffect();
@@ -338,25 +350,31 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         float intensity = System.MathF.Min(1f, BurnRemaining / SlotTheory.Core.Balance.WildfireBurnDuration);
         float phase = _visualTime * 3.1f;
         float pulse = 0.5f + System.MathF.Sin(phase) * 0.5f;
+        float detailBudget = Mathf.Lerp(1f, 0.45f, _visualChaosLoad);
+        float fillBudget = Mathf.Lerp(1f, 0.34f, _visualChaosLoad);
 
         // Amber fill glow -- communicates heat clearly, distinct from chill (blue) and mark (magenta)
-        float fillAlpha = (0.08f + pulse * 0.06f) * intensity;
+        float fillAlpha = (0.08f + pulse * 0.06f) * intensity * fillBudget;
         DrawCircle(Vector2.Zero, radius * 0.85f, new Color(1.0f, 0.45f, 0.10f, fillAlpha));
 
         // Pulsing outer ring
-        float ringAlpha = (0.50f + pulse * 0.28f) * intensity;
+        float ringAlpha = (0.50f + pulse * 0.28f) * intensity * Mathf.Lerp(1f, 0.82f, _visualChaosLoad);
         DrawArc(Vector2.Zero, radius, 0f, Mathf.Tau, 20,
             new Color(1.0f, 0.60f, 0.10f, ringAlpha), 1.8f);
 
         // Three orbiting embers -- small sparks rotating around the enemy
-        float sparkOrbit = radius * 0.72f;
-        for (int i = 0; i < 3; i++)
+        if (detailBudget >= 0.45f)
         {
-            float angle = _visualTime * 2.5f + i * Mathf.Tau / 3f;
-            var off = new Vector2(System.MathF.Cos(angle) * sparkOrbit,
-                                  System.MathF.Sin(angle) * sparkOrbit);
-            float sa = (0.55f + 0.35f * System.MathF.Sin(_visualTime * 4.4f + i)) * intensity;
-            DrawCircle(off, 2.4f, new Color(1.0f, 0.78f, 0.18f, sa));
+            float sparkOrbit = radius * 0.72f;
+            int sparkCount = _visualChaosLoad >= 0.72f ? 2 : 3;
+            for (int i = 0; i < sparkCount; i++)
+            {
+                float angle = _visualTime * 2.5f + i * Mathf.Tau / sparkCount;
+                var off = new Vector2(System.MathF.Cos(angle) * sparkOrbit,
+                                      System.MathF.Sin(angle) * sparkOrbit);
+                float sa = (0.55f + 0.35f * System.MathF.Sin(_visualTime * 4.4f + i)) * intensity * detailBudget;
+                DrawCircle(off, 2.4f, new Color(1.0f, 0.78f, 0.18f, sa));
+            }
         }
     }
 
@@ -704,11 +722,12 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
 
         float phase = _visualTime * 2.2f;
         float pulse = 0.5f + Mathf.Sin(phase) * 0.5f;
-        float alpha = 0.55f + pulse * 0.20f;
+        float detailBudget = Mathf.Lerp(1f, 0.62f, _visualChaosLoad);
+        float alpha = (0.55f + pulse * 0.20f) * detailBudget;
         // Gold - clearly distinct from the blue chill-shot ring
         Color ringColor = new Color(1.00f, 0.86f, 0.18f, alpha);
         Color dotColor  = new Color(1.00f, 0.96f, 0.55f, alpha);
-        Color fillColor = new Color(0.92f, 0.74f, 0.08f, 0.06f + pulse * 0.06f);
+        Color fillColor = new Color(0.92f, 0.74f, 0.08f, (0.06f + pulse * 0.06f) * Mathf.Lerp(1f, 0.34f, _visualChaosLoad));
 
         // Soft fill so the whole enemy area glows gold when shielded
         DrawCircle(Vector2.Zero, radius, fillColor);
@@ -721,9 +740,9 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
             DrawLine(
                 new Vector2(Mathf.Cos(a0) * radius, Mathf.Sin(a0) * radius),
                 new Vector2(Mathf.Cos(a1) * radius, Mathf.Sin(a1) * radius),
-                ringColor, 2.8f);
+                ringColor, 2.8f * detailBudget);
             // Corner pip
-            DrawCircle(new Vector2(Mathf.Cos(a0) * radius, Mathf.Sin(a0) * radius), 2.2f, dotColor);
+            DrawCircle(new Vector2(Mathf.Cos(a0) * radius, Mathf.Sin(a0) * radius), 2.2f * detailBudget, dotColor);
         }
     }
 
@@ -826,12 +845,19 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         if (_trail.Count < 2)
             return;
 
+        float alphaBudget = Mathf.Lerp(1f, 0.42f, _visualChaosLoad);
+        float widthBudget = Mathf.Lerp(1f, 0.72f, _visualChaosLoad);
+        bool compactTrail = _visualChaosLoad >= 0.70f;
+
         for (int i = 1; i < _trail.Count; i++)
         {
+            if (compactTrail && (i % 2 == 0))
+                continue;
+
             var prev = _trail[i - 1];
             var cur = _trail[i];
             float ageT = Mathf.Clamp(cur.Age / Mathf.Max(0.001f, _archetype.TrailLifetime), 0f, 1f);
-            float alpha = (1f - ageT) * (1f - ageT) * _archetype.TrailColor.A;
+            float alpha = (1f - ageT) * (1f - ageT) * _archetype.TrailColor.A * alphaBudget;
             if (alpha <= 0.01f)
                 continue;
 
@@ -845,7 +871,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
             Vector2 perp = new Vector2(-dir.Y, dir.X);
             float curveOffset = cur.TurnCurve * 4.0f * (1f - ageT);
             Vector2 mid = (p0 + p1) * 0.5f + perp * curveOffset;
-            float width = _archetype.TrailWidth * (1f - ageT * 0.62f) * (0.84f + cur.SpeedNorm * 0.22f);
+            float width = _archetype.TrailWidth * (1f - ageT * 0.62f) * (0.84f + cur.SpeedNorm * 0.22f) * widthBudget;
             Color c = new Color(_archetype.TrailColor.R, _archetype.TrailColor.G, _archetype.TrailColor.B, alpha);
 
             switch (_archetype.TrailShape)
@@ -853,17 +879,20 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
                 case EnemyTrailShape.RazorArc:
                     DrawLine(p0, mid, c, width * 0.9f);
                     DrawLine(mid, p1, c, width * 0.9f);
-                    DrawLine(mid + perp * 0.8f, p1, new Color(0.95f, 1.00f, 0.84f, alpha * 0.52f), width * 0.42f);
+                    if (!compactTrail)
+                        DrawLine(mid + perp * 0.8f, p1, new Color(0.95f, 1.00f, 0.84f, alpha * 0.52f), width * 0.42f);
                     break;
                 case EnemyTrailShape.DenseEmber:
                     DrawLine(p0, mid, c, width * 1.08f);
                     DrawLine(mid, p1, c, width * 1.08f);
-                    DrawCircle(mid, 1.1f + width * 0.20f, new Color(c.R, c.G * 0.9f, c.B * 0.9f, alpha * 0.58f));
+                    if (!compactTrail)
+                        DrawCircle(mid, 1.1f + width * 0.20f, new Color(c.R, c.G * 0.9f, c.B * 0.9f, alpha * 0.58f));
                     break;
                 default:
                     DrawLine(p0, mid, c, width);
                     DrawLine(mid, p1, c, width);
-                    DrawLine(mid, p1, new Color(0.90f, 1.00f, 1.00f, alpha * 0.26f), width * 0.48f);
+                    if (!compactTrail)
+                        DrawLine(mid, p1, new Color(0.90f, 1.00f, 1.00f, alpha * 0.26f), width * 0.48f);
                     break;
             }
         }
@@ -909,25 +938,41 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
     {
         if (!IsMarked) return;
 
-        for (int s = 0; s < 3; s++)
+        float detailBudget = Mathf.Lerp(1f, 0.48f, _visualChaosLoad);
+        int segmentCount = _visualChaosLoad >= 0.66f ? 2 : 3;
+        for (int s = 0; s < segmentCount; s++)
         {
-            float a = _markAngle + s * (Mathf.Tau / 3f);
-            DrawArc(Vector2.Zero, radius, a, a + Mathf.Pi * 0.5f, 12, new Color(0.85f, 0.30f, 1.00f, 0.90f), 2.5f);
+            float a = _markAngle + s * (Mathf.Tau / segmentCount);
+            DrawArc(
+                Vector2.Zero,
+                radius,
+                a,
+                a + Mathf.Pi * 0.5f,
+                12,
+                new Color(0.85f, 0.30f, 1.00f, 0.90f * detailBudget),
+                2.5f * Mathf.Lerp(1f, 0.82f, _visualChaosLoad));
         }
 
-        float scanY = Mathf.Sin(_markAngle * 1.35f) * radius * 0.58f;
-        DrawLine(new Vector2(-radius * 0.82f, scanY), new Vector2(radius * 0.82f, scanY), new Color(0.90f, 0.42f, 1.00f, 0.35f), 1.6f);
-        DrawLine(new Vector2(-radius * 0.70f, scanY - 3.2f), new Vector2(radius * 0.70f, scanY - 3.2f), new Color(0.90f, 0.42f, 1.00f, 0.20f), 1.0f);
+        if (_visualChaosLoad < 0.78f)
+        {
+            float scanY = Mathf.Sin(_markAngle * 1.35f) * radius * 0.58f;
+            DrawLine(new Vector2(-radius * 0.82f, scanY), new Vector2(radius * 0.82f, scanY), new Color(0.90f, 0.42f, 1.00f, 0.35f * detailBudget), 1.6f);
+            DrawLine(new Vector2(-radius * 0.70f, scanY - 3.2f), new Vector2(radius * 0.70f, scanY - 3.2f), new Color(0.90f, 0.42f, 1.00f, 0.20f * detailBudget), 1.0f);
+        }
     }
 
     private void DrawSlowOverlay(float ringRadius, float bodyRadius)
     {
         if (!IsSlowed) return;
 
-        DrawArc(Vector2.Zero, ringRadius, 0f, Mathf.Tau, 32, new Color(0.20f, 0.85f, 1.00f, 0.90f), 2.5f);
+        float detailBudget = Mathf.Lerp(1f, 0.42f, _visualChaosLoad);
+        DrawArc(Vector2.Zero, ringRadius, 0f, Mathf.Tau, 32, new Color(0.20f, 0.85f, 1.00f, 0.90f * detailBudget), 2.5f * Mathf.Lerp(1f, 0.82f, _visualChaosLoad));
         bool heavyProfile = bodyRadius >= 15f;
-        float fillAlpha = heavyProfile ? 0.05f : 0.08f;
+        float fillAlpha = (heavyProfile ? 0.05f : 0.08f) * Mathf.Lerp(1f, 0.34f, _visualChaosLoad);
         DrawCircle(Vector2.Zero, bodyRadius + 3.6f, new Color(0.62f, 0.86f, 1.00f, fillAlpha));
+
+        if (_visualChaosLoad >= 0.80f)
+            return;
 
         if (heavyProfile)
         {
@@ -939,7 +984,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
                 float y = (i % 2 == 0 ? -1.1f : 1.1f) * k;
                 float halfLen = 1.8f + (1f - k) * 2.2f;
                 float width = 0.9f + (1f - k) * 0.6f;
-                Color streak = new Color(0.70f, 0.92f, 1.00f, 0.16f - k * 0.04f);
+                Color streak = new Color(0.70f, 0.92f, 1.00f, (0.16f - k * 0.04f) * detailBudget);
                 DrawLine(new Vector2(x - halfLen, y), new Vector2(x + halfLen, y), streak, width);
             }
         }
@@ -951,7 +996,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
                 float x = -3f - i * (3.8f + _thrustPulse * 1.1f);
                 float y = (i % 2 == 0 ? -1.2f : 1.0f) * k;
                 float r = (bodyRadius * (0.36f - k * 0.08f)) + 1.4f;
-                DrawCircle(new Vector2(x, y), r, new Color(0.70f, 0.92f, 1.00f, 0.20f - k * 0.08f));
+                DrawCircle(new Vector2(x, y), r, new Color(0.70f, 0.92f, 1.00f, (0.20f - k * 0.08f) * detailBudget));
             }
         }
     }
@@ -962,10 +1007,12 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
 
         float coreRadius = radius * (0.26f + _nearDeathPulse * 0.20f);
         float ringRadius = radius * (0.72f + _nearDeathPulse * 0.42f);
-        DrawCircle(Vector2.Zero, coreRadius, new Color(1.00f, 0.24f, 0.42f, 0.14f + _nearDeathPulse * 0.30f));
-        DrawArc(Vector2.Zero, ringRadius, 0f, Mathf.Tau, 24, new Color(1.00f, 0.24f, 0.42f, 0.32f + _nearDeathPulse * 0.30f), 1.3f);
+        float fillBudget = Mathf.Lerp(1f, 0.52f, _visualChaosLoad);
+        float ringBudget = Mathf.Lerp(1f, 0.86f, _visualChaosLoad);
+        DrawCircle(Vector2.Zero, coreRadius, new Color(1.00f, 0.24f, 0.42f, (0.14f + _nearDeathPulse * 0.30f) * fillBudget));
+        DrawArc(Vector2.Zero, ringRadius, 0f, Mathf.Tau, 24, new Color(1.00f, 0.24f, 0.42f, (0.32f + _nearDeathPulse * 0.30f) * ringBudget), 1.3f);
 
-        if (_nearDeathFlicker > 0.78f)
+        if (_nearDeathFlicker > 0.78f && _visualChaosLoad < 0.90f)
         {
             float flashAlpha = ((_nearDeathFlicker - 0.78f) / 0.22f) * 0.35f;
             DrawCircle(new Vector2(0f, -1f), radius * 0.18f, new Color(1f, 1f, 1f, flashAlpha));
