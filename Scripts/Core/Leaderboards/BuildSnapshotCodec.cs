@@ -37,6 +37,9 @@ public static class BuildSnapshotCodec
         ["feedback_loop"] = 9,
         ["chain_reaction"] = 10,
         ["blast_core"] = 11,
+        ["wildfire"] = 12,
+        ["afterimage"] = 13,
+        ["reaper_protocol"] = 14,
     };
 
     private static readonly Dictionary<int, string> CodeToMod = ModToCode.ToDictionary(kv => kv.Value, kv => kv.Key);

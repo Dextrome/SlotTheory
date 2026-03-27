@@ -116,6 +116,8 @@ public partial class SoundManager : Node
         ["shoot_accordion"]   = 80,
         ["shoot_phase_splitter"] = 70,
         ["shoot_undertow"]    = 78,
+        ["afterimage_seed"]   = 62,
+        ["afterimage_echo"]   = 74,
         // Heavy impacts: longer cooldown since they're loud and infrequent by design.
         ["shoot_heavy"]       = 90,
         ["mine_pop"]       = 55,
@@ -150,6 +152,8 @@ public partial class SoundManager : Node
         ["shoot_accordion"]   = 60,
         ["shoot_phase_splitter"] = 50,
         ["shoot_undertow"]    = 62,
+        ["afterimage_seed"]   = 48,
+        ["afterimage_echo"]   = 62,
         // Death sounds: 60–100ms keeps individual kills audibly distinct at ×2/×3.
         ["die_basic"]      = 60,
         ["die_armored"]    = 100,
@@ -235,6 +239,13 @@ public partial class SoundManager : Node
             Sweep(1180f, 220f, 0.20f, vol: 0.40f),                       // suction drop
             Tone(86f, 0.18f, vol: 0.30f, shape: 'q', env: 'f'),          // low vacuum body
             Tone(2400f, 0.05f, vol: 0.09f, shape: 'n', env: 'f')));      // tether latch
+        Reg("afterimage_seed", Layer(
+            Sweep(1320f, 640f, 0.10f, vol: 0.18f),
+            Tone(420f, 0.08f, vol: 0.12f, shape: 's', env: 'f')));
+        Reg("afterimage_echo", Layer(
+            Sweep(640f, 1400f, 0.14f, vol: 0.26f),
+            Sweep(280f, 90f, 0.16f, vol: 0.14f),
+            Tone(2200f, 0.06f, vol: 0.08f, shape: 'n', env: 'f')));
 
         // ── Enemy events ─────────────────────────────────────────────────
         Reg("hit",          Tone(520f, 0.03f, vol: 0.16f, shape: 'n', env: 'f'));

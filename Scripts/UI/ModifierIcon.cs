@@ -67,6 +67,7 @@ public partial class ModifierIcon : Control
             case "chain_reaction": DrawChainReaction(c, r); break;
             case "blast_core": DrawBlastCore(c, r); break;
             case "wildfire": DrawWildfire(c, r); break;
+            case "afterimage": DrawAfterimage(c, r); break;
             case "reaper_protocol": DrawReaperProtocol(c, r); break;
             default:
                 DrawCircle(c, r * 0.45f, _iconColor);
@@ -219,5 +220,17 @@ public partial class ModifierIcon : Control
 
         // Hot inner core dot
         DrawCircle(c + new Vector2(0, r * 0.10f), r * 0.18f, _iconColor);
+    }
+
+    private void DrawAfterimage(Vector2 c, float r)
+    {
+        // Seed imprint ring.
+        DrawArc(c + new Vector2(-r * 0.10f, r * 0.08f), r * 0.44f, 0f, Mathf.Tau, 24, _iconColor, 1.7f);
+        // Delayed replay ring.
+        DrawArc(c + new Vector2(r * 0.30f, -r * 0.24f), r * 0.34f, 0f, Mathf.Tau, 24, _iconColor, 1.5f);
+        // Echo link.
+        DrawLine(c + new Vector2(-r * 0.04f, -r * 0.02f), c + new Vector2(r * 0.18f, -r * 0.18f), _iconColor, 1.6f);
+        // Trigger spark.
+        DrawCircle(c + new Vector2(r * 0.30f, -r * 0.24f), r * 0.10f, _iconColor);
     }
 }

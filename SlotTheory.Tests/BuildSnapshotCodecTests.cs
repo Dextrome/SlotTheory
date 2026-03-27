@@ -100,6 +100,19 @@ public class BuildSnapshotCodecTests
     }
 
     [Fact]
+    public void Pack_Unpack_FullGameModifiers_RoundTripIncludesAfterimage()
+    {
+        var slots = MakeEmptySlots();
+        slots[1] = new RunSlotBuild("phase_splitter", ["wildfire", "afterimage", "reaper_protocol"]);
+        var original = new RunBuildSnapshot(slots);
+
+        var restored = BuildSnapshotCodec.Unpack(BuildSnapshotCodec.Pack(original));
+
+        Assert.Equal("phase_splitter", restored.Slots[1].TowerId);
+        Assert.Equal(["wildfire", "afterimage", "reaper_protocol"], restored.Slots[1].ModifierIds);
+    }
+
+    [Fact]
     public void Unpack_AllZeros_ReturnsEmptyBuild()
     {
         var zeros    = new int[Balance.SlotCount];

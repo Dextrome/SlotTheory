@@ -95,6 +95,14 @@ public static class DamageModel
 
         RegisterSpectacleDamageProcs(ctx, damageDealtRaw, isKill);
 
+        // Afterimage: primary hit seeds a delayed ghost imprint at the impact point.
+        // Guardrails:
+        // - primary only (no chain-bounce seeds)
+        // - requires a real hit (damage dealt > 0)
+        // - delayed echo execution is owned by CombatSim
+        if (!ctx.IsChain && damageDealtRaw > 0f && CountModifier(ctx.Attacker, "afterimage") > 0)
+            GameController.Instance?.NotifyAfterimageHit(ctx.Attacker, ctx.Target.GlobalPosition, ctx.FinalDamage);
+
         // 4. On-hit effects (skipped for chain bounces if modifier opts out)
         foreach (var mod in ctx.Attacker.Modifiers)
         {

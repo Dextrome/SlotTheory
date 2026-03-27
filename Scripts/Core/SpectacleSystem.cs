@@ -69,6 +69,7 @@ public sealed class SpectacleSystem
         SpectacleDefinitions.ChainReaction,
         SpectacleDefinitions.BlastCore,
         SpectacleDefinitions.Wildfire,
+        SpectacleDefinitions.Afterimage,
         SpectacleDefinitions.ReaperProtocol,
     };
 

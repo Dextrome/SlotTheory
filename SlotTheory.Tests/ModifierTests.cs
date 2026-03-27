@@ -420,6 +420,13 @@ public class ModifierTests
     }
 
     [Fact]
+    public void Afterimage_ModifierId_IsConfigured()
+    {
+        var mod = new Afterimage(Def("afterimage"));
+        Assert.Equal("afterimage", mod.ModifierId);
+    }
+
+    [Fact]
     public void Wildfire_OnHit_SingleCopy_DpsEqualsBaseDamageTimesRatio()
     {
         var tower = new FakeTower { BaseDamage = 20f };

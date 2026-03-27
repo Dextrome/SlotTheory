@@ -91,6 +91,7 @@ public partial class TowerInstance : Node2D, ITowerView
         ["chain_reaction"]   = new(92, FocalAccentShape.Chain),
         ["split_shot"]       = new(90, FocalAccentShape.Chain),
         ["wildfire"]         = new(88, FocalAccentShape.Spike),
+        ["afterimage"]       = new(87, FocalAccentShape.Lens),
         ["overkill"]         = new(86, FocalAccentShape.Spike),
         ["feedback_loop"]    = new(84, FocalAccentShape.Crest),
         ["reaper_protocol"]  = new(82, FocalAccentShape.Lens),

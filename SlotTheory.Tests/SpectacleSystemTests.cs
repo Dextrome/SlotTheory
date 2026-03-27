@@ -359,9 +359,8 @@ public class SpectacleSystemTests
     public void DefinitionCoverage_ComboAndAugmentTablesHaveExpectedCounts()
     {
         // Combo names are now dynamically generated -- no static ComboDefs table.
-        // Verify all N*(N-1)/2 ordered pairs (r1, r2) produce unique effect IDs.
-        // N = 13 supported mods, so N*(N-1) = 156 ordered pairs.
         var supported = SpectacleDefinitions.SupportedModIds.ToArray();
+        int supportedCount = supported.Length;
         var comboIds = new HashSet<string>(StringComparer.Ordinal);
         foreach (string r1 in supported)
             foreach (string r2 in supported)
@@ -372,14 +371,14 @@ public class SpectacleSystemTests
                 Assert.False(string.IsNullOrWhiteSpace(combo.Name));
                 comboIds.Add(combo.EffectId);
             }
-        Assert.Equal(13 * 12, comboIds.Count); // all ordered pairs produce unique IDs
+        Assert.Equal(supportedCount * (supportedCount - 1), comboIds.Count); // ordered pairs
 
-        // Augment table: 13 entries (one per mod).
+        // Augment table: one entry per supported mod.
         IDictionary augments = ReadPrivateStaticDictionary("TriadAugments");
-        Assert.Equal(13, augments.Count);
+        Assert.Equal(supportedCount, augments.Count);
 
         var augmentIds = augments.Values.Cast<SpectacleTriadAugmentDef>().Select(def => def.EffectId).ToArray();
-        Assert.Equal(13, augmentIds.Distinct(StringComparer.Ordinal).Count());
+        Assert.Equal(supportedCount, augmentIds.Distinct(StringComparer.Ordinal).Count());
 
         var augmentNames = augments.Values.Cast<SpectacleTriadAugmentDef>().Select(def => def.Name).Distinct(StringComparer.Ordinal).ToArray();
         Assert.Equal(3, augmentNames.Length);

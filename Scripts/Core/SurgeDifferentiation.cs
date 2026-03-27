@@ -28,6 +28,7 @@ public static class SurgeDifferentiation
         new(SpectacleDefinitions.ChainReaction,   "Chain",        GlobalSurgeFeel.Neutral),
         new(SpectacleDefinitions.BlastCore,       "Blast",        GlobalSurgeFeel.Detonation),
         new(SpectacleDefinitions.Wildfire,        "Wildfire",     GlobalSurgeFeel.Detonation),
+        new(SpectacleDefinitions.Afterimage,      "Afterimage",   GlobalSurgeFeel.Pressure),
         new(SpectacleDefinitions.ReaperProtocol,  "Reaper",       GlobalSurgeFeel.Neutral),
     };
 

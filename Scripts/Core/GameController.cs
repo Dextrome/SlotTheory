@@ -962,6 +962,9 @@ public partial class GameController : Node
 				case Unlocks.WildfireAchievementId:
 					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: false, Unlocks.WildfireModifierId));
 					break;
+				case Unlocks.AfterimageAchievementId:
+					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: false, Unlocks.AfterimageModifierId));
+					break;
 				case Unlocks.PhaseSplitterAchievementId:
 					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: true, Unlocks.PhaseSplitterTowerId));
 					break;
@@ -3500,6 +3503,7 @@ public partial class GameController : Node
 			"chain_reaction" => "bounce chain",
 			"blast_core" => "blast radius",
 			"wildfire" => "burning trails",
+			"afterimage" => "delayed replay",
 			"reaper_protocol" => "execute finisher",
 			_ => string.Empty,
 		};
@@ -7444,6 +7448,18 @@ void fragment() {
 	}
 
 	/// <summary>
+	/// Called by DamageModel when an Afterimage-enabled tower lands a valid primary hit.
+	/// Delegates delayed imprint tracking and echo replay to CombatSim.
+	/// </summary>
+	public void NotifyAfterimageHit(ITowerView sourceTower, Vector2 impactPos, float sourceDamage)
+	{
+		if (CurrentPhase != GamePhase.Wave || sourceTower == null || _combatSim == null)
+			return;
+
+		_combatSim.QueueAfterimageImprint(sourceTower, impactPos, sourceDamage);
+	}
+
+	/// <summary>
 	/// Called by BlastCore.OnHit after splash damage has been applied to splashTargets.
 	/// Handles visual feedback (expanding ring + impact sparks) and spectacle damage tracking.
 	/// No-op in bot/headless mode -- damage is already applied, only visuals are skipped.
@@ -8654,6 +8670,7 @@ void fragment() {
 			"blast_core" => tower.TowerId == "accordion_engine" || tower.TowerId == "undertow_engine" || tower.TowerId == "rocket_launcher",
 			"slow" => tower.TowerId == "undertow_engine" || tower.TowerId == "chain_tower" || tower.TowerId == "rapid_shooter",
 			"wildfire" => tower.TowerId == "phase_splitter" || tower.TowerId == "rapid_shooter" || tower.TowerId == "rift_prism",
+			"afterimage" => tower.TowerId == "undertow_engine" || tower.TowerId == "rocket_launcher" || tower.TowerId == "chain_tower" || tower.TowerId == "phase_splitter",
 			_ => false,
 		};
 	}

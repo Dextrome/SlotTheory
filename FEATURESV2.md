@@ -177,7 +177,7 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 
 ## 3. Modifier Roster
 
-13 modifiers total. 2 unlockable, 1 full-game-only wave-gated. All equipped via draft; max 3 per tower.
+14 modifiers total. 5 progression-gated, with full-game-only gating for Blast Core, Wildfire, Afterimage, and Reaper Protocol. All equipped via draft; max 3 per tower.
 
 | Modifier | ID | Effect | Unlock |
 |---|---|---|---|
@@ -192,8 +192,9 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 | Chain Reaction | `chain_reaction` | On hit: +1 bounce at 50% damage carry; each extra copy adds +1 bounce | -- |
 | Split Shot | `split_shot` | On hit: fires 2 extra projectiles at nearby enemies at 28% damage; each extra copy adds +1 projectile | SPLIT_UNSEALED |
 | Blast Core | `blast_core` | On primary hit: 45% splash in 140 px radius; each extra copy adds +25 px radius | BLAST_UNSEALED |
-| Wildfire | `wildfire` | On primary hit: ignite for 4 s burn at 25% BaseDamage/s; burning enemies drop fire trail segments (2.2 s, 30 px radius, 40% burn DPS to overlapping enemies); stacks add burn DPS | -- |
-| Reaper Protocol | `reaper_protocol` | Kill (primary only): first 5 kills per wave restore 1 life each (capped at MaxLives). **Full game only. Available from wave 10 onward.** | -- |
+| Wildfire | `wildfire` | On primary hit: ignite for 4 s burn at 25% BaseDamage/s; burning enemies drop fire trail segments (2.2 s, 30 px radius, 40% burn DPS to overlapping enemies); stacks add burn DPS | WILDFIRE_UNSEALED |
+| Afterimage | `afterimage` | On primary hit: leave a short ghost imprint at impact; after a brief delay it triggers one weaker local echo from that spot | AFTERIMAGE_UNSEALED |
+| Reaper Protocol | `reaper_protocol` | Kill (primary only): first 5 kills per wave restore 1 life each (capped at MaxLives). **Full game only. Available from wave 10 onward.** | REAPER_UNSEALED |
 
 ### Modifier isChain Rules
 
@@ -203,6 +204,7 @@ Modifiers that opt out of chain/secondary targets set `ApplyToChainTargets = fal
 |---|---|---|
 | Blast Core | **false** | No -- splash only on primary hits |
 | Wildfire | **false** | No -- ignition only on primary hits |
+| Afterimage | n/a (primary-hit hook) | No -- imprint/echo only queues from primary hits (`!IsChain`) |
 | Overkill | **false** | No -- kill spill only on primary kills |
 | Reaper Protocol | true (OnKill only) | OnKill checks `ctx.IsChain` internally -- chain kills are rejected at the modifier level, not via `ApplyToChainTargets` |
 | All others | true | Yes |
@@ -395,11 +397,16 @@ Unlock gates live in `Unlocks.cs`. All unlocks require winning a run on the spec
 | Rift Sapper | Tower | pinch_bleed (Stage 3) | `RIFT_UNSEALED` | 3rd non-random map |
 | Blast Core | Modifier | ridgeback (Stage 4 / Iron Mandate) | `BLAST_UNSEALED` | 4th non-random map |
 | Accordion Engine | Tower | double_back (skirmish only) | `ACCORDION_UNSEALED` | 5th non-random map |
+| Wildfire | Modifier | crossfire | `WILDFIRE_UNSEALED` | 6th non-random map |
 | Phase Splitter | Tower | threshold (fallback) | `PHASE_UNSEALED` | 7th non-random map |
+| Reaper Protocol | Modifier | switchback | `REAPER_UNSEALED` | 8th non-random map |
+| Rocket Launcher | Tower | hourglass | `ROCKET_UNSEALED` | Map-tied unlock |
+| Afterimage | Modifier | perimeter_lock | `AFTERIMAGE_UNSEALED` | Map-tied unlock |
+| Undertow Engine | Tower | trident | `UNDERTOW_UNSEALED` | Map-tied unlock |
 
 **Map order** is determined by `displayOrder` field in `maps.json`, filtered to non-random maps. Fallback IDs are hardcoded in `Unlocks.cs` for cases where DataLoader is unavailable.
 
-**Demo gating:** Blast Core and Wildfire are always locked in demo builds regardless of achievement state. Accordion Engine and Phase Splitter are similarly locked in demo (they unlock on full-game map progression).
+**Demo gating:** Blast Core, Wildfire, Afterimage, and Reaper Protocol are always locked in demo builds regardless of achievement state. Accordion Engine, Phase Splitter, Rocket Launcher, and Undertow Engine are similarly locked in demo.
 
 **Unlock reveal flow:** On winning a run that triggers an unlock, `GameController.EnqueueUnlockReveals()` queues `UnlockRevealScreen` panels that show sequentially. Each panel uses `ShowTowerUnlock` or `ShowModifierUnlock` based on content type.
 
@@ -475,7 +482,7 @@ Every tower surge contributes to a shared global meter:
 
 ### Surge Differentiation System
 
-`SurgeDifferentiation.cs` (pure-logic, no Godot deps) is the single source of truth for global surge archetypes. 12 named labels mapped from dominant contributing modifier:
+`SurgeDifferentiation.cs` (pure-logic, no Godot deps) is the single source of truth for global surge archetypes. 14 named labels mapped from dominant contributing modifier:
 
 | Label | Dominant Modifier | Feel |
 |---|---|---|
@@ -491,6 +498,8 @@ Every tower surge contributes to a shared global meter:
 | CHAIN STORM | Chain Reaction | Neutral |
 | BLAST WAVE | Blast Core | Detonation |
 | INFERNO SURGE | Wildfire | Detonation |
+| AFTERIMAGE | Afterimage | Pressure |
+| REAPER | Reaper Protocol | Neutral |
 
 Falls back to **GLOBAL SURGE** if no dominant modifier detected.
 
@@ -509,7 +518,7 @@ Falls back to **GLOBAL SURGE** if no dominant modifier detected.
 
 ## 13. Achievement System
 
-27 achievements tracked locally via `AchievementManager` (autoload, persistent to `user://achievements.cfg`). Steam forwarding via `SteamAchievements`. No Steam dependency in `AchievementManager` itself.
+33 achievements tracked locally via `AchievementManager` (autoload, persistent to `user://achievements.cfg`). Steam forwarding via `SteamAchievements`. No Steam dependency in `AchievementManager` itself.
 
 **Unlock toasts:** fade-in/out notification at bottom-right on new unlock; multiple queue and show sequentially.
 
@@ -531,7 +540,13 @@ Falls back to **GLOBAL SURGE** if no dominant modifier detected.
 | `RIFT_UNSEALED` | Rift Unsealed | Beat pinch_bleed -- unlocks Rift Sapper | Run end (win) |
 | `BLAST_UNSEALED` | Blast Unsealed | Beat ridgeback (Iron Mandate) -- unlocks Blast Core | Run end (win) |
 | `ACCORDION_UNSEALED` | Accordion Unsealed | Beat double_back -- unlocks Accordion Engine | Run end (win) |
+| `WILDFIRE_UNSEALED` | Wildfire Unsealed | Beat crossfire -- unlocks Wildfire | Run end (win) |
+| `AFTERIMAGE_UNSEALED` | Afterimage Unsealed | Beat perimeter_lock -- unlocks Afterimage | Run end (win) |
 | `HALFWAY_THERE` | Halfway There | Survive to wave 10 | Wave 10 start |
+| `PHASE_UNSEALED` | Phase Unsealed | Beat threshold -- unlocks Phase Splitter | Run end (win) |
+| `REAPER_UNSEALED` | Reaper Unsealed | Beat switchback -- unlocks Reaper Protocol | Run end (win) |
+| `ROCKET_UNSEALED` | Rocket Unsealed | Beat hourglass -- unlocks Rocket Launcher | Run end (win) |
+| `UNDERTOW_UNSEALED` | Undertow Unsealed | Beat trident -- unlocks Undertow Engine | Run end (win) |
 | `FULL_HOUSE` | Full House | Fill all 6 tower slots in one run | After draft pick |
 | `STACKED` | Stacked | Give any tower 3 modifiers in one run | After draft pick |
 | `FULL_ARSENAL` | Full Arsenal | Use 5 different tower types in one run | After draft pick |
@@ -551,7 +566,7 @@ Falls back to **GLOBAL SURGE** if no dominant modifier detected.
 
 | Method | When Called | Covers |
 |---|---|---|
-| `CheckRunEndAndCollectUnlocks(state, difficulty, won)` | Run end | All run-end achievements; returns newly unlocked IDs for reveal flow |
+| `CheckRunEndAndCollectUnlocks(state, difficulty, won, isTutorialRun)` | Run end | All run-end achievements; returns newly unlocked IDs for reveal flow |
 | `CheckTutorialComplete()` | Tutorial win | `TUTORIAL_COMPLETE` |
 | `CheckHalfwayThere()` | Wave 10 start | `HALFWAY_THERE` |
 | `CheckDraftMilestones(state)` | After each draft pick | FULL_HOUSE, STACKED, FULL_ARSENAL, OVER_EQUIPPED, CHAIN_GANG, GLASS_CANNON |

@@ -1,6 +1,6 @@
 # Achievements
 
-## Current Achievements (27)
+## Current Achievements (33)
 
 Tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`. Forwarded to Steam when available.
 
@@ -9,6 +9,17 @@ Tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`
 | `TUTORIAL_COMPLETE` | First Steps | Complete the tutorial run | Tutorial win - `CheckTutorialComplete()` |
 | `FIRST_WIN` | First Victory | Complete all 20 waves | Run end (win) |
 | `HARD_WIN` | Hard Carry | Complete all 20 waves on Hard | Run end (win) |
+| `ARC_UNSEALED` | Arc Unsealed | Beat the first campaign map on any difficulty | Run end (win) - gates Arc Emitter |
+| `SPLIT_UNSEALED` | Split Unsealed | Beat the second campaign map on any difficulty | Run end (win) - gates Split Shot |
+| `RIFT_UNSEALED` | Rift Unsealed | Beat the third campaign map on any difficulty | Run end (win) - gates Rift Sapper |
+| `ACCORDION_UNSEALED` | Accordion Unsealed | Beat the fifth campaign map on any difficulty | Run end (win) - gates Accordion Engine tower |
+| `BLAST_UNSEALED` | Blast Unsealed | Beat the fourth campaign map on any difficulty | Run end (win) - gates Blast Core modifier |
+| `WILDFIRE_UNSEALED` | Wildfire Unsealed | Beat the sixth campaign map on any difficulty | Run end (win) - gates Wildfire modifier |
+| `AFTERIMAGE_UNSEALED` | Afterimage Unsealed | Beat Perimeter Lock on any difficulty | Run end (win) - gates Afterimage modifier |
+| `PHASE_UNSEALED` | Phase Unsealed | Beat the seventh campaign map on any difficulty | Run end (win) - gates Phase Splitter tower |
+| `REAPER_UNSEALED` | Reaper Unsealed | Beat the eighth campaign map on any difficulty | Run end (win) - gates Reaper Protocol modifier |
+| `ROCKET_UNSEALED` | Rocket Unsealed | Beat Hourglass on any difficulty | Run end (win) - gates Rocket Launcher tower |
+| `UNDERTOW_UNSEALED` | Undertow Unsealed | Beat Trident on any difficulty | Run end (win) - gates Undertow Engine tower |
 | `FLAWLESS` | Flawless | Win without losing a single life | Run end (win) |
 | `LAST_STAND` | Last Stand | Win with exactly 1 life remaining | Run end (win) |
 | `HALFWAY_THERE` | Halfway There | Survive to wave 10 | Wave 10 start (mid-run) |
@@ -19,20 +30,19 @@ Tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`
 | `DEVASTATOR` | Devastator | Deal 200,000 total damage in one run | After wave clear (mid-run) |
 | `CHAIN_MASTER` | Chain Master | Win with all 6 slots filled by Arc Emitters | Run end (win) |
 | `CHAIN_GANG` | Chain Gang | Place 3 or more Arc Emitters in a single run | After draft pick (mid-run) |
-| `FULL_ARSENAL` | Full Arsenal | Use all 5 tower types in one run | After draft pick (mid-run) |
+| `FULL_ARSENAL` | Full Arsenal | Use 5 different towers in one run | After draft pick (mid-run) |
 | `OVER_EQUIPPED` | Over Equipped | Fill all 18 modifier slots in one run | After draft pick (mid-run) |
 | `GLASS_CANNON` | Glass Cannon | Equip Focus Lens and Hair Trigger on the same tower | After draft pick (mid-run) |
 | `KEEP_GOING` | Keep Going | Start an endless run | On Continue pressed |
 | `ENDLESS_25` | Into the Void | Clear wave 25 in endless mode | After wave clear (endless) |
 | `ENDLESS_30` | No End in Sight | Clear wave 30 in endless mode | After wave clear (endless) |
 | `ENDLESS_40` | The Abyss | Clear wave 40 in endless mode | After wave clear (endless) |
-| `ARC_UNSEALED` | Arc Unsealed | Beat the first campaign map on Normal or Hard | Run end (win) - gates Arc Emitter |
-| `SPLIT_UNSEALED` | Split Unsealed | Beat the second campaign map on Normal or Hard | Run end (win) - gates Split Shot |
-| `RIFT_UNSEALED` | Rift Unsealed | Beat the third campaign map on Normal or Hard | Run end (win) - gates Rift Sapper |
-| `BLAST_UNSEALED` | Blast Unsealed | Beat the fourth campaign map (Ridgeback) on Normal or Hard | Run end (win) - gates Blast Core modifier |
-| `ACCORDION_UNSEALED` | Accordion Unsealed | Beat the fifth map (Double Back) on Normal or Hard | Run end (win) - gates Accordion Engine tower |
 | `CAMPAIGN_CLEAR` | The Circuit | Clear all four stages of The Fracture Circuit (any difficulty) | Campaign stage win - `HandleCampaignStageWin()` |
 | `CAMPAIGN_HARD_CLEAR` | Iron Mandate | Clear all four stages of The Fracture Circuit on Hard difficulty | Campaign stage win - `HandleCampaignStageWin()` |
+
+Achievement icon assets:
+- `Assets/Achievements/AFTERIMAGE_UNSEALED.png`
+- `Assets/Achievements/AFTERIMAGE_UNSEALED_locked.png`
 
 ### Implementation notes
 
@@ -45,4 +55,3 @@ Tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`
 - `CheckEndlessMilestones(state)` - called after each endless wave clear; covers `ENDLESS_25/30/40`
 - `CheckKeepGoing()` - called in `OnContinueEndlessPressed`
 - Bot mode (`--bot`) skips all unlock evaluation
-

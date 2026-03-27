@@ -59,6 +59,17 @@ public class CombatSim
         public UndertowTetherVfx? TetherVfx { get; set; }
     }
 
+    private sealed class ActiveAfterimage
+    {
+        public ITowerView SourceTower { get; init; } = null!;
+        public TowerInstance? SourceNode { get; init; }
+        public Vector2 Position { get; set; }
+        public float SeedDamage { get; set; }
+        public float DelayTotal { get; set; }
+        public float DelayRemaining { get; set; }
+        public AfterimageImprintVfx? Visual { get; set; }
+    }
+
     private readonly RunState _state;
     private float _spawnTimer = 0f;
     private readonly Queue<string> _spawnQueue = new();
@@ -74,6 +85,7 @@ public class CombatSim
     private readonly List<ActiveUndertow> _activeUndertows = new();
     private readonly Dictionary<ulong, float> _undertowRecentRemaining = new();
     private readonly Dictionary<ulong, float> _undertowRetargetLockoutRemaining = new();
+    private readonly List<ActiveAfterimage> _activeAfterimages = new();
 
     // Wildfire fire trail segments -- managed like active mines but simpler (no charges, no targeting)
     private sealed class FireTrailSegment
@@ -91,6 +103,7 @@ public class CombatSim
     }
     private readonly List<FireTrailSegment> _activeFireTrails = new();
     private static readonly Color WildfireFireColor = new(1.0f, 0.55f, 0.12f);
+    private static readonly Color AfterimageColor = new(0.72f, 0.88f, 1.00f);
 
     // Set externally by GameController when an enemy scene is needed
     public PackedScene? EnemyScene { get; set; }
@@ -124,6 +137,7 @@ public class CombatSim
         ClearMines();
         ClearFireTrails();
         ClearUndertowEffects();
+        ClearAfterimages();
         RebuildMineAnchors();
     }
 
@@ -139,6 +153,7 @@ public class CombatSim
         ClearMines();
         ClearFireTrails();
         ClearUndertowEffects();
+        ClearAfterimages();
         RebuildMineAnchors();
 
         int walkers   = ws.GetWalkerCount();
@@ -235,6 +250,62 @@ public class CombatSim
         foreach (string t in slots) _spawnQueue.Enqueue(t);
     }
 
+    /// <summary>
+    /// Seeds (or replaces) the active Afterimage imprint for a tower.
+    /// Rule: one active imprint per tower; new hits overwrite old imprint state.
+    /// </summary>
+    public void QueueAfterimageImprint(ITowerView tower, Vector2 worldPos, float sourceDamage)
+    {
+        if (tower == null || sourceDamage <= 0f)
+            return;
+
+        float delay = Balance.AfterimageDelaySeconds;
+        int copies = CountModifierCopies(tower, "afterimage");
+        if (copies <= 0)
+            return;
+
+        float seedDamage = Mathf.Max(Balance.AfterimageMinDamage, sourceDamage);
+
+        ActiveAfterimage? existing = _activeAfterimages.FirstOrDefault(a => ReferenceEquals(a.SourceTower, tower));
+        if (existing != null)
+        {
+            existing.Position = worldPos;
+            existing.SeedDamage = seedDamage;
+            existing.DelayRemaining = delay;
+            existing.DelayTotal = delay;
+            if (!BotMode && existing.Visual != null && GodotObject.IsInstanceValid(existing.Visual))
+                existing.Visual.Reset(worldPos, delay, ResolveAfterimageRadius(tower, copies), ResolveAfterimageTint(tower));
+            Sounds?.Play("afterimage_seed", pitchScale: ResolveAfterimageSeedPitch(tower));
+            return;
+        }
+
+        var imprint = new ActiveAfterimage
+        {
+            SourceTower = tower,
+            SourceNode = tower as TowerInstance,
+            Position = worldPos,
+            SeedDamage = seedDamage,
+            DelayTotal = delay,
+            DelayRemaining = delay,
+        };
+
+        if (!BotMode && LanePath != null)
+        {
+            var visual = new AfterimageImprintVfx();
+            LanePath.GetParent().AddChild(visual);
+            visual.GlobalPosition = worldPos;
+            visual.Initialize(
+                delay,
+                ResolveAfterimageRadius(tower, copies),
+                ResolveAfterimageTint(tower),
+                tower.TowerId);
+            imprint.Visual = visual;
+        }
+
+        _activeAfterimages.Add(imprint);
+        Sounds?.Play("afterimage_seed", pitchScale: ResolveAfterimageSeedPitch(tower));
+    }
+
     public WaveResult Step(float delta, RunState state, WaveSystem waveSystem)
     {
         state.WaveTime += delta;
@@ -280,6 +351,7 @@ public class CombatSim
             ClearMines();
             ClearFireTrails();
             ClearUndertowEffects();
+            ClearAfterimages();
             return WaveResult.Loss;
         }
 
@@ -661,6 +733,7 @@ public class CombatSim
 
         // 3.5. Wildfire burn DOT and fire trail hazards
         UpdateBurnAndTrails(delta, state.WaveIndex, state.EnemiesAlive);
+        UpdateAfterimages(delta, state.EnemiesAlive);
 
         // 4. Remove dead enemies
         foreach (var dead in state.EnemiesAlive.FindAll(e => e.Hp <= 0))
@@ -693,6 +766,7 @@ public class CombatSim
             ClearMines();
             ClearFireTrails();
             ClearUndertowEffects();
+            ClearAfterimages();
             return WaveResult.WaveComplete;
         }
 
@@ -729,6 +803,16 @@ public class CombatSim
         _activeUndertows.Clear();
         _undertowRecentRemaining.Clear();
         _undertowRetargetLockoutRemaining.Clear();
+    }
+
+    private void ClearAfterimages()
+    {
+        foreach (var imprint in _activeAfterimages)
+        {
+            if (imprint.Visual != null && GodotObject.IsInstanceValid(imprint.Visual))
+                imprint.Visual.QueueFree();
+        }
+        _activeAfterimages.Clear();
     }
 
     private static void TickTimerDict(Dictionary<ulong, float> timers, float delta)
@@ -1407,6 +1491,384 @@ public class CombatSim
 
         // Audio: subtle crackle cue for trail deposit. Throttled naturally by TrailDropInterval.
         Sounds?.Play("wildfire_trail", pitchScale: 0.85f + GD.Randf() * 0.30f);
+    }
+
+    private void UpdateAfterimages(float delta, List<EnemyInstance> enemies)
+    {
+        if (_activeAfterimages.Count == 0 || delta <= 0f)
+            return;
+
+        for (int i = _activeAfterimages.Count - 1; i >= 0; i--)
+        {
+            ActiveAfterimage imprint = _activeAfterimages[i];
+            if (imprint.SourceNode != null && !GodotObject.IsInstanceValid(imprint.SourceNode))
+            {
+                if (imprint.Visual != null && GodotObject.IsInstanceValid(imprint.Visual))
+                    imprint.Visual.QueueFree();
+                _activeAfterimages.RemoveAt(i);
+                continue;
+            }
+
+            imprint.DelayRemaining = Mathf.Max(0f, imprint.DelayRemaining - delta);
+            if (!BotMode && imprint.Visual != null && GodotObject.IsInstanceValid(imprint.Visual))
+                imprint.Visual.SetDelayRemaining(imprint.DelayRemaining, imprint.DelayTotal);
+
+            if (imprint.DelayRemaining > 0f)
+                continue;
+
+            TriggerAfterimageEcho(imprint, enemies);
+
+            if (imprint.Visual != null && GodotObject.IsInstanceValid(imprint.Visual))
+                imprint.Visual.TriggerAndFree();
+
+            _activeAfterimages.RemoveAt(i);
+        }
+    }
+
+    private void TriggerAfterimageEcho(ActiveAfterimage imprint, List<EnemyInstance> enemies)
+    {
+        ITowerView tower = imprint.SourceTower;
+        int copies = Math.Max(1, CountModifierCopies(tower, "afterimage"));
+        float radius = ResolveAfterimageRadius(tower, copies);
+        float baseDamage = Mathf.Max(Balance.AfterimageMinDamage, imprint.SeedDamage * ResolveAfterimageDamageScale(tower, copies));
+        Color tint = ResolveAfterimageTint(tower);
+        var inRange = enemies
+            .Where(e => GodotObject.IsInstanceValid(e) && e.Hp > 0f && imprint.Position.DistanceTo(e.GlobalPosition) <= radius)
+            .ToList();
+
+        Sounds?.Play("afterimage_echo", pitchScale: ResolveAfterimageEchoPitch(tower));
+
+        if (inRange.Count == 0)
+            return;
+
+        switch (tower.TowerId)
+        {
+            case "heavy_cannon":
+                ApplyAfterimageBurst(tower, imprint.Position, inRange, baseDamage * 1.06f,
+                    Balance.AfterimageHeavyBurstRadius + (copies - 1) * 6f,
+                    maxTargets: 3, color: tint, applyFalloff: true);
+                break;
+            case "rocket_launcher":
+                ApplyAfterimageBurst(tower, imprint.Position, inRange, baseDamage,
+                    Balance.AfterimageRocketBurstRadius + (copies - 1) * 8f,
+                    maxTargets: Balance.AfterimageMaxTargetsPerEcho, color: tint, applyFalloff: true);
+                break;
+            case "rift_prism":
+                ApplyAfterimageBurst(tower, imprint.Position, inRange, baseDamage * 0.92f,
+                    Balance.AfterimageRiftBurstRadius + (copies - 1) * 7f,
+                    maxTargets: 3, color: tint, applyFalloff: true);
+                break;
+            case "chain_tower":
+                ApplyAfterimageChain(tower, imprint.Position, inRange, baseDamage, tint, copies);
+                break;
+            case "marker_tower":
+                ApplyAfterimageMarkerPulse(tower, imprint.Position, inRange, baseDamage * 0.82f, tint);
+                break;
+            case "phase_splitter":
+                ApplyAfterimagePhaseSplitEcho(tower, imprint.Position, inRange, baseDamage * 0.88f, tint);
+                break;
+            case "undertow_engine":
+                ApplyAfterimageUndertowPulse(tower, imprint.Position, inRange, baseDamage * 0.72f, tint);
+                break;
+            case "accordion_engine":
+                ApplyAfterimageBurst(tower, imprint.Position, inRange, baseDamage * 0.76f,
+                    Balance.AfterimageAccordionPulseRadius + (copies - 1) * 8f,
+                    maxTargets: Balance.AfterimageMaxTargetsPerEcho, color: tint, applyFalloff: false);
+                break;
+            case "rapid_shooter":
+            default:
+                EnemyInstance? primary = SelectAfterimagePrimaryTarget(tower, imprint.Position, inRange);
+                if (primary != null)
+                    ApplyAfterimageDirectHit(tower, primary, baseDamage, tint);
+
+                if (tower.TowerId == "rapid_shooter")
+                {
+                    EnemyInstance? bonus = inRange
+                        .Where(e => !ReferenceEquals(e, primary))
+                        .OrderBy(e => imprint.Position.DistanceTo(e.GlobalPosition))
+                        .FirstOrDefault();
+                    if (bonus != null && imprint.Position.DistanceTo(bonus.GlobalPosition) <= radius * 0.65f)
+                        ApplyAfterimageDirectHit(tower, bonus, baseDamage * 0.46f, tint, numberScale: 0.74f);
+                }
+                break;
+        }
+    }
+
+    private EnemyInstance? SelectAfterimagePrimaryTarget(ITowerView tower, Vector2 origin, List<EnemyInstance> candidates)
+    {
+        if (candidates.Count == 0)
+            return null;
+
+        EnemyInstance best = candidates[0];
+        foreach (EnemyInstance candidate in candidates)
+        {
+            if (ReferenceEquals(candidate, best))
+                continue;
+
+            bool candidatePreferred = PreferTargetByMode(candidate, best, tower.TargetingMode);
+            if (candidatePreferred)
+            {
+                best = candidate;
+                continue;
+            }
+
+            bool bestPreferred = PreferTargetByMode(best, candidate, tower.TargetingMode);
+            if (!bestPreferred)
+            {
+                float cDist = origin.DistanceTo(candidate.GlobalPosition);
+                float bDist = origin.DistanceTo(best.GlobalPosition);
+                if (cDist < bDist)
+                    best = candidate;
+            }
+        }
+        return best;
+    }
+
+    private static Color ResolveAfterimageTint(ITowerView tower)
+    {
+        if (tower is TowerInstance node)
+        {
+            Color c = node.ProjectileColor;
+            return new Color(
+                Mathf.Clamp(c.R * 0.68f + 0.32f, 0f, 1f),
+                Mathf.Clamp(c.G * 0.72f + 0.28f, 0f, 1f),
+                Mathf.Clamp(c.B * 0.92f + 0.18f, 0f, 1f),
+                1f);
+        }
+        return AfterimageColor;
+    }
+
+    private static float ResolveAfterimageDamageScale(ITowerView tower, int copies)
+    {
+        float scale = Balance.AfterimageBaseDamageRatio * (1f + (copies - 1) * 0.16f);
+        return tower.TowerId switch
+        {
+            "heavy_cannon" => scale * 1.10f,
+            "rocket_launcher" => scale * 0.96f,
+            "marker_tower" => scale * 0.78f,
+            "chain_tower" => scale * 0.90f,
+            "undertow_engine" => scale * 0.74f,
+            _ => scale
+        };
+    }
+
+    private static float ResolveAfterimageRadius(ITowerView tower, int copies)
+    {
+        float radius = Balance.AfterimageBaseRadius + (copies - 1) * 8f;
+        return tower.TowerId switch
+        {
+            "heavy_cannon" => radius * 0.92f,
+            "rocket_launcher" => radius * 1.05f,
+            "marker_tower" => radius * 1.06f,
+            "undertow_engine" => radius * 1.08f,
+            "phase_splitter" => radius * 1.02f,
+            _ => radius
+        };
+    }
+
+    private static float ResolveAfterimageSeedPitch(ITowerView tower) => tower.TowerId switch
+    {
+        "heavy_cannon" => 0.84f,
+        "rocket_launcher" => 0.88f,
+        "undertow_engine" => 0.82f,
+        _ => 0.96f,
+    };
+
+    private static float ResolveAfterimageEchoPitch(ITowerView tower) => tower.TowerId switch
+    {
+        "rapid_shooter" => 1.12f,
+        "phase_splitter" => 1.08f,
+        "heavy_cannon" => 0.86f,
+        "rocket_launcher" => 0.90f,
+        "undertow_engine" => 0.84f,
+        _ => 0.98f,
+    };
+
+    private float ApplyAfterimageDirectHit(
+        ITowerView tower,
+        EnemyInstance target,
+        float damage,
+        Color color,
+        float numberScale = 0.80f)
+    {
+        if (!GodotObject.IsInstanceValid(target) || target.Hp <= 0f || damage <= 0f)
+            return 0f;
+
+        float finalDamage = damage;
+        if (target.IsShieldProtected)
+            finalDamage *= (1f - Balance.ShieldDroneProtectionReduction);
+
+        float hpBefore = target.Hp;
+        target.Hp = MathF.Max(0f, target.Hp - finalDamage);
+        float dealt = hpBefore - target.Hp;
+        if (dealt <= 0.001f)
+            return 0f;
+
+        int slotIndex = FindTowerSlotIndex(_state, tower);
+        _state.TrackBaseAttackDamage(slotIndex, (int)dealt, target.Hp <= 0f, target.ProgressRatio);
+
+        if (!BotMode)
+        {
+            SpawnDamageNumber(target.GlobalPosition, MathF.Max(1f, dealt), target.Hp <= 0f, tower.TowerId, color, scale: numberScale);
+            if (target.Hp > 0f && GodotObject.IsInstanceValid(target))
+                target.FlashHit();
+        }
+
+        return dealt;
+    }
+
+    private void ApplyAfterimageBurst(
+        ITowerView tower,
+        Vector2 origin,
+        List<EnemyInstance> candidates,
+        float baseDamage,
+        float radius,
+        int maxTargets,
+        Color color,
+        bool applyFalloff)
+    {
+        int hits = 0;
+        foreach (EnemyInstance enemy in candidates
+                     .OrderBy(e => origin.DistanceTo(e.GlobalPosition))
+                     .ThenByDescending(e => e.Progress))
+        {
+            if (hits >= maxTargets)
+                break;
+
+            float dist = origin.DistanceTo(enemy.GlobalPosition);
+            if (dist > radius)
+                continue;
+
+            float falloff = applyFalloff ? Mathf.Lerp(1f, 0.72f, dist / MathF.Max(1f, radius)) : 1f;
+            float dealt = ApplyAfterimageDirectHit(tower, enemy, baseDamage * falloff, color, numberScale: 0.76f);
+            if (dealt > 0f)
+                hits++;
+        }
+    }
+
+    private void ApplyAfterimageChain(
+        ITowerView tower,
+        Vector2 origin,
+        List<EnemyInstance> candidates,
+        float baseDamage,
+        Color color,
+        int copies)
+    {
+        EnemyInstance? first = SelectAfterimagePrimaryTarget(tower, origin, candidates);
+        if (first == null)
+            return;
+
+        var alreadyHit = new HashSet<EnemyInstance>();
+        EnemyInstance current = first;
+        float damage = baseDamage;
+        int maxBounces = Mathf.Clamp(1 + (copies - 1), 1, 2);
+        float range = MathF.Max(36f, tower.ChainRange * Balance.AfterimageChainRangeMultiplier);
+
+        for (int hop = 0; hop <= maxBounces; hop++)
+        {
+            if (!GodotObject.IsInstanceValid(current) || current.Hp <= 0f)
+                break;
+
+            float dealt = ApplyAfterimageDirectHit(tower, current, damage, color, numberScale: 0.78f);
+            if (dealt <= 0f)
+                break;
+
+            alreadyHit.Add(current);
+            if (hop == maxBounces)
+                break;
+
+            EnemyInstance? next = candidates
+                .Where(e => !alreadyHit.Contains(e) && GodotObject.IsInstanceValid(e) && e.Hp > 0f)
+                .OrderBy(e => current.GlobalPosition.DistanceTo(e.GlobalPosition))
+                .FirstOrDefault(e => current.GlobalPosition.DistanceTo(e.GlobalPosition) <= range);
+            if (next == null)
+                break;
+
+            if (!BotMode)
+                SpawnChainArc(current.GlobalPosition, next.GlobalPosition, color, intensity: 0.82f);
+
+            current = next;
+            damage *= Balance.AfterimageChainBounceDamageDecay;
+        }
+    }
+
+    private void ApplyAfterimageMarkerPulse(
+        ITowerView tower,
+        Vector2 origin,
+        List<EnemyInstance> candidates,
+        float baseDamage,
+        Color color)
+    {
+        EnemyInstance? primary = SelectAfterimagePrimaryTarget(tower, origin, candidates);
+        if (primary != null)
+            ApplyAfterimageDirectHit(tower, primary, baseDamage, color, numberScale: 0.78f);
+
+        foreach (EnemyInstance enemy in candidates)
+        {
+            if (!GodotObject.IsInstanceValid(enemy) || enemy.Hp <= 0f)
+                continue;
+            if (origin.DistanceTo(enemy.GlobalPosition) > Balance.AfterimageMarkerPulseRadius)
+                continue;
+            Statuses.ApplyMarked(enemy, Balance.AfterimageMarkerPulseMarkDuration);
+        }
+    }
+
+    private void ApplyAfterimagePhaseSplitEcho(
+        ITowerView tower,
+        Vector2 origin,
+        List<EnemyInstance> candidates,
+        float baseDamage,
+        Color color)
+    {
+        EnemyInstance? front = candidates.OrderByDescending(e => e.Progress).FirstOrDefault();
+        EnemyInstance? back = candidates.OrderBy(e => e.Progress).FirstOrDefault();
+
+        if (front != null)
+            ApplyAfterimageDirectHit(tower, front, baseDamage, color, numberScale: 0.76f);
+
+        if (back != null && !ReferenceEquals(back, front))
+            ApplyAfterimageDirectHit(tower, back, baseDamage, color, numberScale: 0.76f);
+    }
+
+    private void ApplyAfterimageUndertowPulse(
+        ITowerView tower,
+        Vector2 origin,
+        List<EnemyInstance> candidates,
+        float baseDamage,
+        Color color)
+    {
+        ApplyAfterimageBurst(
+            tower,
+            origin,
+            candidates,
+            baseDamage,
+            Balance.AfterimageUndertowPulseRadius,
+            maxTargets: 2,
+            color: color,
+            applyFalloff: false);
+
+        foreach (EnemyInstance enemy in candidates)
+        {
+            if (!GodotObject.IsInstanceValid(enemy) || enemy.Hp <= 0f)
+                continue;
+            if (origin.DistanceTo(enemy.GlobalPosition) > Balance.AfterimageUndertowPulseRadius)
+                continue;
+
+            float start = enemy.Progress;
+            float end = MathF.Max(0f, start - Balance.AfterimageUndertowPullDistance);
+            enemy.Progress = end;
+            Statuses.ApplySlow(enemy, Balance.AfterimageUndertowSlowDuration, Balance.AfterimageUndertowSlowFactor);
+        }
+    }
+
+    private static int FindTowerSlotIndex(RunState state, ITowerView tower)
+    {
+        for (int i = 0; i < state.Slots.Length; i++)
+        {
+            if (ReferenceEquals(state.Slots[i].Tower, tower))
+                return i;
+        }
+        return -1;
     }
 
     private int GetRiftBurstFastPlantsUsed(ITowerView tower)

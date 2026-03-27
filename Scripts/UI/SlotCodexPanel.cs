@@ -493,6 +493,7 @@ public partial class SlotCodexPanel : Node
             bool isFullGameOnly = Balance.IsDemo && (
                 string.Equals(modifierId, Unlocks.BlastCoreModifierId,       StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(modifierId, Unlocks.WildfireModifierId,        StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(modifierId, Unlocks.AfterimageModifierId,      StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(modifierId, Unlocks.ReaperProtocolModifierId,  StringComparison.OrdinalIgnoreCase));
             if (isFullGameOnly)
                 return BuildFullGameLockedModifierCard(modifierId, def);
@@ -778,6 +779,7 @@ public partial class SlotCodexPanel : Node
                 Unlocks.SplitShotModifierId      => Unlocks.GetSplitShotUnlockMapId(),
                 Unlocks.BlastCoreModifierId      => Unlocks.GetBlastCoreUnlockMapId(),
                 Unlocks.WildfireModifierId       => Unlocks.GetWildfireUnlockMapId(),
+                Unlocks.AfterimageModifierId     => Unlocks.GetAfterimageUnlockMapId(),
                 Unlocks.ReaperProtocolModifierId => Unlocks.GetReaperProtocolUnlockMapId(),
                 _ => ""
             };

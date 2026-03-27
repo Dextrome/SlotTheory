@@ -85,6 +85,14 @@ public sealed class CombatLabTowerBenchmarkRunner
         public float DamagePerSecond { get; init; }
     }
 
+    private sealed class BenchmarkAfterimage
+    {
+        public BenchmarkTower Tower { get; init; } = null!;
+        public Vector2 Position { get; set; }
+        public float SeedDamage { get; set; }
+        public float RemainingSeconds { get; set; }
+    }
+
     private sealed class BenchmarkUndertowEffect
     {
         public BenchmarkTower Tower { get; init; } = null!;
@@ -512,6 +520,7 @@ public sealed class CombatLabTowerBenchmarkRunner
         SpectacleSystem? spectacle = liveRules ? new SpectacleSystem() : null;
         var residues = new List<ResidueZone>();
         var wildfireTrails = new List<WildfireTrail>();
+        var afterimages = new List<BenchmarkAfterimage>();
         var activeUndertows = new List<BenchmarkUndertowEffect>();
         var undertowRecentRemaining = new Dictionary<int, float>();
         var undertowRetargetLockoutRemaining = new Dictionary<int, float>();
@@ -574,6 +583,7 @@ public sealed class CombatLabTowerBenchmarkRunner
             UpdateEnemyStatuses(enemies, dt);
             UpdateActiveUndertows(activeUndertows, undertowRecentRemaining, undertowRetargetLockoutRemaining, enemies, dt, metrics);
             UpdateWildfireBurnAndTrails(wildfireTrails, enemies, tower, dt, metrics);
+            UpdateAfterimages(afterimages, enemies, dt, metrics);
             UpdateResidues(residues, enemies, tower, dt, metrics);
             MoveEnemies(enemies, dt, metrics);
             MarkNewDeaths(enemies, metrics);
@@ -659,6 +669,7 @@ public sealed class CombatLabTowerBenchmarkRunner
                                 state: null,
                                 isChain: false,
                                 damageOverride: primaryDamage);
+                            TryQueueAfterimage(tower, phaseTarget, primaryCtx, afterimages);
                             RegisterLiveProcForHit(spectacle, tower, markedBefore, phaseTarget, primaryCtx.DamageDealt);
                             totalHitsThisShot++;
 
@@ -719,6 +730,7 @@ public sealed class CombatLabTowerBenchmarkRunner
 
                             bool markedBefore = primaryTarget.IsMarked;
                             DamageContext primaryCtx = ApplyHitAndCollect(tower, primaryTarget, activeEnemies, metrics, state: null, isChain: false);
+                            TryQueueAfterimage(tower, primaryTarget, primaryCtx, afterimages);
                             RegisterLiveProcForHit(spectacle, tower, markedBefore, primaryTarget, primaryCtx.DamageDealt);
 
                             int undertowTargets = 1;
@@ -775,6 +787,7 @@ public sealed class CombatLabTowerBenchmarkRunner
 
                             bool targetMarkedBefore = target.IsMarked;
                             DamageContext primaryCtx = ApplyHitAndCollect(tower, target, activeEnemies, metrics, state: null, isChain: false);
+                            TryQueueAfterimage(tower, target, primaryCtx, afterimages);
                             RegisterLiveProcForHit(spectacle, tower, targetMarkedBefore, target, primaryCtx.DamageDealt);
 
                             int chainHits = CombatResolution.ApplyChainHits(
@@ -950,6 +963,188 @@ public sealed class CombatLabTowerBenchmarkRunner
                     enemy.Killed = true;
             }
         }
+    }
+
+    private static void TryQueueAfterimage(
+        BenchmarkTower tower,
+        BenchmarkEnemy target,
+        DamageContext ctx,
+        List<BenchmarkAfterimage> afterimages)
+    {
+        if (ctx.IsChain || ctx.DamageDealt <= 0f)
+            return;
+
+        int copies = CountMod(tower, "afterimage");
+        if (copies <= 0)
+            return;
+
+        float seedDamage = MathF.Max(Balance.AfterimageMinDamage, ctx.FinalDamage);
+        BenchmarkAfterimage? existing = afterimages.FirstOrDefault(a => ReferenceEquals(a.Tower, tower));
+        if (existing != null)
+        {
+            existing.Position = target.GlobalPosition;
+            existing.SeedDamage = seedDamage;
+            existing.RemainingSeconds = Balance.AfterimageDelaySeconds;
+            return;
+        }
+
+        afterimages.Add(new BenchmarkAfterimage
+        {
+            Tower = tower,
+            Position = target.GlobalPosition,
+            SeedDamage = seedDamage,
+            RemainingSeconds = Balance.AfterimageDelaySeconds,
+        });
+    }
+
+    private static void UpdateAfterimages(
+        List<BenchmarkAfterimage> afterimages,
+        List<BenchmarkEnemy> enemies,
+        float dt,
+        TrialMetrics metrics)
+    {
+        if (afterimages.Count == 0 || dt <= 0f)
+            return;
+
+        for (int i = afterimages.Count - 1; i >= 0; i--)
+        {
+            BenchmarkAfterimage imprint = afterimages[i];
+            imprint.RemainingSeconds -= dt;
+            if (imprint.RemainingSeconds > 0f)
+                continue;
+
+            BenchmarkTower tower = imprint.Tower;
+            int copies = Math.Max(1, CountMod(tower, "afterimage"));
+            float radius = Balance.AfterimageBaseRadius + (copies - 1) * 8f;
+            float damageScale = Balance.AfterimageBaseDamageRatio * (1f + (copies - 1) * 0.16f);
+
+            switch (tower.TowerId)
+            {
+                case "heavy_cannon":
+                    radius = Balance.AfterimageHeavyBurstRadius + (copies - 1) * 6f;
+                    damageScale *= 1.10f;
+                    break;
+                case "rocket_launcher":
+                    radius = Balance.AfterimageRocketBurstRadius + (copies - 1) * 8f;
+                    damageScale *= 0.96f;
+                    break;
+                case "rift_prism":
+                    radius = Balance.AfterimageRiftBurstRadius + (copies - 1) * 7f;
+                    damageScale *= 0.92f;
+                    break;
+                case "marker_tower":
+                    damageScale *= 0.78f;
+                    break;
+                case "undertow_engine":
+                    radius = Balance.AfterimageUndertowPulseRadius;
+                    damageScale *= 0.74f;
+                    break;
+            }
+
+            float baseDamage = MathF.Max(Balance.AfterimageMinDamage, imprint.SeedDamage * damageScale);
+            List<BenchmarkEnemy> candidates = enemies
+                .Where(e => e.Spawned && !e.Resolved && e.Hp > 0f)
+                .Where(e => e.GlobalPosition.DistanceTo(imprint.Position) <= radius)
+                .OrderBy(e => e.GlobalPosition.DistanceTo(imprint.Position))
+                .ThenByDescending(e => e.PathDistance)
+                .ToList();
+
+            if (candidates.Count == 0)
+            {
+                afterimages.RemoveAt(i);
+                continue;
+            }
+
+            if (tower.TowerId == "phase_splitter")
+            {
+                BenchmarkEnemy? front = candidates.OrderByDescending(e => e.PathDistance).FirstOrDefault();
+                BenchmarkEnemy? back = candidates.OrderBy(e => e.PathDistance).FirstOrDefault();
+                if (front != null)
+                    ApplyAfterimageRawDamage(front, baseDamage * 0.88f, metrics);
+                if (back != null && !ReferenceEquals(back, front))
+                    ApplyAfterimageRawDamage(back, baseDamage * 0.88f, metrics);
+            }
+            else if (tower.TowerId == "chain_tower")
+            {
+                BenchmarkEnemy current = candidates[0];
+                ApplyAfterimageRawDamage(current, baseDamage * 0.90f, metrics);
+
+                float chainRange = MathF.Max(36f, tower.ChainRange * Balance.AfterimageChainRangeMultiplier);
+                BenchmarkEnemy? next = candidates
+                    .Where(e => !ReferenceEquals(e, current))
+                    .OrderBy(e => current.GlobalPosition.DistanceTo(e.GlobalPosition))
+                    .FirstOrDefault(e => current.GlobalPosition.DistanceTo(e.GlobalPosition) <= chainRange);
+                if (next != null)
+                    ApplyAfterimageRawDamage(next, baseDamage * 0.90f * Balance.AfterimageChainBounceDamageDecay, metrics);
+            }
+            else
+            {
+                int maxTargets = tower.TowerId switch
+                {
+                    "heavy_cannon" => 3,
+                    "rocket_launcher" => Balance.AfterimageMaxTargetsPerEcho,
+                    "rift_prism" => 3,
+                    "undertow_engine" => 2,
+                    "marker_tower" => 2,
+                    "accordion_engine" => Balance.AfterimageMaxTargetsPerEcho,
+                    _ => Math.Min(2, Balance.AfterimageMaxTargetsPerEcho),
+                };
+
+                bool applyFalloff = tower.TowerId is "heavy_cannon" or "rocket_launcher" or "rift_prism";
+                int hits = 0;
+                foreach (BenchmarkEnemy enemy in candidates)
+                {
+                    if (hits >= maxTargets)
+                        break;
+
+                    float dist = imprint.Position.DistanceTo(enemy.GlobalPosition);
+                    float falloff = applyFalloff ? Mathf.Lerp(1f, 0.72f, dist / MathF.Max(1f, radius)) : 1f;
+                    float dealt = ApplyAfterimageRawDamage(enemy, baseDamage * falloff, metrics);
+                    if (dealt > 0f)
+                        hits++;
+                }
+            }
+
+            if (tower.TowerId == "marker_tower")
+            {
+                foreach (BenchmarkEnemy enemy in candidates)
+                {
+                    if (imprint.Position.DistanceTo(enemy.GlobalPosition) > Balance.AfterimageMarkerPulseRadius)
+                        continue;
+                    enemy.MarkedRemaining = Math.Max(enemy.MarkedRemaining, Balance.AfterimageMarkerPulseMarkDuration);
+                }
+            }
+
+            if (tower.TowerId == "undertow_engine")
+            {
+                foreach (BenchmarkEnemy enemy in candidates)
+                {
+                    if (imprint.Position.DistanceTo(enemy.GlobalPosition) > Balance.AfterimageUndertowPulseRadius)
+                        continue;
+                    enemy.PathDistance = Math.Max(0f, enemy.PathDistance - Balance.AfterimageUndertowPullDistance);
+                    Statuses.ApplySlow(enemy, Balance.AfterimageUndertowSlowDuration, Balance.AfterimageUndertowSlowFactor);
+                }
+            }
+
+            afterimages.RemoveAt(i);
+        }
+    }
+
+    private static float ApplyAfterimageRawDamage(BenchmarkEnemy enemy, float rawDamage, TrialMetrics metrics)
+    {
+        float safeRaw = Math.Max(0f, rawDamage);
+        if (safeRaw <= 0f || enemy.Hp <= 0f || enemy.Resolved)
+            return 0f;
+
+        if (enemy.IsShieldProtected)
+            safeRaw *= (1f - Balance.ShieldDroneProtectionReduction);
+
+        float before = enemy.Hp;
+        float dealt = SpectacleDamageCore.ApplyRawDamage(enemy, safeRaw);
+        ApplyRawDamageToMetrics(enemy, safeRaw, dealt, metrics);
+        if (before > 0f && enemy.Hp <= 0f)
+            enemy.Killed = true;
+        return dealt;
     }
 
     private static void UpdateResidues(

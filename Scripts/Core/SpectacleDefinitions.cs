@@ -59,6 +59,7 @@ public static class SpectacleDefinitions
     public const string ChainReaction = "chain_reaction";
     public const string BlastCore      = "blast_core";
     public const string Wildfire       = "wildfire";
+    public const string Afterimage     = "afterimage";
     public const string ReaperProtocol = "reaper_protocol";
 
     public const float SurgeThreshold = 150f;
@@ -89,6 +90,7 @@ public static class SpectacleDefinitions
         ChainReaction,
         BlastCore,
         Wildfire,
+        Afterimage,
         ReaperProtocol,
     };
 
@@ -121,6 +123,7 @@ public static class SpectacleDefinitions
         [BlastCore]      = 2.3f,
         // Wildfire: gains per ignition hit -- moderate frequency, trail procs add up
         [Wildfire]       = 2.2f,
+        [Afterimage]     = 2.4f,
         // Reaper: gains per kill event -- infrequent but high-value
         [ReaperProtocol] = 3.2f,
     };
@@ -139,6 +142,7 @@ public static class SpectacleDefinitions
         [ChainReaction]  = "Chain Reaction",
         [BlastCore]      = "Blast Core",
         [Wildfire]       = "Wildfire",
+        [Afterimage]     = "Afterimage",
         [ReaperProtocol] = "Reaper Protocol",
     };
 
@@ -158,6 +162,7 @@ public static class SpectacleDefinitions
         [ChainReaction]  = new SpectacleSingleDef("S_CHAIN_ARC_OVERLOAD",       "Arc Overload"),
         [BlastCore]      = new SpectacleSingleDef("S_BLAST_DETONATION_ZONE",    "Detonation Zone"),
         [Wildfire]       = new SpectacleSingleDef("S_WILDFIRE_FIRESTORM",       "Firestorm"),
+        [Afterimage]     = new SpectacleSingleDef("S_AFTERIMAGE_ECHO_SCAR",     "Echo Scar"),
         [ReaperProtocol] = new SpectacleSingleDef("S_REAPER_DEATH_DECREE",      "Death Decree"),
     };
 
@@ -176,6 +181,7 @@ public static class SpectacleDefinitions
         [ChainReaction]   = "Chain",
         [BlastCore]       = "Blast",
         [Wildfire]        = "Wildfire",
+        [Afterimage]      = "Afterimage",
         [ReaperProtocol]  = "Reaper",
     };
 
@@ -193,6 +199,7 @@ public static class SpectacleDefinitions
         [ChainReaction]   = "Arc",
         [BlastCore]       = "Blast",
         [Wildfire]        = "Fire",
+        [Afterimage]      = "Echo",
         [ReaperProtocol]  = "Death",
     };
 
@@ -213,6 +220,7 @@ public static class SpectacleDefinitions
         [ChainReaction]  = new SpectacleTriadAugmentDef("T_AUG_CHAIN",     "Pulse",    0.28f, 1.8f, SpectacleAugmentKind.Area),
         [BlastCore]      = new SpectacleTriadAugmentDef("T_AUG_BLAST",     "Pulse",    0.22f, 1.8f, SpectacleAugmentKind.Area),
         [Wildfire]       = new SpectacleTriadAugmentDef("T_AUG_WILDFIRE",  "Pulse",    0.24f, 2.5f, SpectacleAugmentKind.Area),
+        [Afterimage]     = new SpectacleTriadAugmentDef("T_AUG_AFTERIMAGE","Pulse",    0.24f, 2.0f, SpectacleAugmentKind.Area),
     };
 
     public static IReadOnlyCollection<string> SupportedModIds => Supported;
@@ -300,6 +308,7 @@ public static class SpectacleDefinitions
         FeedbackLoop     => SurgePrimitive.Reload,
         SplitShot        => SurgePrimitive.Scatter,
         Wildfire         => SurgePrimitive.Status,
+        Afterimage       => SurgePrimitive.Burst,
         ReaperProtocol   => SurgePrimitive.Reload,
         _                => SurgePrimitive.Burst,
     };
@@ -339,6 +348,7 @@ public static class SpectacleDefinitions
         ChainReaction   => ProcScalarLow,
         BlastCore       => ProcScalarLow,
         Wildfire        => ProcScalarLow,
+        Afterimage      => ProcScalarLow,
         Overkill        => ProcScalarHigh,
         FocusLens       => ProcScalarHigh,
         ReaperProtocol  => ProcScalarHigh,

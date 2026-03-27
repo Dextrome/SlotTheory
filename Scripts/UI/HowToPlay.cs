@@ -30,6 +30,7 @@ public partial class HowToPlay : Node
         SpectacleDefinitions.ChainReaction,
         SpectacleDefinitions.BlastCore,
         SpectacleDefinitions.Wildfire,
+        SpectacleDefinitions.Afterimage,
         SpectacleDefinitions.ReaperProtocol,
     };
 
@@ -293,6 +294,9 @@ public partial class HowToPlay : Node
             AddModRowWithIcon(modifiersCard, "feedback_loop",    "Feedback Loop",       "Killing an enemy instantly resets this tower's cooldown to zero. Fire again immediately after each kill.");
             AddModRowWithIcon(modifiersCard, "chain_reaction",   "Chain Reaction",      "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
             if (!Balance.IsDemo)
+                AddModRowWithIcon(modifiersCard, "afterimage", "Afterimage (full game)",
+                    "Unlock by beating Perimeter Lock. Hits leave a ghost imprint that triggers one delayed weaker replay from that spot.");
+            if (!Balance.IsDemo)
                 AddModRowWithIcon(modifiersCard, "reaper_protocol", "Reaper Protocol (full game, wave 10+)",
                     $"Kill (primary hits only): the first {Balance.ReaperProtocolKillCap} kills each wave restore 1 life, up to your starting life total. Available from wave 10. Invaluable in Endless runs where lives become scarce.");
             AddSpacer(vbox, 10);
@@ -368,6 +372,7 @@ public partial class HowToPlay : Node
         foreach (string modId in CanonicalSurgeMods)
         {
             if (modId == SpectacleDefinitions.ReaperProtocol && Balance.IsDemo) continue;
+            if (modId == SpectacleDefinitions.Afterimage && Balance.IsDemo) continue;
             string modName = SpectacleDefinitions.GetDisplayName(modId);
             AddModRowWithIcon(tableCard, modId, modName.ToUpperInvariant(), DescribeSingleEffect(modId));
         }
@@ -393,6 +398,7 @@ public partial class HowToPlay : Node
         "chain_reaction"   => "Arc burst that bounces from target to nearby targets through the group.",
         "blast_core"       => "Detonation at target position: area damage to all enemies in the blast radius.",
         "wildfire"         => "Flame burst across all enemies in range, leaving fire trails that slow and tick damage.",
+        "afterimage"       => "Ghost imprint appears at hit position, then replays one delayed weaker echo from that spot.",
         "reaper_protocol"  => "Executes the lowest-HP enemy in range. Grants +1 life if it kills.",
         _                  => "Modifier-specific primary surge payload.",
     };

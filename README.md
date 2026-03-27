@@ -104,6 +104,8 @@ Unlock flow (via Campaign mode):
 - Split Shot modifier: beat the second campaign map on any difficulty (`SPLIT_UNSEALED`)
 - Rift Sapper: beat the third campaign map on any difficulty (`RIFT_UNSEALED`)
 - Blast Core modifier: beat the fourth campaign map - Ridgeback / Iron Mandate (`BLAST_UNSEALED`)
+- Wildfire modifier: beat the sixth campaign map (`WILDFIRE_UNSEALED`)
+- Afterimage modifier: beat Perimeter Lock on any difficulty (`AFTERIMAGE_UNSEALED`)
 - Accordion Engine: beat the fifth map - Double Back (`ACCORDION_UNSEALED`)
 - Rocket Launcher: beat Hourglass on any difficulty (`ROCKET_UNSEALED`)
 - Undertow Engine: beat Trident on any difficulty (`UNDERTOW_UNSEALED`)
@@ -181,16 +183,20 @@ Unlock flow (via Campaign mode):
 | Chain Reaction | +1 chain bounce per copy, 50% damage carry per bounce |
 | Blast Core | On hit: 45% splash in 140 px radius; each extra copy adds +25 px radius. On Rocket Launcher, also expands native rocket splash radius by +24 px per copy |
 | Wildfire | On primary hit: ignite for 4 s burn at 25% BaseDamage/s; burning enemies drop fire trail segments (2.2 s, 30 px radius, 40% burn DPS to overlapping enemies); stacks add burn DPS |
+| Afterimage | Hits leave a ghost imprint. After a short delay, the imprint replays a weaker echo from that spot |
 
 Max modifiers per tower: 3
 
 Unlockable modifiers:
 - Split Shot: beat the second campaign map on Normal or Hard (`SPLIT_UNSEALED`)
 - Blast Core: beat the fourth campaign map - Ridgeback / Iron Mandate (`BLAST_UNSEALED`)
+- Wildfire: beat the sixth campaign map (`WILDFIRE_UNSEALED`)
+- Afterimage: beat Perimeter Lock on any difficulty (`AFTERIMAGE_UNSEALED`)
 
 Full-game only modifiers (not in demo):
 - Blast Core
 - Wildfire
+- Afterimage
 
 ---
 
@@ -306,7 +312,7 @@ Global surge is a mapwide event with synchronized spectacle + gameplay:
 
 The banner label and visual treatment are driven by which mods contributed most to filling the global meter:
 
-- **12 named archetypes** - e.g. REDLINE WAVE (Momentum), CHAIN STORM (Chain Reaction), INFERNO SURGE (Wildfire). Falls back to GLOBAL SURGE if no dominant mod is detected.
+- **14 named archetypes** - e.g. REDLINE WAVE (Momentum), CHAIN STORM (Chain Reaction), Afterimage (Afterimage), Reaper (Reaper Protocol). Falls back to GLOBAL SURGE if no dominant mod is detected.
 - **Archetype preview**: the HUD global meter label transitions from "GLOBAL SURGE" to the predicted archetype name at ≥70% fill.
 - **Feel types** - Detonation builds (Overkill, Focus Lens, Feedback Loop, Hair Trigger) produce a sharp spike flash + second snap pulse. Pressure builds (Momentum, Chill Shot, Overreach) produce a softer sustained flash.
 - **Multi-color ripples** - up to 3 ripple colors reflecting the top contributing mods.
@@ -336,12 +342,24 @@ Stages unlock sequentially. Per-stage clear state persisted per difficulty. Camp
 
 ## Achievements
 
-32 achievements tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`. Forwarded to Steam when available.
+33 achievements tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`. Forwarded to Steam when available.
 
 | ID | Name | Condition |
 |---|---|---|
+| TUTORIAL_COMPLETE | First Steps | Complete the tutorial run |
 | FIRST_WIN | First Victory | Complete all 20 waves |
 | HARD_WIN | Hard Carry | Complete all 20 waves on Hard |
+| ARC_UNSEALED | Arc Unsealed | Beat the first campaign map on any difficulty (unlocks Arc Emitter) |
+| SPLIT_UNSEALED | Split Unsealed | Beat the second campaign map on any difficulty (unlocks Split Shot) |
+| RIFT_UNSEALED | Rift Unsealed | Beat the third campaign map on any difficulty (unlocks Rift Sapper) |
+| ACCORDION_UNSEALED | Accordion Unsealed | Beat the fifth campaign map on any difficulty (unlocks Accordion Engine) |
+| BLAST_UNSEALED | Blast Unsealed | Beat the fourth campaign map on any difficulty (unlocks Blast Core) |
+| WILDFIRE_UNSEALED | Wildfire Unsealed | Beat the sixth campaign map on any difficulty (unlocks Wildfire) |
+| AFTERIMAGE_UNSEALED | Afterimage Unsealed | Beat Perimeter Lock on any difficulty (unlocks Afterimage) |
+| PHASE_UNSEALED | Phase Unsealed | Beat the seventh campaign map on any difficulty (unlocks Phase Splitter) |
+| REAPER_UNSEALED | Reaper Unsealed | Beat the eighth campaign map on any difficulty (unlocks Reaper Protocol) |
+| ROCKET_UNSEALED | Rocket Unsealed | Beat Hourglass on any difficulty (unlocks Rocket Launcher) |
+| UNDERTOW_UNSEALED | Undertow Unsealed | Beat Trident on any difficulty (unlocks Undertow Engine) |
 | FLAWLESS | Flawless | Win without losing a life |
 | LAST_STAND | Last Stand | Win with exactly 1 life remaining |
 | HALFWAY_THERE | Halfway There | Survive to wave 10 |
@@ -350,14 +368,15 @@ Stages unlock sequentially. Per-stage clear state persisted per difficulty. Camp
 | SPEED_RUN | Speed Run | Win in under 15 minutes |
 | ANNIHILATOR | Annihilator | Deal 100,000 total damage in one run |
 | CHAIN_MASTER | Chain Master | Win with all 6 slots filled by Arc Emitters |
-| ARC_UNSEALED | Arc Unsealed | Beat the first campaign map (unlocks Arc Emitter) |
-| SPLIT_UNSEALED | Split Unsealed | Beat the second campaign map (unlocks Split Shot) |
-| RIFT_UNSEALED | Rift Unsealed | Beat the third campaign map (unlocks Rift Sapper) |
-| BLAST_UNSEALED | Blast Unsealed | Beat the fourth campaign map - Ridgeback (unlocks Blast Core) |
-| ACCORDION_UNSEALED | Accordion Unsealed | Beat the fifth map - Double Back (unlocks Accordion Engine) |
-| ROCKET_UNSEALED | Rocket Unsealed | Beat Hourglass (unlocks Rocket Launcher) |
-| UNDERTOW_UNSEALED | Undertow Unsealed | Beat Trident (unlocks Undertow Engine) |
-| TUTORIAL_COMPLETE | First Steps | Complete the tutorial run |
+| DEVASTATOR | Devastator | Deal 200,000 total damage in one run |
+| KEEP_GOING | Keep Going | Start an endless run |
+| ENDLESS_25 | Into the Void | Clear wave 25 in endless mode |
+| ENDLESS_30 | No End in Sight | Clear wave 30 in endless mode |
+| ENDLESS_40 | The Abyss | Clear wave 40 in endless mode |
+| FULL_ARSENAL | Full Arsenal | Use 5 different towers in one run |
+| OVER_EQUIPPED | Over Equipped | Fill all 18 modifier slots in one run |
+| CHAIN_GANG | Chain Gang | Place 3 or more Arc Emitters in a single run |
+| GLASS_CANNON | Glass Cannon | Equip Focus Lens and Hair Trigger on the same tower |
 | CAMPAIGN_CLEAR | The Circuit | Clear all four campaign stages |
 | CAMPAIGN_HARD_CLEAR | Iron Mandate | Clear all four campaign stages on Hard |
 
@@ -378,7 +397,7 @@ The game is available on Steam. Store page: [Slot Theory on Steam](https://store
 
 Steam features:
 - **Global leaderboards**: per map/difficulty, all runs stored (not just personal best)
-- **Achievements**: all 32 achievements forwarded to Steam
+- **Achievements**: all 33 achievements forwarded to Steam
 - **Steam Cloud**: settings and high scores sync across devices
 
 ---

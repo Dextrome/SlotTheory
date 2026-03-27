@@ -46,6 +46,7 @@ public partial class AchievementManager : Node
         new(Unlocks.AccordionEngineAchievementId, "Accordion Unsealed", "Beat the fifth campaign map to unlock Accordion Engine."),
         new(Unlocks.BlastCoreAchievementId, "Blast Unsealed", "Beat the fourth campaign map to unlock Blast Core."),
         new(Unlocks.WildfireAchievementId, "Wildfire Unsealed", "Beat the sixth campaign map to unlock Wildfire."),
+        new(Unlocks.AfterimageAchievementId, "Afterimage Unsealed", "Beat Perimeter Lock on any difficulty to unlock Afterimage."),
         new(Unlocks.PhaseSplitterAchievementId, "Phase Unsealed", "Beat the seventh campaign map to unlock Phase Splitter."),
         new(Unlocks.ReaperProtocolAchievementId, "Reaper Unsealed", "Beat the eighth campaign map to unlock Reaper Protocol."),
         new(Unlocks.RocketLauncherAchievementId, "Rocket Unsealed", "Beat Hourglass on any difficulty to unlock Rocket Launcher."),
@@ -206,6 +207,9 @@ public partial class AchievementManager : Node
 
             if (Unlocks.ShouldUnlockWildfire(state, difficulty))
                 TryUnlock(Unlocks.WildfireAchievementId);
+
+            if (Unlocks.ShouldUnlockAfterimage(state, difficulty))
+                TryUnlock(Unlocks.AfterimageAchievementId);
 
             if (Unlocks.ShouldUnlockPhaseSplitter(state, difficulty))
                 TryUnlock(Unlocks.PhaseSplitterAchievementId);
@@ -448,6 +452,7 @@ public partial class AchievementManager : Node
             Unlocks.AccordionEngineAchievementId,
             Unlocks.BlastCoreAchievementId,
             Unlocks.WildfireAchievementId,
+            Unlocks.AfterimageAchievementId,
             Unlocks.PhaseSplitterAchievementId,
             Unlocks.ReaperProtocolAchievementId,
             Unlocks.RocketLauncherAchievementId,

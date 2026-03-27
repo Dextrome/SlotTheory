@@ -26,6 +26,8 @@ public static class Unlocks
     public const string BlastCoreAchievementId = "BLAST_UNSEALED";
     public const string WildfireModifierId = "wildfire";
     public const string WildfireAchievementId = "WILDFIRE_UNSEALED";
+    public const string AfterimageModifierId = "afterimage";
+    public const string AfterimageAchievementId = "AFTERIMAGE_UNSEALED";
     public const string ReaperProtocolModifierId = "reaper_protocol";
     public const string ReaperProtocolAchievementId = "REAPER_UNSEALED";
     public const string PhaseSplitterTowerId = "phase_splitter";
@@ -38,6 +40,7 @@ public static class Unlocks
     private const string BlastCoreFallbackMapId = "ridgeback";
     private const string PhaseSplitterFallbackMapId = "threshold";
     private const string ReaperProtocolFallbackMapId = "switchback";
+    private const string AfterimageUnlockMapId = "perimeter_lock";
     private const string RocketLauncherUnlockMapId = "hourglass";
     private const string UndertowEngineUnlockMapId = "trident";
 
@@ -94,6 +97,13 @@ public static class Unlocks
     {
         _ = difficulty;
         string unlockMapId = GetReaperProtocolUnlockMapId();
+        return IsRunOnUnlockMap(state, unlockMapId);
+    }
+
+    public static bool ShouldUnlockAfterimage(RunState state, DifficultyMode difficulty)
+    {
+        _ = difficulty;
+        string unlockMapId = GetAfterimageUnlockMapId();
         return IsRunOnUnlockMap(state, unlockMapId);
     }
 
@@ -159,6 +169,12 @@ public static class Unlocks
     /// </summary>
     public static string GetReaperProtocolUnlockMapId()
         => GetCampaignMapByOrder(order: 7, fallbackId: ReaperProtocolFallbackMapId);
+
+    /// <summary>
+    /// Afterimage unlock is tied to Perimeter Lock.
+    /// </summary>
+    public static string GetAfterimageUnlockMapId()
+        => AfterimageUnlockMapId;
 
     /// <summary>
     /// Rocket Launcher unlock is tied to Hourglass.
@@ -235,11 +251,13 @@ public static class Unlocks
 
     public static bool IsModifierUnlocked(string modifierId)
     {
-        // Blast Core, Wildfire, and Reaper Protocol are full-game only --
+        // Blast Core, Wildfire, Afterimage, and Reaper Protocol are full-game only --
         // excluded from demo builds and demo bot simulations regardless of bot mode.
         if (Balance.IsDemo && string.Equals(modifierId, BlastCoreModifierId, StringComparison.OrdinalIgnoreCase))
             return false;
         if (Balance.IsDemo && string.Equals(modifierId, WildfireModifierId, StringComparison.OrdinalIgnoreCase))
+            return false;
+        if (Balance.IsDemo && string.Equals(modifierId, AfterimageModifierId, StringComparison.OrdinalIgnoreCase))
             return false;
         if (Balance.IsDemo && string.Equals(modifierId, ReaperProtocolModifierId, StringComparison.OrdinalIgnoreCase))
             return false;
@@ -256,6 +274,9 @@ public static class Unlocks
 
         if (string.Equals(modifierId, WildfireModifierId, StringComparison.OrdinalIgnoreCase))
             return AchievementManager.Instance?.IsUnlocked(WildfireAchievementId) == true;
+
+        if (string.Equals(modifierId, AfterimageModifierId, StringComparison.OrdinalIgnoreCase))
+            return AchievementManager.Instance?.IsUnlocked(AfterimageAchievementId) == true;
 
         if (string.Equals(modifierId, ReaperProtocolModifierId, StringComparison.OrdinalIgnoreCase))
             return AchievementManager.Instance?.IsUnlocked(ReaperProtocolAchievementId) == true;

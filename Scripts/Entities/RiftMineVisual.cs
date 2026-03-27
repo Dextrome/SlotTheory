@@ -149,6 +149,7 @@ public partial class RiftMineVisual : Node2D
             "chain_reaction" => FocalAccentShape.Chain,
             "split_shot" => FocalAccentShape.Chain,
             "wildfire" => FocalAccentShape.Spike,
+            "afterimage" => FocalAccentShape.Lens,
             "overkill" => FocalAccentShape.Spike,
             "feedback_loop" => FocalAccentShape.Crest,
             "reaper_protocol" => FocalAccentShape.Lens,

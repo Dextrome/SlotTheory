@@ -174,6 +174,16 @@ public static class ModifierDataValidator
                     $"{FormatInt(Balance.WildfireTrailDamageRatio * 100f)}%"
                 }
             },
+            ["afterimage"] = new ModifierExpectation
+            {
+                Name = "Afterimage",
+                RequiredTokens = new()
+                {
+                    "ghost imprint",
+                    "short delay",
+                    "weaker echo"
+                }
+            },
             ["reaper_protocol"] = new ModifierExpectation
             {
                 Name = "Reaper Protocol",

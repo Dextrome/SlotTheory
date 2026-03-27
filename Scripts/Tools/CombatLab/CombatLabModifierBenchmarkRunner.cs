@@ -738,6 +738,7 @@ public sealed class CombatLabModifierBenchmarkRunner
             "split_shot" => new[] { "proc_strength", "stack_cap" },
             "feedback_loop" => new[] { "cooldown" },
             "chain_reaction" => new[] { "proc_strength", "radius" },
+            "afterimage" => new[] { "proc_strength", "radius" },
             _ => new[] { "bonus" },
         };
     }

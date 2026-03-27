@@ -300,7 +300,7 @@ public static class RunNameGenerator
     public static string ModifierFamily(string modifierId) => modifierId switch
     {
         "momentum" or "overkill" or "focus_lens" or "hair_trigger" or "feedback_loop" => "DamageScaling",
-        "slow" => "Utility",
+        "slow" or "afterimage" => "Utility",
         "overreach" => "Range",
         "exploit_weakness" => "StatusSynergy",
         "split_shot" or "chain_reaction" => "MultiTarget",

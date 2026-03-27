@@ -79,6 +79,7 @@ public class CombatLabTowerBenchmarkRunnerTests
             "chain_reaction"   => new ChainReaction(def),
             "blast_core"       => new BlastCore(def),
             "wildfire"         => new Wildfire(def),
+            "afterimage"       => new Afterimage(def),
             "reaper_protocol"  => new ReaperProtocol(def),
             _ => throw new InvalidOperationException($"Unknown modifier id in test stub: '{id}'"),
         };

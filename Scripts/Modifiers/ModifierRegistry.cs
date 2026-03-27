@@ -21,6 +21,7 @@ public static class ModifierRegistry
         ["chain_reaction"]   = def => new ChainReaction(def),
         ["blast_core"]       = def => new BlastCore(def),
         ["wildfire"]         = def => new Wildfire(def),
+        ["afterimage"]       = def => new Afterimage(def),
         ["reaper_protocol"]  = def => new ReaperProtocol(def),
     };
 

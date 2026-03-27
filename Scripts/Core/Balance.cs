@@ -330,6 +330,30 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
     public const float WildfireTrailRadius       = 30f;    // overlap radius for trail damage (px)
     public const int   WildfireMaxTrailSegments  = 20;     // global cap per wave (prevents perf blowup with Hair Trigger)
 
+    // Afterimage modifier
+    // Identity: hit now, leave short-lived ghost imprint, trigger one delayed reduced echo from that spot.
+    // Structural guardrails:
+    //  - one active imprint per tower (new replaces old)
+    //  - one trigger only (no ticking field / no persistent hazard)
+    //  - echo damage is reduced and bounded per tower expression
+    public const float AfterimageDelaySeconds = 0.82f;
+    public const float AfterimageBaseDamageRatio = 0.42f;
+    public const float AfterimageBaseRadius = 86f;
+    public const float AfterimageMinDamage = 1f;
+    public const int   AfterimageMaxTargetsPerEcho = 4;
+    public const float AfterimageHeavyBurstRadius = 72f;
+    public const float AfterimageRocketBurstRadius = 88f;
+    public const float AfterimageRiftBurstRadius = 78f;
+    public const float AfterimageChainRangeMultiplier = 0.62f;
+    public const float AfterimageChainBounceDamageDecay = 0.60f;
+    public const float AfterimageMarkerPulseRadius = 96f;
+    public const float AfterimageMarkerPulseMarkDuration = 2.4f;
+    public const float AfterimageUndertowPulseRadius = 90f;
+    public const float AfterimageUndertowPullDistance = 18f;
+    public const float AfterimageUndertowSlowDuration = 0.95f;
+    public const float AfterimageUndertowSlowFactor = 0.84f;
+    public const float AfterimageAccordionPulseRadius = 104f;
+
     // Reaper Protocol modifier
     // Full game only; excluded from demo builds and demo bot simulations.
     // Per-instance per-wave cap: each copy of the modifier tracks kills independently.

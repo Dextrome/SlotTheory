@@ -1484,6 +1484,7 @@ public partial class DraftPanel : CanvasLayer
     {
         "exploit_weakness" => "GOOD WITH: MARKED",
         "chain_reaction"   => "GOOD WITH: ARC EMITTER",
+        "afterimage"       => "GOOD WITH: SLOWS & CLUMPS",
         "overkill"         => "SYNERGY: BIG HITS",
         "focus_lens"       => "SYNERGY: BIG HITS",
         _ => "",
