@@ -1363,25 +1363,23 @@ public partial class DraftPanel : CanvasLayer
         top.AddThemeConstantOverride("separation", 8);
         root.AddChild(top);
 
-        var glyphWrap = new ColorRect
+        var iconWrap = new ColorRect
         {
             Color = new Color(accent.R, accent.G, accent.B, 0.25f),
             CustomMinimumSize = new Vector2(iconSize, iconSize),
             Size = new Vector2(iconSize, iconSize),
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
-        top.AddChild(glyphWrap);
+        top.AddChild(iconWrap);
 
-        var glyph = new Label
+        var towerIcon = new TowerIconFull
         {
-            Text = TowerGlyph(towerId),
-            HorizontalAlignment = HorizontalAlignment.Center,
-            VerticalAlignment = VerticalAlignment.Center,
+            TowerId = towerId,
             MouseFilter = Control.MouseFilterEnum.Ignore,
+            CustomMinimumSize = new Vector2(iconSize, iconSize),
         };
-        glyph.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        UITheme.ApplyFont(glyph, semiBold: true, size: Mathf.Max(12, Mathf.RoundToInt(iconSize * 0.56f)));
-        glyphWrap.AddChild(glyph);
+        towerIcon.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        iconWrap.AddChild(towerIcon);
 
         var title = new Label
         {
@@ -1410,7 +1408,7 @@ public partial class DraftPanel : CanvasLayer
         UITheme.ApplyFont(role, size: bodySize);
         role.Modulate = new Color(0.88f, 0.88f, 0.95f, 0.9f);
         root.AddChild(role);
-        return (glyphWrap, title);
+        return (iconWrap, title);
     }
 
     private static (Control? iconNode, Control? titleNode) BuildModifierCard(VBoxContainer root, string modifierId, int titleSize, int tagSize, int bodySize, float iconSize)
@@ -1503,20 +1501,6 @@ public partial class DraftPanel : CanvasLayer
         "phase_splitter" => new Color(0.45f, 1.00f, 0.95f),
         "undertow_engine" => new Color(0.08f, 0.64f, 0.86f),
         _ => new Color(0.75f, 0.85f, 1.00f),
-    };
-
-    private static string TowerGlyph(string towerId) => towerId switch
-    {
-        "rapid_shooter" => "RS",
-        "heavy_cannon" => "HC",
-        "rocket_launcher" => "RL",
-        "marker_tower" => "MK",
-        "chain_tower" => "AR",
-        "rift_prism" => "SA",
-        "accordion_engine" => "AC",
-        "phase_splitter" => "PS",
-        "undertow_engine" => "UT",
-        _ => "TW",
     };
 
     private static string TowerRole(string towerId) => towerId switch

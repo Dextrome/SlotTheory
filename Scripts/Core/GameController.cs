@@ -146,6 +146,7 @@ public partial class GameController : Node
 	private bool _globalReadyWindowOpen = false;
 	private float _globalReadySincePlayTime = 0f;
 	private ulong _globalActivateHintToken = 0;
+	private ulong _nonCriticalHintSuppressUntilUsec = 0;
 	private bool _initialDraftMusicPrimed = false;
 	private readonly Queue<UnlockRevealRequest> _pendingUnlockReveals = new();
 	private bool _undoPlacementActive = false;
@@ -582,6 +583,7 @@ public partial class GameController : Node
 		var hudPanel = _hudPanel;
 		bool draftPanelReady = draftPanel != null && GodotObject.IsInstanceValid(draftPanel);
 		bool hudPanelReady = hudPanel != null && GodotObject.IsInstanceValid(hudPanel);
+		RefreshNonCriticalHintSuppression();
 		if (_runState == null || _combatSim == null || _waveSystem == null)
 		{
 			_cancelBtnShown = false;
@@ -1266,6 +1268,7 @@ public partial class GameController : Node
 		_globalReadyWindowOpen = false;
 		_globalReadySincePlayTime = 0f;
 		_globalActivateHintToken++;
+		_nonCriticalHintSuppressUntilUsec = 0;
 		_initialDraftMusicPrimed = false;
 		_spectacleSystem.Reset();
 		if (_screenshotPipeline != null && _runState != null)
@@ -1278,6 +1281,7 @@ public partial class GameController : Node
 		_hudPanel.ResetSpeed();
 		_hudPanel.SetGlobalSurgeReady(false);
 		_hudPanel.SetPersistentSurgeHint(null);
+		_hudPanel.SetNonCriticalHintSuppressed(false);
 
 			// In bot/auto-draft mode re-apply the pending map since _Ready() only runs once.
 			if (_botRunner != null || _autoDraftMode)
@@ -3825,6 +3829,7 @@ void fragment() {
 
 	private void ShowWaveAnnouncement(int wave)
 	{
+		BeginCriticalFeedbackWindow(0.45f);
 		bool isFinalWave = wave >= _mapTotalWaves && !_runState.IsEndlessMode;
 		_waveAnnounce.Text     = isFinalWave ? $"WAVE {wave}  FINAL" : $"WAVE {wave}";
 		_waveAnnounce.Scale    = isFinalWave ? new Vector2(1.55f, 1.55f) : new Vector2(1.35f, 1.35f);
@@ -3851,6 +3856,7 @@ void fragment() {
 
 	private void ShowArmoredWaveWarning()
 	{
+		BeginCriticalFeedbackWindow(0.95f);
 		_threatWarn.Text = "? ARMORED WAVE INCOMING";
 		_threatWarn.Visible = true;
 		_threatWarn.Modulate = new Color(1f, 1f, 1f, 0f);
@@ -3875,6 +3881,7 @@ void fragment() {
 	private void ShowHalfwayBeat()
 	{
 		if (_botRunner != null || !GodotObject.IsInstanceValid(_halfwayBeat)) return;
+		BeginCriticalFeedbackWindow(0.36f);
 		_halfwayBeat.Visible = true;
 		_halfwayBeat.Scale = new Vector2(1.10f, 1.10f);
 		_halfwayBeat.Modulate = new Color(0.74f, 0.90f, 1.00f, 0f);
@@ -3959,6 +3966,7 @@ void fragment() {
 	private void ShowClutchToast(string text)
 	{
 		if (!GodotObject.IsInstanceValid(_clutchToast) || _botRunner != null) return;
+		BeginCriticalFeedbackWindow(0.42f);
 		_clutchToast.Text = text;
 		_clutchToast.Visible = true;
 		_clutchToast.Scale = new Vector2(1.08f, 1.08f);
@@ -3976,6 +3984,7 @@ void fragment() {
 	{
 		if (!GodotObject.IsInstanceValid(_globalSpectacleBanner) || _botRunner != null)
 			return;
+		BeginCriticalFeedbackWindow(1.25f);
 		float holdSeconds = GlobalSurgeBannerHoldSeconds;
 		float fadeSeconds = GlobalSurgeBannerFadeSeconds;
 		ulong token = ++_globalSurgeBannerToken;
@@ -4543,6 +4552,46 @@ void fragment() {
 			ShowTutorialGlobalSurgeActivatePanel();
 	}
 
+	private void BeginCriticalFeedbackWindow(float seconds)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_hudPanel))
+			return;
+
+		ulong holdUsec = (ulong)(Mathf.Max(0.08f, seconds) * 1_000_000f);
+		ulong untilUsec = Time.GetTicksUsec() + holdUsec;
+		if (untilUsec > _nonCriticalHintSuppressUntilUsec)
+			_nonCriticalHintSuppressUntilUsec = untilUsec;
+
+		_hudPanel.SetNonCriticalHintSuppressed(true);
+	}
+
+	private void RefreshNonCriticalHintSuppression()
+	{
+		if (_nonCriticalHintSuppressUntilUsec == 0 || !GodotObject.IsInstanceValid(_hudPanel))
+			return;
+		if (Time.GetTicksUsec() < _nonCriticalHintSuppressUntilUsec)
+			return;
+
+		_nonCriticalHintSuppressUntilUsec = 0;
+		_hudPanel.SetNonCriticalHintSuppressed(false);
+	}
+
+	private bool IsNonCriticalHintSuppressed()
+	{
+		if (_nonCriticalHintSuppressUntilUsec == 0)
+			return false;
+
+		if (Time.GetTicksUsec() >= _nonCriticalHintSuppressUntilUsec)
+		{
+			_nonCriticalHintSuppressUntilUsec = 0;
+			if (GodotObject.IsInstanceValid(_hudPanel))
+				_hudPanel.SetNonCriticalHintSuppressed(false);
+			return false;
+		}
+
+		return true;
+	}
+
 	private bool TryShowSurgeMicroHint(
 		SurgeHintId id,
 		string text,
@@ -4553,6 +4602,8 @@ void fragment() {
 		ITowerView? towerForHighlight = null)
 	{
 		if (_botRunner != null || _runState == null || _tutorialManager != null || SettingsManager.Instance == null)
+			return false;
+		if (IsNonCriticalHintSuppressed())
 			return false;
 		if (anchorToGlobalBar && !GodotObject.IsInstanceValid(_hudPanel))
 			return false;
@@ -9071,6 +9122,7 @@ void fragment() {
 
 	private void ShowWaveClearFlash()
 	{
+		BeginCriticalFeedbackWindow(0.42f);
 		_waveClearFlash.Color   = new Color(0.10f, 1f, 0.45f, 0f);
 		_waveClearFlash.Visible = true;
 		var tween = CreateTween();

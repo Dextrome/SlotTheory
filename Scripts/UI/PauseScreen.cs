@@ -13,19 +13,13 @@ public partial class PauseScreen : CanvasLayer
     private Control _settingsPanel    = null!;
     private Control _quitConfirmPanel = null!;
     private Control _rootContainer    = null!;
+    private ScrollContainer? _settingsScroll;
+    private Control? _settingsContent;
     private double  _lastBackTime     = -1.0;  // debounce Android back (fires on key-down AND key-up)
     private Button? _pauseFsBtn;
     private Button? _pauseCbBtn;
     private Button? _pauseRmBtn;
     private Button? _pausePostFxBtn;
-    private Button? _pauseScreenFilterBtn;
-    private Button? _pauseVhsGlitchBtn;
-    private Button? _pauseEnemyLayeredBtn;
-    private Button? _pauseEnemyEmissiveBtn;
-    private Button? _pauseEnemyDamageBtn;
-    private Button? _pauseEnemyBloomBtn;
-    private Button? _pauseResetProfileBtn;
-    private Label? _pauseResetProfileStatus;
 
     public override void _Ready()
     {
@@ -105,7 +99,6 @@ public partial class PauseScreen : CanvasLayer
         else
         {
             AddBtn(vbox, "Settings",     OnOpenSettings);
-            AddBtn(vbox, "How to Play",  OnHowToPlay);
             AddBtn(vbox, "Achievements", OnAchievements);
             AddBtn(vbox, "Slot Codex",   OnSlotCodex);
             AddSpacer(vbox, 2);
@@ -171,13 +164,14 @@ public partial class PauseScreen : CanvasLayer
         card.AddChild(cardInner);
 
         var scroll = new ScrollContainer();
-        scroll.CustomMinimumSize    = new Vector2(380f, maxHeight);
+        scroll.CustomMinimumSize    = new Vector2(380f, 0f);
         scroll.SizeFlagsHorizontal  = Control.SizeFlags.ExpandFill;
-        scroll.SizeFlagsVertical    = Control.SizeFlags.ExpandFill;
+        scroll.SizeFlagsVertical    = Control.SizeFlags.ShrinkCenter;
         scroll.VerticalScrollMode   = ScrollContainer.ScrollMode.Auto;
         scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
         TouchScrollHelper.EnableDragScroll(scroll);
         cardInner.AddChild(scroll);
+        _settingsScroll = scroll;
 
         var margin = new MarginContainer();
         margin.AddThemeConstantOverride("margin_left",   16);
@@ -192,6 +186,7 @@ public partial class PauseScreen : CanvasLayer
         vbox.AddThemeConstantOverride("separation", 3);
         vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         margin.AddChild(vbox);
+        _settingsContent = vbox;
 
         AddLabel(vbox, "SETTINGS", 36, new Color("#a6d608"));
         AddSpacer(vbox, 6);
@@ -241,7 +236,7 @@ public partial class PauseScreen : CanvasLayer
             });
 
         bool isPostFx = sm?.PostFxEnabled ?? true;
-        _pausePostFxBtn = AddPauseSettingRow(vbox, "Post FX",
+        _pausePostFxBtn = AddPauseSettingRow(vbox, "Visual Glow",
             OnOffText(isPostFx), isOn: isPostFx, () =>
             {
                 bool next = !(SettingsManager.Instance?.PostFxEnabled ?? true);
@@ -249,99 +244,6 @@ public partial class PauseScreen : CanvasLayer
                 UpdatePauseValueBtn(_pausePostFxBtn, OnOffText(next), next);
                 ApplyRuntimeSettingsNow();
             });
-
-        AddSpacer(vbox, 4);
-        AddPauseSectionHeader(vbox, "SCREEN EFFECTS");
-
-        bool isSf = sm?.ScreenFilterEnabled ?? true;
-        _pauseScreenFilterBtn = AddPauseSettingRow(vbox, "Screen Filter",
-            OnOffText(isSf), isOn: isSf, () =>
-            {
-                bool next = !(SettingsManager.Instance?.ScreenFilterEnabled ?? true);
-                SettingsManager.Instance?.SetScreenFilterEnabled(next);
-                SettingsManager.Instance?.SetPhosphorGridEnabled(next);
-                UpdatePauseValueBtn(_pauseScreenFilterBtn, OnOffText(next), next);
-                ApplyRuntimeSettingsNow();
-            });
-
-        bool isVhs = sm?.VhsGlitchEnabled ?? false;
-        _pauseVhsGlitchBtn = AddPauseSettingRow(vbox, "VHS Glitch",
-            OnOffText(isVhs), isOn: isVhs, () =>
-            {
-                bool next = !(SettingsManager.Instance?.VhsGlitchEnabled ?? false);
-                SettingsManager.Instance?.SetVhsGlitchEnabled(next);
-                UpdatePauseValueBtn(_pauseVhsGlitchBtn, OnOffText(next), next);
-                ApplyRuntimeSettingsNow();
-            });
-
-        AddSpacer(vbox, 4);
-        AddPauseSectionHeader(vbox, "ENEMY FX");
-
-        bool layered = sm?.LayeredEnemyRendering ?? true;
-        _pauseEnemyLayeredBtn = AddPauseSettingRow(vbox, "Layered Rendering",
-            OnOffText(layered), isOn: layered, () =>
-            {
-                bool next = !(SettingsManager.Instance?.LayeredEnemyRendering ?? true);
-                SettingsManager.Instance?.SetLayeredEnemyRendering(next);
-                UpdatePauseValueBtn(_pauseEnemyLayeredBtn, OnOffText(next), next);
-                ApplyRuntimeSettingsNow();
-            });
-
-        bool emissive = sm?.EnemyEmissiveLines ?? true;
-        _pauseEnemyEmissiveBtn = AddPauseSettingRow(vbox, "Emissive Lines",
-            OnOffText(emissive), isOn: emissive, () =>
-            {
-                bool next = !(SettingsManager.Instance?.EnemyEmissiveLines ?? true);
-                SettingsManager.Instance?.SetEnemyEmissiveLines(next);
-                UpdatePauseValueBtn(_pauseEnemyEmissiveBtn, OnOffText(next), next);
-                ApplyRuntimeSettingsNow();
-            });
-
-        bool damage = sm?.EnemyDamageMaterial ?? true;
-        _pauseEnemyDamageBtn = AddPauseSettingRow(vbox, "Damage Material",
-            OnOffText(damage), isOn: damage, () =>
-            {
-                bool next = !(SettingsManager.Instance?.EnemyDamageMaterial ?? true);
-                SettingsManager.Instance?.SetEnemyDamageMaterial(next);
-                UpdatePauseValueBtn(_pauseEnemyDamageBtn, OnOffText(next), next);
-                ApplyRuntimeSettingsNow();
-            });
-
-        bool bloom = sm?.EnemyBloomHighlights ?? !MobileOptimization.IsMobile();
-        _pauseEnemyBloomBtn = AddPauseSettingRow(vbox, "Bloom Highlights",
-            OnOffText(bloom), isOn: bloom, () =>
-            {
-                bool next = !(SettingsManager.Instance?.EnemyBloomHighlights ?? !MobileOptimization.IsMobile());
-                SettingsManager.Instance?.SetEnemyBloomHighlights(next);
-                UpdatePauseValueBtn(_pauseEnemyBloomBtn, OnOffText(next), next);
-                ApplyRuntimeSettingsNow();
-            });
-
-        if (sm?.DevMode == true)
-        {
-            AddSpacer(vbox, 4);
-            AddPauseSectionHeader(vbox, "DEVELOPER");
-
-            _pauseResetProfileBtn = AddPauseSettingRow(vbox, "Reset All Achievements",
-                "Reset", isOn: false, () =>
-                {
-                    SoundManager.Instance?.Play("ui_select");
-                    AchievementManager.Instance?.ResetAllAchievements();
-                    if (_pauseResetProfileStatus != null)
-                        _pauseResetProfileStatus.Text = "All achievements cleared.";
-                });
-            UITheme.ApplyMutedStyle(_pauseResetProfileBtn);
-
-            _pauseResetProfileStatus = new Label
-            {
-                Text = "",
-                AutowrapMode = TextServer.AutowrapMode.WordSmart,
-                SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-            };
-            _pauseResetProfileStatus.AddThemeFontSizeOverride("font_size", 13);
-            _pauseResetProfileStatus.Modulate = new Color(0.85f, 0.72f, 0.72f);
-            vbox.AddChild(_pauseResetProfileStatus);
-        }
 
         // Back button pinned below scroll
         var sep = new HSeparator();
@@ -365,6 +267,8 @@ public partial class PauseScreen : CanvasLayer
         UITheme.ApplyMenuButtonFinish(backBtn, UITheme.Cyan, 0.09f, 0.11f);
         backBtn.Pressed += () => { SoundManager.Instance?.Play("ui_select"); OnCloseSettings(); };
         backMargin.AddChild(backBtn);
+
+        CallDeferred(nameof(RefreshSettingsPanelHeight), maxHeight);
     }
 
     private void BuildQuitConfirmPanel(VBoxContainer parent)
@@ -577,17 +481,6 @@ public partial class PauseScreen : CanvasLayer
 	}
     private void OnQuit()    => GetTree().Quit();
 
-    private void OnHowToPlay()
-    {
-        _mainPanel.Visible = false;
-        var panel = new SlotCodexPanel
-        {
-            BackOverride = () => _mainPanel.Visible = true,
-            StartTab = SlotCodexPanel.CodexStartTab.HowToPlay,
-        };
-        AddChild(panel);
-    }
-
     private void OnAchievements()
     {
         _mainPanel.Visible = false;
@@ -608,6 +501,12 @@ public partial class PauseScreen : CanvasLayer
     {
         _mainPanel.Visible     = false;
         _settingsPanel.Visible = true;
+        float heightFactor = MobileOptimization.IsMobile() ? 0.70f : 0.78f;
+        float maxHeight = Mathf.Clamp(
+            GetViewport().GetVisibleRect().Size.Y * heightFactor,
+            320f,
+            MobileOptimization.IsMobile() ? 540f : 620f);
+        CallDeferred(nameof(RefreshSettingsPanelHeight), maxHeight);
     }
 
     private void OnCloseSettings()
@@ -818,6 +717,16 @@ public partial class PauseScreen : CanvasLayer
     }
 
     private static string OnOffText(bool on) => on ? "ON" : "OFF";
+
+    private void RefreshSettingsPanelHeight(float maxHeight)
+    {
+        if (!GodotObject.IsInstanceValid(_settingsScroll) || !GodotObject.IsInstanceValid(_settingsContent))
+            return;
+
+        float contentHeight = _settingsContent.GetCombinedMinimumSize().Y + 28f; // top + bottom margin
+        float targetHeight = Mathf.Clamp(contentHeight, 220f, maxHeight);
+        _settingsScroll.CustomMinimumSize = new Vector2(380f, targetHeight);
+    }
 
     private static void AddLabel(Control parent, string text, int fontSize, Color color)
     {

@@ -126,7 +126,7 @@ public partial class HowToPlay : Node
         tabRow.AddThemeConstantOverride("separation", 12);
         headerVBox.AddChild(tabRow);
 
-        _basicsTabBtn = BuildTabButton("How To Play", () => SetActiveTab(HowToTab.Basics));
+        _basicsTabBtn = BuildTabButton("How to Play", () => SetActiveTab(HowToTab.Basics));
         _surgesTabBtn = BuildTabButton("Surges", () => SetActiveTab(HowToTab.Surges));
         tabRow.AddChild(_basicsTabBtn);
         tabRow.AddChild(_surgesTabBtn);

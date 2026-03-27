@@ -40,6 +40,7 @@ public partial class HudPanel : CanvasLayer
 	private float _teachingHintHoldSeconds = 0f;
 	private bool _teachingHintActive = false;
 	private bool _persistentSurgeHintActive = false;
+	private bool _nonCriticalHintsSuppressed = false;
 	private bool _surgeMeterIntroShown = false;
 	private bool _surgeMeterForcedVisible = false;
 	private bool _buildLabelForcedVisible = false;
@@ -609,9 +610,33 @@ public partial class HudPanel : CanvasLayer
 		return new Rect2(vp.X * 0.5f - 211f, vp.Y - 36f, 422f, 22f);
 	}
 
+	public void SetNonCriticalHintSuppressed(bool suppressed)
+	{
+		if (_nonCriticalHintsSuppressed == suppressed)
+			return;
+
+		_nonCriticalHintsSuppressed = suppressed;
+		if (_nonCriticalHintsSuppressed)
+		{
+			if (GodotObject.IsInstanceValid(_surgeMeterHint))
+				_surgeMeterHint.Visible = false;
+			if (GodotObject.IsInstanceValid(_teachingHintPanel))
+				_teachingHintPanel.Visible = false;
+			if (GodotObject.IsInstanceValid(_teachingHintConnector))
+				_teachingHintConnector.Visible = false;
+		}
+		else if (_persistentSurgeHintActive && GodotObject.IsInstanceValid(_surgeMeterHint))
+		{
+			_surgeMeterHint.Visible = true;
+			_surgeMeterHint.Modulate = new Color(1f, 1f, 1f, 0.95f);
+		}
+	}
+
 	public void ShowSurgeMicroHint(string text, float holdSeconds = 1.7f)
 	{
 		if (!GodotObject.IsInstanceValid(_surgeMeterHint))
+			return;
+		if (_nonCriticalHintsSuppressed)
 			return;
 		if (_persistentSurgeHintActive)
 			return;
@@ -633,6 +658,8 @@ public partial class HudPanel : CanvasLayer
 	public void ShowTeachingHintAtScreen(string text, Vector2 screenPos, float holdSeconds = 3.4f)
 	{
 		if (!GodotObject.IsInstanceValid(_teachingHintPanel) || !GodotObject.IsInstanceValid(_teachingHintLabel))
+			return;
+		if (_nonCriticalHintsSuppressed)
 			return;
 
 		var panelSize = ResolveTeachingHintPanelSize(text);
@@ -700,14 +727,19 @@ public partial class HudPanel : CanvasLayer
 
 		_persistentSurgeHintActive = true;
 		_surgeMeterHint.Text = text;
-		_surgeMeterHint.Visible = true;
-		_surgeMeterHint.Modulate = new Color(1f, 1f, 1f, 0.95f);
+		_surgeMeterHint.Visible = !_nonCriticalHintsSuppressed;
+		_surgeMeterHint.Modulate = new Color(1f, 1f, 1f, _nonCriticalHintsSuppressed ? 0f : 0.95f);
 	}
 
 	private void UpdateSurgeMeterHintPresentation()
 	{
 		if (!GodotObject.IsInstanceValid(_surgeMeterHint))
 			return;
+		if (_nonCriticalHintsSuppressed)
+		{
+			_surgeMeterHint.Visible = false;
+			return;
+		}
 		if (_persistentSurgeHintActive)
 			return;
 		if (!_surgeMeterHintTransientActive || _surgeMeterHintStartUsec == 0)
@@ -748,6 +780,14 @@ public partial class HudPanel : CanvasLayer
 
 	private void UpdateTeachingHintPresentation()
 	{
+		if (_nonCriticalHintsSuppressed)
+		{
+			if (GodotObject.IsInstanceValid(_teachingHintPanel))
+				_teachingHintPanel.Visible = false;
+			if (GodotObject.IsInstanceValid(_teachingHintConnector))
+				_teachingHintConnector.Visible = false;
+			return;
+		}
 		if (!_teachingHintActive || _teachingHintStartUsec == 0)
 			return;
 		if (!GodotObject.IsInstanceValid(_teachingHintPanel))

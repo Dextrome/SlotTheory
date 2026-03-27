@@ -62,7 +62,7 @@ public partial class MapSelectPanel : Node
 		// Title
 		var title = new Label
 		{
-			Text = "SELECT A MAP",
+            Text = "CHOOSE A MAP",
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
 		UITheme.ApplyFont(title, semiBold: true, size: 42);
@@ -350,7 +350,7 @@ public partial class MapSelectPanel : Node
 
 		var btn = new Button
 		{
-			Text = fullGamePreviewOnly ? "PREVIEW" : "SELECT",
+            Text = fullGamePreviewOnly ? "PREVIEW" : "CHOOSE",
 			CustomMinimumSize = new Vector2(80, 52),
 		};
 		if (fullGamePreviewOnly)
@@ -531,7 +531,7 @@ public partial class MapSelectPanel : Node
 
 		bool playable = IsSelectedMapPlayable();
 		_startRunButton.Disabled = !playable;
-		_startRunButton.Text = playable ? "Start Run" : "FULL GAME MAP";
+        _startRunButton.Text = playable ? "Start Run" : "Full Game Map";
 		_startRunButton.TooltipText = playable ? string.Empty : "Available in full release.";
 		_startRunButton.Modulate = playable
 			? Colors.White

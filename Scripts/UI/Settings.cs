@@ -143,7 +143,7 @@ public partial class Settings : Node
             OnOffText(isRm), isOn: isRm, OnToggleReducedMotion);
 
         bool isPostFx = sm?.PostFxEnabled ?? true;
-        _postFxBtn = AddSettingRow(vbox, "Post FX (Bloom / Glow)",
+        _postFxBtn = AddSettingRow(vbox, "Visual Glow",
             OnOffText(isPostFx), isOn: isPostFx, OnTogglePostFx);
 
         AddSpacer(vbox, 4);
@@ -152,11 +152,11 @@ public partial class Settings : Node
         AddSectionHeader(vbox, "SCREEN EFFECTS");
 
         bool isSf = sm?.ScreenFilterEnabled ?? true;
-        _screenFilterBtn = AddSettingRow(vbox, "Screen Filter",
+        _screenFilterBtn = AddSettingRow(vbox, "Retro Screen Pass",
             OnOffText(isSf), isOn: isSf, OnToggleScreenFilter);
 
         bool isVhs = sm?.VhsGlitchEnabled ?? false;
-        _vhsGlitchBtn = AddSettingRow(vbox, "VHS Glitch",
+        _vhsGlitchBtn = AddSettingRow(vbox, "Glitch Distortion",
             OnOffText(isVhs), isOn: isVhs, OnToggleVhsGlitch);
 
         AddSpacer(vbox, 4);
@@ -165,19 +165,19 @@ public partial class Settings : Node
         AddSectionHeader(vbox, "ENEMY FX");
 
         bool layered = sm?.LayeredEnemyRendering ?? true;
-        _enemyLayeredBtn = AddSettingRow(vbox, "Layered Rendering",
+        _enemyLayeredBtn = AddSettingRow(vbox, "Enemy Detail Layers",
             OnOffText(layered), isOn: layered, OnToggleEnemyLayered);
 
         bool emissive = sm?.EnemyEmissiveLines ?? true;
-        _enemyEmissiveBtn = AddSettingRow(vbox, "Emissive Lines",
+        _enemyEmissiveBtn = AddSettingRow(vbox, "Enemy Glow Lines",
             OnOffText(emissive), isOn: emissive, OnToggleEnemyEmissive);
 
         bool damage = sm?.EnemyDamageMaterial ?? true;
-        _enemyDamageBtn = AddSettingRow(vbox, "Damage Material",
+        _enemyDamageBtn = AddSettingRow(vbox, "Enemy Damage Feedback",
             OnOffText(damage), isOn: damage, OnToggleEnemyDamage);
 
         bool bloom = sm?.EnemyBloomHighlights ?? !MobileOptimization.IsMobile();
-        _enemyBloomBtn = AddSettingRow(vbox, "Bloom Highlights",
+        _enemyBloomBtn = AddSettingRow(vbox, "Enemy Bloom Highlights",
             OnOffText(bloom), isOn: bloom, OnToggleEnemyBloom);
 
         // ── PROFILE ───────────────────────────────────────────────────────────

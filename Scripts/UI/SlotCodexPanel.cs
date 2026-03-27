@@ -169,7 +169,7 @@ public partial class SlotCodexPanel : Node
         divider.VerticalAlignment = VerticalAlignment.Center;
         tabs.AddChild(divider);
 
-        tabs.AddChild(BuildTabEntry("How To Play", () => SetActiveTab(CodexTab.HowToPlay), out _howToTabBtn));
+        tabs.AddChild(BuildTabEntry("How to Play", () => SetActiveTab(CodexTab.HowToPlay), out _howToTabBtn));
         tabs.AddChild(BuildTabEntry("Surges", () => SetActiveTab(CodexTab.Surges), out _surgesTabBtn));
 
         var contentFrame = new PanelContainer

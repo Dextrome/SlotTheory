@@ -39,7 +39,7 @@ public partial class ModeSelectPanel : Node
 
         var header = new Label
         {
-            Text = "SELECT MODE",
+            Text = "CHOOSE MODE",
             HorizontalAlignment = HorizontalAlignment.Center,
         };
         UITheme.ApplyFont(header, semiBold: true, size: 20);
@@ -179,7 +179,7 @@ public partial class ModeSelectPanel : Node
 
         var btn = new Button
         {
-            Text = "SELECT",
+            Text = "CHOOSE",
             CustomMinimumSize = new Vector2(0f, 44f),
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
         };

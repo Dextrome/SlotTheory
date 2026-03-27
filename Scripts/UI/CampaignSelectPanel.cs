@@ -188,7 +188,7 @@ public partial class CampaignSelectPanel : Node
 
         var beginBtn = new Button
         {
-            Text = "Begin Stage",
+            Text = "Start Run",
             CustomMinimumSize = new Vector2(0, 50),
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
         };

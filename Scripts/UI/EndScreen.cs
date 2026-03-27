@@ -249,7 +249,7 @@ public partial class EndScreen : CanvasLayer
 
 		_continueEndlessButton = new Button
 		{
-			Text = "Continue - Endless",
+			Text = "Continue · Endless",
 			CustomMinimumSize = new Vector2(0f, 42f),
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 			Visible = false,
@@ -298,7 +298,7 @@ public partial class EndScreen : CanvasLayer
 
 		_howToPlayButton = new Button
 		{
-			Text = "How to Play  →",
+			Text = "How to Play →",
 			CustomMinimumSize = new Vector2(360f, 38f),
 			Visible = false,
 		};
@@ -435,10 +435,10 @@ public partial class EndScreen : CanvasLayer
 		_titleLabel.Text = _isPlaytestRun ? "GAME OVER  [PLAYTEST]" : "GAME OVER";
 		_titleLabel.Modulate = new Color(1.0f, 0.35f, 0.35f);
 		int wavesLeft = totalWaves - waveReached;
-		string wavesFromVictory = wavesLeft > 0 ? $"  -  {wavesLeft} wave{(wavesLeft == 1 ? "" : "s")} from victory" : "";
+		string wavesFromVictory = wavesLeft > 0 ? $"  ·  {wavesLeft} wave{(wavesLeft == 1 ? "" : "s")} from victory" : "";
 		_subtitleLabel.Text = $"{waveReached} / {totalWaves}{wavesFromVictory}  ·  Lives lost: {livesLost}";
 		ShowDifficultyLabel();
-		_statsLabel.Text = $"Enemies killed: {kills}  -  Total damage: {damageDealt:N0}  -  Time: {FormatTime(totalPlayTime)}";
+		_statsLabel.Text = $"Enemies killed: {kills}  ·  Total damage: {damageDealt:N0}  ·  Time: {FormatTime(totalPlayTime)}";
 		_statsLabel.Visible = kills > 0 || damageDealt > 0;
 		SetRunNameGradient(runName, runStartColor, runEndColor);
 		_runNameLabel.Visible = runName.Length > 0;
