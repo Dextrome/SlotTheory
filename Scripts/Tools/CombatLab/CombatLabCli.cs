@@ -206,7 +206,7 @@ public static class CombatLabCli
                 ? profile.TowerId
                 : $"{profile.CaseId} ({profile.TowerId})";
             GD.Print(
-                $"[LAB] Tower {label}: global={profile.AvgNormalizedGlobal:0.00} role={profile.AvgNormalizedRole:0.00} cost_band={profile.CostBand} sensitivity={profile.MapPathSensitivity:0.00} flags={flags}");
+                $"[LAB] Tower {label}: global={profile.AvgNormalizedGlobal:0.00} role={profile.AvgNormalizedRole:0.00} support={profile.AvgSupportUtilityScore:0.00} cost_band={profile.CostBand} sensitivity={profile.MapPathSensitivity:0.00} flags={flags}");
         }
 
         if (report.TuningSuggestions.Count > 0)

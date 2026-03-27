@@ -125,6 +125,27 @@ public sealed class CombatLabTowerBenchmarkRunner
         public int SurgesTriggered;
         public int GlobalSurgesTriggered;
         public bool EdgeSpike;
+        public float KillZoneEnemySeconds;
+        public int TrapReentries;
+        public float ClusterTightnessIntegral;
+        public float ClusterSampleSeconds;
+        public float UndertowPullDistance;
+        public float UndertowTimeDebtSeconds;
+    }
+
+    private sealed class ControlProbeState
+    {
+        public bool WasInTrapZone;
+        public int TrapEntries;
+    }
+
+    private sealed class ScenarioBaselineMetrics
+    {
+        public float LeakPrevention;
+        public float KillZoneEnemySeconds;
+        public float TrapReentries;
+        public float ClusterTightness;
+        public float ControlTimeDebtSeconds;
     }
 
     private sealed class TowerCase
@@ -165,6 +186,7 @@ public sealed class CombatLabTowerBenchmarkRunner
         List<CombatLabTowerBenchmarkScenarioResult> scenarioResults = new();
         foreach (CombatLabTowerBenchmarkScenario scenario in suite.Scenarios)
         {
+            ScenarioBaselineMetrics baseline = BuildScenarioBaselineMetrics(suite, scenario);
             var scenarioResult = new CombatLabTowerBenchmarkScenarioResult
             {
                 ScenarioId = scenario.Id,
@@ -179,7 +201,8 @@ public sealed class CombatLabTowerBenchmarkRunner
                     suite,
                     scenario,
                     towerCase,
-                    towerDefs[towerCase.TowerId]);
+                    towerDefs[towerCase.TowerId],
+                    baseline);
                 scenarioResult.Results.Add(towerResult);
             }
 
@@ -205,7 +228,7 @@ public sealed class CombatLabTowerBenchmarkRunner
     {
         var sb = new StringBuilder();
         sb.AppendLine(
-            "scenario_id,scenario_name,path_type,case_id,tower_id,cost,total_damage,effective_dps,cost_efficiency,leak_prevention_value,anti_swarm_performance,anti_tank_performance,reliability_variance,overkill_waste,average_targets_hit,uptime,idle_time_seconds,kill_count,leak_count,wave_clear_seconds,clear_rate,surges_triggered,global_surges_triggered,edge_spike_rate,normalized_global,normalized_cost_band,normalized_role");
+            "scenario_id,scenario_name,path_type,case_id,tower_id,cost,total_damage,effective_dps,cost_efficiency,leak_prevention_value,anti_swarm_performance,anti_tank_performance,reliability_variance,overkill_waste,average_targets_hit,uptime,idle_time_seconds,kill_count,leak_count,wave_clear_seconds,clear_rate,control_dwell_delta,control_reentry_delta,control_time_debt_seconds,control_pull_distance,control_cluster_gain,support_utility_score,surges_triggered,global_surges_triggered,edge_spike_rate,normalized_global,normalized_cost_band,normalized_role");
         foreach (CombatLabTowerBenchmarkScenarioResult scenario in report.ScenarioResults)
         {
             foreach (CombatLabTowerBenchmarkTowerResult row in scenario.Results.OrderBy(r => r.CaseId, StringComparer.Ordinal))
@@ -232,6 +255,12 @@ public sealed class CombatLabTowerBenchmarkRunner
                     Csv(row.LeakCount),
                     Csv(row.WaveClearSeconds),
                     Csv(row.ClearRate),
+                    Csv(row.ControlDwellDelta),
+                    Csv(row.ControlReentryDelta),
+                    Csv(row.ControlTimeDebtSeconds),
+                    Csv(row.ControlPullDistance),
+                    Csv(row.ControlClusterGain),
+                    Csv(row.SupportUtilityScore),
                     Csv(row.SurgesTriggered),
                     Csv(row.GlobalSurgesTriggered),
                     Csv(row.EdgeSpikeRate),
@@ -248,7 +277,7 @@ public sealed class CombatLabTowerBenchmarkRunner
     {
         var sb = new StringBuilder();
         sb.AppendLine(
-            "case_id,tower_id,cost,cost_band,roles,scenario_count,avg_normalized_global,avg_normalized_cost_band,avg_normalized_role,map_path_sensitivity,aggregate_reliability_variance,flags");
+            "case_id,tower_id,cost,cost_band,roles,scenario_count,avg_normalized_global,avg_normalized_cost_band,avg_normalized_role,avg_support_utility_score,map_path_sensitivity,aggregate_reliability_variance,flags");
         foreach (CombatLabTowerBenchmarkProfile profile in report.TowerProfiles.OrderBy(p => p.CaseId, StringComparer.Ordinal))
         {
             sb.AppendLine(string.Join(",",
@@ -261,6 +290,7 @@ public sealed class CombatLabTowerBenchmarkRunner
                 Csv(profile.AvgNormalizedGlobal),
                 Csv(profile.AvgNormalizedCostBand),
                 Csv(profile.AvgNormalizedRole),
+                Csv(profile.AvgSupportUtilityScore),
                 Csv(profile.MapPathSensitivity),
                 Csv(profile.AggregateReliabilityVariance),
                 Csv(string.Join("|", profile.Flags))));
@@ -269,11 +299,88 @@ public sealed class CombatLabTowerBenchmarkRunner
         return sb.ToString();
     }
 
+    private ScenarioBaselineMetrics BuildScenarioBaselineMetrics(
+        CombatLabTowerBenchmarkSuite suite,
+        CombatLabTowerBenchmarkScenario scenario)
+    {
+        int trials = Math.Max(1, suite.TrialsPerScenario);
+        float dt = Mathf.Clamp(suite.TimestepSeconds <= 0f ? 0.05f : suite.TimestepSeconds, 0.01f, 0.20f);
+        var baselineTrialMetrics = new List<TrialMetrics>(trials);
+        var baselineCase = new TowerCase
+        {
+            CaseId = "__baseline__",
+            TowerId = "__baseline__",
+            Mods = Array.Empty<string>(),
+            TargetingMode = TargetingMode.First,
+            BaseDamageOverride = 0f,
+            AttackIntervalOverride = 9999f,
+            RangeOverride = 0f,
+            SplitCountOverride = 0,
+            ChainCountOverride = 0,
+            Cost = 1f,
+        };
+        var baselineDef = new TowerDef("baseline", 0f, 9999f, 0f);
+
+        for (int trial = 0; trial < trials; trial++)
+        {
+            int seed = ComposeSeed(suite.Seed, scenario.Id, baselineCase.CaseId, trial);
+            TrialMetrics result = RunTrial(suite, scenario, baselineCase, baselineDef, dt, seed);
+            baselineTrialMetrics.Add(result);
+        }
+
+        return new ScenarioBaselineMetrics
+        {
+            LeakPrevention = (float)baselineTrialMetrics.Average(t => t.TotalHp > 0.0001f
+                ? Mathf.Clamp(1f - (t.LeakedHp / t.TotalHp), 0f, 1f)
+                : 1f),
+            KillZoneEnemySeconds = (float)baselineTrialMetrics.Average(t => t.KillZoneEnemySeconds),
+            TrapReentries = (float)baselineTrialMetrics.Average(t => t.TrapReentries),
+            ClusterTightness = (float)baselineTrialMetrics.Average(t => t.ClusterSampleSeconds > 0.0001f
+                ? t.ClusterTightnessIntegral / t.ClusterSampleSeconds
+                : 0f),
+            ControlTimeDebtSeconds = (float)baselineTrialMetrics.Average(t => t.UndertowTimeDebtSeconds),
+        };
+    }
+
+    private static float ResolveSupportUtilityScore(
+        CombatLabTowerBenchmarkScenario scenario,
+        float controlDwellDelta,
+        float controlReentryDelta,
+        float controlTimeDebtSeconds,
+        float controlPullDistance,
+        float controlClusterGain,
+        float leakPreventionDelta)
+    {
+        int enemyCount = Math.Max(1, (scenario.EnemyGroups ?? new List<CombatLabTowerBenchmarkEnemyGroup>())
+            .Sum(g => Math.Max(0, g.Count)));
+        float duration = Math.Max(1f, scenario.DurationSeconds);
+        float pathLength = Math.Max(400f, scenario.PathLength);
+
+        float dwellNorm = controlDwellDelta / MathF.Max(1f, duration * enemyCount * 0.18f);
+        float reentryNorm = controlReentryDelta / MathF.Max(1f, enemyCount * 0.15f);
+        float debtNorm = controlTimeDebtSeconds / MathF.Max(1f, duration * 0.30f);
+        float pullNorm = controlPullDistance / MathF.Max(120f, pathLength * 0.06f);
+        float clusterNorm = controlClusterGain / 0.20f;
+        float leakNorm = leakPreventionDelta / 0.10f;
+
+        static float Saturate(float x) => x <= 0f ? 0f : x / (1f + x);
+
+        float supportScore = 1.8f * (
+            Saturate(dwellNorm) * 0.28f +
+            Saturate(debtNorm) * 0.20f +
+            Saturate(reentryNorm) * 0.18f +
+            Saturate(clusterNorm) * 0.14f +
+            Saturate(pullNorm) * 0.10f +
+            Saturate(leakNorm) * 0.10f);
+        return MathF.Max(0f, supportScore);
+    }
+
     private CombatLabTowerBenchmarkTowerResult RunTowerScenario(
         CombatLabTowerBenchmarkSuite suite,
         CombatLabTowerBenchmarkScenario scenario,
         TowerCase towerCase,
-        TowerDef towerDef)
+        TowerDef towerDef,
+        ScenarioBaselineMetrics baseline)
     {
         int trials = Math.Max(1, suite.TrialsPerScenario);
         float dt = Mathf.Clamp(suite.TimestepSeconds <= 0f ? 0.05f : suite.TimestepSeconds, 0.01f, 0.20f);
@@ -302,6 +409,23 @@ public sealed class CombatLabTowerBenchmarkRunner
         float avgSurges = (float)trialMetrics.Average(t => t.SurgesTriggered);
         float avgGlobalSurges = (float)trialMetrics.Average(t => t.GlobalSurgesTriggered);
         float edgeSpikeRate = (float)trialMetrics.Average(t => t.EdgeSpike ? 1f : 0f);
+        float avgKillZoneEnemySeconds = (float)trialMetrics.Average(t => t.KillZoneEnemySeconds);
+        float avgTrapReentries = (float)trialMetrics.Average(t => t.TrapReentries);
+        float avgClusterTightness = (float)trialMetrics.Average(t => t.ClusterSampleSeconds > 0.0001f ? t.ClusterTightnessIntegral / t.ClusterSampleSeconds : 0f);
+        float avgUndertowPullDistance = (float)trialMetrics.Average(t => t.UndertowPullDistance);
+        float avgUndertowTimeDebt = (float)trialMetrics.Average(t => t.UndertowTimeDebtSeconds);
+        float controlDwellDelta = MathF.Max(0f, avgKillZoneEnemySeconds - baseline.KillZoneEnemySeconds);
+        float controlReentryDelta = MathF.Max(0f, avgTrapReentries - baseline.TrapReentries);
+        float controlClusterGain = MathF.Max(0f, avgClusterTightness - baseline.ClusterTightness);
+        float controlTimeDebt = MathF.Max(0f, avgUndertowTimeDebt - baseline.ControlTimeDebtSeconds);
+        float supportUtilityScore = ResolveSupportUtilityScore(
+            scenario,
+            controlDwellDelta,
+            controlReentryDelta,
+            controlTimeDebt,
+            avgUndertowPullDistance,
+            controlClusterGain,
+            MathF.Max(0f, avgLeakPrevention - baseline.LeakPrevention));
         float avgCostEfficiency = towerCase.Cost > 0.0001f ? avgTotalDamage / towerCase.Cost : avgTotalDamage;
         float reliabilityVariance = ComputeCoefficientOfVariation(trialMetrics.Select(t => t.TotalDamage).ToList());
 
@@ -326,6 +450,12 @@ public sealed class CombatLabTowerBenchmarkRunner
             LeakCount = avgLeaks,
             WaveClearSeconds = avgWaveClearSeconds,
             ClearRate = clearRate,
+            ControlDwellDelta = controlDwellDelta,
+            ControlReentryDelta = controlReentryDelta,
+            ControlTimeDebtSeconds = controlTimeDebt,
+            ControlPullDistance = avgUndertowPullDistance,
+            ControlClusterGain = controlClusterGain,
+            SupportUtilityScore = supportUtilityScore,
             SurgesTriggered = avgSurges,
             GlobalSurgesTriggered = avgGlobalSurges,
             EdgeSpikeRate = edgeSpikeRate,
@@ -360,6 +490,15 @@ public sealed class CombatLabTowerBenchmarkRunner
         var activeUndertows = new List<BenchmarkUndertowEffect>();
         var undertowRecentRemaining = new Dictionary<int, float>();
         var undertowRetargetLockoutRemaining = new Dictionary<int, float>();
+        var controlProbeStates = new Dictionary<int, ControlProbeState>();
+        Vector2 controlCenter = ResolveScenarioTowerPosition(scenario);
+        float controlKillZoneRadius = ResolveControlKillZoneRadius(scenario);
+        float controlTrapRadius = ResolveControlTrapZoneRadius(controlKillZoneRadius, scenario);
+        float trapX = Mathf.Clamp(
+            controlCenter.X - MathF.Max(56f, controlKillZoneRadius * 0.45f),
+            0f,
+            MathF.Max(0f, scenario.PathLength));
+        var controlTrapCenter = new Vector2(trapX, 0f);
         bool pendingGlobal = false;
         float globalReadyAt = -1f;
         float simTime = 0f;
@@ -406,7 +545,7 @@ public sealed class CombatLabTowerBenchmarkRunner
             }
 
             UpdateEnemyStatuses(enemies, dt);
-            UpdateActiveUndertows(activeUndertows, undertowRecentRemaining, undertowRetargetLockoutRemaining, enemies, dt);
+            UpdateActiveUndertows(activeUndertows, undertowRecentRemaining, undertowRetargetLockoutRemaining, enemies, dt, metrics);
             UpdateWildfireBurnAndTrails(wildfireTrails, enemies, tower, dt, metrics);
             UpdateResidues(residues, enemies, tower, dt, metrics);
             MoveEnemies(enemies, dt, metrics);
@@ -415,6 +554,15 @@ public sealed class CombatLabTowerBenchmarkRunner
             List<BenchmarkEnemy> activeEnemies = enemies
                 .Where(e => e.Spawned && !e.Resolved && e.Hp > 0f)
                 .ToList();
+            UpdateControlProbeMetrics(
+                activeEnemies,
+                controlProbeStates,
+                controlCenter,
+                controlTrapCenter,
+                controlKillZoneRadius,
+                controlTrapRadius,
+                dt,
+                metrics);
 
             bool hasInRangeEnemy = activeEnemies.Any(e => e.GlobalPosition.DistanceTo(tower.GlobalPosition) <= tower.Range);
             if (hasInRangeEnemy)
@@ -995,7 +1143,8 @@ public sealed class CombatLabTowerBenchmarkRunner
         Dictionary<int, float> undertowRecentRemaining,
         Dictionary<int, float> undertowRetargetLockoutRemaining,
         List<BenchmarkEnemy> enemies,
-        float dt)
+        float dt,
+        TrialMetrics metrics)
     {
         TickUndertowTimers(undertowRecentRemaining, dt);
         TickUndertowTimers(undertowRetargetLockoutRemaining, dt);
@@ -1033,7 +1182,7 @@ public sealed class CombatLabTowerBenchmarkRunner
             float remainingDistance = MathF.Max(0f, effect.TotalPullDistance - effect.PulledDistance);
             if (remainingDistance <= 0.01f || effect.Remaining <= 0f)
             {
-                CompleteUndertowEffect(effect, enemies, undertowRecentRemaining);
+                CompleteUndertowEffect(effect, enemies, undertowRecentRemaining, metrics);
                 activeUndertows.RemoveAt(i);
                 continue;
             }
@@ -1060,12 +1209,14 @@ public sealed class CombatLabTowerBenchmarkRunner
             {
                 effect.Target.PathDistance = endDistance;
                 effect.PulledDistance += applied;
+                metrics.UndertowPullDistance += applied;
+                metrics.UndertowTimeDebtSeconds += applied / MathF.Max(1f, effect.Target.BaseSpeed);
             }
 
             effect.Remaining -= dt;
             if (effect.Remaining <= 0f || effect.PulledDistance >= effect.TotalPullDistance - 0.01f)
             {
-                CompleteUndertowEffect(effect, enemies, undertowRecentRemaining);
+                CompleteUndertowEffect(effect, enemies, undertowRecentRemaining, metrics);
                 activeUndertows.RemoveAt(i);
             }
         }
@@ -1298,7 +1449,8 @@ public sealed class CombatLabTowerBenchmarkRunner
     private static void CompleteUndertowEffect(
         BenchmarkUndertowEffect effect,
         List<BenchmarkEnemy> enemies,
-        Dictionary<int, float> undertowRecentRemaining)
+        Dictionary<int, float> undertowRecentRemaining,
+        TrialMetrics metrics)
     {
         if (!IsUsableUndertowTarget(effect.Target))
             return;
@@ -1307,13 +1459,14 @@ public sealed class CombatLabTowerBenchmarkRunner
         if (!effect.EnableEndpointPulse)
             return;
 
-        ApplyUndertowEndpointCompression(effect, enemies, undertowRecentRemaining);
+        ApplyUndertowEndpointCompression(effect, enemies, undertowRecentRemaining, metrics);
     }
 
     private static void ApplyUndertowEndpointCompression(
         BenchmarkUndertowEffect effect,
         List<BenchmarkEnemy> enemies,
-        Dictionary<int, float> undertowRecentRemaining)
+        Dictionary<int, float> undertowRecentRemaining,
+        TrialMetrics metrics)
     {
         int blastCopies = CountMod(effect.Tower, "blast_core");
         float radius = Balance.UndertowEndpointBaseRadius + blastCopies * Balance.UndertowEndpointRadiusPerBlastCore;
@@ -1341,6 +1494,8 @@ public sealed class CombatLabTowerBenchmarkRunner
                 continue;
 
             enemy.PathDistance = end;
+            metrics.UndertowPullDistance += moved;
+            metrics.UndertowTimeDebtSeconds += moved / MathF.Max(1f, enemy.BaseSpeed);
             if (!ReferenceEquals(enemy, effect.Target))
                 Statuses.ApplySlow(enemy, Balance.UndertowEndpointSlowDuration, Balance.UndertowEndpointSlowFactor);
         }
@@ -1583,7 +1738,7 @@ public sealed class CombatLabTowerBenchmarkRunner
         List<TowerCase> towerCases)
     {
         List<(CombatLabTowerBenchmarkTowerResult Result, float Score)> scored = scenarioResult.Results
-            .Select(result => (result, Score: ResolveScenarioPerformanceScore(result)))
+            .Select(result => (result, Score: ResolveScenarioPerformanceScore(result, suite.Mode)))
             .ToList();
         float globalMedian = ResolveMedian(scored.Select(row => row.Score).ToList());
         if (globalMedian <= 0.0001f)
@@ -1641,6 +1796,7 @@ public sealed class CombatLabTowerBenchmarkRunner
             float avgGlobal = (float)rows.Average(r => r.NormalizedGlobal);
             float avgCostBand = (float)rows.Average(r => r.NormalizedCostBand);
             float avgRole = (float)rows.Average(r => r.NormalizedRole);
+            float avgSupport = (float)rows.Average(r => r.SupportUtilityScore);
             float avgVariance = (float)rows.Average(r => r.ReliabilityVariance);
             float pathSensitivity = ResolvePathSensitivity(towerCase.CaseId, scenarioResults);
             var profile = new CombatLabTowerBenchmarkProfile
@@ -1654,6 +1810,7 @@ public sealed class CombatLabTowerBenchmarkRunner
                 AvgNormalizedGlobal = avgGlobal,
                 AvgNormalizedCostBand = avgCostBand,
                 AvgNormalizedRole = avgRole,
+                AvgSupportUtilityScore = avgSupport,
                 MapPathSensitivity = pathSensitivity,
                 AggregateReliabilityVariance = avgVariance,
             };
@@ -1817,9 +1974,7 @@ public sealed class CombatLabTowerBenchmarkRunner
 
     private BenchmarkTower BuildTower(CombatLabTowerBenchmarkScenario scenario, TowerCase towerCase, TowerDef def)
     {
-        Vector2 position = scenario.TowerPosition != null && scenario.TowerPosition.Length >= 2
-            ? new Vector2(scenario.TowerPosition[0], scenario.TowerPosition[1])
-            : new Vector2(MathF.Max(420f, scenario.PathLength * 0.38f), 0f);
+        Vector2 position = ResolveScenarioTowerPosition(scenario);
 
         var tower = new BenchmarkTower
         {
@@ -1846,6 +2001,90 @@ public sealed class CombatLabTowerBenchmarkRunner
         }
 
         return tower;
+    }
+
+    private static Vector2 ResolveScenarioTowerPosition(CombatLabTowerBenchmarkScenario scenario)
+    {
+        if (scenario.TowerPosition != null && scenario.TowerPosition.Length >= 2)
+            return new Vector2(scenario.TowerPosition[0], scenario.TowerPosition[1]);
+        return new Vector2(MathF.Max(420f, scenario.PathLength * 0.38f), 0f);
+    }
+
+    private static float ResolveControlKillZoneRadius(CombatLabTowerBenchmarkScenario scenario)
+    {
+        float laneWidth = Math.Max(20f, scenario.LaneWidth);
+        float radius = laneWidth * 0.75f + 120f;
+        return Mathf.Clamp(radius, 140f, 360f);
+    }
+
+    private static float ResolveControlTrapZoneRadius(float killZoneRadius, CombatLabTowerBenchmarkScenario scenario)
+    {
+        float laneWidth = Math.Max(20f, scenario.LaneWidth);
+        float radius = MathF.Min(killZoneRadius * 0.58f, laneWidth * 0.70f + 36f);
+        return Mathf.Clamp(radius, 42f, 120f);
+    }
+
+    private static void UpdateControlProbeMetrics(
+        List<BenchmarkEnemy> activeEnemies,
+        Dictionary<int, ControlProbeState> controlProbeStates,
+        Vector2 controlCenter,
+        Vector2 trapCenter,
+        float killZoneRadius,
+        float trapRadius,
+        float dt,
+        TrialMetrics metrics)
+    {
+        if (activeEnemies.Count == 0 || dt <= 0f)
+            return;
+
+        var killZoneMembers = new List<BenchmarkEnemy>();
+        foreach (BenchmarkEnemy enemy in activeEnemies)
+        {
+            bool inKillZone = enemy.GlobalPosition.DistanceTo(controlCenter) <= killZoneRadius;
+            if (inKillZone)
+            {
+                metrics.KillZoneEnemySeconds += dt;
+                killZoneMembers.Add(enemy);
+            }
+
+            if (!controlProbeStates.TryGetValue(enemy.Id, out ControlProbeState? state))
+            {
+                state = new ControlProbeState();
+                controlProbeStates[enemy.Id] = state;
+            }
+
+            bool inTrapZone = enemy.GlobalPosition.DistanceTo(trapCenter) <= trapRadius;
+            if (inTrapZone && !state.WasInTrapZone)
+            {
+                if (state.TrapEntries > 0)
+                    metrics.TrapReentries++;
+                state.TrapEntries++;
+            }
+            state.WasInTrapZone = inTrapZone;
+        }
+
+        if (killZoneMembers.Count < 2)
+            return;
+
+        float pairDistanceSum = 0f;
+        int pairCount = 0;
+        for (int i = 0; i < killZoneMembers.Count; i++)
+        {
+            for (int j = i + 1; j < killZoneMembers.Count; j++)
+            {
+                pairDistanceSum += MathF.Abs(killZoneMembers[i].PathDistance - killZoneMembers[j].PathDistance);
+                pairCount++;
+            }
+        }
+
+        if (pairCount <= 0)
+            return;
+
+        float avgSeparation = pairDistanceSum / pairCount;
+        float separationScale = MathF.Max(36f, killZoneRadius * 0.70f);
+        float tightness = 1f / (1f + avgSeparation / separationScale);
+        metrics.ClusterTightnessIntegral += tightness * dt;
+        metrics.ClusterSampleSeconds += dt;
     }
 
     private static List<BenchmarkEnemy> BuildEnemies(CombatLabTowerBenchmarkScenario scenario, Random rng)
@@ -1905,12 +2144,30 @@ public sealed class CombatLabTowerBenchmarkRunner
         return Mathf.Clamp(noise * spread * 0.5f, -half, half);
     }
 
-    private static float ResolveScenarioPerformanceScore(CombatLabTowerBenchmarkTowerResult result)
+    private static float ResolveScenarioPerformanceScore(CombatLabTowerBenchmarkTowerResult result, string? mode)
     {
+        if (IsSupportWeightedMode(mode))
+        {
+            float weightedDps = MathF.Sqrt(MathF.Max(0f, result.EffectiveDps));
+            float weightedLeak = Mathf.Clamp(result.LeakPreventionValue, 0f, 1f);
+            float weightedRole = MathF.Max(0f, result.AntiTankPerformance + result.AntiSwarmPerformance) * 0.5f;
+            float weightedSupport = MathF.Max(0f, result.SupportUtilityScore);
+            return weightedDps * 0.58f
+                   + weightedLeak * 1.45f
+                   + MathF.Min(1f, weightedRole) * 1.10f
+                   + weightedSupport * 2.10f;
+        }
+
         float dpsComponent = MathF.Max(0f, result.EffectiveDps);
         float leakComponent = Mathf.Clamp(result.LeakPreventionValue, 0f, 1f);
         float roleComponent = MathF.Max(0f, result.AntiTankPerformance + result.AntiSwarmPerformance) * 0.5f;
         return dpsComponent * (0.52f + leakComponent * 0.48f) * (0.72f + MathF.Min(1f, roleComponent) * 0.28f);
+    }
+
+    private static bool IsSupportWeightedMode(string? mode)
+    {
+        string normalized = (mode ?? string.Empty).Trim().ToLowerInvariant();
+        return normalized is "support_weighted" or "support_aware" or "control_support";
     }
 
     private static float ResolvePathSensitivity(string caseId, List<CombatLabTowerBenchmarkScenarioResult> scenarios)

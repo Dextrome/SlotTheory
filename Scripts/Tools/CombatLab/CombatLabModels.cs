@@ -378,6 +378,18 @@ public sealed class CombatLabTowerBenchmarkTowerResult
     public float WaveClearSeconds { get; set; }
     [JsonPropertyName("clear_rate")]
     public float ClearRate { get; set; }
+    [JsonPropertyName("control_dwell_delta")]
+    public float ControlDwellDelta { get; set; }
+    [JsonPropertyName("control_reentry_delta")]
+    public float ControlReentryDelta { get; set; }
+    [JsonPropertyName("control_time_debt_seconds")]
+    public float ControlTimeDebtSeconds { get; set; }
+    [JsonPropertyName("control_pull_distance")]
+    public float ControlPullDistance { get; set; }
+    [JsonPropertyName("control_cluster_gain")]
+    public float ControlClusterGain { get; set; }
+    [JsonPropertyName("support_utility_score")]
+    public float SupportUtilityScore { get; set; }
     [JsonPropertyName("surges_triggered")]
     public float SurgesTriggered { get; set; }
     [JsonPropertyName("global_surges_triggered")]
@@ -412,6 +424,8 @@ public sealed class CombatLabTowerBenchmarkProfile
     public float AvgNormalizedCostBand { get; set; }
     [JsonPropertyName("avg_normalized_role")]
     public float AvgNormalizedRole { get; set; }
+    [JsonPropertyName("avg_support_utility_score")]
+    public float AvgSupportUtilityScore { get; set; }
     [JsonPropertyName("map_path_sensitivity")]
     public float MapPathSensitivity { get; set; }
     [JsonPropertyName("aggregate_reliability_variance")]

@@ -434,13 +434,14 @@ After clearing all 20 waves, the win screen offers **Continue - Endless**. Press
 
 Each tower has its own spectacle meter that fills from modifier procs.
 
-| Constant | Value |
-|---|---|
-| Surge threshold | 145 |
-| Post-surge reset | 10 |
-| Surge cooldown | 6.0 s |
+| Metric | Base Constant | Effective Default (with current tuning profile) |
+|---|---:|---:|
+| Surge threshold | 150 | ~158.4 before per-tower multipliers |
+| Post-surge reset | 10 | ~10.83 |
+| Surge cooldown | 6.0 s | ~5.90 s |
 
 Meter gain comes from supported modifier procs, scaled by copy count, loadout diversity, and per-mod anti-spam token gates.
+Per-tower threshold multipliers then apply on top (for example: Rocket Launcher `0.82`, Undertow Engine `0.70`).
 
 ### Surge Effect Resolution
 
@@ -458,11 +459,11 @@ The surge effect type directly controls gameplay payloads (status clears, damage
 
 Every tower surge contributes to a shared global meter:
 
-| Constant | Value |
-|---|---|
-| Per-surge gain | +10 |
-| Global threshold | 100 |
-| Post-global reset | 0 |
+| Metric | Base Constant | Effective Default (with current tuning profile) |
+|---|---:|---:|
+| Per-surge gain | +10 | +11.5 |
+| Global threshold | 200 | 140 |
+| Post-global reset | 0 | 0 |
 
 ### Global Surge Effects
 
@@ -595,10 +596,10 @@ Bot mode (`--bot`) skips all evaluation -- unlocks are never modified in automat
 ```
 MainMenu.tscn
   -> Play -> ModeSelectPanel -> Campaign or Skirmish
+  -> Slot Codex -> SlotCodex.tscn (Towers / Modifiers / Enemies / How To Play / Surges)
   -> Map Editor -> MapEditor.tscn
   -> Leaderboards -> LeaderboardsMenu.tscn
   -> Achievements -> AchievementsPanel (inline)
-  -> How to Play -> HowToPlay
   -> Settings -> Settings
 
 Main.tscn (active run)
@@ -635,28 +636,39 @@ MapEditor.tscn
 - Hover 50x50 hit area on tower -> `CanvasLayer(Layer=5)` panel + label
 - Shows: tower name, targeting mode, modifier list
 
+### Tower Evolution Visuals
+
+- Towers have a readability-first visual evolution by modifier count (0/1/2/3 equipped mods)
+- Phase-2 and Phase-3 forms add stronger accent layering and clearer loaded-state silhouettes
+- Charge-ring/readability overlays were tuned for clearer at-a-glance state in hectic waves
+- Rift Sapper mine visuals inherit parent tower evolution accents for consistent ownership/readability
+
 ### Slot Codex (SlotCodexPanel)
 
-In-game reference for all towers, modifiers, and enemies:
+Primary in-game reference hub with dedicated tabs for towers, modifiers, enemies, How To Play, and Surges:
 - Unlocked entries: full stats + mechanic description; in-game procedural art (TowerIconFull, EnemyIcon)
 - Locked tower entries: "UNREVEALED TOWER" + map name hint
 - Locked modifier entries: "UNREVEALED MOD" + map name hint, or "FULL GAME" for demo-excluded content
 - Each card has a 2 px colored accent stripe via `UITheme.AddTopAccent()`
+- How To Play tab intentionally omits tower/modifier/enemy deep lists to avoid duplicating the dedicated tabs
 
 ### Map Editor
 
 - Entry from Main Menu
 - Interactive waypoint + slot placement on an 8x5 grid (snap to 80 px)
+- Placement is clamped to shared editable authored-map bounds (`MapBounds`); out-of-bounds save/playtest validation errors are explicit
 - Custom maps saved to `user://custom_maps/{id}.json`
 - Playtest always uses Easy difficulty; end screen shows [PLAYTEST] badge + Back to Editor
+- Pause menu during playtest includes a direct "Back to Editor" action
 - Ctrl+Z/Y undo/redo; Ctrl+S save
 
 ### Settings
 
 - Master / Music / FX volume sliders (saved to `user://settings.cfg`)
 - Display: Windowed / Fullscreen toggle
-- Colorblind mode: high-contrast modifier accent colors (no red/green reliance)
+- Colorblind profile: Off / Deuteranopia / Protanopia / Tritanopia (also configurable from pause menu)
 - Reduced motion: skips draft card flip animations -- cards appear face-up
+- Reduced motion and colorblind profile are also exposed in PauseScreen for mid-run accessibility changes
 
 ---
 
@@ -732,6 +744,8 @@ Scripted scenario validation and sweeps:
 -- --lab_sweep Data/combat_lab/sample_sweep.json --lab_out release/sweep.json
 # Tower benchmark
 -- --lab_tower_benchmark Data/combat_lab/tower_benchmark_core.json --lab_out release/tower_bench.json
+# Tower benchmark (support/control-weighted pass)
+-- --lab_tower_benchmark Data/combat_lab/tower_benchmark_support.json --lab_out release/tower_bench_support.json
 # Modifier benchmark
 -- --lab_modifier_benchmark Data/combat_lab/modifier_benchmark_core.json --lab_out release/mod_bench.json
 ```
@@ -739,6 +753,15 @@ Scripted scenario validation and sweeps:
 - `CombatLabCli.cs` -- CLI entry; `CombatLabScenarioRunner.cs` -- scenario runner
 - `CombatResolution.cs` -- reusable chain-resolution helper (used by both benchmark runners)
 - `BotMetricsDeltaReporter.cs` -- compares baseline vs tuned bot metrics
+- Tower benchmark now emits support/control telemetry columns in scenario + profile CSV/JSON:
+  - `control_dwell_delta`
+  - `control_reentry_delta`
+  - `control_time_debt_seconds`
+  - `control_pull_distance`
+  - `control_cluster_gain`
+  - `support_utility_score`
+  - `avg_support_utility_score`
+- Support-weighted mode (`mode: "support_weighted"`) still includes DPS/leak role signals, but weights positional utility explicitly so control towers are evaluated beyond raw damage output.
 
 ### Modifier Description Validation
 
