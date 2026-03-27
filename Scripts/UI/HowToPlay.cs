@@ -239,7 +239,7 @@ public partial class HowToPlay : Node
         var controlsCard = AddSurgeCard(vbox, "CONTROLS", new Color(0.48f, 0.88f, 1.00f, 0.92f));
         AddRow(controlsCard, "Pick a draft card", "Left-click the card");
         AddRow(controlsCard, "Assign tower / modifier", "Click target to preview, click same target again to confirm");
-        AddRow(controlsCard, "Cycle targeting mode", "Left-click a tower during a wave");
+        AddRow(controlsCard, "Set targeting mode", "Left-click a tower, then pick an icon");
         AddRow(controlsCard, "Pause / unpause", "Esc / Space / HUD Pause button");
         AddRow(controlsCard, "Speed", "Click speed button to cycle available game-speed steps");
         AddSpacer(vbox, 10);
@@ -267,7 +267,7 @@ public partial class HowToPlay : Node
         }
 
         var targetingCard = AddSurgeCard(vbox, "TARGETING MODES", new Color(0.62f, 0.88f, 1.00f, 0.92f));
-        AddSurgeCardLine(targetingCard, "Click a tower mid-wave to cycle targeting.");
+        AddSurgeCardLine(targetingCard, "Click a tower mid-wave, then choose a targeting icon.");
         AddTargetModeRow(targetingCard, TargetingMode.First, "First", "Enemy furthest along the path");
         AddTargetModeRow(targetingCard, TargetingMode.Strongest, "Strongest", "Enemy with the most current HP");
         AddTargetModeRow(targetingCard, TargetingMode.LowestHp, "Lowest HP", "Enemy closest to death");

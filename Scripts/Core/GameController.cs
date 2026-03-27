@@ -58,6 +58,12 @@ public partial class GameController : Node
 	private float _mobileTooltipUiScale = 1f;
 	private TowerInstance? _selectedTooltipTower;
 	private EnemyInstance? _selectedTooltipEnemy;
+	private Node2D? _targetModePanelRoot;
+	private TowerInstance? _targetModePanelTower;
+	private readonly List<TargetModePanelOption> _targetModePanelOptions = new();
+	private ColorRect? _targetModeHoverBg;
+	private Label? _targetModeHoverLabel;
+	private string _targetModeHoverText = string.Empty;
 	private CanvasLayer _announceLayer = null!;
 	private CanvasLayer _globalSurgeLayer = null!;
 	private Label _waveAnnounce = null!;
@@ -180,6 +186,19 @@ public partial class GameController : Node
 	private const float GlobalSurgeDurationScale = 4f;
 	private const float GlobalSurgeBannerHoldSeconds = 1f;
 	private const float GlobalSurgeBannerFadeSeconds = 1.8f;
+	private static readonly TargetingMode[] StandardTargetingModes =
+	{
+		TargetingMode.First,
+		TargetingMode.Strongest,
+		TargetingMode.LowestHp,
+		TargetingMode.Last,
+	};
+	private static readonly TargetingMode[] RiftSapperTargetingModes =
+	{
+		TargetingMode.First,
+		TargetingMode.Strongest,
+		TargetingMode.LowestHp,
+	};
 
 	private enum SpectacleConsequenceKind
 	{
@@ -187,6 +206,20 @@ public partial class GameController : Node
 		FrostSlow,
 		Vulnerability,
 		BurnPatch,
+	}
+
+	private readonly struct TargetModePanelOption
+	{
+		public TargetModePanelOption(TargetingMode mode, Rect2 worldRect, string displayName)
+		{
+			Mode = mode;
+			WorldRect = worldRect;
+			DisplayName = displayName;
+		}
+
+		public TargetingMode Mode { get; }
+		public Rect2 WorldRect { get; }
+		public string DisplayName { get; }
 	}
 
 	private sealed class ExplosionResidueState
@@ -532,6 +565,9 @@ public partial class GameController : Node
 		// When ProcessMode=Always is set (e.g. targeting tutorial panel) _Process still ticks
 		// while the tree is paused. Skip all game logic - only _Input needs to work.
 		if (GetTree().Paused) return;
+		if (_targetModePanelTower != null && (CurrentPhase != GamePhase.Wave || !GodotObject.IsInstanceValid(_targetModePanelTower)))
+			HideTargetModePanel();
+		UpdateTargetModePanelHover();
 
 		if (MobileOptimization.IsMobile() && GodotObject.IsInstanceValid(_mobileCamera))
 		{
@@ -1543,6 +1579,8 @@ public partial class GameController : Node
 		if (slotIndex < 0 || slotIndex >= _runState.Slots.Length) return;
 		var tower = _runState.Slots[slotIndex].TowerNode;
 		if (tower == null) return;
+		if (_targetModePanelTower == tower)
+			HideTargetModePanel();
 		_spectacleSystem.RemoveTower(tower);
 		if (_selectedTooltipTower == tower)
 			_selectedTooltipTower = null;
@@ -1742,6 +1780,8 @@ public partial class GameController : Node
 		{
 			return;
 		}
+		if (CurrentPhase != GamePhase.Wave && (_targetModePanelRoot != null || _targetModePanelTower != null))
+			HideTargetModePanel();
 		// Draft assignment: click a slot in the world to place tower / assign modifier
 		if (CurrentPhase == GamePhase.Draft && (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower))
 		{
@@ -1800,27 +1840,34 @@ public partial class GameController : Node
 		}
 		if (CurrentPhase == GamePhase.Wave)
 		{
+			if (HandleTargetModePanelPress(pressPos))
+			{
+				GetViewport().SetInputAsHandled();
+				return;
+			}
+
 			for (int i = 0; i < _runState.Slots.Length; i++)
 			{
 				var tower = _runState.Slots[i].TowerNode;
 				if (tower == null) continue;
 				var hitRect = new Rect2(tower.GlobalPosition - new Vector2(25f, 25f), new Vector2(50f, 50f));
 				if (!hitRect.HasPoint(pressPos)) continue;
-				if (MobileOptimization.IsMobile())
+
+				// Phase Splitter always targets front + back, so there is no targeting picker.
+				if (tower.TowerId == "phase_splitter")
 				{
-					if (_selectedTooltipTower == tower)
+					if (MobileOptimization.IsMobile())
 					{
-						tower.CycleTargetingMode();
-						DismissTutorialTargetingPanel();
+						_selectedTooltipTower = (_selectedTooltipTower == tower) ? null : tower;
+						_selectedTooltipEnemy = null;
+						GetViewport().SetInputAsHandled();
 					}
-					else
-						_selectedTooltipTower = tower;
+					return;
 				}
-				else
-				{
-					tower.CycleTargetingMode();
-					DismissTutorialTargetingPanel();
-				}
+
+				_selectedTooltipTower = tower;
+				_selectedTooltipEnemy = null;
+				ShowTargetModePanel(tower, i);
 				GetViewport().SetInputAsHandled();
 				return;
 			}
@@ -1844,6 +1891,309 @@ public partial class GameController : Node
 				_selectedTooltipEnemy = null;
 			}
 		}
+	}
+
+	private bool HandleTargetModePanelPress(Vector2 pressPos)
+	{
+		if (!IsTargetModePanelOpen())
+		{
+			if (_targetModePanelRoot != null || _targetModePanelTower != null || _targetModePanelOptions.Count > 0)
+				HideTargetModePanel();
+			return false;
+		}
+
+		var tower = _targetModePanelTower!;
+		foreach (var option in _targetModePanelOptions)
+		{
+			if (!option.WorldRect.HasPoint(pressPos))
+				continue;
+
+			tower.TargetingMode = option.Mode;
+			if (GodotObject.IsInstanceValid(tower.ModeIconControl))
+				tower.ModeIconControl.Mode = option.Mode;
+			DismissTutorialTargetingPanel();
+			HideTargetModePanel();
+			return true;
+		}
+
+		// Click outside panel closes it without changing mode.
+		HideTargetModePanel();
+		return true;
+	}
+
+	private bool IsTargetModePanelOpen()
+	{
+		return _targetModePanelRoot != null
+			&& _targetModePanelTower != null
+			&& GodotObject.IsInstanceValid(_targetModePanelRoot)
+			&& GodotObject.IsInstanceValid(_targetModePanelTower);
+	}
+
+	private void UpdateTargetModePanelHover()
+	{
+		if (!IsTargetModePanelOpen() || MobileOptimization.IsMobile())
+		{
+			HideTargetModeHover();
+			return;
+		}
+
+		var viewport = GetViewport();
+		if (viewport == null || !GodotObject.IsInstanceValid(viewport))
+		{
+			HideTargetModeHover();
+			return;
+		}
+
+		Vector2 mouseWorld = ScreenToWorld(viewport.GetMousePosition());
+		foreach (var option in _targetModePanelOptions)
+		{
+			if (!option.WorldRect.HasPoint(mouseWorld))
+				continue;
+
+			ShowTargetModeHover(option);
+			return;
+		}
+
+		HideTargetModeHover();
+	}
+
+	private void ShowTargetModeHover(TargetModePanelOption option)
+	{
+		if (_targetModePanelRoot == null
+			|| !GodotObject.IsInstanceValid(_targetModePanelRoot)
+			|| _targetModeHoverBg == null
+			|| !GodotObject.IsInstanceValid(_targetModeHoverBg)
+			|| _targetModeHoverLabel == null
+			|| !GodotObject.IsInstanceValid(_targetModeHoverLabel))
+			return;
+
+		if (_targetModeHoverText != option.DisplayName)
+		{
+			_targetModeHoverText = option.DisplayName;
+			_targetModeHoverLabel.Text = option.DisplayName;
+		}
+
+		int fontSize = _targetModeHoverLabel.GetThemeFontSize("font_size");
+		Font? font = _targetModeHoverLabel.GetThemeFont("font");
+		Vector2 textSize = font?.GetStringSize(option.DisplayName, HorizontalAlignment.Left, -1, fontSize)
+			?? new Vector2(Mathf.Max(18f, option.DisplayName.Length * 7f), 13f);
+		float padX = 6f;
+		float padY = 4f;
+		Vector2 bgSize = textSize + new Vector2(padX * 2f, padY * 2f);
+		Vector2 localAnchor = option.WorldRect.Position - _targetModePanelRoot.GlobalPosition + option.WorldRect.Size * 0.5f;
+		Vector2 bgPos = localAnchor + new Vector2(-bgSize.X * 0.5f, -bgSize.Y - 6f);
+
+		_targetModeHoverBg.Position = bgPos;
+		_targetModeHoverBg.Size = bgSize;
+		_targetModeHoverLabel.Position = bgPos + new Vector2(padX, padY - 1f);
+		_targetModeHoverBg.Visible = true;
+		_targetModeHoverLabel.Visible = true;
+	}
+
+	private void HideTargetModeHover()
+	{
+		_targetModeHoverText = string.Empty;
+		if (_targetModeHoverBg != null && GodotObject.IsInstanceValid(_targetModeHoverBg))
+			_targetModeHoverBg.Visible = false;
+		if (_targetModeHoverLabel != null && GodotObject.IsInstanceValid(_targetModeHoverLabel))
+			_targetModeHoverLabel.Visible = false;
+	}
+
+	private static string GetTargetModeDisplayName(TowerInstance tower, TargetingMode mode)
+	{
+		if (tower.TowerId == "rift_prism")
+		{
+			return mode switch
+			{
+				TargetingMode.First => "Random",
+				TargetingMode.Strongest => "Closest",
+				TargetingMode.LowestHp => "Furthest",
+				_ => "Random",
+			};
+		}
+
+		return mode switch
+		{
+			TargetingMode.First => "First",
+			TargetingMode.Strongest => "Strongest",
+			TargetingMode.LowestHp => "Lowest HP",
+			TargetingMode.Last => "Last",
+			_ => "First",
+		};
+	}
+
+	private void ShowTargetModePanel(TowerInstance tower, int slotIndex)
+	{
+		HideTargetModePanel();
+		if (slotIndex < 0 || slotIndex >= _slotNodes.Length)
+			return;
+		if (tower.TowerId == "phase_splitter")
+			return;
+
+		var slotNode = _slotNodes[slotIndex];
+		if (!GodotObject.IsInstanceValid(slotNode))
+			return;
+
+		TargetingMode[] modes = tower.TowerId == "rift_prism"
+			? RiftSapperTargetingModes
+			: StandardTargetingModes;
+		float buttonSize = MobileOptimization.IsMobile() ? 26f : 21f;
+		float gap = MobileOptimization.IsMobile() ? 5f : 4f;
+		float padding = MobileOptimization.IsMobile() ? 5f : 4f;
+		float panelWidth = buttonSize + padding * 2f;
+		float panelHeight = modes.Length * buttonSize + (modes.Length - 1) * gap + padding * 2f;
+		float rightOffset = MobileOptimization.IsMobile() ? 42f : 36f;
+		float sideOffset = rightOffset;
+		float yOffset = -panelHeight * 0.5f;
+
+		var viewport = GetViewport();
+		if (viewport != null && GodotObject.IsInstanceValid(viewport))
+		{
+			Vector2 viewportSize = viewport.GetVisibleRect().Size;
+			Vector2 panelRightWorld = slotNode.GlobalPosition + new Vector2(rightOffset + panelWidth, 0f);
+			Vector2 panelRightScreen = WorldToScreen(panelRightWorld);
+			if (panelRightScreen.X > viewportSize.X - 8f)
+				sideOffset = -(rightOffset + panelWidth);
+		}
+
+		Vector2 panelTopLeft = new Vector2(sideOffset, yOffset);
+		var root = new Node2D
+		{
+			Name = "_TargetModePanel",
+			ZIndex = 240,
+		};
+		slotNode.AddChild(root);
+
+		var panelBg = new ColorRect
+		{
+			Position = panelTopLeft,
+			Size = new Vector2(panelWidth, panelHeight),
+			Color = new Color(0.02f, 0.04f, 0.11f, 0.92f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		root.AddChild(panelBg);
+
+		var panelBorder = new Line2D
+		{
+			Points = new[]
+			{
+				panelTopLeft,
+				panelTopLeft + new Vector2(panelWidth, 0f),
+				panelTopLeft + new Vector2(panelWidth, panelHeight),
+				panelTopLeft + new Vector2(0f, panelHeight),
+				panelTopLeft,
+			},
+			Width = 1.8f,
+			DefaultColor = new Color(0.66f, 0.92f, 1.00f, 0.90f),
+			Antialiased = true,
+		};
+		root.AddChild(panelBorder);
+
+		_targetModeHoverBg = new ColorRect
+		{
+			Visible = false,
+			Color = new Color(0.01f, 0.03f, 0.08f, 0.96f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		root.AddChild(_targetModeHoverBg);
+		_targetModeHoverLabel = new Label
+		{
+			Visible = false,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+			AutowrapMode = TextServer.AutowrapMode.Off,
+		};
+		UITheme.ApplyFont(_targetModeHoverLabel, semiBold: true, size: 12);
+		_targetModeHoverLabel.Modulate = new Color(0.95f, 0.99f, 1.00f, 0.98f);
+		root.AddChild(_targetModeHoverLabel);
+		_targetModeHoverText = string.Empty;
+
+		TargetModeIconSet iconSet = tower.TowerId == "rift_prism"
+			? TargetModeIconSet.RiftSapper
+			: TargetModeIconSet.Default;
+
+		for (int i = 0; i < modes.Length; i++)
+		{
+			TargetingMode mode = modes[i];
+			bool active = mode == tower.TargetingMode;
+			Vector2 buttonPos = panelTopLeft + new Vector2(padding, padding + i * (buttonSize + gap));
+			Vector2 buttonSizeVec = new Vector2(buttonSize, buttonSize);
+
+			var buttonBg = new ColorRect
+			{
+				Position = buttonPos,
+				Size = buttonSizeVec,
+				Color = active
+					? new Color(0.14f, 0.34f, 0.50f, 0.98f)
+					: new Color(0.06f, 0.10f, 0.18f, 0.90f),
+				MouseFilter = Control.MouseFilterEnum.Ignore,
+			};
+			root.AddChild(buttonBg);
+
+			var buttonBorder = new Line2D
+			{
+				Points = new[]
+				{
+					buttonPos,
+					buttonPos + new Vector2(buttonSize, 0f),
+					buttonPos + new Vector2(buttonSize, buttonSize),
+					buttonPos + new Vector2(0f, buttonSize),
+					buttonPos,
+				},
+				Width = active ? 1.7f : 1.3f,
+				DefaultColor = active
+					? new Color(0.78f, 0.98f, 1.00f, 0.95f)
+					: new Color(0.42f, 0.68f, 0.82f, 0.78f),
+				Antialiased = true,
+			};
+			root.AddChild(buttonBorder);
+
+			float iconInset = Mathf.Max(2f, buttonSize * 0.14f);
+			float iconSize = buttonSize - iconInset * 2f;
+			var icon = new TargetModeIcon
+			{
+				Mode = mode,
+				IconSet = iconSet,
+				IconColor = active
+					? new Color(0.95f, 1.00f, 1.00f)
+					: new Color(0.79f, 0.89f, 0.98f),
+				Position = new Vector2(iconInset, iconInset),
+				Size = new Vector2(iconSize, iconSize),
+				CustomMinimumSize = new Vector2(iconSize, iconSize),
+				MouseFilter = Control.MouseFilterEnum.Ignore,
+			};
+			buttonBg.AddChild(icon);
+
+			Vector2 worldTopLeft = slotNode.GlobalPosition + buttonPos;
+			string displayName = GetTargetModeDisplayName(tower, mode);
+			_targetModePanelOptions.Add(new TargetModePanelOption(mode, new Rect2(worldTopLeft, buttonSizeVec), displayName));
+		}
+
+		// Keep hover tooltip in the foreground above icon buttons.
+		if (_targetModeHoverBg != null && GodotObject.IsInstanceValid(_targetModeHoverBg))
+		{
+			_targetModeHoverBg.ZIndex = 50;
+			root.MoveChild(_targetModeHoverBg, root.GetChildCount() - 1);
+		}
+		if (_targetModeHoverLabel != null && GodotObject.IsInstanceValid(_targetModeHoverLabel))
+		{
+			_targetModeHoverLabel.ZIndex = 51;
+			root.MoveChild(_targetModeHoverLabel, root.GetChildCount() - 1);
+		}
+
+		_targetModePanelRoot = root;
+		_targetModePanelTower = tower;
+	}
+
+	private void HideTargetModePanel()
+	{
+		HideTargetModeHover();
+		if (_targetModePanelRoot != null && GodotObject.IsInstanceValid(_targetModePanelRoot))
+			_targetModePanelRoot.QueueFree();
+		_targetModePanelRoot = null;
+		_targetModePanelTower = null;
+		_targetModePanelOptions.Clear();
+		_targetModeHoverBg = null;
+		_targetModeHoverLabel = null;
 	}
 
 	private bool TryGetMobileGameplayTap(InputEvent @event, out Vector2 worldTapPos)
@@ -7707,7 +8057,7 @@ void fragment() {
 
 	/// <summary>
 	/// Tutorial-mode targeting panel. Pauses the wave and explains targeting modes.
-	/// Dismissed when the player clicks any tower to cycle its targeting mode.
+	/// Dismissed when the player picks a targeting icon from a tower's mode panel.
 	/// </summary>
 	private void ShowTutorialTargetingPanel()
 	{
@@ -7765,7 +8115,7 @@ void fragment() {
 
 		var body = new Label
 		{
-			Text = "Each tower has a small arrow icon showing how it picks targets.\n▶ First - attacks the enemy furthest along the path.\n★ Strongest - attacks the highest HP enemy in range.\n▼ Lowest HP - focuses the weakest enemy to finish it fast.\n\nClick any tower now to cycle its targeting mode.",
+			Text = "Each tower has a small arrow icon showing how it picks targets.\n▶ First - attacks the enemy furthest along the path.\n★ Strongest - attacks the highest HP enemy in range.\n▼ Lowest HP - focuses the weakest enemy to finish it fast.\n\nClick any tower, then click one icon in its panel to set targeting mode.",
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 			HorizontalAlignment = HorizontalAlignment.Center,
 			MouseFilter = Control.MouseFilterEnum.Ignore,

@@ -24,6 +24,7 @@ public partial class MapSelectPanel : Node
 	private Button? _easyButton;
 	private Button? _normalButton;
 	private Button? _hardButton;
+	private Button? _startRunButton;
 	private Label? _personalBestLabel;
 	private MapPreviewControl? _previewControl;
 	private ulong _proceduralPreviewSeed;
@@ -32,7 +33,7 @@ public partial class MapSelectPanel : Node
 	public override void _Ready()
 	{
 		DataLoader.LoadAll();
-		_selectedMapId = DataLoader.GetAllMapDefs().FirstOrDefault()?.Id ?? "random_map";
+		_selectedMapId = ResolveInitialMapSelection();
 		_selectedDifficulty = DifficultyMode.Normal;
 		_proceduralPreviewSeed = (ulong)(System.Environment.TickCount64 & 0x7FFFFFFF);
 
@@ -241,18 +242,18 @@ public partial class MapSelectPanel : Node
 		rightColumn.AddChild(new Control { CustomMinimumSize = new Vector2(0, 2) });
 
 		// Start Run + Back in the right column - always visible, no layout tricks needed
-		var startBtn = new Button
+		_startRunButton = new Button
 		{
 			Text = "Start Run",
 			CustomMinimumSize = new Vector2(0, 50),
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 		};
-		startBtn.AddThemeFontSizeOverride("font_size", 24);
-		UITheme.ApplyPrimaryStyle(startBtn);
-		UITheme.ApplyMenuButtonFinish(startBtn, UITheme.Lime, 0.11f, 0.14f);
-		startBtn.Pressed      += OnStartRun;
-		startBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
-		rightColumn.AddChild(startBtn);
+		_startRunButton.AddThemeFontSizeOverride("font_size", 24);
+		UITheme.ApplyPrimaryStyle(_startRunButton);
+		UITheme.ApplyMenuButtonFinish(_startRunButton, UITheme.Lime, 0.11f, 0.14f);
+		_startRunButton.Pressed      += OnStartRun;
+		_startRunButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
+		rightColumn.AddChild(_startRunButton);
 
 		var backBtn = new Button
 		{
@@ -269,6 +270,7 @@ public partial class MapSelectPanel : Node
 
 		MobileOptimization.ApplyUIScale(center);
 		AddChild(new PinchZoomHandler(center));
+		UpdateStartRunButtonState();
 	}
 
 	public override void _Notification(int what)
@@ -302,19 +304,17 @@ public partial class MapSelectPanel : Node
 				return;
 			}
 
-			// Campaign maps and fixed maps first, random map kept last
-			var campaignMaps = maps.Where(m => m.Id != "random_map" && (!m.IsFullGame || !Balance.IsDemo));
-			var fullGameMaps = maps.Where(m => m.IsFullGame);
+			// Campaign/fixed maps first, random map kept last.
+			var campaignMaps = maps.Where(m => m.Id != "random_map");
 			var randomMap    = maps.FirstOrDefault(m => m.Id == "random_map");
 
 			foreach (var mapDef in campaignMaps)
-				_mapListContainer.AddChild(CreateMapButton(mapDef.Id, mapDef.Name, mapDef.Description));
-
-			// In demo: show locked placeholders for full-game maps
-			if (Balance.IsDemo)
 			{
-				foreach (var _ in fullGameMaps)
-					_mapListContainer.AddChild(CreateFullGameMapRow("???", "Available in the full game."));
+				bool fullGamePreviewOnly = Balance.IsDemo && mapDef.IsFullGame;
+				string description = fullGamePreviewOnly
+					? "Available in full release."
+					: mapDef.Description;
+				_mapListContainer.AddChild(CreateMapButton(mapDef.Id, mapDef.Name, description, fullGamePreviewOnly));
 			}
 
 			if (randomMap != null)
@@ -326,83 +326,17 @@ public partial class MapSelectPanel : Node
 		}
 	}
 
-	private Control CreateFullGameMapRow(string mapName, string description)
-	{
-		var container = new PanelContainer();
-		container.ThemeTypeVariation = "NoVisualHBox";
-		container.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-		if (_isMobile)
-			container.MouseFilter = Control.MouseFilterEnum.Ignore;
-		ApplyMapRowStyle(container, selected: false, locked: true);
-
-		var hbox = new HBoxContainer();
-		hbox.AddThemeConstantOverride("separation",    10);
-		hbox.AddThemeConstantOverride("margin_left",   10);
-		hbox.AddThemeConstantOverride("margin_top",    9);
-		hbox.AddThemeConstantOverride("margin_right",  10);
-		hbox.AddThemeConstantOverride("margin_bottom", 9);
-		if (_isMobile)
-			hbox.MouseFilter = Control.MouseFilterEnum.Ignore;
-		container.AddChild(hbox);
-
-		// Lock badge in place of SELECT button
-		var lockBadge = new Label
-		{
-			Text = "FULL\nGAME",
-			HorizontalAlignment = HorizontalAlignment.Center,
-			VerticalAlignment = VerticalAlignment.Center,
-			CustomMinimumSize = new Vector2(80, 52),
-		};
-		lockBadge.AddThemeFontSizeOverride("font_size", 12);
-		UITheme.ApplyFont(lockBadge, semiBold: true, size: 12);
-		lockBadge.Modulate = new Color(0.55f, 0.60f, 0.80f);
-		hbox.AddChild(lockBadge);
-
-		var textVbox = new VBoxContainer();
-		textVbox.AddThemeConstantOverride("separation", 1);
-		textVbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-		if (_isMobile)
-			textVbox.MouseFilter = Control.MouseFilterEnum.Ignore;
-		hbox.AddChild(textVbox);
-
-		var nameLabel = new Label
-		{
-			Text = mapName,
-			HorizontalAlignment = HorizontalAlignment.Left,
-		};
-		if (_isMobile)
-			nameLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
-		UITheme.ApplyFont(nameLabel, semiBold: true, size: 19);
-		nameLabel.Modulate = new Color(0.55f, 0.60f, 0.80f);
-		textVbox.AddChild(nameLabel);
-
-		var descLabel = new Label
-		{
-			Text = description,
-			HorizontalAlignment = HorizontalAlignment.Left,
-			AutowrapMode = _isMobile
-				? TextServer.AutowrapMode.Word
-				: TextServer.AutowrapMode.Off,
-		};
-		if (_isMobile)
-			descLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
-		descLabel.AddThemeFontSizeOverride("font_size", 12);
-		descLabel.Modulate = new Color(0.45f, 0.48f, 0.62f);
-		textVbox.AddChild(descLabel);
-
-		return container;
-	}
-
-	private Control CreateMapButton(string mapId, string mapName, string description)
+	private Control CreateMapButton(string mapId, string mapName, string description, bool fullGamePreviewOnly = false)
 	{
 		bool isSelected = mapId == _selectedMapId;
 		var container = new PanelContainer();
 		container.ThemeTypeVariation = "NoVisualHBox";
 		container.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		container.SetMeta("map_id", mapId);
+		container.SetMeta("full_game_preview_only", fullGamePreviewOnly);
 		if (_isMobile)
 			container.MouseFilter = Control.MouseFilterEnum.Pass;
-		ApplyMapRowStyle(container, selected: isSelected, locked: false);
+		ApplyMapRowStyle(container, selected: isSelected, locked: fullGamePreviewOnly);
 
 		var hbox = new HBoxContainer();
 		hbox.AddThemeConstantOverride("separation",    10);
@@ -416,10 +350,16 @@ public partial class MapSelectPanel : Node
 
 		var btn = new Button
 		{
-			Text = "SELECT",
+			Text = fullGamePreviewOnly ? "PREVIEW" : "SELECT",
 			CustomMinimumSize = new Vector2(80, 52),
 		};
-		if (isSelected)
+		if (fullGamePreviewOnly)
+		{
+			UITheme.ApplyCyanStyle(btn);
+			UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, 0.06f, 0.08f);
+			btn.Modulate = new Color(0.72f, 0.76f, 0.86f, 0.86f);
+		}
+		else if (isSelected)
 		{
 			UITheme.ApplyPrimaryStyle(btn);
 			UITheme.ApplyMenuButtonFinish(btn, UITheme.Lime, 0.10f, 0.13f);
@@ -452,7 +392,9 @@ public partial class MapSelectPanel : Node
 		if (_isMobile)
 			nameLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
 		UITheme.ApplyFont(nameLabel, semiBold: true, size: 19);
-		nameLabel.Modulate = isSelected
+		nameLabel.Modulate = fullGamePreviewOnly
+			? new Color(0.56f, 0.60f, 0.72f)
+			: isSelected
 			? new Color(0.95f, 0.99f, 0.86f)
 			: new Color(0.90f, 0.95f, 1.00f);
 		textVbox.AddChild(nameLabel);
@@ -468,7 +410,9 @@ public partial class MapSelectPanel : Node
 		if (_isMobile)
 			descLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
 		descLabel.AddThemeFontSizeOverride("font_size", 12);
-		descLabel.Modulate = isSelected
+		descLabel.Modulate = fullGamePreviewOnly
+			? new Color(0.44f, 0.48f, 0.60f)
+			: isSelected
 			? new Color(0.78f, 0.84f, 0.70f)
 			: new Color(0.66f, 0.70f, 0.78f);
 		textVbox.AddChild(descLabel);
@@ -510,6 +454,7 @@ public partial class MapSelectPanel : Node
 		UpdatePersonalBestLabel();
 		UpdateDifficultyVisuals();
 		UpdateMapPreview();
+		UpdateStartRunButtonState();
 
 		if (_mapListContainer == null) return;
 
@@ -542,10 +487,55 @@ public partial class MapSelectPanel : Node
 
 	private void OnStartRun()
 	{
+		if (!IsSelectedMapPlayable())
+		{
+			SoundManager.Instance?.Play("ui_select");
+			return;
+		}
+
 		_pendingMapSelection = _selectedMapId;
 		_pendingProceduralSeed = _selectedMapId == "random_map" ? _proceduralPreviewSeed : 0;
 		SettingsManager.Instance?.SetDifficulty(_selectedDifficulty);
 		Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
+	}
+
+	private string ResolveInitialMapSelection()
+	{
+		var maps = DataLoader.GetAllMapDefs();
+		bool hasExplicitPending = !string.IsNullOrWhiteSpace(_pendingMapSelection)
+			&& _pendingMapSelection != "random_map";
+		if (hasExplicitPending)
+		{
+			var preferred = maps.FirstOrDefault(m => m.Id == _pendingMapSelection);
+			if (preferred != null)
+				return preferred.Id;
+		}
+
+		// Default to the first map as shown in the list (campaign maps first, random map last).
+		var firstListed = maps.FirstOrDefault(m => m.Id != "random_map") ?? maps.FirstOrDefault();
+		return firstListed?.Id ?? "random_map";
+	}
+
+	private bool IsSelectedMapPlayable()
+	{
+		if (!Balance.IsDemo)
+			return true;
+		var mapDef = DataLoader.GetAllMapDefs().FirstOrDefault(m => m.Id == _selectedMapId);
+		return mapDef == null || !mapDef.IsFullGame;
+	}
+
+	private void UpdateStartRunButtonState()
+	{
+		if (_startRunButton == null)
+			return;
+
+		bool playable = IsSelectedMapPlayable();
+		_startRunButton.Disabled = !playable;
+		_startRunButton.Text = playable ? "Start Run" : "FULL GAME MAP";
+		_startRunButton.TooltipText = playable ? string.Empty : "Available in full release.";
+		_startRunButton.Modulate = playable
+			? Colors.White
+			: new Color(0.62f, 0.66f, 0.78f, 0.90f);
 	}
 
 	private void OnBack()
