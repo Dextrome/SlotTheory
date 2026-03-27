@@ -311,4 +311,51 @@ public class CombatLabTowerBenchmarkRunnerTests
         var rows = report.ScenarioResults.Single().Results.ToDictionary(r => r.CaseId);
         Assert.True(rows["blast"].TotalDamage > rows["base"].TotalDamage * 1.10f);
     }
+
+    [Fact]
+    public void Undertow_ChainReactionCopies_IncreaseSecondaryTargets()
+    {
+        var defs = new Dictionary<string, TowerDef>
+        {
+            ["undertow_engine"] = new TowerDef("Undertow Engine", BaseDamage: 8f, AttackInterval: 0.75f, Range: 300f),
+        };
+
+        var suite = new CombatLabTowerBenchmarkSuite
+        {
+            Name = "undertow_chain_scaling",
+            Seed = 9412,
+            TrialsPerScenario = 1,
+            IncludeAllTowers = false,
+            Towers = new List<CombatLabTowerBenchmarkTowerSetup>
+            {
+                new() { CaseId = "chain1", Tower = "undertow_engine", Mods = new[] { "chain_reaction" }, Targeting = "first" },
+                new() { CaseId = "chain2", Tower = "undertow_engine", Mods = new[] { "chain_reaction", "chain_reaction" }, Targeting = "first" },
+            },
+            Scenarios = new List<CombatLabTowerBenchmarkScenario>
+            {
+                new()
+                {
+                    Id = "dense_pack",
+                    Name = "Dense Pack",
+                    DurationSeconds = 8f,
+                    PathLength = 4200f,
+                    LaneWidth = 120f,
+                    TowerPosition = new[] { 320f, 0f },
+                    StopWhenResolved = false,
+                    EnemyGroups = new List<CombatLabTowerBenchmarkEnemyGroup>
+                    {
+                        new() { Id = "pack", Count = 12, Hp = 1600f, Speed = 34f, SpawnInterval = 0.06f },
+                    },
+                },
+            },
+        };
+
+        var report = new CombatLabTowerBenchmarkRunner(defs, StubModifierFactory()).RunSuite(suite);
+        var rows = report.ScenarioResults.Single().Results.ToDictionary(r => r.CaseId);
+        float chain1 = rows["chain1"].AverageTargetsHit;
+        float chain2 = rows["chain2"].AverageTargetsHit;
+
+        Assert.True(chain2 > chain1,
+            $"Expected chain2 targets/shot to exceed chain1, but chain1={chain1:F2}, chain2={chain2:F2}.");
+    }
 }

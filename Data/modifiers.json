@@ -62,7 +62,7 @@
   "afterimage": {
     "Id": "afterimage",
     "Name": "Afterimage",
-    "Description": "Hits leave a ghost imprint. After a short delay, the imprint replays a weaker echo from that spot."
+    "Description": "Hits leave a ghost imprint. After a short delay, it triggers one weaker replay from that spot (not a lingering hazard)."
   },
   "reaper_protocol": {
     "Id": "reaper_protocol",

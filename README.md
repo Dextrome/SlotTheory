@@ -183,7 +183,7 @@ Unlock flow (via Campaign mode):
 | Chain Reaction | +1 chain bounce per copy, 50% damage carry per bounce |
 | Blast Core | On hit: 45% splash in 140 px radius; each extra copy adds +25 px radius. On Rocket Launcher, also expands native rocket splash radius by +24 px per copy |
 | Wildfire | On primary hit: ignite for 4 s burn at 25% BaseDamage/s; burning enemies drop fire trail segments (2.2 s, 30 px radius, 40% burn DPS to overlapping enemies); stacks add burn DPS |
-| Afterimage | Hits leave a ghost imprint. After a short delay, the imprint replays a weaker echo from that spot |
+| Afterimage | Hits leave a ghost imprint. After a short delay, the imprint triggers one weaker replay from that spot (not a lingering hazard). Echo hits use the tower's current modifiers, but do not seed new Afterimages |
 
 Max modifiers per tower: 3
 

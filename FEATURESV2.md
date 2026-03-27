@@ -193,7 +193,7 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 | Split Shot | `split_shot` | On hit: fires 2 extra projectiles at nearby enemies at 28% damage; each extra copy adds +1 projectile | SPLIT_UNSEALED |
 | Blast Core | `blast_core` | On primary hit: 45% splash in 140 px radius; each extra copy adds +25 px radius | BLAST_UNSEALED |
 | Wildfire | `wildfire` | On primary hit: ignite for 4 s burn at 25% BaseDamage/s; burning enemies drop fire trail segments (2.2 s, 30 px radius, 40% burn DPS to overlapping enemies); stacks add burn DPS | WILDFIRE_UNSEALED |
-| Afterimage | `afterimage` | On primary hit: leave a short ghost imprint at impact; after a brief delay it triggers one weaker local echo from that spot | AFTERIMAGE_UNSEALED |
+| Afterimage | `afterimage` | On primary hit: leave a short ghost imprint at impact; after a brief delay it triggers one weaker local echo from that spot (single replay, not a lingering zone). Echo hits run through normal modifier effects but suppress new Afterimage seeding | AFTERIMAGE_UNSEALED |
 | Reaper Protocol | `reaper_protocol` | Kill (primary only): first 5 kills per wave restore 1 life each (capped at MaxLives). **Full game only. Available from wave 10 onward.** | REAPER_UNSEALED |
 
 ### Modifier isChain Rules
@@ -204,7 +204,7 @@ Modifiers that opt out of chain/secondary targets set `ApplyToChainTargets = fal
 |---|---|---|
 | Blast Core | **false** | No -- splash only on primary hits |
 | Wildfire | **false** | No -- ignition only on primary hits |
-| Afterimage | n/a (primary-hit hook) | No -- imprint/echo only queues from primary hits (`!IsChain`) |
+| Afterimage | n/a (primary-hit hook) | No -- imprint/echo only queues from primary hits (`!IsChain`) and is suppressed for echo-generated damage contexts |
 | Overkill | **false** | No -- kill spill only on primary kills |
 | Reaper Protocol | true (OnKill only) | OnKill checks `ctx.IsChain` internally -- chain kills are rejected at the modifier level, not via `ApplyToChainTargets` |
 | All others | true | Yes |

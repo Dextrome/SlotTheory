@@ -97,13 +97,14 @@ public class CombatSim
         public float DamagePerSecond { get; init; }
         public int OwnerSlotIndex { get; init; }
         public WildfireTrailVfx? Visual { get; init; }
-        // Per-enemy fractional damage accumulator: shows a damage number once ≥ 1 HP has built up.
-        // Keyed by Godot instance ID (ulong) to avoid holding enemy references after death.
-        public readonly Dictionary<ulong, float> DmgAccumulator = new();
     }
     private readonly List<FireTrailSegment> _activeFireTrails = new();
+    // Wildfire trail number readability: accumulate fractional trail damage per enemy globally
+    // across all overlapping segments, then emit numbers once full HP chunks build up.
+    private readonly Dictionary<ulong, float> _wildfireTrailDmgAccumulator = new();
     private static readonly Color WildfireFireColor = new(1.0f, 0.55f, 0.12f);
     private static readonly Color AfterimageColor = new(0.72f, 0.88f, 1.00f);
+    private bool _afterimageFollowupsConsumed;
 
     // Set externally by GameController when an enemy scene is needed
     public PackedScene? EnemyScene { get; set; }
@@ -792,6 +793,7 @@ public class CombatSim
                 trail.Visual.QueueFree();
         }
         _activeFireTrails.Clear();
+        _wildfireTrailDmgAccumulator.Clear();
     }
 
     private void ClearUndertowEffects()
@@ -1188,31 +1190,45 @@ public class CombatSim
 
         if (tower.ChainCount > 0)
         {
-            EnemyInstance? chainTarget = SelectUndertowSecondaryTarget(
-                tower,
-                primaryTarget,
-                enemies,
-                excluded,
-                MathF.Max(Balance.UndertowSecondarySearchRadius, tower.ChainRange));
-            if (chainTarget != null && TryStartUndertowEffect(
-                tower,
-                towerNode,
-                chainTarget,
-                Balance.UndertowChainSecondaryMultiplier,
-                isSecondary: true,
-                isFollowup: false,
-                enableEndpointPulse: false))
+            float searchRadius = MathF.Max(Balance.UndertowSecondarySearchRadius, tower.ChainRange);
+            EnemyInstance chainAnchor = primaryTarget;
+            for (int link = 0; link < tower.ChainCount; link++)
             {
+                EnemyInstance? chainTarget = SelectUndertowSecondaryTarget(
+                    tower,
+                    chainAnchor,
+                    enemies,
+                    excluded,
+                    searchRadius);
+                if (chainTarget == null)
+                    break;
+
+                // Mark this target as consumed regardless of whether it can start an effect,
+                // so later links can still try other nearby enemies.
+                excluded.Add(chainTarget);
+
+                bool started = TryStartUndertowEffect(
+                    tower,
+                    towerNode,
+                    chainTarget,
+                    Balance.UndertowChainSecondaryMultiplier,
+                    isSecondary: true,
+                    isFollowup: false,
+                    enableEndpointPulse: false);
+                if (!started)
+                    continue;
+
                 applied++;
                 if (!BotMode && towerNode != null)
-                {
-                    SpawnChainArc(primaryTarget.GlobalPosition, chainTarget.GlobalPosition, towerNode.ProjectileColor, intensity: 0.94f);
-                }
+                    SpawnChainArc(chainAnchor.GlobalPosition, chainTarget.GlobalPosition, towerNode.ProjectileColor, intensity: 0.94f);
+
                 GameController.Instance?.RegisterSpectacleProc(
                     tower,
                     SpectacleDefinitions.ChainReaction,
                     SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ChainReaction),
                     tower.BaseDamage * Balance.UndertowChainSecondaryMultiplier);
+
+                chainAnchor = chainTarget;
             }
         }
 
@@ -1423,17 +1439,51 @@ public class CombatSim
                 if (!BotMode && dealt > 0f)
                 {
                     ulong eid = enemy.GetInstanceId();
-                    trail.DmgAccumulator.TryGetValue(eid, out float acc);
+                    _wildfireTrailDmgAccumulator.TryGetValue(eid, out float acc);
                     acc += dealt;
                     if (acc >= 1f)
                     {
+                        float shown = MathF.Floor(acc);
                         SpawnDamageNumber(enemy.GlobalPosition + new Godot.Vector2(-6f, 0f),
-                            acc, enemy.Hp <= 0f, "wildfire", WildfireFireColor, scale: 0.72f);
+                            shown, enemy.Hp <= 0f, "wildfire", WildfireFireColor, scale: 0.72f);
+                        acc -= shown;
+                    }
+
+                    // Flush tiny remainder on kill so the final trail tick has visible feedback.
+                    if (enemy.Hp <= 0f && acc > 0.01f)
+                    {
+                        SpawnDamageNumber(enemy.GlobalPosition + new Godot.Vector2(-6f, 0f),
+                            1f, isKill: true, "wildfire", WildfireFireColor, scale: 0.72f);
                         acc = 0f;
                     }
-                    trail.DmgAccumulator[eid] = acc;
+
+                    if (acc <= 0.0001f)
+                        _wildfireTrailDmgAccumulator.Remove(eid);
+                    else
+                        _wildfireTrailDmgAccumulator[eid] = acc;
                 }
             }
+        }
+
+        if (!BotMode && _wildfireTrailDmgAccumulator.Count > 0)
+        {
+            // Prune dead/invalid enemy ids so this cache doesn't grow unbounded.
+            var liveIds = new HashSet<ulong>();
+            foreach (var enemy in enemies)
+            {
+                if (GodotObject.IsInstanceValid(enemy) && enemy.Hp > 0f)
+                    liveIds.Add(enemy.GetInstanceId());
+            }
+
+            var stale = new List<ulong>();
+            foreach (ulong eid in _wildfireTrailDmgAccumulator.Keys)
+            {
+                if (!liveIds.Contains(eid))
+                    stale.Add(eid);
+            }
+
+            foreach (ulong eid in stale)
+                _wildfireTrailDmgAccumulator.Remove(eid);
         }
     }
 
@@ -1529,6 +1579,7 @@ public class CombatSim
     private void TriggerAfterimageEcho(ActiveAfterimage imprint, List<EnemyInstance> enemies)
     {
         ITowerView tower = imprint.SourceTower;
+        _afterimageFollowupsConsumed = false;
         int copies = Math.Max(1, CountModifierCopies(tower, "afterimage"));
         float radius = ResolveAfterimageRadius(tower, copies);
         float baseDamage = Mathf.Max(Balance.AfterimageMinDamage, imprint.SeedDamage * ResolveAfterimageDamageScale(tower, copies));
@@ -1569,7 +1620,7 @@ public class CombatSim
                 ApplyAfterimagePhaseSplitEcho(tower, imprint.Position, inRange, baseDamage * 0.88f, tint);
                 break;
             case "undertow_engine":
-                ApplyAfterimageUndertowPulse(tower, imprint.Position, inRange, baseDamage * 0.72f, tint);
+                ApplyAfterimageUndertowPulse(tower, imprint.Position, inRange, tint);
                 break;
             case "accordion_engine":
                 ApplyAfterimageBurst(tower, imprint.Position, inRange, baseDamage * 0.76f,
@@ -1695,18 +1746,26 @@ public class CombatSim
         if (!GodotObject.IsInstanceValid(target) || target.Hp <= 0f || damage <= 0f)
             return 0f;
 
-        float finalDamage = damage;
-        if (target.IsShieldProtected)
-            finalDamage *= (1f - Balance.ShieldDroneProtectionReduction);
+        var ctx = new DamageContext(
+            tower,
+            target,
+            _state.WaveIndex,
+            _state.EnemiesAlive,
+            _state,
+            isChain: false,
+            damageOverride: damage,
+            suppressAfterimageSeed: true);
+        DamageModel.Apply(ctx);
 
-        float hpBefore = target.Hp;
-        target.Hp = MathF.Max(0f, target.Hp - finalDamage);
-        float dealt = hpBefore - target.Hp;
+        float dealt = ctx.DamageDealt;
         if (dealt <= 0.001f)
             return 0f;
 
-        int slotIndex = FindTowerSlotIndex(_state, tower);
-        _state.TrackBaseAttackDamage(slotIndex, (int)dealt, target.Hp <= 0f, target.ProgressRatio);
+        if (!_afterimageFollowupsConsumed)
+        {
+            _afterimageFollowupsConsumed = true;
+            ApplyAfterimageTargetingFollowups(tower, target, color);
+        }
 
         if (!BotMode)
         {
@@ -1722,6 +1781,72 @@ public class CombatSim
         }
 
         return dealt;
+    }
+
+    private void ApplyAfterimageTargetingFollowups(ITowerView tower, EnemyInstance primary, Color color)
+    {
+        int splitHits = CombatResolution.ApplySplitHits(
+            tower,
+            primary,
+            _state.WaveIndex,
+            _state.EnemiesAlive,
+            _state,
+            onHit: ctx =>
+            {
+                if (BotMode || ctx.Target is not EnemyInstance splitTarget)
+                    return;
+                if (ctx.DamageDealt <= 0.01f)
+                    return;
+
+                bool isKill = splitTarget.Hp <= 0f;
+                SpawnDamageNumber(splitTarget.GlobalPosition, MathF.Max(1f, ctx.DamageDealt), isKill, tower.TowerId, color, scale: 0.88f);
+                if (!isKill && GodotObject.IsInstanceValid(splitTarget))
+                    splitTarget.FlashHit();
+            },
+            suppressAfterimageSeed: true);
+        if (splitHits > 0)
+        {
+            float splitDamage = tower.BaseDamage * Balance.SplitShotDamageRatio;
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.SplitShot,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.SplitShot), splitDamage);
+        }
+
+        EnemyInstance previous = primary;
+        int chainHits = CombatResolution.ApplyChainHits(
+            tower,
+            primary,
+            _state.WaveIndex,
+            _state.EnemiesAlive,
+            _state,
+            onHit: ctx =>
+            {
+                if (ctx.Target is not EnemyInstance chainTarget)
+                    return;
+
+                if (!BotMode)
+                {
+                    if (GodotObject.IsInstanceValid(previous) && GodotObject.IsInstanceValid(chainTarget))
+                        SpawnChainArc(previous.GlobalPosition, chainTarget.GlobalPosition, color, intensity: 0.84f);
+
+                    if (ctx.DamageDealt > 0.01f)
+                    {
+                        bool isKill = chainTarget.Hp <= 0f;
+                        SpawnDamageNumber(chainTarget.GlobalPosition, MathF.Max(1f, ctx.DamageDealt), isKill, tower.TowerId, color, scale: 0.88f);
+                        if (!isKill && GodotObject.IsInstanceValid(chainTarget))
+                            chainTarget.FlashHit();
+                    }
+                }
+
+                previous = chainTarget;
+            },
+            suppressAfterimageSeed: true);
+        _state.TrackSpectacleChainDepth(chainHits);
+        if (chainHits > 0)
+        {
+            float chainEventDamage = tower.BaseDamage * tower.ChainDamageDecay;
+            GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.ChainReaction,
+                SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ChainReaction), chainEventDamage);
+        }
     }
 
     private static Vector2 ResolveAfterimageNumberOffset(EnemyInstance target, ITowerView tower)
@@ -1851,20 +1976,13 @@ public class CombatSim
         ITowerView tower,
         Vector2 origin,
         List<EnemyInstance> candidates,
-        float baseDamage,
         Color color)
     {
-        ApplyAfterimageBurst(
-            tower,
-            origin,
-            candidates,
-            baseDamage,
-            Balance.AfterimageUndertowPulseRadius,
-            maxTargets: 2,
-            color: color,
-            applyFalloff: false);
-
-        foreach (EnemyInstance enemy in candidates)
+        int maxTargets = Math.Min(3, Balance.AfterimageMaxTargetsPerEcho);
+        int affected = 0;
+        foreach (EnemyInstance enemy in candidates
+                     .OrderByDescending(e => e.Progress)
+                     .ThenBy(e => origin.DistanceTo(e.GlobalPosition)))
         {
             if (!GodotObject.IsInstanceValid(enemy) || enemy.Hp <= 0f)
                 continue;
@@ -1873,8 +1991,27 @@ public class CombatSim
 
             float start = enemy.Progress;
             float end = MathF.Max(0f, start - Balance.AfterimageUndertowPullDistance);
+            float moved = start - end;
+            if (moved <= 0.01f)
+                continue;
+
             enemy.Progress = end;
             Statuses.ApplySlow(enemy, Balance.AfterimageUndertowSlowDuration, Balance.AfterimageUndertowSlowFactor);
+            affected++;
+
+            if (!BotMode)
+                enemy.FlashHit();
+
+            if (affected >= maxTargets)
+                break;
+        }
+
+        if (!BotMode && affected > 0 && LanePath != null)
+        {
+            var pulse = new UndertowReleaseVfx();
+            LanePath.GetParent().AddChild(pulse);
+            pulse.GlobalPosition = origin;
+            pulse.Initialize(color, Balance.AfterimageUndertowPulseRadius * 0.74f, major: false);
         }
     }
 

@@ -295,7 +295,7 @@ public partial class HowToPlay : Node
             AddModRowWithIcon(modifiersCard, "chain_reaction",   "Chain Reaction",      "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
             if (!Balance.IsDemo)
                 AddModRowWithIcon(modifiersCard, "afterimage", "Afterimage (full game)",
-                    "Unlock by beating Perimeter Lock. Hits leave a ghost imprint that triggers one delayed weaker replay from that spot.");
+                    "Unlock by beating Perimeter Lock. Hits leave a ghost imprint that triggers one delayed weaker replay from that spot (single replay, not a lingering zone).");
             if (!Balance.IsDemo)
                 AddModRowWithIcon(modifiersCard, "reaper_protocol", "Reaper Protocol (full game, wave 10+)",
                     $"Kill (primary hits only): the first {Balance.ReaperProtocolKillCap} kills each wave restore 1 life, up to your starting life total. Available from wave 10. Invaluable in Endless runs where lives become scarce.");

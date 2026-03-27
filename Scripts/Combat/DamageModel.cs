@@ -18,6 +18,7 @@ public class DamageContext
     public RunState? State { get; }
 
     public bool IsChain { get; }
+    public bool SuppressAfterimageSeed { get; }
     public float DamageDealt { get; set; }
     // Populated by modifiers that deal secondary area damage outside the normal damage pipeline (e.g. Blast Core splash).
     // Tracked separately so benchmark runners can include it in total damage metrics.
@@ -29,13 +30,14 @@ public class DamageContext
 
     public DamageContext(ITowerView attacker, IEnemyView target, int waveIndex,
                          IEnumerable<IEnemyView> enemies, RunState? state = null,
-                         bool isChain = false, float damageOverride = -1f)
+                         bool isChain = false, float damageOverride = -1f, bool suppressAfterimageSeed = false)
     {
         Attacker = attacker;
         Target = target;
         WaveIndex = waveIndex;
         EnemiesAlive = enemies;
         IsChain = isChain;
+        SuppressAfterimageSeed = suppressAfterimageSeed;
         BaseDamage = FinalDamage = damageOverride >= 0f ? damageOverride : attacker.BaseDamage;
         State = state;
     }
@@ -100,7 +102,7 @@ public static class DamageModel
         // - primary only (no chain-bounce seeds)
         // - requires a real hit (damage dealt > 0)
         // - delayed echo execution is owned by CombatSim
-        if (!ctx.IsChain && damageDealtRaw > 0f && CountModifier(ctx.Attacker, "afterimage") > 0)
+        if (!ctx.IsChain && !ctx.SuppressAfterimageSeed && damageDealtRaw > 0f && CountModifier(ctx.Attacker, "afterimage") > 0)
             GameController.Instance?.NotifyAfterimageHit(ctx.Attacker, ctx.Target.GlobalPosition, ctx.FinalDamage);
 
         // 4. On-hit effects (skipped for chain bounces if modifier opts out)

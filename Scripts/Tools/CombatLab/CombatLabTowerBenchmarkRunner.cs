@@ -1055,19 +1055,21 @@ public sealed class CombatLabTowerBenchmarkRunner
                 continue;
             }
 
+            bool followupsConsumed = false;
+
             if (tower.TowerId == "phase_splitter")
             {
                 BenchmarkEnemy? front = candidates.OrderByDescending(e => e.PathDistance).FirstOrDefault();
                 BenchmarkEnemy? back = candidates.OrderBy(e => e.PathDistance).FirstOrDefault();
                 if (front != null)
-                    ApplyAfterimageRawDamage(front, baseDamage * 0.88f, metrics);
+                    ApplyAfterimageDamage(tower, front, enemies, baseDamage * 0.88f, metrics, ref followupsConsumed);
                 if (back != null && !ReferenceEquals(back, front))
-                    ApplyAfterimageRawDamage(back, baseDamage * 0.88f, metrics);
+                    ApplyAfterimageDamage(tower, back, enemies, baseDamage * 0.88f, metrics, ref followupsConsumed);
             }
             else if (tower.TowerId == "chain_tower")
             {
                 BenchmarkEnemy current = candidates[0];
-                ApplyAfterimageRawDamage(current, baseDamage * 0.90f, metrics);
+                ApplyAfterimageDamage(tower, current, enemies, baseDamage * 0.90f, metrics, ref followupsConsumed);
 
                 float chainRange = MathF.Max(36f, tower.ChainRange * Balance.AfterimageChainRangeMultiplier);
                 BenchmarkEnemy? next = candidates
@@ -1075,7 +1077,7 @@ public sealed class CombatLabTowerBenchmarkRunner
                     .OrderBy(e => current.GlobalPosition.DistanceTo(e.GlobalPosition))
                     .FirstOrDefault(e => current.GlobalPosition.DistanceTo(e.GlobalPosition) <= chainRange);
                 if (next != null)
-                    ApplyAfterimageRawDamage(next, baseDamage * 0.90f * Balance.AfterimageChainBounceDamageDecay, metrics);
+                    ApplyAfterimageDamage(tower, next, enemies, baseDamage * 0.90f * Balance.AfterimageChainBounceDamageDecay, metrics, ref followupsConsumed);
             }
             else
             {
@@ -1099,7 +1101,7 @@ public sealed class CombatLabTowerBenchmarkRunner
 
                     float dist = imprint.Position.DistanceTo(enemy.GlobalPosition);
                     float falloff = applyFalloff ? Mathf.Lerp(1f, 0.72f, dist / MathF.Max(1f, radius)) : 1f;
-                    float dealt = ApplyAfterimageRawDamage(enemy, baseDamage * falloff, metrics);
+                    float dealt = ApplyAfterimageDamage(tower, enemy, enemies, baseDamage * falloff, metrics, ref followupsConsumed);
                     if (dealt > 0f)
                         hits++;
                 }
@@ -1130,21 +1132,74 @@ public sealed class CombatLabTowerBenchmarkRunner
         }
     }
 
-    private static float ApplyAfterimageRawDamage(BenchmarkEnemy enemy, float rawDamage, TrialMetrics metrics)
+    private static float ApplyAfterimageDamage(
+        BenchmarkTower tower,
+        BenchmarkEnemy enemy,
+        List<BenchmarkEnemy> activeEnemies,
+        float rawDamage,
+        TrialMetrics metrics,
+        ref bool followupsConsumed)
     {
         float safeRaw = Math.Max(0f, rawDamage);
         if (safeRaw <= 0f || enemy.Hp <= 0f || enemy.Resolved)
             return 0f;
 
-        if (enemy.IsShieldProtected)
-            safeRaw *= (1f - Balance.ShieldDroneProtectionReduction);
+        var ctx = new DamageContext(
+            tower,
+            enemy,
+            waveIndex: 0,
+            activeEnemies,
+            state: null,
+            isChain: false,
+            damageOverride: safeRaw,
+            suppressAfterimageSeed: true);
+        DamageModel.Apply(ctx);
+        ApplyContextToMetrics(ctx, metrics);
+        if (ctx.Target is BenchmarkEnemy hitEnemy && hitEnemy.Hp <= 0f)
+            hitEnemy.Killed = true;
 
-        float before = enemy.Hp;
-        float dealt = SpectacleDamageCore.ApplyRawDamage(enemy, safeRaw);
-        ApplyRawDamageToMetrics(enemy, safeRaw, dealt, metrics);
-        if (before > 0f && enemy.Hp <= 0f)
-            enemy.Killed = true;
-        return dealt;
+        if (!followupsConsumed && ctx.DamageDealt > 0f)
+        {
+            followupsConsumed = true;
+            ApplyAfterimageTargetingFollowups(tower, enemy, activeEnemies, metrics);
+        }
+
+        return ctx.DamageDealt;
+    }
+
+    private static void ApplyAfterimageTargetingFollowups(
+        BenchmarkTower tower,
+        BenchmarkEnemy primary,
+        List<BenchmarkEnemy> activeEnemies,
+        TrialMetrics metrics)
+    {
+        CombatResolution.ApplySplitHits(
+            tower,
+            primary,
+            waveIndex: 0,
+            activeEnemies,
+            state: null,
+            onHit: ctx =>
+            {
+                ApplyContextToMetrics(ctx, metrics);
+                if (ctx.Target is BenchmarkEnemy split && split.Hp <= 0f)
+                    split.Killed = true;
+            },
+            suppressAfterimageSeed: true);
+
+        CombatResolution.ApplyChainHits(
+            tower,
+            primary,
+            waveIndex: 0,
+            activeEnemies,
+            state: null,
+            onHit: ctx =>
+            {
+                ApplyContextToMetrics(ctx, metrics);
+                if (ctx.Target is BenchmarkEnemy chained && chained.Hp <= 0f)
+                    chained.Killed = true;
+            },
+            suppressAfterimageSeed: true);
     }
 
     private static void UpdateResidues(
@@ -1618,24 +1673,37 @@ public sealed class CombatLabTowerBenchmarkRunner
 
         if (tower.ChainCount > 0)
         {
-            BenchmarkEnemy? chainTarget = SelectUndertowSecondaryTarget(
-                tower,
-                primaryTarget,
-                enemies,
-                excluded,
-                MathF.Max(Balance.UndertowSecondarySearchRadius, tower.ChainRange));
-            if (chainTarget != null && TryStartUndertowEffect(
-                tower,
-                chainTarget,
-                Balance.UndertowChainSecondaryMultiplier,
-                isSecondary: true,
-                isFollowup: false,
-                enableEndpointPulse: false,
-                activeUndertows,
-                undertowRecentRemaining,
-                undertowRetargetLockoutRemaining))
+            float searchRadius = MathF.Max(Balance.UndertowSecondarySearchRadius, tower.ChainRange);
+            BenchmarkEnemy chainAnchor = primaryTarget;
+            for (int link = 0; link < tower.ChainCount; link++)
             {
+                BenchmarkEnemy? chainTarget = SelectUndertowSecondaryTarget(
+                    tower,
+                    chainAnchor,
+                    enemies,
+                    excluded,
+                    searchRadius);
+                if (chainTarget == null)
+                    break;
+
+                // Consume candidate so additional chain links can try new targets.
+                excluded.Add(chainTarget);
+
+                bool started = TryStartUndertowEffect(
+                    tower,
+                    chainTarget,
+                    Balance.UndertowChainSecondaryMultiplier,
+                    isSecondary: true,
+                    isFollowup: false,
+                    enableEndpointPulse: false,
+                    activeUndertows,
+                    undertowRecentRemaining,
+                    undertowRetargetLockoutRemaining);
+                if (!started)
+                    continue;
+
                 applied++;
+                chainAnchor = chainTarget;
             }
         }
 

@@ -13,7 +13,8 @@ public static class CombatResolution
         int waveIndex,
         List<TEnemy> enemies,
         RunState? state,
-        System.Action<DamageContext>? onHit = null)
+        System.Action<DamageContext>? onHit = null,
+        bool suppressAfterimageSeed = false)
         where TEnemy : class, IEnemyView
     {
         if (!tower.IsChainTower || tower.ChainCount <= 0)
@@ -52,7 +53,8 @@ public static class CombatResolution
                 enemies,
                 state,
                 isChain: true,
-                damageOverride: damage);
+                damageOverride: damage,
+                suppressAfterimageSeed: suppressAfterimageSeed);
             DamageModel.Apply(context);
             onHit?.Invoke(context);
 
@@ -71,7 +73,8 @@ public static class CombatResolution
         int waveIndex,
         List<TEnemy> enemies,
         RunState? state,
-        System.Action<DamageContext>? onHit = null)
+        System.Action<DamageContext>? onHit = null,
+        bool suppressAfterimageSeed = false)
         where TEnemy : class, IEnemyView
     {
         if (tower.SplitCount <= 0)
@@ -97,7 +100,8 @@ public static class CombatResolution
                 enemies,
                 state,
                 isChain: true,
-                damageOverride: splitDamage);
+                damageOverride: splitDamage,
+                suppressAfterimageSeed: suppressAfterimageSeed);
             DamageModel.Apply(context);
             onHit?.Invoke(context);
             spawned++;
