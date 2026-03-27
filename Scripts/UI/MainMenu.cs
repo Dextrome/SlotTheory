@@ -202,19 +202,7 @@ public partial class MainMenu : Node
 		var cardVbox = new VBoxContainer();
 		cardVbox.AddThemeConstantOverride("separation", 8);
 		card.AddChild(cardVbox);
-		AddSpacer(cardVbox, 6); // keep Tutorial from riding the top frame edge
-
-		bool tutorialDone = SettingsManager.Instance?.TutorialCompleted ?? false;
-		var tutorialBtn = MakeMenuButton(tutorialDone ? "Tutorial" : "> Tutorial", 260, 44, tutorialDone ? 18 : 20);
-		if (tutorialDone)
-			UITheme.ApplyMutedStyle(tutorialBtn);
-		else
-			UITheme.ApplyCyanStyle(tutorialBtn);
-		AddButtonSurface(tutorialBtn, UITheme.Cyan, 0.10f, 0.14f);
-		tutorialBtn.Pressed += OnTutorial;
-		cardVbox.AddChild(tutorialBtn);
-
-		AddSpacer(cardVbox, 4);
+		AddSpacer(cardVbox, 6); // keep first action from riding the top frame edge
 
 		var playBtn = MakeMenuButton("PLAY", 260, 52, 22);
 		UITheme.ApplyPrimaryStyle(playBtn);
@@ -367,20 +355,7 @@ public partial class MainMenu : Node
 	private void OnPlay()
 	{
 		SlotTheory.Data.DataLoader.LoadAll();
-		// Demo build skips mode select and goes straight to map select (no campaign available)
-		string destination = Core.Balance.IsDemo
-			? "res://Scenes/MapSelect.tscn"
-			: "res://Scenes/ModeSelect.tscn";
-		Transition.Instance?.FadeToScene(destination);
-	}
-
-	private void OnTutorial()
-	{
-		SoundManager.Instance?.Play("ui_select");
-		SlotTheory.Data.DataLoader.LoadAll();
-		if (SettingsManager.Instance != null)
-			SettingsManager.Instance.PendingTutorialRun = true;
-		Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
+		Transition.Instance?.FadeToScene("res://Scenes/ModeSelect.tscn");
 	}
 
 	private void OnLeaderboards() => Transition.Instance?.FadeToScene("res://Scenes/Leaderboards.tscn");

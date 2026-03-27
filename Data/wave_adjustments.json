@@ -3,6 +3,24 @@
     {
       "mapId": "trident",
       "difficulty": "hard",
+      "enemyCountDelta": -3,
+      "tankyDelta": 0,
+      "swiftDelta": 0,
+      "splitterDelta": 0,
+      "reverseDelta": 0,
+      "shieldDroneDelta": 0,
+      "spawnIntervalDelta": 0.15
+    },
+    {
+      "mapId": "trident",
+      "difficulty": "hard",
+      "wave": 2,
+      "enemyCountDelta": -1,
+      "spawnIntervalDelta": 0.1
+    },
+    {
+      "mapId": "trident",
+      "difficulty": "hard",
       "wave": 17,
       "tankyDelta": -1
     }
