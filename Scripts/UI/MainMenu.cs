@@ -299,13 +299,16 @@ public partial class MainMenu : Node
 		bool alreadyNotified = SettingsManager.Instance?.DemoCompleteNotified == true;
 		if (Balance.IsDemo && allUnlocked && !alreadyNotified)
 		{
-			var balancer = new Control { CustomMinimumSize = new Vector2(272, 0) };
+			var balancer = new Control { CustomMinimumSize = Vector2.Zero };
 			menuRow.AddChild(balancer);
 			menuRow.MoveChild(balancer, 0);
 
 			var banner = BuildDemoCompleteBanner(balancer);
 			banner.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
 			menuRow.AddChild(banner);
+			Action syncBalancer = () => SyncBalancerToTargetWidth(balancer, banner);
+			banner.Resized += syncBalancer;
+			Callable.From(syncBalancer).CallDeferred();
 			RegisterAnimatedSurface(banner);
 		}
 
@@ -486,6 +489,18 @@ public partial class MainMenu : Node
 			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
 		parent.AddChild(line);
+	}
+
+	private static void SyncBalancerToTargetWidth(Control balancer, Control target)
+	{
+		if (!GodotObject.IsInstanceValid(balancer) || !GodotObject.IsInstanceValid(target))
+			return;
+
+		float width = Mathf.Ceil(Mathf.Max(target.Size.X, target.GetCombinedMinimumSize().X));
+		if (width <= 0f)
+			return;
+
+		balancer.CustomMinimumSize = new Vector2(width, balancer.CustomMinimumSize.Y);
 	}
 
 	private static LabelSettings MakeTitleSettings()
