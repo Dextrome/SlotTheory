@@ -319,18 +319,7 @@ public static class RunNameGenerator
             _ => new Color(0.78f, 0.88f, 1.00f),
         };
 
-        var towerColor = profile.MvpTowerId switch
-        {
-            "rapid_shooter" => new Color(0.25f, 0.92f, 1.00f),
-            "heavy_cannon" => new Color(1.00f, 0.60f, 0.18f),
-            "rocket_launcher" => new Color(1.00f, 0.54f, 0.14f),
-            "marker_tower" => new Color(1.00f, 0.30f, 0.72f),
-            "chain_tower" => new Color(0.62f, 0.90f, 1.00f),
-            "rift_prism" => new Color(0.62f, 1.00f, 0.58f),
-            "phase_splitter" => new Color(0.45f, 1.00f, 0.95f),
-            "undertow_engine" => new Color(0.08f, 0.64f, 0.86f),
-            _ => new Color(0.84f, 0.92f, 1.00f),
-        };
+        var towerColor = SlotTheory.Core.UIStyle.TowerAccent(profile.MvpTowerId);
 
         return (EnsureBrightColor(familyColor), EnsureBrightColor(towerColor));
     }

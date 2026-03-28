@@ -8,8 +8,8 @@ namespace SlotTheory.Core;
 public static class UITheme
 {
     // ── Fonts ─────────────────────────────────────────────────────────────
-    public static FontFile Regular  { get; } = GD.Load<FontFile>("res://Assets/Fonts/Rajdhani-SemiBold.ttf");
-    public static FontFile SemiBold { get; } = GD.Load<FontFile>("res://Assets/Fonts/Rajdhani-Bold.ttf");
+    public static FontFile Regular  { get; } = GD.Load<FontFile>("res://Assets/Fonts/Rajdhani-Regular.ttf");
+    public static FontFile SemiBold { get; } = GD.Load<FontFile>("res://Assets/Fonts/Rajdhani-SemiBold.ttf");
     public static FontFile Bold     { get; } = GD.Load<FontFile>("res://Assets/Fonts/Rajdhani-Bold.ttf");
 
     // ── Color palette ─────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ public static class UITheme
         theme.SetColor("font_disabled_color", "Button", new Color(0.38f, 0.38f, 0.38f));
         theme.SetColor("font_outline_color",  "Button", new Color(0f, 0f, 0f, 0.50f));
         theme.SetConstant("outline_size",     "Button", 1);
-        theme.SetFont("font",                 "Button", Regular);
+        theme.SetFont("font",                 "Button", SemiBold);
 
         // Panel
         theme.SetStylebox("panel", "Panel", MakePanel());
@@ -310,8 +310,9 @@ public static class UITheme
         box.SetCornerRadiusAll(corners);
         box.ContentMarginLeft   = 14;
         box.ContentMarginRight  = 14;
-        box.ContentMarginTop    = 9;
-        box.ContentMarginBottom = 9;
+        // Slightly bias text baseline downward so it clears the top accent band.
+        box.ContentMarginTop    = 11;
+        box.ContentMarginBottom = 7;
 
         if (glowAlpha > 0f && glowSize > 0)
         {

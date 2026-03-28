@@ -1914,33 +1914,11 @@ public partial class GameController : Node
 			SoundManager.Instance?.Play("tower_place");
 	}
 
-	private static Color GetTowerProjectileColor(string towerId) => towerId switch
-	{
-		"rapid_shooter" => new Color(0.30f, 0.90f, 1.00f),  // cyan
-		"heavy_cannon"  => new Color(1.00f, 0.55f, 0.00f),  // orange
-		"rocket_launcher" => new Color(1.00f, 0.58f, 0.14f),  // hot orange
-		"marker_tower"  => new Color(0.75f, 0.30f, 1.00f),  // purple
-		"chain_tower"      => new Color(0.55f, 0.90f, 1.00f),  // electric blue
-		"rift_prism"       => new Color(0.70f, 1.00f, 0.56f),  // lime
-		"accordion_engine" => new Color(0.78f, 0.40f, 1.00f),  // bright violet
-		"phase_splitter"   => new Color(0.45f, 1.00f, 0.95f),  // aqua phase beam
-		"undertow_engine"  => new Color(0.08f, 0.64f, 0.86f),  // reverse-current teal
-		_                  => Colors.Yellow,
-	};
+	private static Color GetTowerProjectileColor(string towerId) =>
+		UIStyle.TowerAccent(towerId, UIStyle.TowerAccentVariant.Projectile);
 
-	private static Color GetTowerBodyColor(string towerId) => towerId switch
-	{
-		"rapid_shooter" => new Color(0.15f, 0.65f, 1.00f),
-		"heavy_cannon"  => new Color(1.00f, 0.55f, 0.00f),
-		"rocket_launcher" => new Color(0.96f, 0.36f, 0.10f),
-		"marker_tower"  => new Color(1.00f, 0.15f, 0.60f),
-		"chain_tower"      => new Color(0.50f, 0.85f, 1.00f),
-		"rift_prism"       => new Color(0.58f, 0.98f, 0.50f),
-		"accordion_engine" => new Color(0.72f, 0.20f, 1.00f),
-		"phase_splitter"   => new Color(0.36f, 0.92f, 0.88f),
-		"undertow_engine"  => new Color(0.02f, 0.56f, 0.78f),
-		_                  => new Color(0.20f, 0.50f, 1.00f),
-	};
+	private static Color GetTowerBodyColor(string towerId) =>
+		UIStyle.TowerAccent(towerId, UIStyle.TowerAccentVariant.Body);
 
 	public override void _Input(InputEvent @event)
 	{
@@ -7551,19 +7529,7 @@ void fragment() {
 
 		var accent = option.Type == DraftOptionType.Modifier
 			? ModifierVisuals.GetAccent(option.Id)
-			: option.Id switch
-			{
-				"rapid_shooter" => new Color(0.25f, 0.92f, 1.00f),
-				"heavy_cannon" => new Color(1.00f, 0.60f, 0.18f),
-				"rocket_launcher" => new Color(1.00f, 0.54f, 0.14f),
-				"marker_tower" => new Color(1.00f, 0.30f, 0.72f),
-				"chain_tower" => new Color(0.62f, 0.90f, 1.00f),
-				"rift_prism" => new Color(0.60f, 1.00f, 0.58f),
-				"accordion_engine" => new Color(0.78f, 0.40f, 1.00f),
-				"phase_splitter" => new Color(0.45f, 1.00f, 0.95f),
-				"undertow_engine" => new Color(0.08f, 0.64f, 0.86f),
-				_ => new Color(0.75f, 0.85f, 1.00f),
-			};
+			: UIStyle.TowerAccent(option.Id);
 
 		if (option.Type == DraftOptionType.Modifier)
 		{

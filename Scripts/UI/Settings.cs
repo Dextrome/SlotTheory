@@ -678,8 +678,8 @@ public partial class Settings : Node
         var s = UITheme.MakeBtn(bg, border, border: 1, corners: 6,
             glowAlpha: glowAlpha, glowSize: glowSize, glowColor: glowColor);
         // Override content margins to fit snugly inside the 28px button height
-        s.ContentMarginTop    = 4;
-        s.ContentMarginBottom = 4;
+        s.ContentMarginTop    = 6;
+        s.ContentMarginBottom = 2;
         s.ContentMarginLeft   = 10;
         s.ContentMarginRight  = 10;
         return s;
