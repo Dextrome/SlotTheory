@@ -860,14 +860,24 @@ public partial class GameController : Node
 
 		int livesBefore = _runState.Lives;
 		var result = _combatSim.Step((float)delta, _runState, _waveSystem);
+		int alive = _runState.EnemiesAlive.Count;
+		int unspawned = Mathf.Max(0, _waveSystem.GetTotalCount() - _runState.EnemiesSpawnedThisWave);
+		int remaining = alive + unspawned;
 		if (hudPanelReady)
 		{
 			hudPanel!.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 			hudPanel.RefreshTime(_runState.TotalPlayTime);
-			int alive      = _runState.EnemiesAlive.Count;
-			int unspawned  = Mathf.Max(0, _waveSystem.GetTotalCount() - _runState.EnemiesSpawnedThisWave);
-			int remaining  = alive + unspawned;
 			hudPanel.RefreshEnemies(alive, remaining);
+		}
+		if (_tutorialManager != null
+			&& _runState.WaveIndex == 0
+			&& !_tutorialManager.SpeedPanelShown
+			&& result == WaveResult.Ongoing
+			&& remaining > 0
+			&& remaining <= 5)
+		{
+			_tutorialManager.MarkSpeedPanelShown();
+			ShowTutorialSpeedButtonPanel();
 		}
 		if (_runState.Lives < livesBefore)
 		{
@@ -8713,7 +8723,7 @@ void fragment() {
 
 		var body = new Label
 		{
-			Text = "Each tower has a target icon showing how it picks enemies.\n- First: attacks the enemy furthest along the path.\n- Strongest: attacks the highest HP enemy in range.\n- Lowest HP: focuses the weakest enemy to finish it fast.\n- Last: attacks the enemy least along the path.\n\nClick your tower, then click one icon in its panel to set targeting mode.",
+			Text = "Each tower has a target icon showing how it picks enemies.\n- First: attacks the enemy furthest along the path.\n- Strongest: attacks the highest HP enemy in range.\n- Lowest HP: focuses the weakest enemy to finish it fast.\n- Last: attacks the enemy least along the path.",
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 			HorizontalAlignment = HorizontalAlignment.Center,
 			MouseFilter = Control.MouseFilterEnum.Ignore,
@@ -8721,6 +8731,17 @@ void fragment() {
 		UITheme.ApplyFont(body, size: 14);
 		body.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
 		vbox.AddChild(body);
+
+		var actionLine = new Label
+		{
+			Text = "Click your tower, then click one icon in its panel to set targeting mode.",
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			HorizontalAlignment = HorizontalAlignment.Center,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		UITheme.ApplyFont(actionLine, semiBold: true, size: 14);
+		actionLine.AddThemeColorOverride("font_color", new Color(0.94f, 0.98f, 1.00f));
+		vbox.AddChild(actionLine);
 
 		_awaitingTargetingCycleDismiss = true;
 	}
@@ -8786,12 +8807,12 @@ void fragment() {
 		};
 		bannerStyle.SetBorderWidthAll(2);
 		bannerStyle.SetCornerRadiusAll(10);
-		bannerStyle.ContentMarginLeft = 16; bannerStyle.ContentMarginRight  = 16;
+		bannerStyle.ContentMarginLeft = 12; bannerStyle.ContentMarginRight  = 12;
 		bannerStyle.ContentMarginTop  = 12; bannerStyle.ContentMarginBottom = 12;
 
 		var vpSize = GetViewport().GetVisibleRect().Size;
 		float cx = meter.GetCenter().X;
-		const float bannerW = 552f;
+		const float bannerW = 372f;
 		float bannerLeft = Mathf.Clamp(cx - bannerW / 2f, 8f, vpSize.X - bannerW - 8f);
 
 		var banner = new PanelContainer
@@ -8831,25 +8852,60 @@ void fragment() {
 		header.AddThemeColorOverride("font_color", UITheme.Lime);
 		vbox.AddChild(header);
 
-		var body = new Label
+		var intro = new Label
+		{
+			Text = "Combat fills each tower's Surge meter.",
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			CustomMinimumSize = new Vector2(0f, 0f),
+		};
+		UITheme.ApplyFont(intro, size: 14);
+		intro.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
+		vbox.AddChild(intro);
+
+		var detailRow = new HBoxContainer();
+		detailRow.AddThemeConstantOverride("separation", 12);
+		detailRow.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		vbox.AddChild(detailRow);
+
+		var leftCol = new VBoxContainer();
+		leftCol.AddThemeConstantOverride("separation", 4);
+		leftCol.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		leftCol.CustomMinimumSize = new Vector2(0f, 0f);
+		detailRow.AddChild(leftCol);
+
+		var surgeModes = new Label
 		{
 			Text =
-				"Combat fills each tower's Surge meter.\n\n" +
 				"When a tower surges:\n" +
 				"- 1 mod: main Surge\n" +
 				"- 2 mods: main Surge + Twist\n" +
-				"- 3 mods: main Surge + Twist + Bonus\n" +
-				"\n" +
+				"- 3 mods: main Surge + Twist + Bonus",
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+		};
+		UITheme.ApplyFont(surgeModes, size: 13);
+		surgeModes.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
+		leftCol.AddChild(surgeModes);
+
+		var rightCol = new VBoxContainer();
+		rightCol.AddThemeConstantOverride("separation", 4);
+		rightCol.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		rightCol.CustomMinimumSize = new Vector2(0f, 0f);
+		detailRow.AddChild(rightCol);
+
+		var bonusModes = new Label
+		{
+			Text =
 				"Bonus can be:\n" +
 				"- Pulse: area hit\n" +
 				"- Strike: heavy hit\n" +
 				"- Recharge: instant refire",
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
-			CustomMinimumSize = new Vector2(500f, 0f),
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 		};
-		UITheme.ApplyFont(body, size: 14);
-		body.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
-		vbox.AddChild(body);
+		UITheme.ApplyFont(bonusModes, size: 13);
+		bonusModes.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
+		rightCol.AddChild(bonusModes);
 
 		var footerRow = new HBoxContainer();
 		footerRow.AddThemeConstantOverride("separation", 12);
@@ -8860,6 +8916,7 @@ void fragment() {
 			Text = "Tower surges charge the Global Surge bar below.\nWhen it's full, you can activate it.",
 			AutowrapMode = TextServer.AutowrapMode.Off,
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+			CustomMinimumSize = new Vector2(0f, 0f),
 			VerticalAlignment = VerticalAlignment.Bottom,
 		};
 		UITheme.ApplyFont(footerText, size: 13);
@@ -8867,8 +8924,8 @@ void fragment() {
 		footerRow.AddChild(footerText);
 
 		var gotItBtn = new Button { Text = "Got it", ProcessMode = ProcessModeEnum.Always };
-		gotItBtn.CustomMinimumSize = new Vector2(102f, 34f);
-		gotItBtn.AddThemeFontSizeOverride("font_size", 13);
+		gotItBtn.CustomMinimumSize = new Vector2(118f, 38f);
+		gotItBtn.AddThemeFontSizeOverride("font_size", 14);
 		UITheme.ApplyPrimaryStyle(gotItBtn);
 		gotItBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		gotItBtn.Pressed += () =>
@@ -8879,6 +8936,7 @@ void fragment() {
 			GetTree().Paused = false;
 		};
 		footerRow.AddChild(gotItBtn);
+		footerRow.AddChild(new Control { CustomMinimumSize = new Vector2(52f, 0f) });
 		vbox.AddChild(footerRow);
 	}
 
@@ -9004,6 +9062,135 @@ void fragment() {
 			// and ActivateGlobalSurge() - nothing extra needed here.
 		}
 		_hudPanel.GlobalSurgeActivateRequested += OnSurgeBarClicked;
+	}
+
+	/// <summary>
+	/// Tutorial-only speed prompt shown during wave 2 when few enemies remain.
+	/// Pauses the wave, highlights the speed button, and waits for one speed click to continue.
+	/// </summary>
+	private void ShowTutorialSpeedButtonPanel()
+	{
+		GetTree().Paused = true;
+		int previousHudLayer = _hudPanel.Layer;
+		ProcessModeEnum previousHudProcessMode = _hudPanel.ProcessMode;
+		_hudPanel.Layer = 22;
+		_hudPanel.ProcessMode = ProcessModeEnum.Always;
+
+		var overlay = new CanvasLayer { Layer = 21, ProcessMode = ProcessModeEnum.Always };
+		GetTree().Root.AddChild(overlay);
+
+		var blocker = new ColorRect
+		{
+			Color = new Color(0f, 0f, 0f, 0.75f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		blocker.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+		overlay.AddChild(blocker);
+
+		const float pad = 10f;
+		Rect2 speedRect = _hudPanel.GetSpeedButtonViewportRect();
+		if (speedRect.Size.X < 1f || speedRect.Size.Y < 1f)
+		{
+			Vector2 vpFallback = GetViewport().GetVisibleRect().Size;
+			speedRect = new Rect2(vpFallback.X - 156f, 8f, 68f, 34f);
+		}
+
+		var highlight = new Line2D
+		{
+			DefaultColor = new Color(0.20f, 0.95f, 1.00f, 0.95f),
+			Width = 3f,
+			Antialiased = true,
+		};
+		highlight.Points = new Vector2[]
+		{
+			new Vector2(speedRect.Position.X - pad, speedRect.Position.Y - pad),
+			new Vector2(speedRect.End.X + pad,      speedRect.Position.Y - pad),
+			new Vector2(speedRect.End.X + pad,      speedRect.End.Y + pad),
+			new Vector2(speedRect.Position.X - pad, speedRect.End.Y + pad),
+			new Vector2(speedRect.Position.X - pad, speedRect.Position.Y - pad),
+		};
+		overlay.AddChild(highlight);
+
+		Vector2 vpSize = GetViewport().GetVisibleRect().Size;
+		float cx = speedRect.GetCenter().X;
+		float bannerW = Mathf.Min(560f, vpSize.X - 16f);
+		float bannerLeft = Mathf.Clamp(cx - bannerW * 0.5f, 8f, vpSize.X - bannerW - 8f);
+		float bannerTop = Mathf.Clamp(speedRect.End.Y + 24f, 56f, vpSize.Y - 220f);
+
+		var bannerStyle = new StyleBoxFlat
+		{
+			BgColor     = new Color(0.04f, 0.09f, 0.16f, 0.97f),
+			BorderColor = new Color(0.20f, 0.95f, 1.00f, 0.90f),
+			ShadowColor = new Color(0.20f, 0.95f, 1.00f, 0.35f),
+			ShadowSize  = 10,
+			ShadowOffset = Vector2.Zero,
+		};
+		bannerStyle.SetBorderWidthAll(2);
+		bannerStyle.SetCornerRadiusAll(10);
+		bannerStyle.ContentMarginLeft = 16;
+		bannerStyle.ContentMarginRight = 16;
+		bannerStyle.ContentMarginTop = 12;
+		bannerStyle.ContentMarginBottom = 12;
+
+		var banner = new PanelContainer
+		{
+			AnchorLeft = 0f,
+			AnchorRight = 0f,
+			AnchorTop = 0f,
+			AnchorBottom = 0f,
+			OffsetLeft = bannerLeft,
+			OffsetRight = bannerLeft + bannerW,
+			OffsetTop = bannerTop,
+			OffsetBottom = bannerTop,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		banner.AddThemeStyleboxOverride("panel", bannerStyle);
+		overlay.AddChild(banner);
+
+		var connector = new Line2D
+		{
+			DefaultColor = new Color(0.20f, 0.95f, 1.00f, 0.80f),
+			Width = 2f,
+			Antialiased = true,
+		};
+		connector.Points = new Vector2[]
+		{
+			new Vector2(cx, speedRect.End.Y + pad),
+			new Vector2(cx, bannerTop),
+		};
+		overlay.AddChild(connector);
+
+		var vbox = new VBoxContainer();
+		vbox.AddThemeConstantOverride("separation", 8);
+		banner.AddChild(vbox);
+
+		var header = new Label { Text = "GAME SPEED" };
+		UITheme.ApplyFont(header, semiBold: true, size: 13);
+		header.AddThemeColorOverride("font_color", UITheme.Lime);
+		vbox.AddChild(header);
+
+		var body = new Label
+		{
+			Text =
+				"You can choose 1x, 2x, or 3x game speed.\n" +
+				"Click the speed button now to continue tutorial.",
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			CustomMinimumSize = new Vector2(500f, 0f),
+		};
+		UITheme.ApplyFont(body, size: 14);
+		body.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
+		vbox.AddChild(body);
+
+		void OnSpeedClicked()
+		{
+			_hudPanel.SpeedToggleRequested -= OnSpeedClicked;
+			_hudPanel.ProcessMode = previousHudProcessMode;
+			_hudPanel.Layer = previousHudLayer;
+			overlay.QueueFree();
+			GetTree().Paused = false;
+		}
+
+		_hudPanel.SpeedToggleRequested += OnSpeedClicked;
 	}
 
 	private void ShakeWorld()

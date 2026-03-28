@@ -51,6 +51,8 @@ public partial class HudPanel : CanvasLayer
 
 	/// <summary>Fired when the player clicks the surge bar while IsGlobalSurgeReady.</summary>
 	public event Action? GlobalSurgeActivateRequested;
+	/// <summary>Fired when the speed button cycles game speed.</summary>
+	public event Action? SpeedToggleRequested;
 	private const int SurgePipCount = 20;
 	private static readonly Color PipFilled = new(1.00f, 0.90f, 0.44f, 0.95f);
 	private static readonly Color PipEmpty  = new(0.07f, 0.16f, 0.25f, 0.95f);
@@ -436,6 +438,7 @@ public partial class HudPanel : CanvasLayer
 		MusicDirector.Instance?.SetGameSpeedScale((float)steps[_speedIdx]);
 		SoundManager.Instance?.SetSpeedFeel((float)steps[_speedIdx]);
 		SoundManager.Instance?.Play("ui_speed_shift");
+		SpeedToggleRequested?.Invoke();
 	}
 
 	public void ResetSpeed()
@@ -608,6 +611,14 @@ public partial class HudPanel : CanvasLayer
 		//   OffsetTop = -36, OffsetBottom = -14  →  22 px tall
 		var vp = GetViewport().GetVisibleRect().Size;
 		return new Rect2(vp.X * 0.5f - 211f, vp.Y - 36f, 422f, 22f);
+	}
+
+	/// <summary>Viewport-space rect for the game speed button.</summary>
+	public Rect2 GetSpeedButtonViewportRect()
+	{
+		if (GodotObject.IsInstanceValid(_speedBtn))
+			return _speedBtn.GetGlobalRect();
+		return new Rect2();
 	}
 
 	public void SetNonCriticalHintSuppressed(bool suppressed)

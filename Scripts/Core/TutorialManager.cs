@@ -28,9 +28,11 @@ public class TutorialManager
 
     public bool BuildNamePanelShown        { get; private set; } = false;
     public bool SurgePanelShown            { get; private set; } = false;
+    public bool SpeedPanelShown            { get; private set; } = false;
 
     public void MarkBuildNamePanelShown()           => BuildNamePanelShown           = true;
     public void MarkSurgePanelShown()               => SurgePanelShown               = true;
+    public void MarkSpeedPanelShown()               => SpeedPanelShown               = true;
 
     private readonly UI.TutorialCallout _callout;
 
