@@ -3461,7 +3461,7 @@ public partial class GameController : Node
 				text += $"explodes on hit: full primary + {(int)(Balance.RocketLauncherSplashDamageRatio * 100)}% splash in {Balance.RocketLauncherSplashRadius:0}px\n";
 				text += "Rocket Launcher fires explosive rockets that damage the target and nearby enemies.\n";
 				if (tower.Modifiers.Any(m => m.ModifierId == "blast_core"))
-					text += "Burst Core further expands the blast radius.\n";
+					text += "Blast Core further expands the blast radius.\n";
 			}
 			if (tower.TowerId == "undertow_engine")
 			{

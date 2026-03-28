@@ -1,5 +1,6 @@
 using Godot;
 using SlotTheory.Core;
+using SlotTheory.Data;
 using SlotTheory.Entities;
 
 namespace SlotTheory.UI;
@@ -48,6 +49,7 @@ public partial class HowToPlay : Node
 
     public override void _Ready()
     {
+        DataLoader.LoadAll();
         ProcessMode = ProcessModeEnum.Always; // stay responsive when opened from paused PauseScreen
         var canvas = new CanvasLayer();
         // Set high layer when used as overlay from pause screen
@@ -234,7 +236,7 @@ public partial class HowToPlay : Node
         AddSurgeRuleRow(loopCard, "DRAFT", "Pick 1 card before each wave (5 if free slots exist, 4 if all occupied).", new Color(0.64f, 0.92f, 1.00f, 0.92f));
         AddSurgeRuleRow(loopCard, "WAVE", "Combat runs automatically. You do not manually fire during waves.", new Color(0.64f, 0.92f, 1.00f, 0.92f));
         AddSurgeRuleRow(loopCard, "WIN", "Survive all 20 waves.", new Color(0.92f, 0.86f, 0.46f, 0.92f));
-        AddSurgeRuleRow(loopCard, "LIVES", "Leaks cost life. You start with 10.", new Color(0.96f, 0.74f, 0.48f, 0.92f));
+        AddSurgeRuleRow(loopCard, "LIVES", BuildStartingLivesLine(), new Color(0.96f, 0.74f, 0.48f, 0.92f));
         AddSpacer(vbox, 10);
 
         var controlsCard = AddSurgeCard(vbox, "CONTROLS", new Color(0.48f, 0.88f, 1.00f, 0.92f));
@@ -248,21 +250,22 @@ public partial class HowToPlay : Node
         if (includeReferenceSections)
         {
             var towersCard = AddSurgeCard(vbox, "TOWERS", new Color(0.68f, 0.86f, 0.20f, 0.92f));
-            AddTowerRow(towersCard, "rapid_shooter", "Rapid Shooter", "10 dmg, 0.45 s, 285 px range",
+            TowerDef chainTowerDef = DataLoader.GetTowerDef("chain_tower");
+            AddTowerRow(towersCard, "rapid_shooter", "Rapid Shooter", GetTowerStatsLine("rapid_shooter"),
                 "High rate of fire, low damage per hit. Shines with Momentum and Hair Trigger.");
-            AddTowerRow(towersCard, "heavy_cannon", "Heavy Cannon", "56 dmg, 2.0 s, 238 px range",
+            AddTowerRow(towersCard, "heavy_cannon", "Heavy Cannon", GetTowerStatsLine("heavy_cannon"),
                 "Slow but hits hard. Great with Overkill and Focus Lens.");
-            AddTowerRow(towersCard, "marker_tower", "Marker Tower", "7 dmg, 1.0 s, 333 px range",
+            AddTowerRow(towersCard, "marker_tower", "Marker Tower", GetTowerStatsLine("marker_tower"),
                 "Applies Mark on every hit. Synergises with Exploit Weakness.");
-            AddTowerRow(towersCard, "chain_tower", "Arc Emitter (unlock)", "18 dmg, 1.2 s, 257 px range",
-                "Unlock by beating the first campaign map. Chains to 2 nearby enemies per shot (60% damage decay per bounce).");
-            AddTowerRow(towersCard, "rift_prism", "Rift Sapper (unlock)", "22 dmg, 0.98 s, 230 px range",
-                "Unlock by beating the third campaign map. Plants up to 7 mines with 3 charges each; final charge causes the big pop. Wave start gets rapid seeding for 2.4s. Split Shot seeds mini-mines (35% scale) on final pops only.");
-            AddTowerRow(towersCard, "phase_splitter", "Phase Splitter", "20 dmg, 0.95 s, 275 px range",
+            AddTowerRow(towersCard, "chain_tower", "Arc Emitter (unlock)", GetTowerStatsLine("chain_tower"),
+                $"Unlock by beating the first campaign map. Chains to {chainTowerDef.ChainCount} nearby enemies per shot ({chainTowerDef.ChainDamageDecay * 100f:0}% damage per bounce).");
+            AddTowerRow(towersCard, "rift_prism", "Rift Sapper (unlock)", GetTowerStatsLine("rift_prism"),
+                $"Unlock by beating the third campaign map. Plants up to {Balance.RiftMineMaxActivePerTower} mines with {Balance.RiftMineChargesPerMine} charges each; final charge causes the big pop. Wave start gets rapid seeding for {Balance.RiftMineBurstWindow:0.#}s. Split Shot seeds mini-mines ({Balance.RiftMineMiniDamageFactor * 100f:0}% scale) on final pops only.");
+            AddTowerRow(towersCard, "phase_splitter", "Phase Splitter", GetTowerStatsLine("phase_splitter"),
                 "Each attack hits both the first and last enemy in range at 65% damage each. Strong versus blockers/backline pressure, weaker into dense mid-pack clusters.");
-            AddTowerRow(towersCard, "rocket_launcher", "Rocket Launcher", "34 dmg, 1.45 s, 248 px range",
-                "Rocket Launcher fires explosive rockets that damage the target and nearby enemies. Burst Core further expands the blast radius.");
-            AddTowerRow(towersCard, "undertow_engine", "Undertow Engine", "8 dmg, 2.35 s, 265 px range",
+            AddTowerRow(towersCard, "rocket_launcher", "Rocket Launcher", GetTowerStatsLine("rocket_launcher"),
+                "Rocket Launcher fires explosive rockets that damage the target and nearby enemies. Blast Core further expands the blast radius.");
+            AddTowerRow(towersCard, "undertow_engine", "Undertow Engine", GetTowerStatsLine("undertow_engine"),
                 "Undertow Engine drags enemies backward so they spend longer inside your defenses. It heavily slows the pulled target and can lightly re-clump nearby enemies.");
             AddSpacer(vbox, 10);
         }
@@ -290,9 +293,9 @@ public partial class HowToPlay : Node
             AddModRowWithIcon(modifiersCard, "slow",             "Chill Shot",          "On hit: -30% move speed for 6 s. Keeps enemies in range longer.");
             AddModRowWithIcon(modifiersCard, "overreach",        "Overreach",           "+45% range, -10% damage. Wider coverage with a light damage tradeoff.");
             AddModRowWithIcon(modifiersCard, "hair_trigger",     "Hair Trigger",        "+30% attack speed, -18% range. Pairs with Momentum and Chill Shot.");
-            AddModRowWithIcon(modifiersCard, "split_shot",       "Split Shot (unlock)", "Unlock by beating the second campaign map. On hit, fires 2 projectiles at nearby enemies for 35% damage each. Each additional copy fires one more projectile.");
+            AddModRowWithIcon(modifiersCard, "split_shot",       "Split Shot (unlock)", $"Unlock by beating the second campaign map. On hit, fires 2 projectiles at nearby enemies for {Balance.SplitShotDamageRatio * 100f:0}% damage each. Each additional copy fires one more projectile.");
             AddModRowWithIcon(modifiersCard, "feedback_loop",    "Feedback Loop",       "Killing an enemy instantly resets this tower's cooldown to zero. Fire again immediately after each kill.");
-            AddModRowWithIcon(modifiersCard, "chain_reaction",   "Chain Reaction",      "After each hit, the attack jumps to 1 nearby enemy for 60% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
+            AddModRowWithIcon(modifiersCard, "chain_reaction",   "Chain Reaction",      $"After each hit, the attack jumps to 1 nearby enemy for {Balance.ChainReactionDamageDecay * 100f:0}% damage. Each additional copy adds 1 more bounce. Rift mine chains trigger on final pops.");
             if (!Balance.IsDemo)
                 AddModRowWithIcon(modifiersCard, "afterimage", "Afterimage (full game)",
                     "Unlock by beating Perimeter Lock. Hits leave a ghost imprint that triggers one delayed weaker replay from that spot (single replay, not a lingering zone).");
@@ -596,6 +599,17 @@ public partial class HowToPlay : Node
         textBox.AddChild(descLbl);
 
         AddSpacer(vbox, 6);
+    }
+
+    private static string GetTowerStatsLine(string towerId)
+    {
+        TowerDef def = DataLoader.GetTowerDef(towerId);
+        return $"{def.BaseDamage:0.##} dmg, {def.AttackInterval:0.##} s, {def.Range:0} px range";
+    }
+
+    private static string BuildStartingLivesLine()
+    {
+        return $"Leaks cost life. Starting lives: Easy {Balance.GetStartingLives(DifficultyMode.Easy)} / Normal {Balance.GetStartingLives(DifficultyMode.Normal)} / Hard {Balance.GetStartingLives(DifficultyMode.Hard)}.";
     }
 
     private static void AddModRowWithIcon(VBoxContainer vbox, string modId, string name, string desc)

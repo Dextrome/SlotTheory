@@ -72,7 +72,7 @@ public class TutorialManager
         else if (waveIndex == 4)
         {
             _callout.Show(
-                "ARMORED WALKER - 3.5× HP, costs 2 lives if it escapes.\nFocus your heaviest hitters on it.");
+                "ARMORED WALKER - 3.5x HP, costs 2 lives if it escapes.\nFocus your heaviest hitters on it.");
         }
     }
 

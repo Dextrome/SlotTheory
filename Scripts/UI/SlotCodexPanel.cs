@@ -1011,7 +1011,7 @@ public partial class SlotCodexPanel : Node
     {
         "rapid_shooter" => "High cadence chip tower. Great for stacking Momentum, Feedback Loop, and Chill pressure.",
         "heavy_cannon" => "Burst cannon with huge per-shot impact. Best when paired with Overkill or Focus Lens.",
-        "rocket_launcher" => "Rocket Launcher fires explosive rockets that damage the target and nearby enemies. Burst Core further expands the blast radius.",
+        "rocket_launcher" => "Rocket Launcher fires explosive rockets that damage the target and nearby enemies. Blast Core further expands the blast radius.",
         "marker_tower" => "Applies Mark to amplify team damage. Core enabler for Exploit Weakness strategies.",
         "chain_tower"      => "Built-in chain bounces for dense waves and lane clear. Excellent in clustered path sections.",
         "rift_prism"       => "Plants charged lane mines. Final charge detonates harder, with rapid wave-start seeding for early trap setup.",
