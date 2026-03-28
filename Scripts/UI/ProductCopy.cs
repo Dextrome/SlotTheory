@@ -15,8 +15,26 @@ public static class ProductCopy
 
     public const string DemoCompleteTitle = "Demo complete.";
     public const string DemoCompleteBody =
-        "You have mastered the demo circuit.\nFull game sectors, towers, and surges await.";
+        "You cleared the demo circuit.\nThis was the controlled environment.\nThe full game is where the variables\nstart fighting back.";
 
     public const string StageUnlockHint = "Clear the previous sector to unlock this one.";
-}
 
+    // Canonical tower language reused across UI surfaces.
+    public const string RocketLauncherBaseDescription =
+        "Rocket Launcher fires explosive rockets that damage the target and nearby enemies.";
+    public const string RocketLauncherBlastCoreDescription =
+        RocketLauncherBaseDescription + " Blast Core further expands the blast radius.";
+    public const string UndertowEngineBaseDescription =
+        "Undertow Engine drags enemies backward so they spend longer inside your defenses.";
+
+    // Tutorial / first-run banner copy.
+    public const string DraftBannerBasicsHeader = "HOW THIS WORKS";
+    public const string DraftBannerBasicsBody =
+        "Pick one card each draft. Towers fill empty slots; modifiers upgrade towers you already have.\n" +
+        "Waves run automatically. Survive 20 waves to win.";
+    public const string DraftBannerSurgesHeader = "SURGES";
+    public const string DraftBannerSurgesBody =
+        "Modifiers generate charge as they activate (hits, kills, procs). When a tower's meter fills, it triggers a Surge: a powerful mid-wave effect.\n" +
+        "Twist = the 2nd mod's trait added to that Surge. Bonus = Pulse (area), Strike (heavy), or Recharge (instant refire).\n" +
+        "Each Surge adds to the Global Surge bar. Fill it and click the ready bar to activate a Global Surge, refunding cooldowns and hitting every enemy on the lane.";
+}

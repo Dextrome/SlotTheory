@@ -467,20 +467,15 @@ public partial class DraftPanel : CanvasLayer
         // ── Text + buttons ────────────────────────────────────────────────────
         if (page == 0)
         {
-            _bannerHeader.Text = "HOW THIS WORKS";
-            _bannerBody.Text =
-                "Pick one card each draft. Towers fill empty slots; modifiers upgrade towers you already have.\n" +
-                "Waves run automatically. Survive 20 waves to win.";
+            _bannerHeader.Text = ProductCopy.DraftBannerBasicsHeader;
+            _bannerBody.Text = ProductCopy.DraftBannerBasicsBody;
             _bannerNext.Text = "Got it";
             _bannerHowTo.Visible = true;
         }
         else
         {
-            _bannerHeader.Text = "SURGES";
-            _bannerBody.Text =
-                "Modifiers generate charge as they activate (hits, kills, procs). When a tower's meter fills, it triggers a Surge: a powerful mid-wave effect.\n" +
-                "Twist = the 2nd mod's trait added to that Surge. Bonus = Pulse (area), Strike (heavy), or Recharge (instant refire).\n" +
-                "Each Surge adds to the Global Surge bar. Fill it and click the ready bar to activate a Global Surge, refunding cooldowns and hitting every enemy on the lane.";
+            _bannerHeader.Text = ProductCopy.DraftBannerSurgesHeader;
+            _bannerBody.Text = ProductCopy.DraftBannerSurgesBody;
             _bannerNext.Text = "Got it";
             _bannerHowTo.Visible = true;
         }

@@ -394,8 +394,8 @@ public partial class UnlockRevealScreen : CanvasLayer
         "chain_tower" => "Built-in chain bounces for dense packs and lane control.",
         "rift_prism" => "Plants charged lane mines that detonate on final charge.",
         "phase_splitter" => "Fires a split-phase blast that hits both front and back targets.",
-            "rocket_launcher" => "Rocket Launcher fires explosive rockets that damage the target and nearby enemies.",
-        "undertow_engine" => "Drags enemies backward so they spend longer inside your defenses.",
+        "rocket_launcher" => ProductCopy.RocketLauncherBaseDescription,
+        "undertow_engine" => ProductCopy.UndertowEngineBaseDescription,
         _ => "Tower unlocked."
     };
 }

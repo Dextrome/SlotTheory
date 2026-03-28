@@ -1011,13 +1011,13 @@ public partial class SlotCodexPanel : Node
     {
         "rapid_shooter" => "High cadence chip tower. Great for stacking Momentum, Feedback Loop, and Chill pressure.",
         "heavy_cannon" => "Burst cannon with huge per-shot impact. Best when paired with Overkill or Focus Lens.",
-        "rocket_launcher" => "Rocket Launcher fires explosive rockets that damage the target and nearby enemies. Blast Core further expands the blast radius.",
+        "rocket_launcher" => ProductCopy.RocketLauncherBlastCoreDescription,
         "marker_tower" => "Applies Mark to amplify team damage. Core enabler for Exploit Weakness strategies.",
         "chain_tower"      => "Built-in chain bounces for dense waves and lane clear. Excellent in clustered path sections.",
         "rift_prism"       => "Plants charged lane mines. Final charge detonates harder, with rapid wave-start seeding for early trap setup.",
         "accordion_engine" => "Emits compression pulses that physically squeeze enemy spacing along the lane. Not a slow or stun -- it edits wave formation topology. Packed enemies become better targets for Blast Core, Arc Emitter chains, and Rift Sapper mines.",
         "phase_splitter"   => "Dual-end striker. Each shot hits both the first and last enemy in range at reduced damage. Strong against blocking frontlines and backline runners, but weaker than Arc Emitter in dense mid packs.",
-        "undertow_engine"  => "Undertow Engine drags enemies backward so they spend longer inside your defenses. It is a control tower first: extend dwell time, force re-entry into traps/mines/splash, and tighten formations for follow-up damage.",
+        "undertow_engine"  => ProductCopy.UndertowEngineBaseDescription + " It is a control tower first: extend dwell time, force re-entry into traps/mines/splash, and tighten formations for follow-up damage.",
         _ => "Tower entry."
     };
 

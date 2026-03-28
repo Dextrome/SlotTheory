@@ -264,9 +264,9 @@ public partial class HowToPlay : Node
             AddTowerRow(towersCard, "phase_splitter", "Phase Splitter", GetTowerStatsLine("phase_splitter"),
                 "Each attack hits both the first and last enemy in range at 65% damage each. Strong versus blockers/backline pressure, weaker into dense mid-pack clusters.");
             AddTowerRow(towersCard, "rocket_launcher", "Rocket Launcher", GetTowerStatsLine("rocket_launcher"),
-                "Rocket Launcher fires explosive rockets that damage the target and nearby enemies. Blast Core further expands the blast radius.");
+                ProductCopy.RocketLauncherBlastCoreDescription);
             AddTowerRow(towersCard, "undertow_engine", "Undertow Engine", GetTowerStatsLine("undertow_engine"),
-                "Undertow Engine drags enemies backward so they spend longer inside your defenses. It heavily slows the pulled target and can lightly re-clump nearby enemies.");
+                ProductCopy.UndertowEngineBaseDescription + " It heavily slows the pulled target and can lightly re-clump nearby enemies.");
             AddSpacer(vbox, 10);
         }
 
