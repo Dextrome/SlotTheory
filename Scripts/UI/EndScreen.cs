@@ -45,10 +45,15 @@ public partial class EndScreen : CanvasLayer
 	private bool _canDismiss;
 	private bool _continuingEndless;
 	private bool _isTutorialRun;
+	private DifficultyMode _playAgainTargetDifficulty = DifficultyMode.Easy;
 	private Button _howToPlayButton = null!;
+	private HBoxContainer _secondaryRow = null!;
 	private HBoxContainer _primaryRow = null!;
 	private VBoxContainer _vbox = null!;
 	private const float BackgroundOverlayAlpha = 0.88f;
+	private const float SingleRowButtonWidthFactor = 0.40f; // ~60% narrower than full-width row
+	private const float SingleRowButtonMinWidth = 260f;
+	private const float SingleRowButtonMaxWidth = 560f;
 
 	public override void _Ready()
 	{
@@ -185,11 +190,12 @@ public partial class EndScreen : CanvasLayer
 		footer.AddChild(_buttonBlock);
 
 		var buttonStack = new VBoxContainer();
-		buttonStack.AddThemeConstantOverride("separation", 24);
+		buttonStack.AddThemeConstantOverride("separation", 12);
 		_buttonBlock.AddChild(buttonStack);
 
 		// Secondary actions row: Leaderboards + Wishlist side by side
-		var secondaryRow = new HBoxContainer();
+		_secondaryRow = new HBoxContainer();
+		var secondaryRow = _secondaryRow;
 		secondaryRow.AddThemeConstantOverride("separation", 8);
 		secondaryRow.CustomMinimumSize = new Vector2(360f, 0f);
 		buttonStack.AddChild(secondaryRow);
@@ -264,7 +270,7 @@ public partial class EndScreen : CanvasLayer
 
 		_nextCampaignButton = new Button
 		{
-			Text = "Next Stage ->",
+			Text = "Next Stage",
 			CustomMinimumSize = new Vector2(360f, 48f),
 			Visible = false,
 		};
@@ -279,7 +285,7 @@ public partial class EndScreen : CanvasLayer
 		buttonStack.AddChild(_campaignFooter);
 
 		var campaignFooterVbox = new VBoxContainer();
-		campaignFooterVbox.AddThemeConstantOverride("separation", 24);
+		campaignFooterVbox.AddThemeConstantOverride("separation", 12);
 		_campaignFooter.AddChild(campaignFooterVbox);
 		campaignFooterVbox.AddChild(_nextCampaignButton);
 
@@ -298,7 +304,7 @@ public partial class EndScreen : CanvasLayer
 
 		_howToPlayButton = new Button
 		{
-			Text = "How to Play ->",
+			Text = "How to Play",
 			CustomMinimumSize = new Vector2(360f, 38f),
 			Visible = false,
 		};
@@ -310,7 +316,9 @@ public partial class EndScreen : CanvasLayer
 		buttonStack.AddChild(_howToPlayButton);
 
 		MobileOptimization.ApplyUIScale(center);
-	AddChild(new PinchZoomHandler(center));
+		AddChild(new PinchZoomHandler(center));
+		GetViewport().SizeChanged += RefreshFooterButtonLayout;
+		CallDeferred(MethodName.RefreshFooterButtonLayout);
 	}
 
 	/// <summary>
@@ -366,7 +374,7 @@ public partial class EndScreen : CanvasLayer
 		{
 			if (nextStage != null)
 			{
-				_nextCampaignButton.Text = $"Next Stage: {nextStage.StageName} ->";
+				_nextCampaignButton.Text = $"Next Stage: {nextStage.StageName}";
 				_nextCampaignButton.Visible = true;
 			}
 			else
@@ -381,6 +389,7 @@ public partial class EndScreen : CanvasLayer
 		// Campaign-only: add a little extra lift to the footer CTA pair.
 		if (GodotObject.IsInstanceValid(_campaignFooter))
 			_campaignFooter.AddThemeConstantOverride("margin_top", -10);
+		RefreshFooterButtonLayout();
 	}
 
 	private void OnNextCampaignPressed()
@@ -417,21 +426,23 @@ public partial class EndScreen : CanvasLayer
 		// Escalate Play Again label toward next difficulty tier
 		if (GodotObject.IsInstanceValid(_playAgainButton))
 		{
-			_playAgainButton.Text = _leaderboardDifficulty switch
+			(_playAgainButton.Text, _playAgainTargetDifficulty) = _leaderboardDifficulty switch
 			{
-				DifficultyMode.Easy   => "Play Again | Try Normal ->",
-				DifficultyMode.Normal => "Play Again | Try Hard ->",
-				_                     => "Play Again",
+				DifficultyMode.Easy   => ("Play Again | Try Normal", DifficultyMode.Normal),
+				DifficultyMode.Normal => ("Play Again | Try Hard", DifficultyMode.Hard),
+				_                     => ("Play Again", DifficultyMode.Hard),
 			};
 		}
 		if (GodotObject.IsInstanceValid(_continueEndlessButton))
 			_continueEndlessButton.Visible = true;
+		RefreshFooterButtonLayout();
 		PlayEntranceAnimation();
 	}
 
 	public void ShowLoss(int waveReached, int livesLost, int kills, int damageDealt, float totalPlayTime, string buildSummary, RunState runState, string runName, string mvpLine, string modLine, Color runStartColor, Color runEndColor, int totalWaves = Balance.TotalWaves)
 	{
 		_continuingEndless = false;
+		_playAgainTargetDifficulty = _leaderboardDifficulty;
 		_titleLabel.Text = _isPlaytestRun ? "GAME OVER  [PLAYTEST]" : "GAME OVER";
 		_titleLabel.Modulate = new Color(1.0f, 0.35f, 0.35f);
 		int wavesLeft = totalWaves - waveReached;
@@ -466,6 +477,7 @@ public partial class EndScreen : CanvasLayer
 
 		if (GodotObject.IsInstanceValid(_continueEndlessButton))
 			_continueEndlessButton.Visible = false;
+		RefreshFooterButtonLayout();
 		PlayEntranceAnimation();
 	}
 
@@ -530,6 +542,7 @@ public partial class EndScreen : CanvasLayer
 			if (GodotObject.IsInstanceValid(_howToPlayButton) && GodotObject.IsInstanceValid(_mainMenuButton))
 				_howToPlayButton.GetParent().MoveChild(_howToPlayButton, _mainMenuButton.GetIndex());
 		}
+		RefreshFooterButtonLayout();
 	}
 
 	public void SetLeaderboardStatus(string text, bool isError = false)
@@ -575,6 +588,7 @@ public partial class EndScreen : CanvasLayer
 	{
 		_leaderboardMapId = string.IsNullOrEmpty(mapId) ? LeaderboardKey.RandomMapId : mapId;
 		_leaderboardDifficulty = difficulty;
+		_playAgainTargetDifficulty = difficulty;
 
 		_isPlaytestRun = MapEditorState.IsPlaytesting;
 
@@ -596,6 +610,7 @@ public partial class EndScreen : CanvasLayer
 			_playAgainButton.Visible = true;
 			_playAgainButton.Disabled = false;
 		}
+		RefreshFooterButtonLayout();
 	}
 
 	private void OnViewLeaderboardPressed()
@@ -801,8 +816,59 @@ public partial class EndScreen : CanvasLayer
 		_continuingEndless = true;
 		if (GodotObject.IsInstanceValid(_continueEndlessButton))
 			_continueEndlessButton.Visible = false;
+		RefreshFooterButtonLayout();
 		Visible = false;
 		ContinueEndlessPressed?.Invoke();
+	}
+
+	private void RefreshFooterButtonLayout()
+	{
+		float viewportWidth = GetViewport().GetVisibleRect().Size.X;
+		float availableWidth = Mathf.Max(320f, viewportWidth - 32f);
+		float singleWidth = Mathf.Clamp(availableWidth * SingleRowButtonWidthFactor, SingleRowButtonMinWidth, SingleRowButtonMaxWidth);
+
+		ApplyStandaloneButtonLayout(_howToPlayButton, singleWidth);
+		ApplyStandaloneButtonLayout(_mainMenuButton, singleWidth);
+		ApplyStandaloneButtonLayout(_nextCampaignButton, singleWidth);
+
+		ApplyRowButtonLayout(_secondaryRow, singleWidth);
+		ApplyRowButtonLayout(_primaryRow, singleWidth);
+	}
+
+	private static void ApplyStandaloneButtonLayout(Button? button, float width)
+	{
+		if (button == null || !GodotObject.IsInstanceValid(button))
+			return;
+
+		button.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
+		button.CustomMinimumSize = new Vector2(width, button.CustomMinimumSize.Y);
+	}
+
+	private static void ApplyRowButtonLayout(HBoxContainer? row, float singleWidth)
+	{
+		if (row == null || !GodotObject.IsInstanceValid(row))
+			return;
+
+		var visibleButtons = row.GetChildren().OfType<Button>().Where(b => b.Visible && GodotObject.IsInstanceValid(b)).ToList();
+		int count = visibleButtons.Count;
+		row.Visible = count > 0;
+		if (count == 0)
+			return;
+
+		// Keep row width consistent with single-button rows; center all row variants.
+		row.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
+		row.CustomMinimumSize = new Vector2(singleWidth, row.CustomMinimumSize.Y);
+		bool single = count == 1;
+		row.Alignment = BoxContainer.AlignmentMode.Center;
+
+		foreach (var btn in visibleButtons)
+		{
+			btn.SizeFlagsHorizontal = single ? Control.SizeFlags.ShrinkCenter : Control.SizeFlags.ExpandFill;
+			if (single)
+				btn.CustomMinimumSize = new Vector2(singleWidth, btn.CustomMinimumSize.Y);
+			else
+				btn.CustomMinimumSize = new Vector2(0f, btn.CustomMinimumSize.Y);
+		}
 	}
 
 	private void OnPlayAgainPressed()
@@ -826,7 +892,7 @@ public partial class EndScreen : CanvasLayer
 		MapSelectPanel.SetPendingMapSelection(_leaderboardMapId);
 		if (_leaderboardMapId == LeaderboardKey.RandomMapId)
 			MapSelectPanel.SetPendingProceduralSeed((ulong)(System.Environment.TickCount64 & 0x7FFFFFFF));
-		SettingsManager.Instance?.SetDifficulty(_leaderboardDifficulty);
+		SettingsManager.Instance?.SetDifficulty(_playAgainTargetDifficulty);
 		Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
 	}
 

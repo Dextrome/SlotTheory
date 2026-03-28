@@ -672,8 +672,14 @@ public partial class GameController : Node
 	public override void _Process(double delta)
 	{
 		// When ProcessMode=Always is set (e.g. targeting tutorial panel) _Process still ticks
-		// while the tree is paused. Skip all game logic - only _Input needs to work.
-		if (GetTree().Paused) return;
+		// while the tree is paused. Keep hover UI responsive, skip gameplay logic.
+		if (GetTree().Paused)
+		{
+			if (_targetModePanelTower != null && (CurrentPhase != GamePhase.Wave || !GodotObject.IsInstanceValid(_targetModePanelTower)))
+				HideTargetModePanel();
+			UpdateTargetModePanelHover();
+			return;
+		}
 		if (_targetModePanelTower != null && (CurrentPhase != GamePhase.Wave || !GodotObject.IsInstanceValid(_targetModePanelTower)))
 			HideTargetModePanel();
 		UpdateTargetModePanelHover();
@@ -8463,8 +8469,8 @@ void fragment() {
 		};
 		bannerStyle.SetBorderWidthAll(2);
 		bannerStyle.SetCornerRadiusAll(10);
-		bannerStyle.ContentMarginLeft = 16; bannerStyle.ContentMarginRight  = 16;
-		bannerStyle.ContentMarginTop  = 12; bannerStyle.ContentMarginBottom = 12;
+		bannerStyle.ContentMarginLeft = 12; bannerStyle.ContentMarginRight  = 12;
+		bannerStyle.ContentMarginTop  = 10; bannerStyle.ContentMarginBottom = 10;
 
 		var banner = new PanelContainer
 		{
@@ -8476,7 +8482,7 @@ void fragment() {
 		overlay.AddChild(banner);
 
 		var vbox = new VBoxContainer();
-		vbox.AddThemeConstantOverride("separation", 8);
+		vbox.AddThemeConstantOverride("separation", 5);
 		banner.AddChild(vbox);
 
 		var header = new Label { Text = "BUILD NAME" };
@@ -8528,16 +8534,65 @@ void fragment() {
 		_tutorialTargetingOverlay = overlay;
 		GetTree().Root.AddChild(overlay);
 
-		// Semi-transparent backdrop that does NOT eat clicks (towers must still be clickable).
-		var backdrop = new ColorRect
-		{
-			Color = new Color(0f, 0f, 0f, 0.72f),
-			MouseFilter = Control.MouseFilterEnum.Ignore,
-		};
-		backdrop.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		overlay.AddChild(backdrop);
-
 		var vpSize = GetViewport().GetVisibleRect().Size;
+
+		// Darken the scene, but keep a clear window around the tutorial tower and
+		// nearby targeting icon panel so both remain fully readable.
+		Vector2? focusTowerPos = null;
+		if (_runState != null)
+		{
+			for (int i = 0; i < _runState.Slots.Length; i++)
+			{
+				var tower = _runState.Slots[i].TowerNode;
+				if (tower == null || !GodotObject.IsInstanceValid(tower))
+					continue;
+				focusTowerPos = tower.GlobalPosition;
+				break;
+			}
+		}
+
+		if (focusTowerPos.HasValue)
+		{
+			// Tight focus around the tutorial tower and targeting icon column.
+			var holeRect = new Rect2(focusTowerPos.Value - new Vector2(92f, 64f), new Vector2(184f, 128f));
+			float left = Mathf.Clamp(holeRect.Position.X, 0f, vpSize.X);
+			float top = Mathf.Clamp(holeRect.Position.Y, 0f, vpSize.Y);
+			float right = Mathf.Clamp(holeRect.End.X, 0f, vpSize.X);
+			float bottom = Mathf.Clamp(holeRect.End.Y, 0f, vpSize.Y);
+			var dimColor = new Color(0f, 0f, 0f, 0.72f);
+
+			void AddDimRect(float x, float y, float w, float h)
+			{
+				if (w <= 0f || h <= 0f)
+					return;
+				var r = new ColorRect
+				{
+					Color = dimColor,
+					Position = new Vector2(x, y),
+					Size = new Vector2(w, h),
+					MouseFilter = Control.MouseFilterEnum.Ignore,
+				};
+				overlay.AddChild(r);
+			}
+
+			// Top / bottom bands.
+			AddDimRect(0f, 0f, vpSize.X, top);
+			AddDimRect(0f, bottom, vpSize.X, vpSize.Y - bottom);
+			// Left / right bands around the tower window.
+			AddDimRect(0f, top, left, bottom - top);
+			AddDimRect(right, top, vpSize.X - right, bottom - top);
+		}
+		else
+		{
+			var backdrop = new ColorRect
+			{
+				Color = new Color(0f, 0f, 0f, 0.72f),
+				MouseFilter = Control.MouseFilterEnum.Ignore,
+			};
+			backdrop.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+			overlay.AddChild(backdrop);
+		}
+
 		float panelW = Mathf.Min(520f, vpSize.X - 32f);
 
 		var bannerStyle = new StyleBoxFlat
@@ -8574,7 +8629,7 @@ void fragment() {
 
 		var body = new Label
 		{
-			Text = "Each tower has a small arrow icon showing how it picks targets.\n▶ First - attacks the enemy furthest along the path.\n★ Strongest - attacks the highest HP enemy in range.\n▼ Lowest HP - focuses the weakest enemy to finish it fast.\n\nClick any tower, then click one icon in its panel to set targeting mode.",
+			Text = "Each tower has a target icon showing how it picks enemies.\n- First: attacks the enemy furthest along the path.\n- Strongest: attacks the highest HP enemy in range.\n- Lowest HP: focuses the weakest enemy to finish it fast.\n- Last: attacks the enemy least along the path.\n\nClick your tower, then click one icon in its panel to set targeting mode.",
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 			HorizontalAlignment = HorizontalAlignment.Center,
 			MouseFilter = Control.MouseFilterEnum.Ignore,
@@ -8699,25 +8754,36 @@ void fragment() {
 				"When a tower surges:\n" +
 				"- 1 mod: main Surge\n" +
 				"- 2 mods: main Surge + Twist\n" +
-				"- 3 mods: main Surge + Twist + Bonus\n\n" +
+				"- 3 mods: main Surge + Twist + Bonus\n" +
+				"\n" +
 				"Bonus can be:\n" +
 				"- Pulse: area hit\n" +
 				"- Strike: heavy hit\n" +
-				"- Recharge: instant refire\n\n" +
-				"Tower surges charge the Global Surge bar below. When it's full, you can activate it.",
+				"- Recharge: instant refire",
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
-			CustomMinimumSize = new Vector2(520f, 0f),
+			CustomMinimumSize = new Vector2(500f, 0f),
 		};
 		UITheme.ApplyFont(body, size: 14);
 		body.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
 		vbox.AddChild(body);
 
-		var btnRow = new HBoxContainer();
-		btnRow.AddThemeConstantOverride("separation", 20);
-		btnRow.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
+		var footerRow = new HBoxContainer();
+		footerRow.AddThemeConstantOverride("separation", 12);
+		footerRow.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+
+		var footerText = new Label
+		{
+			Text = "Tower surges charge the Global Surge bar below.\nWhen it's full, you can activate it.",
+			AutowrapMode = TextServer.AutowrapMode.Off,
+			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+			VerticalAlignment = VerticalAlignment.Bottom,
+		};
+		UITheme.ApplyFont(footerText, size: 13);
+		footerText.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
+		footerRow.AddChild(footerText);
 
 		var gotItBtn = new Button { Text = "Got it", ProcessMode = ProcessModeEnum.Always };
-		gotItBtn.CustomMinimumSize = new Vector2(90f, 0f);
+		gotItBtn.CustomMinimumSize = new Vector2(102f, 34f);
 		gotItBtn.AddThemeFontSizeOverride("font_size", 13);
 		UITheme.ApplyPrimaryStyle(gotItBtn);
 		gotItBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
@@ -8728,8 +8794,8 @@ void fragment() {
 			overlay.QueueFree();
 			GetTree().Paused = false;
 		};
-		btnRow.AddChild(gotItBtn);
-		vbox.AddChild(btnRow);
+		footerRow.AddChild(gotItBtn);
+		vbox.AddChild(footerRow);
 	}
 
 	/// <summary>

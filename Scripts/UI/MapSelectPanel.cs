@@ -188,12 +188,12 @@ public partial class MapSelectPanel : Node
 			corners: 8,
 			borderWidth: 1,
 			padH: 10,
-			padV: 8,
+			padV: 5,
 			sideEmitters: false);
 		rightColumn.AddChild(difficultyCard);
 
 		var difficultyVBox = new VBoxContainer();
-		difficultyVBox.AddThemeConstantOverride("separation", 8);
+		difficultyVBox.AddThemeConstantOverride("separation", 5);
 		difficultyCard.AddChild(difficultyVBox);
 
 		var difficultyLabel = new Label
@@ -583,7 +583,8 @@ public partial class MapSelectPanel : Node
 			CustomMinimumSize = new Vector2(86, 40),
 			ToggleMode = false,
 		};
-		btn.AddThemeFontSizeOverride("font_size", 18);
+		btn.AddThemeFontOverride("font", UITheme.SemiBold);
+		btn.AddThemeFontSizeOverride("font_size", 17);
 		UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, 0.08f, 0.10f);
 		btn.Pressed      += () => SelectDifficulty(difficulty);
 		btn.MouseEntered += () =>
@@ -787,6 +788,15 @@ public partial class MapSelectPanel : Node
 
 	private static void ApplyDifficultyButtonColor(Button button, Color color, bool selected = false)
 	{
+		static void NormalizeTextBox(StyleBoxFlat box)
+		{
+			// Difficulty pills are short; center text instead of using the global downshifted baseline.
+			box.ContentMarginTop = 8;
+			box.ContentMarginBottom = 8;
+			box.ContentMarginLeft = 12;
+			box.ContentMarginRight = 12;
+		}
+
 		button.AddThemeColorOverride("font_color", color);
 		button.AddThemeColorOverride("font_hover_color", color);
 		button.AddThemeColorOverride("font_pressed_color", color);
@@ -800,6 +810,7 @@ public partial class MapSelectPanel : Node
 				border: 2, corners: 6,
 				glowAlpha: 0.12f, glowSize: 4,
 				glowColor: new Color(0.64f, 0.92f, 0.30f));
+			NormalizeTextBox(sel);
 			button.AddThemeStyleboxOverride("normal",   sel);
 			button.AddThemeStyleboxOverride("hover",    sel);
 			button.AddThemeStyleboxOverride("pressed",  sel);
@@ -821,6 +832,8 @@ public partial class MapSelectPanel : Node
 				glowAlpha: 0.08f,
 				glowSize: 3,
 				glowColor: color);
+			NormalizeTextBox(normal);
+			NormalizeTextBox(hover);
 			button.AddThemeStyleboxOverride("normal", normal);
 			button.AddThemeStyleboxOverride("hover", hover);
 			button.AddThemeStyleboxOverride("pressed", normal);

@@ -386,8 +386,7 @@
       { "EnemyCount": 10, "SpawnInterval": 1.4, "TankyCount": 2 },
       { "EnemyCount": 12, "SpawnInterval": 1.3, "TankyCount": 2 },
       { "EnemyCount": 12, "SpawnInterval": 1.2, "TankyCount": 3 },
-      { "EnemyCount": 16, "SpawnInterval": 1.0, "TankyCount": 3 },
-      { "EnemyCount": 18, "SpawnInterval": 0.9, "TankyCount": 4 }
+      { "EnemyCount": 16, "SpawnInterval": 1.0, "TankyCount": 3 }
     ]
   },
   "random": {

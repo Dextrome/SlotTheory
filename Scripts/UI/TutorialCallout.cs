@@ -60,9 +60,12 @@ public partial class TutorialCallout : CanvasLayer
             _panel.QueueFree();
 
         var vpSize = GetViewport().GetVisibleRect().Size;
-        float panelW = Mathf.Min(560f, vpSize.X - 32f);
+        float maxPanelW = spec.AnchorBottom ? 560f : 760f;
+        float sideMargin = spec.AnchorBottom ? 16f : 24f;
+        float panelW = Mathf.Min(maxPanelW, vpSize.X - sideMargin * 2f);
         float x = (vpSize.X - panelW) / 2f;
-        float y = spec.AnchorBottom ? vpSize.Y - 150f : 24f;
+        // Keep top tutorial callouts below the HUD strip.
+        float y = spec.AnchorBottom ? vpSize.Y - 150f : 82f;
 
         var container = new Control();
         container.SetAnchorsPreset(Control.LayoutPreset.FullRect);
