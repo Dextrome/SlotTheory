@@ -33,9 +33,11 @@ public partial class SlotCodexPanel : Node
     private Button _howToTabBtn = null!;
     private Button _surgesTabBtn = null!;
     private PanelContainer _headerPanel = null!;
+    private PanelContainer _contentFrame = null!;
     private CodexTab _activeTab = CodexTab.Towers;
     private Label _progressLabel = null!;
     private float _lastWidth = -1f;
+    private float _lastHeight = -1f;
     private float _lastHeaderCapX = float.NaN;
 
     public override void _Ready()
@@ -172,14 +174,14 @@ public partial class SlotCodexPanel : Node
         tabs.AddChild(BuildTabEntry("How to Play", () => SetActiveTab(CodexTab.HowToPlay), out _howToTabBtn));
         tabs.AddChild(BuildTabEntry("Surges", () => SetActiveTab(CodexTab.Surges), out _surgesTabBtn));
 
-        var contentFrame = new PanelContainer
+        _contentFrame = new PanelContainer
         {
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-            CustomMinimumSize = new Vector2(0f, MobileOptimization.IsMobile() ? 360f : 440f)
+            CustomMinimumSize = new Vector2(0f, ResolveContentMinHeight(GetViewport().GetVisibleRect().Size.Y))
         };
         UITheme.ApplyGlassChassisPanel(
-            contentFrame,
+            _contentFrame,
             bg: new Color(0.05f, 0.06f, 0.13f, 0.90f),
             accent: new Color(0.38f, 0.74f, 0.92f, 0.90f),
             corners: 12,
@@ -188,15 +190,14 @@ public partial class SlotCodexPanel : Node
             padV: 8,
             sideEmitters: true,
             emitterIntensity: 0.92f);
-        root.AddChild(contentFrame);
+        root.AddChild(_contentFrame);
 
         var contentHolder = new Control
         {
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-            SizeFlagsVertical = Control.SizeFlags.ExpandFill,
-            CustomMinimumSize = new Vector2(0f, MobileOptimization.IsMobile() ? 360f : 440f)
+            SizeFlagsVertical = Control.SizeFlags.ExpandFill
         };
-        contentFrame.AddChild(contentHolder);
+        _contentFrame.AddChild(contentHolder);
 
         _towerScroll  = BuildCardScroll(contentHolder, out _towerGrid);
         _modScroll    = BuildCardScroll(contentHolder, out _modGrid);
@@ -210,6 +211,7 @@ public partial class SlotCodexPanel : Node
         HowToPlay.BuildBasicsSection(howToGuide, includeReferenceSections: false);
         HowToPlay.BuildSurgesSection(surgesGuide);
         SetActiveTab(ResolveStartTab());
+        RefreshContentMinHeight(force: true);
         RefreshGridColumns(force: true);
 
         var backCenter = new CenterContainer
@@ -234,6 +236,7 @@ public partial class SlotCodexPanel : Node
     public override void _Process(double delta)
     {
         _ = delta;
+        RefreshContentMinHeight(force: false);
         RefreshGridColumns(force: false);
         UpdateHeaderCapMarker();
     }
@@ -264,6 +267,30 @@ public partial class SlotCodexPanel : Node
         }
 
         Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
+    }
+
+    private float ResolveContentMinHeight(float viewportHeight)
+    {
+        if (MobileOptimization.IsMobile())
+            return 360f;
+        if (viewportHeight < 860f)
+            return 320f;
+        if (viewportHeight < 940f)
+            return 360f;
+        return 440f;
+    }
+
+    private void RefreshContentMinHeight(bool force)
+    {
+        if (_contentFrame == null)
+            return;
+
+        float viewportHeight = GetViewport().GetVisibleRect().Size.Y;
+        if (!force && Mathf.Abs(viewportHeight - _lastHeight) < 0.5f)
+            return;
+
+        _lastHeight = viewportHeight;
+        _contentFrame.CustomMinimumSize = new Vector2(0f, ResolveContentMinHeight(viewportHeight));
     }
 
     private Control BuildTabEntry(string label, Action onPressed, out Button btn)

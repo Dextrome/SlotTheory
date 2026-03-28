@@ -34,23 +34,14 @@ public partial class TowerIcon : Control
         var c = Size * 0.5f;
         float r = Mathf.Min(Size.X, Size.Y) * 0.34f;
 
-        var colors = TowerId switch
-        {
-            "rapid_shooter" => (new Color(0.20f, 0.78f, 1.00f), new Color(0.02f, 0.12f, 0.24f)),
-            "heavy_cannon" => (new Color(1.00f, 0.60f, 0.20f), new Color(0.24f, 0.12f, 0.03f)),
-            "rocket_launcher" => (new Color(1.00f, 0.54f, 0.14f), new Color(0.28f, 0.10f, 0.04f)),
-            "marker_tower" => (new Color(1.00f, 0.34f, 0.74f), new Color(0.24f, 0.08f, 0.20f)),
-            "chain_tower"      => (new Color(0.62f, 0.95f, 1.00f), new Color(0.05f, 0.15f, 0.25f)),
-            "rift_prism"       => (new Color(0.62f, 1.00f, 0.62f), new Color(0.08f, 0.20f, 0.10f)),
-            "accordion_engine" => (new Color(0.72f, 0.20f, 1.00f), new Color(0.12f, 0.02f, 0.22f)),
-            "phase_splitter"   => (new Color(0.45f, 1.00f, 0.95f), new Color(0.04f, 0.11f, 0.16f)),
-            "undertow_engine"  => (new Color(0.08f, 0.64f, 0.86f), new Color(0.02f, 0.10f, 0.18f)),
-            _ => (new Color(0.42f, 0.48f, 0.60f), new Color(0.18f, 0.20f, 0.26f)),
-        };
+        Color primary = string.IsNullOrEmpty(TowerId)
+            ? new Color(0.42f, 0.48f, 0.60f)
+            : UIStyle.TowerAccent(TowerId, UIStyle.TowerAccentVariant.Ui);
+        Color secondary = GetIconSecondaryTone(TowerId);
 
-        DrawCircle(c, r + 6f, new Color(colors.Item1.R, colors.Item1.G, colors.Item1.B, 0.18f));
-        DrawCircle(c, r + 1f, colors.Item1);
-        DrawCircle(c, r - 2f, colors.Item2);
+        DrawCircle(c, r + 6f, new Color(primary.R, primary.G, primary.B, 0.18f));
+        DrawCircle(c, r + 1f, primary);
+        DrawCircle(c, r - 2f, secondary);
 
         if (string.IsNullOrEmpty(TowerId))
         {
@@ -85,4 +76,18 @@ public partial class TowerIcon : Control
         DrawString(font, baseline + new Vector2(1f, 1f), glyph, HorizontalAlignment.Left, -1, fontSize, new Color(0f, 0f, 0f, 0.65f));
         DrawString(font, baseline, glyph, HorizontalAlignment.Left, -1, fontSize, new Color(0.95f, 0.98f, 1.0f, 0.95f));
     }
+
+    private static Color GetIconSecondaryTone(string towerId) => towerId switch
+    {
+        "rapid_shooter" => new Color(0.02f, 0.12f, 0.24f),
+        "heavy_cannon" => new Color(0.24f, 0.12f, 0.03f),
+        "rocket_launcher" => new Color(0.28f, 0.10f, 0.04f),
+        "marker_tower" => new Color(0.24f, 0.08f, 0.20f),
+        "chain_tower" => new Color(0.05f, 0.15f, 0.25f),
+        "rift_prism" => new Color(0.08f, 0.20f, 0.10f),
+        "accordion_engine" => new Color(0.12f, 0.02f, 0.22f),
+        "phase_splitter" => new Color(0.04f, 0.11f, 0.16f),
+        "undertow_engine" => new Color(0.02f, 0.10f, 0.18f),
+        _ => new Color(0.18f, 0.20f, 0.26f),
+    };
 }
