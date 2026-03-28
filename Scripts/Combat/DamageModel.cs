@@ -160,6 +160,7 @@ public static class DamageModel
         int attackerSlotIndex = -1;
         if (ctx.State != null)
             attackerSlotIndex = FindTowerSlotIndex(ctx.State, ctx.Attacker);
+        bool applyChill = Statuses.TryGetChillSlowFactor(ctx.Attacker, out float chillSlowFactor);
         float totalDealt = 0f;
         foreach (IEnemyView enemy in splashTargets)
         {
@@ -171,6 +172,8 @@ public static class DamageModel
             enemy.Hp = MathF.Max(0f, enemy.Hp - damage);
             float dealt = hpBefore - enemy.Hp;
             totalDealt += dealt;
+            if (applyChill)
+                Statuses.ApplySlow(enemy, Balance.SlowDuration, chillSlowFactor);
 
             if (dealt > 0f && ctx.State != null)
                 ctx.State.TrackBaseAttackDamage(attackerSlotIndex, (int)dealt, isKill: enemy.Hp <= 0f, enemy.ProgressRatio);

@@ -10,21 +10,9 @@ public class Slow : Modifier
 
     public override bool OnHit(DamageContext ctx)
     {
-        // Count how many "slow" modifiers are on this tower
-        int slowCount = 0;
-        foreach (var mod in ctx.Attacker.Modifiers)
-            if (mod.ModifierId == "slow")
-                slowCount++;
+        if (!Statuses.TryApplyChillFromAttacker(ctx.Attacker, ctx.Target))
+            return false;
 
-        // Calculate stacked speed factor: 0.70^slowCount
-        // 1 slow: 0.70 (-30%)
-        // 2 slows: 0.49 (-51%)
-        // 3 slows: 0.343 (-65.7%)
-        float stackedFactor = Core.Balance.SlowSpeedFactor;
-        for (int i = 1; i < slowCount; i++)
-            stackedFactor *= Core.Balance.SlowSpeedFactor;
-
-        Statuses.ApplySlow(ctx.Target, Core.Balance.SlowDuration, stackedFactor);
         Core.GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId,
             Core.SpectacleDefinitions.GetProcScalar(ModifierId), ctx.DamageDealt);
         return true;

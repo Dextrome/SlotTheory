@@ -23,7 +23,8 @@ namespace SlotTheory.Modifiers;
 ///     Momentum stacks, etc. -- this is intentional.
 ///   - Primary target is excluded: no double-hit by design.
 ///   - Splash respects Shield Drone protection (35% reduction applied per enemy).
-///   - Splash does NOT apply statuses (no Marked, no Slow from splash hits).
+///   - Splash applies Chill Shot's slow only when the attacker has Chill Shot equipped.
+///     Other status effects are not applied by splash.
 ///   - Splash does NOT pass through the modifier OnHit pipeline. Raw HP reduction only.
 ///     Reason: prevents recursive blast, modifier double-procs, and proc spaghetti.
 ///   - Splash kills do NOT trigger FeedbackLoop or other OnKill modifier effects.
@@ -94,6 +95,7 @@ public class BlastCore : Modifier
         // OnKill modifier effects (FeedbackLoop, Overkill) are intentionally NOT fired --
         // splash is secondary damage and should not propagate the full kill pipeline.
         int slotIndex = FindTowerSlotIndex(ctx.State, ctx.Attacker);
+        bool applyChill = Statuses.TryGetChillSlowFactor(ctx.Attacker, out float chillSlowFactor);
         float totalDealt = 0f;
         foreach (var enemy in candidates)
         {
@@ -104,6 +106,8 @@ public class BlastCore : Modifier
             enemy.Hp = MathF.Max(0f, enemy.Hp - damage);
             float dealt = hpBefore - enemy.Hp;
             totalDealt += dealt;
+            if (applyChill)
+                Statuses.ApplySlow(enemy, Balance.SlowDuration, chillSlowFactor);
 
             if (dealt > 0f && ctx.State != null)
                 ctx.State.TrackBaseAttackDamage(slotIndex, (int)dealt, isKill: enemy.Hp <= 0f, enemy.ProgressRatio);

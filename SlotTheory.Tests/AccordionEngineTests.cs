@@ -229,6 +229,28 @@ public class AccordionEngineTests
     }
 
     [Fact]
+    public void BlastCore_SplashWithChill_AppliesSlowToNearbyEnemy()
+    {
+        var tower   = new FakeTower { BaseDamage = 20f };
+        var target  = new FakeEnemy { Hp = 100f, GlobalPosition = Vector2.Zero };
+        var nearby  = new FakeEnemy { Hp = 100f, GlobalPosition = new Vector2(50f, 0f) };
+        var enemies = new List<IEnemyView> { target, nearby };
+        tower.Modifiers.Add(new BlastCore(Def("blast_core")));
+        tower.Modifiers.Add(new Slow(Def("slow")));
+        Assert.True(Statuses.TryGetChillSlowFactor(tower, out float chillFactor));
+        Assert.Equal(Balance.SlowSpeedFactor, chillFactor, precision: 3);
+
+        var ctx = Ctx(tower, target, enemies, isChain: false);
+        ctx.FinalDamage = tower.BaseDamage;
+
+        DamageModel.Apply(ctx);
+
+        Assert.True(nearby.Hp < 100f);
+        Assert.True(nearby.SlowRemaining > 0f);
+        Assert.Equal(Balance.SlowSpeedFactor, nearby.SlowSpeedFactor, precision: 3);
+    }
+
+    [Fact]
     public void BlastCore_NearbyEnemyUntouched_OnSecondaryHit()
     {
         // isChain=true (secondary/accordion hit): Blast Core must NOT fire; nearby enemy stays at full HP.
