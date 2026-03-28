@@ -114,7 +114,7 @@ public partial class Settings : Node
         // ── AUDIO ─────────────────────────────────────────────────────────────
         AddSectionHeader(vbox, "AUDIO");
         AddVolumeRow(vbox, "Master",  sm?.MasterVolume ?? 80f, v => SettingsManager.Instance?.SetVolume(v));
-        AddVolumeRow(vbox, "Music",   sm?.MusicVolume  ?? 80f, v => SettingsManager.Instance?.SetMusicVolume(v));
+        AddVolumeRow(vbox, "Music",   sm?.MusicVolume  ?? 100f, v => SettingsManager.Instance?.SetMusicVolume(v));
         AddVolumeRow(vbox, "Game FX", sm?.FxVolume     ?? 80f, v => SettingsManager.Instance?.SetFxVolume(v));
         AddVolumeRow(vbox, "UI FX",   sm?.UiFxVolume   ?? 80f, v => SettingsManager.Instance?.SetUiFxVolume(v));
 
@@ -128,7 +128,7 @@ public partial class Settings : Node
         // ── DISPLAY ───────────────────────────────────────────────────────────
         AddSectionHeader(vbox, "DISPLAY");
 
-        bool isFs = sm?.Fullscreen ?? false;
+        bool isFs = sm?.Fullscreen ?? true;
         _fullscreenBtn = AddSettingRow(vbox, "Display Mode",
             isFs ? "Fullscreen" : "Windowed", isOn: isFs, OnToggleFullscreen);
 

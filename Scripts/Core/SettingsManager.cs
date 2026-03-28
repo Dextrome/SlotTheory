@@ -40,7 +40,7 @@ public partial class SettingsManager : Node
 
     // ── Account / preference settings (cloud-synced) ─────────────────────
     public float MasterVolume  { get; private set; } = 80f;  // 0–100
-    public float MusicVolume   { get; private set; } = 80f;
+    public float MusicVolume   { get; private set; } = 100f;
     public float FxVolume      { get; private set; } = 80f;
     public float UiFxVolume    { get; private set; } = 80f;
     public int   MenuMusicStyle { get; private set; } = 0;  // 0=Mars, 1=Ambient, 2=Zool
@@ -63,7 +63,7 @@ public partial class SettingsManager : Node
     public bool   PendingTutorialRun   { get; set; } = false;
 
     // ── Device-specific display settings (NOT cloud-synced) ──────────────
-    public bool  Fullscreen    { get; private set; } = false;
+    public bool  Fullscreen    { get; private set; } = true;
     public bool  PostFxEnabled  { get; private set; } = true;
     public bool  LayeredEnemyRendering { get; private set; } = true;
     public bool  EnemyEmissiveLines { get; private set; } = true;
@@ -350,7 +350,7 @@ public partial class SettingsManager : Node
         if (cfg.Load(SavePath) == Error.Ok)
         {
             MasterVolume   = (float)cfg.GetValue(SecAudio, "master_volume",    80f);
-            MusicVolume    = (float)cfg.GetValue(SecAudio, "music_volume",    80f);
+            MusicVolume    = (float)cfg.GetValue(SecAudio, "music_volume",    100f);
             FxVolume       = (float)cfg.GetValue(SecAudio, "fx_volume",       80f);
             UiFxVolume     = (float)cfg.GetValue(SecAudio, "ui_fx_volume",    80f);
             // Migrate from old bool key → int style
@@ -396,7 +396,7 @@ public partial class SettingsManager : Node
             displayCfg = cfg;
         }
 
-        Fullscreen = (bool)displayCfg.GetValue(SecDisp, "fullscreen", false);
+        Fullscreen = (bool)displayCfg.GetValue(SecDisp, "fullscreen", true);
         ScreenFilterEnabled = (bool)displayCfg.GetValue(SecDisp, "screen_filter",  true);
         PhosphorGridEnabled = (bool)displayCfg.GetValue(SecDisp, "phosphor_grid",  ScreenFilterEnabled);
         VhsGlitchEnabled    = (bool)displayCfg.GetValue(SecDisp, "vhs_glitch",     false);
