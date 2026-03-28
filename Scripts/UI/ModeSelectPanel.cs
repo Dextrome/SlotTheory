@@ -19,6 +19,8 @@ public partial class ModeSelectPanel : Node
         CampaignManager.ClearActiveStage();
         CampaignProgress.Load();
         bool isMobile = MobileOptimization.IsMobile();
+        var viewportSize = GetViewport().GetVisibleRect().Size;
+        bool compactDesktopLayout = !isMobile && viewportSize.Y <= 940f;
         bool isDemo = Balance.IsDemo;
 
         var canvas = new CanvasLayer();
@@ -36,14 +38,24 @@ public partial class ModeSelectPanel : Node
 
         var center = new CenterContainer();
         center.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        center.AnchorBottom = isMobile ? 0.97f : 0.95f; // bias content upward so bottom controls stay visible
+        center.AnchorBottom = isMobile ? 0.97f : (compactDesktopLayout ? 0.87f : 0.93f); // bias content upward so bottom controls stay visible
+        if (compactDesktopLayout)
+        {
+            // Lift the stack just enough to keep Back visible while preserving top breathing room.
+            center.OffsetTop = -16f;
+            center.OffsetBottom = -16f;
+        }
         center.Theme = UITheme.Build();
         canvas.AddChild(center);
 
         var root = new VBoxContainer();
-        root.AddThemeConstantOverride("separation", 22);
+        root.AddThemeConstantOverride("separation", compactDesktopLayout ? 10 : 22);
         root.CustomMinimumSize = new Vector2(isMobile ? 420f : 920f, 0f);
         center.AddChild(root);
+
+        var headerStack = new VBoxContainer();
+        headerStack.AddThemeConstantOverride("separation", compactDesktopLayout ? 3 : 8);
+        root.AddChild(headerStack);
 
         var kicker = new Label
         {
@@ -52,7 +64,7 @@ public partial class ModeSelectPanel : Node
         };
         UITheme.ApplyFont(kicker, semiBold: true, size: 16);
         kicker.Modulate = new Color(0.42f, 0.64f, 0.78f, 0.92f);
-        root.AddChild(kicker);
+        headerStack.AddChild(kicker);
 
         var title = new Label
         {
@@ -61,7 +73,7 @@ public partial class ModeSelectPanel : Node
         };
         UITheme.ApplyFont(title, semiBold: true, size: isMobile ? 30 : 36);
         title.Modulate = new Color(0.88f, 0.95f, 1.00f, 0.97f);
-        root.AddChild(title);
+        headerStack.AddChild(title);
 
         var subtitle = new Label
         {
@@ -72,7 +84,7 @@ public partial class ModeSelectPanel : Node
         };
         UITheme.ApplyFont(subtitle, size: 14);
         subtitle.Modulate = new Color(0.67f, 0.75f, 0.86f, 0.92f);
-        root.AddChild(subtitle);
+        headerStack.AddChild(subtitle);
 
         var cardGrid = new GridContainer
         {
@@ -81,7 +93,7 @@ public partial class ModeSelectPanel : Node
             CustomMinimumSize = new Vector2(isMobile ? 390f : 860f, 0f),
         };
         cardGrid.AddThemeConstantOverride("h_separation", 18);
-        cardGrid.AddThemeConstantOverride("v_separation", 18);
+        cardGrid.AddThemeConstantOverride("v_separation", compactDesktopLayout ? 8 : 18);
         root.AddChild(cardGrid);
 
         var tutorialDone = SettingsManager.Instance?.TutorialCompleted ?? false;
@@ -93,7 +105,8 @@ public partial class ModeSelectPanel : Node
                 : "Step-by-step onboarding with curated waves.\nLearn drafting, tower timing, and surge usage.",
             actionLabel: tutorialDone ? "PLAY AGAIN" : "START TUTORIAL",
             accentColor: new Color(0.26f, 0.92f, 0.86f),
-            onPressed: OnTutorial);
+            onPressed: OnTutorial,
+            compactLayout: compactDesktopLayout);
         cardGrid.AddChild(tutorialCard);
         AnimateCardIn(tutorialCard, 0.00f);
 
@@ -105,7 +118,8 @@ public partial class ModeSelectPanel : Node
             accentColor: UITheme.Lime,
             onPressed: OnCampaign,
             isPrimaryAction: true,
-            isEnabled: !isDemo);
+            isEnabled: !isDemo,
+            compactLayout: compactDesktopLayout);
         cardGrid.AddChild(campaignCard);
         AnimateCardIn(campaignCard, 0.05f);
 
@@ -115,7 +129,8 @@ public partial class ModeSelectPanel : Node
             description: "Pick any map, any difficulty.\nNo restrictions. Standard rules.\nOne run, one result.",
             actionLabel: "START SKIRMISH",
             accentColor: new Color(0.72f, 0.45f, 0.96f),
-            onPressed: OnSkirmish);
+            onPressed: OnSkirmish,
+            compactLayout: compactDesktopLayout);
         cardGrid.AddChild(skirmishCard);
         AnimateCardIn(skirmishCard, 0.10f);
 
@@ -127,25 +142,30 @@ public partial class ModeSelectPanel : Node
             accentColor: new Color(0.92f, 0.55f, 0.26f),
             onPressed: OnCustomGamePlaceholder,
             isPlaceholder: true,
-            isEnabled: !isDemo);
+            isEnabled: !isDemo,
+            compactLayout: compactDesktopLayout);
         cardGrid.AddChild(customCard);
         AnimateCardIn(customCard, 0.15f);
+
+        var backCenter = new HBoxContainer
+        {
+            Alignment = BoxContainer.AlignmentMode.Center,
+        };
+        backCenter.Theme = UITheme.Build();
+        root.AddChild(backCenter);
 
         var backBtn = new Button
         {
             Text = "Back",
-            CustomMinimumSize = new Vector2(160f, 40f),
+            CustomMinimumSize = new Vector2(isMobile ? 170f : 190f, isMobile ? 42f : 46f),
         };
-        backBtn.AddThemeFontSizeOverride("font_size", 18);
+        backBtn.AddThemeFontSizeOverride("font_size", isMobile ? 18 : 20);
         UITheme.ApplyCyanStyle(backBtn);
         UITheme.ApplyMenuButtonFinish(backBtn, UITheme.Cyan, 0.09f, 0.11f);
-        backBtn.Pressed      += OnBack;
+        backBtn.Pressed += OnBack;
         backBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
         RegisterAnimatedSurface(backBtn);
-
-        var backCenter = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
         backCenter.AddChild(backBtn);
-        root.AddChild(backCenter);
 
         _customPlaceholderDialog = new AcceptDialog
         {
@@ -241,11 +261,12 @@ public partial class ModeSelectPanel : Node
         System.Action onPressed,
         bool isPrimaryAction = false,
         bool isPlaceholder = false,
-        bool isEnabled = true)
+        bool isEnabled = true,
+        bool compactLayout = false)
     {
         var card = new PanelContainer();
         bool isMobile = MobileOptimization.IsMobile();
-        card.CustomMinimumSize = new Vector2(isMobile ? 380f : 420f, isMobile ? 222f : 232f);
+        card.CustomMinimumSize = new Vector2(isMobile ? 380f : 420f, isMobile ? 222f : (compactLayout ? 198f : 232f));
         var displayAccent = isEnabled
             ? accentColor
             : new Color(accentColor.R * 0.55f, accentColor.G * 0.55f, accentColor.B * 0.55f, 0.95f);
