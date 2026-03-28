@@ -702,8 +702,8 @@ public partial class PauseScreen : CanvasLayer
     {
         var s = UITheme.MakeBtn(bg, border, border: 1, corners: 5,
             glowAlpha: glowAlpha, glowSize: glowSize, glowColor: glowColor);
-        s.ContentMarginTop    = 3;
-        s.ContentMarginBottom = 3;
+        s.ContentMarginTop    = 6;
+        s.ContentMarginBottom = 2;
         s.ContentMarginLeft   = 8;
         s.ContentMarginRight  = 8;
         return s;
