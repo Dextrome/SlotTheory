@@ -1415,6 +1415,13 @@ public partial class GameController : Node
 		_currentDraftOptions = null;
 		_runState.MaxLives = Balance.GetStartingLives(SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal);
 		_runState.Reset();
+		RunState? runState = _runState;
+		if (runState == null)
+		{
+			GD.PrintErr("[RUN] RestartRun aborted: run state is null.");
+			_restartInProgress = false;
+			return;
+		}
 		_combatSim.ResetForWave();
 		_endScreen.Visible = false;
 		_pendingUnlockReveals.Clear();
@@ -1448,12 +1455,13 @@ public partial class GameController : Node
 		_nonCriticalHintSuppressUntilUsec = 0;
 		_initialDraftMusicPrimed = false;
 		_spectacleSystem.Reset();
-		if (_screenshotPipeline != null && _runState != null)
-			_screenshotPipeline.Initialize(_runState, _screenshotOutputDir, (_botRunner?.CompletedRuns ?? 0));
+		if (_screenshotPipeline != null)
+			_screenshotPipeline.Initialize(runState, _screenshotOutputDir, (_botRunner?.CompletedRuns ?? 0));
 		if (_botRunner != null)
 			ResetBotTraceBuffer();
 		ClearUndoPlacementState();
-		_hudPanel.Refresh(1, _runState.MaxLives);
+		int hudMaxLives = runState.MaxLives;
+		_hudPanel.Refresh(1, hudMaxLives);
 		_hudPanel.SetBuildName("", visible: false);
 		_hudPanel.ResetSpeed();
 		_hudPanel.SetGlobalSurgeReady(false);
@@ -1463,17 +1471,17 @@ public partial class GameController : Node
 			// In bot/auto-draft mode re-apply the pending map since _Ready() only runs once.
 			if (_botRunner != null || _autoDraftMode)
 			{
-				_runState.SelectedMapId = SlotTheory.UI.MapSelectPanel.PendingMapSelection;
-				if (_runState.SelectedMapId == "random_map" && _botRunner != null)
-					_runState.RngSeed = ResolveBotProceduralSeed();
+				runState.SelectedMapId = SlotTheory.UI.MapSelectPanel.PendingMapSelection;
+				if (runState.SelectedMapId == "random_map" && _botRunner != null)
+					runState.RngSeed = ResolveBotProceduralSeed();
 			}
-			else if (_runState.SelectedMapId == "random_map")
+			else if (runState.SelectedMapId == "random_map")
 			{
 				// Fresh procedural seed on player restarts for random_map.
-				_runState.RngSeed = (int)(System.Environment.TickCount64 & 0x7FFFFFFF);
+				runState.RngSeed = (int)(System.Environment.TickCount64 & 0x7FFFFFFF);
 			}
 
-			_mapTotalWaves = ResolveMapTotalWaves(_runState.SelectedMapId);
+			_mapTotalWaves = ResolveMapTotalWaves(runState.SelectedMapId);
 			_hudPanel.SetTotalWaves(_mapTotalWaves);
 			_hudPanel.SetDifficulty(SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal);
 

@@ -116,29 +116,30 @@ public partial class ProjectileVisual : Node2D
 
         if (dist <= _speed * (float)delta)
         {
+            TowerInstance? tower = _tower;
             // Arrived - apply primary damage.
-            if (_tower != null && _enemies != null && _target.Hp > 0)
+            if (tower != null && _enemies != null && _target.Hp > 0)
             {
                 float hpBefore = _target.Hp;
                 var ctx = _damageOverride >= 0f
-                    ? new DamageContext(_tower, _target, _waveIndex, _enemies, _runState,
+                    ? new DamageContext(tower, _target, _waveIndex, _enemies, _runState,
                                         isChain: false, damageOverride: _damageOverride)
-                    : new DamageContext(_tower, _target, _waveIndex, _enemies, _runState);
+                    : new DamageContext(tower, _target, _waveIndex, _enemies, _runState);
                 DamageModel.Apply(ctx);
 
-                string hitSound = _tower.TowerId == "rocket_launcher" ? "hit_rocket" : "hit";
+                string hitSound = tower.TowerId == "rocket_launcher" ? "hit_rocket" : "hit";
                 SlotTheory.Core.SoundManager.Instance?.Play(hitSound);
 
                 float dealt = hpBefore - _target.Hp;
                 if (dealt > 0f)
                 {
                     bool isKill = _target.Hp <= 0;
-                    SpawnDamageNumber(_target.GlobalPosition, dealt, isKill, _tower?.TowerId ?? "");
-                    bool heavyImpact = _tower?.TowerId is "heavy_cannon" or "rocket_launcher";
+                    SpawnDamageNumber(_target.GlobalPosition, dealt, isKill, tower.TowerId);
+                    bool heavyImpact = tower.TowerId is "heavy_cannon" or "rocket_launcher";
                     SpawnImpactSparks(_target.GlobalPosition, heavy: heavyImpact);
                     if (isKill)
                     {
-                        bool heavy = _tower?.TowerId is "heavy_cannon" or "rocket_launcher";
+                        bool heavy = tower.TowerId is "heavy_cannon" or "rocket_launcher";
                         GameController.Instance?.TriggerHitStop(
                             realDuration: heavy ? 0.053f : 0.040f,
                             slowScale: heavy ? 0.18f : 0.22f);
@@ -148,11 +149,11 @@ public partial class ProjectileVisual : Node2D
                 }
 
                 // Chain bounces first (hitscan) - split shot then picks from surviving enemies.
-                if (_tower.IsChainTower && !_isSplitProjectile)
+                if (tower.IsChainTower && !_isSplitProjectile)
                     ApplyChainHits(_target.GlobalPosition);
 
                 // Split Shot - fires at enemies that weren't already killed by chain.
-                if (_tower.SplitCount > 0 && !_isSplitProjectile)
+                if (tower.SplitCount > 0 && !_isSplitProjectile)
                     SpawnSplitProjectiles(_target.GlobalPosition);
             }
             QueueFree();

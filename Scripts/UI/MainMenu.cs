@@ -506,7 +506,7 @@ public partial class MainMenu : Node
 	{
 		var panel = new PanelContainer();
 		panel.SizeFlagsHorizontal = Control.SizeFlags.ShrinkCenter;
-		panel.CustomMinimumSize = new Vector2(260, 0);
+		panel.CustomMinimumSize = Vector2.Zero;
 
 		var bannerStyle = UITheme.MakePanel(
 			bg:          new Color(0.024f, 0.020f, 0.090f),
@@ -557,7 +557,7 @@ public partial class MainMenu : Node
 		{
 			Text = ProductCopy.DemoCompleteBody,
 			HorizontalAlignment = HorizontalAlignment.Center,
-			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			AutowrapMode = TextServer.AutowrapMode.Off,
 		};
 		body.AddThemeFontSizeOverride("font_size", 13);
 		body.Modulate = new Color(0.75f, 0.74f, 0.86f);
@@ -565,6 +565,7 @@ public partial class MainMenu : Node
 
 		var btnRow = new HBoxContainer();
 		btnRow.Alignment = BoxContainer.AlignmentMode.Center;
+		btnRow.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		btnRow.AddThemeConstantOverride("separation", 8);
 		inner.AddChild(btnRow);
 
@@ -572,9 +573,10 @@ public partial class MainMenu : Node
 		{
 			var wishBtn = new Button
 			{
-				Text = ProductCopy.WishlistCta,
-				CustomMinimumSize = new Vector2(140, 32),
+				Text = "Wishlist",
+				CustomMinimumSize = new Vector2(0, 32),
 			};
+			wishBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 			wishBtn.AddThemeFontSizeOverride("font_size", 14);
 			UITheme.ApplyMutedStyle(wishBtn);
 			wishBtn.AddThemeColorOverride("font_color", new Color(0.85f, 0.65f, 1.0f));
@@ -591,8 +593,9 @@ public partial class MainMenu : Node
 		var dismissBtn = new Button
 		{
 			Text = "Got it",
-			CustomMinimumSize = new Vector2(80, 32),
+			CustomMinimumSize = new Vector2(0, 32),
 		};
+		dismissBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		dismissBtn.AddThemeFontSizeOverride("font_size", 14);
 		UITheme.ApplyMutedStyle(dismissBtn);
 		AddButtonSurface(dismissBtn, UITheme.Magenta, 0.09f, 0.14f);
