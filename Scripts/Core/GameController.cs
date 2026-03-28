@@ -338,6 +338,32 @@ public partial class GameController : Node
 		// Bot playtest mode: godot --headless --path ... -- --bot --runs N --difficulty easy|normal|hard
 		if (userArgs.Contains("--bot"))
 		{
+			string NormalizeBotArg(string token)
+			{
+				if (string.IsNullOrWhiteSpace(token))
+					return string.Empty;
+				return token.Trim().TrimStart('-').Replace('-', '_').ToLowerInvariant();
+			}
+
+			int FindBotArgIndex(params string[] aliases)
+			{
+				if (aliases == null || aliases.Length == 0)
+					return -1;
+
+				for (int i = 0; i < userArgs.Length; i++)
+				{
+					string current = NormalizeBotArg(userArgs[i]);
+					foreach (string alias in aliases)
+					{
+						if (current == NormalizeBotArg(alias))
+							return i;
+					}
+				}
+				return -1;
+			}
+
+			bool HasBotArg(params string[] aliases) => FindBotArgIndex(aliases) >= 0;
+
 			int runs = 50;
 			int ri = System.Array.IndexOf(userArgs, "--runs");
 			if (ri >= 0 && ri + 1 < userArgs.Length)
@@ -398,8 +424,77 @@ public partial class GameController : Node
 			if (rio >= 0 && rio + 1 < userArgs.Length)
 				int.TryParse(userArgs[rio + 1], out runIndexOffset);
 
-			bool botFastMetrics = userArgs.Contains("--bot_fast_metrics");
-			bool botQuiet = userArgs.Contains("--bot_quiet");
+			bool botFastMetrics = HasBotArg("--bot_fast_metrics", "--bot-fast-metrics");
+			bool botQuiet = HasBotArg("--bot_quiet", "--bot-quiet");
+			bool towerSurgeBenchmark = HasBotArg("--tower_surge_benchmark", "--tower-surge-benchmark");
+			BotRunner.TowerSurgeBenchmarkConfig? towerSurgeBenchmarkConfig = null;
+
+			if (towerSurgeBenchmark)
+			{
+				if (targetMap == null)
+					targetMap = "crossroads";
+				if (!targetDifficulty.HasValue)
+					targetDifficulty = DifficultyMode.Normal;
+
+				int benchmarkSlot = 0;
+				int bsi = FindBotArgIndex("--benchmark_slot", "--benchmark-slot");
+				if (bsi >= 0 && bsi + 1 < userArgs.Length)
+					int.TryParse(userArgs[bsi + 1], out benchmarkSlot);
+
+				int benchmarkMaxWaves = 10;
+				int bwi = FindBotArgIndex("--benchmark_max_waves", "--benchmark-max-waves");
+				if (bwi >= 0 && bwi + 1 < userArgs.Length)
+					int.TryParse(userArgs[bwi + 1], out benchmarkMaxWaves);
+
+				int benchmarkTrialsPerTower = 1;
+				int btpi = FindBotArgIndex("--benchmark_trials_per_tower", "--benchmark-trials-per-tower");
+				if (btpi >= 0 && btpi + 1 < userArgs.Length)
+					int.TryParse(userArgs[btpi + 1], out benchmarkTrialsPerTower);
+
+				string[] benchmarkMods = new[] { "focus_lens", "overkill", "feedback_loop" };
+				int bmi = FindBotArgIndex("--benchmark_mods", "--benchmark-mods");
+				if (bmi >= 0 && bmi + 1 < userArgs.Length)
+				{
+					string[] parsedMods = userArgs[bmi + 1]
+						.Split(',', System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries);
+					if (parsedMods.Length > 0)
+						benchmarkMods = parsedMods;
+				}
+
+				string[] benchmarkTowers = System.Array.Empty<string>();
+				int bti = FindBotArgIndex("--benchmark_towers", "--benchmark-towers");
+				if (bti >= 0 && bti + 1 < userArgs.Length)
+				{
+					benchmarkTowers = userArgs[bti + 1]
+						.Split(',', System.StringSplitOptions.RemoveEmptyEntries | System.StringSplitOptions.TrimEntries);
+				}
+				if (benchmarkTowers.Length == 0)
+				{
+					benchmarkTowers = DataLoader.GetAllTowerIds()
+						.Where(id => !string.IsNullOrWhiteSpace(id))
+						.OrderBy(id => id, System.StringComparer.Ordinal)
+						.ToArray();
+				}
+
+				benchmarkSlot = Mathf.Clamp(benchmarkSlot, 0, Balance.SlotCount - 1);
+				benchmarkMaxWaves = Mathf.Max(1, benchmarkMaxWaves);
+				benchmarkTrialsPerTower = Mathf.Max(1, benchmarkTrialsPerTower);
+				runs = Mathf.Max(1, benchmarkTowers.Length * benchmarkTrialsPerTower);
+				forcedTower = null;
+				forcedMod = null;
+				targetStrategy = BotStrategy.TowerFirst;
+				strategySet = null;
+
+				towerSurgeBenchmarkConfig = new BotRunner.TowerSurgeBenchmarkConfig
+				{
+					MapId = targetMap,
+					TowerIds = benchmarkTowers,
+					ModifierOrder = benchmarkMods,
+					SlotIndex = benchmarkSlot,
+					MaxWaves = benchmarkMaxWaves,
+					TrialsPerTower = benchmarkTrialsPerTower,
+				};
+			}
 
 			_botRunner = new BotRunner(
 				runs,
@@ -414,11 +509,15 @@ public partial class GameController : Node
 				strategySet,
 				runIndexOffset,
 				botFastMetrics,
-				botQuiet);
+				botQuiet,
+				towerSurgeBenchmarkConfig);
 			_botFastMetrics = _botRunner.FastMetrics;
 			_botTraceCaptureEnabled = _botRunner.TraceCaptureEnabled;
 			Engine.MaxFps = 0;
-			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}{(targetMap != null ? $" on {targetMap}" : "")}{(targetStrategy.HasValue ? $" strategy={targetStrategy.Value}" : "")}{(strategySet != null ? $" strategy_set={strategySet}" : "")}{(forcedTower != null ? $" tower={forcedTower}" : "")}{(forcedMod != null ? $" mod={forcedMod}" : "")}{(runIndexOffset > 0 ? $" run_offset={runIndexOffset}" : "")}{(botFastMetrics ? " fast_metrics=on" : "")}{(botQuiet ? " quiet=on" : "")}{(string.IsNullOrWhiteSpace(metricsOutputPath) ? "" : $" metrics={metricsOutputPath}")}{(string.IsNullOrWhiteSpace(traceOutputPath) ? "" : $" trace={traceOutputPath}")}");
+			string benchmarkSuffix = towerSurgeBenchmarkConfig == null
+				? string.Empty
+				: $" tower_surge_benchmark=on slot={towerSurgeBenchmarkConfig.SlotIndex} mods={string.Join("->", towerSurgeBenchmarkConfig.ModifierOrder)} max_waves={towerSurgeBenchmarkConfig.MaxWaves} towers={towerSurgeBenchmarkConfig.TowerIds.Length}";
+			GD.Print($"[BOT] Headless playtest: {runs} runs{(targetDifficulty.HasValue ? $" ({targetDifficulty.Value})" : "")}{(targetMap != null ? $" on {targetMap}" : "")}{(targetStrategy.HasValue ? $" strategy={targetStrategy.Value}" : "")}{(strategySet != null ? $" strategy_set={strategySet}" : "")}{(forcedTower != null ? $" tower={forcedTower}" : "")}{(forcedMod != null ? $" mod={forcedMod}" : "")}{(runIndexOffset > 0 ? $" run_offset={runIndexOffset}" : "")}{(botFastMetrics ? " fast_metrics=on" : "")}{(botQuiet ? " quiet=on" : "")}{(string.IsNullOrWhiteSpace(metricsOutputPath) ? "" : $" metrics={metricsOutputPath}")}{(string.IsNullOrWhiteSpace(traceOutputPath) ? "" : $" trace={traceOutputPath}")}{benchmarkSuffix}");
 		}
 
 		// Screenshot pipeline: enabled by --screenshot-capture (requires non-headless)
@@ -1137,6 +1236,15 @@ public partial class GameController : Node
 		var options = _currentDraftOptions ?? _draftSystem.GenerateOptions(_runState);
 		_currentDraftOptions = options;
 
+		if (_botRunner?.IsTowerSurgeBenchmark == true)
+		{
+			if (!TryApplyTowerSurgeBenchmarkLoadout())
+				GD.PrintErr("[BOT] Tower surge benchmark: failed to apply fixed loadout; continuing with current state.");
+			_currentDraftOptions = null;
+			StartWavePhase();
+			return;
+		}
+
 		// Fire tutorial callout for this draft wave
 		_tutorialManager?.OnDraftOpened(_runState.WaveIndex);
 
@@ -1180,6 +1288,53 @@ public partial class GameController : Node
 
 	public RunState GetRunState() => _runState;
 	public string GetCurrentRunName() => BuildRunName();
+
+	private bool TryApplyTowerSurgeBenchmarkLoadout()
+	{
+		if (_botRunner == null || !_botRunner.IsTowerSurgeBenchmark || _runState == null)
+			return false;
+
+		// Loadout is already in place from wave 1 onward; benchmark skips all further draft picks.
+		if (_runState.Slots.Any(s => s.Tower != null))
+			return true;
+
+		int slotIndex = Mathf.Clamp(_botRunner.BenchmarkSlotIndex, 0, _runState.Slots.Length - 1);
+		if (_runState.Slots[slotIndex].IsLocked)
+		{
+			int fallback = System.Array.FindIndex(_runState.Slots, s => !s.IsLocked && s.Tower == null);
+			if (fallback < 0)
+				return false;
+			slotIndex = fallback;
+		}
+
+		string towerId = _botRunner.CurrentBenchmarkTowerId;
+		if (string.IsNullOrWhiteSpace(towerId))
+			return false;
+
+		PlaceTower(towerId, slotIndex);
+		ITowerView? tower = _runState.Slots[slotIndex].Tower;
+		if (tower == null)
+			return false;
+		if (tower is TowerInstance placedTower && placedTower.TowerId == "rift_prism")
+		{
+			// Rift Prism retarget labels: Strongest == Closest, LowestHp == Furthest.
+			placedTower.TargetingMode = TargetingMode.Strongest;
+			if (GodotObject.IsInstanceValid(placedTower.ModeIconControl))
+				placedTower.ModeIconControl.Mode = TargetingMode.Strongest;
+		}
+
+		foreach (string modId in _botRunner.BenchmarkModifierOrder)
+		{
+			if (string.IsNullOrWhiteSpace(modId))
+				continue;
+			_draftSystem.ApplyModifier(modId, tower);
+		}
+
+		if (tower is TowerInstance visualTower)
+			visualTower.RebuildEvolutionVisuals(allowTransition: false);
+		RefreshModPips(slotIndex);
+		return true;
+	}
 
 	/// <summary>Wipe all in-flight state and restart from wave 1 draft.</summary>
 	private void OnContinueEndlessPressed()
@@ -3571,18 +3726,17 @@ public partial class GameController : Node
 				_botWaveInRangeSamples += 1;
 			}
 			_runState.TrackFrameStressProxies(_botStepExplosionBursts, _explosionResidues.Count, _botStepHitStopRequests);
+			if (TryFinalizeTowerSurgeBenchmarkOnFirstSurge())
+				return;
 
 			if (result == WaveResult.Loss)
 			{
 				CurrentPhase = GamePhase.Loss;
 				_runState.CompleteWave();
-				if (_botTraceCaptureEnabled)
-					_botRunner!.RecordRunTrace(_botRunTraceEvents);
-				_botRunner!.RecordResult(false, _runState.WaveIndex + 1, _runState);
-				if (_botRunner.HasMoreRuns) { RestartRun(); return; }
-				_screenshotPipeline?.FinalizeSession();
-				_botRunner.PrintSummary();
-				GetTree().Quit();
+				FinalizeBotRunAndContinue(
+					won: false,
+					waveReached: _runState.WaveIndex + 1,
+					stopReason: _botRunner?.IsTowerSurgeBenchmark == true ? "loss" : null);
 				return;
 			}
 
@@ -3594,16 +3748,23 @@ public partial class GameController : Node
 				_botRunner!.RecordWaveEnd(_runState.Lives, avgInRange, _botWaveSteps);
 				_botWaveSteps = 0;
 				_runState.WaveIndex++;
+				if (_botRunner?.IsTowerSurgeBenchmark == true
+					&& _runState.WaveIndex >= _botRunner.BenchmarkMaxWaves)
+				{
+					CurrentPhase = GamePhase.Win;
+					FinalizeBotRunAndContinue(
+						won: true,
+						waveReached: _runState.WaveIndex,
+						stopReason: "max_wave_cap_reached");
+					return;
+				}
 				if (_runState.WaveIndex >= Balance.TotalWaves && !_runState.IsEndlessMode)
 				{
 					CurrentPhase = GamePhase.Win;
-					if (_botTraceCaptureEnabled)
-						_botRunner.RecordRunTrace(_botRunTraceEvents);
-					_botRunner.RecordResult(true, _runState.WaveIndex, _runState);
-					if (_botRunner.HasMoreRuns) { RestartRun(); return; }
-					_screenshotPipeline?.FinalizeSession();
-					_botRunner.PrintSummary();
-					GetTree().Quit();
+					FinalizeBotRunAndContinue(
+						won: true,
+						waveReached: _runState.WaveIndex,
+						stopReason: _botRunner?.IsTowerSurgeBenchmark == true ? "wave_table_completed" : null);
 					return;
 				}
 				_extraPicksRemaining = Balance.ExtraPicksForWave(_runState.WaveIndex);
@@ -3611,6 +3772,48 @@ public partial class GameController : Node
 				return;
 			}
 		}
+	}
+
+	private bool TryFinalizeTowerSurgeBenchmarkOnFirstSurge()
+	{
+		if (_botRunner == null || !_botRunner.IsTowerSurgeBenchmark || _runState == null || CurrentPhase != GamePhase.Wave)
+			return false;
+
+		bool surged = false;
+		string towerId = _botRunner.CurrentBenchmarkTowerId;
+		if (!string.IsNullOrWhiteSpace(towerId))
+			surged = _runState.SpectacleFirstSurgeTimeByTower.ContainsKey(towerId);
+		if (!surged && _runState.SpectacleSurgeTriggers > 0 && _runState.SpectacleFirstSurgeTimeByTower.Count > 0)
+			surged = true;
+		if (!surged)
+			return false;
+
+		CurrentPhase = GamePhase.Win;
+		_runState.CompleteWave();
+		FinalizeBotRunAndContinue(
+			won: true,
+			waveReached: _runState.WaveIndex + 1,
+			stopReason: "first_surge_triggered");
+		return true;
+	}
+
+	private void FinalizeBotRunAndContinue(bool won, int waveReached, string? stopReason = null)
+	{
+		if (_botRunner == null)
+			return;
+
+		if (_botTraceCaptureEnabled)
+			_botRunner.RecordRunTrace(_botRunTraceEvents);
+		_botRunner.RecordResult(won, waveReached, _runState, stopReason);
+		if (_botRunner.HasMoreRuns)
+		{
+			RestartRun();
+			return;
+		}
+
+		_screenshotPipeline?.FinalizeSession();
+		_botRunner.PrintSummary();
+		GetTree().Quit();
 	}
 
 	private void TryBotActivateGlobalSurge()

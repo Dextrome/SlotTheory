@@ -16,6 +16,16 @@ namespace SlotTheory.Tools;
 /// </summary>
 public class BotRunner
 {
+    public sealed class TowerSurgeBenchmarkConfig
+    {
+        public string MapId { get; init; } = "crossroads";
+        public string[] TowerIds { get; init; } = Array.Empty<string>();
+        public string[] ModifierOrder { get; init; } = Array.Empty<string>();
+        public int SlotIndex { get; init; } = 0;
+        public int MaxWaves { get; init; } = 10;
+        public int TrialsPerTower { get; init; } = 1;
+    }
+
     public const string StrategySetAll = "all";
     public const string StrategySetOptimization = "optimization";
     public const string StrategySetEdge = "edge";
@@ -64,6 +74,7 @@ public class BotRunner
         BotStrategy Strategy,
         string      Map,
         bool        Won,
+        string      StopReason,
         int         WaveReached,   // 1-based; last wave fought (20 = won)
         int         LivesEnd,
         int[]       WaveLives,     // lives after each completed wave (index 0 = wave 1)
@@ -128,12 +139,19 @@ public class BotRunner
     private readonly int              _runIndexOffset;
     private readonly bool             _fastMetrics;
     private readonly bool             _quiet;
+    private readonly TowerSurgeBenchmarkConfig? _towerSurgeBenchmark;
+    private readonly string[] _towerSurgeBenchmarkTowers;
+    private readonly string[] _towerSurgeBenchmarkModifiers;
+    private readonly int _towerSurgeBenchmarkSlot;
+    private readonly int _towerSurgeBenchmarkMaxWaves;
+    private readonly int _towerSurgeBenchmarkTrialsPerTower;
 	private DifficultyMode[] _difficulties = { DifficultyMode.Easy, DifficultyMode.Normal, DifficultyMode.Hard };
     private readonly List<RunResult>  _results = new();
     private readonly List<RunTrace>   _runTraces = new();
     private BotStrategy       _curStrategy;
     private DifficultyMode    _curDifficulty = DifficultyMode.Easy;
     private string            _curMap = "random_map";
+    private string            _curBenchmarkTowerId = string.Empty;
     private readonly List<int>   _waveLives   = new();
     private readonly List<float> _waveInRange = new();
     private readonly List<int>   _waveSteps   = new();
@@ -146,6 +164,12 @@ public class BotRunner
     public bool      FastMetrics => _fastMetrics;
     public bool      TraceCaptureEnabled => _traceCaptureEnabled;
     public bool      QuietMode => _quiet;
+    public bool      IsTowerSurgeBenchmark => _towerSurgeBenchmark != null;
+    public string    CurrentBenchmarkTowerId => _curBenchmarkTowerId;
+    public IReadOnlyList<string> BenchmarkModifierOrder => _towerSurgeBenchmarkModifiers;
+    public int       BenchmarkSlotIndex => _towerSurgeBenchmarkSlot;
+    public int       BenchmarkMaxWaves => _towerSurgeBenchmarkMaxWaves;
+    public string    BenchmarkMapId => _towerSurgeBenchmark?.MapId ?? _curMap;
 
 public BotRunner(
     int totalRuns,
@@ -160,14 +184,35 @@ public BotRunner(
     string? strategySet = null,
     int runIndexOffset = 0,
     bool fastMetrics = false,
-    bool quiet = false)
+    bool quiet = false,
+    TowerSurgeBenchmarkConfig? towerSurgeBenchmark = null)
 	{
 		_totalRuns  = totalRuns;
-		_strategies = targetStrategy.HasValue
-            ? new[] { targetStrategy.Value }
-            : ResolveStrategyPool(strategySet, out _strategySetLabel);
-        if (targetStrategy.HasValue)
-            _strategySetLabel = "single";
+        _towerSurgeBenchmark = towerSurgeBenchmark;
+        _towerSurgeBenchmarkTowers = (_towerSurgeBenchmark?.TowerIds ?? Array.Empty<string>())
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+        _towerSurgeBenchmarkModifiers = (_towerSurgeBenchmark?.ModifierOrder ?? Array.Empty<string>())
+            .Where(id => !string.IsNullOrWhiteSpace(id))
+            .ToArray();
+        _towerSurgeBenchmarkSlot = Math.Max(0, _towerSurgeBenchmark?.SlotIndex ?? 0);
+        _towerSurgeBenchmarkMaxWaves = Math.Max(1, _towerSurgeBenchmark?.MaxWaves ?? 10);
+        _towerSurgeBenchmarkTrialsPerTower = Math.Max(1, _towerSurgeBenchmark?.TrialsPerTower ?? 1);
+
+        if (IsTowerSurgeBenchmark)
+        {
+            _strategies = new[] { BotStrategy.TowerFirst };
+            _strategySetLabel = "tower_surge_benchmark";
+        }
+        else
+        {
+		    _strategies = targetStrategy.HasValue
+                ? new[] { targetStrategy.Value }
+                : ResolveStrategyPool(strategySet, out _strategySetLabel);
+            if (targetStrategy.HasValue)
+                _strategySetLabel = "single";
+        }
         _targetDifficulty = targetDifficulty;
         _forcedTowerId = string.IsNullOrWhiteSpace(forcedTowerId) ? null : forcedTowerId;
         _forcedModifierId = string.IsNullOrWhiteSpace(forcedModifierId) ? null : forcedModifierId;
@@ -178,12 +223,16 @@ public BotRunner(
         _runIndexOffset = Math.Max(0, runIndexOffset);
         _fastMetrics = fastMetrics;
         _quiet = quiet;
-		_maps = targetMap != null
-			? new[] { targetMap }
-			: ResolveBotMapPool();
+		_maps = IsTowerSurgeBenchmark
+            ? new[] { _towerSurgeBenchmark!.MapId }
+            : targetMap != null
+			    ? new[] { targetMap }
+			    : ResolveBotMapPool();
 		// Filter difficulties if specific one requested
 		if (targetDifficulty.HasValue)
 			_difficulties = new[] { targetDifficulty.Value };
+        else if (IsTowerSurgeBenchmark)
+            _difficulties = new[] { DifficultyMode.Normal };
         StartNextRun();
     }
 
@@ -255,6 +304,44 @@ public BotRunner(
     private void StartNextRun()
     {
         int idx      = _results.Count + _runIndexOffset;
+        if (IsTowerSurgeBenchmark)
+        {
+            if (_towerSurgeBenchmarkTowers.Length == 0)
+                throw new InvalidOperationException("Tower surge benchmark requested with zero tower IDs.");
+
+            int towerIdx = (idx / _towerSurgeBenchmarkTrialsPerTower) % _towerSurgeBenchmarkTowers.Length;
+            int trialIdx = idx % _towerSurgeBenchmarkTrialsPerTower;
+            _curBenchmarkTowerId = _towerSurgeBenchmarkTowers[towerIdx];
+            _curMap = _towerSurgeBenchmark!.MapId;
+            _curDifficulty = _difficulties[0];
+            _curStrategy = BotStrategy.TowerFirst;
+
+            // Keep a bot instance available for shared bot code paths, although benchmark runs bypass draft picks.
+            CurrentBot = new BotPlayer(_curStrategy, idx * 7919, _curBenchmarkTowerId, null);
+            _waveLives.Clear();
+            _waveInRange.Clear();
+            _waveSteps.Clear();
+
+            SettingsManager.Instance?.SetDifficulty(_curDifficulty);
+            SlotTheory.UI.MapSelectPanel.SetPendingMapSelection(_curMap);
+
+            int benchmarkLocalRunNumber = _results.Count + 1;
+            int benchmarkGlobalRunNumber = idx + 1;
+            bool benchmarkShouldLog =
+                !_quiet
+                || benchmarkLocalRunNumber == 1
+                || benchmarkLocalRunNumber == _totalRuns
+                || (benchmarkLocalRunNumber % 100) == 0;
+            if (benchmarkShouldLog)
+            {
+                string mods = _towerSurgeBenchmarkModifiers.Length > 0
+                    ? string.Join(" -> ", _towerSurgeBenchmarkModifiers)
+                    : "(none)";
+                GD.Print($"[BOT] Run {benchmarkLocalRunNumber}/{_totalRuns} (global #{benchmarkGlobalRunNumber}) - benchmark tower={_curBenchmarkTowerId} trial={trialIdx + 1}/{_towerSurgeBenchmarkTrialsPerTower} map={_curMap} slot={_towerSurgeBenchmarkSlot} mods={mods} max_waves={_towerSurgeBenchmarkMaxWaves}");
+            }
+            return;
+        }
+
         // Cycle through (map, difficulty, strategy) combinations
         int totalCombos = _strategies.Length * _difficulties.Length;
         int mapIdx   = (idx / totalCombos) % _maps.Length;
@@ -328,7 +415,7 @@ public BotRunner(
     }
 
     /// <summary>Call on win or loss. Automatically prepares the next run if needed.</summary>
-    public void RecordResult(bool won, int waveReached, RunState state)
+    public void RecordResult(bool won, int waveReached, RunState state, string? stopReason = null)
     {
         var towers = state.Slots
             .Where(s => s.Tower != null)
@@ -348,9 +435,12 @@ public BotRunner(
                 ? (float)state.SlotFiredSteps[i] / state.SlotEligibleSteps[i]
                 : (state.Slots[i].Tower != null ? 0f : -1f);  // -1 = no tower placed in slot
         }
+        string resolvedStopReason = string.IsNullOrWhiteSpace(stopReason)
+            ? (won ? "wave_table_completed" : "loss")
+            : stopReason.Trim();
 
         _results.Add(new RunResult(
-            _curStrategy, _curMap, won, waveReached, state.Lives,
+            _curStrategy, _curMap, won, resolvedStopReason, waveReached, state.Lives,
             [.. _waveLives], [.. _waveInRange], [.. _waveSteps], towers, mods, _curDifficulty,
             slotDamage, slotFireRate,
             new Dictionary<string, int>(state.TotalLeaksByType),
@@ -386,6 +476,14 @@ public BotRunner(
     public void PrintSummary()
     {
         int total = _results.Count;
+        if (IsTowerSurgeBenchmark)
+        {
+            PrintTowerSurgeBenchmarkSummary();
+            WriteMetricsSummaryJson();
+            WriteTraceJson();
+            return;
+        }
+
         if (_quiet)
         {
             int wins = _results.Count(r => r.Won);
@@ -662,6 +760,79 @@ public BotRunner(
         WriteTraceJson();
     }
 
+    private string ResolveBenchmarkTowerId(RunResult run)
+    {
+        if (run.Towers.Length > 0)
+            return run.Towers[0];
+        if (run.SpectacleFirstSurgeTimeByTower.Count > 0)
+            return run.SpectacleFirstSurgeTimeByTower.Keys.OrderBy(id => id, StringComparer.Ordinal).First();
+        return "unknown_tower";
+    }
+
+    private List<object> BuildTowerSurgeBenchmarkRows()
+    {
+        var rows = new List<object>(_results.Count);
+        for (int i = 0; i < _results.Count; i++)
+        {
+            RunResult run = _results[i];
+            string towerId = ResolveBenchmarkTowerId(run);
+            bool reachedFirstSurge = run.SpectacleFirstSurgeTimeByTower.TryGetValue(towerId, out float firstSurgeSeconds);
+            rows.Add(new
+            {
+                run_index = i + 1,
+                tower_id = towerId,
+                stop_reason = run.StopReason,
+                wave_reached = run.WaveReached,
+                lives_end = run.LivesEnd,
+                run_duration_seconds = run.RunDurationSeconds,
+                reached_first_surge = reachedFirstSurge,
+                first_surge_seconds = reachedFirstSurge ? firstSurgeSeconds : -1f,
+                surge_trigger_count = run.SpectacleSurgeByTower.TryGetValue(towerId, out int surgeCount)
+                    ? surgeCount
+                    : run.SpectacleSurgeTriggers,
+            });
+        }
+
+        return rows;
+    }
+
+    private void PrintTowerSurgeBenchmarkSummary()
+    {
+        GD.Print("");
+        GD.Print("+==================================================================+");
+        GD.Print($"|  TOWER SURGE BENCHMARK - {_results.Count} runs (actual game loop)               |");
+        GD.Print("+==================================================================+");
+        GD.Print($"Map={BenchmarkMapId} slot={BenchmarkSlotIndex} max_waves={BenchmarkMaxWaves} mods=[{string.Join(", ", BenchmarkModifierOrder)}]");
+        GD.Print("");
+        GD.Print($"{"TOWER",-18} {"STOP",24} {"WAVE",6} {"LIVES",7} {"FIRST SURGE (s)",16} {"RUN (s)",10}");
+        GD.Print(new string('-', 88));
+
+        var rows = _results.Select(run =>
+        {
+            string towerId = ResolveBenchmarkTowerId(run);
+            bool surged = run.SpectacleFirstSurgeTimeByTower.TryGetValue(towerId, out float firstSurgeSeconds);
+            return new
+            {
+                TowerId = towerId,
+                run.StopReason,
+                run.WaveReached,
+                run.LivesEnd,
+                FirstSurgeSeconds = surged ? firstSurgeSeconds : -1f,
+                run.RunDurationSeconds,
+                Surged = surged,
+            };
+        }).ToList();
+
+        foreach (var row in rows.OrderBy(r => r.Surged ? 0 : 1)
+                                 .ThenBy(r => r.Surged ? r.FirstSurgeSeconds : float.MaxValue)
+                                 .ThenByDescending(r => r.WaveReached)
+                                 .ThenBy(r => r.TowerId, StringComparer.Ordinal))
+        {
+            string firstSurgeText = row.Surged ? $"{row.FirstSurgeSeconds:0.00}" : "n/a";
+            GD.Print($"{row.TowerId,-18} {row.StopReason,-24} {row.WaveReached,6} {row.LivesEnd,7} {firstSurgeText,16} {row.RunDurationSeconds,10:0.00}");
+        }
+    }
+
     private void PrintAutomationMetrics()
     {
         if (_results.Count == 0)
@@ -728,6 +899,56 @@ public BotRunner(
             string? outDir = Path.GetDirectoryName(outputPath);
             if (!string.IsNullOrWhiteSpace(outDir))
                 Directory.CreateDirectory(outDir);
+
+            if (IsTowerSurgeBenchmark)
+            {
+                var rows = BuildTowerSurgeBenchmarkRows();
+                int firstSurgeRuns = _results.Count(r =>
+                {
+                    string towerId = ResolveBenchmarkTowerId(r);
+                    return r.SpectacleFirstSurgeTimeByTower.ContainsKey(towerId);
+                });
+                float avgFirstSurgeSeconds = _results
+                    .Select(r =>
+                    {
+                        string towerId = ResolveBenchmarkTowerId(r);
+                        return r.SpectacleFirstSurgeTimeByTower.TryGetValue(towerId, out float seconds)
+                            ? seconds
+                            : -1f;
+                    })
+                    .Where(v => v >= 0f)
+                    .DefaultIfEmpty(0f)
+                    .Average();
+
+                var benchmarkPayload = new Dictionary<string, object?>
+                {
+                    ["generated_utc"] = DateTime.UtcNow,
+                    ["mode"] = "tower_surge_benchmark",
+                    ["run_count"] = _results.Count,
+                    ["benchmark"] = new
+                    {
+                        map = BenchmarkMapId,
+                        slot_index = BenchmarkSlotIndex,
+                        mods_in_order = BenchmarkModifierOrder.ToArray(),
+                        max_waves = BenchmarkMaxWaves,
+                        trials_per_tower = _towerSurgeBenchmarkTrialsPerTower,
+                    },
+                    ["summary"] = new
+                    {
+                        first_surge_runs = firstSurgeRuns,
+                        no_surge_runs = _results.Count - firstSurgeRuns,
+                        first_surge_rate = _results.Count > 0 ? (float)firstSurgeRuns / _results.Count : 0f,
+                        avg_first_surge_seconds = avgFirstSurgeSeconds,
+                        avg_wave_reached = _results.Count > 0 ? (float)_results.Average(r => r.WaveReached) : 0f,
+                    },
+                    ["runs"] = rows,
+                };
+
+                var benchmarkOptions = new JsonSerializerOptions { WriteIndented = true };
+                File.WriteAllText(outputPath, JsonSerializer.Serialize(benchmarkPayload, benchmarkOptions));
+                GD.Print($"[BOT] Metrics JSON written: {outputPath}");
+                return;
+            }
 
             int totalExplosionDamage = _results.Sum(r => r.ExplosionFollowUpDamage + r.ResidueDamage);
             int totalExplosionTriggers = _results.Sum(r => r.SpectacleExplosionBurstCount);
@@ -972,6 +1193,7 @@ public BotRunner(
                 {
                     difficulty = r.Difficulty.ToString(),
                     won = r.Won,
+                    stop_reason = r.StopReason,
                     towers = r.Towers,
                     mods = r.Mods,
                     wave_reached = r.WaveReached,
@@ -1003,6 +1225,7 @@ public BotRunner(
                     map = r.Map,
                     difficulty = r.Difficulty.ToString(),
                     won = r.Won,
+                    stop_reason = r.StopReason,
                     wave_reached = r.WaveReached,
                     run_duration_seconds = r.RunDurationSeconds,
                     surges = r.SpectacleSurgeTriggers,
