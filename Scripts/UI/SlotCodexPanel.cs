@@ -81,7 +81,7 @@ public partial class SlotCodexPanel : Node
         var root = new VBoxContainer();
         root.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         root.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-        root.AddThemeConstantOverride("separation", 10);
+        root.AddThemeConstantOverride("separation", 20);
         margin.AddChild(root);
 
         var headerPanel = new PanelContainer();
@@ -155,7 +155,7 @@ public partial class SlotCodexPanel : Node
 
             tabs = new HBoxContainer();
             tabs.Alignment = BoxContainer.AlignmentMode.Center;
-            tabs.AddThemeConstantOverride("separation", 12);
+            tabs.AddThemeConstantOverride("separation", 22);
             tabCenter.AddChild(tabs);
         }
 
@@ -439,7 +439,7 @@ public partial class SlotCodexPanel : Node
         var body = BuildCardBody(panel);
 
         var top = new HBoxContainer();
-        top.AddThemeConstantOverride("separation", 10);
+        top.AddThemeConstantOverride("separation", 20);
         body.AddChild(top);
 
         var icon = new TowerIconFull
@@ -466,11 +466,11 @@ public partial class SlotCodexPanel : Node
         titleCol.AddChild(type);
 
         var statsBox = new VBoxContainer();
-        statsBox.AddThemeConstantOverride("separation", 5);
+        statsBox.AddThemeConstantOverride("separation", 6);
         body.AddChild(statsBox);
 
         foreach (var (iconType, text) in GetTowerStats(def))
-            statsBox.AddChild(BuildStatRow(iconType, GetStatIconColor(iconType), text));
+            statsBox.AddChild(BuildStatRow(iconType, UITheme.GetStatIconColor(iconType), text));
 
         var desc = new Label
         {
@@ -506,7 +506,7 @@ public partial class SlotCodexPanel : Node
         var body = BuildCardBody(panel);
 
         var top = new HBoxContainer();
-        top.AddThemeConstantOverride("separation", 10);
+        top.AddThemeConstantOverride("separation", 20);
         body.AddChild(top);
 
         var icon = new ModifierIcon
@@ -571,7 +571,7 @@ public partial class SlotCodexPanel : Node
         panel.AddChild(body);
 
         var top = new HBoxContainer();
-        top.AddThemeConstantOverride("separation", 10);
+        top.AddThemeConstantOverride("separation", 20);
         body.AddChild(top);
 
         var icon = new TowerIconFull
@@ -628,7 +628,7 @@ public partial class SlotCodexPanel : Node
         panel.AddChild(body);
 
         var top = new HBoxContainer();
-        top.AddThemeConstantOverride("separation", 10);
+        top.AddThemeConstantOverride("separation", 20);
         body.AddChild(top);
 
         var icon = new ModifierIcon
@@ -675,7 +675,7 @@ public partial class SlotCodexPanel : Node
             Text = ProductCopy.FullGameButtonLabel,
             HorizontalAlignment = HorizontalAlignment.Center
         };
-        UITheme.ApplyFont(fullGameLabel, semiBold: true, size: 17);
+        UITheme.ApplyFont(fullGameLabel, semiBold: true, size: 18);
         fullGameLabel.Modulate = new Color(0.60f, 0.68f, 0.90f, 0.88f);
         body.AddChild(fullGameLabel);
 
@@ -799,7 +799,7 @@ public partial class SlotCodexPanel : Node
             Text = "CLASSIFIED",
             HorizontalAlignment = HorizontalAlignment.Center
         };
-        UITheme.ApplyFont(top, semiBold: true, size: 17);
+        UITheme.ApplyFont(top, semiBold: true, size: 18);
         top.Modulate = new Color(0.76f, 0.82f, 0.98f);
         body.AddChild(top);
 
@@ -977,7 +977,7 @@ public partial class SlotCodexPanel : Node
             Text = ProductCopy.FullGameButtonLabel,
             HorizontalAlignment = HorizontalAlignment.Center
         };
-        UITheme.ApplyFont(lockLabel, semiBold: true, size: 17);
+        UITheme.ApplyFont(lockLabel, semiBold: true, size: 18);
         lockLabel.Modulate = new Color(0.55f, 0.60f, 0.80f, 0.70f);
         body.AddChild(lockLabel);
 
@@ -1047,7 +1047,7 @@ public partial class SlotCodexPanel : Node
         var body  = BuildCardBody(panel);
 
         var top = new HBoxContainer();
-        top.AddThemeConstantOverride("separation", 10);
+        top.AddThemeConstantOverride("separation", 20);
         body.AddChild(top);
 
         var icon = new EnemyIcon
@@ -1074,11 +1074,11 @@ public partial class SlotCodexPanel : Node
         titleCol.AddChild(typeLabel);
 
         var statsBox = new VBoxContainer();
-        statsBox.AddThemeConstantOverride("separation", 5);
+        statsBox.AddThemeConstantOverride("separation", 6);
         body.AddChild(statsBox);
 
         foreach (var (iconType, text) in GetEnemyStats(enemyId))
-            statsBox.AddChild(BuildStatRow(iconType, GetStatIconColor(iconType), text));
+            statsBox.AddChild(BuildStatRow(iconType, UITheme.GetStatIconColor(iconType), text));
 
         var desc = new Label
         {
@@ -1118,7 +1118,7 @@ public partial class SlotCodexPanel : Node
         panel.AddChild(body);
 
         var top = new HBoxContainer();
-        top.AddThemeConstantOverride("separation", 10);
+        top.AddThemeConstantOverride("separation", 20);
         body.AddChild(top);
 
         var icon = new EnemyIcon
@@ -1158,7 +1158,7 @@ public partial class SlotCodexPanel : Node
             Text = ProductCopy.FullGameButtonLabel,
             HorizontalAlignment = HorizontalAlignment.Center
         };
-        UITheme.ApplyFont(fullGameLabel, semiBold: true, size: 17);
+        UITheme.ApplyFont(fullGameLabel, semiBold: true, size: 18);
         fullGameLabel.Modulate = new Color(0.60f, 0.68f, 0.90f, 0.88f);
         body.AddChild(fullGameLabel);
 
@@ -1200,7 +1200,7 @@ public partial class SlotCodexPanel : Node
     private static Control BuildStatRow(StatIconNode.IconType iconType, Color iconColor, string text)
     {
         var row = new HBoxContainer();
-        row.AddThemeConstantOverride("separation", 7);
+        row.AddThemeConstantOverride("separation", 8);
         row.MouseFilter = Control.MouseFilterEnum.Ignore;
 
         var icon = new StatIconNode
@@ -1220,20 +1220,6 @@ public partial class SlotCodexPanel : Node
 
         return row;
     }
-
-    private static Color GetStatIconColor(StatIconNode.IconType type) => type switch
-    {
-        StatIconNode.IconType.Heart => new Color(1.00f, 0.38f, 0.52f),
-        StatIconNode.IconType.Arrow => new Color(0.28f, 0.90f, 1.00f),
-        StatIconNode.IconType.Skull => new Color(1.00f, 0.52f, 0.12f),
-        StatIconNode.IconType.Wave  => new Color(0.90f, 0.88f, 0.28f),
-        StatIconNode.IconType.Split => new Color(1.00f, 0.78f, 0.28f),
-        StatIconNode.IconType.Burst => new Color(1.00f, 0.58f, 0.12f),
-        StatIconNode.IconType.Cadence => new Color(0.28f, 0.90f, 1.00f),
-        StatIconNode.IconType.Range => new Color(0.78f, 0.62f, 1.00f),
-        StatIconNode.IconType.Chain => new Color(0.44f, 0.92f, 1.00f),
-        _ => Colors.White,
-    };
 
     private static (StatIconNode.IconType, string)[] GetEnemyStats(string enemyId) => enemyId switch
     {
@@ -1421,3 +1407,4 @@ public sealed partial class StatIconNode : Control
         DrawLine(new Vector2(10f, 7f), new Vector2(13.2f, 7f), c, 1.2f);
     }
 }
+

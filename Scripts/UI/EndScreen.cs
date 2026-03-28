@@ -89,7 +89,7 @@ public partial class EndScreen : CanvasLayer
 		mainLayout.AddChild(footer);
 
 		_vbox = new VBoxContainer();
-		_vbox.AddThemeConstantOverride("separation", 14);
+		_vbox.AddThemeConstantOverride("separation", 24);
 		center.AddChild(_vbox);
 		var vbox = _vbox;
 
@@ -138,7 +138,7 @@ public partial class EndScreen : CanvasLayer
 		vbox.AddChild(_runNameLabel);
 
 		_mvpLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
-		UITheme.ApplyFont(_mvpLabel, semiBold: true, size: 17);
+		UITheme.ApplyFont(_mvpLabel, semiBold: true, size: 18);
 		_mvpLabel.Modulate = new Color(0.72f, 0.92f, 1.00f);
 		_mvpLabel.Visible = false;
 		vbox.AddChild(_mvpLabel);
@@ -185,7 +185,7 @@ public partial class EndScreen : CanvasLayer
 		footer.AddChild(_buttonBlock);
 
 		var buttonStack = new VBoxContainer();
-		buttonStack.AddThemeConstantOverride("separation", 14);
+		buttonStack.AddThemeConstantOverride("separation", 24);
 		_buttonBlock.AddChild(buttonStack);
 
 		// Secondary actions row: Leaderboards + Wishlist side by side
@@ -279,7 +279,7 @@ public partial class EndScreen : CanvasLayer
 		buttonStack.AddChild(_campaignFooter);
 
 		var campaignFooterVbox = new VBoxContainer();
-		campaignFooterVbox.AddThemeConstantOverride("separation", 14);
+		campaignFooterVbox.AddThemeConstantOverride("separation", 24);
 		_campaignFooter.AddChild(campaignFooterVbox);
 		campaignFooterVbox.AddChild(_nextCampaignButton);
 
@@ -630,7 +630,7 @@ public partial class EndScreen : CanvasLayer
 		overlay.AddChild(center);
 
 		var vbox = new VBoxContainer();
-		vbox.AddThemeConstantOverride("separation", 16);
+		vbox.AddThemeConstantOverride("separation", 26);
 		vbox.CustomMinimumSize = new Vector2(380, 0);
 		center.AddChild(vbox);
 
@@ -934,6 +934,7 @@ public partial class EndScreen : CanvasLayer
 		return insights.Count > 0 ? string.Join("  |  ", insights) : "";
 	}
 }
+
 
 
 

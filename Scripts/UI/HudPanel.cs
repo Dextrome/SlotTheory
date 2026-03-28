@@ -1507,30 +1507,7 @@ public partial class HudPanel : CanvasLayer
 	private void ApplyTopHudButtonStyle(Button btn, Color accent)
 	{
 		bool limeAccent = accent == UITheme.Lime;
-		Color normalBg = limeAccent ? new Color(0.036f, 0.092f, 0.034f) : new Color(0.020f, 0.040f, 0.090f);
-		Color hoverBg  = limeAccent ? new Color(0.060f, 0.145f, 0.048f) : new Color(0.038f, 0.068f, 0.125f);
-		Color pressBg  = limeAccent ? new Color(0.024f, 0.064f, 0.024f) : new Color(0.018f, 0.030f, 0.078f);
-
-		btn.AddThemeStyleboxOverride("normal", MakeTopHudButtonStyle(
-			normalBg,
-			new Color(accent.R, accent.G, accent.B, 0.74f),
-			borderWidth: 1));
-		btn.AddThemeStyleboxOverride("hover", MakeTopHudButtonStyle(hoverBg, accent, borderWidth: 2, glowAlpha: 0.19f, glowSize: 6, glowColor: accent));
-		btn.AddThemeStyleboxOverride("focus", MakeTopHudButtonStyle(hoverBg, accent, borderWidth: 2, glowAlpha: 0.15f, glowSize: 5, glowColor: accent));
-		btn.AddThemeStyleboxOverride("pressed", MakeTopHudButtonStyle(
-			pressBg,
-			new Color(accent.R, accent.G, accent.B, 0.75f),
-			borderWidth: 2,
-			glowAlpha: 0.10f,
-			glowSize: 3,
-			glowColor: accent));
-		btn.AddThemeFontOverride("font", UITheme.SemiBold);
-		btn.AddThemeColorOverride("font_color", limeAccent ? new Color(0.92f, 0.98f, 0.86f) : new Color(0.84f, 0.96f, 1.00f));
-		btn.AddThemeColorOverride("font_hover_color", Colors.White);
-		btn.AddThemeColorOverride("font_pressed_color", limeAccent ? new Color(0.84f, 0.94f, 0.72f) : new Color(0.72f, 0.90f, 0.96f));
-		btn.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.58f));
-		btn.AddThemeConstantOverride("outline_size", 1);
-		UITheme.ApplyMenuButtonFinish(btn, accent, 0.10f, 0.13f);
+		UITheme.ApplyHudTopControlStyle(btn, accent);
 		btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 
 		btn.Draw += () =>
@@ -1550,29 +1527,6 @@ public partial class HudPanel : CanvasLayer
 		};
 
 		RegisterAnimatedSurface(btn);
-	}
-
-	private static StyleBoxFlat MakeTopHudButtonStyle(
-		Color bg,
-		Color border,
-		int borderWidth,
-		float glowAlpha = 0f,
-		int glowSize = 0,
-		Color? glowColor = null)
-	{
-		var style = UITheme.MakeBtn(
-			bg,
-			border,
-			border: borderWidth,
-			corners: 7,
-			glowAlpha: glowAlpha,
-			glowSize: glowSize,
-			glowColor: glowColor);
-		style.ContentMarginLeft = 10;
-		style.ContentMarginRight = 10;
-		style.ContentMarginTop = 4;
-		style.ContentMarginBottom = 4;
-		return style;
 	}
 
 	private void RegisterAnimatedSurface(Control control)
@@ -1744,7 +1698,7 @@ public partial class HudPanel : CanvasLayer
 			Alignment = BoxContainer.AlignmentMode.Center,
 			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
-		pipsRow.AddThemeConstantOverride("separation", 1);
+		pipsRow.AddThemeConstantOverride("separation", 2);
 		row.AddChild(pipsRow);
 
 		_surgePips = new ColorRect[SurgePipCount];
@@ -1824,10 +1778,11 @@ public partial class HudPanel : CanvasLayer
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
-		UITheme.ApplyFont(_teachingHintLabel, semiBold: true, size: 17);
+		UITheme.ApplyFont(_teachingHintLabel, semiBold: true, size: 18);
 		_teachingHintLabel.AddThemeColorOverride("font_color", new Color(1.00f, 0.98f, 0.84f));
 		_teachingHintLabel.AddThemeConstantOverride("outline_size", 2);
 		_teachingHintLabel.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.82f));
 		_teachingHintPanel.AddChild(_teachingHintLabel);
 	}
 }
+

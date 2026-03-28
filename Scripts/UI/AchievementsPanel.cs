@@ -23,7 +23,7 @@ public partial class AchievementsPanel : Node
 
         var bg = new ColorRect();
         bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        bg.Color = new Color("#07071a");
+        bg.Color = UITheme.BgDeep;
         canvas.AddChild(bg);
 
         var grid = new NeonGridBg();
@@ -164,8 +164,8 @@ public partial class AchievementsPanel : Node
     {
         var style = new StyleBoxFlat
         {
-            BgColor = isUnlocked ? new Color("#1e2e1e") : new Color("#1a1a28"),
-            BorderColor = isUnlocked ? new Color("#a6d608") : new Color("#333348"),
+            BgColor = isUnlocked ? UITheme.AchievementUnlockedBg : UITheme.AchievementLockedBg,
+            BorderColor = isUnlocked ? UITheme.Lime : UITheme.AchievementLockedBorder,
             CornerRadiusTopLeft     = 6,
             CornerRadiusTopRight    = 6,
             CornerRadiusBottomLeft  = 6,
@@ -187,7 +187,7 @@ public partial class AchievementsPanel : Node
         panel.AddChild(inner);
 
         var hbox = new HBoxContainer();
-        hbox.AddThemeConstantOverride("separation", 14);
+        hbox.AddThemeConstantOverride("separation", 24);
         hbox.MouseFilter = Control.MouseFilterEnum.Ignore;
         inner.AddChild(hbox);
 
@@ -219,7 +219,7 @@ public partial class AchievementsPanel : Node
         {
             var badge = new Label { Text = isUnlocked ? "★" : "☆" };
             badge.AddThemeFontSizeOverride("font_size", 28);
-            badge.Modulate          = isUnlocked ? new Color("#a6d608") : new Color(0.3f, 0.3f, 0.3f);
+            badge.Modulate          = isUnlocked ? UITheme.Lime : new Color(0.3f, 0.3f, 0.3f);
             badge.VerticalAlignment = VerticalAlignment.Center;
             hbox.AddChild(badge);
         }
@@ -232,8 +232,8 @@ public partial class AchievementsPanel : Node
         hbox.AddChild(textCol);
 
         var nameLabel = new Label { Text = def.Name };
-        UITheme.ApplyFont(nameLabel, semiBold: true, size: 17);
-        nameLabel.Modulate = isUnlocked ? new Color("#ffffff") : new Color(0.4f, 0.4f, 0.4f);
+        UITheme.ApplyFont(nameLabel, semiBold: true, size: 18);
+        nameLabel.Modulate = isUnlocked ? Colors.White : new Color(0.4f, 0.4f, 0.4f);
         textCol.AddChild(nameLabel);
 
         var descLabel = new Label { Text = def.Desc };
@@ -250,3 +250,5 @@ public partial class AchievementsPanel : Node
         vbox.AddChild(new Control { CustomMinimumSize = new Vector2(0, px) });
     }
 }
+
+

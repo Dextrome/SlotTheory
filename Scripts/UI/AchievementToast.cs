@@ -53,8 +53,8 @@ public partial class AchievementToast : CanvasLayer
 
         var style = new StyleBoxFlat
         {
-            BgColor      = new Color("#1e1e2e"),
-            BorderColor  = new Color("#a6d608"),
+            BgColor      = UITheme.ToastPanelBg,
+            BorderColor  = UITheme.Lime,
             CornerRadiusTopLeft     = 6,
             CornerRadiusTopRight    = 6,
             CornerRadiusBottomLeft  = 6,
@@ -73,7 +73,7 @@ public partial class AchievementToast : CanvasLayer
         _panel.AddChild(margin);
 
         var outerHbox = new HBoxContainer();
-        outerHbox.AddThemeConstantOverride("separation", 10);
+        outerHbox.AddThemeConstantOverride("separation", 20);
         outerHbox.MouseFilter = Control.MouseFilterEnum.Ignore;
         margin.AddChild(outerHbox);
 
@@ -98,7 +98,7 @@ public partial class AchievementToast : CanvasLayer
         _title = new Label();
         _title.AddThemeFontSizeOverride("font_size", 15);
         UITheme.ApplyFont(_title, semiBold: true);
-        _title.Modulate    = new Color("#ffffff");
+        _title.Modulate    = Colors.White;
         _title.MouseFilter = Control.MouseFilterEnum.Ignore;
         vbox.AddChild(_title);
 
@@ -186,8 +186,8 @@ public partial class AchievementToast : CanvasLayer
             else
             {
                 var badge = new Label { Text = "★" };
-                badge.AddThemeFontSizeOverride("font_size", 24);
-                badge.Modulate            = new Color("#a6d608");
+                badge.AddThemeFontSizeOverride("font_size", 22);
+                badge.Modulate            = UITheme.Lime;
                 badge.MouseFilter         = Control.MouseFilterEnum.Ignore;
                 badge.HorizontalAlignment = HorizontalAlignment.Center;
                 badge.VerticalAlignment   = VerticalAlignment.Center;
@@ -244,3 +244,5 @@ public partial class AchievementToast : CanvasLayer
         tween.TweenCallback(Callable.From(ShowNext));
     }
 }
+
+

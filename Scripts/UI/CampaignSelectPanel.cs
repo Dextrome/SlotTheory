@@ -44,7 +44,7 @@ public partial class CampaignSelectPanel : Node
 
         var bg = new ColorRect();
         bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        bg.Color = new Color("#030a14");
+        bg.Color = UITheme.BgMenu;
         canvas.AddChild(bg);
 
         var grid = new NeonGridBg();
@@ -58,7 +58,7 @@ public partial class CampaignSelectPanel : Node
         canvas.AddChild(center);
 
         var root = new VBoxContainer();
-        root.AddThemeConstantOverride("separation", 10);
+        root.AddThemeConstantOverride("separation", 20);
         center.AddChild(root);
 
         // Header
@@ -72,7 +72,7 @@ public partial class CampaignSelectPanel : Node
             HorizontalAlignment = HorizontalAlignment.Center,
         };
         UITheme.ApplyFont(title, semiBold: true, size: 38);
-        title.Modulate = new Color("#a6d608");
+        title.Modulate = UITheme.Lime;
         headerVbox.AddChild(title);
 
         var headerSub = new Label
@@ -97,7 +97,7 @@ public partial class CampaignSelectPanel : Node
         root.AddChild(bodyPanel);
 
         var contentRow = new HBoxContainer();
-        contentRow.AddThemeConstantOverride("separation", 16);
+        contentRow.AddThemeConstantOverride("separation", 26);
         contentRow.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         contentRow.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
         bodyPanel.AddChild(contentRow);
@@ -122,7 +122,7 @@ public partial class CampaignSelectPanel : Node
         leftFrame.AddChild(scroll);
 
         _stageListContainer = new VBoxContainer();
-        _stageListContainer.AddThemeConstantOverride("separation", 10);
+        _stageListContainer.AddThemeConstantOverride("separation", 20);
         _stageListContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         scroll.AddChild(_stageListContainer);
         PopulateStageList();
@@ -139,7 +139,7 @@ public partial class CampaignSelectPanel : Node
         contentRow.AddChild(rightFrame);
 
         var rightCol = new VBoxContainer();
-        rightCol.AddThemeConstantOverride("separation", 12);
+        rightCol.AddThemeConstantOverride("separation", 22);
         rightFrame.AddChild(rightCol);
 
         var diffLabel = new Label
@@ -148,7 +148,7 @@ public partial class CampaignSelectPanel : Node
             HorizontalAlignment = HorizontalAlignment.Center,
         };
         UITheme.ApplyFont(diffLabel, semiBold: true, size: 18);
-        diffLabel.Modulate = new Color("#a6d608");
+        diffLabel.Modulate = UITheme.Lime;
         rightCol.AddChild(diffLabel);
 
         var diffRow = new HBoxContainer();
@@ -259,7 +259,7 @@ public partial class CampaignSelectPanel : Node
         ApplyStageCardStyle(container, selected, available);
 
         var hbox = new HBoxContainer();
-        hbox.AddThemeConstantOverride("separation", 10);
+        hbox.AddThemeConstantOverride("separation", 20);
         hbox.AddThemeConstantOverride("margin_left", 10);
         hbox.AddThemeConstantOverride("margin_top", 9);
         hbox.AddThemeConstantOverride("margin_right", 10);
@@ -463,4 +463,6 @@ public partial class CampaignSelectPanel : Node
         Transition.Instance?.FadeToScene("res://Scenes/ModeSelect.tscn");
     }
 }
+
+
 

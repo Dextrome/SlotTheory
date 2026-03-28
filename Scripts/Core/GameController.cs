@@ -3174,7 +3174,7 @@ public partial class GameController : Node
 		overlay.AddChild(center);
 
 		var vbox = new VBoxContainer();
-		vbox.AddThemeConstantOverride("separation", 10);
+		vbox.AddThemeConstantOverride("separation", 20);
 		vbox.CustomMinimumSize = new Vector2(640f, 0f);
 		center.AddChild(vbox);
 
@@ -3344,7 +3344,7 @@ public partial class GameController : Node
 			MouseFilter = Control.MouseFilterEnum.Ignore,
 			Visible = false,
 		};
-		_tooltipStatsBox.AddThemeConstantOverride("separation", 3);
+		_tooltipStatsBox.AddThemeConstantOverride("separation", 4);
 		_tooltipBody.AddChild(_tooltipStatsBox);
 
 		_tooltipLabel = new Label
@@ -3432,20 +3432,20 @@ public partial class GameController : Node
 		ClearTooltipStatRows();
 
 		float attackSpeed = effectiveInterval > 0.0001f ? 1f / effectiveInterval : 0f;
-		AddTooltipStatRow(StatIconNode.IconType.Burst, GetTooltipStatIconColor(StatIconNode.IconType.Burst), $"{effectiveDamage:0.#} damage");
-		AddTooltipStatRow(StatIconNode.IconType.Cadence, GetTooltipStatIconColor(StatIconNode.IconType.Cadence), $"{attackSpeed:0.##} atk/s");
-		AddTooltipStatRow(StatIconNode.IconType.Range, GetTooltipStatIconColor(StatIconNode.IconType.Range), $"{tower.Range:0} px range");
+		AddTooltipStatRow(StatIconNode.IconType.Burst, UITheme.GetStatIconColor(StatIconNode.IconType.Burst), $"{effectiveDamage:0.#} damage");
+		AddTooltipStatRow(StatIconNode.IconType.Cadence, UITheme.GetStatIconColor(StatIconNode.IconType.Cadence), $"{attackSpeed:0.##} atk/s");
+		AddTooltipStatRow(StatIconNode.IconType.Range, UITheme.GetStatIconColor(StatIconNode.IconType.Range), $"{tower.Range:0} px range");
 
 		if (tower.IsChainTower && tower.ChainCount > 0)
 			AddTooltipStatRow(
 				StatIconNode.IconType.Chain,
-				GetTooltipStatIconColor(StatIconNode.IconType.Chain),
+				UITheme.GetStatIconColor(StatIconNode.IconType.Chain),
 				$"x{tower.ChainCount} chain bounces ({tower.ChainDamageDecay * 100f:0}% dmg/bounce)");
 
 		if (tower.SplitCount > 0)
 			AddTooltipStatRow(
 				StatIconNode.IconType.Split,
-				GetTooltipStatIconColor(StatIconNode.IconType.Split),
+				UITheme.GetStatIconColor(StatIconNode.IconType.Split),
 				$"x{tower.SplitCount + 1} total shots ({tower.SplitCount} split, {Balance.SplitShotDamageRatio * 100f:0}% split dmg)");
 
 		_tooltipStatsBox.Visible = _tooltipStatsBox.GetChildCount() > 0;
@@ -3464,20 +3464,6 @@ public partial class GameController : Node
 		var padding = new Vector2(16f * _mobileTooltipUiScale, 12f * _mobileTooltipUiScale);
 		_tooltipPanel.Size = contentSize + padding;
 	}
-
-	private static Color GetTooltipStatIconColor(StatIconNode.IconType type) => type switch
-	{
-		StatIconNode.IconType.Heart => new Color(1.00f, 0.38f, 0.52f),
-		StatIconNode.IconType.Arrow => new Color(0.28f, 0.90f, 1.00f),
-		StatIconNode.IconType.Skull => new Color(1.00f, 0.52f, 0.12f),
-		StatIconNode.IconType.Wave => new Color(0.90f, 0.88f, 0.28f),
-		StatIconNode.IconType.Split => new Color(1.00f, 0.78f, 0.28f),
-		StatIconNode.IconType.Burst => new Color(1.00f, 0.58f, 0.12f),
-		StatIconNode.IconType.Cadence => new Color(0.28f, 0.90f, 1.00f),
-		StatIconNode.IconType.Range => new Color(0.78f, 0.62f, 1.00f),
-		StatIconNode.IconType.Chain => new Color(0.44f, 0.92f, 1.00f),
-		_ => Colors.White,
-	};
 
 	private void UpdateTooltip()
 	{
@@ -4023,7 +4009,7 @@ public partial class GameController : Node
 			Visible = false,
 			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
-		UITheme.ApplyFont(_threatWarn, semiBold: true, size: 24);
+		UITheme.ApplyFont(_threatWarn, semiBold: true, size: 22);
 		_threatWarn.AddThemeColorOverride("font_color", new Color(1.00f, 0.56f, 0.25f));
 		anchor.AddChild(_threatWarn);
 
@@ -8383,7 +8369,7 @@ void fragment() {
 		vbox.AddChild(body);
 
 		var btnRow = new HBoxContainer();
-		btnRow.AddThemeConstantOverride("separation", 10);
+		btnRow.AddThemeConstantOverride("separation", 20);
 		var spacer = new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
 		btnRow.AddChild(spacer);
 
@@ -8509,7 +8495,7 @@ void fragment() {
 		vbox.AddChild(body);
 
 		var btnRow = new HBoxContainer();
-		btnRow.AddThemeConstantOverride("separation", 10);
+		btnRow.AddThemeConstantOverride("separation", 20);
 		btnRow.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
 
 		var gotItBtn = new Button { Text = "Got it", ProcessMode = ProcessModeEnum.Always };
@@ -8708,7 +8694,17 @@ void fragment() {
 
 		var body = new Label
 		{
-			Text = "Combat fills Tower Surge.\nTwist = 2nd mod trait added to your Surge (slow, chain, blast, etc).\nBonus = Pulse (area), Strike (heavy), or Recharge (instant refire).\nFull towers charge the Global Surge bar. When full, click it to trigger Global Surge.",
+			Text =
+				"Combat fills each tower's Surge meter.\n\n" +
+				"When a tower surges:\n" +
+				"- 1 mod: main Surge\n" +
+				"- 2 mods: main Surge + Twist\n" +
+				"- 3 mods: main Surge + Twist + Bonus\n\n" +
+				"Bonus can be:\n" +
+				"- Pulse: area hit\n" +
+				"- Strike: heavy hit\n" +
+				"- Recharge: instant refire\n\n" +
+				"Tower surges charge the Global Surge bar below. When it's full, you can activate it.",
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 			CustomMinimumSize = new Vector2(520f, 0f),
 		};
@@ -8717,7 +8713,7 @@ void fragment() {
 		vbox.AddChild(body);
 
 		var btnRow = new HBoxContainer();
-		btnRow.AddThemeConstantOverride("separation", 10);
+		btnRow.AddThemeConstantOverride("separation", 20);
 		btnRow.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
 
 		var gotItBtn = new Button { Text = "Got it", ProcessMode = ProcessModeEnum.Always };
@@ -9558,3 +9554,4 @@ void fragment() {
 	}
 
 }
+

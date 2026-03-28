@@ -42,7 +42,7 @@ public partial class MapSelectPanel : Node
 
 		var bg = new ColorRect();
 		bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		bg.Color = new Color("#030a14");
+		bg.Color = UITheme.BgMenu;
 		canvas.AddChild(bg);
 
 		var grid = new NeonGridBg();
@@ -56,7 +56,7 @@ public partial class MapSelectPanel : Node
 		canvas.AddChild(center);
 
 		var vbox = new VBoxContainer();
-		vbox.AddThemeConstantOverride("separation", 10);
+		vbox.AddThemeConstantOverride("separation", 20);
 		center.AddChild(vbox);
 
 		// Title
@@ -66,7 +66,7 @@ public partial class MapSelectPanel : Node
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
 		UITheme.ApplyFont(title, semiBold: true, size: 42);
-		title.Modulate = new Color("#a6d608");
+		title.Modulate = UITheme.Lime;
 		vbox.AddChild(title);
 
 		_isMobile = MobileOptimization.IsMobile();
@@ -89,7 +89,7 @@ public partial class MapSelectPanel : Node
 
 		// Content row: map list | difficulty
 		var contentRow = new HBoxContainer();
-		contentRow.AddThemeConstantOverride("separation", 16);
+		contentRow.AddThemeConstantOverride("separation", 26);
 		contentRow.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		contentRow.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
 		bodyPanel.AddChild(contentRow);
@@ -136,7 +136,7 @@ public partial class MapSelectPanel : Node
 		scrollContainer.AddChild(listMargin);
 
 		_mapListContainer = new VBoxContainer();
-		_mapListContainer.AddThemeConstantOverride("separation", 12);
+		_mapListContainer.AddThemeConstantOverride("separation", 22);
 		_mapListContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		if (_isMobile)
 			_mapListContainer.MouseFilter = Control.MouseFilterEnum.Pass;
@@ -145,7 +145,7 @@ public partial class MapSelectPanel : Node
 
 		// Preview row: map thumbnail on the left, legend panel on the right
 		var previewRow = new HBoxContainer();
-		previewRow.AddThemeConstantOverride("separation", 10);
+		previewRow.AddThemeConstantOverride("separation", 20);
 		leftColumn.AddChild(previewRow);
 
 		_previewControl = new MapPreviewControl();
@@ -175,7 +175,7 @@ public partial class MapSelectPanel : Node
 		contentRow.AddChild(rightFrame);
 
 		var rightColumn = new VBoxContainer();
-		rightColumn.AddThemeConstantOverride("separation", 12);
+		rightColumn.AddThemeConstantOverride("separation", 22);
 		rightColumn.CustomMinimumSize = new Vector2(240, 0);
 		rightFrame.AddChild(rightColumn);
 
@@ -202,11 +202,11 @@ public partial class MapSelectPanel : Node
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
 		UITheme.ApplyFont(difficultyLabel, semiBold: true, size: 20);
-		difficultyLabel.Modulate = new Color("#a6d608");
+		difficultyLabel.Modulate = UITheme.Lime;
 		difficultyVBox.AddChild(difficultyLabel);
 
 		var difficultyContainer = new HBoxContainer();
-		difficultyContainer.AddThemeConstantOverride("separation", 10);
+		difficultyContainer.AddThemeConstantOverride("separation", 20);
 		difficultyContainer.Alignment = BoxContainer.AlignmentMode.Center;
 		difficultyVBox.AddChild(difficultyContainer);
 
@@ -248,7 +248,7 @@ public partial class MapSelectPanel : Node
 			CustomMinimumSize = new Vector2(0, 50),
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 		};
-		_startRunButton.AddThemeFontSizeOverride("font_size", 24);
+		_startRunButton.AddThemeFontSizeOverride("font_size", 22);
 		UITheme.ApplyPrimaryStyle(_startRunButton);
 		UITheme.ApplyMenuButtonFinish(_startRunButton, UITheme.Lime, 0.11f, 0.14f);
 		_startRunButton.Pressed      += OnStartRun;
@@ -379,7 +379,7 @@ public partial class MapSelectPanel : Node
 		hbox.AddChild(btn);
 
 		var textVbox = new VBoxContainer();
-		textVbox.AddThemeConstantOverride("separation", 1);
+		textVbox.AddThemeConstantOverride("separation", 2);
 		textVbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		if (_isMobile)
 			textVbox.MouseFilter = Control.MouseFilterEnum.Ignore;
@@ -703,7 +703,7 @@ public partial class MapSelectPanel : Node
 	private static Control BuildLegendEntry(Color dotColor, string text)
 	{
 		var hbox = new HBoxContainer();
-		hbox.AddThemeConstantOverride("separation", 5);
+		hbox.AddThemeConstantOverride("separation", 6);
 		hbox.MouseFilter = Control.MouseFilterEnum.Ignore;
 
 		var dot = new Label
@@ -828,3 +828,5 @@ public partial class MapSelectPanel : Node
 		}
 	}
 }
+
+

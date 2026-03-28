@@ -506,7 +506,7 @@ public partial class MapEditorPanel : Node
         center.AddChild(panel);
 
         var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 14);
+        vbox.AddThemeConstantOverride("separation", 24);
         panel.AddChild(vbox);
 
         var lbl = new Label
@@ -515,18 +515,18 @@ public partial class MapEditorPanel : Node
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
             HorizontalAlignment = HorizontalAlignment.Center,
         };
-        UITheme.ApplyFont(lbl, size: 17);
+        UITheme.ApplyFont(lbl, size: 18);
         vbox.AddChild(lbl);
 
         var btnRow = new HBoxContainer();
-        btnRow.AddThemeConstantOverride("separation", 10);
+        btnRow.AddThemeConstantOverride("separation", 20);
         btnRow.Alignment = BoxContainer.AlignmentMode.Center;
         vbox.AddChild(btnRow);
 
         void Close() { canvasLayer.QueueFree(); }
 
         var okBtn = new Button { Text = okText, CustomMinimumSize = new Vector2(110, 38) };
-        okBtn.AddThemeFontSizeOverride("font_size", 17);
+        okBtn.AddThemeFontSizeOverride("font_size", 18);
         UITheme.ApplyPrimaryStyle(okBtn);
         okBtn.Pressed += () =>
         {
@@ -539,7 +539,7 @@ public partial class MapEditorPanel : Node
         if (cancelText != null)
         {
             var cancelBtn = new Button { Text = cancelText, CustomMinimumSize = new Vector2(90, 38) };
-            cancelBtn.AddThemeFontSizeOverride("font_size", 17);
+            cancelBtn.AddThemeFontSizeOverride("font_size", 18);
             UITheme.ApplyCyanStyle(cancelBtn);
             cancelBtn.Pressed += () =>
             {
@@ -785,7 +785,7 @@ public partial class MapEditorPanel : Node
 
         var bg = new ColorRect();
         bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        bg.Color = new Color("#030a14");
+        bg.Color = UITheme.BgMenu;
         canvas.AddChild(bg);
 
         var grid = new NeonGridBg();
@@ -842,13 +842,13 @@ public partial class MapEditorPanel : Node
             padH: 14, padV: 0, sideEmitters: false);
 
         var hbox = new HBoxContainer();
-        hbox.AddThemeConstantOverride("separation", 12);
+        hbox.AddThemeConstantOverride("separation", 22);
         hbox.SizeFlagsVertical = Control.SizeFlags.ShrinkCenter;
         header.AddChild(hbox);
 
         // Title
         var titleLbl = new Label { Text = "MAP EDITOR" };
-        UITheme.ApplyFont(titleLbl, semiBold: true, size: 24);
+        UITheme.ApplyFont(titleLbl, semiBold: true, size: 22);
         titleLbl.Modulate = new Color(0.10f, 0.90f, 1.00f);
         hbox.AddChild(titleLbl);
 
@@ -984,7 +984,7 @@ public partial class MapEditorPanel : Node
         vbox.AddChild(MakeSectionLabel("TOOL"));
 
         var modeBox = new VBoxContainer();
-        modeBox.AddThemeConstantOverride("separation", 3);
+        modeBox.AddThemeConstantOverride("separation", 4);
         vbox.AddChild(modeBox);
 
         _waypointModeBtn = MakeBtn("Edit Path  [W]");
@@ -1013,7 +1013,7 @@ public partial class MapEditorPanel : Node
         vbox.AddChild(MakeSectionLabel("EDIT"));
 
         var undoRow = new HBoxContainer();
-        undoRow.AddThemeConstantOverride("separation", 3);
+        undoRow.AddThemeConstantOverride("separation", 4);
         vbox.AddChild(undoRow);
 
         _undoBtn = MakeBtn("Undo [Z]");
@@ -1181,3 +1181,5 @@ public partial class MapEditorPanel : Node
         UpdateStatusBar();
     }
 }
+
+

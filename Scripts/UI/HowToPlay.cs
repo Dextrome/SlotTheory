@@ -60,7 +60,7 @@ public partial class HowToPlay : Node
         // Background
         var bg = new ColorRect();
         bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        bg.Color = new Color("#07071a");
+        bg.Color = UITheme.BgDeep;
         canvas.AddChild(bg);
 
         var grid = new NeonGridBg();
@@ -126,7 +126,7 @@ public partial class HowToPlay : Node
 
         var tabRow = new HBoxContainer();
         tabRow.Alignment = BoxContainer.AlignmentMode.Center;
-        tabRow.AddThemeConstantOverride("separation", 12);
+        tabRow.AddThemeConstantOverride("separation", 22);
         headerVBox.AddChild(tabRow);
 
         _basicsTabBtn = BuildTabButton("How to Play", () => SetActiveTab(HowToTab.Basics));
@@ -352,7 +352,7 @@ public partial class HowToPlay : Node
             ? new VBoxContainer()
             : new HBoxContainer();
         if (behaviorLayout is BoxContainer behaviorBox)
-            behaviorBox.AddThemeConstantOverride("separation", 10);
+            behaviorBox.AddThemeConstantOverride("separation", 20);
         behaviorLayout.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         vbox.AddChild(behaviorLayout);
 
@@ -459,7 +459,7 @@ public partial class HowToPlay : Node
         var lbl = new Label { Text = text };
         var headerSize = MobileOptimization.IsMobile() ? 14 : 18;
         lbl.AddThemeFontSizeOverride("font_size", headerSize);
-        lbl.Modulate = new Color("#a6d608");
+        lbl.Modulate = UITheme.Lime;
         vbox.AddChild(lbl);
 
         AddSpacer(vbox, 2);
@@ -780,4 +780,6 @@ public partial class HowToPlay : Node
         vbox.AddChild(s);
     }
 }
+
+
 

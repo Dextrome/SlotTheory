@@ -74,7 +74,7 @@ public partial class LeaderboardsMenu : Node
 
         var bg = new ColorRect();
         bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        bg.Color = new Color("#141420");
+        bg.Color = UITheme.BgOverlay;
         canvas.AddChild(bg);
 
         var grid = new NeonGridBg();
@@ -119,7 +119,7 @@ public partial class LeaderboardsMenu : Node
         var body = new VBoxContainer();
         body.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         body.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-        body.AddThemeConstantOverride("separation", 7);
+        body.AddThemeConstantOverride("separation", 8);
         bodyPanel.AddChild(body);
 
         // ── Mode row ──────────────────────────────────────────────────────────
@@ -211,7 +211,7 @@ public partial class LeaderboardsMenu : Node
         // ── Footer ────────────────────────────────────────────────────────────
         var footer = new HBoxContainer();
         footer.Alignment = BoxContainer.AlignmentMode.Center;
-        footer.AddThemeConstantOverride("separation", 12);
+        footer.AddThemeConstantOverride("separation", 22);
         body.AddChild(footer);
 
         var refresh = MakeButton("Refresh", 180, 38, 20, () => _ = RefreshBoardAsync());
@@ -856,3 +856,5 @@ public partial class LeaderboardsMenu : Node
         Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
     }
 }
+
+

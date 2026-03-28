@@ -117,7 +117,7 @@ public partial class TutorialCallout : CanvasLayer
             AutowrapMode = TextServer.AutowrapMode.WordSmart,
             MouseFilter = Control.MouseFilterEnum.Ignore,
         };
-        label.AddThemeFontSizeOverride("font_size", 17);
+        label.AddThemeFontSizeOverride("font_size", 18);
         label.Modulate = new Color(0.90f, 0.97f, 1.00f);
         inner.AddChild(label);
 
@@ -175,3 +175,4 @@ public partial class TutorialCallout : CanvasLayer
         ShowNext();
     }
 }
+

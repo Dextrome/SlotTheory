@@ -1,4 +1,5 @@
 using Godot;
+using SlotTheory.UI;
 
 namespace SlotTheory.Core;
 
@@ -7,6 +8,12 @@ namespace SlotTheory.Core;
 /// </summary>
 public static class UITheme
 {
+    public enum ValueButtonDensity
+    {
+        Standard,
+        Compact,
+    }
+
     // ── Fonts ─────────────────────────────────────────────────────────────
     public static FontFile Regular  { get; } = GD.Load<FontFile>("res://Assets/Fonts/Rajdhani-Regular.ttf");
     public static FontFile SemiBold { get; } = GD.Load<FontFile>("res://Assets/Fonts/Rajdhani-SemiBold.ttf");
@@ -19,11 +26,19 @@ public static class UITheme
     public static readonly Color Cyan      = new(0.08f,  0.85f,  0.90f);       // #14d9e6 - secondary accent
     public static readonly Color Magenta   = new(0.75f,  0.08f,  0.48f);       // existing pink accent for muted
     public static readonly Color BgDeep    = new(0.027f, 0.027f, 0.102f);      // #07071a - near-black bg
+    public static readonly Color BgMenu    = new(0.012f, 0.039f, 0.078f);      // #030a14 - menu backdrop
+    public static readonly Color BgOverlay = new(0.078f, 0.078f, 0.125f);      // #141420 - modal backdrop
     public static readonly Color BgMid     = new(0.06f,  0.06f,  0.18f);       // mid-deep bg
     public static readonly Color BgPanel   = new(0.07f,  0.07f,  0.165f);      // card / panel bg
     public static readonly Color BgHover   = new(0.04f,  0.09f,  0.04f);       // tinted green on hover
     public static readonly Color BorderDim = new(0.15f,  0.20f,  0.15f);       // subtle default border
     public static readonly Color BorderMid = new(0.20f,  0.28f,  0.18f);       // mid brightness border
+    public static readonly Color AchievementUnlockedBg = new(0.118f, 0.180f, 0.118f); // #1e2e1e
+    public static readonly Color AchievementLockedBg = new(0.102f, 0.102f, 0.157f);    // #1a1a28
+    public static readonly Color AchievementLockedBorder = new(0.200f, 0.200f, 0.282f); // #333348
+    public static readonly Color ToastPanelBg = new(0.118f, 0.118f, 0.180f);            // #1e1e2e
+    public static readonly Color HeroTitleLime = new(0.831f, 0.941f, 0.125f);  // #d4f020
+    public static readonly Color HeroTitleOutline = new(0.102f, 0.267f, 0.0f); // #1a4400
 
     // ── Theme builder ─────────────────────────────────────────────────────
 
@@ -108,6 +123,117 @@ public static class UITheme
         btn.AddThemeColorOverride("font_color",       new Color(0.75f, 0.95f, 0.96f));
         btn.AddThemeColorOverride("font_hover_color", Colors.White);
     }
+
+    /// <summary>
+    /// Main-menu nav variant used by list actions in the front page card.
+    /// </summary>
+    public static void ApplyMainMenuNavStyle(Button btn)
+    {
+        btn.AddThemeStyleboxOverride("normal", MakeBtn(
+            new Color(0.018f, 0.028f, 0.080f),
+            new Color(0.16f, 0.28f, 0.36f),
+            border: 1, corners: 8, glowAlpha: 0.08f, glowSize: 3, glowColor: Cyan));
+        btn.AddThemeStyleboxOverride("hover", MakeBtn(
+            new Color(0.028f, 0.050f, 0.10f),
+            new Color(0.30f, 0.78f, 0.84f),
+            border: 2, corners: 8, glowAlpha: 0.18f, glowSize: 6, glowColor: Cyan));
+        btn.AddThemeStyleboxOverride("focus", MakeBtn(
+            new Color(0.026f, 0.044f, 0.095f),
+            new Color(0.30f, 0.78f, 0.84f),
+            border: 2, corners: 8, glowAlpha: 0.16f, glowSize: 5, glowColor: Cyan));
+        btn.AddThemeStyleboxOverride("pressed", MakeBtn(
+            new Color(0.018f, 0.024f, 0.078f),
+            new Color(0.20f, 0.50f, 0.54f),
+            border: 2, corners: 8, glowAlpha: 0.08f, glowSize: 3, glowColor: Cyan));
+        ApplyMenuButtonFinish(btn, Cyan, 0.10f, 0.12f);
+    }
+
+    /// <summary>
+    /// HUD top-bar control variant (speed/menu/pause controls).
+    /// Callers can still add custom animated overlay draws.
+    /// </summary>
+    public static void ApplyHudTopControlStyle(Button btn, Color accent)
+    {
+        bool limeAccent = accent == Lime;
+        Color normalBg = limeAccent ? new Color(0.036f, 0.092f, 0.034f) : new Color(0.020f, 0.040f, 0.090f);
+        Color hoverBg  = limeAccent ? new Color(0.060f, 0.145f, 0.048f) : new Color(0.038f, 0.068f, 0.125f);
+        Color pressBg  = limeAccent ? new Color(0.024f, 0.064f, 0.024f) : new Color(0.018f, 0.030f, 0.078f);
+
+        btn.AddThemeStyleboxOverride("normal", MakeHudTopButtonStyle(
+            normalBg, new Color(accent.R, accent.G, accent.B, 0.74f), borderWidth: 1));
+        btn.AddThemeStyleboxOverride("hover", MakeHudTopButtonStyle(
+            hoverBg, accent, borderWidth: 2, glowAlpha: 0.19f, glowSize: 6, glowColor: accent));
+        btn.AddThemeStyleboxOverride("focus", MakeHudTopButtonStyle(
+            hoverBg, accent, borderWidth: 2, glowAlpha: 0.15f, glowSize: 5, glowColor: accent));
+        btn.AddThemeStyleboxOverride("pressed", MakeHudTopButtonStyle(
+            pressBg, new Color(accent.R, accent.G, accent.B, 0.75f), borderWidth: 2,
+            glowAlpha: 0.10f, glowSize: 3, glowColor: accent));
+
+        btn.AddThemeFontOverride("font", SemiBold);
+        btn.AddThemeColorOverride("font_color", limeAccent ? new Color(0.92f, 0.98f, 0.86f) : new Color(0.84f, 0.96f, 1.00f));
+        btn.AddThemeColorOverride("font_hover_color", Colors.White);
+        btn.AddThemeColorOverride("font_pressed_color", limeAccent ? new Color(0.84f, 0.94f, 0.72f) : new Color(0.72f, 0.90f, 0.96f));
+        btn.AddThemeColorOverride("font_outline_color", new Color(0f, 0f, 0f, 0.58f));
+        btn.AddThemeConstantOverride("outline_size", 1);
+        ApplyMenuButtonFinish(btn, accent, 0.10f, 0.13f);
+    }
+
+    /// <summary>
+    /// Shared style for ON/OFF and selector value pills in Settings and Pause.
+    /// </summary>
+    public static void ApplyValueToggleStyle(Button btn, bool isOn, ValueButtonDensity density = ValueButtonDensity.Standard)
+    {
+        bool compact = density == ValueButtonDensity.Compact;
+        int corners = compact ? 5 : 6;
+        int padH = compact ? 8 : 10;
+        float hoverGlowAlpha = compact ? 0.10f : 0.12f;
+        int hoverGlowSize = compact ? 3 : 4;
+        float focusGlowAlpha = compact ? 0.07f : 0.08f;
+        int focusGlowSize = compact ? 2 : 3;
+
+        if (isOn)
+        {
+            btn.AddThemeColorOverride("font_color", Lime);
+            btn.AddThemeColorOverride("font_hover_color", Lime);
+            btn.AddThemeColorOverride("font_pressed_color", LimeDim);
+            btn.AddThemeColorOverride("font_focus_color", Lime);
+            btn.AddThemeStyleboxOverride("normal", MakeValueButtonStyle(new Color(0.06f, 0.14f, 0.04f), LimeDark, corners, padH));
+            btn.AddThemeStyleboxOverride("hover", MakeValueButtonStyle(new Color(0.09f, 0.20f, 0.05f), Lime, corners, padH, hoverGlowAlpha, hoverGlowSize, Lime));
+            btn.AddThemeStyleboxOverride("pressed", MakeValueButtonStyle(new Color(0.04f, 0.08f, 0.02f), LimeDim, corners, padH));
+            btn.AddThemeStyleboxOverride("focus", MakeValueButtonStyle(new Color(0.09f, 0.20f, 0.05f), Lime, corners, padH, focusGlowAlpha, focusGlowSize, Lime));
+            return;
+        }
+
+        var dimText = new Color(0.50f, 0.50f, 0.54f);
+        var dimBorder = new Color(0.20f, 0.20f, 0.26f);
+        var dimBg = new Color(0.05f, 0.05f, 0.10f);
+        var dimHoverBg = new Color(0.08f, 0.08f, 0.14f);
+        btn.AddThemeColorOverride("font_color", dimText);
+        btn.AddThemeColorOverride("font_hover_color", new Color(0.70f, 0.70f, 0.75f));
+        btn.AddThemeColorOverride("font_pressed_color", dimText);
+        btn.AddThemeColorOverride("font_focus_color", dimText);
+        btn.AddThemeStyleboxOverride("normal", MakeValueButtonStyle(dimBg, dimBorder, corners, padH));
+        btn.AddThemeStyleboxOverride("hover", MakeValueButtonStyle(dimHoverBg, dimBorder, corners, padH));
+        btn.AddThemeStyleboxOverride("pressed", MakeValueButtonStyle(dimBg, dimBorder, corners, padH));
+        btn.AddThemeStyleboxOverride("focus", MakeValueButtonStyle(dimHoverBg, dimBorder, corners, padH));
+    }
+
+    /// <summary>
+    /// Canonical color map for stat icons in codex and in-world tooltips.
+    /// </summary>
+    public static Color GetStatIconColor(StatIconNode.IconType type) => type switch
+    {
+        StatIconNode.IconType.Heart => new Color(1.00f, 0.38f, 0.52f),
+        StatIconNode.IconType.Arrow => new Color(0.28f, 0.90f, 1.00f),
+        StatIconNode.IconType.Skull => new Color(1.00f, 0.52f, 0.12f),
+        StatIconNode.IconType.Wave  => new Color(0.90f, 0.88f, 0.28f),
+        StatIconNode.IconType.Split => new Color(1.00f, 0.78f, 0.28f),
+        StatIconNode.IconType.Burst => new Color(1.00f, 0.58f, 0.12f),
+        StatIconNode.IconType.Cadence => new Color(0.28f, 0.90f, 1.00f),
+        StatIconNode.IconType.Range => new Color(0.78f, 0.62f, 1.00f),
+        StatIconNode.IconType.Chain => new Color(0.44f, 0.92f, 1.00f),
+        _ => Colors.White,
+    };
 
     // ── Helpers ───────────────────────────────────────────────────────────
 
@@ -324,4 +450,46 @@ public static class UITheme
 
         return box;
     }
+
+    private static StyleBoxFlat MakeValueButtonStyle(
+        Color bg,
+        Color border,
+        int corners,
+        int padH,
+        float glowAlpha = 0f,
+        int glowSize = 0,
+        Color? glowColor = null)
+    {
+        var style = MakeBtn(bg, border, border: 1, corners: corners,
+            glowAlpha: glowAlpha, glowSize: glowSize, glowColor: glowColor);
+        style.ContentMarginLeft = padH;
+        style.ContentMarginRight = padH;
+        style.ContentMarginTop = 6;
+        style.ContentMarginBottom = 2;
+        return style;
+    }
+
+    private static StyleBoxFlat MakeHudTopButtonStyle(
+        Color bg,
+        Color border,
+        int borderWidth,
+        float glowAlpha = 0f,
+        int glowSize = 0,
+        Color? glowColor = null)
+    {
+        var style = MakeBtn(
+            bg,
+            border,
+            border: borderWidth,
+            corners: 7,
+            glowAlpha: glowAlpha,
+            glowSize: glowSize,
+            glowColor: glowColor);
+        style.ContentMarginLeft = 10;
+        style.ContentMarginRight = 10;
+        style.ContentMarginTop = 4;
+        style.ContentMarginBottom = 4;
+        return style;
+    }
 }
+

@@ -36,7 +36,7 @@ public partial class MainMenu : Node
 
 		var bg = new ColorRect();
 		bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-		bg.Color = new Color("#030a14");
+		bg.Color = UITheme.BgMenu;
 		canvas.AddChild(bg);
 
 		var grid = new NeonGridBg();
@@ -84,7 +84,7 @@ public partial class MainMenu : Node
 		AddSpacer(vbox, 2);
 
 		var menuRow = new HBoxContainer();
-		menuRow.AddThemeConstantOverride("separation", 12);
+		menuRow.AddThemeConstantOverride("separation", 22);
 		menuRow.Alignment = BoxContainer.AlignmentMode.Center;
 		vbox.AddChild(menuRow);
 
@@ -264,7 +264,8 @@ public partial class MainMenu : Node
 			playBtn.DrawLine(new Vector2(14f, playBtn.Size.Y - 2f), new Vector2(pw - 14f, playBtn.Size.Y - 2f),
 				new Color(0f, 0f, 0f, 0.42f), 1f);
 		};
-		AddButtonSurface(playBtn, UITheme.Lime, 0.10f, 0.14f);
+		UITheme.ApplyMenuButtonFinish(playBtn, UITheme.Lime, 0.10f, 0.14f);
+		RegisterAnimatedSurface(playBtn);
 		playBtn.Pressed += OnPlay;
 		cardVbox.AddChild(playBtn);
 
@@ -279,7 +280,7 @@ public partial class MainMenu : Node
 			var wishBtn = MakeMenuButton(ProductCopy.WishlistCta, 260, 40, 17);
 			UITheme.ApplyMutedStyle(wishBtn);
 			wishBtn.AddThemeColorOverride("font_color", new Color(0.85f, 0.65f, 1.0f));
-			AddButtonSurface(wishBtn, UITheme.Magenta, 0.10f, 0.16f);
+			UITheme.ApplyMenuButtonFinish(wishBtn, UITheme.Magenta, 0.10f, 0.16f);
 			wishBtn.Pressed += () =>
 			{
 				SoundManager.Instance?.Play("ui_select");
@@ -290,7 +291,7 @@ public partial class MainMenu : Node
 
 		var quitBtn = MakeMenuButton("Quit", 260, 36, 18);
 		UITheme.ApplyMutedStyle(quitBtn);
-		AddButtonSurface(quitBtn, UITheme.Magenta, 0.10f, 0.16f);
+		UITheme.ApplyMenuButtonFinish(quitBtn, UITheme.Magenta, 0.10f, 0.16f);
 		quitBtn.Pressed += OnQuit;
 		cardVbox.AddChild(quitBtn);
 		AddSpacer(cardVbox, 6); // keep Quit inside the lower frame edge
@@ -399,22 +400,7 @@ public partial class MainMenu : Node
 	private void AddNavButton(VBoxContainer parent, string text, Action callback)
 	{
 		var btn = MakeMenuButton(text, 260, 38, 20);
-		btn.AddThemeStyleboxOverride("normal", UITheme.MakeBtn(
-			new Color(0.018f, 0.028f, 0.080f),
-			new Color(0.16f, 0.28f, 0.36f),
-			border: 1, corners: 8, glowAlpha: 0.08f, glowSize: 3, glowColor: UITheme.Cyan));
-		btn.AddThemeStyleboxOverride("hover", UITheme.MakeBtn(
-			new Color(0.028f, 0.050f, 0.10f),
-			new Color(0.30f, 0.78f, 0.84f),
-			border: 2, corners: 8, glowAlpha: 0.18f, glowSize: 6, glowColor: UITheme.Cyan));
-		btn.AddThemeStyleboxOverride("focus", UITheme.MakeBtn(
-			new Color(0.026f, 0.044f, 0.095f),
-			new Color(0.30f, 0.78f, 0.84f),
-			border: 2, corners: 8, glowAlpha: 0.16f, glowSize: 5, glowColor: UITheme.Cyan));
-		btn.AddThemeStyleboxOverride("pressed", UITheme.MakeBtn(
-			new Color(0.018f, 0.024f, 0.078f),
-			new Color(0.20f, 0.50f, 0.54f),
-			border: 2, corners: 8, glowAlpha: 0.08f, glowSize: 3, glowColor: UITheme.Cyan));
+		UITheme.ApplyMainMenuNavStyle(btn);
 		btn.Draw += () =>
 		{
 			float bw = btn.Size.X;
@@ -423,7 +409,6 @@ public partial class MainMenu : Node
 			btn.DrawRect(new Rect2(5f, 5f, bw - 10f, btn.Size.Y - 10f), new Color(0.80f, 0.95f, 1.0f, 0.10f), false, 1f);
 			btn.DrawLine(new Vector2(8f, 6f), new Vector2(bw - 8f, 6f), new Color(0.90f, 0.99f, 1.0f, 0.19f), 1f);
 		};
-		AddButtonSurface(btn, UITheme.Cyan, 0.10f, 0.12f);
 		btn.Pressed += callback;
 		parent.AddChild(btn);
 	}
@@ -439,32 +424,6 @@ public partial class MainMenu : Node
 		btn.AddThemeFontSizeOverride("font_size", fontSize);
 		btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		return btn;
-	}
-
-	private void AddButtonSurface(Button btn, Color accent, float topAlpha, float bottomAlpha)
-	{
-		btn.Draw += () =>
-		{
-			float bw = btn.Size.X;
-			float bh = btn.Size.Y;
-			if (bw < 8f || bh < 8f)
-				return;
-
-			float inset = 4f;
-			float innerW = bw - inset * 2f;
-			float innerH = bh - inset * 2f;
-			float topBandH = Mathf.Max(2f, bh * 0.14f);
-			float bottomBandH = Mathf.Max(3f, bh * 0.16f);
-
-			btn.DrawRect(new Rect2(inset, inset, innerW, topBandH), new Color(accent.R, accent.G, accent.B, topAlpha));
-			btn.DrawRect(new Rect2(inset, bh - inset - bottomBandH, innerW, bottomBandH), new Color(0f, 0f, 0f, bottomAlpha));
-			btn.DrawLine(new Vector2(inset + 1f, inset + 1f), new Vector2(bw - inset - 1f, inset + 1f),
-				new Color(1f, 1f, 1f, topAlpha * 0.45f), 1f);
-			btn.DrawLine(new Vector2(inset + 1f, bh - inset - 1f), new Vector2(bw - inset - 1f, bh - inset - 1f),
-				new Color(0f, 0f, 0f, bottomAlpha * 1.2f), 1f);
-			btn.DrawRect(new Rect2(inset, inset, innerW, innerH), new Color(accent.R, accent.G, accent.B, topAlpha * 0.22f), false, 1f);
-		};
-		RegisterAnimatedSurface(btn);
 	}
 
 	private static void AddSpacer(Control parent, int px)
@@ -508,8 +467,8 @@ public partial class MainMenu : Node
 		var ls = new LabelSettings();
 		ls.Font = GD.Load<FontFile>("res://Assets/Fonts/Anagram.ttf");
 		ls.FontSize = 70;
-		ls.FontColor = new Color("#d4f020");
-		ls.OutlineColor = new Color("#1a4400");
+		ls.FontColor = UITheme.HeroTitleLime;
+		ls.OutlineColor = UITheme.HeroTitleOutline;
 		ls.OutlineSize = 4;
 		ls.ShadowColor = new Color(UITheme.Lime.R, UITheme.Lime.G, UITheme.Lime.B, 0.65f);
 		ls.ShadowSize = 11;
@@ -564,7 +523,7 @@ public partial class MainMenu : Node
 			Text = ProductCopy.DemoCompleteTitle,
 			HorizontalAlignment = HorizontalAlignment.Center,
 		};
-		UITheme.ApplyFont(heading, semiBold: true, size: 17);
+		UITheme.ApplyFont(heading, semiBold: true, size: 18);
 		heading.Modulate = new Color(0.82f, 0.64f, 1.00f);
 		inner.AddChild(heading);
 
@@ -595,7 +554,7 @@ public partial class MainMenu : Node
 			wishBtn.AddThemeFontSizeOverride("font_size", 14);
 			UITheme.ApplyMutedStyle(wishBtn);
 			wishBtn.AddThemeColorOverride("font_color", new Color(0.85f, 0.65f, 1.0f));
-			AddButtonSurface(wishBtn, UITheme.Magenta, 0.09f, 0.14f);
+			UITheme.ApplyMenuButtonFinish(wishBtn, UITheme.Magenta, 0.09f, 0.14f);
 			wishBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 			wishBtn.Pressed += () =>
 			{
@@ -613,7 +572,7 @@ public partial class MainMenu : Node
 		dismissBtn.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		dismissBtn.AddThemeFontSizeOverride("font_size", 14);
 		UITheme.ApplyMutedStyle(dismissBtn);
-		AddButtonSurface(dismissBtn, UITheme.Magenta, 0.09f, 0.14f);
+		UITheme.ApplyMenuButtonFinish(dismissBtn, UITheme.Magenta, 0.09f, 0.14f);
 		dismissBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		dismissBtn.Pressed += () =>
 		{
@@ -738,3 +697,4 @@ public partial class MainMenu : Node
 		}
 	}
 }
+

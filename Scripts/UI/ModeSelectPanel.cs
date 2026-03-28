@@ -26,7 +26,7 @@ public partial class ModeSelectPanel : Node
 
         var bg = new ColorRect();
         bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        bg.Color = new Color("#030a14");
+        bg.Color = UITheme.BgMenu;
         canvas.AddChild(bg);
 
         var grid = new NeonGridBg();
@@ -41,7 +41,7 @@ public partial class ModeSelectPanel : Node
         canvas.AddChild(center);
 
         var root = new VBoxContainer();
-        root.AddThemeConstantOverride("separation", 12);
+        root.AddThemeConstantOverride("separation", 22);
         root.CustomMinimumSize = new Vector2(isMobile ? 420f : 920f, 0f);
         center.AddChild(root);
 
@@ -292,7 +292,7 @@ public partial class ModeSelectPanel : Node
         };
 
         var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 7);
+        vbox.AddThemeConstantOverride("separation", 8);
         card.AddChild(vbox);
 
         var chip = new Label
@@ -445,3 +445,5 @@ public partial class ModeSelectPanel : Node
             _animatedSurfaces.Add(control);
     }
 }
+
+

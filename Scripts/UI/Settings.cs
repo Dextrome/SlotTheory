@@ -34,7 +34,7 @@ public partial class Settings : Node
 
         var bg = new ColorRect();
         bg.SetAnchorsPreset(Control.LayoutPreset.FullRect);
-        bg.Color = new Color("#07071a");
+        bg.Color = UITheme.BgDeep;
         canvas.AddChild(bg);
 
         var grid = new NeonGridBg();
@@ -61,7 +61,7 @@ public partial class Settings : Node
             HorizontalAlignment = HorizontalAlignment.Center,
         };
         UITheme.ApplyFont(title, semiBold: true, size: 52);
-        title.Modulate = new Color("#a6d608");
+        title.Modulate = UITheme.Lime;
         titleMargin.AddChild(title);
 
         // ── Scroll panel ──────────────────────────────────────────────────────
@@ -103,7 +103,7 @@ public partial class Settings : Node
         scroll.AddChild(center);
 
         var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 3);
+        vbox.AddThemeConstantOverride("separation", UIStyle.Spacing.Sm);
         vbox.CustomMinimumSize = new Vector2(500, 0);
         center.AddChild(vbox);
 
@@ -218,7 +218,7 @@ public partial class Settings : Node
             SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
         };
         yesBtn.AddThemeFontSizeOverride("font_size", 15);
-        ApplyValueButtonStyle(yesBtn, isOn: true);
+        UITheme.ApplyValueToggleStyle(yesBtn, isOn: true);
         UITheme.ApplyMenuButtonFinish(yesBtn, UITheme.Lime, 0.08f, 0.11f);
         yesBtn.Pressed      += OnResetTutorialConfirmed;
         yesBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
@@ -231,7 +231,7 @@ public partial class Settings : Node
             SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
         };
         noBtn.AddThemeFontSizeOverride("font_size", 15);
-        ApplyValueButtonStyle(noBtn, isOn: false);
+        UITheme.ApplyValueToggleStyle(noBtn, isOn: false);
         UITheme.ApplyMenuButtonFinish(noBtn, UITheme.Cyan, 0.08f, 0.11f);
         noBtn.Pressed      += OnResetTutorialCancelled;
         noBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
@@ -439,7 +439,7 @@ public partial class Settings : Node
         vbox.AddChild(row);
 
         var inner = new HBoxContainer();
-        inner.AddThemeConstantOverride("separation", 12);
+        inner.AddThemeConstantOverride("separation", 22);
         row.AddChild(inner);
 
         var lbl = new Label
@@ -460,7 +460,7 @@ public partial class Settings : Node
             SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
         };
         btn.AddThemeFontSizeOverride("font_size", 15);
-        ApplyValueButtonStyle(btn, isOn);
+        UITheme.ApplyValueToggleStyle(btn, isOn);
         UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, 0.07f, 0.11f);
         btn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); callback(); };
         btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
@@ -500,7 +500,7 @@ public partial class Settings : Node
             SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
         };
         prevBtn.AddThemeFontSizeOverride("font_size", 16);
-        ApplyValueButtonStyle(prevBtn, isOn: true);
+        UITheme.ApplyValueToggleStyle(prevBtn, isOn: true);
         UITheme.ApplyMenuButtonFinish(prevBtn, UITheme.Cyan, 0.07f, 0.11f);
         prevBtn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); OnMenuMusicPrev(); };
         prevBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
@@ -525,7 +525,7 @@ public partial class Settings : Node
             SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
         };
         nextBtn.AddThemeFontSizeOverride("font_size", 16);
-        ApplyValueButtonStyle(nextBtn, isOn: true);
+        UITheme.ApplyValueToggleStyle(nextBtn, isOn: true);
         UITheme.ApplyMenuButtonFinish(nextBtn, UITheme.Cyan, 0.07f, 0.11f);
         nextBtn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); OnMenuMusicNext(); };
         nextBtn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
@@ -543,7 +543,7 @@ public partial class Settings : Node
         vbox.AddChild(row);
 
         var inner = new HBoxContainer();
-        inner.AddThemeConstantOverride("separation", 12);
+        inner.AddThemeConstantOverride("separation", 22);
         row.AddChild(inner);
 
         var lbl = new Label
@@ -593,7 +593,7 @@ public partial class Settings : Node
     {
         var row = new HBoxContainer();
         row.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        row.AddThemeConstantOverride("separation", 10);
+        row.AddThemeConstantOverride("separation", 20);
         vbox.AddChild(row);
 
         // Accent bar
@@ -643,53 +643,11 @@ public partial class Settings : Node
         return s;
     }
 
-    private static void ApplyValueButtonStyle(Button btn, bool isOn)
-    {
-        if (isOn)
-        {
-            btn.AddThemeColorOverride("font_color",          UITheme.Lime);
-            btn.AddThemeColorOverride("font_hover_color",    UITheme.Lime);
-            btn.AddThemeColorOverride("font_pressed_color",  UITheme.LimeDim);
-            btn.AddThemeColorOverride("font_focus_color",    UITheme.Lime);
-            btn.AddThemeStyleboxOverride("normal",  MakeValBtn(new Color(0.06f, 0.14f, 0.04f), UITheme.LimeDark));
-            btn.AddThemeStyleboxOverride("hover",   MakeValBtn(new Color(0.09f, 0.20f, 0.05f), UITheme.Lime,    glowAlpha: 0.12f, glowSize: 4, glowColor: UITheme.Lime));
-            btn.AddThemeStyleboxOverride("pressed", MakeValBtn(new Color(0.04f, 0.08f, 0.02f), UITheme.LimeDim));
-            btn.AddThemeStyleboxOverride("focus",   MakeValBtn(new Color(0.09f, 0.20f, 0.05f), UITheme.Lime,    glowAlpha: 0.08f, glowSize: 3, glowColor: UITheme.Lime));
-        }
-        else
-        {
-            var dimText   = new Color(0.50f, 0.50f, 0.54f);
-            var dimBorder = new Color(0.20f, 0.20f, 0.26f);
-            var dimBg     = new Color(0.05f, 0.05f, 0.10f);
-            btn.AddThemeColorOverride("font_color",         dimText);
-            btn.AddThemeColorOverride("font_hover_color",   new Color(0.70f, 0.70f, 0.75f));
-            btn.AddThemeColorOverride("font_pressed_color", dimText);
-            btn.AddThemeColorOverride("font_focus_color",   dimText);
-            btn.AddThemeStyleboxOverride("normal",  MakeValBtn(dimBg,                           dimBorder));
-            btn.AddThemeStyleboxOverride("hover",   MakeValBtn(new Color(0.08f, 0.08f, 0.14f),  dimBorder));
-            btn.AddThemeStyleboxOverride("pressed", MakeValBtn(dimBg,                           dimBorder));
-            btn.AddThemeStyleboxOverride("focus",   MakeValBtn(new Color(0.08f, 0.08f, 0.14f),  dimBorder));
-        }
-    }
-
-    private static StyleBoxFlat MakeValBtn(Color bg, Color border,
-        float glowAlpha = 0f, int glowSize = 0, Color? glowColor = null)
-    {
-        var s = UITheme.MakeBtn(bg, border, border: 1, corners: 6,
-            glowAlpha: glowAlpha, glowSize: glowSize, glowColor: glowColor);
-        // Override content margins to fit snugly inside the 28px button height
-        s.ContentMarginTop    = 6;
-        s.ContentMarginBottom = 2;
-        s.ContentMarginLeft   = 10;
-        s.ContentMarginRight  = 10;
-        return s;
-    }
-
     private static void UpdateValueButton(Button? btn, string text, bool isOn)
     {
         if (btn == null) return;
         btn.Text = text;
-        ApplyValueButtonStyle(btn, isOn);
+        UITheme.ApplyValueToggleStyle(btn, isOn);
     }
 
     private static string OnOffText(bool on) => on ? "ON" : "OFF";
@@ -715,3 +673,4 @@ public partial class Settings : Node
         }
     }
 }
+

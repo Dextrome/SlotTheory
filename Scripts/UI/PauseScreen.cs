@@ -71,7 +71,7 @@ public partial class PauseScreen : CanvasLayer
         _mainPanel = card;
 
         var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 5);
+        vbox.AddThemeConstantOverride("separation", UIStyle.Spacing.Md);
         card.AddChild(vbox);
 
         AddLabel(vbox, "PAUSED", 40, UITheme.Lime);
@@ -183,12 +183,12 @@ public partial class PauseScreen : CanvasLayer
         scroll.AddChild(margin);
 
         var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 3);
+        vbox.AddThemeConstantOverride("separation", UIStyle.Spacing.Sm);
         vbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         margin.AddChild(vbox);
         _settingsContent = vbox;
 
-        AddLabel(vbox, "SETTINGS", 36, new Color("#a6d608"));
+        AddLabel(vbox, "SETTINGS", 36, UITheme.Lime);
         AddSpacer(vbox, 6);
 
         var sm = SettingsManager.Instance;
@@ -274,7 +274,7 @@ public partial class PauseScreen : CanvasLayer
     private void BuildQuitConfirmPanel(VBoxContainer parent)
     {
         var vbox = new VBoxContainer();
-        vbox.AddThemeConstantOverride("separation", 18);
+        vbox.AddThemeConstantOverride("separation", 28);
         parent.AddChild(vbox);
         _quitConfirmPanel = vbox;
 
@@ -288,7 +288,7 @@ public partial class PauseScreen : CanvasLayer
         vbox.AddChild(msg);
 
         var btnRow = new HBoxContainer();
-        btnRow.AddThemeConstantOverride("separation", 16);
+        btnRow.AddThemeConstantOverride("separation", 26);
         btnRow.Alignment = BoxContainer.AlignmentMode.Center;
         vbox.AddChild(btnRow);
 
@@ -536,7 +536,7 @@ public partial class PauseScreen : CanvasLayer
         vbox.AddChild(row);
 
         var inner = new HBoxContainer();
-        inner.AddThemeConstantOverride("separation", 10);
+        inner.AddThemeConstantOverride("separation", 20);
         row.AddChild(inner);
 
         var lbl = new Label
@@ -546,7 +546,7 @@ public partial class PauseScreen : CanvasLayer
             SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
             SizeFlagsVertical   = Control.SizeFlags.ShrinkCenter,
         };
-        lbl.AddThemeFontSizeOverride("font_size", 17);
+        lbl.AddThemeFontSizeOverride("font_size", UIStyle.TypeScale.Label);
         lbl.Modulate = new Color(0.88f, 0.88f, 0.92f);
         inner.AddChild(lbl);
 
@@ -557,7 +557,7 @@ public partial class PauseScreen : CanvasLayer
             SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
         };
         btn.AddThemeFontSizeOverride("font_size", 14);
-        ApplyPauseValueButtonStyle(btn, isOn);
+        UITheme.ApplyValueToggleStyle(btn, isOn, UITheme.ValueButtonDensity.Compact);
         UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, 0.07f, 0.11f);
         btn.Pressed      += () => { SoundManager.Instance?.Play("ui_select"); callback(); };
         btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
@@ -575,7 +575,7 @@ public partial class PauseScreen : CanvasLayer
         vbox.AddChild(row);
 
         var inner = new HBoxContainer();
-        inner.AddThemeConstantOverride("separation", 10);
+        inner.AddThemeConstantOverride("separation", 20);
         row.AddChild(inner);
 
         var lbl = new Label
@@ -584,7 +584,7 @@ public partial class PauseScreen : CanvasLayer
             VerticalAlignment = VerticalAlignment.Center,
             CustomMinimumSize = new Vector2(80, 0),
         };
-        lbl.AddThemeFontSizeOverride("font_size", 17);
+        lbl.AddThemeFontSizeOverride("font_size", UIStyle.TypeScale.Label);
         lbl.Modulate = new Color(0.88f, 0.88f, 0.92f);
         inner.AddChild(lbl);
 
@@ -668,52 +668,11 @@ public partial class PauseScreen : CanvasLayer
         return s;
     }
 
-    private static void ApplyPauseValueButtonStyle(Button btn, bool isOn)
-    {
-        if (isOn)
-        {
-            btn.AddThemeColorOverride("font_color",         UITheme.Lime);
-            btn.AddThemeColorOverride("font_hover_color",   UITheme.Lime);
-            btn.AddThemeColorOverride("font_pressed_color", UITheme.LimeDim);
-            btn.AddThemeColorOverride("font_focus_color",   UITheme.Lime);
-            btn.AddThemeStyleboxOverride("normal",  MakePauseValBtn(new Color(0.06f, 0.14f, 0.04f), UITheme.LimeDark));
-            btn.AddThemeStyleboxOverride("hover",   MakePauseValBtn(new Color(0.09f, 0.20f, 0.05f), UITheme.Lime, glowAlpha: 0.10f, glowSize: 3, glowColor: UITheme.Lime));
-            btn.AddThemeStyleboxOverride("pressed", MakePauseValBtn(new Color(0.04f, 0.08f, 0.02f), UITheme.LimeDim));
-            btn.AddThemeStyleboxOverride("focus",   MakePauseValBtn(new Color(0.09f, 0.20f, 0.05f), UITheme.Lime, glowAlpha: 0.07f, glowSize: 2, glowColor: UITheme.Lime));
-        }
-        else
-        {
-            var dimText   = new Color(0.50f, 0.50f, 0.54f);
-            var dimBorder = new Color(0.20f, 0.20f, 0.26f);
-            var dimBg     = new Color(0.05f, 0.05f, 0.10f);
-            btn.AddThemeColorOverride("font_color",         dimText);
-            btn.AddThemeColorOverride("font_hover_color",   new Color(0.70f, 0.70f, 0.75f));
-            btn.AddThemeColorOverride("font_pressed_color", dimText);
-            btn.AddThemeColorOverride("font_focus_color",   dimText);
-            btn.AddThemeStyleboxOverride("normal",  MakePauseValBtn(dimBg,                           dimBorder));
-            btn.AddThemeStyleboxOverride("hover",   MakePauseValBtn(new Color(0.08f, 0.08f, 0.14f),  dimBorder));
-            btn.AddThemeStyleboxOverride("pressed", MakePauseValBtn(dimBg,                           dimBorder));
-            btn.AddThemeStyleboxOverride("focus",   MakePauseValBtn(new Color(0.08f, 0.08f, 0.14f),  dimBorder));
-        }
-    }
-
-    private static StyleBoxFlat MakePauseValBtn(Color bg, Color border,
-        float glowAlpha = 0f, int glowSize = 0, Color? glowColor = null)
-    {
-        var s = UITheme.MakeBtn(bg, border, border: 1, corners: 5,
-            glowAlpha: glowAlpha, glowSize: glowSize, glowColor: glowColor);
-        s.ContentMarginTop    = 6;
-        s.ContentMarginBottom = 2;
-        s.ContentMarginLeft   = 8;
-        s.ContentMarginRight  = 8;
-        return s;
-    }
-
     private static void UpdatePauseValueBtn(Button? btn, string text, bool isOn)
     {
         if (btn == null) return;
         btn.Text = text;
-        ApplyPauseValueButtonStyle(btn, isOn);
+        UITheme.ApplyValueToggleStyle(btn, isOn, UITheme.ValueButtonDensity.Compact);
     }
 
     private static string OnOffText(bool on) => on ? "ON" : "OFF";
@@ -752,3 +711,4 @@ public partial class PauseScreen : CanvasLayer
         parent.AddChild(btn);
     }
 }
+
