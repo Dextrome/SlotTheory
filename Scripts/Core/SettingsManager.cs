@@ -61,6 +61,8 @@ public partial class SettingsManager : Node
     public SurgeHintProfileState SurgeHintProfile { get; } = new();
     /// <summary>Transient flag - set by MainMenu before loading Main.tscn to request a tutorial run. Not persisted.</summary>
     public bool   PendingTutorialRun   { get; set; } = false;
+    /// <summary>Transient flag - set by MainMenu Resume Game before loading Main.tscn. Not persisted.</summary>
+    public bool   PendingResumeRun     { get; set; } = false;
 
     // ── Device-specific display settings (NOT cloud-synced) ──────────────
     public bool  Fullscreen    { get; private set; } = true;
@@ -119,6 +121,13 @@ public partial class SettingsManager : Node
         UiFxVolume = Mathf.Clamp(value, 0f, 100f);
         ApplyUiFx(UiFxVolume);
         SaveAccount();
+    }
+
+    public bool ConsumePendingResumeRun()
+    {
+        bool pending = PendingResumeRun;
+        PendingResumeRun = false;
+        return pending;
     }
 
     public void SetMenuMusicStyle(int style)

@@ -480,12 +480,33 @@ public partial class PauseScreen : CanvasLayer
 		MusicDirector.Instance?.OnRunEnd(won: false);
         SoundManager.Instance?.FadeOutMapMusicVoices(0.20f);
         SoundManager.Instance?.FadePadIn(0.35f);
-		GameController.Instance.AbandonRun();
-        if (MapEditorState.IsPlaytesting)
+		if (MapEditorState.IsPlaytesting)
+		{
+			GameController.Instance.AbandonRun();
             MapEditorState.ClearPlaytest();
+		}
+		else
+		{
+			GameController.Instance.PersistRunSnapshotForPauseExit("pause_main_menu");
+		}
 		SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MainMenu.tscn");
 	}
-    private void OnQuit()    => GetTree().Quit();
+    private void OnQuit()
+    {
+        Engine.TimeScale = 1.0;
+        GetTree().Paused = false;
+        Visible = false;
+        if (MapEditorState.IsPlaytesting)
+            GameController.Instance.AbandonRun();
+        else
+            GameController.Instance.PersistRunSnapshotForPauseExit("pause_quit");
+        CallDeferred(nameof(QuitTreeSafely));
+    }
+
+    private void QuitTreeSafely()
+    {
+        GetTree().Quit();
+    }
 
     private void OnAchievements()
     {

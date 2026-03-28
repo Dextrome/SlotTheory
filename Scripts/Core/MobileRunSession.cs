@@ -33,8 +33,36 @@ public sealed class MobileRunSnapshot
 	public int TotalKills { get; set; } = 0;
 	public int TotalDamageDealt { get; set; } = 0;
 	public float TotalPlayTime { get; set; } = 0f;
+	public MobileWaveRuntimeSnapshot? WaveRuntime { get; set; } = null;
 	public List<MobileRunSlotSnapshot>     Slots        { get; set; } = new();
 	public List<MobileDraftOptionSnapshot> DraftOptions { get; set; } = new();
+}
+
+public sealed class MobileWaveEnemySnapshot
+{
+	public string TypeId { get; set; } = "basic_walker";
+	public float Hp { get; set; } = 0f;
+	public float Progress { get; set; } = 0f;
+	public float Speed { get; set; } = 0f;
+	public float MarkedRemaining { get; set; } = 0f;
+	public float SlowRemaining { get; set; } = 0f;
+	public float SlowSpeedFactor { get; set; } = Balance.SlowSpeedFactor;
+	public float DamageAmpRemaining { get; set; } = 0f;
+	public float DamageAmpMultiplier { get; set; } = 0f;
+	public float BurnRemaining { get; set; } = 0f;
+	public float BurnDamagePerSecond { get; set; } = 0f;
+	public int BurnOwnerSlotIndex { get; set; } = -1;
+	public float BurnTrailDropTimer { get; set; } = 0f;
+}
+
+public sealed class MobileWaveRuntimeSnapshot
+{
+	public float SpawnTimer { get; set; } = 0f;
+	public bool WalkerNextIsFirst { get; set; } = true;
+	public int EnemiesSpawnedThisWave { get; set; } = 0;
+	public float WaveTime { get; set; } = 0f;
+	public List<string> RemainingSpawnQueue { get; set; } = new();
+	public List<MobileWaveEnemySnapshot> ActiveEnemies { get; set; } = new();
 }
 
 public static class MobileRunSession
@@ -56,7 +84,8 @@ public static class MobileRunSession
 	}
 
 	public static void Save(GamePhase phase, RunState runState, int extraPicksRemaining = 0,
-		IEnumerable<DraftOption>? currentDraftOptions = null)
+		IEnumerable<DraftOption>? currentDraftOptions = null,
+		MobileWaveRuntimeSnapshot? waveRuntime = null)
 	{
 		if (!IsActiveRunPhase(phase))
 		{
@@ -79,6 +108,7 @@ public static class MobileRunSession
 				TotalKills = runState.TotalKills,
 				TotalDamageDealt = runState.TotalDamageDealt,
 				TotalPlayTime = runState.TotalPlayTime,
+				WaveRuntime = phase == GamePhase.Wave ? waveRuntime : null,
 				Slots        = CaptureSlots(runState),
 				DraftOptions = CaptureDraftOptions(currentDraftOptions)
 			};
@@ -197,6 +227,20 @@ public static class MobileRunSession
 			return false;
 		if (string.IsNullOrWhiteSpace(snapshot.MapId))
 			return false;
+		if (snapshot.Phase == "wave" && snapshot.WaveRuntime != null)
+		{
+			if (snapshot.WaveRuntime.SpawnTimer < 0f)
+				return false;
+			if (snapshot.WaveRuntime.EnemiesSpawnedThisWave < 0 || snapshot.WaveRuntime.WaveTime < 0f)
+				return false;
+			foreach (var enemy in snapshot.WaveRuntime.ActiveEnemies ?? new List<MobileWaveEnemySnapshot>())
+			{
+				if (string.IsNullOrWhiteSpace(enemy.TypeId))
+					return false;
+				if (enemy.Hp < 0f || enemy.Progress < 0f || enemy.Speed <= 0f)
+					return false;
+			}
+		}
 
 		foreach (var slot in snapshot.Slots)
 		{

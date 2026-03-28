@@ -125,6 +125,7 @@ public partial class GameController : Node
 	private string _previewTowerGhostId = "";
 	private TowerInstance? _previewTowerGhost;
 	private bool _runAbandoned      = false;  // set on intentional exit to suppress _ExitTree re-save
+	private bool _exitSnapshotAlreadySaved = false; // explicit pause-exit save already done
 	private bool _restartInProgress = false;  // guard against re-entrant RestartRun() calls
 	private TutorialManager? _tutorialManager;
 	private SlotTheory.UI.TutorialCallout? _tutorialCallout;
@@ -249,6 +250,7 @@ public partial class GameController : Node
 	public override void _Ready()
 	{
 		Instance = this;
+		_exitSnapshotAlreadySaved = false;
 		CombatVisualChaosLoad = 0f;
 		_lastSpectacleScreenFlashAt = -99d;
 		_lastSpectacleAfterimageAt = -99d;
@@ -592,7 +594,11 @@ public partial class GameController : Node
 			_runState.RngSeed = (int)SlotTheory.UI.MapSelectPanel.PendingProceduralSeed;
 		if (_botRunner != null && _runState.SelectedMapId == "random_map")
 			_runState.RngSeed = ResolveBotProceduralSeed();
-		LoadPendingMobileSnapshot();
+		bool resumeRequested = SettingsManager.Instance?.ConsumePendingResumeRun() ?? false;
+		if (resumeRequested)
+			LoadPendingMobileSnapshot();
+		else
+			MobileRunSession.Clear();
 
 		// Determine wave count - tutorial map has its own shorter wave table
 		_mapTotalWaves = ResolveMapTotalWaves(_runState.SelectedMapId);
@@ -1024,13 +1030,15 @@ public partial class GameController : Node
 		_spectacleSlowMoFactor = 1f;
 		_hitStopFactor = 1f;
 		RefreshSpectacleSpeedMultiplier();
-		if (!_runAbandoned)
+		if (!_runAbandoned && !_exitSnapshotAlreadySaved)
 			SaveMobileRunSnapshot("exit_tree");
 		if (_tutorialCallout != null && GodotObject.IsInstanceValid(_tutorialCallout))
 			_tutorialCallout.QueueFree();
 		// Generate gallery if screenshot pipeline was active (handles manual window close)
 		if (_botRunner == null)
 			_screenshotPipeline?.FinalizeSession();
+		if (ReferenceEquals(Instance, this))
+			Instance = null!;
 	}
 
 	/// <summary>
@@ -1114,8 +1122,6 @@ public partial class GameController : Node
 
 	private void LoadPendingMobileSnapshot()
 	{
-		if (!MobileOptimization.IsMobile())
-			return;
 		if (!MobileRunSession.TryLoad(out var snapshot))
 			return;
 
@@ -1138,6 +1144,8 @@ public partial class GameController : Node
 		_mobileResumeSnapshot = null;
 		if (snapshot == null)
 			return false;
+
+		PrepareVisualsForImmediateRunStart();
 
 		try
 		{
@@ -1200,7 +1208,13 @@ public partial class GameController : Node
 		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 
 		if (snapshot.Phase == "wave")
-			StartWavePhase();
+		{
+			if (!TryResumeWaveFromSnapshot(snapshot))
+			{
+				GD.Print("[MobileSession] Wave runtime snapshot missing/invalid - restarting current wave.");
+				StartWavePhase();
+			}
+		}
 		else
 			StartDraftPhase();
 
@@ -1209,16 +1223,86 @@ public partial class GameController : Node
 		return true;
 	}
 
+	private void PrepareVisualsForImmediateRunStart()
+	{
+		if (_gridBackground != null)
+		{
+			_gridBackground.Visible = true;
+			_gridBackground.QueueRedraw();
+		}
+
+		if (_pathLines != null && _fullPathPoints != null)
+		{
+			SetPathRevealProgress(1f);
+			_pathFlow?.Initialize(_fullPathPoints);
+			foreach (var line in _pathLines)
+			{
+				if (!GodotObject.IsInstanceValid(line))
+					continue;
+				line.Visible = true;
+				line.QueueRedraw();
+			}
+		}
+
+		for (int i = 0; i < Balance.SlotCount; i++)
+		{
+			if (!GodotObject.IsInstanceValid(_slotNodes[i]))
+				continue;
+			_slotNodes[i].Position = _currentMap.Slots[i];
+			_slotNodes[i].Scale = Vector2.One;
+		}
+
+		CenterWorldNode();
+		CallDeferred(MethodName.CenterWorldNode);
+	}
+
+	private bool TryResumeWaveFromSnapshot(MobileRunSnapshot snapshot)
+	{
+		if (snapshot.WaveRuntime == null)
+			return false;
+
+		ClearUndoPlacementState();
+		_currentDraftOptions = null;
+		CurrentPhase = GamePhase.Wave;
+		_runState.StartNewWave(_runState.WaveIndex + 1);
+
+		_waveSystem.LoadWave(_runState.WaveIndex, _runState);
+		_combatSim.ResetForWave(_waveSystem);
+		if (!_combatSim.RestoreWaveRuntimeSnapshot(_runState, snapshot.WaveRuntime))
+			return false;
+
+		SoundManager.Instance?.EnsureBackgroundMusicStarted();
+		MusicDirector.Instance?.OnWaveStart(_runState.WaveIndex + 1, _runState.Lives);
+
+		int alive = _runState.EnemiesAlive.Count;
+		int unspawned = Mathf.Max(0, _waveSystem.GetTotalCount() - _runState.EnemiesSpawnedThisWave);
+		_hudPanel.Refresh(_runState.WaveIndex + 1, _runState.Lives);
+		_hudPanel.RefreshEnemies(alive, alive + unspawned);
+		string runName = BuildRunName();
+		var runColors = BuildRunNameColors();
+		_hudPanel.SetBuildName(runName, visible: true, startColor: runColors.start, endColor: runColors.end);
+		_screenshotPipeline?.NotifyWaveStart(_runState.WaveIndex);
+		return true;
+	}
+
 	private void SaveMobileRunSnapshot(string reason)
 	{
-		if (!MobileOptimization.IsMobile())
-			return;
 		if (!MobileRunSession.IsActiveRunPhase(CurrentPhase))
 			return;
 
+		MobileWaveRuntimeSnapshot? waveRuntime = CurrentPhase == GamePhase.Wave
+			? _combatSim.CaptureWaveRuntimeSnapshot(_runState)
+			: null;
 		MobileRunSession.Save(CurrentPhase, _runState, _extraPicksRemaining,
-			CurrentPhase == GamePhase.Draft ? _currentDraftOptions : null);
+			CurrentPhase == GamePhase.Draft ? _currentDraftOptions : null,
+			waveRuntime);
 		GD.Print($"[MobileSession] Snapshot saved ({reason}).");
+	}
+
+	public void PersistRunSnapshotForPauseExit(string reason = "pause_exit")
+	{
+		SaveMobileRunSnapshot(reason);
+		_exitSnapshotAlreadySaved = true;
 	}
 
 	public void StartDraftPhase()

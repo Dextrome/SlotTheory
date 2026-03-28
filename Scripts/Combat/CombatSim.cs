@@ -251,6 +251,112 @@ public class CombatSim
         foreach (string t in slots) _spawnQueue.Enqueue(t);
     }
 
+    public MobileWaveRuntimeSnapshot CaptureWaveRuntimeSnapshot(RunState state)
+    {
+        var snapshot = new MobileWaveRuntimeSnapshot
+        {
+            SpawnTimer = Mathf.Max(0f, _spawnTimer),
+            WalkerNextIsFirst = _walkerNextIsFirst,
+            EnemiesSpawnedThisWave = Mathf.Max(0, state.EnemiesSpawnedThisWave),
+            WaveTime = Mathf.Max(0f, state.WaveTime),
+            RemainingSpawnQueue = _spawnQueue.ToList(),
+            ActiveEnemies = new List<MobileWaveEnemySnapshot>(),
+        };
+
+        foreach (var enemy in state.EnemiesAlive)
+        {
+            if (!GodotObject.IsInstanceValid(enemy))
+                continue;
+            if (enemy.Hp <= 0f)
+                continue;
+
+            snapshot.ActiveEnemies.Add(new MobileWaveEnemySnapshot
+            {
+                TypeId = enemy.EnemyTypeId,
+                Hp = enemy.Hp,
+                Progress = Mathf.Max(0f, enemy.Progress),
+                Speed = Mathf.Max(1f, enemy.Speed),
+                MarkedRemaining = Mathf.Max(0f, enemy.MarkedRemaining),
+                SlowRemaining = Mathf.Max(0f, enemy.SlowRemaining),
+                SlowSpeedFactor = enemy.SlowSpeedFactor,
+                DamageAmpRemaining = Mathf.Max(0f, enemy.DamageAmpRemaining),
+                DamageAmpMultiplier = Mathf.Max(0f, enemy.DamageAmpMultiplier),
+                BurnRemaining = Mathf.Max(0f, enemy.BurnRemaining),
+                BurnDamagePerSecond = Mathf.Max(0f, enemy.BurnDamagePerSecond),
+                BurnOwnerSlotIndex = enemy.BurnOwnerSlotIndex,
+                BurnTrailDropTimer = Mathf.Max(0f, enemy.BurnTrailDropTimer),
+            });
+        }
+
+        return snapshot;
+    }
+
+    public bool RestoreWaveRuntimeSnapshot(RunState state, MobileWaveRuntimeSnapshot snapshot)
+    {
+        if (EnemyScene == null || LanePath == null)
+            return false;
+
+        foreach (var enemy in state.EnemiesAlive)
+        {
+            if (GodotObject.IsInstanceValid(enemy))
+                enemy.QueueFree();
+        }
+        state.EnemiesAlive.Clear();
+
+        _spawnQueue.Clear();
+        foreach (string typeId in snapshot.RemainingSpawnQueue ?? new List<string>())
+        {
+            if (!string.IsNullOrWhiteSpace(typeId))
+                _spawnQueue.Enqueue(typeId);
+        }
+
+        _spawnTimer = Mathf.Max(0f, snapshot.SpawnTimer);
+        _walkerNextIsFirst = snapshot.WalkerNextIsFirst;
+        state.EnemiesSpawnedThisWave = Mathf.Max(0, snapshot.EnemiesSpawnedThisWave);
+        state.WaveTime = Mathf.Max(0f, snapshot.WaveTime);
+
+        float mandateMult = state.ActiveMandate?.Type == MandateType.EnemyHpBonus
+            ? state.ActiveMandate.EnemyHpMultiplier : 1.0f;
+        var difficulty = SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy;
+
+        foreach (var enemySnapshot in snapshot.ActiveEnemies ?? new List<MobileWaveEnemySnapshot>())
+        {
+            if (string.IsNullOrWhiteSpace(enemySnapshot.TypeId))
+                continue;
+
+            float maxHp = WaveSystem.GetScaledHp(enemySnapshot.TypeId, state.WaveIndex,
+                difficulty, state.EndlessWaveDepth, mandateMult);
+            float speed = enemySnapshot.Speed > 0f
+                ? enemySnapshot.Speed
+                : ResolveEnemySpeed(enemySnapshot.TypeId);
+
+            var enemy = EnemyScene.Instantiate<EnemyInstance>();
+            enemy.Initialize(enemySnapshot.TypeId, maxHp, speed);
+            LanePath.AddChild(enemy);
+            if (BotMode)
+                enemy.SetProcess(false);
+
+            enemy.Progress = Mathf.Max(0f, enemySnapshot.Progress);
+            enemy.Hp = Mathf.Clamp(enemySnapshot.Hp, 0f, maxHp);
+            enemy.MarkedRemaining = Mathf.Max(0f, enemySnapshot.MarkedRemaining);
+            enemy.SlowRemaining = Mathf.Max(0f, enemySnapshot.SlowRemaining);
+            enemy.SlowSpeedFactor = enemySnapshot.SlowSpeedFactor > 0f
+                ? enemySnapshot.SlowSpeedFactor
+                : Balance.SlowSpeedFactor;
+            enemy.DamageAmpRemaining = Mathf.Max(0f, enemySnapshot.DamageAmpRemaining);
+            enemy.DamageAmpMultiplier = Mathf.Max(0f, enemySnapshot.DamageAmpMultiplier);
+            enemy.BurnRemaining = Mathf.Max(0f, enemySnapshot.BurnRemaining);
+            enemy.BurnDamagePerSecond = Mathf.Max(0f, enemySnapshot.BurnDamagePerSecond);
+            enemy.BurnOwnerSlotIndex = enemySnapshot.BurnOwnerSlotIndex;
+            enemy.BurnTrailDropTimer = Mathf.Max(0f, enemySnapshot.BurnTrailDropTimer);
+            enemy.IsShieldProtected = false;
+            state.EnemiesAlive.Add(enemy);
+        }
+
+        state.EnemiesSpawnedThisWave = Math.Max(state.EnemiesSpawnedThisWave, state.EnemiesAlive.Count);
+        return true;
+    }
+
     /// <summary>
     /// Seeds (or replaces) the active Afterimage imprint for a tower.
     /// Rule: one active imprint per tower; new hits overwrite old imprint state.
@@ -3095,16 +3201,7 @@ public class CombatSim
         float hp    = WaveSystem.GetScaledHp(typeId, state.WaveIndex,
                           SettingsManager.Instance?.Difficulty ?? DifficultyMode.Easy,
                           state.EndlessWaveDepth, mandateMult);
-        float speed = typeId switch
-        {
-            "armored_walker"  => Balance.TankyEnemySpeed,
-            "swift_walker"    => Balance.SwiftEnemySpeed,
-            "splitter_walker" => Balance.SplitterSpeed,
-            "splitter_shard"  => Balance.SplitterShardSpeed,
-            "reverse_walker"  => Balance.ReverseWalkerSpeed,
-            "shield_drone"    => Balance.ShieldDroneSpeed,
-            _                 => Balance.BaseEnemySpeed,
-        };
+        float speed = ResolveEnemySpeed(typeId);
 
         var enemy = EnemyScene.Instantiate<EnemyInstance>();
         enemy.Initialize(typeId, hp, speed);
@@ -3125,4 +3222,15 @@ public class CombatSim
         state.EnemiesAlive.Add(enemy);
         state.EnemiesSpawnedThisWave++;
     }
+
+    private static float ResolveEnemySpeed(string typeId) => typeId switch
+    {
+        "armored_walker"  => Balance.TankyEnemySpeed,
+        "swift_walker"    => Balance.SwiftEnemySpeed,
+        "splitter_walker" => Balance.SplitterSpeed,
+        "splitter_shard"  => Balance.SplitterShardSpeed,
+        "reverse_walker"  => Balance.ReverseWalkerSpeed,
+        "shield_drone"    => Balance.ShieldDroneSpeed,
+        _                 => Balance.BaseEnemySpeed,
+    };
 }

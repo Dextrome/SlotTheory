@@ -1384,6 +1384,47 @@ public partial class SoundManager : Node
         _musicPalette = palette;
     }
 
+    public override void _ExitTree()
+    {
+        if (_musicVoiceFadeTween != null && GodotObject.IsInstanceValid(_musicVoiceFadeTween))
+            _musicVoiceFadeTween.Kill();
+        _musicVoiceFadeTween = null;
+
+        if (_musicPlayer != null && GodotObject.IsInstanceValid(_musicPlayer))
+            _musicPlayer.Stop();
+        _musicPlayback = null;
+        _musicPlayer = null;
+
+        for (int i = 0; i < _pool.Length; i++)
+        {
+            if (_pool[i] != null && GodotObject.IsInstanceValid(_pool[i]))
+                _pool[i].Stop();
+        }
+        for (int i = 0; i < _notePool.Length; i++)
+        {
+            if (_notePool[i] != null && GodotObject.IsInstanceValid(_notePool[i]))
+                _notePool[i].Stop();
+        }
+        for (int i = 0; i < _percPool.Length; i++)
+        {
+            if (_percPool[i] != null && GodotObject.IsInstanceValid(_percPool[i]))
+                _percPool[i].Stop();
+        }
+
+        _pool = Array.Empty<AudioStreamPlayer>();
+        _notePool = Array.Empty<AudioStreamPlayer>();
+        _percPool = Array.Empty<AudioStreamPlayer>();
+        _poolStopAtMs = Array.Empty<ulong>();
+        _notePoolStopMs = Array.Empty<ulong>();
+        _percPoolStopMs = Array.Empty<ulong>();
+        _mobileSfxLastPlayMs.Clear();
+        _desktopSfxLastPlayMs.Clear();
+        _uiSfxLastPlayMs.Clear();
+
+        if (ReferenceEquals(Instance, this))
+            Instance = null;
+    }
+
     public override void _Process(double delta)
     {
         if (_headless) return;

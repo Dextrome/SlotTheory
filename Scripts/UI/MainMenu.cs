@@ -24,12 +24,7 @@ public partial class MainMenu : Node
 			CallDeferred(nameof(AutoStartBotRun));
 			return;
 		}
-
-		if (MobileOptimization.IsMobile() && MobileRunSession.HasSnapshot())
-		{
-			CallDeferred(nameof(AutoResumeRun));
-			return;
-		}
+		bool hasSavedRun = MobileRunSession.HasSnapshot();
 
 		var canvas = new CanvasLayer();
 		AddChild(canvas);
@@ -204,6 +199,15 @@ public partial class MainMenu : Node
 		card.AddChild(cardVbox);
 		AddSpacer(cardVbox, 6); // keep first action from riding the top frame edge
 
+		if (hasSavedRun)
+		{
+			var resumeBtn = MakeMenuButton("RESUME GAME", 260, 44, 20);
+			UITheme.ApplyCyanStyle(resumeBtn);
+			UITheme.ApplyMenuButtonFinish(resumeBtn, UITheme.Cyan, 0.09f, 0.11f);
+			resumeBtn.Pressed += OnResumeGame;
+			cardVbox.AddChild(resumeBtn);
+		}
+
 		var playBtn = MakeMenuButton("PLAY", 260, 52, 22);
 		UITheme.ApplyPrimaryStyle(playBtn);
 		playBtn.AddThemeStyleboxOverride("normal", UITheme.MakeBtn(
@@ -358,8 +362,17 @@ public partial class MainMenu : Node
 
 	private void OnPlay()
 	{
+		if (SettingsManager.Instance != null)
+			SettingsManager.Instance.PendingResumeRun = false;
 		SlotTheory.Data.DataLoader.LoadAll();
 		Transition.Instance?.FadeToScene("res://Scenes/ModeSelect.tscn");
+	}
+
+	private void OnResumeGame()
+	{
+		if (SettingsManager.Instance != null)
+			SettingsManager.Instance.PendingResumeRun = true;
+		Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
 	}
 
 	private void OnLeaderboards() => Transition.Instance?.FadeToScene("res://Scenes/Leaderboards.tscn");
@@ -367,7 +380,12 @@ public partial class MainMenu : Node
 	private void OnSlotCodex() => Transition.Instance?.FadeToScene("res://Scenes/SlotCodex.tscn");
 	private void OnMapEditor() => Transition.Instance?.FadeToScene("res://Scenes/MapEditor.tscn");
 	private void OnSettings() => Transition.Instance?.FadeToScene("res://Scenes/Settings.tscn");
-	private void OnQuit() => GetTree().Quit();
+	private void OnQuit() => CallDeferred(nameof(QuitTreeSafely));
+
+	private void QuitTreeSafely()
+	{
+		GetTree().Quit();
+	}
 
 	private void ApplyFitScale(CenterContainer center)
 	{
@@ -379,11 +397,6 @@ public partial class MainMenu : Node
 		float fitScale = contentH > 0 ? Mathf.Min(maxScale, vp.Y * 0.92f / contentH) : maxScale;
 		center.PivotOffset = vp * 0.5f;
 		center.Scale = new Vector2(fitScale, fitScale);
-	}
-
-	private void AutoResumeRun()
-	{
-		Transition.Instance?.FadeToScene("res://Scenes/Main.tscn");
 	}
 
 	private void AutoStartBotRun()

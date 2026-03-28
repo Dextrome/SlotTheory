@@ -67,6 +67,12 @@ public partial class Transition : CanvasLayer
         ApplyPostFxState();
     }
 
+    public override void _ExitTree()
+    {
+        if (ReferenceEquals(Instance, this))
+            Instance = null!;
+    }
+
     public void FadeToScene(string scenePath)
     {
         if (_busy)
