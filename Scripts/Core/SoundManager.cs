@@ -12,6 +12,21 @@ namespace SlotTheory.Core;
 /// </summary>
 public partial class SoundManager : Node
 {
+    public enum MusicPalette
+    {
+        Synthwave = 0,
+        JazzClub,
+        ArenaRock,
+        BluesRock,
+        StonerDoom,
+        FusionLab,
+        NoirPulse,
+        Industrial,
+        FunkSpark,
+        DustyTape,
+        SoftTutorial,
+    }
+
     public static SoundManager? Instance { get; private set; }
 
     private const int   Rate     = 22050;
@@ -20,6 +35,7 @@ public partial class SoundManager : Node
 
     private readonly Dictionary<string, Vector2[]> _samples  = new();
     private readonly Dictionary<string, float>     _durations = new();
+    private MusicPalette _musicPalette = MusicPalette.Synthwave;
 
     private AudioStreamPlayer[] _pool       = Array.Empty<AudioStreamPlayer>();
     private float[]             _poolTimers = Array.Empty<float>();
@@ -82,6 +98,7 @@ public partial class SoundManager : Node
     // Music note pool - separate from the SFX pool; routed to the Music bus
     private const int NotePoolSize = 8;
     private const float NoteBufferLength = 2.5f;  // seconds; notes are max 2s
+    private const float NotePoolBaseDb = -8f;
     private AudioStreamPlayer[] _notePool       = Array.Empty<AudioStreamPlayer>();
     private ulong[]             _notePoolStopMs = Array.Empty<ulong>();
     private int                 _notePoolIdx;
@@ -89,9 +106,11 @@ public partial class SoundManager : Node
     // Percussion pool - 4 slots on the Music bus; short buffer (max perc sample ≈ 0.5s)
     private const int   PercPoolSize     = 4;
     private const float PercBufferLength = 0.6f;
+    private const float PercPoolBaseDb = -10f;
     private AudioStreamPlayer[] _percPool       = Array.Empty<AudioStreamPlayer>();
     private ulong[]             _percPoolStopMs = Array.Empty<ulong>();
     private int                 _percPoolIdx;
+    private Tween? _musicVoiceFadeTween;
 
     // Pad fade - gradually attenuates the ambient loop when the procedural system takes over
     private float _padFadeDb   = 0f;   // current accumulated fade (dB removed from pad)
@@ -174,6 +193,23 @@ public partial class SoundManager : Node
         ["ui_select"] = 65,
     };
 
+    // Manual per-ID loudness trims for combat cues (applied on top of platform headroom).
+    private static readonly Dictionary<string, float> FxLoudnessTrimDb = new(StringComparer.Ordinal)
+    {
+        ["shoot_rapid"] = +4.0f,
+        ["shoot_rapid_cold"] = +3.0f,
+        ["shoot_marker"] = +3.0f,
+        ["shoot_heavy"] = -0.5f,
+        ["shoot_rocket"] = -1.5f,
+        ["shoot_accordion"] = -3.0f,
+        ["shoot_phase_splitter"] = -1.0f,
+        ["shoot_undertow"] = -1.5f,
+        ["afterimage_seed"] = +2.5f,
+        ["afterimage_echo"] = +1.0f,
+        ["mine_pop"] = -0.5f,
+        ["mine_chain_pop"] = -1.0f,
+    };
+
     public override void _Ready()
     {
         Instance  = this;
@@ -202,7 +238,7 @@ public partial class SoundManager : Node
         for (int i = 0; i < NotePoolSize; i++)
         {
             var gen    = new AudioStreamGenerator { MixRate = Rate, BufferLength = NoteBufferLength };
-            var player = new AudioStreamPlayer { Stream = gen, VolumeDb = -8f, Bus = "Music" };
+            var player = new AudioStreamPlayer { Stream = gen, VolumeDb = NotePoolBaseDb, Bus = "Music" };
             AddChild(player);
             _notePool[i] = player;
         }
@@ -213,7 +249,7 @@ public partial class SoundManager : Node
         for (int i = 0; i < PercPoolSize; i++)
         {
             var gen    = new AudioStreamGenerator { MixRate = Rate, BufferLength = PercBufferLength };
-            var player = new AudioStreamPlayer { Stream = gen, VolumeDb = -10f, Bus = "Music" };
+            var player = new AudioStreamPlayer { Stream = gen, VolumeDb = PercPoolBaseDb, Bus = "Music" };
             AddChild(player);
             _percPool[i] = player;
         }
@@ -1285,6 +1321,69 @@ public partial class SoundManager : Node
             FadePad(2.5f);     // smooth fade into game over 2.5 s (matches map animation)
     }
 
+    /// <summary>
+    /// Smoothly fades currently ringing map note/percussion voices, then flushes them.
+    /// Useful before scene transitions (e.g. pause -> main menu) to avoid awkward tails.
+    /// </summary>
+    public void FadeOutMapMusicVoices(float durationSec = 0.20f)
+    {
+        if (_headless)
+            return;
+
+        durationSec = Mathf.Clamp(durationSec, 0.04f, 0.80f);
+
+        if (_musicVoiceFadeTween != null && GodotObject.IsInstanceValid(_musicVoiceFadeTween))
+            _musicVoiceFadeTween.Kill();
+
+        _musicVoiceFadeTween = CreateTween();
+        _musicVoiceFadeTween.SetParallel(true);
+
+        for (int i = 0; i < _notePool.Length; i++)
+        {
+            _musicVoiceFadeTween
+                .TweenProperty(_notePool[i], "volume_db", -60f, durationSec)
+                .SetTrans(Tween.TransitionType.Sine)
+                .SetEase(Tween.EaseType.In);
+        }
+        for (int i = 0; i < _percPool.Length; i++)
+        {
+            _musicVoiceFadeTween
+                .TweenProperty(_percPool[i], "volume_db", -60f, durationSec)
+                .SetTrans(Tween.TransitionType.Sine)
+                .SetEase(Tween.EaseType.In);
+        }
+
+        _musicVoiceFadeTween.Chain();
+        _musicVoiceFadeTween.TweenCallback(Callable.From(FlushMapMusicVoices));
+    }
+
+    private void FlushMapMusicVoices()
+    {
+        for (int i = 0; i < _notePool.Length; i++)
+        {
+            _notePool[i].Stop();
+            _notePool[i].VolumeDb = NotePoolBaseDb;
+            _notePoolStopMs[i] = 0;
+        }
+        for (int i = 0; i < _percPool.Length; i++)
+        {
+            _percPool[i].Stop();
+            _percPool[i].VolumeDb = PercPoolBaseDb;
+            _percPoolStopMs[i] = 0;
+        }
+
+        _notePoolIdx = 0;
+        _percPoolIdx = 0;
+    }
+
+    /// <summary>
+    /// Selects the map music timbre palette used by PlayNote/PlayPerc.
+    /// </summary>
+    public void SetMusicPalette(MusicPalette palette)
+    {
+        _musicPalette = palette;
+    }
+
     public override void _Process(double delta)
     {
         if (_headless) return;
@@ -1592,6 +1691,370 @@ public partial class SoundManager : Node
     {
         _samples[id]   = data.s;
         _durations[id] = data.d;
+    }
+
+    private static string PaletteSuffix(MusicPalette palette) => palette switch
+    {
+        MusicPalette.JazzClub     => "jazz",
+        MusicPalette.ArenaRock    => "rock",
+        MusicPalette.BluesRock    => "blues",
+        MusicPalette.StonerDoom   => "doom",
+        MusicPalette.FusionLab    => "fusion",
+        MusicPalette.NoirPulse    => "noir",
+        MusicPalette.Industrial   => "industrial",
+        MusicPalette.FunkSpark    => "funk",
+        MusicPalette.DustyTape    => "dusty",
+        MusicPalette.SoftTutorial => "soft",
+        _                         => "synth",
+    };
+
+    private string ResolveMusicNoteId(int midiNote)
+    {
+        string baseId = $"mnote_{midiNote}";
+        if (_musicPalette == MusicPalette.Synthwave)
+            return baseId;
+
+        string paletteId = $"{baseId}_{PaletteSuffix(_musicPalette)}";
+        if (!_samples.ContainsKey(paletteId))
+        {
+            float freq = 440f * MathF.Pow(2f, (midiNote - 69) / 12f);
+            bool isBass = midiNote <= 57;
+            Reg(paletteId, MusicNote(freq, isBass, _musicPalette));
+        }
+
+        return _samples.ContainsKey(paletteId) ? paletteId : baseId;
+    }
+
+    private string ResolveMusicPercId(string id)
+    {
+        if (_musicPalette == MusicPalette.Synthwave || !IsPaletteAwarePerc(id))
+            return id;
+
+        string paletteId = $"{id}_{PaletteSuffix(_musicPalette)}";
+        if (!_samples.ContainsKey(paletteId)
+            && TryBuildPalettePerc(id, _musicPalette, out var clip))
+        {
+            Reg(paletteId, clip);
+        }
+
+        return _samples.ContainsKey(paletteId) ? paletteId : id;
+    }
+
+    private static bool IsPaletteAwarePerc(string id)
+        => id == "perc_kick" || id == "perc_snare" || id == "perc_hat_c" || id == "perc_hat_o";
+
+    private static bool TryBuildPalettePerc(string baseId, MusicPalette palette, out (Vector2[] s, float d) clip)
+    {
+        clip = default;
+        if (!IsPaletteAwarePerc(baseId))
+            return false;
+
+        var source = BuildBasePercSample(baseId);
+        var color = PercColorForPalette(palette, baseId);
+        var shaped = ApplyPaletteColor(
+            source.s,
+            source.d,
+            color.Drive,
+            color.LowPassHz,
+            color.HighPassHz,
+            color.Gain,
+            color.TremDepth,
+            color.TremHz,
+            color.BitDepth);
+        clip = MatchPerceivedLoudness(
+            source.s,
+            shaped.s,
+            shaped.d,
+            PercTrimDbForPalette(palette, baseId));
+        return clip.s.Length > 0;
+    }
+
+    private static (Vector2[] s, float d) BuildBasePercSample(string baseId) => baseId switch
+    {
+        "perc_kick" => Layer(
+            Sweep(100f, 65f, 0.22f, vol: 0.50f),
+            Tone(2000f, 0.005f, vol: 0.22f, shape: 'n', env: 'f')),
+        "perc_snare" => Layer(
+            Sweep(260f, 100f, 0.18f, vol: 0.54f),
+            Tone(4800f, 0.16f,  vol: 0.42f, shape: 'n', env: 'f')),
+        "perc_hat_c" => Layer(
+            Tone( 9200f, 0.09f, vol: 0.20f, shape: 'n', env: 'f'),
+            Tone(13600f, 0.07f, vol: 0.14f, shape: 'n', env: 'f')),
+        "perc_hat_o" => Layer(
+            Tone( 9200f, 0.28f, vol: 0.20f, shape: 'n', env: 'f'),
+            Tone(13600f, 0.24f, vol: 0.14f, shape: 'n', env: 'f')),
+        _ => (Array.Empty<Vector2>(), 0f),
+    };
+
+    private readonly record struct PaletteColor(
+        float Drive,
+        float LowPassHz,
+        float HighPassHz,
+        float Gain,
+        float TremDepth,
+        float TremHz,
+        int BitDepth);
+
+    private static PaletteColor NoteColorForPalette(MusicPalette palette, bool isBass) => palette switch
+    {
+        MusicPalette.JazzClub
+            => new PaletteColor(1.10f, isBass ? 1500f : 2200f, isBass ? 25f : 60f, 0.92f, 0.05f, 3.5f, 0),
+        MusicPalette.ArenaRock
+            => new PaletteColor(2.10f, isBass ? 3000f : 5200f, 45f, 1.06f, 0f, 0f, 0),
+        MusicPalette.BluesRock
+            => new PaletteColor(1.75f, isBass ? 2200f : 3600f, isBass ? 35f : 80f, 0.98f, 0.08f, 4.2f, 0),
+        MusicPalette.StonerDoom
+            => new PaletteColor(3.00f, isBass ? 1100f : 1800f, isBass ? 18f : 40f, 1.10f, 0f, 0f, 0),
+        MusicPalette.FusionLab
+            => new PaletteColor(1.55f, isBass ? 4200f : 7600f, isBass ? 80f : 140f, 0.96f, 0.14f, 7.2f, 0),
+        MusicPalette.NoirPulse
+            => new PaletteColor(1.18f, isBass ? 1300f : 1900f, isBass ? 90f : 160f, 0.88f, 0.18f, 3.0f, 0),
+        MusicPalette.Industrial
+            => new PaletteColor(3.60f, isBass ? 2600f : 4200f, isBass ? 150f : 220f, 0.92f, 0f, 0f, 7),
+        MusicPalette.FunkSpark
+            => new PaletteColor(1.82f, isBass ? 3600f : 8600f, isBass ? 90f : 220f, 1.00f, 0.06f, 8.4f, 0),
+        MusicPalette.DustyTape
+            => new PaletteColor(1.28f, isBass ? 1700f : 2500f, isBass ? 55f : 110f, 0.84f, 0.03f, 2.8f, 10),
+        MusicPalette.SoftTutorial
+            => new PaletteColor(0.96f, isBass ? 1200f : 1800f, isBass ? 20f : 50f, 0.72f, 0f, 0f, 0),
+        _ => new PaletteColor(1f, 0f, 0f, 1f, 0f, 0f, 0),
+    };
+
+    private static PaletteColor PercColorForPalette(MusicPalette palette, string baseId) => palette switch
+    {
+        MusicPalette.JazzClub => baseId switch
+        {
+            "perc_kick"  => new PaletteColor(1.10f,  900f,   20f, 0.86f, 0f, 0f, 0),
+            "perc_snare" => new PaletteColor(1.00f, 2600f,  180f, 0.80f, 0f, 0f, 0),
+            "perc_hat_c" => new PaletteColor(0.95f, 6500f, 3000f, 0.65f, 0f, 0f, 0),
+            _            => new PaletteColor(0.95f, 7000f, 2600f, 0.68f, 0f, 0f, 0),
+        },
+        MusicPalette.ArenaRock => baseId switch
+        {
+            "perc_kick"  => new PaletteColor(2.40f, 2200f,   30f, 1.05f, 0f, 0f, 0),
+            "perc_snare" => new PaletteColor(2.10f, 3600f,  220f, 0.98f, 0f, 0f, 0),
+            "perc_hat_c" => new PaletteColor(1.40f,10000f, 4500f, 0.95f, 0f, 0f, 0),
+            _            => new PaletteColor(1.45f,10500f, 4300f, 0.98f, 0f, 0f, 0),
+        },
+        MusicPalette.BluesRock => baseId switch
+        {
+            "perc_kick"  => new PaletteColor(1.80f, 1500f,   25f, 0.92f, 0f, 0f, 0),
+            "perc_snare" => new PaletteColor(1.50f, 2800f,  220f, 0.88f, 0f, 0f, 0),
+            "perc_hat_c" => new PaletteColor(1.15f, 7600f, 3200f, 0.74f, 0f, 0f, 0),
+            _            => new PaletteColor(1.18f, 8000f, 3000f, 0.78f, 0f, 0f, 0),
+        },
+        MusicPalette.StonerDoom => baseId switch
+        {
+            "perc_kick"  => new PaletteColor(2.90f,  780f,   10f, 1.20f, 0f, 0f, 0),
+            "perc_snare" => new PaletteColor(2.00f, 1800f,  120f, 0.82f, 0f, 0f, 0),
+            "perc_hat_c" => new PaletteColor(1.10f, 4200f, 2200f, 0.55f, 0f, 0f, 0),
+            _            => new PaletteColor(1.12f, 4600f, 2000f, 0.58f, 0f, 0f, 0),
+        },
+        MusicPalette.FusionLab => baseId switch
+        {
+            "perc_kick"  => new PaletteColor(1.70f, 1800f,   60f, 0.90f, 0f, 0f, 0),
+            "perc_snare" => new PaletteColor(1.80f, 5000f,  400f, 0.92f, 0f, 0f, 0),
+            "perc_hat_c" => new PaletteColor(1.50f,12000f, 5000f, 1.05f, 0f, 0f, 0),
+            _            => new PaletteColor(1.52f,12500f, 4600f, 1.08f, 0f, 0f, 0),
+        },
+        MusicPalette.NoirPulse => baseId switch
+        {
+            "perc_kick"  => new PaletteColor(1.20f,  900f,   40f, 0.80f, 0f, 0f, 0),
+            "perc_snare" => new PaletteColor(1.10f, 1900f,  250f, 0.72f, 0f, 0f, 0),
+            "perc_hat_c" => new PaletteColor(0.90f, 5000f, 2600f, 0.52f, 0f, 0f, 0),
+            _            => new PaletteColor(0.92f, 5400f, 2400f, 0.55f, 0f, 0f, 0),
+        },
+        MusicPalette.Industrial => baseId switch
+        {
+            "perc_kick"  => new PaletteColor(3.80f, 2400f,  120f, 1.05f, 0f, 0f, 7),
+            "perc_snare" => new PaletteColor(4.20f, 4200f,  550f, 1.00f, 0f, 0f, 6),
+            "perc_hat_c" => new PaletteColor(3.00f, 9800f, 6000f, 0.90f, 0f, 0f, 5),
+            _            => new PaletteColor(3.10f,10000f, 5600f, 0.92f, 0f, 0f, 5),
+        },
+        MusicPalette.FunkSpark => baseId switch
+        {
+            "perc_kick"  => new PaletteColor(2.00f, 2600f,   70f, 0.95f, 0f, 0f, 0),
+            "perc_snare" => new PaletteColor(2.00f, 5600f,  600f, 1.00f, 0f, 0f, 0),
+            "perc_hat_c" => new PaletteColor(1.80f,14000f, 6400f, 1.10f, 0f, 0f, 0),
+            _            => new PaletteColor(1.85f,14500f, 6100f, 1.12f, 0f, 0f, 0),
+        },
+        MusicPalette.DustyTape => baseId switch
+        {
+            "perc_kick"  => new PaletteColor(1.35f, 1300f,   35f, 0.84f, 0f, 0f, 10),
+            "perc_snare" => new PaletteColor(1.30f, 2400f,  260f, 0.76f, 0f, 0f, 10),
+            "perc_hat_c" => new PaletteColor(1.10f, 6200f, 3300f, 0.62f, 0f, 0f, 9),
+            _            => new PaletteColor(1.12f, 6600f, 3000f, 0.65f, 0f, 0f, 9),
+        },
+        MusicPalette.SoftTutorial => baseId switch
+        {
+            "perc_kick"  => new PaletteColor(0.95f, 1000f,   20f, 0.72f, 0f, 0f, 0),
+            "perc_snare" => new PaletteColor(0.92f, 2000f,  200f, 0.62f, 0f, 0f, 0),
+            "perc_hat_c" => new PaletteColor(0.85f, 5600f, 2800f, 0.50f, 0f, 0f, 0),
+            _            => new PaletteColor(0.87f, 6000f, 2600f, 0.54f, 0f, 0f, 0),
+        },
+        _ => new PaletteColor(1f, 0f, 0f, 1f, 0f, 0f, 0),
+    };
+
+    private static float NoteTrimDbForPalette(MusicPalette palette, bool isBass) => palette switch
+    {
+        MusicPalette.JazzClub     => isBass ? +1.0f : +1.2f,
+        MusicPalette.ArenaRock    => isBass ? -0.5f : -0.8f,
+        MusicPalette.BluesRock    => -0.3f,
+        MusicPalette.StonerDoom   => isBass ? -1.4f : -1.8f,
+        MusicPalette.FusionLab    => isBass ? -0.3f : -0.6f,
+        MusicPalette.NoirPulse    => +0.8f,
+        MusicPalette.Industrial   => isBass ? -1.5f : -2.0f,
+        MusicPalette.FunkSpark    => -0.5f,
+        MusicPalette.DustyTape    => +0.6f,
+        MusicPalette.SoftTutorial => +1.4f,
+        _                         => 0f,
+    };
+
+    private static float PercTrimDbForPalette(MusicPalette palette, string baseId)
+    {
+        float baseTrim = palette switch
+        {
+            MusicPalette.JazzClub     => +0.8f,
+            MusicPalette.ArenaRock    => -0.6f,
+            MusicPalette.BluesRock    => -0.2f,
+            MusicPalette.StonerDoom   => -1.2f,
+            MusicPalette.FusionLab    => -0.4f,
+            MusicPalette.NoirPulse    => +0.7f,
+            MusicPalette.Industrial   => -1.8f,
+            MusicPalette.FunkSpark    => -0.3f,
+            MusicPalette.DustyTape    => +0.5f,
+            MusicPalette.SoftTutorial => +1.1f,
+            _                         => 0f,
+        };
+
+        if (palette == MusicPalette.FunkSpark && (baseId == "perc_hat_c" || baseId == "perc_hat_o"))
+            baseTrim -= 0.8f;
+        if (palette == MusicPalette.Industrial && baseId == "perc_snare")
+            baseTrim -= 0.7f;
+        if (palette == MusicPalette.SoftTutorial && baseId == "perc_kick")
+            baseTrim += 0.3f;
+
+        return baseTrim;
+    }
+
+    private static (Vector2[] s, float d) MatchPerceivedLoudness(
+        Vector2[] reference,
+        Vector2[] candidate,
+        float duration,
+        float trimDb)
+    {
+        if (candidate.Length == 0)
+            return (Array.Empty<Vector2>(), duration);
+
+        float refRms = ComputeRms(reference);
+        float candRms = ComputeRms(candidate);
+        if (refRms <= 0.00001f || candRms <= 0.00001f)
+            return (candidate, duration);
+
+        float scale = refRms / candRms;
+        scale *= MathF.Pow(10f, trimDb / 20f);
+
+        // Keep normalization gentle so palette character remains intact.
+        float minScale = MathF.Pow(10f, -6f / 20f);
+        float maxScale = MathF.Pow(10f, +4f / 20f);
+        scale = Mathf.Clamp(scale, minScale, maxScale);
+
+        float peak = ComputePeak(candidate);
+        if (peak > 0f)
+            scale = MathF.Min(scale, 0.92f / peak);
+
+        if (MathF.Abs(scale - 1f) < 0.001f)
+            return (candidate, duration);
+
+        var balanced = new Vector2[candidate.Length];
+        for (int i = 0; i < candidate.Length; i++)
+        {
+            float l = Mathf.Clamp(candidate[i].X * scale, -1f, 1f);
+            float r = Mathf.Clamp(candidate[i].Y * scale, -1f, 1f);
+            balanced[i] = new Vector2(l, r);
+        }
+        return (balanced, duration);
+    }
+
+    private static float ComputeRms(Vector2[] frames)
+    {
+        if (frames.Length == 0) return 0f;
+        double sum = 0.0;
+        for (int i = 0; i < frames.Length; i++)
+        {
+            float l = frames[i].X;
+            float r = frames[i].Y;
+            sum += (l * l + r * r) * 0.5;
+        }
+        return (float)Math.Sqrt(sum / frames.Length);
+    }
+
+    private static float ComputePeak(Vector2[] frames)
+    {
+        float peak = 0f;
+        for (int i = 0; i < frames.Length; i++)
+        {
+            float p = Mathf.Max(Mathf.Abs(frames[i].X), Mathf.Abs(frames[i].Y));
+            if (p > peak) peak = p;
+        }
+        return peak;
+    }
+
+    private static (Vector2[] s, float d) ApplyPaletteColor(
+        Vector2[] source,
+        float duration,
+        float drive,
+        float lowPassHz,
+        float highPassHz,
+        float gain,
+        float tremDepth,
+        float tremHz,
+        int bitDepth)
+    {
+        if (source.Length == 0)
+            return (Array.Empty<Vector2>(), duration);
+
+        var outFrames = new Vector2[source.Length];
+        float lpA = lowPassHz > 0f ? MathF.Exp(-MathF.Tau * lowPassHz / Rate) : 0f;
+        float hpA = highPassHz > 0f ? MathF.Exp(-MathF.Tau * highPassHz / Rate) : 0f;
+        float lp = 0f;
+        float hpLp = 0f;
+        float quantLevels = bitDepth >= 2 ? ((1 << (bitDepth - 1)) - 1) : 0f;
+        float tremMix = Mathf.Clamp(tremDepth, 0f, 1f);
+
+        for (int i = 0; i < source.Length; i++)
+        {
+            float t = i / (float)Rate;
+            float x = source[i].X;
+
+            if (highPassHz > 0f)
+            {
+                hpLp = hpA * hpLp + (1f - hpA) * x;
+                x -= hpLp;
+            }
+
+            if (lowPassHz > 0f)
+            {
+                lp = lpA * lp + (1f - lpA) * x;
+                x = lp;
+            }
+
+            x = MathF.Tanh(x * MathF.Max(0.01f, drive));
+
+            if (quantLevels > 1f)
+                x = MathF.Round(x * quantLevels) / quantLevels;
+
+            if (tremMix > 0f && tremHz > 0f)
+            {
+                float trem = 0.5f + 0.5f * MathF.Sin(t * MathF.Tau * tremHz);
+                x *= (1f - tremMix) + tremMix * trem;
+            }
+
+            x = Mathf.Clamp(x * gain, -1f, 1f);
+            outFrames[i] = new Vector2(x, x);
+        }
+
+        return (outFrames, duration);
     }
 
     // ── Synthesis ────────────────────────────────────────────────────────
@@ -1944,10 +2407,14 @@ public partial class SoundManager : Node
 
     private float ResolveFxPlaybackDb(string id)
     {
-        if (!_isMobileAudio)
-            return 0f;
+        float db = 0f;
+        if (FxLoudnessTrimDb.TryGetValue(id, out float trimDb))
+            db += trimDb;
 
-        float db = MobileFxBaseHeadroomDb;
+        if (!_isMobileAudio)
+            return Mathf.Clamp(db, -24f, 6f);
+
+        db += MobileFxBaseHeadroomDb;
         if (MobileSfxCooldownMs.ContainsKey(id))
             db += MobileFxSurgeExtraHeadroomDb;
 
@@ -1962,7 +2429,7 @@ public partial class SoundManager : Node
             db -= burstPenalty;
         }
 
-        return Mathf.Clamp(db, -18f, 0f);
+        return Mathf.Clamp(db, -24f, 6f);
     }
 
     private int ResolveMobileCooldownMs(int baseCooldownMs)
@@ -2025,7 +2492,7 @@ public partial class SoundManager : Node
     public void PlayNote(int midiNote, float volDb = -8f)
     {
         if (_headless) return;
-        string id = $"mnote_{midiNote}";
+        string id = ResolveMusicNoteId(midiNote);
         if (!_samples.TryGetValue(id, out var samples)) return;
 
         // Prefer a slot that has finished; fall back to oldest if all active.
@@ -2060,7 +2527,8 @@ public partial class SoundManager : Node
     public void PlayPerc(string id, float volDb = -10f)
     {
         if (_headless) return;
-        if (!_samples.TryGetValue(id, out var samples)) return;
+        string sampleId = ResolveMusicPercId(id);
+        if (!_samples.TryGetValue(sampleId, out var samples)) return;
 
         ulong nowMs = Time.GetTicksMsec();
         int idx = -1;
@@ -2082,7 +2550,7 @@ public partial class SoundManager : Node
         player.Play();
         var pb = (AudioStreamGeneratorPlayback)player.GetStreamPlayback();
         pb.PushBuffer(samples);
-        _percPoolStopMs[idx] = nowMs + (ulong)(_durations[id] * 1000f + 50);
+        _percPoolStopMs[idx] = nowMs + (ulong)(_durations[sampleId] * 1000f + 50);
     }
 
     /// <summary>
@@ -2111,6 +2579,33 @@ public partial class SoundManager : Node
     /// Lead: chorused fundamental (two slightly detuned oscillators).
     /// </summary>
     private static (Vector2[] s, float d) MusicNote(float freq, bool isBass)
+        => MusicNote(freq, isBass, MusicPalette.Synthwave);
+
+    private static (Vector2[] s, float d) MusicNote(float freq, bool isBass, MusicPalette palette)
+    {
+        var source = MusicNoteBase(freq, isBass);
+        if (palette == MusicPalette.Synthwave)
+            return source;
+
+        var color = NoteColorForPalette(palette, isBass);
+        var shaped = ApplyPaletteColor(
+            source.s,
+            source.d,
+            color.Drive,
+            color.LowPassHz,
+            color.HighPassHz,
+            color.Gain,
+            color.TremDepth,
+            color.TremHz,
+            color.BitDepth);
+        return MatchPerceivedLoudness(
+            source.s,
+            shaped.s,
+            shaped.d,
+            NoteTrimDbForPalette(palette, isBass));
+    }
+
+    private static (Vector2[] s, float d) MusicNoteBase(float freq, bool isBass)
     {
         float dur       = isBass ? 2.0f  : 1.6f;
         float vol       = isBass ? 0.38f : 0.30f;

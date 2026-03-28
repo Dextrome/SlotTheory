@@ -466,6 +466,9 @@ public partial class PauseScreen : CanvasLayer
     {
         Engine.TimeScale = 1.0;
         GetTree().Paused = false;
+        MusicDirector.Instance?.OnRunEnd(won: false);
+        SoundManager.Instance?.FadeOutMapMusicVoices(0.20f);
+        SoundManager.Instance?.FadePadIn(0.35f);
         GameController.Instance.AbandonRun();
         MapEditorState.ClearPlaytest();
         SlotTheory.Core.Transition.Instance?.FadeToScene("res://Scenes/MapEditor.tscn");
@@ -474,6 +477,9 @@ public partial class PauseScreen : CanvasLayer
 	{
 		Engine.TimeScale = 1.0;
 		GetTree().Paused = false;
+		MusicDirector.Instance?.OnRunEnd(won: false);
+        SoundManager.Instance?.FadeOutMapMusicVoices(0.20f);
+        SoundManager.Instance?.FadePadIn(0.35f);
 		GameController.Instance.AbandonRun();
         if (MapEditorState.IsPlaytesting)
             MapEditorState.ClearPlaytest();

@@ -48,25 +48,47 @@ public partial class MusicDirector : Node
     // BpmOffset:        added to tension-based BPM for overall pace feel.
     // HatQuarterChance: per-bar probability of dropping to quarter-note hats (0=never).
     // DrumStyle:        groove character for kick/snare patterns.
+    // Palette:          timbre set for notes + percussion (jazz/rock/doom/etc).
 
     private readonly record struct MapMusicProfile(
         int                         RootOffset,
         MusicMode                   IntroMode,
         float                       BpmOffset,
         float                       HatQuarterChance,
-        MusicPercLayer.DrumStyle    DrumStyle);
+        MusicPercLayer.DrumStyle    DrumStyle,
+        SoundManager.MusicPalette   Palette);
 
     private static MapMusicProfile GetProfileForMap(string? mapId) => mapId switch
     {
         // crossroads - more drive up-front without losing readability
-        "crossroads" => new MapMusicProfile(0, MusicMode.Dorian, +12f, 0.10f, MusicPercLayer.DrumStyle.Funk),
+        "crossroads" => new MapMusicProfile(0, MusicMode.Dorian, +12f, 0.10f, MusicPercLayer.DrumStyle.Funk, SoundManager.MusicPalette.Synthwave),
         // pinch_bleed - max aggression: darker color + faster pace + relentless kick
-        "pinch_bleed"   => new MapMusicProfile(5, MusicMode.Phrygian,   +30f, 0.00f, MusicPercLayer.DrumStyle.FourOnFloor),
+        "pinch_bleed"   => new MapMusicProfile(5, MusicMode.Phrygian,   +30f, 0.00f, MusicPercLayer.DrumStyle.FourOnFloor, SoundManager.MusicPalette.Industrial),
         // orbit - keep space but keep a dark/funky pocket
-        "orbit"         => new MapMusicProfile(2, MusicMode.Dorian,      +8f, 0.14f, MusicPercLayer.DrumStyle.Funk),
+        "orbit"         => new MapMusicProfile(2, MusicMode.Dorian,      +8f, 0.14f, MusicPercLayer.DrumStyle.Funk, SoundManager.MusicPalette.NoirPulse),
+        // ridgeback - blues rock drive with a straight backbeat
+        "ridgeback"     => new MapMusicProfile(7, MusicMode.Mixolydian, +14f, 0.04f, MusicPercLayer.DrumStyle.Standard, SoundManager.MusicPalette.BluesRock),
+        // double_back - jazzy off-beat pocket with active hat variation
+        "double_back"   => new MapMusicProfile(1, MusicMode.Dorian,      +6f, 0.32f, MusicPercLayer.DrumStyle.Syncopated, SoundManager.MusicPalette.JazzClub),
+        // crossfire - bright arena-rock push: fast and direct
+        "crossfire"     => new MapMusicProfile(9, MusicMode.Mixolydian, +20f, 0.06f, MusicPercLayer.DrumStyle.Standard, SoundManager.MusicPalette.ArenaRock),
+        // threshold - dusty blues-rock sway with funk accents
+        "threshold"     => new MapMusicProfile(10, MusicMode.Mixolydian, +2f, 0.22f, MusicPercLayer.DrumStyle.Funk, SoundManager.MusicPalette.DustyTape),
+        // switchback - stoner doom crawl: dark mode, half-time, very slow
+        "switchback"    => new MapMusicProfile(-5, MusicMode.Phrygian,  -18f, 0.00f, MusicPercLayer.DrumStyle.HalfTime, SoundManager.MusicPalette.StonerDoom),
+        // ziggurat - fusion/syncopated climb with frequent hat texture shifts
+        "ziggurat"      => new MapMusicProfile(4, MusicMode.Dorian,     +12f, 0.38f, MusicPercLayer.DrumStyle.Syncopated, SoundManager.MusicPalette.FusionLab),
+        // hourglass - noir half-time groove with restrained momentum
+        "hourglass"     => new MapMusicProfile(-2, MusicMode.Dorian,    -10f, 0.18f, MusicPercLayer.DrumStyle.HalfTime, SoundManager.MusicPalette.NoirPulse),
+        // perimeter_lock - industrial pulse: urgent and mechanical
+        "perimeter_lock"=> new MapMusicProfile(6, MusicMode.Phrygian,   +24f, 0.02f, MusicPercLayer.DrumStyle.FourOnFloor, SoundManager.MusicPalette.Industrial),
+        // trident - jazz-funk velocity with bright modal color
+        "trident"       => new MapMusicProfile(11, MusicMode.Mixolydian, +9f, 0.44f, MusicPercLayer.DrumStyle.Funk, SoundManager.MusicPalette.FunkSpark),
+        // tutorial - gentle, readable intro groove
+        "tutorial"      => new MapMusicProfile(-3, MusicMode.Dorian,    -14f, 0.55f, MusicPercLayer.DrumStyle.Standard, SoundManager.MusicPalette.SoftTutorial),
         // random_map - tense and energetic by default
-        "random_map"    => new MapMusicProfile(3, MusicMode.Phrygian,   +18f, 0.12f, MusicPercLayer.DrumStyle.Funk),
-        _               => new MapMusicProfile(0, MusicMode.Dorian,     +10f, 0.12f, MusicPercLayer.DrumStyle.Funk),
+        "random_map"    => new MapMusicProfile(3, MusicMode.Phrygian,   +18f, 0.12f, MusicPercLayer.DrumStyle.Funk, SoundManager.MusicPalette.FusionLab),
+        _               => new MapMusicProfile(0, MusicMode.Dorian,     +10f, 0.12f, MusicPercLayer.DrumStyle.Funk, SoundManager.MusicPalette.Synthwave),
     };
 
 
@@ -85,7 +107,10 @@ public partial class MusicDirector : Node
 
         // Pick the per-map profile before anything else.
         string? mapId = GameController.Instance?.GetRunState()?.SelectedMapId;
+        if (string.IsNullOrWhiteSpace(mapId))
+            mapId = SlotTheory.UI.MapSelectPanel.PendingMapSelection;
         _profile = GetProfileForMap(mapId);
+        SoundManager.Instance?.SetMusicPalette(_profile.Palette);
 
         int rootMidi = BaseRootMidi + _profile.RootOffset;
         var mode     = _profile.IntroMode;
@@ -246,6 +271,16 @@ public partial class MusicDirector : Node
     public void OnInitialDraftStart(int lives)
     {
         if (BassLayer is null) return;
+
+        // Refresh map profile on run start so returning to Main without a full app
+        // restart still picks up the newly selected map's groove + timbre palette.
+        string? mapId = GameController.Instance?.GetRunState()?.SelectedMapId;
+        if (string.IsNullOrWhiteSpace(mapId))
+            mapId = SlotTheory.UI.MapSelectPanel.PendingMapSelection;
+        _profile = GetProfileForMap(mapId);
+        PercLayer.HatQuarterChance = _profile.HatQuarterChance;
+        PercLayer.Style            = _profile.DrumStyle;
+        SoundManager.Instance?.SetMusicPalette(_profile.Palette);
 
         var introTension = MusicHarmony.ComputeTension(waveIndex: 1, lives);
         ApplyTension(introTension);
