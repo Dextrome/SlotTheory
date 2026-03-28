@@ -465,14 +465,12 @@ public partial class SlotCodexPanel : Node
         type.Modulate = GetTowerAccent(towerId);
         titleCol.AddChild(type);
 
-        var stats = new Label
-        {
-            Text = $"{def.BaseDamage:0.#} dmg  |  {def.AttackInterval:0.##} s  |  {(int)def.Range} px",
-            AutowrapMode = TextServer.AutowrapMode.WordSmart
-        };
-        stats.AddThemeFontSizeOverride("font_size", 14);
-        stats.Modulate = new Color(0.64f, 0.80f, 1.00f);
-        body.AddChild(stats);
+        var statsBox = new VBoxContainer();
+        statsBox.AddThemeConstantOverride("separation", 5);
+        body.AddChild(statsBox);
+
+        foreach (var (iconType, text) in GetTowerStats(def))
+            statsBox.AddChild(BuildStatRow(iconType, GetStatIconColor(iconType), text));
 
         var desc = new Label
         {
@@ -860,6 +858,17 @@ public partial class SlotCodexPanel : Node
         _ => _towerTabBtn,
     };
 
+    private static (StatIconNode.IconType, string)[] GetTowerStats(TowerDef def)
+    {
+        float attackSpeed = def.AttackInterval > 0.0001f ? 1f / def.AttackInterval : 0f;
+        return new (StatIconNode.IconType, string)[]
+        {
+            (StatIconNode.IconType.Burst, $"{def.BaseDamage:0.#} damage"),
+            (StatIconNode.IconType.Cadence, $"{attackSpeed:0.##} atk/s"),
+            (StatIconNode.IconType.Range, $"{def.Range:0} px range"),
+        };
+    }
+
     private CodexTab ResolveStartTab()
     {
         CodexStartTab requested = PendingSceneStartTab ?? StartTab;
@@ -1231,6 +1240,10 @@ public partial class SlotCodexPanel : Node
         StatIconNode.IconType.Skull => new Color(1.00f, 0.52f, 0.12f),
         StatIconNode.IconType.Wave  => new Color(0.90f, 0.88f, 0.28f),
         StatIconNode.IconType.Split => new Color(1.00f, 0.78f, 0.28f),
+        StatIconNode.IconType.Burst => new Color(1.00f, 0.58f, 0.12f),
+        StatIconNode.IconType.Cadence => new Color(0.28f, 0.90f, 1.00f),
+        StatIconNode.IconType.Range => new Color(0.78f, 0.62f, 1.00f),
+        StatIconNode.IconType.Chain => new Color(0.44f, 0.92f, 1.00f),
         _ => Colors.White,
     };
 
@@ -1299,10 +1312,10 @@ public partial class SlotCodexPanel : Node
     };
 }
 
-/// <summary>Small procedural icon drawn in 14×14 local space for the enemy stat rows.</summary>
+/// <summary>Small procedural icon drawn in 14×14 local space for codex stat rows.</summary>
 public sealed partial class StatIconNode : Control
 {
-    public enum IconType { Heart, Arrow, Skull, Wave, Split }
+    public enum IconType { Heart, Arrow, Skull, Wave, Split, Burst, Cadence, Range, Chain }
 
     public IconType Type      { get; set; }
     public Color    IconColor { get; set; } = Colors.White;
@@ -1316,6 +1329,10 @@ public sealed partial class StatIconNode : Control
             case IconType.Skull: DrawSkull(); break;
             case IconType.Wave:  DrawWave();  break;
             case IconType.Split: DrawSplit(); break;
+            case IconType.Burst: DrawBurst(); break;
+            case IconType.Cadence: DrawCadence(); break;
+            case IconType.Range: DrawRange(); break;
+            case IconType.Chain: DrawChain(); break;
         }
     }
 
@@ -1364,5 +1381,55 @@ public sealed partial class StatIconNode : Control
         DrawLine(new Vector2(4.5f, 7f), new Vector2(9f, 10f),  c, 1.5f);
         DrawCircle(new Vector2(11f, 3.5f),  2f, c);
         DrawCircle(new Vector2(11f, 10.5f), 2f, c);
+    }
+
+    // Chain bounces
+    private void DrawChain()
+    {
+        var c = IconColor;
+        DrawCircle(new Vector2(2.2f, 7f), 1.8f, c);
+        DrawCircle(new Vector2(7f, 3.3f), 1.8f, c);
+        DrawCircle(new Vector2(11.8f, 7f), 1.8f, c);
+        DrawLine(new Vector2(3.8f, 6.2f), new Vector2(5.6f, 4.4f), c, 1.4f);
+        DrawLine(new Vector2(8.4f, 4.4f), new Vector2(10.2f, 6.2f), c, 1.4f);
+        DrawLine(new Vector2(5.6f, 9.2f), new Vector2(8.4f, 9.2f), c, 1.2f);
+    }
+
+    // Damage burst
+    private void DrawBurst()
+    {
+        var c = IconColor;
+        var center = new Vector2(7f, 7f);
+        DrawCircle(center, 2.5f, c);
+        for (int i = 0; i < 8; i++)
+        {
+            float a = i * MathF.Tau / 8f;
+            var dir = new Vector2(MathF.Cos(a), MathF.Sin(a));
+            DrawLine(center + dir * 4f, center + dir * 6.3f, c, 1.4f);
+        }
+    }
+
+    // Attack speed cadence
+    private void DrawCadence()
+    {
+        var c = IconColor;
+        var center = new Vector2(7f, 7f);
+        DrawArc(center, 5f, 0f, MathF.Tau, 24, c, 1.4f);
+        DrawLine(center, new Vector2(7f, 3f), c, 1.4f);
+        DrawLine(center, new Vector2(10.5f, 8.8f), c, 1.4f);
+        DrawCircle(center, 1.3f, c);
+    }
+
+    // Range rings
+    private void DrawRange()
+    {
+        var c = IconColor;
+        var center = new Vector2(7f, 7f);
+        DrawArc(center, 2.2f, 0f, MathF.Tau, 20, c, 1.2f);
+        DrawArc(center, 4.8f, 0f, MathF.Tau, 24, c, 1.2f);
+        DrawLine(new Vector2(7f, 0.8f), new Vector2(7f, 4f), c, 1.2f);
+        DrawLine(new Vector2(7f, 10f), new Vector2(7f, 13.2f), c, 1.2f);
+        DrawLine(new Vector2(0.8f, 7f), new Vector2(4f, 7f), c, 1.2f);
+        DrawLine(new Vector2(10f, 7f), new Vector2(13.2f, 7f), c, 1.2f);
     }
 }

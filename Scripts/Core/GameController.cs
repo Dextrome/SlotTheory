@@ -54,6 +54,9 @@ public partial class GameController : Node
 	private PathFlow? _pathFlow;
 	private GridBackground? _gridBackground;
 	private Panel _tooltipPanel = null!;
+	private VBoxContainer _tooltipBody = null!;
+	private Label _tooltipTitleLabel = null!;
+	private VBoxContainer _tooltipStatsBox = null!;
 	private Label _tooltipLabel = null!;
 	private int _mobileTooltipFontSize = 13;
 	private float _mobileTooltipUiScale = 1f;
@@ -2608,8 +2611,11 @@ public partial class GameController : Node
 			{
 				_mobileTooltipFontSize = targetSize;
 				UITheme.ApplyFont(_tooltipLabel, size: _mobileTooltipFontSize);
+				if (GodotObject.IsInstanceValid(_tooltipTitleLabel))
+					UITheme.ApplyFont(_tooltipTitleLabel, semiBold: true, size: _mobileTooltipFontSize + 1);
 			}
-			_tooltipLabel.Position = new Vector2(8f * _mobileTooltipUiScale, 6f * _mobileTooltipUiScale);
+			if (GodotObject.IsInstanceValid(_tooltipBody))
+				_tooltipBody.Position = new Vector2(8f * _mobileTooltipUiScale, 6f * _mobileTooltipUiScale);
 		}
 	}
 
@@ -3337,24 +3343,56 @@ public partial class GameController : Node
 		_tooltipPanel.Visible = false;
 		tooltipLayer.AddChild(_tooltipPanel);
 
+		_tooltipBody = new VBoxContainer
+		{
+			Position = new Vector2(8f, 6f),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		_tooltipBody.AddThemeConstantOverride("separation", 4);
+		_tooltipPanel.AddChild(_tooltipBody);
+
+		_tooltipTitleLabel = new Label
+		{
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+			AutowrapMode = TextServer.AutowrapMode.Off,
+			Visible = false,
+		};
+		UITheme.ApplyFont(_tooltipTitleLabel, semiBold: true, size: 14);
+		_tooltipTitleLabel.Modulate = new Color(0.95f, 0.99f, 1.00f, 0.98f);
+		_tooltipBody.AddChild(_tooltipTitleLabel);
+
+		_tooltipStatsBox = new VBoxContainer
+		{
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+			Visible = false,
+		};
+		_tooltipStatsBox.AddThemeConstantOverride("separation", 3);
+		_tooltipBody.AddChild(_tooltipStatsBox);
+
 		_tooltipLabel = new Label
 		{
-			Position    = new Vector2(8, 6),
 			MouseFilter = Control.MouseFilterEnum.Ignore,
 			AutowrapMode = TextServer.AutowrapMode.Off,
 		};
 		UITheme.ApplyFont(_tooltipLabel, size: 13);
+		_tooltipLabel.Modulate = new Color(0.86f, 0.93f, 1.00f, 0.96f);
 		_mobileTooltipFontSize = 13;
 		_mobileTooltipUiScale = 1f;
-		_tooltipPanel.AddChild(_tooltipLabel);
+		_tooltipBody.AddChild(_tooltipLabel);
 		ApplyMobileZoomReadability();
 	}
 
 	private bool IsTooltipReady()
 	{
 		return _tooltipPanel != null
+			&& _tooltipBody != null
+			&& _tooltipTitleLabel != null
+			&& _tooltipStatsBox != null
 			&& _tooltipLabel != null
 			&& GodotObject.IsInstanceValid(_tooltipPanel)
+			&& GodotObject.IsInstanceValid(_tooltipBody)
+			&& GodotObject.IsInstanceValid(_tooltipTitleLabel)
+			&& GodotObject.IsInstanceValid(_tooltipStatsBox)
 			&& GodotObject.IsInstanceValid(_tooltipLabel);
 	}
 
@@ -3365,6 +3403,103 @@ public partial class GameController : Node
 		_selectedTooltipTower = null;
 		_selectedTooltipEnemy = null;
 	}
+
+	private void ClearTooltipStatRows()
+	{
+		if (_tooltipStatsBox == null || !GodotObject.IsInstanceValid(_tooltipStatsBox))
+			return;
+
+		foreach (Node child in _tooltipStatsBox.GetChildren())
+		{
+			_tooltipStatsBox.RemoveChild(child);
+			child.QueueFree();
+		}
+	}
+
+	private void AddTooltipStatRow(StatIconNode.IconType iconType, Color iconColor, string text)
+	{
+		if (_tooltipStatsBox == null || !GodotObject.IsInstanceValid(_tooltipStatsBox))
+			return;
+
+		float iconSize = Mathf.Round(14f * _mobileTooltipUiScale);
+		var row = new HBoxContainer
+		{
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		row.AddThemeConstantOverride("separation", Mathf.RoundToInt(7f * _mobileTooltipUiScale));
+
+		var icon = new StatIconNode
+		{
+			Type = iconType,
+			IconColor = iconColor,
+			CustomMinimumSize = new Vector2(iconSize, iconSize),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		row.AddChild(icon);
+
+		var label = new Label
+		{
+			Text = text,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		UITheme.ApplyFont(label, size: _mobileTooltipFontSize);
+		label.Modulate = new Color(0.74f, 0.84f, 1.00f);
+		row.AddChild(label);
+
+		_tooltipStatsBox.AddChild(row);
+	}
+
+	private void BuildTowerTooltipStatRows(ITowerView tower, float effectiveDamage, float effectiveInterval)
+	{
+		ClearTooltipStatRows();
+
+		float attackSpeed = effectiveInterval > 0.0001f ? 1f / effectiveInterval : 0f;
+		AddTooltipStatRow(StatIconNode.IconType.Burst, GetTooltipStatIconColor(StatIconNode.IconType.Burst), $"{effectiveDamage:0.#} damage");
+		AddTooltipStatRow(StatIconNode.IconType.Cadence, GetTooltipStatIconColor(StatIconNode.IconType.Cadence), $"{attackSpeed:0.##} atk/s");
+		AddTooltipStatRow(StatIconNode.IconType.Range, GetTooltipStatIconColor(StatIconNode.IconType.Range), $"{tower.Range:0} px range");
+
+		if (tower.IsChainTower && tower.ChainCount > 0)
+			AddTooltipStatRow(
+				StatIconNode.IconType.Chain,
+				GetTooltipStatIconColor(StatIconNode.IconType.Chain),
+				$"x{tower.ChainCount} chain bounces ({tower.ChainDamageDecay * 100f:0}% dmg/bounce)");
+
+		if (tower.SplitCount > 0)
+			AddTooltipStatRow(
+				StatIconNode.IconType.Split,
+				GetTooltipStatIconColor(StatIconNode.IconType.Split),
+				$"x{tower.SplitCount + 1} total shots ({tower.SplitCount} split, {Balance.SplitShotDamageRatio * 100f:0}% split dmg)");
+
+		_tooltipStatsBox.Visible = _tooltipStatsBox.GetChildCount() > 0;
+	}
+
+	private void ResizeTooltipPanelToContent()
+	{
+		if (_tooltipPanel == null
+			|| _tooltipBody == null
+			|| !GodotObject.IsInstanceValid(_tooltipPanel)
+			|| !GodotObject.IsInstanceValid(_tooltipBody))
+			return;
+
+		_tooltipBody.Position = new Vector2(8f * _mobileTooltipUiScale, 6f * _mobileTooltipUiScale);
+		Vector2 contentSize = _tooltipBody.GetCombinedMinimumSize();
+		var padding = new Vector2(16f * _mobileTooltipUiScale, 12f * _mobileTooltipUiScale);
+		_tooltipPanel.Size = contentSize + padding;
+	}
+
+	private static Color GetTooltipStatIconColor(StatIconNode.IconType type) => type switch
+	{
+		StatIconNode.IconType.Heart => new Color(1.00f, 0.38f, 0.52f),
+		StatIconNode.IconType.Arrow => new Color(0.28f, 0.90f, 1.00f),
+		StatIconNode.IconType.Skull => new Color(1.00f, 0.52f, 0.12f),
+		StatIconNode.IconType.Wave => new Color(0.90f, 0.88f, 0.28f),
+		StatIconNode.IconType.Split => new Color(1.00f, 0.78f, 0.28f),
+		StatIconNode.IconType.Burst => new Color(1.00f, 0.58f, 0.12f),
+		StatIconNode.IconType.Cadence => new Color(0.28f, 0.90f, 1.00f),
+		StatIconNode.IconType.Range => new Color(0.78f, 0.62f, 1.00f),
+		StatIconNode.IconType.Chain => new Color(0.44f, 0.92f, 1.00f),
+		_ => Colors.White,
+	};
 
 	private void UpdateTooltip()
 	{
@@ -3445,10 +3580,13 @@ public partial class GameController : Node
 				mod.ModifyAttackInterval(ref effInterval, tower);
 			// Effective damage: unconditional modifiers (FocusLens) + baked changes
 			float effDamage = tower.GetEffectiveDamageForPreview();
-			var text = tower.TowerId == "phase_splitter"
-				? $"Slot {i + 1}  -  {def.Name}\n"
-				: $"Slot {i + 1}  -  {def.Name}  [{targetingName}]\n";
-			text += $"{effDamage:0.#} dmg  -  {effInterval:0.##} s  -  {(int)tower.Range} px\n";
+			_tooltipTitleLabel.Visible = true;
+			_tooltipTitleLabel.Text = tower.TowerId == "phase_splitter"
+				? $"Slot {i + 1}  -  {def.Name}"
+				: $"Slot {i + 1}  -  {def.Name}  [{targetingName}]";
+			BuildTowerTooltipStatRows(tower, effDamage, effInterval);
+
+			var text = string.Empty;
 			if (tower.TowerId == "rift_prism")
 			{
 				text += $"plants up to {Balance.RiftMineMaxActivePerTower} mines  ({Balance.RiftMineChargesPerMine} charges each)\n";
@@ -3476,10 +3614,6 @@ public partial class GameController : Node
 				text += $"drags the lead enemy backward for {Balance.UndertowDuration:0.##}s while heavily slowing it\n";
 				text += "Undertow Engine drags enemies backward so they spend longer inside your defenses.\n";
 			}
-			if (tower.IsChainTower)
-				text += $"chains x{tower.ChainCount}  ({(int)(tower.ChainDamageDecay * 100)}% per bounce)  range {(int)tower.ChainRange} px\n";
-			if (tower.SplitCount > 0)
-				text += $"split shots x{tower.SplitCount + 1}  ({(int)(Balance.SplitShotDamageRatio * 100)}% each)\n";
 			if (tower.Modifiers.Count == 0)
 				text += "(no modifiers)";
 			else
@@ -3492,10 +3626,8 @@ public partial class GameController : Node
 				text += "\n";
 			text += BuildSpectacleTooltipSection(tower);
 			_tooltipLabel.Text = text.TrimEnd();
-			// Size panel to fit label
-			var labelSize = _tooltipLabel.GetMinimumSize();
-			var padding = new Vector2(16f * _mobileTooltipUiScale, 12f * _mobileTooltipUiScale);
-			_tooltipPanel.Size = labelSize + padding;
+			_tooltipLabel.Visible = _tooltipLabel.Text.Length > 0;
+			ResizeTooltipPanelToContent();
 				// Positioning: mobile shows above selected tower; desktop follows cursor.
 				Vector2 pos;
 				if (MobileOptimization.IsMobile())
@@ -3541,10 +3673,12 @@ public partial class GameController : Node
 			}
 			if (hoveredEnemy != null)
 			{
+				_tooltipTitleLabel.Visible = false;
+				ClearTooltipStatRows();
+				_tooltipStatsBox.Visible = false;
 				_tooltipLabel.Text = BuildEnemyTooltipText(hoveredEnemy);
-				var labelSize = _tooltipLabel.GetMinimumSize();
-				var padding = new Vector2(16f * _mobileTooltipUiScale, 12f * _mobileTooltipUiScale);
-				_tooltipPanel.Size = labelSize + padding;
+				_tooltipLabel.Visible = true;
+				ResizeTooltipPanelToContent();
 				Vector2 pos;
 				if (MobileOptimization.IsMobile())
 				{
