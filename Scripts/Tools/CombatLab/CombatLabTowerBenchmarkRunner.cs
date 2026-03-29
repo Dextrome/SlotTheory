@@ -108,6 +108,17 @@ public sealed class CombatLabTowerBenchmarkRunner
         public float DelayRemaining { get; set; }
     }
 
+    private sealed class BenchmarkMine
+    {
+        public Vector2 Position { get; init; }
+        public float DamageScale { get; init; } = 1f;
+        public bool IsMiniMine { get; init; }
+        public int MaxCharges { get; init; } = Balance.RiftMineChargesPerMine;
+        public float ArmRemaining { get; set; }
+        public float RearmRemaining { get; set; }
+        public int ChargesRemaining { get; set; }
+    }
+
     private sealed class TrialMetrics
     {
         public float TotalDamage;
@@ -522,6 +533,11 @@ public sealed class CombatLabTowerBenchmarkRunner
         var wildfireTrails = new List<WildfireTrail>();
         var afterimages = new List<BenchmarkAfterimage>();
         var latchParasites = new LatchNestParasiteController<BenchmarkEnemy>();
+        var benchmarkMines = new List<BenchmarkMine>();
+        int benchmarkBurstPlantsUsed = 0;
+        List<Vector2> benchmarkMineAnchors = tower.TowerId == "rift_prism"
+            ? BuildBenchmarkMineAnchors(scenario.PathLength, tower)
+            : new List<Vector2>();
         var activeUndertows = new List<BenchmarkUndertowEffect>();
         var undertowRecentRemaining = new Dictionary<int, float>();
         var undertowRetargetLockoutRemaining = new Dictionary<int, float>();
@@ -593,6 +609,9 @@ public sealed class CombatLabTowerBenchmarkRunner
                 tickDamageMultiplier: Balance.LatchNestParasiteTickDamageMultiplier,
                 onTick: evt =>
                 {
+                    // Skip accounting for parasites on resolved (leaked) enemies - they've
+                    // already exited the path and should not inflate Latch Nest damage totals.
+                    if (evt.Host.Resolved) return;
                     ApplyContextToMetrics(evt.Context, metrics);
                     RegisterLiveProcForHit(spectacle, tower, evt.Host.IsMarked, evt.Host, evt.Context.DamageDealt);
                 });
@@ -603,6 +622,10 @@ public sealed class CombatLabTowerBenchmarkRunner
             List<BenchmarkEnemy> activeEnemies = enemies
                 .Where(e => e.Spawned && !e.Resolved && e.Hp > 0f)
                 .ToList();
+
+            if (benchmarkMines.Count > 0)
+                TickBenchmarkMines(benchmarkMines, tower, activeEnemies, waveIndex: 0, dt, metrics, spectacle);
+
             if (collectControlMetrics)
             {
                 UpdateControlProbeMetrics(
@@ -776,6 +799,39 @@ public sealed class CombatLabTowerBenchmarkRunner
 
                             metrics.TargetsHitTotal += undertowTargets;
                             MarkNewDeaths(enemies, metrics);
+                        }
+                    }
+                    else if (tower.TowerId == "rift_prism")
+                    {
+                        Vector2? minePos = PickBenchmarkMineAnchor(tower, benchmarkMines, benchmarkMineAnchors, rng);
+                        if (minePos != null)
+                        {
+                            firedThisStep = true;
+                            metrics.Shots++;
+                            metrics.FiredSteps++;
+
+                            float effectiveInterval = tower.AttackInterval;
+                            foreach (Modifier mod in tower.Modifiers)
+                                mod.ModifyAttackInterval(ref effectiveInterval, tower);
+                            if (simTime < Balance.RiftMineBurstWindow
+                                && benchmarkBurstPlantsUsed < Balance.RiftMineBurstFastPlantsPerTower)
+                            {
+                                effectiveInterval *= Balance.RiftMineBurstIntervalMultiplier;
+                                benchmarkBurstPlantsUsed++;
+                            }
+                            tower.Cooldown = Math.Max(0.01f, effectiveInterval);
+
+                            if (spectacle != null)
+                                spectacle.RegisterShotFired(tower);
+
+                            benchmarkMines.Add(new BenchmarkMine
+                            {
+                                Position = minePos.Value,
+                                DamageScale = 1f,
+                                MaxCharges = Balance.RiftMineChargesPerMine,
+                                ArmRemaining = Balance.RiftMineArmTime,
+                                ChargesRemaining = Balance.RiftMineChargesPerMine,
+                            });
                         }
                     }
                     else
@@ -2752,4 +2808,189 @@ public sealed class CombatLabTowerBenchmarkRunner
 
     private static string Csv(float value) => value.ToString("0.####", CultureInfo.InvariantCulture);
     private static string Csv(int value) => value.ToString(CultureInfo.InvariantCulture);
+
+    // ─── Rift Prism mine simulation helpers ──────────────────────────────────
+
+    /// <summary>
+    /// Builds path-aligned mine anchor positions for the benchmark's straight 1-D lane.
+    /// Mirrors <c>CombatSim.RebuildMineAnchors</c> for the headless case.
+    /// </summary>
+    private static List<Vector2> BuildBenchmarkMineAnchors(float pathLength, BenchmarkTower tower)
+    {
+        var anchors = new List<Vector2>();
+        if (pathLength <= 0.01f) return anchors;
+
+        float step = Math.Max(8f, Balance.RiftMineAnchorStep);
+        float rangeLimit = tower.Range * 0.98f;
+        for (float x = 0f; x <= pathLength; x += step)
+        {
+            // Only keep anchors in tower range (path is horizontal, tower sits above it).
+            if (tower.GlobalPosition.DistanceTo(new Vector2(x, 0f)) <= rangeLimit)
+                anchors.Add(new Vector2(x, 0f));
+        }
+        return anchors;
+    }
+
+    /// <summary>
+    /// Picks a valid mine anchor within tower range that respects plant-spacing.
+    /// Returns null when the mine cap is full or all anchors are occupied.
+    /// </summary>
+    private static Vector2? PickBenchmarkMineAnchor(
+        BenchmarkTower tower,
+        List<BenchmarkMine> mines,
+        List<Vector2> anchors,
+        Random rng)
+    {
+        if (mines.Count(m => !m.IsMiniMine) >= Balance.RiftMineMaxActivePerTower)
+            return null;
+
+        var valid = anchors
+            .Where(a => mines.All(m => m.Position.DistanceTo(a) >= Balance.RiftMinePlantSpacing))
+            .ToList();
+
+        if (valid.Count == 0) return null;
+
+        // Reservoir-sample one valid anchor (mirrors live PickRandomAnchorInRange behaviour).
+        Vector2 picked = valid[0];
+        for (int i = 1; i < valid.Count; i++)
+        {
+            if (rng.Next(i + 1) == 0)
+                picked = valid[i];
+        }
+        return picked;
+    }
+
+    /// <summary>
+    /// Arms/triggers/detonates benchmark mines each simulation step.
+    /// Mirrors the charge, split, and chain-detonation logic of <c>CombatSim.ResolveMineTriggers</c>
+    /// and <c>CombatSim.DetonateMine</c> without Godot node references.
+    /// </summary>
+    private static void TickBenchmarkMines(
+        List<BenchmarkMine> mines,
+        BenchmarkTower tower,
+        List<BenchmarkEnemy> activeEnemies,
+        int waveIndex,
+        float dt,
+        TrialMetrics metrics,
+        SpectacleSystem? spectacle)
+    {
+        // Advance arm / rearm timers.
+        foreach (BenchmarkMine mine in mines)
+        {
+            mine.ArmRemaining = Math.Max(0f, mine.ArmRemaining - dt);
+            mine.RearmRemaining = Math.Max(0f, mine.RearmRemaining - dt);
+        }
+
+        // Collect trigger pairs (armed mine + enemy in trigger radius).
+        var triggers = new List<(BenchmarkMine Mine, BenchmarkEnemy Triggerer)>();
+        foreach (BenchmarkMine mine in mines)
+        {
+            if (mine.ArmRemaining > 0f || mine.RearmRemaining > 0f) continue;
+            BenchmarkEnemy? triggerer = activeEnemies
+                .Where(e => e.GlobalPosition.DistanceTo(mine.Position) <= Balance.RiftMineTriggerRadius)
+                .OrderByDescending(e => e.PathDistance)
+                .FirstOrDefault();
+            if (triggerer != null)
+                triggers.Add((mine, triggerer));
+        }
+
+        // Detonate.
+        var minesToRemove = new List<BenchmarkMine>();
+        foreach (var (mine, triggerer) in triggers)
+        {
+            if (minesToRemove.Contains(mine)) continue; // already chain-detonated
+
+            bool finalPop = mine.ChargesRemaining <= 1;
+            float stageMult = finalPop
+                ? Balance.RiftMineFinalDamageMultiplier
+                : Balance.RiftMineTickDamageMultiplier;
+            float damage = tower.BaseDamage * Balance.RiftMineDamageMultiplier * mine.DamageScale * stageMult;
+
+            // Find best target in blast radius; fall back to the triggering enemy.
+            BenchmarkEnemy blastTarget = activeEnemies
+                .Where(e => e.GlobalPosition.DistanceTo(mine.Position) <= Balance.RiftMineBlastRadius)
+                .OrderByDescending(e => e.PathDistance)
+                .FirstOrDefault() ?? triggerer;
+
+            if (blastTarget.Hp > 0f)
+            {
+                bool markedBefore = blastTarget.IsMarked;
+                // isChain:true on non-final charge pops (matches live DetonateMine semantics).
+                var ctx = new DamageContext(tower, blastTarget, waveIndex, activeEnemies, state: null,
+                    isChain: !finalPop, damageOverride: damage);
+                DamageModel.Apply(ctx);
+                ApplyContextToMetrics(ctx, metrics);
+                if (blastTarget.Hp <= 0f) blastTarget.Killed = true;
+                RegisterLiveProcForHit(spectacle, tower, markedBefore, blastTarget, ctx.DamageDealt);
+            }
+
+            if (finalPop)
+            {
+                minesToRemove.Add(mine);
+
+                // Chain Reaction: final pop detonates the nearest mine in chain range.
+                if (tower.ChainCount > 0)
+                {
+                    BenchmarkMine? chainMine = mines
+                        .Where(m => !minesToRemove.Contains(m))
+                        .Where(m => m.Position.DistanceTo(mine.Position) <= tower.ChainRange)
+                        .OrderBy(m => m.Position.DistanceTo(mine.Position))
+                        .FirstOrDefault();
+                    if (chainMine != null)
+                    {
+                        float chainDmg = damage * tower.ChainDamageDecay;
+                        BenchmarkEnemy? chainTarget = activeEnemies
+                            .Where(e => e.GlobalPosition.DistanceTo(chainMine.Position) <= Balance.RiftMineBlastRadius)
+                            .OrderByDescending(e => e.PathDistance)
+                            .FirstOrDefault();
+                        if (chainTarget != null && chainTarget.Hp > 0f)
+                        {
+                            var chainCtx = new DamageContext(tower, chainTarget, waveIndex, activeEnemies, state: null,
+                                isChain: true, damageOverride: chainDmg);
+                            DamageModel.Apply(chainCtx);
+                            ApplyContextToMetrics(chainCtx, metrics);
+                            if (chainTarget.Hp <= 0f) chainTarget.Killed = true;
+                            RegisterLiveProcForHit(spectacle, tower, chainTarget.IsMarked, chainTarget, chainCtx.DamageDealt);
+                        }
+                        minesToRemove.Add(chainMine);
+                        spectacle?.RegisterProc(tower, SpectacleDefinitions.ChainReaction,
+                            SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.ChainReaction), chainDmg);
+                    }
+                }
+
+                // Split Shot: plant mini mines near the detonation point.
+                if (tower.SplitCount > 0 && !mine.IsMiniMine)
+                {
+                    int splitSeeds = tower.SplitCount + 1;
+                    float miniSpacing = Balance.RiftMinePlantSpacing * Balance.RiftMineMiniPlantSpacingMultiplier;
+                    int planted = 0;
+                    for (int s = 0; s < splitSeeds && planted < splitSeeds; s++)
+                    {
+                        // Offset each mini mine slightly so spacing checks pass.
+                        Vector2 candidate = mine.Position + new Vector2(s * miniSpacing * 0.5f, 0f);
+                        if (tower.GlobalPosition.DistanceTo(candidate) > tower.Range * 0.98f) continue;
+                        if (mines.Any(m => m.Position.DistanceTo(candidate) < miniSpacing)) continue;
+                        mines.Add(new BenchmarkMine
+                        {
+                            Position = candidate,
+                            DamageScale = Balance.RiftMineMiniDamageFactor * mine.DamageScale,
+                            IsMiniMine = true,
+                            MaxCharges = 1,
+                            ArmRemaining = Balance.RiftMineArmTime * 0.75f,
+                            ChargesRemaining = 1,
+                        });
+                        planted++;
+                    }
+                }
+            }
+            else
+            {
+                mine.ChargesRemaining--;
+                mine.RearmRemaining = Balance.RiftMineRetriggerDelay;
+            }
+        }
+
+        foreach (BenchmarkMine m in minesToRemove)
+            mines.Remove(m);
+    }
 }

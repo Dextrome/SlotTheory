@@ -817,6 +817,7 @@ public class CombatSim
 
             // Damage applied on projectile arrival, not here
             Action<DamageContext, float, bool>? onPrimaryImpact = null;
+            Action<EnemyInstance>? onChainHit = null;
             if (tower.TowerId == "latch_nest")
             {
                 onPrimaryImpact = (ctx, dealt, isKill) =>
@@ -825,6 +826,7 @@ public class CombatSim
                         return;
                     AttachLatchParasiteIfPossible(tower, host);
                 };
+                onChainHit = host => AttachLatchParasiteIfPossible(tower, host);
             }
 
             SpawnProjectile(
@@ -834,7 +836,8 @@ public class CombatSim
                 tower,
                 state.WaveIndex,
                 state.EnemiesAlive,
-                onPrimaryImpact);
+                onPrimaryImpact,
+                onChainHit);
             if (!BotMode && towerNode != null)
             {
                 towerNode.OnShotFired(target);
@@ -963,13 +966,10 @@ public class CombatSim
 
     private void ClearLatchParasites()
     {
+        // OnLatchParasiteDetached removes each entry from _latchParasiteVisuals and calls
+        // NotifyDetached(), which starts the 0.18s fade animation. The visuals QueueFree
+        // themselves when the animation finishes.
         _latchParasites.Clear(OnLatchParasiteDetached);
-        foreach ((_, LatchParasiteVfx visual) in _latchParasiteVisuals)
-        {
-            if (GodotObject.IsInstanceValid(visual))
-                visual.QueueFree();
-        }
-        _latchParasiteVisuals.Clear();
     }
 
     private static void TickTimerDict(Dictionary<ulong, float> timers, float delta)
@@ -1781,6 +1781,19 @@ public class CombatSim
                     Balance.AfterimageAccordionPulseRadius + (copies - 1) * 8f,
                     maxTargets: Balance.AfterimageMaxTargetsPerEcho, color: tint, applyFalloff: false);
                 break;
+            case "latch_nest":
+            {
+                // Echo attaches a bonus parasite rather than dealing direct damage.
+                // Prefer an unsaturated host; fall back to best-by-progress if all are capped.
+                EnemyInstance? latchTarget =
+                    inRange.Where(e => _latchParasites.ActiveCountOnHost(tower, e) < Balance.LatchNestMaxParasitesPerHost)
+                           .OrderByDescending(e => e.Progress)
+                           .FirstOrDefault()
+                    ?? inRange.OrderByDescending(e => e.Progress).FirstOrDefault();
+                if (latchTarget != null)
+                    AttachLatchParasiteIfPossible(tower, latchTarget);
+                break;
+            }
             case "rapid_shooter":
             default:
                 EnemyInstance? primary = SelectAfterimagePrimaryTarget(tower, imprint.Position, inRange);
@@ -3131,7 +3144,8 @@ public class CombatSim
 
     private void SpawnProjectile(Vector2 fromGlobal, EnemyInstance target, Color color,
                                  ITowerView tower, int waveIndex, List<EnemyInstance> enemies,
-                                 Action<DamageContext, float, bool>? onPrimaryImpact = null)
+                                 Action<DamageContext, float, bool>? onPrimaryImpact = null,
+                                 Action<EnemyInstance>? onChainHit = null)
     {
         if (BotMode)
         {
@@ -3141,7 +3155,7 @@ public class CombatSim
             float dealt = Mathf.Max(0f, hpBefore - target.Hp);
             onPrimaryImpact?.Invoke(ctx, dealt, target.Hp <= 0f);
             if (tower.IsChainTower)
-                ApplyChainBotMode(tower, target, waveIndex, enemies);
+                ApplyChainBotMode(tower, target, waveIndex, enemies, onChainHit);
             if (tower.SplitCount > 0)
                 ApplySplitBotMode(tower, target, waveIndex, enemies);
             return;
@@ -3161,7 +3175,8 @@ public class CombatSim
             waveIndex,
             enemies,
             _state,
-            onPrimaryImpact: onPrimaryImpact);
+            onPrimaryImpact: onPrimaryImpact,
+            onChainHit: onChainHit);
     }
 
     private void AttachLatchParasiteIfPossible(ITowerView tower, EnemyInstance host)
@@ -3248,9 +3263,15 @@ public class CombatSim
     }
 
     private void ApplyChainBotMode(ITowerView tower, EnemyInstance primary,
-                                   int waveIndex, List<EnemyInstance> enemies)
+                                   int waveIndex, List<EnemyInstance> enemies,
+                                   Action<EnemyInstance>? onChainHit = null)
     {
-        int bounces = CombatResolution.ApplyChainHits(tower, primary, waveIndex, enemies, _state);
+        int bounces = CombatResolution.ApplyChainHits(tower, primary, waveIndex, enemies, _state,
+            onHit: onChainHit == null ? null : ctx =>
+            {
+                if (ctx.Target is EnemyInstance host && host.Hp > 0f)
+                    onChainHit(host);
+            });
 
         _state.TrackSpectacleChainDepth(bounces);
 
@@ -3265,7 +3286,12 @@ public class CombatSim
     private void ApplySplitBotMode(ITowerView tower, EnemyInstance primary,
                                     int waveIndex, List<EnemyInstance> enemies)
     {
-        int spawned = CombatResolution.ApplySplitHits(tower, primary, waveIndex, enemies, _state);
+        int spawned = CombatResolution.ApplySplitHits(tower, primary, waveIndex, enemies, _state,
+            onHit: ctx =>
+            {
+                if (ctx.Target is EnemyInstance host && host.Hp > 0f)
+                    AttachLatchParasiteIfPossible(tower, host);
+            });
 
         if (spawned > 0)
         {

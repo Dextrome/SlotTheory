@@ -285,7 +285,7 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
 
     // Rocket Launcher tower (direct explosive hits with built-in radial splash)
     public const float RocketLauncherSplashRadius            = 88f;  // base built-in splash radius
-    public const float RocketLauncherSplashDamageRatio       = 0.55f; // splash damage as fraction of primary FinalDamage
+    public const float RocketLauncherSplashDamageRatio       = 0.45f; // splash damage as fraction of primary FinalDamage
     public const float RocketLauncherBlastCoreRadiusPerCopy = 24f;  // extra splash radius per Blast Core copy
     public const float RocketLauncherProjectileSpeed         = 620f; // px/s, readable but punchy rocket travel
 

@@ -73,7 +73,7 @@ public static class UIStyle
         "accordion_engine" => new Color(0.78f, 0.40f, 1.00f),
         "phase_splitter" => new Color(0.45f, 1.00f, 0.95f),
         "undertow_engine" => new Color(0.08f, 0.64f, 0.86f),
-        "latch_nest" => new Color(0.64f, 0.92f, 0.50f),
+        "latch_nest" => new Color(0.78f, 0.90f, 0.18f),
         _ => new Color(0.75f, 0.85f, 1.00f),
     };
 
@@ -88,7 +88,7 @@ public static class UIStyle
         "accordion_engine" => new Color(0.78f, 0.40f, 1.00f),
         "phase_splitter" => new Color(0.45f, 1.00f, 0.95f),
         "undertow_engine" => new Color(0.08f, 0.64f, 0.86f),
-        "latch_nest" => new Color(0.70f, 0.98f, 0.56f),
+        "latch_nest" => new Color(0.84f, 0.96f, 0.22f),
         _ => Colors.Yellow,
     };
 
@@ -103,7 +103,7 @@ public static class UIStyle
         "accordion_engine" => new Color(0.72f, 0.20f, 1.00f),
         "phase_splitter" => new Color(0.36f, 0.92f, 0.88f),
         "undertow_engine" => new Color(0.02f, 0.56f, 0.78f),
-        "latch_nest" => new Color(0.56f, 0.90f, 0.46f),
+        "latch_nest" => new Color(0.66f, 0.80f, 0.12f),
         _ => new Color(0.20f, 0.50f, 1.00f),
     };
 }

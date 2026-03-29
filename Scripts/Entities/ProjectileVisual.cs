@@ -24,6 +24,7 @@ public partial class ProjectileVisual : Node2D
     private bool _isSplitProjectile;
     private float _damageOverride = -1f;
     private Action<DamageContext, float, bool>? _onPrimaryImpact;
+    private Action<EnemyInstance>? _onChainHit;
 
     private const int TrailMax = 14;
     private readonly List<Vector2> _trail = new();
@@ -32,7 +33,8 @@ public partial class ProjectileVisual : Node2D
                            TowerInstance tower, int waveIndex, List<EnemyInstance> enemies,
                            SlotTheory.Core.RunState? runState = null,
                            bool isSplitProjectile = false, float damageOverride = -1f,
-                           Action<DamageContext, float, bool>? onPrimaryImpact = null)
+                           Action<DamageContext, float, bool>? onPrimaryImpact = null,
+                           Action<EnemyInstance>? onChainHit = null)
     {
         GlobalPosition = fromGlobal;
         _target = target;
@@ -45,6 +47,7 @@ public partial class ProjectileVisual : Node2D
         _isSplitProjectile = isSplitProjectile;
         _damageOverride = damageOverride;
         _onPrimaryImpact = onPrimaryImpact;
+        _onChainHit = onChainHit;
     }
 
     public override void _Draw()
@@ -236,6 +239,9 @@ public partial class ProjectileVisual : Node2D
                     chainTarget.FlashHit();
             }
 
+            if (chainTarget.Hp > 0f && GodotObject.IsInstanceValid(chainTarget))
+                _onChainHit?.Invoke(chainTarget);
+
             alreadyHit.Add(chainTarget);
             chainFrom = chainTarget.GlobalPosition;
             damage *= tower.ChainDamageDecay;
@@ -273,7 +279,8 @@ public partial class ProjectileVisual : Node2D
             var splitColor = new Color(_color.R, _color.G, _color.B, 0.65f);
             split.Initialize(impactPos, candidate, splitColor, speed: 500f,
                              _tower, _waveIndex, _enemies, _runState,
-                             isSplitProjectile: true, damageOverride: splitDamage);
+                             isSplitProjectile: true, damageOverride: splitDamage,
+                             onPrimaryImpact: _onPrimaryImpact);
             spawned++;
         }
 
