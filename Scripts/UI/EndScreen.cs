@@ -75,16 +75,43 @@ public partial class EndScreen : CanvasLayer
 		mainLayout.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		root.AddChild(mainLayout);
 
+		// HBox with flanking spacers to center the scroll horizontally at content width.
+		var scrollRow = new HBoxContainer();
+		scrollRow.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
+		scrollRow.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		mainLayout.AddChild(scrollRow);
+
+		var spacerLeft = new Control();
+		spacerLeft.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		scrollRow.AddChild(spacerLeft);
+
 		var scroll = new ScrollContainer();
-		scroll.SizeFlagsVertical = Control.SizeFlags.ExpandFill;
-		scroll.VerticalScrollMode = ScrollContainer.ScrollMode.Auto;
+		scroll.SizeFlagsVertical  = Control.SizeFlags.ExpandFill;
+		scroll.VerticalScrollMode = ScrollContainer.ScrollMode.ShowAlways;
 		scroll.HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled;
 		TouchScrollHelper.EnableDragScroll(scroll);
-		mainLayout.AddChild(scroll);
+		scrollRow.AddChild(scroll);
 
-		var center = new CenterContainer();
-		center.CustomMinimumSize = new Vector2(GetViewport().GetVisibleRect().Size.X, 0f);
-		scroll.AddChild(center);
+		var spacerRight = new Control();
+		spacerRight.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+		scrollRow.AddChild(spacerRight);
+
+		// Style the scrollbar so players notice they can scroll.
+		var vbar = scroll.GetVScrollBar();
+		vbar.CustomMinimumSize = new Vector2(10, 0);
+		var trackStyle = new StyleBoxFlat();
+		trackStyle.BgColor = new Color(1f, 1f, 1f, 0.08f);
+		trackStyle.SetCornerRadiusAll(5);
+		vbar.AddThemeStyleboxOverride("scroll", trackStyle);
+		var thumbStyle = new StyleBoxFlat();
+		thumbStyle.BgColor = new Color(0.55f, 0.85f, 1.0f, 0.55f);
+		thumbStyle.SetCornerRadiusAll(5);
+		vbar.AddThemeStyleboxOverride("grabber", thumbStyle);
+		var thumbHoverStyle = new StyleBoxFlat();
+		thumbHoverStyle.BgColor = new Color(0.55f, 0.85f, 1.0f, 0.80f);
+		thumbHoverStyle.SetCornerRadiusAll(5);
+		vbar.AddThemeStyleboxOverride("grabber_highlight", thumbHoverStyle);
+		vbar.AddThemeStyleboxOverride("grabber_pressed", thumbHoverStyle);
 
 		var footer = new MarginContainer();
 		footer.AddThemeConstantOverride("margin_left", 16);
@@ -93,9 +120,14 @@ public partial class EndScreen : CanvasLayer
 		footer.AddThemeConstantOverride("margin_bottom", 12);
 		mainLayout.AddChild(footer);
 
+		var contentMargin = new MarginContainer();
+		contentMargin.AddThemeConstantOverride("margin_right", 18);
+		scroll.AddChild(contentMargin);
+
 		_vbox = new VBoxContainer();
 		_vbox.AddThemeConstantOverride("separation", 24);
-		center.AddChild(_vbox);
+		_vbox.CustomMinimumSize = new Vector2(520f, 0f);
+		contentMargin.AddChild(_vbox);
 		var vbox = _vbox;
 
 		var titleGroup = new VBoxContainer();
@@ -315,8 +347,8 @@ public partial class EndScreen : CanvasLayer
 		_howToPlayButton.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		buttonStack.AddChild(_howToPlayButton);
 
-		MobileOptimization.ApplyUIScale(center);
-		AddChild(new PinchZoomHandler(center));
+		MobileOptimization.ApplyUIScale(scroll);
+		AddChild(new PinchZoomHandler(scroll));
 		GetViewport().SizeChanged += RefreshFooterButtonLayout;
 		CallDeferred(MethodName.RefreshFooterButtonLayout);
 	}

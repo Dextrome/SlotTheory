@@ -304,20 +304,26 @@ public partial class MapSelectPanel : Node
 				return;
 			}
 
-			// Campaign/fixed maps first, random map kept last.
-			var campaignMaps = maps.Where(m => m.Id != "random_map");
-			var randomMap    = maps.FirstOrDefault(m => m.Id == "random_map");
+			// Campaign/fixed maps first; in demo Unstable Anomaly appears 4th, otherwise last.
+			var campaignMapList = maps.Where(m => m.Id != "random_map").ToList();
+			var randomMap       = maps.FirstOrDefault(m => m.Id == "random_map");
+			const int demoRandomMapPosition = 3; // 1-based insertion point in demo
 
-			foreach (var mapDef in campaignMaps)
+			int mapIndex = 0;
+			foreach (var mapDef in campaignMapList)
 			{
+				mapIndex++;
 				bool fullGamePreviewOnly = Balance.IsDemo && mapDef.IsFullGame;
 				string description = fullGamePreviewOnly
 					? ProductCopy.FullGameMapTeaseLine
 					: mapDef.Description;
 				_mapListContainer.AddChild(CreateMapButton(mapDef.Id, mapDef.Name, description, fullGamePreviewOnly));
+
+				if (Balance.IsDemo && randomMap != null && mapIndex == demoRandomMapPosition)
+					_mapListContainer.AddChild(CreateMapButton(randomMap.Id, randomMap.Name, randomMap.Description));
 			}
 
-			if (randomMap != null)
+			if (randomMap != null && !Balance.IsDemo)
 				_mapListContainer.AddChild(CreateMapButton(randomMap.Id, randomMap.Name, randomMap.Description));
 		}
 		catch (System.Exception ex)
