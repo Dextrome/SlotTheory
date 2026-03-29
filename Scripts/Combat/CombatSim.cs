@@ -456,6 +456,7 @@ public class CombatSim
             if (BotMode) state.TrackLeakHp(e.EnemyTypeId, e.Hp);
             
             Sounds?.Play("leak");
+            _latchParasites.RemoveByHost(e, OnLatchParasiteDetached);
             e.QueueFree();
         }
         state.EnemiesAlive.RemoveAll(e => !GodotObject.IsInstanceValid(e) || e.ProgressRatio >= 1.0f);

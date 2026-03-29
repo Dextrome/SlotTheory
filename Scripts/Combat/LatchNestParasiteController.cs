@@ -207,6 +207,26 @@ public sealed class LatchNestParasiteController<TEnemy> where TEnemy : class, IE
         return ticks;
     }
 
+    public int RemoveByHost(TEnemy host, Action<LatchParasiteDetachEvent<TEnemy>>? onDetach = null)
+    {
+        int removed = 0;
+        for (int i = _active.Count - 1; i >= 0; i--)
+        {
+            ActiveParasite parasite = _active[i];
+            if (!ReferenceEquals(parasite.Host, host))
+                continue;
+            onDetach?.Invoke(new LatchParasiteDetachEvent<TEnemy>(
+                parasite.Id,
+                parasite.Tower,
+                parasite.Host,
+                parasite.HostSlot,
+                LatchParasiteDetachReason.HostDead));
+            _active.RemoveAt(i);
+            removed++;
+        }
+        return removed;
+    }
+
     public int RemoveByTower(ITowerView tower, Action<LatchParasiteDetachEvent<TEnemy>>? onDetach = null)
     {
         int removed = 0;

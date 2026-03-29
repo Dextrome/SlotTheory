@@ -1309,7 +1309,8 @@ public partial class GameController : Node
 		MobileRunSession.Save(CurrentPhase, _runState, _extraPicksRemaining,
 			CurrentPhase == GamePhase.Draft ? _currentDraftOptions : null,
 			waveRuntime);
-		GD.Print($"[MobileSession] Snapshot saved ({reason}).");
+		if (_botRunner == null)
+			GD.Print($"[MobileSession] Snapshot saved ({reason}).");
 	}
 
 	public void PersistRunSnapshotForPauseExit(string reason = "pause_exit")

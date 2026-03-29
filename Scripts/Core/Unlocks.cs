@@ -42,10 +42,10 @@ public static class Unlocks
     private const string BlastCoreFallbackMapId = "ridgeback";
     private const string PhaseSplitterFallbackMapId = "threshold";
     private const string ReaperProtocolFallbackMapId = "switchback";
-    private const string AfterimageUnlockMapId = "perimeter_lock";
-    private const string RocketLauncherUnlockMapId = "hourglass";
-    private const string UndertowEngineUnlockMapId = "trident";
-    private const string LatchNestUnlockMapId = "ziggurat";
+    private const string AfterimageUnlockMapId = "hourglass";
+    private const string RocketLauncherUnlockMapId = "trident";
+    private const string UndertowEngineUnlockMapId = "ziggurat";
+    private const string LatchNestUnlockMapId = "perimeter_lock";
 
     public static bool ShouldUnlockArcEmitter(RunState state, DifficultyMode difficulty)
     {
