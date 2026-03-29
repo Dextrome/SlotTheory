@@ -51,6 +51,7 @@ public partial class AchievementManager : Node
         new(Unlocks.ReaperProtocolAchievementId, "Reaper Unsealed", "Beat the eighth campaign map to unlock Reaper Protocol."),
         new(Unlocks.RocketLauncherAchievementId, "Rocket Unsealed", "Beat Hourglass on any difficulty to unlock Rocket Launcher."),
         new(Unlocks.UndertowEngineAchievementId, "Undertow Unsealed", "Beat Trident on any difficulty to unlock Undertow Engine."),
+        new(Unlocks.LatchNestAchievementId, "Latch Unsealed", "Beat Ziggurat on any difficulty to unlock Latch Nest."),
         new("FLAWLESS",      "Flawless",           "Win a run without losing a single life."),
         new("LAST_STAND",    "Last Stand",         "Win a run with exactly 1 life remaining."),
         new("HALFWAY_THERE", "Halfway There",      "Survive to wave 10 in any run."),
@@ -222,6 +223,9 @@ public partial class AchievementManager : Node
 
             if (Unlocks.ShouldUnlockUndertowEngine(state, difficulty))
                 TryUnlock(Unlocks.UndertowEngineAchievementId);
+
+            if (Unlocks.ShouldUnlockLatchNest(state, difficulty))
+                TryUnlock(Unlocks.LatchNestAchievementId);
 
             if (state.Lives == state.MaxLives)
                 TryUnlock("FLAWLESS");
@@ -457,6 +461,7 @@ public partial class AchievementManager : Node
             Unlocks.ReaperProtocolAchievementId,
             Unlocks.RocketLauncherAchievementId,
             Unlocks.UndertowEngineAchievementId,
+            Unlocks.LatchNestAchievementId,
         };
 
     private void Load()

@@ -98,6 +98,7 @@ Modifier assignment uses `Preview -> Confirm`:
 | Phase Splitter | 20 | 0.95 s | 275 px | One shot hits first and last enemies in range at 65% per target; backline/frontline pressure specialist |
 | Rocket Launcher | 34 | 1.45 s | 248 px | Rocket Launcher fires explosive rockets that damage the target and nearby enemies. Burst Core further expands the blast radius. |
 | Undertow Engine | 8 | 2.35 s | 265 px | Pull/control specialist that drags enemies backward in path progress |
+| Latch Nest | 11 | 1.05 s | 255 px | Attrition parasite tower. Primary pod is a full hit; attached parasites tick as secondary hits over time. |
 
 Unlock flow (via Campaign mode):
 - Arc Emitter: beat the first campaign map on any difficulty (`ARC_UNSEALED`)
@@ -109,6 +110,7 @@ Unlock flow (via Campaign mode):
 - Accordion Engine: beat the fifth map - Double Back (`ACCORDION_UNSEALED`)
 - Rocket Launcher: beat Hourglass on any difficulty (`ROCKET_UNSEALED`)
 - Undertow Engine: beat Trident on any difficulty (`UNDERTOW_UNSEALED`)
+- Latch Nest: beat Ziggurat on any difficulty (`LATCH_UNSEALED`)
 
 ### Rocket Launcher Mechanics
 
@@ -144,6 +146,20 @@ Unlock flow (via Campaign mode):
   - short retarget lockout window
   - concurrent-stack decay if multiple Undertow effects overlap the same target
   - resistance multipliers on heavy/elite archetypes
+
+### Latch Nest Mechanics
+
+- Internal tower ID: `latch_nest` (display name: Latch Nest)
+- Role: sustained parasite attrition vs durable targets
+- Fires a parasite pod as its normal attack
+- Primary impact is a normal full hit (`isChain=false`) and runs the full pipeline
+- On successful impact, parasites attach to living hosts:
+  - max active per tower: `6`
+  - max parasites per host from the same tower: `2`
+  - parasite duration: `7.0 s`
+  - parasite bite interval: `0.45 s`
+- Parasite bites are secondary hits (`isChain=true`) and use normal modifiers naturally
+- Chain-style bite hits suppress Blast Core/Wildfire/Afterimage/Overkill OnHit behavior and do not satisfy Reaper Protocol primary-only kill credit
 
 ### Rift Sapper Mechanics
 
@@ -342,7 +358,7 @@ Stages unlock sequentially. Per-stage clear state persisted per difficulty. Camp
 
 ## Achievements
 
-33 achievements tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`. Forwarded to Steam when available.
+34 achievements tracked locally via `AchievementManager`, persisted to `user://achievements.cfg`. Forwarded to Steam when available.
 
 | ID | Name | Condition |
 |---|---|---|
@@ -360,6 +376,7 @@ Stages unlock sequentially. Per-stage clear state persisted per difficulty. Camp
 | REAPER_UNSEALED | Reaper Unsealed | Beat the eighth campaign map on any difficulty (unlocks Reaper Protocol) |
 | ROCKET_UNSEALED | Rocket Unsealed | Beat Hourglass on any difficulty (unlocks Rocket Launcher) |
 | UNDERTOW_UNSEALED | Undertow Unsealed | Beat Trident on any difficulty (unlocks Undertow Engine) |
+| LATCH_UNSEALED | Latch Unsealed | Beat Ziggurat on any difficulty (unlocks Latch Nest) |
 | FLAWLESS | Flawless | Win without losing a life |
 | LAST_STAND | Last Stand | Win with exactly 1 life remaining |
 | HALFWAY_THERE | Halfway There | Survive to wave 10 |
@@ -397,7 +414,7 @@ The game is available on Steam. Store page: [Slot Theory on Steam](https://store
 
 Steam features:
 - **Global leaderboards**: per map/difficulty, all runs stored (not just personal best)
-- **Achievements**: all 33 achievements forwarded to Steam
+- **Achievements**: all 34 achievements forwarded to Steam
 - **Steam Cloud**: settings and high scores sync across devices
 
 ---
@@ -464,7 +481,7 @@ Run modifier benchmark prescreen (baseline vs modified delta analysis, JSON + CS
 --scene res://Scenes/Main.tscn -- --lab_modifier_benchmark Data/combat_lab/modifier_benchmark_core.json --lab_out release/combat_lab_modifier_benchmark.json
 ```
 
-Tower benchmark modeling now includes Undertow control behavior (path-progress pull, anti-abuse decay rules, and control-role scoring), so utility towers are evaluated beyond raw DPS.
+Tower benchmark modeling now includes Undertow control behavior and Latch Nest parasite attrition behavior, so utility/control towers are evaluated beyond raw DPS.
 
 `Data/combat_lab/tower_benchmark_core.json` is the starter suite for:
 - single tank target

@@ -64,7 +64,7 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 
 ## 2. Tower Roster
 
-9 towers total. 5 available from the start; 4 unlockable via campaign progression.
+10 towers total. 5 available from the start; 5 unlockable via campaign progression.
 
 ### Base Towers
 
@@ -84,6 +84,7 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 | Rift Sapper | `rift_prism` | 22 | 0.98 s | 230 px | RIFT_UNSEALED (3rd campaign map) |
 | Accordion Engine | `accordion_engine` | 14 | 3.2 s | 290 px | ACCORDION_UNSEALED (Double Back map) |
 | Phase Splitter | `phase_splitter` | 20 | 0.95 s | 275 px | PHASE_UNSEALED (7th campaign map / `threshold` fallback) |
+| Latch Nest | `latch_nest` | 11 | 1.05 s | 255 px | LATCH_UNSEALED (`ziggurat`) |
 
 ### Arc Emitter (chain_tower) -- Chain Mechanics
 - Primary target receives full hit
@@ -172,6 +173,20 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 - Endpoint compression:
   - at drag completion, optional local pulse tugs nearby enemies backward and applies a short lingering slow to secondaries
   - this creates re-clumping pressure without hard stuns
+
+### Latch Nest (latch_nest) -- Parasite Attrition Mechanics
+- Fires a parasite pod as its normal attack
+- Primary pod impact is a normal full hit (`isChain: false`) and runs the full modifier pipeline
+- Successful impacts attach a parasite to the host (if caps allow)
+- Parasites are owned by their parent tower and expire on host death, tower removal, or run cleanup
+- Baseline parasite profile (`Balance.cs`):
+  - max active per tower: `6`
+  - max per host (same tower): `2`
+  - duration: `7.0 s`
+  - tick interval: `0.45 s`
+  - tick damage scale: `0.22x`
+- Parasite ticks are secondary hits (`isChain: true`) and therefore naturally suppress primary-only OnHit hooks while still using the normal modifier pipeline
+- Targeting behavior prefers valid unsaturated hosts first, then falls back to normal targeting mode ordering when all candidates are saturated
 
 ---
 
@@ -292,7 +307,7 @@ Combat timing is mixed:
 
 `DamageContext.IsChain` controls modifier opt-out:
 - `false` = primary hit -> full pipeline
-- `true` = chain bounce / Accordion secondary / Overkill spill -> `ApplyToChainTargets=false` mods skip `OnHit`
+- `true` = chain bounce / Accordion secondary / Overkill spill / Latch parasite tick -> `ApplyToChainTargets=false` mods skip `OnHit`
 
 ### Accordion Engine Hit Model
 
@@ -403,10 +418,11 @@ Unlock gates live in `Unlocks.cs`. All unlocks require winning a run on the spec
 | Rocket Launcher | Tower | hourglass | `ROCKET_UNSEALED` | Map-tied unlock |
 | Afterimage | Modifier | perimeter_lock | `AFTERIMAGE_UNSEALED` | Map-tied unlock |
 | Undertow Engine | Tower | trident | `UNDERTOW_UNSEALED` | Map-tied unlock |
+| Latch Nest | Tower | ziggurat | `LATCH_UNSEALED` | Map-tied unlock |
 
 **Map order** is determined by `displayOrder` field in `maps.json`, filtered to non-random maps. Fallback IDs are hardcoded in `Unlocks.cs` for cases where DataLoader is unavailable.
 
-**Demo gating:** Blast Core, Wildfire, Afterimage, and Reaper Protocol are always locked in demo builds regardless of achievement state. Accordion Engine, Phase Splitter, Rocket Launcher, and Undertow Engine are similarly locked in demo.
+**Demo gating:** Blast Core, Wildfire, Afterimage, and Reaper Protocol are always locked in demo builds regardless of achievement state. Accordion Engine, Phase Splitter, Rocket Launcher, Undertow Engine, and Latch Nest are similarly locked in demo.
 
 **Unlock reveal flow:** On winning a run that triggers an unlock, `GameController.EnqueueUnlockReveals()` queues `UnlockRevealScreen` panels that show sequentially. Each panel uses `ShowTowerUnlock` or `ShowModifierUnlock` based on content type.
 
@@ -448,7 +464,7 @@ Each tower has its own spectacle meter that fills from modifier procs.
 | Surge cooldown | 6.0 s | ~5.90 s |
 
 Meter gain comes from supported modifier procs, scaled by copy count, loadout diversity, and per-mod anti-spam token gates.
-Per-tower threshold multipliers then apply on top (for example: Rocket Launcher `0.82`, Undertow Engine `0.70`).
+Per-tower threshold multipliers then apply on top (for example: Rocket Launcher `0.82`, Undertow Engine `0.70`, Latch Nest `1.26`).
 
 ### Surge Effect Resolution
 
@@ -518,7 +534,7 @@ Falls back to **GLOBAL SURGE** if no dominant modifier detected.
 
 ## 13. Achievement System
 
-33 achievements tracked locally via `AchievementManager` (autoload, persistent to `user://achievements.cfg`). Steam forwarding via `SteamAchievements`. No Steam dependency in `AchievementManager` itself.
+34 achievements tracked locally via `AchievementManager` (autoload, persistent to `user://achievements.cfg`). Steam forwarding via `SteamAchievements`. No Steam dependency in `AchievementManager` itself.
 
 **Unlock toasts:** fade-in/out notification at bottom-right on new unlock; multiple queue and show sequentially.
 
@@ -547,6 +563,7 @@ Falls back to **GLOBAL SURGE** if no dominant modifier detected.
 | `REAPER_UNSEALED` | Reaper Unsealed | Beat switchback -- unlocks Reaper Protocol | Run end (win) |
 | `ROCKET_UNSEALED` | Rocket Unsealed | Beat hourglass -- unlocks Rocket Launcher | Run end (win) |
 | `UNDERTOW_UNSEALED` | Undertow Unsealed | Beat trident -- unlocks Undertow Engine | Run end (win) |
+| `LATCH_UNSEALED` | Latch Unsealed | Beat ziggurat -- unlocks Latch Nest | Run end (win) |
 | `FULL_HOUSE` | Full House | Fill all 6 tower slots in one run | After draft pick |
 | `STACKED` | Stacked | Give any tower 3 modifiers in one run | After draft pick |
 | `FULL_ARSENAL` | Full Arsenal | Use 5 different tower types in one run | After draft pick |

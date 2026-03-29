@@ -102,6 +102,11 @@ public static class RunNameGenerator
             "Undertow", "Backflow", "Ripcurrent", "Dragline", "Reflux", "Currentlock", "Sinkline",
             "Gripwell", "Tidewell", "Undercore", "Backwash", "Tethervoid"
         ],
+        ["latch_nest"] =
+        [
+            "Latch", "Nest", "Brood", "Gnawline", "Parasite", "Barbcore", "Clingweb", "Biter",
+            "Hostlock", "Infester", "Swarmjaw", "Spinepod"
+        ],
     };
 
     private static readonly Dictionary<string, string[]> FamilySuffixWords = new(StringComparer.OrdinalIgnoreCase)
@@ -420,6 +425,7 @@ public static class RunNameGenerator
             "undertow_engine" => "Utility",
             "phase_splitter" => "MultiTarget",
             "rocket_launcher" => "MultiTarget",
+            "latch_nest" => "Utility",
             "marker_tower" => "StatusSynergy",
             "rapid_shooter" => "DamageScaling",
             "heavy_cannon" => "DamageScaling",

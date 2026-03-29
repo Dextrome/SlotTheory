@@ -13,7 +13,7 @@ public class DraftAntiBrickTests
     private sealed class StubData : IDraftDataSource
     {
         public IEnumerable<string> GetAllTowerIds()
-            => ["rapid_shooter", "heavy_cannon", "marker_tower", "chain_tower"];
+            => ["rapid_shooter", "heavy_cannon", "marker_tower", "chain_tower", "latch_nest"];
 
         public IEnumerable<string> GetAllModifierIds()
             => ["momentum", "overkill", "exploit_weakness", "focus_lens",
@@ -69,6 +69,17 @@ public class DraftAntiBrickTests
         var options = MakeDraft().GenerateOptions(hasFreeSlots: true, placedTowers: towers);
 
         Assert.Contains(options, o => o.Type == DraftOptionType.Modifier);
+    }
+
+    [Fact]
+    public void GenerateOptions_WithLatchNestPresent_AllTowersAtCap_StillOffersNoModifiers()
+    {
+        var towers = new[] { AtCap(), AtCap(), AtCap() };
+        towers[2].TowerId = "latch_nest";
+
+        var options = MakeDraft().GenerateOptions(hasFreeSlots: true, placedTowers: towers);
+
+        Assert.DoesNotContain(options, o => o.Type == DraftOptionType.Modifier);
     }
 
     [Fact]

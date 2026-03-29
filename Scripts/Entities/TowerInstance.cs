@@ -469,6 +469,7 @@ public partial class TowerInstance : Node2D, ITowerView
             case "accordion_engine": DrawAccordionEngine(); break;
             case "phase_splitter":   DrawPhaseSplitter();   break;
             case "undertow_engine":  DrawUndertowEngine();  break;
+            case "latch_nest":       DrawLatchNest();       break;
             default: DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f)); break;
         }
 
@@ -1707,6 +1708,65 @@ public partial class TowerInstance : Node2D, ITowerView
         DrawArc(Vector2.Zero, 13.5f + shot * 0.8f, -Mathf.Pi * 0.43f, Mathf.Pi * 0.43f, 26, new Color(aqua.R, aqua.G, aqua.B, 0.34f + shot * 0.18f), 1.8f);
         DrawArc(Vector2.Zero, 13.5f + shot * 0.8f, Mathf.Pi * 0.57f, Mathf.Pi * 1.43f, 26, new Color(aqua.R, aqua.G, aqua.B, 0.34f + shot * 0.18f), 1.8f);
         DrawCircle(Vector2.Zero, 2.6f + shot * 0.5f, new Color(1f, 1f, 1f, 0.88f));
+    }
+
+    private void DrawLatchNest()
+    {
+        var husk = new Color(0.56f, 0.90f, 0.46f);
+        var coreDark = LiftInnerTone(new Color(0.10f, 0.17f, 0.08f));
+        var barb = new Color(0.94f, 0.98f, 0.82f);
+        float shot = ShotKick();
+        float pulse = 0.62f + 0.38f * Mathf.Sin(_idleTime * 5.4f);
+        float jaw = shot * 3.4f;
+        float wriggle = Mathf.Sin(_idleTime * 4.2f) * 1.6f;
+
+        DrawCircle(Vector2.Zero, 25f, new Color(husk.R, husk.G, husk.B, 0.09f + 0.04f * pulse));
+        DrawCircle(Vector2.Zero, 16f, new Color(husk.R, husk.G, husk.B, 0.16f + 0.06f * pulse));
+
+        // Organic nest shell.
+        DrawPolygon(new[]
+        {
+            new Vector2(-13f, -6f),
+            new Vector2(-9f, -15f),
+            new Vector2(0f, -17f),
+            new Vector2(9f, -15f),
+            new Vector2(13f, -6f),
+            new Vector2(11f, 7f),
+            new Vector2(0f, 14f),
+            new Vector2(-11f, 7f),
+        }, new[] { husk });
+        DrawPolygon(new[]
+        {
+            new Vector2(-9f, -4f),
+            new Vector2(-6f, -10f),
+            new Vector2(0f, -12f),
+            new Vector2(6f, -10f),
+            new Vector2(9f, -4f),
+            new Vector2(7f, 5f),
+            new Vector2(0f, 9f),
+            new Vector2(-7f, 5f),
+        }, new[] { coreDark });
+
+        // Jaw petals open on shots.
+        float jawY = -13f + jaw;
+        DrawPolygon(new[]
+        {
+            new Vector2(-2.4f + wriggle * 0.2f, jawY),
+            new Vector2(-7.0f + wriggle * 0.35f, jawY - 8.5f),
+            new Vector2(-1.5f + wriggle * 0.2f, jawY - 4.8f),
+        }, new[] { barb });
+        DrawPolygon(new[]
+        {
+            new Vector2(2.4f + wriggle * 0.2f, jawY),
+            new Vector2(7.0f + wriggle * 0.35f, jawY - 8.5f),
+            new Vector2(1.5f + wriggle * 0.2f, jawY - 4.8f),
+        }, new[] { barb });
+        DrawCircle(new Vector2(0f, -2f), 3.4f + shot * 0.8f, new Color(husk.R, husk.G, husk.B, 0.64f + shot * 0.22f));
+        DrawCircle(new Vector2(0f, -2f), 1.9f + shot * 0.5f, new Color(1f, 1f, 0.88f, 0.92f));
+
+        // Side hook limbs.
+        DrawLine(new Vector2(-9f, 2f), new Vector2(-16f, 7f + wriggle * 0.4f), new Color(barb.R, barb.G, barb.B, 0.82f), 2.0f);
+        DrawLine(new Vector2(9f, 2f), new Vector2(16f, 7f - wriggle * 0.4f), new Color(barb.R, barb.G, barb.B, 0.82f), 2.0f);
     }
 
     private static Vector2[] RegularPoly(int sides, float radius, float angleOffset)

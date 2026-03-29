@@ -51,6 +51,13 @@
                            "Range":  275.0,
                            "AppliesMark":  false
                         },
+    "latch_nest":  {
+                       "Name":  "Latch Nest",
+                       "BaseDamage":  11.0,
+                       "AttackInterval":  1.05,
+                       "Range":  255.0,
+                       "AppliesMark":  false
+                   },
     "rocket_launcher":  {
                             "Name":  "Rocket Launcher",
                             "BaseDamage":  34.0,

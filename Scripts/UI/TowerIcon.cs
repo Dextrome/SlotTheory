@@ -60,6 +60,7 @@ public partial class TowerIcon : Control
             "accordion_engine" => "A",
             "phase_splitter"   => "P",
             "undertow_engine"  => "U",
+            "latch_nest"       => "N",
             _ => "?",
         };
 
@@ -88,6 +89,7 @@ public partial class TowerIcon : Control
         "accordion_engine" => new Color(0.12f, 0.02f, 0.22f),
         "phase_splitter" => new Color(0.04f, 0.11f, 0.16f),
         "undertow_engine" => new Color(0.02f, 0.10f, 0.18f),
+        "latch_nest" => new Color(0.10f, 0.18f, 0.09f),
         _ => new Color(0.18f, 0.20f, 0.26f),
     };
 }

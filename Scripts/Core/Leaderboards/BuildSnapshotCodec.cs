@@ -20,6 +20,7 @@ public static class BuildSnapshotCodec
         ["phase_splitter"] = 7,
         ["undertow_engine"] = 8,
         ["rocket_launcher"] = 9,
+        ["latch_nest"] = 10,
     };
 
     private static readonly Dictionary<int, string> CodeToTower = TowerToCode.ToDictionary(kv => kv.Value, kv => kv.Key);

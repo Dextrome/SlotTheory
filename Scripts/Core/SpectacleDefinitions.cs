@@ -105,6 +105,7 @@ public static class SpectacleDefinitions
         "accordion_engine",
         "phase_splitter",
         "undertow_engine",
+        "latch_nest",
     };
 
     // Compressed gain spread to keep triad charge pacing more consistent across modifier groups.

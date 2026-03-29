@@ -86,6 +86,8 @@ public class CombatSim
     private readonly Dictionary<ulong, float> _undertowRecentRemaining = new();
     private readonly Dictionary<ulong, float> _undertowRetargetLockoutRemaining = new();
     private readonly List<ActiveAfterimage> _activeAfterimages = new();
+    private readonly LatchNestParasiteController<EnemyInstance> _latchParasites = new();
+    private readonly Dictionary<ulong, LatchParasiteVfx> _latchParasiteVisuals = new();
 
     // Wildfire fire trail segments -- managed like active mines but simpler (no charges, no targeting)
     private sealed class FireTrailSegment
@@ -139,6 +141,7 @@ public class CombatSim
         ClearFireTrails();
         ClearUndertowEffects();
         ClearAfterimages();
+        ClearLatchParasites();
         RebuildMineAnchors();
     }
 
@@ -155,6 +158,7 @@ public class CombatSim
         ClearFireTrails();
         ClearUndertowEffects();
         ClearAfterimages();
+        ClearLatchParasites();
         RebuildMineAnchors();
 
         int walkers   = ws.GetWalkerCount();
@@ -302,6 +306,7 @@ public class CombatSim
                 enemy.QueueFree();
         }
         state.EnemiesAlive.Clear();
+        ClearLatchParasites();
 
         _spawnQueue.Clear();
         foreach (string typeId in snapshot.RemainingSpawnQueue ?? new List<string>())
@@ -460,6 +465,7 @@ public class CombatSim
             ClearFireTrails();
             ClearUndertowEffects();
             ClearAfterimages();
+            ClearLatchParasites();
             return WaveResult.Loss;
         }
 
@@ -471,6 +477,7 @@ public class CombatSim
         // The flag is cleared correctly at the start of the next Step(). One frame of ghost shielding
         // (~16ms at 60fps) is imperceptible and not worth re-running the O(n²) aura pass after each kill.
         UpdateShieldDroneAuras(state.EnemiesAlive);
+        PruneLatchParasitesForMissingTowers(state);
 
         // 3. Tower attacks (hitscan - no projectiles)
         for (int si = 0; si < state.Slots.Length; si++)
@@ -785,9 +792,12 @@ public class CombatSim
                 continue;
             }
 
-            EnemyInstance? target = tower.TowerId == "rocket_launcher"
-                ? SelectRocketSplashTarget(tower, state.EnemiesAlive)
-                : Targeting.SelectTarget(tower, state.EnemiesAlive, ignoreRange: false);
+            EnemyInstance? target = tower.TowerId switch
+            {
+                "rocket_launcher" => SelectRocketSplashTarget(tower, state.EnemiesAlive),
+                "latch_nest" => SelectLatchNestTarget(tower, state.EnemiesAlive),
+                _ => Targeting.SelectTarget(tower, state.EnemiesAlive, ignoreRange: false),
+            };
             if (target == null) continue;
 
             if (BotMode) state.SlotFiredSteps[si]++;
@@ -806,8 +816,25 @@ public class CombatSim
             GameController.Instance?.RegisterSpectacleShotFired(tower);
 
             // Damage applied on projectile arrival, not here
-            SpawnProjectile(tower.GlobalPosition, target, towerNode?.ProjectileColor ?? Godot.Colors.Yellow,
-                            tower, state.WaveIndex, state.EnemiesAlive);
+            Action<DamageContext, float, bool>? onPrimaryImpact = null;
+            if (tower.TowerId == "latch_nest")
+            {
+                onPrimaryImpact = (ctx, dealt, isKill) =>
+                {
+                    if (isKill || ctx.Target is not EnemyInstance host || host.Hp <= 0f)
+                        return;
+                    AttachLatchParasiteIfPossible(tower, host);
+                };
+            }
+
+            SpawnProjectile(
+                tower.GlobalPosition,
+                target,
+                towerNode?.ProjectileColor ?? Godot.Colors.Yellow,
+                tower,
+                state.WaveIndex,
+                state.EnemiesAlive,
+                onPrimaryImpact);
             if (!BotMode && towerNode != null)
             {
                 towerNode.OnShotFired(target);
@@ -827,6 +854,7 @@ public class CombatSim
                 "rocket_launcher" => "shoot_rocket",
                 "marker_tower"  => "shoot_marker",
                 "chain_tower"   => "shoot_rapid",
+                "latch_nest"    => "shoot_latch",
                 "phase_splitter"=> "shoot_phase_splitter",
                 "undertow_engine" => "shoot_undertow",
                 _               => "shoot_rapid",
@@ -842,6 +870,14 @@ public class CombatSim
         // 3.5. Wildfire burn DOT and fire trail hazards
         UpdateBurnAndTrails(delta, state.WaveIndex, state.EnemiesAlive);
         UpdateAfterimages(delta, state.EnemiesAlive);
+        _latchParasites.Tick(
+            delta,
+            state.WaveIndex,
+            state.EnemiesAlive,
+            _state,
+            Balance.LatchNestParasiteTickDamageMultiplier,
+            OnLatchParasiteTick,
+            OnLatchParasiteDetached);
 
         // 4. Remove dead enemies
         foreach (var dead in state.EnemiesAlive.FindAll(e => e.Hp <= 0))
@@ -875,6 +911,7 @@ public class CombatSim
             ClearFireTrails();
             ClearUndertowEffects();
             ClearAfterimages();
+            ClearLatchParasites();
             return WaveResult.WaveComplete;
         }
 
@@ -922,6 +959,17 @@ public class CombatSim
                 imprint.Visual.QueueFree();
         }
         _activeAfterimages.Clear();
+    }
+
+    private void ClearLatchParasites()
+    {
+        _latchParasites.Clear(OnLatchParasiteDetached);
+        foreach ((_, LatchParasiteVfx visual) in _latchParasiteVisuals)
+        {
+            if (GodotObject.IsInstanceValid(visual))
+                visual.QueueFree();
+        }
+        _latchParasiteVisuals.Clear();
     }
 
     private static void TickTimerDict(Dictionary<ulong, float> timers, float delta)
@@ -3007,6 +3055,33 @@ public class CombatSim
         return best;
     }
 
+    private EnemyInstance? SelectLatchNestTarget(ITowerView tower, List<EnemyInstance> enemies)
+    {
+        var inRange = enemies
+            .Where(e => GodotObject.IsInstanceValid(e) && e.Hp > 0f)
+            .Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= tower.Range)
+            .ToList();
+        if (inRange.Count == 0)
+            return null;
+
+        EnemyInstance? bestUnsaturated = null;
+        EnemyInstance? bestFallback = null;
+        foreach (EnemyInstance candidate in inRange)
+        {
+            if (bestFallback == null || PreferTargetByMode(candidate, bestFallback, tower.TargetingMode))
+                bestFallback = candidate;
+
+            int attached = _latchParasites.ActiveCountOnHost(tower, candidate);
+            if (attached >= Balance.LatchNestMaxParasitesPerHost)
+                continue;
+
+            if (bestUnsaturated == null || PreferTargetByMode(candidate, bestUnsaturated, tower.TargetingMode))
+                bestUnsaturated = candidate;
+        }
+
+        return bestUnsaturated ?? bestFallback;
+    }
+
     private static bool PreferTargetByMode(EnemyInstance candidate, EnemyInstance current, TargetingMode mode)
     {
         switch (mode)
@@ -3055,11 +3130,16 @@ public class CombatSim
     }
 
     private void SpawnProjectile(Vector2 fromGlobal, EnemyInstance target, Color color,
-                                 ITowerView tower, int waveIndex, List<EnemyInstance> enemies)
+                                 ITowerView tower, int waveIndex, List<EnemyInstance> enemies,
+                                 Action<DamageContext, float, bool>? onPrimaryImpact = null)
     {
         if (BotMode)
         {
-            DamageModel.Apply(new DamageContext(tower, target, waveIndex, enemies, _state));
+            float hpBefore = target.Hp;
+            var ctx = new DamageContext(tower, target, waveIndex, enemies, _state);
+            DamageModel.Apply(ctx);
+            float dealt = Mathf.Max(0f, hpBefore - target.Hp);
+            onPrimaryImpact?.Invoke(ctx, dealt, target.Hp <= 0f);
             if (tower.IsChainTower)
                 ApplyChainBotMode(tower, target, waveIndex, enemies);
             if (tower.SplitCount > 0)
@@ -3072,7 +3152,99 @@ public class CombatSim
         float speed = tower.TowerId == "rocket_launcher"
             ? Balance.RocketLauncherProjectileSpeed
             : 500f;
-        proj.Initialize(fromGlobal, target, color, speed, (TowerInstance)tower, waveIndex, enemies, _state);
+        proj.Initialize(
+            fromGlobal,
+            target,
+            color,
+            speed,
+            (TowerInstance)tower,
+            waveIndex,
+            enemies,
+            _state,
+            onPrimaryImpact: onPrimaryImpact);
+    }
+
+    private void AttachLatchParasiteIfPossible(ITowerView tower, EnemyInstance host)
+    {
+        if (tower.TowerId != "latch_nest" || host.Hp <= 0f)
+            return;
+
+        if (_latchParasites.TryAttach(
+            tower,
+            host,
+            Balance.LatchNestParasiteDuration,
+            Balance.LatchNestParasiteTickInterval,
+            Balance.LatchNestMaxActiveParasitesPerTower,
+            Balance.LatchNestMaxParasitesPerHost,
+            out ulong parasiteId,
+            out int hostSlot))
+        {
+            if (!BotMode && LanePath != null)
+            {
+                var vfx = new LatchParasiteVfx();
+                LanePath.GetParent().AddChild(vfx);
+                vfx.Initialize(parasiteId, host, hostSlot, UIStyle.TowerAccent("latch_nest", UIStyle.TowerAccentVariant.Projectile));
+                _latchParasiteVisuals[parasiteId] = vfx;
+            }
+            Sounds?.Play("latch_attach", pitchScale: 0.97f + (float)(_mineRng.NextDouble() - 0.5) * 0.06f);
+        }
+    }
+
+    private void OnLatchParasiteTick(LatchParasiteTickEvent<EnemyInstance> evt)
+    {
+        if (!BotMode && _latchParasiteVisuals.TryGetValue(evt.ParasiteId, out LatchParasiteVfx? vfx) && GodotObject.IsInstanceValid(vfx))
+            vfx.NotifyTick();
+        Sounds?.Play("latch_tick", pitchScale: 0.94f + (float)(_mineRng.NextDouble() - 0.5) * 0.08f);
+    }
+
+    private void OnLatchParasiteDetached(LatchParasiteDetachEvent<EnemyInstance> evt)
+    {
+        if (_latchParasiteVisuals.TryGetValue(evt.ParasiteId, out LatchParasiteVfx? vfx))
+        {
+            if (GodotObject.IsInstanceValid(vfx))
+                vfx.NotifyDetached(evt.Reason == LatchParasiteDetachReason.HostDead);
+            _latchParasiteVisuals.Remove(evt.ParasiteId);
+        }
+
+        if (evt.Reason == LatchParasiteDetachReason.HostDead)
+            Sounds?.Play("latch_pop", pitchScale: 1.0f + (float)(_mineRng.NextDouble() - 0.5) * 0.10f);
+    }
+
+    private void PruneLatchParasitesForMissingTowers(RunState state)
+    {
+        var live = new List<ITowerView>();
+        foreach (SlotInstance slot in state.Slots)
+        {
+            if (slot.Tower != null)
+                live.Add(slot.Tower);
+        }
+
+        var activeTowers = new List<ITowerView>();
+        _latchParasites.ForEachActive((_, tower, _, _, _) =>
+        {
+            foreach (ITowerView existing in activeTowers)
+            {
+                if (ReferenceEquals(existing, tower))
+                    return;
+            }
+            activeTowers.Add(tower);
+        });
+
+        foreach (ITowerView tracked in activeTowers)
+        {
+            bool stillLive = false;
+            foreach (ITowerView tower in live)
+            {
+                if (ReferenceEquals(tower, tracked))
+                {
+                    stillLive = true;
+                    break;
+                }
+            }
+
+            if (!stillLive)
+                _latchParasites.RemoveByTower(tracked, OnLatchParasiteDetached);
+        }
     }
 
     private void ApplyChainBotMode(ITowerView tower, EnemyInstance primary,

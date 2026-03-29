@@ -10,7 +10,8 @@
     "heavy_cannon": 130,
     "marker_tower": 90,
     "chain_tower": 115,
-    "rift_prism": 120
+    "rift_prism": 120,
+    "latch_nest": 116
   },
   "cost_bands": [
     { "id": "low", "min_cost": 0, "max_cost": 100 },
@@ -22,14 +23,16 @@
     "heavy_cannon": ["anti_tank", "burst"],
     "marker_tower": ["support", "control"],
     "chain_tower": ["anti_swarm", "control"],
-    "rift_prism": ["area_denial", "anti_tank"]
+    "rift_prism": ["area_denial", "anti_tank"],
+    "latch_nest": ["anti_tank", "attrition", "generalist"]
   },
   "towers": [
     { "tower": "rapid_shooter", "mods": [], "targeting": "first" },
     { "tower": "heavy_cannon", "mods": [], "targeting": "strongest" },
     { "tower": "marker_tower", "mods": [], "targeting": "first" },
     { "tower": "chain_tower", "mods": [], "targeting": "first" },
-    { "tower": "rift_prism", "mods": [], "targeting": "first" }
+    { "tower": "rift_prism", "mods": [], "targeting": "first" },
+    { "tower": "latch_nest", "mods": [], "targeting": "first" }
   ],
   "autotune": {
     "enabled": false,

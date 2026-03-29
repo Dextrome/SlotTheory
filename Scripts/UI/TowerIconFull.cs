@@ -46,6 +46,7 @@ public partial class TowerIconFull : Control
             "accordion_engine" => (23f,  0.0f),   // claw arm tips at ±18, symmetric
             "phase_splitter"   => (24f,  0.0f),   // mirrored emitters at ±16
             "undertow_engine"  => (24f,  0.0f),   // reverse-current vanes at ~17
+            "latch_nest"       => (24f,  0.0f),
             _                  => (14f,  0.0f),
         };
 
@@ -67,6 +68,7 @@ public partial class TowerIconFull : Control
             case "accordion_engine": DrawAccordionEngine(); break;
             case "phase_splitter":   DrawPhaseSplitter();   break;
             case "undertow_engine":  DrawUndertowEngine();  break;
+            case "latch_nest":       DrawLatchNest();       break;
             default:
                 DrawCircle(Vector2.Zero, 10f, new Color(0.2f, 0.5f, 1.0f));
                 break;
@@ -352,6 +354,56 @@ public partial class TowerIconFull : Control
         DrawArc(Vector2.Zero, 16.5f, 0f, Mathf.Tau, 46, new Color(sea.R, sea.G, sea.B, 0.36f), 1.8f);
         DrawArc(Vector2.Zero, 10.5f, 0f, Mathf.Tau, 32, new Color(foam.R, foam.G, foam.B, 0.32f), 1.3f);
         DrawCircle(Vector2.Zero, 3.0f, new Color(1f, 1f, 1f, 0.90f));
+    }
+
+    private void DrawLatchNest()
+    {
+        var husk = new Color(0.56f, 0.90f, 0.46f);
+        var coreDark = new Color(0.12f, 0.20f, 0.10f);
+        var barb = new Color(0.94f, 0.98f, 0.82f);
+
+        DrawCircle(Vector2.Zero, 25f, new Color(husk.R, husk.G, husk.B, 0.10f));
+        DrawCircle(Vector2.Zero, 16f, new Color(husk.R, husk.G, husk.B, 0.16f));
+
+        DrawPolygon(new[]
+        {
+            new Vector2(-13f, -6f),
+            new Vector2(-9f, -15f),
+            new Vector2(0f, -17f),
+            new Vector2(9f, -15f),
+            new Vector2(13f, -6f),
+            new Vector2(11f, 7f),
+            new Vector2(0f, 14f),
+            new Vector2(-11f, 7f),
+        }, new[] { husk });
+        DrawPolygon(new[]
+        {
+            new Vector2(-9f, -4f),
+            new Vector2(-6f, -10f),
+            new Vector2(0f, -12f),
+            new Vector2(6f, -10f),
+            new Vector2(9f, -4f),
+            new Vector2(7f, 5f),
+            new Vector2(0f, 9f),
+            new Vector2(-7f, 5f),
+        }, new[] { coreDark });
+
+        DrawPolygon(new[]
+        {
+            new Vector2(-2.4f, -13f),
+            new Vector2(-7.0f, -21.5f),
+            new Vector2(-1.5f, -17.8f),
+        }, new[] { barb });
+        DrawPolygon(new[]
+        {
+            new Vector2(2.4f, -13f),
+            new Vector2(7.0f, -21.5f),
+            new Vector2(1.5f, -17.8f),
+        }, new[] { barb });
+        DrawCircle(new Vector2(0f, -2f), 3.3f, new Color(husk.R, husk.G, husk.B, 0.70f));
+        DrawCircle(new Vector2(0f, -2f), 1.8f, new Color(1f, 1f, 0.88f, 0.94f));
+        DrawLine(new Vector2(-9f, 2f), new Vector2(-16f, 7f), new Color(barb.R, barb.G, barb.B, 0.84f), 2.0f);
+        DrawLine(new Vector2(9f, 2f), new Vector2(16f, 7f), new Color(barb.R, barb.G, barb.B, 0.84f), 2.0f);
     }
 
     private static Vector2[] RegularPoly(int sides, float radius, float angleOffset)

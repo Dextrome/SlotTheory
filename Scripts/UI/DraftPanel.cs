@@ -1497,6 +1497,7 @@ public partial class DraftPanel : CanvasLayer
         "rift_prism" => "Plants charged mines along the lane. Final charge pops harder; rapid seeding at wave start.",
         "phase_splitter" => "Hits front and back enemies in range at reduced damage.",
         "undertow_engine" => "Pulls lead enemies backward to extend kill-zone time.",
+        "latch_nest" => "Parasite attrition tower. Primary pod latches hosts and applies repeated secondary bite hits.",
         _ => "Generalist tower.",
     };
 

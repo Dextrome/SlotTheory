@@ -22,6 +22,8 @@ public static class Unlocks
     public const string RocketLauncherAchievementId = "ROCKET_UNSEALED";
     public const string UndertowEngineTowerId = "undertow_engine";
     public const string UndertowEngineAchievementId = "UNDERTOW_UNSEALED";
+    public const string LatchNestTowerId = "latch_nest";
+    public const string LatchNestAchievementId = "LATCH_UNSEALED";
     public const string BlastCoreModifierId = "blast_core";
     public const string BlastCoreAchievementId = "BLAST_UNSEALED";
     public const string WildfireModifierId = "wildfire";
@@ -43,6 +45,7 @@ public static class Unlocks
     private const string AfterimageUnlockMapId = "perimeter_lock";
     private const string RocketLauncherUnlockMapId = "hourglass";
     private const string UndertowEngineUnlockMapId = "trident";
+    private const string LatchNestUnlockMapId = "ziggurat";
 
     public static bool ShouldUnlockArcEmitter(RunState state, DifficultyMode difficulty)
     {
@@ -121,6 +124,13 @@ public static class Unlocks
         return IsRunOnUnlockMap(state, unlockMapId);
     }
 
+    public static bool ShouldUnlockLatchNest(RunState state, DifficultyMode difficulty)
+    {
+        _ = difficulty;
+        string unlockMapId = GetLatchNestUnlockMapId();
+        return IsRunOnUnlockMap(state, unlockMapId);
+    }
+
     /// <summary>
     /// Arc Emitter unlock follows the first non-random campaign map by display order.
     /// This keeps progression behavior correct even if map ordering changes.
@@ -188,6 +198,12 @@ public static class Unlocks
     public static string GetUndertowEngineUnlockMapId()
         => UndertowEngineUnlockMapId;
 
+    /// <summary>
+    /// Latch Nest unlock is tied to Ziggurat.
+    /// </summary>
+    public static string GetLatchNestUnlockMapId()
+        => LatchNestUnlockMapId;
+
     private static string GetCampaignMapByOrder(int order, string fallbackId)
     {
         try
@@ -221,6 +237,8 @@ public static class Unlocks
             return false;
         if (Balance.IsDemo && string.Equals(towerId, UndertowEngineTowerId, StringComparison.OrdinalIgnoreCase))
             return false;
+        if (Balance.IsDemo && string.Equals(towerId, LatchNestTowerId, StringComparison.OrdinalIgnoreCase))
+            return false;
 
         // Bot simulations evaluate full content balance regardless of player progression.
         // Restrict bypass to headless automation (or explicit opt-in) so an accidental
@@ -245,6 +263,9 @@ public static class Unlocks
 
         if (string.Equals(towerId, UndertowEngineTowerId, StringComparison.OrdinalIgnoreCase))
             return AchievementManager.Instance?.IsUnlocked(UndertowEngineAchievementId) == true;
+
+        if (string.Equals(towerId, LatchNestTowerId, StringComparison.OrdinalIgnoreCase))
+            return AchievementManager.Instance?.IsUnlocked(LatchNestAchievementId) == true;
 
         return true;
     }

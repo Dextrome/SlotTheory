@@ -135,6 +135,10 @@ public partial class SoundManager : Node
         ["shoot_accordion"]   = 80,
         ["shoot_phase_splitter"] = 70,
         ["shoot_undertow"]    = 78,
+        ["shoot_latch"]       = 62,
+        ["latch_attach"]      = 58,
+        ["latch_tick"]        = 85,
+        ["latch_pop"]         = 64,
         ["afterimage_seed"]   = 62,
         ["afterimage_echo"]   = 74,
         // Heavy impacts: longer cooldown since they're loud and infrequent by design.
@@ -171,6 +175,10 @@ public partial class SoundManager : Node
         ["shoot_accordion"]   = 60,
         ["shoot_phase_splitter"] = 50,
         ["shoot_undertow"]    = 62,
+        ["shoot_latch"]       = 45,
+        ["latch_attach"]      = 40,
+        ["latch_tick"]        = 72,
+        ["latch_pop"]         = 44,
         ["afterimage_seed"]   = 48,
         ["afterimage_echo"]   = 62,
         // Death sounds: 60–100ms keeps individual kills audibly distinct at ×2/×3.
@@ -204,6 +212,10 @@ public partial class SoundManager : Node
         ["shoot_accordion"] = -3.0f,
         ["shoot_phase_splitter"] = -1.0f,
         ["shoot_undertow"] = -1.5f,
+        ["shoot_latch"] = -2.0f,
+        ["latch_attach"] = -2.5f,
+        ["latch_tick"] = -8.5f,
+        ["latch_pop"] = -4.0f,
         ["afterimage_seed"] = +2.5f,
         ["afterimage_echo"] = +1.0f,
         ["mine_pop"] = -0.5f,
@@ -275,6 +287,20 @@ public partial class SoundManager : Node
             Sweep(1180f, 220f, 0.20f, vol: 0.40f),                       // suction drop
             Tone(86f, 0.18f, vol: 0.30f, shape: 'q', env: 'f'),          // low vacuum body
             Tone(2400f, 0.05f, vol: 0.09f, shape: 'n', env: 'f')));      // tether latch
+        Reg("shoot_latch", Layer(
+            Sweep(1320f, 360f, 0.12f, vol: 0.24f),
+            Tone(180f, 0.10f, vol: 0.14f, shape: 'q', env: 'f'),
+            Tone(2900f, 0.03f, vol: 0.06f, shape: 'n', env: 'f')));
+        Reg("latch_attach", Layer(
+            Sweep(900f, 180f, 0.11f, vol: 0.20f),
+            Tone(120f, 0.08f, vol: 0.11f, shape: 'q', env: 'f'),
+            Tone(2500f, 0.02f, vol: 0.05f, shape: 'n', env: 'f')));
+        Reg("latch_tick", Layer(
+            Tone(440f, 0.030f, vol: 0.085f, shape: 'q', env: 'f'),
+            Tone(2200f, 0.018f, vol: 0.040f, shape: 'n', env: 'f')));
+        Reg("latch_pop", Layer(
+            Sweep(320f, 120f, 0.08f, vol: 0.14f),
+            Tone(1400f, 0.020f, vol: 0.05f, shape: 'n', env: 'f')));
         Reg("afterimage_seed", Layer(
             Sweep(1320f, 640f, 0.10f, vol: 0.18f),
             Tone(420f, 0.08f, vol: 0.12f, shape: 's', env: 'f')));

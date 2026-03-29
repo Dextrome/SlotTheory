@@ -973,6 +973,7 @@ public sealed class CombatLabModifierBenchmarkRunner
             "rift_prism" => 120f,
             "phase_splitter" => 122f,
             "undertow_engine" => 118f,
+            "latch_nest" => 116f,
             _ => 100f,
         };
     }

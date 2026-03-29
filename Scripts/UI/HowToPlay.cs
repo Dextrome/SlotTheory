@@ -267,6 +267,8 @@ public partial class HowToPlay : Node
                 ProductCopy.RocketLauncherBlastCoreDescription);
             AddTowerRow(towersCard, "undertow_engine", "Undertow Engine", GetTowerStatsLine("undertow_engine"),
                 ProductCopy.UndertowEngineBaseDescription + " It heavily slows the pulled target and can lightly re-clump nearby enemies.");
+            AddTowerRow(towersCard, "latch_nest", "Latch Nest", GetTowerStatsLine("latch_nest"),
+                ProductCopy.LatchNestBaseDescription + " Attach shots are primary hits; parasite bites are secondary hits that still trigger normal on-hit synergies.");
             AddSpacer(vbox, 10);
         }
 

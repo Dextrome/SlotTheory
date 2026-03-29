@@ -82,7 +82,8 @@
                                          "phase_splitter":  1.33,
                                          "accordion_engine":  5.39,
                                          "rocket_launcher":  1.58,
-                                         "undertow_engine":  2.40
+                                         "undertow_engine":  2.40,
+                                         "latch_nest":  0.46
                                      },
     "tower_surge_threshold_multipliers":  {
                                               "rapid_shooter":  1,
@@ -93,6 +94,7 @@
                                               "phase_splitter":  0.9528,
                                               "accordion_engine":  0.5651,
                                               "rocket_launcher":  0.82,
-                                              "undertow_engine":  0.7
+                                              "undertow_engine":  0.7,
+                                              "latch_nest":  1.26
                                           }
 }

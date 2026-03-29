@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using SlotTheory.Data;
 using SlotTheory.Entities;
 using SlotTheory.Modifiers;
@@ -139,5 +141,38 @@ public class CombatLabModifierBenchmarkRunnerTests
         {
             tower.BaseDamage *= _factor;
         }
+    }
+
+    [Fact]
+    public void ModifierBenchmarkCoreJson_IncludesLatchNestContextAndCost()
+    {
+        string root = FindRepoRoot();
+        string path = Path.Combine(root, "Data", "combat_lab", "modifier_benchmark_core.json");
+
+        using var doc = JsonDocument.Parse(File.ReadAllText(path));
+        JsonElement rootEl = doc.RootElement;
+
+        Assert.True(rootEl.TryGetProperty("cost_by_tower", out JsonElement costs));
+        Assert.True(costs.TryGetProperty("latch_nest", out _));
+
+        Assert.True(rootEl.TryGetProperty("contexts", out JsonElement contexts));
+        Assert.Contains(contexts.EnumerateArray(), e =>
+            e.TryGetProperty("tower", out JsonElement tower) &&
+            tower.GetString() == "latch_nest");
+    }
+
+    private static string FindRepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            bool hasProject = File.Exists(Path.Combine(dir.FullName, "SlotTheory.csproj"));
+            bool hasTests = Directory.Exists(Path.Combine(dir.FullName, "SlotTheory.Tests"));
+            if (hasProject && hasTests)
+                return dir.FullName;
+            dir = dir.Parent;
+        }
+
+        throw new InvalidOperationException("Could not locate repository root from test runtime path.");
     }
 }

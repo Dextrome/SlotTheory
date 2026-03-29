@@ -32,6 +32,7 @@ public class BuildSnapshotCodecTests
     [InlineData("phase_splitter")]
     [InlineData("undertow_engine")]
     [InlineData("rocket_launcher")]
+    [InlineData("latch_nest")]
     public void PackSlot_KnownTower_NoMods_IsNonZero(string towerId)
     {
         var slot = new RunSlotBuild(towerId, []);

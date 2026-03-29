@@ -265,6 +265,7 @@ function New-NeutralTuningProfile {
             phase_splitter   = 1.0
             accordion_engine = 1.0
             undertow_engine  = 1.0
+            latch_nest       = 1.0
         }
         tower_surge_threshold_multipliers = [PSCustomObject]@{
             rapid_shooter    = 1.0
@@ -276,6 +277,7 @@ function New-NeutralTuningProfile {
             phase_splitter   = 1.0
             accordion_engine = 1.0
             undertow_engine  = 1.0
+            latch_nest       = 1.0
         }
     }
 }

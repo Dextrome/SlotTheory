@@ -452,7 +452,8 @@ public partial class SlotCodexPanel : Node
                 string.Equals(towerId, Unlocks.AccordionEngineTowerId,  StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(towerId, Unlocks.PhaseSplitterTowerId,    StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(towerId, Unlocks.RocketLauncherTowerId,   StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(towerId, Unlocks.UndertowEngineTowerId,   StringComparison.OrdinalIgnoreCase));
+                string.Equals(towerId, Unlocks.UndertowEngineTowerId,   StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(towerId, Unlocks.LatchNestTowerId,        StringComparison.OrdinalIgnoreCase));
             if (isFullGameOnly)
                 return BuildFullGameLockedTowerCard(towerId, def);
 
@@ -801,6 +802,7 @@ public partial class SlotCodexPanel : Node
                 Unlocks.PhaseSplitterTowerId     => Unlocks.GetPhaseSplitterUnlockMapId(),
                 Unlocks.RocketLauncherTowerId    => Unlocks.GetRocketLauncherUnlockMapId(),
                 Unlocks.UndertowEngineTowerId    => Unlocks.GetUndertowEngineUnlockMapId(),
+                Unlocks.LatchNestTowerId         => Unlocks.GetLatchNestUnlockMapId(),
                 Unlocks.SplitShotModifierId      => Unlocks.GetSplitShotUnlockMapId(),
                 Unlocks.BlastCoreModifierId      => Unlocks.GetBlastCoreUnlockMapId(),
                 Unlocks.WildfireModifierId       => Unlocks.GetWildfireUnlockMapId(),
@@ -1042,6 +1044,7 @@ public partial class SlotCodexPanel : Node
         "accordion_engine" => "Emits compression pulses that physically squeeze enemy spacing along the lane. Not a slow or stun -- it edits wave formation topology. Packed enemies become better targets for Blast Core, Arc Emitter chains, and Rift Sapper mines.",
         "phase_splitter"   => "Dual-end striker. Each shot hits both the first and last enemy in range at reduced damage. Strong against blocking frontlines and backline runners, but weaker than Arc Emitter in dense mid packs.",
         "undertow_engine"  => ProductCopy.UndertowEngineBaseDescription + " It is a control tower first: extend dwell time, force re-entry into traps/mines/splash, and tighten formations for follow-up damage.",
+        "latch_nest"       => ProductCopy.LatchNestBaseDescription + $" Primary impact is a full primary hit; parasite bites tick as secondary hits every {Balance.LatchNestParasiteTickInterval:0.##}s while attached.",
         _ => "Tower entry."
     };
 

@@ -521,6 +521,7 @@ public sealed class CombatLabTowerBenchmarkRunner
         var residues = new List<ResidueZone>();
         var wildfireTrails = new List<WildfireTrail>();
         var afterimages = new List<BenchmarkAfterimage>();
+        var latchParasites = new LatchNestParasiteController<BenchmarkEnemy>();
         var activeUndertows = new List<BenchmarkUndertowEffect>();
         var undertowRecentRemaining = new Dictionary<int, float>();
         var undertowRetargetLockoutRemaining = new Dictionary<int, float>();
@@ -584,6 +585,17 @@ public sealed class CombatLabTowerBenchmarkRunner
             UpdateActiveUndertows(activeUndertows, undertowRecentRemaining, undertowRetargetLockoutRemaining, enemies, dt, metrics);
             UpdateWildfireBurnAndTrails(wildfireTrails, enemies, tower, dt, metrics);
             UpdateAfterimages(afterimages, enemies, dt, metrics);
+            latchParasites.Tick(
+                dt,
+                waveIndex: 0,
+                enemies,
+                state: null,
+                tickDamageMultiplier: Balance.LatchNestParasiteTickDamageMultiplier,
+                onTick: evt =>
+                {
+                    ApplyContextToMetrics(evt.Context, metrics);
+                    RegisterLiveProcForHit(spectacle, tower, evt.Host.IsMarked, evt.Host, evt.Context.DamageDealt);
+                });
             UpdateResidues(residues, enemies, tower, dt, metrics);
             MoveEnemies(enemies, dt, metrics);
             MarkNewDeaths(enemies, metrics);
@@ -768,9 +780,12 @@ public sealed class CombatLabTowerBenchmarkRunner
                     }
                     else
                     {
-                        BenchmarkEnemy? target = tower.TowerId == "rocket_launcher"
-                            ? SelectRocketSplashTarget(tower, activeEnemies)
-                            : Targeting.SelectTarget(tower, activeEnemies, ignoreRange: false);
+                        BenchmarkEnemy? target = tower.TowerId switch
+                        {
+                            "rocket_launcher" => SelectRocketSplashTarget(tower, activeEnemies),
+                            "latch_nest" => SelectLatchNestTarget(tower, activeEnemies, latchParasites),
+                            _ => Targeting.SelectTarget(tower, activeEnemies, ignoreRange: false),
+                        };
                         if (target != null)
                         {
                             firedThisStep = true;
@@ -789,6 +804,18 @@ public sealed class CombatLabTowerBenchmarkRunner
                             DamageContext primaryCtx = ApplyHitAndCollect(tower, target, activeEnemies, metrics, state: null, isChain: false);
                             TryQueueAfterimage(tower, target, primaryCtx, afterimages);
                             RegisterLiveProcForHit(spectacle, tower, targetMarkedBefore, target, primaryCtx.DamageDealt);
+                            if (tower.TowerId == "latch_nest" && target.Hp > 0f)
+                            {
+                                latchParasites.TryAttach(
+                                    tower,
+                                    target,
+                                    Balance.LatchNestParasiteDuration,
+                                    Balance.LatchNestParasiteTickInterval,
+                                    Balance.LatchNestMaxActiveParasitesPerTower,
+                                    Balance.LatchNestMaxParasitesPerHost,
+                                    out _,
+                                    out _);
+                            }
 
                             int chainHits = CombatResolution.ApplyChainHits(
                                 tower,
@@ -1336,6 +1363,35 @@ public sealed class CombatLabTowerBenchmarkRunner
         }
 
         return best;
+    }
+
+    private static BenchmarkEnemy? SelectLatchNestTarget(
+        BenchmarkTower tower,
+        List<BenchmarkEnemy> enemies,
+        LatchNestParasiteController<BenchmarkEnemy> parasites)
+    {
+        List<BenchmarkEnemy> inRange = enemies
+            .Where(e => e.Spawned && !e.Resolved && e.Hp > 0f)
+            .Where(e => tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= tower.Range)
+            .ToList();
+        if (inRange.Count == 0)
+            return null;
+
+        BenchmarkEnemy? bestUnsaturated = null;
+        BenchmarkEnemy? bestFallback = null;
+        foreach (BenchmarkEnemy candidate in inRange)
+        {
+            if (bestFallback == null || PreferTargetByMode(candidate, bestFallback, tower.TargetingMode))
+                bestFallback = candidate;
+
+            if (parasites.ActiveCountOnHost(tower, candidate) >= Balance.LatchNestMaxParasitesPerHost)
+                continue;
+
+            if (bestUnsaturated == null || PreferTargetByMode(candidate, bestUnsaturated, tower.TargetingMode))
+                bestUnsaturated = candidate;
+        }
+
+        return bestUnsaturated ?? bestFallback;
     }
 
     private static bool PreferTargetByMode(BenchmarkEnemy candidate, BenchmarkEnemy current, TargetingMode mode)
@@ -2524,6 +2580,7 @@ public sealed class CombatLabTowerBenchmarkRunner
             "rift_prism" => 120f,
             "phase_splitter" => 122f,
             "undertow_engine" => 118f,
+            "latch_nest" => 116f,
             _ => 100f
         };
     }
@@ -2543,6 +2600,7 @@ public sealed class CombatLabTowerBenchmarkRunner
             "rift_prism" => new[] { "area_denial", "anti_tank" },
             "phase_splitter" => new[] { "backline_pressure", "control", "generalist" },
             "undertow_engine" => new[] { "control", "support", "backline_pressure" },
+            "latch_nest" => new[] { "anti_tank", "attrition", "generalist" },
             _ => Array.Empty<string>()
         };
     }

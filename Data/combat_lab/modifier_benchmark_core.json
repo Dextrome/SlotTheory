@@ -12,7 +12,8 @@
     { "id": "heavy_baseline", "tower": "heavy_cannon", "baseline_mods": [], "targeting": "strongest" },
     { "id": "marker_baseline", "tower": "marker_tower", "baseline_mods": [], "targeting": "first" },
     { "id": "chain_baseline", "tower": "chain_tower", "baseline_mods": [], "targeting": "first" },
-    { "id": "rift_baseline", "tower": "rift_prism", "baseline_mods": [], "targeting": "first" }
+    { "id": "rift_baseline", "tower": "rift_prism", "baseline_mods": [], "targeting": "first" },
+    { "id": "latch_baseline", "tower": "latch_nest", "baseline_mods": [], "targeting": "first" }
   ],
   "pair_probes": [
     {
@@ -91,7 +92,8 @@
     "heavy_cannon": 130,
     "marker_tower": 90,
     "chain_tower": 115,
-    "rift_prism": 120
+    "rift_prism": 120,
+    "latch_nest": 116
   },
   "cost_bands": [
     { "id": "low", "min_cost": 0, "max_cost": 100 },

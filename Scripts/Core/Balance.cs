@@ -319,6 +319,13 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
     public const float UndertowFeedbackFollowupDelay       = 0.38f;  // delayed follow-up tug timing
     public const float UndertowFeedbackFollowupMultiplier  = 0.40f;  // follow-up tug strength
 
+    // Latch Nest tower (persistent parasite attrition)
+    public const int   LatchNestMaxActiveParasitesPerTower = 6;
+    public const int   LatchNestMaxParasitesPerHost        = 2;
+    public const float LatchNestParasiteDuration           = 7.0f;
+    public const float LatchNestParasiteTickInterval       = 0.45f;
+    public const float LatchNestParasiteTickDamageMultiplier = 0.22f;
+
     // Wildfire modifier
     // Burn DPS = tower.BaseDamage × WildfireBurnDpsRatio (intentionally does NOT scale with FinalDamage
     // so Focus Lens / Momentum amplification doesn't create runaway burn values).

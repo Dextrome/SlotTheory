@@ -142,6 +142,7 @@ public sealed class SpectacleTuningProfile
         ["phase_splitter"]   = 0.75f,   // hits 2 targets per shot (double proc rate), trim
         ["accordion_engine"] = 3.00f,   // 3.2s pulse interval, needs large per-hit boost
         ["undertow_engine"]  = 2.40f,   // low cadence control shot, meter gain needs support
+        ["latch_nest"]       = 0.46f,   // frequent parasite ticks can overfill meter without dampening
     };
 
     [JsonPropertyName("tower_surge_threshold_multipliers")]
@@ -156,6 +157,7 @@ public sealed class SpectacleTuningProfile
         ["phase_splitter"]   = 1.00f,
         ["accordion_engine"] = 0.55f,   // low bar to compensate for the very slow pulse interval
         ["undertow_engine"]  = 0.70f,   // control cadence should still access surges in a run
+        ["latch_nest"]       = 1.26f,   // raise threshold to offset high secondary-hit cadence
     };
 
     /// <summary>

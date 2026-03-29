@@ -14,7 +14,8 @@
     "rift_prism": 120,
     "phase_splitter": 122,
     "undertow_engine": 118,
-    "accordion_engine": 92
+    "accordion_engine": 92,
+    "latch_nest": 116
   },
   "cost_bands": [
     { "id": "low", "min_cost": 0, "max_cost": 100 },
@@ -30,7 +31,8 @@
     "rift_prism": ["area_denial", "anti_tank"],
     "phase_splitter": ["backline_pressure", "control", "generalist"],
     "undertow_engine": ["control", "support", "backline_pressure"],
-    "accordion_engine": ["support", "control", "pack_control"]
+    "accordion_engine": ["support", "control", "pack_control"],
+    "latch_nest": ["anti_tank", "attrition", "generalist"]
   },
   "towers": [
     { "tower": "rapid_shooter", "mods": [], "targeting": "first" },
@@ -41,7 +43,8 @@
     { "tower": "rift_prism", "mods": [], "targeting": "first" },
     { "tower": "phase_splitter", "mods": [], "targeting": "first" },
     { "tower": "undertow_engine", "mods": [], "targeting": "first" },
-    { "tower": "accordion_engine", "mods": [], "targeting": "first" }
+    { "tower": "accordion_engine", "mods": [], "targeting": "first" },
+    { "tower": "latch_nest", "mods": [], "targeting": "first" }
   ],
   "autotune": {
     "enabled": false,

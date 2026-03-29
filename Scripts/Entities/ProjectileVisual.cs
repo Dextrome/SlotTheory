@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System;
 using Godot;
 using SlotTheory.Combat;
 using SlotTheory.Core;
@@ -22,6 +23,7 @@ public partial class ProjectileVisual : Node2D
     private Color _color;
     private bool _isSplitProjectile;
     private float _damageOverride = -1f;
+    private Action<DamageContext, float, bool>? _onPrimaryImpact;
 
     private const int TrailMax = 14;
     private readonly List<Vector2> _trail = new();
@@ -29,7 +31,8 @@ public partial class ProjectileVisual : Node2D
     public void Initialize(Vector2 fromGlobal, EnemyInstance target, Color color, float speed,
                            TowerInstance tower, int waveIndex, List<EnemyInstance> enemies,
                            SlotTheory.Core.RunState? runState = null,
-                           bool isSplitProjectile = false, float damageOverride = -1f)
+                           bool isSplitProjectile = false, float damageOverride = -1f,
+                           Action<DamageContext, float, bool>? onPrimaryImpact = null)
     {
         GlobalPosition = fromGlobal;
         _target = target;
@@ -41,19 +44,23 @@ public partial class ProjectileVisual : Node2D
         _color = color;
         _isSplitProjectile = isSplitProjectile;
         _damageOverride = damageOverride;
+        _onPrimaryImpact = onPrimaryImpact;
     }
 
     public override void _Draw()
     {
         bool rocket = _tower?.TowerId == "rocket_launcher";
+        bool latch = _tower?.TowerId == "latch_nest";
 
         // Trail taper from thin/transparent at tail to full at head.
         for (int i = 1; i < _trail.Count; i++)
         {
             float t = i / (float)_trail.Count;
             float width = rocket ? (2.0f + t * 5.8f) : (1.2f + t * 4.2f);
+            if (latch)
+                width = 1.6f + t * 3.2f;
             DrawLine(ToLocal(_trail[i - 1]), ToLocal(_trail[i]),
-                new Color(_color.R, _color.G, _color.B, t * (rocket ? 0.88f : 0.82f)),
+                new Color(_color.R, _color.G, _color.B, t * (rocket ? 0.88f : (latch ? 0.56f : 0.82f))),
                 width);
         }
 
@@ -81,6 +88,23 @@ public partial class ProjectileVisual : Node2D
                 new Vector2(1.2f, 6.4f),
             }, new[] { new Color(_color.R, _color.G, _color.B, 0.85f) });
             DrawCircle(new Vector2(0f, -2.5f), 1.5f, new Color(1f, 1f, 1f, 0.90f));
+            return;
+        }
+
+        if (latch)
+        {
+            DrawCircle(Vector2.Zero, 8.8f, new Color(_color.R * 0.5f, _color.G * 0.5f, _color.B * 0.36f, 0.30f));
+            DrawPolygon(new[]
+            {
+                new Vector2(0f, -7.2f),
+                new Vector2(6.4f, -1.5f),
+                new Vector2(3.4f, 7.0f),
+                new Vector2(-3.4f, 7.0f),
+                new Vector2(-6.4f, -1.5f),
+            }, new[] { new Color(_color.R * 0.56f + 0.20f, _color.G * 0.46f + 0.18f, _color.B * 0.30f + 0.12f, 0.96f) });
+            DrawCircle(new Vector2(0f, -0.8f), 2.0f, new Color(_color.R, _color.G, _color.B, 0.92f));
+            DrawLine(new Vector2(-2.0f, 4.4f), new Vector2(-5.0f, 8.0f), new Color(0.90f, 0.98f, 0.84f, 0.84f), 1.1f);
+            DrawLine(new Vector2(2.0f, 4.4f), new Vector2(5.0f, 8.0f), new Color(0.90f, 0.98f, 0.84f, 0.84f), 1.1f);
             return;
         }
 
@@ -126,6 +150,7 @@ public partial class ProjectileVisual : Node2D
                                         isChain: false, damageOverride: _damageOverride)
                     : new DamageContext(tower, _target, _waveIndex, _enemies, _runState);
                 DamageModel.Apply(ctx);
+                _onPrimaryImpact?.Invoke(ctx, Mathf.Max(0f, hpBefore - _target.Hp), _target.Hp <= 0f);
 
                 string hitSound = tower.TowerId == "rocket_launcher" ? "hit_rocket" : "hit";
                 SlotTheory.Core.SoundManager.Instance?.Play(hitSound);

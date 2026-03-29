@@ -50,13 +50,15 @@
     "heavy_cannon": 1.0,
     "marker_tower": 1.0,
     "chain_tower": 1.0,
-    "rift_prism": 1.0
+    "rift_prism": 1.0,
+    "latch_nest": 0.46
   },
   "tower_surge_threshold_multipliers": {
     "rapid_shooter": 1.0,
     "heavy_cannon": 1.0,
     "marker_tower": 1.0,
     "chain_tower": 1.0,
-    "rift_prism": 1.0
+    "rift_prism": 1.0,
+    "latch_nest": 1.26
   }
 }

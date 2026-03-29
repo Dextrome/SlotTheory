@@ -102,7 +102,7 @@ public class BotPlayer
         if (empty.Count == 0)
             return null;
 
-        var forcedTower = FindTowerOption(opts, "marker_tower", "rapid_shooter", "chain_tower", "rocket_launcher", "undertow_engine", "heavy_cannon", "rift_prism")
+        var forcedTower = FindTowerOption(opts, "marker_tower", "rapid_shooter", "chain_tower", "latch_nest", "rocket_launcher", "undertow_engine", "heavy_cannon", "rift_prism")
                        ?? Towers(opts).FirstOrDefault();
         if (forcedTower == null)
             return null;
@@ -126,10 +126,10 @@ public class BotPlayer
 
     // Note: accordion_engine is NOT a fast tower (3.2s interval); it's a zone-control tower.
     private static bool IsFastTower(string? towerId) =>
-        towerId is "rapid_shooter" or "chain_tower" or "rift_prism" or "phase_splitter";
+        towerId is "rapid_shooter" or "chain_tower" or "rift_prism" or "phase_splitter" or "latch_nest";
 
     private static bool IsOpenerTower(string? towerId) =>
-        towerId is "rapid_shooter" or "chain_tower" or "rocket_launcher" or "heavy_cannon" or "phase_splitter";
+        towerId is "rapid_shooter" or "chain_tower" or "rocket_launcher" or "heavy_cannon" or "phase_splitter" or "latch_nest";
 
     private static bool IsWildfireAnchorTower(string? towerId) =>
         towerId is "rapid_shooter" or "rift_prism" or "accordion_engine" or "phase_splitter";
@@ -187,6 +187,7 @@ public class BotPlayer
     private static readonly string[] SpectacleTowerPriority =
     {
         "rapid_shooter",
+        "latch_nest",
         "phase_splitter",
         "rocket_launcher",
         "undertow_engine",
@@ -278,6 +279,7 @@ public class BotPlayer
     private static int ScoreFastTowerForCadence(string? towerId) => towerId switch
     {
         "rapid_shooter" => 4,
+        "latch_nest" => 4,
         "phase_splitter"=> 3,
         "rocket_launcher" => 2,
         "chain_tower"   => 2,
@@ -291,6 +293,7 @@ public class BotPlayer
     {
         "heavy_cannon"  => 4,
         "rocket_launcher" => 3,
+        "latch_nest" => 3,
         "phase_splitter"=> 3,
         "rapid_shooter" => 2,
         "chain_tower"   => 2,
@@ -303,6 +306,7 @@ public class BotPlayer
     {
         "phase_splitter" => 4,
         "undertow_engine" => 4,
+        "latch_nest" => 3,
         "rocket_launcher" => 2,
         "chain_tower"    => 3,
         "rapid_shooter"  => 2,
@@ -314,6 +318,7 @@ public class BotPlayer
     private static int ScoreControlTowerForReposition(string? towerId) => towerId switch
     {
         "undertow_engine" => 5,
+        "latch_nest" => 4,
         "rocket_launcher" => 3,
         "chain_tower" => 3,
         "phase_splitter" => 2,
@@ -326,6 +331,7 @@ public class BotPlayer
     private static int ScoreFeedbackTower(string? towerId) => towerId switch
     {
         "undertow_engine" => 4,
+        "latch_nest" => 4,
         "rocket_launcher" => 3,
         "rapid_shooter" => 3,
         "phase_splitter" => 3,

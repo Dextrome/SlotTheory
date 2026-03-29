@@ -26,6 +26,8 @@ public static class ProductCopy
         RocketLauncherBaseDescription + " Blast Core further expands the blast radius.";
     public const string UndertowEngineBaseDescription =
         "Undertow Engine drags enemies backward so they spend longer inside your defenses.";
+    public const string LatchNestBaseDescription =
+        "Latch Nest fires parasite pods. Primary impacts latch living parasites that repeatedly bite as secondary hits.";
 
     // Tutorial / first-run banner copy.
     public const string DraftBannerBasicsHeader = "HOW THIS WORKS";

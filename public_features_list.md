@@ -14,16 +14,21 @@ Slot Theory is a fast, neon-soaked auto-battler / tower-defense hybrid where you
 - Focus on buildcraft, setup, targeting, and long-run decisions instead of constant clicking
 - Chase cleaner boards, smarter combos, and stronger wave answers
 
-### 5 Distinct Towers
+### 10 Distinct Towers
 - Rapid Shooter
 - Heavy Cannon
 - Marker Tower
 - Arc Emitter
 - Rift Sapper
+- Accordion Engine
+- Phase Splitter
+- Rocket Launcher
+- Undertow Engine
+- Latch Nest
 
 Each tower supports different modifier combinations and surge interactions, giving every build its own rhythm and personality.
 
-### 10 Stackable Modifiers
+### 14 Stackable Modifiers
 Mix damage scaling, chain effects, status synergy, split fire, range changes, cooldown abuse, and more to create specialized builds and ridiculous proc chains.
 
 ### Global Surge System

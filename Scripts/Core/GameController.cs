@@ -1103,6 +1103,9 @@ public partial class GameController : Node
 				case Unlocks.UndertowEngineAchievementId:
 					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: true, Unlocks.UndertowEngineTowerId));
 					break;
+				case Unlocks.LatchNestAchievementId:
+					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: true, Unlocks.LatchNestTowerId));
+					break;
 			}
 		}
 
@@ -3678,6 +3681,12 @@ public partial class GameController : Node
 				text += $"drags the lead enemy backward for {Balance.UndertowDuration:0.##}s while heavily slowing it\n";
 				text += "Undertow Engine drags enemies backward so they spend longer inside your defenses.\n";
 			}
+			if (tower.TowerId == "latch_nest")
+			{
+				text += $"primary pod hits attach parasites up to {Balance.LatchNestMaxParasitesPerHost} per host ({Balance.LatchNestMaxActiveParasitesPerTower} total)\n";
+				text += $"parasite ticks every {Balance.LatchNestParasiteTickInterval:0.##}s for {(int)(Balance.LatchNestParasiteTickDamageMultiplier * 100)}% secondary-hit damage\n";
+				text += "attach impact is primary; parasite ticks are secondary (chain-style) hits\n";
+			}
 			if (tower.Modifiers.Count == 0)
 				text += "(no modifiers)";
 			else
@@ -4597,7 +4606,19 @@ void fragment() {
 			case "accordion_engine": SpawnArchetypeAccordionRing(tower.GlobalPosition, accent, drama); break;
 			case "phase_splitter":   SpawnArchetypePhaseRing(tower.GlobalPosition, accent, drama); break;
 			case "undertow_engine":  SpawnArchetypeUndertowRing(tower.GlobalPosition, accent, drama); break;
+			case "latch_nest":       SpawnArchetypeLatchNestPulse(tower.GlobalPosition, accent, drama); break;
 		}
+	}
+
+	private void SpawnArchetypeLatchNestPulse(Vector2 worldPos, Color accent, float drama)
+	{
+		float outer = Mathf.Lerp(72f, 144f, Mathf.Clamp(drama, 0f, 1f));
+		float inner = outer * 0.58f;
+		float width = Mathf.Lerp(1.8f, 3.6f, Mathf.Clamp(drama, 0f, 1f));
+		float duration = Mathf.Lerp(0.22f, 0.34f, Mathf.Clamp(drama, 0f, 1f));
+		Color shell = new Color(accent.R * 0.74f + 0.16f, accent.G * 0.94f, accent.B * 0.62f, 0.42f);
+		EmitSignatureRing(worldPos, shell, outer, duration, width);
+		EmitSignatureRing(worldPos, new Color(shell.R, shell.G, shell.B, 0.28f), inner, duration * 0.84f, width * 0.72f);
 	}
 
 	private void SpawnArchetypePhaseRing(Vector2 worldPos, Color accent, float drama)
@@ -7644,6 +7665,7 @@ void fragment() {
 					"accordion_engine" => "AC",
 					"phase_splitter" => "PS",
 					"undertow_engine" => "UT",
+					"latch_nest" => "LN",
 					_ => "TW",
 				},
 				HorizontalAlignment = HorizontalAlignment.Center,
@@ -9312,9 +9334,9 @@ void fragment() {
 			// Overreach expands control radius; Blast Core capitalizes on re-clumped enemies after control effects.
 			"overreach" => tower.TowerId == "accordion_engine" || tower.TowerId == "undertow_engine" || tower.TowerId == "rocket_launcher",
 			"blast_core" => tower.TowerId == "accordion_engine" || tower.TowerId == "undertow_engine" || tower.TowerId == "rocket_launcher",
-			"slow" => tower.TowerId == "undertow_engine" || tower.TowerId == "chain_tower" || tower.TowerId == "rapid_shooter",
+			"slow" => tower.TowerId == "undertow_engine" || tower.TowerId == "chain_tower" || tower.TowerId == "rapid_shooter" || tower.TowerId == "latch_nest",
 			"wildfire" => tower.TowerId == "phase_splitter" || tower.TowerId == "rapid_shooter" || tower.TowerId == "rift_prism",
-			"afterimage" => tower.TowerId == "undertow_engine" || tower.TowerId == "rocket_launcher" || tower.TowerId == "chain_tower" || tower.TowerId == "phase_splitter",
+			"afterimage" => tower.TowerId == "undertow_engine" || tower.TowerId == "rocket_launcher" || tower.TowerId == "chain_tower" || tower.TowerId == "phase_splitter" || tower.TowerId == "latch_nest",
 			_ => false,
 		};
 	}

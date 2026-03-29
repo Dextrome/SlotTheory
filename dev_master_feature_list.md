@@ -119,7 +119,7 @@ Campaign mandate escalation currently includes:
 
 ## Towers
 
-Current tower roster: 5 towers.
+Current tower roster: 10 towers.
 
 ### Rapid Shooter
 - Fast single-target tower
@@ -145,6 +145,12 @@ Current tower roster: 5 towers.
 - Supports mine charge logic and cascade interactions
 - Campaign unlock content
 
+### Latch Nest
+- Parasite attrition tower
+- Primary pod hit is a full primary pipeline hit
+- Attached parasites deal repeated secondary (`isChain=true`) bite hits
+- Campaign unlock content (`LATCH_UNSEALED`, map `ziggurat`)
+
 Shared tower rules:
 - Towers are placed into fixed world slots
 - Each tower can hold up to 3 modifiers
@@ -153,7 +159,7 @@ Shared tower rules:
 
 ## Modifiers
 
-Current modifier roster: 10 modifiers.
+Current modifier roster: 14 modifiers.
 
 ### Damage / Scaling
 - Momentum
@@ -416,7 +422,7 @@ Mobile behavior:
 
 ## Achievements
 
-- 16 achievements tracked locally
+- 34 achievements tracked locally
 - Persistent progression state
 - Unlock toast queue
 - Dedicated achievements screen
@@ -462,6 +468,7 @@ Unlocks are currently tied into campaign/map progression and include content suc
 - Arc Emitter
 - Split Shot
 - Rift Sapper
+- Latch Nest
 
 Persistent systems include:
 - Campaign clear state by difficulty

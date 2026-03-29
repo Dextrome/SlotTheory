@@ -384,6 +384,7 @@ public partial class UnlockRevealScreen : CanvasLayer
         "phase_splitter" => "Fires a split-phase blast that hits both front and back targets.",
         "rocket_launcher" => ProductCopy.RocketLauncherBaseDescription,
         "undertow_engine" => ProductCopy.UndertowEngineBaseDescription,
+        "latch_nest" => ProductCopy.LatchNestBaseDescription,
         _ => "Tower unlocked."
     };
 }

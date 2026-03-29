@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text.Json;
 using SlotTheory.Data;
 using SlotTheory.Modifiers;
 using SlotTheory.Tools;
@@ -357,5 +359,48 @@ public class CombatLabTowerBenchmarkRunnerTests
 
         Assert.True(chain2 > chain1,
             $"Expected chain2 targets/shot to exceed chain1, but chain1={chain1:F2}, chain2={chain2:F2}.");
+    }
+
+    [Fact]
+    public void BenchmarkSuites_IncludeLatchNestInTowerEnumerationInputs()
+    {
+        string root = FindRepoRoot();
+        string[] files =
+        {
+            Path.Combine(root, "Data", "combat_lab", "tower_benchmark_core.json"),
+            Path.Combine(root, "Data", "combat_lab", "tower_benchmark_support.json"),
+        };
+
+        foreach (string file in files)
+        {
+            using var doc = JsonDocument.Parse(File.ReadAllText(file));
+            JsonElement rootEl = doc.RootElement;
+
+            Assert.True(rootEl.TryGetProperty("cost_by_tower", out JsonElement costs));
+            Assert.True(costs.TryGetProperty("latch_nest", out _));
+
+            Assert.True(rootEl.TryGetProperty("role_assignments", out JsonElement roles));
+            Assert.True(roles.TryGetProperty("latch_nest", out _));
+
+            Assert.True(rootEl.TryGetProperty("towers", out JsonElement towers));
+            Assert.Contains(towers.EnumerateArray(), e =>
+                e.TryGetProperty("tower", out JsonElement t) &&
+                t.GetString() == "latch_nest");
+        }
+    }
+
+    private static string FindRepoRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null)
+        {
+            bool hasProject = File.Exists(Path.Combine(dir.FullName, "SlotTheory.csproj"));
+            bool hasTests = Directory.Exists(Path.Combine(dir.FullName, "SlotTheory.Tests"));
+            if (hasProject && hasTests)
+                return dir.FullName;
+            dir = dir.Parent;
+        }
+
+        throw new InvalidOperationException("Could not locate repository root from test runtime path.");
     }
 }
