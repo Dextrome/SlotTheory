@@ -75,6 +75,27 @@ public partial class EndScreen : CanvasLayer
 		mainLayout.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		root.AddChild(mainLayout);
 
+		// Fixed header - VICTORY/DEFEAT + difficulty + subtitle, frozen above the scroll.
+		var titleHeader = new CenterContainer();
+		mainLayout.AddChild(titleHeader);
+
+		var titleGroup = new VBoxContainer();
+		titleGroup.AddThemeConstantOverride("separation", 2);
+		titleHeader.AddChild(titleGroup);
+
+		_titleLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+		_titleLabel.AddThemeFontSizeOverride("font_size", 72);
+		SlotTheory.Core.UITheme.ApplyFont(_titleLabel, semiBold: true, size: 72);
+		titleGroup.AddChild(_titleLabel);
+
+		_difficultyLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center, Visible = false };
+		UITheme.ApplyFont(_difficultyLabel, semiBold: true, size: 18);
+		titleGroup.AddChild(_difficultyLabel);
+
+		_subtitleLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
+		_subtitleLabel.AddThemeFontSizeOverride("font_size", 28);
+		titleGroup.AddChild(_subtitleLabel);
+
 		// HBox with flanking spacers to center the scroll horizontally at content width.
 		var scrollRow = new HBoxContainer();
 		scrollRow.SizeFlagsVertical   = Control.SizeFlags.ExpandFill;
@@ -129,23 +150,6 @@ public partial class EndScreen : CanvasLayer
 		_vbox.CustomMinimumSize = new Vector2(520f, 0f);
 		contentMargin.AddChild(_vbox);
 		var vbox = _vbox;
-
-		var titleGroup = new VBoxContainer();
-		titleGroup.AddThemeConstantOverride("separation", 2);
-		vbox.AddChild(titleGroup);
-
-		_titleLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
-		_titleLabel.AddThemeFontSizeOverride("font_size", 72);
-		SlotTheory.Core.UITheme.ApplyFont(_titleLabel, semiBold: true, size: 72);
-		titleGroup.AddChild(_titleLabel);
-
-		_difficultyLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center, Visible = false };
-		UITheme.ApplyFont(_difficultyLabel, semiBold: true, size: 18);
-		titleGroup.AddChild(_difficultyLabel);
-
-		_subtitleLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
-		_subtitleLabel.AddThemeFontSizeOverride("font_size", 28);
-		titleGroup.AddChild(_subtitleLabel);
 
 		_statsLabel = new Label { HorizontalAlignment = HorizontalAlignment.Center };
 		_statsLabel.AddThemeFontSizeOverride("font_size", 20);
