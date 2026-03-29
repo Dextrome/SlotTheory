@@ -13,13 +13,53 @@ public static class MapGenerator
 {
 	public const int COLS = 8, ROWS = 5, CELL_W = 160, CELL_H = 128, GRID_Y = 80;
 
+		// Procedural quality floors -- derived from hand-crafted map baselines.
+	// Path length: Trident (shortest HC map) = 3370 px. Floor at 3200 filters degenerate short maps.
+	// Avg slot score: Orbit (lowest HC map) = 80.8. Floor at 65 rejects genuinely poor coverage.
+	public const float MinPathLength    = 3200f;
+	public const float MinAvgSlotScore  = 65f;
+
 	public static MapLayout Generate(int seed)
+	{
+		var layout = GenerateOnce(seed);
+		if (IsLayoutValid(layout)) return layout;
+
+		for (int attempt = 1; attempt <= 20; attempt++)
+		{
+			int s = unchecked(seed ^ (attempt * (int)0x9E3779B9));
+			layout = GenerateOnce(s);
+			if (IsLayoutValid(layout)) return layout;
+		}
+
+		// All attempts exhausted -- return the original seed's result rather than a random one.
+		return GenerateOnce(seed);
+	}
+
+	private static MapLayout GenerateOnce(int seed)
 	{
 		var rng         = new Random(seed);
 		var waypoints   = GeneratePathWaypoints(rng, out var pathGrid);
 		var slots       = PlaceSlots(rng, pathGrid, waypoints);
 		var decorations = PlaceDecorations(rng, pathGrid, slots);
 		return new MapLayout(waypoints, slots, pathGrid, decorations);
+	}
+
+	private static bool IsLayoutValid(MapLayout layout)
+	{
+		// 1. Path length
+		float len = 0f;
+		for (int i = 0; i < layout.PathWaypoints.Length - 1; i++)
+			len += layout.PathWaypoints[i].DistanceTo(layout.PathWaypoints[i + 1]);
+		if (len < MinPathLength) return false;
+
+		// 2. Average slot coverage score
+		if (layout.SlotPositions.Length == 0) return false;
+		float total = 0f;
+		foreach (var slot in layout.SlotPositions)
+			total += ScoreCell(slot, layout.PathWaypoints);
+		if (total / layout.SlotPositions.Length < MinAvgSlotScore) return false;
+
+		return true;
 	}
 
 	public static string DescribeSeed(int seed)
@@ -80,11 +120,14 @@ public static class MapGenerator
 		var canonicalGrid = new bool[COLS, ROWS];
 		Vector2[] canonical = rng.Next(100) switch
 		{
-			< 24 => GenerateZigzag(rng, canonicalGrid),
-			< 45 => GenerateTopFirstZigzag(rng, canonicalGrid),
-			< 64 => GenerateDualLoopZigzag(rng, canonicalGrid),
-			< 83 => GenerateSShape(rng, canonicalGrid),
-			_    => GenerateWShape(rng, canonicalGrid),
+			< 11 => GenerateZigzag(rng, canonicalGrid),
+			< 20 => GenerateTopFirstZigzag(rng, canonicalGrid),
+			< 29 => GenerateDualLoopZigzag(rng, canonicalGrid),
+			< 42 => GenerateSShape(rng, canonicalGrid),
+			< 53 => GenerateWShape(rng, canonicalGrid),
+			< 68 => GenerateDiagonalCut(rng, canonicalGrid),
+			< 82 => GenerateDiagonalRise(rng, canonicalGrid),
+			_    => GenerateDiagonalZ(rng, canonicalGrid),
 		};
 
 		// Blend mirrored/normal variants to widen visible route families.
@@ -635,6 +678,126 @@ public static class MapGenerator
 		return result;
 	}
 
+	/// <summary>
+	/// Diagonal cut: entry drop, full horizontal sweep right, diagonal slash DOWN-LEFT,
+	/// left sweep, drop to bottom, return sweep right, exit. (~3 800–4 400 px)
+	/// </summary>
+	private static Vector2[] GenerateDiagonalCut(Random rng, bool[,] pathGrid)
+	{
+		int r0      = rng.Next(1, 3);                                   // entry depth [1, 2]
+		int diagLen = Math.Min(rng.Next(2, 4), ROWS - 1 - r0);         // [2, 3] clamped
+		int cDiag   = 7 - diagLen;                                      // landing col after diagonal (4 or 5)
+		int rDiag   = r0 + diagLen;                                     // landing row after diagonal
+		int c2      = rng.Next(0, Math.Max(1, cDiag - 2));             // [0, cDiag-3] -- left end of return leg
+		int r2      = ROWS - 1;                                         // always drop to bottom row
+
+		MarkVertical  (pathGrid, 0,     0,      r0);
+		MarkHorizontal(pathGrid, 0,     7,      r0);
+		MarkDiagonal  (pathGrid, 7,     r0,     cDiag, rDiag);
+		MarkHorizontal(pathGrid, c2,    cDiag,  rDiag);
+		MarkVertical  (pathGrid, c2,    rDiag,  r2);
+		MarkHorizontal(pathGrid, c2,    7,      r2);
+		MarkVertical  (pathGrid, 7,     0,      r2);
+
+		float cx0  = CellCenter(0,     0).X;
+		float cx7  = CellCenter(7,     0).X;
+		float cxD  = CellCenter(cDiag, 0).X;
+		float cxC2 = CellCenter(c2,    0).X;
+
+		float cyR0   = CellCenter(0, r0).Y;
+		float cyDiag = CellCenter(0, rDiag).Y;
+		float cyR2   = CellCenter(0, r2).Y;
+
+		return new Vector2[]
+		{
+			new(cx0, 50),
+			new(cx0, cyR0),
+			new(cx7, cyR0),      // full horizontal right
+			new(cxD, cyDiag),    // ← diagonal slash
+			new(cxC2, cyDiag),   // left sweep
+			new(cxC2, cyR2),     // drop to bottom
+			new(cx7,  cyR2),     // return sweep right
+			new(cx7,  50),
+		};
+	}
+
+	/// <summary>
+	/// Diagonal rise: entry drop to bottom, full horizontal sweep right, sweep left,
+	/// diagonal slash UP-RIGHT, return sweep right to exit. (~3 400–4 100 px)
+	/// Visually distinct from DiagonalCut -- enemies climb diagonally rather than descend.
+	/// </summary>
+	private static Vector2[] GenerateDiagonalRise(Random rng, bool[,] pathGrid)
+	{
+		int rDeep   = ROWS - 1;                                        // always start at bottom row
+		int cStart  = rng.Next(1, 4);                                  // left-sweep end [1, 3]
+		int diagLen = Math.Min(rng.Next(2, 4), rDeep);                 // [2, 3] clamped
+		int cLand   = cStart  + diagLen;                               // col after diagonal
+		int rLand   = rDeep   - diagLen;                               // row after diagonal (rises)
+
+		MarkVertical  (pathGrid, 0,      0,       rDeep);
+		MarkHorizontal(pathGrid, 0,      7,       rDeep);
+		MarkHorizontal(pathGrid, cStart, 7,       rDeep);   // left sweep (subset of above, harmless)
+		MarkDiagonal  (pathGrid, cStart, rDeep,   cLand,  rLand);
+		MarkHorizontal(pathGrid, cLand,  7,       rLand);
+		MarkVertical  (pathGrid, 7,      0,       rLand);
+
+		float cx0     = CellCenter(0,      0).X;
+		float cx7     = CellCenter(7,      0).X;
+		float cxStart = CellCenter(cStart, 0).X;
+		float cxLand  = CellCenter(cLand,  0).X;
+
+		float cyDeep = CellCenter(0, rDeep).Y;
+		float cyLand = CellCenter(0, rLand).Y;
+
+		return new Vector2[]
+		{
+			new(cx0,     50),
+			new(cx0,     cyDeep),    // drop to bottom
+			new(cx7,     cyDeep),    // full sweep right
+			new(cxStart, cyDeep),    // sweep left
+			new(cxLand,  cyLand),    // ← diagonal rise
+			new(cx7,     cyLand),    // sweep right to exit
+			new(cx7,     50),
+		};
+	}
+
+	/// <summary>
+	/// Diagonal Z: drop, full sweep right, diagonal crossbar DOWN-LEFT, full sweep left,
+	/// full sweep right at bottom, exit. The diagonal is the crossbar of a visual Z. (~3 900–4 300 px)
+	/// </summary>
+	private static Vector2[] GenerateDiagonalZ(Random rng, bool[,] pathGrid)
+	{
+		int r0      = rng.Next(0, 2);                                  // top row [0, 1]
+		int diagLen = Math.Min(rng.Next(2, 4), ROWS - 1 - r0);        // [2, 3] clamped
+		int cLand   = 7 - diagLen;                                     // col after diagonal
+		int rLand   = r0 + diagLen;                                    // row after diagonal
+
+		MarkVertical  (pathGrid, 0,     0,    r0);
+		MarkHorizontal(pathGrid, 0,     7,    r0);
+		MarkDiagonal  (pathGrid, 7,     r0,   cLand, rLand);
+		MarkHorizontal(pathGrid, 0,     cLand, rLand);
+		MarkHorizontal(pathGrid, 0,     7,    rLand);
+		MarkVertical  (pathGrid, 7,     0,    rLand);
+
+		float cx0   = CellCenter(0,     0).X;
+		float cx7   = CellCenter(7,     0).X;
+		float cxL   = CellCenter(cLand, 0).X;
+
+		float cyR0   = CellCenter(0, r0).Y;
+		float cyLand = CellCenter(0, rLand).Y;
+
+		return new Vector2[]
+		{
+			new(cx0,  50),
+			new(cx0,  cyR0),     // entry drop
+			new(cx7,  cyR0),     // full sweep right
+			new(cxL,  cyLand),   // ← diagonal crossbar
+			new(cx0,  cyLand),   // full sweep left
+			new(cx7,  cyLand),   // full sweep right at bottom
+			new(cx7,  50),
+		};
+	}
+
 	private static void MarkVertical(bool[,] pathGrid, int col, int fromRow, int toRow)
 	{
 		int lo = Math.Min(fromRow, toRow);
@@ -649,5 +812,27 @@ public static class MapGenerator
 		int hi = Math.Max(fromCol, toCol);
 		for (int c = lo; c <= hi; c++)
 			pathGrid[c, row] = true;
+	}
+
+	/// <summary>
+	/// Marks all grid cells the straight line from (c1,r1) to (c2,r2) passes through
+	/// (Bresenham). Used so slot and decoration placement avoids diagonal path segments.
+	/// </summary>
+	private static void MarkDiagonal(bool[,] pathGrid, int c1, int r1, int c2, int r2)
+	{
+		int dx = Math.Abs(c2 - c1), dy = Math.Abs(r2 - r1);
+		int sx = Math.Sign(c2 - c1), sy = Math.Sign(r2 - r1);
+		int err = dx - dy;
+		int c = c1, r = r1;
+
+		while (true)
+		{
+			if (c >= 0 && c < COLS && r >= 0 && r < ROWS)
+				pathGrid[c, r] = true;
+			if (c == c2 && r == r2) break;
+			int e2 = 2 * err;
+			if (e2 > -dy) { err -= dy; c += sx; }
+			if (e2 <  dx) { err += dx; r += sy; }
+		}
 	}
 }
