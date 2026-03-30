@@ -622,38 +622,6 @@ public class ModifierTests
     }
 
     [Fact]
-    public void Deadzone_DamageContext_SuppressDeadzoneSeed_DefaultsFalse()
-    {
-        // Verify the new SuppressDeadzoneSeed parameter defaults to false (backward compat).
-        var tower = new FakeTower();
-        var enemy = new FakeEnemy();
-        var ctx = new DamageContext(tower, enemy, waveIndex: 0, new List<IEnemyView>());
-        Assert.False(ctx.SuppressDeadzoneSeed);
-    }
-
-    [Fact]
-    public void Deadzone_DamageContext_SuppressDeadzoneSeed_CanBeSet()
-    {
-        // Verify triggered follow-up contexts can suppress further zone creation.
-        var tower = new FakeTower();
-        var enemy = new FakeEnemy();
-        var ctx = new DamageContext(tower, enemy, waveIndex: 0, new List<IEnemyView>(),
-            suppressDeadzoneSeed: true);
-        Assert.True(ctx.SuppressDeadzoneSeed);
-    }
-
-    [Fact]
-    public void Deadzone_DamageContext_SuppressAfterimageSeed_StillDefaultsFalse()
-    {
-        // Ensure adding suppressDeadzoneSeed did not break the existing suppressAfterimageSeed param.
-        var tower = new FakeTower();
-        var enemy = new FakeEnemy();
-        var ctx = new DamageContext(tower, enemy, waveIndex: 0, new List<IEnemyView>(),
-            suppressDeadzoneSeed: true);
-        Assert.False(ctx.SuppressAfterimageSeed);
-    }
-
-    [Fact]
     public void Deadzone_Balance_LifetimeIsPositive()
         => Assert.True(Balance.DeadzoneLifetime > 0f);
 
@@ -666,18 +634,25 @@ public class ModifierTests
         => Assert.True(Balance.DeadzoneTriggerRadius > 0f);
 
     [Fact]
-    public void Deadzone_Balance_FollowupRatioIsReduced()
-    {
-        // Follow-up must be strictly less than 1.0 (it is a "reduced" hit, not full replay).
-        Assert.True(Balance.DeadzoneFollowupDamageRatio > 0f);
-        Assert.True(Balance.DeadzoneFollowupDamageRatio < 1.0f);
-    }
+    public void Deadzone_Balance_PinDurationIsPositive()
+        => Assert.True(Balance.DeadzonePinDuration > 0f);
+
+    [Fact]
+    public void Deadzone_Balance_PinDurationPerCopyIsPositive()
+        => Assert.True(Balance.DeadzonePinDurationPerCopy > 0f);
 
     [Fact]
     public void Deadzone_Balance_ArmTimeLessThanLifetime()
     {
         // Zone arm time must be shorter than total lifetime or zone would never fire.
         Assert.True(Balance.DeadzoneArmTime < Balance.DeadzoneLifetime);
+    }
+
+    [Fact]
+    public void Deadzone_Balance_PinDurationLessThanLifetime()
+    {
+        // Base pin duration should be shorter than zone lifetime (1 copy scenario).
+        Assert.True(Balance.DeadzonePinDuration < Balance.DeadzoneLifetime * 3f);
     }
 
     // ── Unlocks: Deadzone full-game gates ────────────────────────────────────

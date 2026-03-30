@@ -67,7 +67,7 @@ public class DraftSystem
 
         if (hasFreeSlots)
         {
-            AddTowerOptions(options, Balance.DraftTowerOptions, mandate);
+            AddTowerOptions(options, Balance.DraftTowerOptions, mandate, waveIndex);
             AddModifierOptions(options, Balance.DraftModifierOptions, placedTowers, mandate, waveIndex);
         }
         else
@@ -78,7 +78,7 @@ public class DraftSystem
         // Pad to 5 with tower options if modifiers couldn't fill the list
         // (e.g. wave 1 with no towers yet, or all towers at modifier cap)
         if (options.Count < Balance.DraftOptionsCount && hasFreeSlots)
-            AddTowerOptions(options, Balance.DraftOptionsCount - options.Count, mandate);
+            AddTowerOptions(options, Balance.DraftOptionsCount - options.Count, mandate, waveIndex);
 
         return options;
     }
@@ -102,10 +102,11 @@ public class DraftSystem
         mod.OnEquip(tower);
     }
 
-    private void AddTowerOptions(List<DraftOption> list, int count, MandateDefinition? mandate = null)
+    private void AddTowerOptions(List<DraftOption> list, int count, MandateDefinition? mandate = null, int waveIndex = 0)
     {
         var pool = _data.GetAllTowerIds()
             .Where(id => mandate?.IsTowerBanned(id) != true)
+            .Where(id => Balance.GetTowerMinWaveIndex(id) <= waveIndex)  // wave gate
             .OrderBy(_ => _rng.Next())
             .Take(count);
         foreach (var id in pool)

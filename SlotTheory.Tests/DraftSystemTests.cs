@@ -119,11 +119,11 @@ public class DraftSystemTests
         var draft = MakeDraftWithReaper();
         var tower = new FakeTower { CanAddModifier = true };
 
-        // Wave 5 is below the Reaper Protocol minimum wave index (9)
+        // Wave 3 is below the Reaper Protocol minimum wave index (4)
         var options = draft.GenerateOptions(
             hasFreeSlots: false,
             placedTowers: new[] { tower },
-            waveIndex: 5);
+            waveIndex: 3);
 
         Assert.DoesNotContain(options, o => o.Id == "reaper_protocol");
     }

@@ -200,7 +200,8 @@ public static class ModifierDataValidator
                 RequiredTokens = new()
                 {
                     "trap",
-                    "single trigger",
+                    "pinned",
+                    "1.2s",
                     "collapses"
                 }
             }

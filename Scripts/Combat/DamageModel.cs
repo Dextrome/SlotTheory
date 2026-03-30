@@ -19,7 +19,6 @@ public class DamageContext
 
     public bool IsChain { get; }
     public bool SuppressAfterimageSeed { get; }
-    public bool SuppressDeadzoneSeed { get; }
     public float DamageDealt { get; set; }
     // Populated by modifiers that deal secondary area damage outside the normal damage pipeline (e.g. Blast Core splash).
     // Tracked separately so benchmark runners can include it in total damage metrics.
@@ -32,7 +31,7 @@ public class DamageContext
     public DamageContext(ITowerView attacker, IEnemyView target, int waveIndex,
                          IEnumerable<IEnemyView> enemies, RunState? state = null,
                          bool isChain = false, float damageOverride = -1f,
-                         bool suppressAfterimageSeed = false, bool suppressDeadzoneSeed = false)
+                         bool suppressAfterimageSeed = false)
     {
         Attacker = attacker;
         Target = target;
@@ -40,7 +39,6 @@ public class DamageContext
         EnemiesAlive = enemies;
         IsChain = isChain;
         SuppressAfterimageSeed = suppressAfterimageSeed;
-        SuppressDeadzoneSeed = suppressDeadzoneSeed;
         BaseDamage = FinalDamage = damageOverride >= 0f ? damageOverride : attacker.BaseDamage;
         State = state;
     }
@@ -109,9 +107,8 @@ public static class DamageModel
             GameController.Instance?.NotifyAfterimageHit(ctx.Attacker, ctx.Target.GlobalPosition, ctx.FinalDamage);
 
         // Deadzone: primary hit seeds a short-lived spatial trap at the impact point.
-        // First enemy to cross it triggers one reduced follow-up, then zone collapses.
-        // suppressDeadzoneSeed prevents triggered follow-up damage from spawning further zones.
-        if (!ctx.IsChain && !ctx.SuppressDeadzoneSeed && damageDealtRaw > 0f && CountModifier(ctx.Attacker, "deadzone") > 0)
+        // First enemy to cross into the armed zone is pinned in place, then the zone collapses.
+        if (!ctx.IsChain && damageDealtRaw > 0f && CountModifier(ctx.Attacker, "deadzone") > 0)
             GameController.Instance?.NotifyDeadzoneHit(ctx.Attacker, ctx.Target.GlobalPosition, ctx.FinalDamage);
 
         // 4. On-hit effects (skipped for chain bounces if modifier opts out)

@@ -15,7 +15,7 @@ namespace SlotTheory.Entities;
 /// </summary>
 public partial class DeadzoneVfx : Node2D
 {
-    private const float TriggerDuration = 0.22f;
+    private const float TriggerDuration = 0.55f;
     private const float ExpireDuration  = 0.18f;
 
     private float _lifetimeTotal = SlotTheory.Core.Balance.DeadzoneLifetime;
@@ -179,36 +179,116 @@ public partial class DeadzoneVfx : Node2D
         }
     }
 
-    // ── Trigger state: implosive inward collapse ────────────────────────────
+    // ── Trigger state: vortex implosion + lock-snap ─────────────────────────
 
     private void DrawTriggerBurst()
     {
-        float t      = Mathf.Clamp(_stateElapsed / TriggerDuration, 0f, 1f);
-        float inv    = 1f - t;
-        // Ring implodes from outer radius inward to nothing.
-        float ringR  = _triggerRadius * 0.88f * Mathf.Lerp(1f, 0.05f, t * t);
-        float bright = Mathf.Lerp(1.0f, 0.6f, t);
+        float t    = Mathf.Clamp(_stateElapsed / TriggerDuration, 0f, 1f);
+        float inv  = 1f - t;
+        float ease = t * t;                         // ease-in for inward rush
+        float outerR = _triggerRadius * 0.92f;
+        float ringRot = _phase + t * Mathf.Pi * 0.9f; // rings rotate as they implode
 
-        // Collapsing ring.
-        DrawArc(Vector2.Zero, ringR, 0f, Mathf.Tau, 48,
-            new Color(_color.R * bright, _color.G * bright * 0.85f, _color.B * bright * 0.55f, inv * 0.90f),
-            2.4f);
+        // ── Layer 1: 3 concentric rotating broken rings contracting inward ──
+        float r1 = outerR * (1f - ease);
+        float r2 = outerR * 0.65f * Mathf.Max(0f, 1f - ease * 1.35f);
+        float r3 = outerR * 0.36f * Mathf.Max(0f, 1f - ease * 1.80f);
 
-        // Flash disc at center.
-        DrawCircle(Vector2.Zero, ringR * 0.55f,
-            new Color(1f, Mathf.Lerp(0.90f, 0.55f, t), Mathf.Lerp(0.70f, 0.20f, t), inv * 0.60f));
-
-        // 6 short burst sparks radiating outward (counter to the implosion -- inertia).
-        int sparks = 6;
-        for (int s = 0; s < sparks; s++)
+        if (r1 > 1.5f)
         {
-            float angle = s * Mathf.Tau / sparks + _phase;
-            float sparkLen = _triggerRadius * 0.55f * inv;
-            float startR = ringR * 1.1f;
-            Vector2 origin = new(Mathf.Cos(angle) * startR, Mathf.Sin(angle) * startR);
-            Vector2 tip    = new(Mathf.Cos(angle) * (startR + sparkLen), Mathf.Sin(angle) * (startR + sparkLen));
-            DrawLine(origin, tip,
-                new Color(_color.R, _color.G * 0.75f, 0f, inv * 0.80f), 1.5f);
+            int segs = 5;
+            float gapA = 0.28f;
+            float segA = (Mathf.Tau - segs * gapA) / segs;
+            for (int s = 0; s < segs; s++)
+            {
+                float start = ringRot + s * (segA + gapA);
+                float whitenFactor = 1f - inv * inv;
+                DrawArc(Vector2.Zero, r1, start, start + segA, 14,
+                    new Color(
+                        Mathf.Lerp(_color.R, 1f, whitenFactor),
+                        Mathf.Lerp(_color.G, 1f, whitenFactor),
+                        Mathf.Lerp(_color.B, 1f, whitenFactor),
+                        inv * 0.88f),
+                    2.2f);
+            }
+        }
+        if (r2 > 1.5f)
+            DrawArc(Vector2.Zero, r2, ringRot * 0.6f, ringRot * 0.6f + Mathf.Tau, 28,
+                new Color(_color.R * 0.5f + 0.5f, _color.G * 0.6f + 0.4f, 1.0f, inv * 0.55f), 1.6f);
+        if (r3 > 1.5f)
+            DrawArc(Vector2.Zero, r3, 0f, Mathf.Tau, 20,
+                new Color(1f, 1f, 1f, Mathf.Max(0f, inv - 0.15f) * 0.72f), 1.4f);
+
+        // ── Layer 2: 10 vortex spikes spiraling inward ───────────────────────
+        int spikes = 10;
+        float spikeLen = outerR * 0.30f;
+        for (int s = 0; s < spikes; s++)
+        {
+            float baseAngle = s * Mathf.Tau / spikes;
+            float vortexAngle = baseAngle + ease * Mathf.Pi * 0.60f;
+            float spikeR = outerR * Mathf.Max(0f, 1f - ease * 1.08f);
+            if (spikeR < 2f) continue;
+
+            float tailAngle = vortexAngle - 0.20f;
+            Vector2 head = new(Mathf.Cos(vortexAngle) * spikeR, Mathf.Sin(vortexAngle) * spikeR);
+            Vector2 tail = new(Mathf.Cos(tailAngle) * (spikeR + spikeLen), Mathf.Sin(tailAngle) * (spikeR + spikeLen));
+            float spikeAlpha = inv * 0.92f;
+            float whitenSpike = 1f - inv * inv;
+            DrawLine(tail, head,
+                new Color(
+                    Mathf.Lerp(_color.R * 0.6f + 0.4f, 1f, whitenSpike),
+                    Mathf.Lerp(_color.G * 0.7f + 0.3f, 1f, whitenSpike),
+                    Mathf.Lerp(_color.B * 0.6f + 0.1f, 1f, whitenSpike),
+                    spikeAlpha),
+                Mathf.Lerp(2.4f, 0.8f, t));
+        }
+
+        // ── Layer 3: Core implosion flash (peaks at t = 0.42) ────────────────
+        float flashIn   = Mathf.Clamp(Mathf.InverseLerp(0f, 0.42f, t), 0f, 1f);
+        float flashOut  = Mathf.Clamp(1f - Mathf.InverseLerp(0.42f, 1.0f, t), 0f, 1f);
+        float flashA    = flashIn * flashOut;
+        if (flashA > 0.01f)
+        {
+            float coreR = outerR * 0.30f * flashIn;
+            DrawCircle(Vector2.Zero, coreR,       new Color(1f, 1f, 1f, flashA * 0.82f));
+            DrawCircle(Vector2.Zero, coreR * 0.5f, new Color(1f, 1f, 1f, flashA * 0.96f));
+        }
+
+        // ── Layer 4: Lock-snap ticks (brief flash as zone locks shut) ─────────
+        float lockIn  = Mathf.Clamp(Mathf.InverseLerp(0.46f, 0.60f, t), 0f, 1f);
+        float lockOut = Mathf.Clamp(1f - Mathf.InverseLerp(0.60f, 1.0f, t), 0f, 1f);
+        float lockA   = lockIn * lockOut;
+        if (lockA > 0.01f)
+        {
+            float lockR = outerR * 0.40f;
+            int ticks = 8;
+            for (int k = 0; k < ticks; k++)
+            {
+                float angle = k * Mathf.Tau / ticks;
+                Vector2 inner = new(Mathf.Cos(angle) * lockR * 0.40f, Mathf.Sin(angle) * lockR * 0.40f);
+                Vector2 outer2 = new(Mathf.Cos(angle) * lockR, Mathf.Sin(angle) * lockR);
+                DrawLine(inner, outer2,
+                    new Color(_color.R * 0.4f + 0.6f, _color.G * 0.7f + 0.3f, 1.0f, lockA * 0.92f), 1.6f);
+            }
+            DrawCircle(Vector2.Zero, 3.8f, new Color(1f, 1f, 1f, lockA * 0.85f));
+        }
+
+        // ── Layer 5: Outward recoil sparks (physical counter-reaction) ────────
+        float sparkFade = Mathf.Clamp(1f - Mathf.InverseLerp(0.40f, 1.0f, t), 0f, 1f) * 0.78f;
+        if (t > 0.38f && sparkFade > 0.01f)
+        {
+            float st = Mathf.Clamp(Mathf.InverseLerp(0.38f, 1.0f, t), 0f, 1f);
+            int nsparks = 7;
+            for (int s = 0; s < nsparks; s++)
+            {
+                float angle = s * Mathf.Tau / nsparks + Mathf.Pi * 0.14f;
+                float sparkDist = outerR * 0.52f * st;
+                float sLen = outerR * 0.17f;
+                Vector2 sparkTail = new(Mathf.Cos(angle) * Mathf.Max(0f, sparkDist - sLen), Mathf.Sin(angle) * Mathf.Max(0f, sparkDist - sLen));
+                Vector2 sparkTip  = new(Mathf.Cos(angle) * sparkDist, Mathf.Sin(angle) * sparkDist);
+                DrawLine(sparkTail, sparkTip,
+                    new Color(_color.R * 0.5f + 0.5f, _color.G * 0.6f + 0.4f, 1.0f, sparkFade), 1.3f);
+            }
         }
     }
 

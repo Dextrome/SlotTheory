@@ -48,6 +48,10 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
     public float SlowRemaining { get; set; } = 0f;
     public float SlowSpeedFactor { get; set; } = Balance.SlowSpeedFactor;
     public bool IsSlowed => SlowRemaining > 0f;
+
+    public float PinRemaining { get; set; } = 0f;
+    public bool IsPinned => PinRemaining > 0f;
+    private float _pinPhase = 0f;
     public float DamageAmpRemaining { get; set; } = 0f;
     public float DamageAmpMultiplier { get; set; } = 0f;
     public bool IsDamageAmped => DamageAmpRemaining > 0f && DamageAmpMultiplier > 0f;
@@ -162,6 +166,15 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
     public override void _Process(double delta)
     {
         float dt = (float)delta;
+
+        if (IsPinned)
+        {
+            _pinPhase += dt;
+            AdvanceCombatTimers(dt);
+            QueueRedraw();
+            return;
+        }
+
         float statusSpeedFactor = IsSlowed ? SlowSpeedFactor : 1f;
         float effectiveSpeed = Speed * statusSpeedFactor * _spectacleSpeedMultiplier;
 
@@ -225,6 +238,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
 
         if (MarkedRemaining > 0f) MarkedRemaining -= dt;
         if (SlowRemaining > 0f) SlowRemaining -= dt;
+        if (PinRemaining > 0f) PinRemaining = System.MathF.Max(0f, PinRemaining - dt);
         if (DamageAmpRemaining > 0f)
         {
             DamageAmpRemaining -= dt;
@@ -330,6 +344,9 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
 
         if (BurnRemaining > 0f)
             DrawBurnOverlay(GetBurnOverlayRadius());
+
+        if (IsPinned)
+            DrawPinOverlay(GetBurnOverlayRadius());
 
         DrawSetTransform(Vector2.Zero, 0f, Vector2.One);
     }
@@ -999,6 +1016,68 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
                 DrawCircle(new Vector2(x, y), r, new Color(0.70f, 0.92f, 1.00f, (0.20f - k * 0.08f) * detailBudget));
             }
         }
+    }
+
+    private void DrawPinOverlay(float bodyRadius)
+    {
+        if (!IsPinned) return;
+
+        float cageR     = bodyRadius * 1.45f;
+        float detailBudget = Mathf.Lerp(1f, 0.55f, _visualChaosLoad);
+
+        // Alpha: fade out over last 0.3s of pin duration.
+        float fadeAlpha = PinRemaining < 0.30f ? PinRemaining / 0.30f : 1f;
+        float baseAlpha = fadeAlpha * detailBudget;
+
+        // Jade-teal palette
+        const float jr = 0.15f; const float jg = 0.86f; const float jb = 0.62f; // jade
+        const float pr2 = 0.69f; const float pg = 1.00f; const float pb = 0.88f; // pale highlight
+
+        // ── Pulsing outer containment ring (fast pulse while pinned) ──────────
+        float pulse = 0.5f + 0.5f * System.MathF.Sin(_pinPhase * 12.0f);
+        DrawArc(Vector2.Zero, cageR, 0f, Mathf.Tau, 36,
+            new Color(jr, jg, jb, (0.55f + pulse * 0.32f) * baseAlpha), 2.2f);
+
+        // ── 8 rotating cage bars (short radial lines, spin inward) ────────────
+        float barRot = _pinPhase * 2.6f;
+        int bars = 8;
+        float barInner = cageR * 0.52f;
+        float barOuter = cageR * 0.90f;
+        for (int k = 0; k < bars; k++)
+        {
+            float angle = barRot + k * Mathf.Tau / bars;
+            Vector2 inner = new(System.MathF.Cos(angle) * barInner, System.MathF.Sin(angle) * barInner);
+            Vector2 outer2 = new(System.MathF.Cos(angle) * barOuter, System.MathF.Sin(angle) * barOuter);
+            DrawLine(inner, outer2, new Color(jr, jg, jb, 0.60f * baseAlpha), 1.3f);
+        }
+
+        // ── 4 inward-pointing chevrons at cardinal directions ─────────────────
+        if (detailBudget >= 0.55f)
+        {
+            float chevR = cageR * 1.08f;
+            float chevLen = cageR * 0.26f;
+            float chevW = cageR * 0.12f;
+            for (int d = 0; d < 4; d++)
+            {
+                float a = d * Mathf.Pi * 0.5f;
+                float cos = System.MathF.Cos(a); float sin = System.MathF.Sin(a);
+                // Tip points toward center; wings splay outward.
+                Vector2 tip  = new(cos * (chevR - chevLen), sin * (chevR - chevLen));
+                Vector2 root = new(cos * chevR, sin * chevR);
+                // Perpendicular
+                float px = -sin; float py = cos;
+                Vector2 wingL = new(root.X + px * chevW, root.Y + py * chevW);
+                Vector2 wingR = new(root.X - px * chevW, root.Y - py * chevW);
+                float chevAlpha = (0.70f + pulse * 0.22f) * baseAlpha;
+                Color chevCol = new(pr2, pg, pb, chevAlpha);
+                DrawLine(wingL, tip, chevCol, 1.8f);
+                DrawLine(wingR, tip, chevCol, 1.8f);
+            }
+        }
+
+        // ── Pulsing inner fill ─────────────────────────────────────────────────
+        float innerFill = (0.04f + pulse * 0.03f) * baseAlpha;
+        DrawCircle(Vector2.Zero, bodyRadius * 0.88f, new Color(jr, jg, jb, innerFill));
     }
 
     private void DrawNearDeathOverlay(float radius)

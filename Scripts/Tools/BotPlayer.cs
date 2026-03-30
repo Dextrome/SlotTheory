@@ -137,9 +137,9 @@ public class BotPlayer
     private static bool IsAfterimageAnchorTower(string? towerId) =>
         towerId is "undertow_engine" or "chain_tower" or "phase_splitter" or "rocket_launcher" or "marker_tower";
 
-    // Deadzone zones pay off most on chokepoint/control towers where enemies cluster.
+    // Deadzone pin pays off most on high-DPS towers that can maximize damage on a stationary target.
     private static bool IsDeadzoneAnchorTower(string? towerId) =>
-        towerId is "undertow_engine" or "rift_prism" or "accordion_engine" or "heavy_cannon" or "rocket_launcher";
+        towerId is "heavy_cannon" or "rocket_launcher" or "phase_splitter" or "chain_tower" or "accordion_engine";
 
     private static bool IsWildfireTimingOnline(RunState s, DifficultyMode difficulty, int picksSoFar)
     {
