@@ -10,7 +10,7 @@ public class Slow : Modifier
 
     public override bool OnHit(DamageContext ctx)
     {
-        if (!Statuses.TryApplyChillFromAttacker(ctx.Attacker, ctx.Target))
+        if (!Statuses.TryApplyChillFromAttacker(ctx.Attacker, ctx.Target, ctx.State))
             return false;
 
         Core.GameController.Instance?.RegisterSpectacleProc(ctx.Attacker, ModifierId,

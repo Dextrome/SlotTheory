@@ -23,6 +23,8 @@ public interface ITowerView
     bool IsChainTower { get; }
     TargetingMode TargetingMode { get; }
     List<Modifier> Modifiers { get; }
+    /// <summary>Current max modifier slots for this tower. Default = Balance.MaxModifiersPerTower; can be raised by Expanded Chassis.</summary>
+    int MaxModifiers { get; set; }
     bool CanAddModifier { get; }
     float Cooldown { get; set; }
     Vector2 GlobalPosition { get; }

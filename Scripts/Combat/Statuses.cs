@@ -31,13 +31,15 @@ public static class Statuses
     /// <summary>
     /// Applies Chill Shot's slow to <paramref name="target"/> if the attacker has at least one
     /// Chill Shot copy equipped. Multiple copies stack multiplicatively.
+    /// Optionally pass <paramref name="state"/> to apply Cold Circuit's duration bonus.
     /// </summary>
-    public static bool TryApplyChillFromAttacker(ITowerView attacker, IEnemyView target)
+    public static bool TryApplyChillFromAttacker(ITowerView attacker, IEnemyView target, RunState? state = null)
     {
         if (!TryGetChillSlowFactor(attacker, out float slowFactor))
             return false;
 
-        ApplySlow(target, Balance.SlowDuration, slowFactor);
+        float duration = Balance.SlowDuration * (state?.SlowDurationMultiplier ?? 1f);
+        ApplySlow(target, duration, slowFactor);
         return true;
     }
 

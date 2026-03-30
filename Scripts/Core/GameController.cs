@@ -1725,7 +1725,7 @@ public partial class GameController : Node
 				pickApplied = true;
 			}
 		}
-		else
+		else if (option.Type == DraftOptionType.Modifier)
 		{
 			if (targetSlotIndex >= 0 && targetSlotIndex < _runState.Slots.Length)
 			{
@@ -1761,6 +1761,29 @@ public partial class GameController : Node
 				}
 			}
 		}
+		else if (option.Type == DraftOptionType.Premium)
+		{
+			// Expanded Chassis requires a target tower slot; all other premium cards apply globally.
+			if (PremiumCardRegistry.RequiresTarget(option.Id))
+			{
+				if (targetSlotIndex >= 0 && targetSlotIndex < _runState.Slots.Length)
+				{
+					var tower = _runState.Slots[targetSlotIndex].Tower;
+					if (tower != null && tower.MaxModifiers < Balance.MaxPremiumModSlots)
+					{
+						ApplyPremiumCard(option.Id, targetSlotIndex);
+						MobileOptimization.HapticMedium();
+						pickApplied = true;
+					}
+				}
+			}
+			else
+			{
+				ApplyPremiumCard(option.Id, -1);
+				MobileOptimization.HapticMedium();
+				pickApplied = true;
+			}
+		}
 
 		if (!pickApplied)
 		{
@@ -1772,6 +1795,88 @@ public partial class GameController : Node
 		_currentDraftOptions = null; // generate fresh options for the next pick once a pick is applied
 		AchievementManager.Instance?.CheckDraftMilestones(_runState);
 		AdvanceAfterDraftPickFlow();
+	}
+
+	// ── Premium Card application ──────────────────────────────────────────────
+
+	private void ApplyPremiumCard(string cardId, int targetSlotIndex)
+	{
+		_runState.PickedPremiumCards.Add(cardId);
+
+		switch (cardId)
+		{
+			case PremiumCardRegistry.BetterOddsId:
+				_runState.BonusDraftCards += Balance.BetterOddsBonusDraftCards;
+				break;
+
+			case PremiumCardRegistry.KineticCalibrationId:
+				_runState.BonusDamage += Balance.KineticCalibrationBonusDamage;
+				foreach (var slot in _runState.Slots)
+					if (slot.Tower != null) slot.Tower.BaseDamage += Balance.KineticCalibrationBonusDamage;
+				break;
+
+			case PremiumCardRegistry.HotLoadersId:
+				float rateBoost = Balance.HotLoadersIntervalMultiplier;
+				_runState.AttackIntervalMultiplier *= rateBoost;
+				foreach (var slot in _runState.Slots)
+					if (slot.Tower != null) slot.Tower.AttackInterval *= rateBoost;
+				break;
+
+			case PremiumCardRegistry.ExtendedRailsId:
+				_runState.TowerRangeBonus += Balance.ExtendedRailsRangeBonus;
+				foreach (var slot in _runState.Slots)
+				{
+					if (slot.Tower != null)
+					{
+						slot.Tower.Range += Balance.ExtendedRailsRangeBonus;
+						if (slot.Tower is TowerInstance ti) ti.RefreshRangeCircle();
+					}
+				}
+				break;
+
+			case PremiumCardRegistry.MultitargetRelayId:
+				_runState.ChainRangeBonus += Balance.MultitargetRelayChainRangeBonus;
+				foreach (var slot in _runState.Slots)
+					if (slot.Tower != null) slot.Tower.ChainRange += Balance.MultitargetRelayChainRangeBonus;
+				break;
+
+			case PremiumCardRegistry.ExpandedChassisId:
+				if (targetSlotIndex >= 0 && targetSlotIndex < _runState.Slots.Length)
+				{
+					var tower = _runState.Slots[targetSlotIndex].Tower;
+					if (tower != null)
+					{
+						tower.MaxModifiers = System.Math.Min(tower.MaxModifiers + 1, Balance.MaxPremiumModSlots);
+						if (tower is TowerInstance ti) RefreshModPips(targetSlotIndex);
+					}
+				}
+				break;
+
+			case PremiumCardRegistry.EmergencyReservesId:
+				_runState.Lives   += Balance.EmergencyReservesLivesGain;
+				_runState.MaxLives = System.Math.Max(_runState.MaxLives, _runState.Lives);
+				break;
+
+			case PremiumCardRegistry.HardenedReservesId:
+				_runState.MaxLives += Balance.HardenedReservesMaxLivesBonus;
+				_runState.Lives = System.Math.Min(_runState.Lives + 1, _runState.MaxLives);
+				break;
+
+			case PremiumCardRegistry.LongFuseId:
+				_runState.ExplosionRadiusBonus += Balance.LongFuseRadiusBonus;
+				break;
+
+			case PremiumCardRegistry.SignalBoostId:
+				_runState.MarkDurationBonus += Balance.SignalBoostMarkDurationBonus;
+				break;
+
+			case PremiumCardRegistry.ColdCircuitId:
+				_runState.SlowDurationMultiplier *= Balance.ColdCircuitSlowDurationMultiplier;
+				break;
+		}
+
+		GD.Print($"[Premium] Applied {cardId} (slot {targetSlotIndex})");
+		_hudPanel?.RefreshPremiumCards(_runState.PickedPremiumCards);
 	}
 
 	private void CancelPlacement()
@@ -1908,13 +2013,13 @@ public partial class GameController : Node
 		var tower = new TowerInstance
 		{
 			TowerId           = towerId,
-			BaseDamage        = def.BaseDamage,
-			AttackInterval    = def.AttackInterval,
-			Range             = def.Range,
+			BaseDamage        = def.BaseDamage  + _runState.BonusDamage,
+			AttackInterval    = def.AttackInterval * _runState.AttackIntervalMultiplier,
+			Range             = def.Range       + _runState.TowerRangeBonus,
 			AppliesMark       = def.AppliesMark,
 			SplitCount        = def.SplitCount,
 			ChainCount        = def.ChainCount,
-			ChainRange        = def.ChainRange,
+			ChainRange        = def.ChainRange  + _runState.ChainRangeBonus,
 			ChainDamageDecay  = def.ChainDamageDecay,
 			ProjectileColor = GetTowerProjectileColor(towerId),
 			BodyColor = GetTowerBodyColor(towerId),

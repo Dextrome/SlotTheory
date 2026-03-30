@@ -23,11 +23,12 @@ public class FakeTower : ITowerView
     public bool IsChainTower => ChainCount > 0;
     public TargetingMode TargetingMode { get; set; } = TargetingMode.First;
     public List<Modifier> Modifiers { get; } = new();
+    public int MaxModifiers { get; set; } = SlotTheory.Core.Balance.MaxModifiersPerTower;
     private bool? _canAddModifier;
     /// <summary>Set explicitly in tests to simulate a tower at modifier cap.</summary>
     public bool CanAddModifier
     {
-        get => _canAddModifier ?? (Modifiers.Count < SlotTheory.Core.Balance.MaxModifiersPerTower);
+        get => _canAddModifier ?? (Modifiers.Count < MaxModifiers);
         set => _canAddModifier = value;
     }
     public float Cooldown { get; set; } = 0f;

@@ -67,7 +67,7 @@
   "reaper_protocol": {
     "Id": "reaper_protocol",
     "Name": "Reaper Protocol",
-    "Description": "Kill (primary only): first 5 kills/wave restore 1 life each (up to max lives). Wave 10+, full game."
+    "Description": "Kill (primary only): first 5 kills/wave restore 1 life each (up to max lives). Wave 5+, full game."
   },
   "deadzone": {
     "Id": "deadzone",

@@ -60,7 +60,8 @@ public class BlastCore : Modifier
             if (m.ModifierId == ModifierId) copies++;
 
         Vector2 origin = ctx.Target.GlobalPosition;
-        float radius = Balance.BlastCoreRadius + (copies - 1) * Balance.BlastCoreRadiusPerCopy;
+        float radius = Balance.BlastCoreRadius + (copies - 1) * Balance.BlastCoreRadiusPerCopy
+            + (ctx.State?.ExplosionRadiusBonus ?? 0f);
 
         // Collect in-range enemies, excluding the primary hit target.
         var candidates = new List<IEnemyView>();
@@ -107,7 +108,7 @@ public class BlastCore : Modifier
             float dealt = hpBefore - enemy.Hp;
             totalDealt += dealt;
             if (applyChill)
-                Statuses.ApplySlow(enemy, Balance.SlowDuration, chillSlowFactor);
+                Statuses.ApplySlow(enemy, Balance.SlowDuration * (ctx.State?.SlowDurationMultiplier ?? 1f), chillSlowFactor);
 
             if (dealt > 0f && ctx.State != null)
                 ctx.State.TrackBaseAttackDamage(slotIndex, (int)dealt, isKill: enemy.Hp <= 0f, enemy.ProgressRatio);

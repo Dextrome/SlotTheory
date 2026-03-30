@@ -86,6 +86,26 @@ public class RunState
     public string? SelectedMapId { get; set; } = null;  // null = random
     public int RngSeed { get; set; } = 0;
 
+    // ── Premium Card run state ────────────────────────────────────────────────
+    /// <summary>IDs of all premium cards picked this run (in order).</summary>
+    public List<string> PickedPremiumCards { get; } = new();
+    /// <summary>Better Odds: extra cards shown per draft.</summary>
+    public int   BonusDraftCards           { get; set; } = 0;
+    /// <summary>Kinetic Calibration: cumulative flat damage bonus to all towers.</summary>
+    public int   BonusDamage               { get; set; } = 0;
+    /// <summary>Hot Loaders: cumulative attack interval multiplier (< 1 = faster).</summary>
+    public float AttackIntervalMultiplier  { get; set; } = 1f;
+    /// <summary>Extended Rails: cumulative range bonus in pixels.</summary>
+    public float TowerRangeBonus           { get; set; } = 0f;
+    /// <summary>Multitarget Relay: cumulative chain-range bonus in pixels.</summary>
+    public float ChainRangeBonus           { get; set; } = 0f;
+    /// <summary>Long Fuse: cumulative explosion/splash radius bonus in pixels.</summary>
+    public float ExplosionRadiusBonus      { get; set; } = 0f;
+    /// <summary>Signal Boost: cumulative mark duration bonus in seconds.</summary>
+    public float MarkDurationBonus         { get; set; } = 0f;
+    /// <summary>Cold Circuit: cumulative slow duration multiplier (> 1 = longer).</summary>
+    public float SlowDurationMultiplier    { get; set; } = 1f;
+
     // Campaign
     public MandateDefinition? ActiveMandate { get; set; }
 
@@ -350,6 +370,17 @@ public class RunState
         IsEndlessMode    = false;
         EndlessWaveDepth = 0;
         ActiveMandate    = null;
+
+        // Premium card state
+        PickedPremiumCards.Clear();
+        BonusDraftCards          = 0;
+        BonusDamage              = 0;
+        AttackIntervalMultiplier = 1f;
+        TowerRangeBonus          = 0f;
+        ChainRangeBonus          = 0f;
+        ExplosionRadiusBonus     = 0f;
+        MarkDurationBonus        = 0f;
+        SlowDurationMultiplier   = 1f;
     }
 
     /// <summary>Gets total damage dealt by a specific tower across all completed waves.</summary>

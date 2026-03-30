@@ -25,6 +25,7 @@ public sealed class CombatLabScenarioRunner
         public TargetingMode TargetingMode { get; set; } = TargetingMode.First;
         public List<Modifier> Modifiers { get; } = new();
         public bool CanAddModifier => true;
+        public int MaxModifiers { get; set; } = Core.Balance.MaxModifiersPerTower;
         public float Cooldown { get; set; }
         public Vector2 GlobalPosition { get; set; } = Vector2.Zero;
         public void RefreshRangeCircle() { }

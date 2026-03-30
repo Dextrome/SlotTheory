@@ -138,7 +138,8 @@ public partial class TowerInstance : Node2D, ITowerView
     public bool  IsChainTower     => ChainCount > 0;
     public int   SplitCount       { get; set; } = 0;
 
-    public bool CanAddModifier => Modifiers.Count < Balance.MaxModifiersPerTower;
+    public int  MaxModifiers  { get; set; } = Balance.MaxModifiersPerTower;
+    public bool CanAddModifier => Modifiers.Count < MaxModifiers;
 
     public TargetModeIcon? ModeIconControl { get; set; }
     public ColorRect? ModeBadgeControl { get; set; }

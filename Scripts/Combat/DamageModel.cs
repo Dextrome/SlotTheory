@@ -126,7 +126,7 @@ public static class DamageModel
             ApplyRocketLauncherSplash(ctx);
 
         if (ctx.Attacker.AppliesMark)
-            Statuses.ApplyMarked(ctx.Target, Balance.MarkedDuration);
+            Statuses.ApplyMarked(ctx.Target, Balance.MarkedDuration + (ctx.State?.MarkDurationBonus ?? 0f));
 
         // 5. On-kill effects (run for all kills regardless of bounce type)
         if (ctx.Target.Hp <= 0)
@@ -149,7 +149,8 @@ public static class DamageModel
 
         int blastCoreCopies = CountModifier(ctx.Attacker, SpectacleDefinitions.BlastCore);
         float radius = Balance.RocketLauncherSplashRadius
-            + blastCoreCopies * Balance.RocketLauncherBlastCoreRadiusPerCopy;
+            + blastCoreCopies * Balance.RocketLauncherBlastCoreRadiusPerCopy
+            + (ctx.State?.ExplosionRadiusBonus ?? 0f);
         Vector2 origin = ctx.Target.GlobalPosition;
 
         var splashTargets = new List<IEnemyView>();
@@ -179,7 +180,7 @@ public static class DamageModel
             float dealt = hpBefore - enemy.Hp;
             totalDealt += dealt;
             if (applyChill)
-                Statuses.ApplySlow(enemy, Balance.SlowDuration, chillSlowFactor);
+                Statuses.ApplySlow(enemy, Balance.SlowDuration * (ctx.State?.SlowDurationMultiplier ?? 1f), chillSlowFactor);
 
             if (dealt > 0f && ctx.State != null)
                 ctx.State.TrackBaseAttackDamage(attackerSlotIndex, (int)dealt, isKill: enemy.Hp <= 0f, enemy.ProgressRatio);

@@ -6,7 +6,7 @@ using SlotTheory.Entities;
 
 namespace SlotTheory.Core;
 
-public enum DraftOptionType { Tower, Modifier }
+public enum DraftOptionType { Tower, Modifier, Premium }
 
 public record DraftOption(DraftOptionType Type, string Id);
 
@@ -44,14 +44,17 @@ public class DraftSystem
         // Wave 1: always offer towers only - player has no towers yet
         if (state.WaveIndex == 0)
         {
-            var wave1Options = new List<DraftOption>(Balance.DraftOptionsCount);
-            AddTowerOptions(wave1Options, Balance.DraftOptionsCount, state.ActiveMandate);
+            int wave1Total = Balance.DraftOptionsCount + state.BonusDraftCards;
+            var wave1Options = new List<DraftOption>(wave1Total);
+            AddTowerOptions(wave1Options, wave1Total, state.ActiveMandate);
             return wave1Options;
         }
         var placedTowers = state.Slots
             .Where(s => s.Tower != null)
             .Select(s => (Entities.ITowerView)s.Tower!);
-        return GenerateOptions(state.HasFreeSlots(), placedTowers, state.ActiveMandate, state.WaveIndex);
+        var options = GenerateOptions(state.HasFreeSlots(), placedTowers, state.ActiveMandate, state.WaveIndex, state.BonusDraftCards);
+        TryInjectPremiumCard(options, state);
+        return options;
     }
 
     /// <summary>
@@ -59,28 +62,77 @@ public class DraftSystem
     /// with no dependency on RunState or Godot-backed TowerInstance.
     /// <paramref name="waveIndex"/> gates wave-restricted modifiers (e.g. Reaper Protocol at wave 9+);
     /// defaults to 0 so existing test calls that omit it behave identically to pre-gating code.
+    /// <paramref name="bonusDraftCards"/> adds extra options (from Better Odds); defaults to 0.
     /// </summary>
     public List<DraftOption> GenerateOptions(bool hasFreeSlots, IEnumerable<Entities.ITowerView> placedTowers,
-        MandateDefinition? mandate = null, int waveIndex = 0)
+        MandateDefinition? mandate = null, int waveIndex = 0, int bonusDraftCards = 0)
     {
-        var options = new List<DraftOption>(Balance.DraftOptionsCount);
+        int targetCount = (hasFreeSlots ? Balance.DraftOptionsCount : Balance.DraftModifierOptionsFull) + bonusDraftCards;
+        var options = new List<DraftOption>(targetCount);
 
         if (hasFreeSlots)
         {
+            int modCount = targetCount - Balance.DraftTowerOptions;
             AddTowerOptions(options, Balance.DraftTowerOptions, mandate, waveIndex);
-            AddModifierOptions(options, Balance.DraftModifierOptions, placedTowers, mandate, waveIndex);
+            AddModifierOptions(options, modCount, placedTowers, mandate, waveIndex);
         }
         else
         {
-            AddModifierOptions(options, Balance.DraftModifierOptionsFull, placedTowers, mandate, waveIndex);
+            AddModifierOptions(options, targetCount, placedTowers, mandate, waveIndex);
         }
 
-        // Pad to 5 with tower options if modifiers couldn't fill the list
-        // (e.g. wave 1 with no towers yet, or all towers at modifier cap)
-        if (options.Count < Balance.DraftOptionsCount && hasFreeSlots)
-            AddTowerOptions(options, Balance.DraftOptionsCount - options.Count, mandate, waveIndex);
+        // Pad to targetCount with tower options if modifiers couldn't fill the list
+        // (e.g. all towers at modifier cap, or not enough modifier pool entries)
+        if (options.Count < targetCount && hasFreeSlots)
+            AddTowerOptions(options, targetCount - options.Count, mandate, waveIndex);
 
         return options;
+    }
+
+    /// <summary>
+    /// Attempt to replace a random existing option with a premium card.
+    /// Fires at most once per draft, never on wave 1, and respects per-run caps.
+    /// The premium card takes one of the normal draft slots so the total count stays the same.
+    /// </summary>
+    private void TryInjectPremiumCard(List<DraftOption> options, RunState state)
+    {
+        if (options.Count == 0) return;
+        if (state.PickedPremiumCards.Count >= Balance.MaxPremiumCardsPerRun) return;
+        if (_rng.NextDouble() >= Balance.PremiumCardChance) return;
+
+        bool superRare = _rng.NextDouble() < Balance.SuperRarePremiumFraction;
+        var rarity = superRare ? PremiumRarity.SuperRare : PremiumRarity.Rare;
+
+        var available = PremiumCardRegistry.GetAll()
+            .Where(c => c.Rarity == rarity && !IsExcluded(c, state))
+            .ToList();
+
+        // Fall back to the other rarity if the target tier has no eligible cards
+        if (available.Count == 0)
+        {
+            rarity = superRare ? PremiumRarity.Rare : PremiumRarity.SuperRare;
+            available = PremiumCardRegistry.GetAll()
+                .Where(c => c.Rarity == rarity && !IsExcluded(c, state))
+                .ToList();
+        }
+
+        if (available.Count == 0) return;
+
+        var card = available[_rng.Next(available.Count)];
+        int replaceIndex = _rng.Next(options.Count);
+        options[replaceIndex] = new DraftOption(DraftOptionType.Premium, card.Id);
+    }
+
+    private static bool IsExcluded(PremiumCardDef card, RunState state)
+    {
+        int copies = state.PickedPremiumCards.Count(id => id == card.Id);
+        if (copies >= PremiumCardRegistry.GetMaxCopies(card.Id)) return true;
+
+        // Expanded Chassis: no eligible tower (all at cap or no towers placed)
+        if (card.Id == PremiumCardRegistry.ExpandedChassisId)
+            return !state.Slots.Any(s => s.Tower != null && s.Tower.MaxModifiers < Balance.MaxPremiumModSlots);
+
+        return false;
     }
 
     public void ApplyTower(string towerId, RunState state)

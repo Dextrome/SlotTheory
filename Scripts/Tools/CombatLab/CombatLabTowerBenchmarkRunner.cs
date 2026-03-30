@@ -29,6 +29,7 @@ public sealed class CombatLabTowerBenchmarkRunner
         public TargetingMode TargetingMode { get; set; } = TargetingMode.First;
         public List<Modifier> Modifiers { get; } = new();
         public bool CanAddModifier => true;
+        public int MaxModifiers { get; set; } = Balance.MaxModifiersPerTower;
         public float Cooldown { get; set; }
         public Vector2 GlobalPosition { get; set; }
 
