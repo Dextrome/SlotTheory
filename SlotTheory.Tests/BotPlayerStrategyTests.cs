@@ -56,6 +56,29 @@ public class BotPlayerStrategyTests
             pick: bot.Pick(options, state));
     }
 
+    [Fact]
+    public void GreedyDps_DeadzoneOffered_PrefersAnchorTowerOverNonAnchor()
+    {
+        // Deadzone is most effective on chokepoint/control towers.
+        // GreedyDps should prefer placing it on undertow_engine over rapid_shooter.
+        var bot = new BotPlayer(BotStrategy.GreedyDps, seed: 1);
+        var state = NewState(mapId: "orbit", waveIndex: 5, lives: 10);
+
+        // Two towers: undertow_engine (anchor) and rapid_shooter (non-anchor).
+        state.Slots[0].Tower = new FakeTower { TowerId = "undertow_engine", CanAddModifier = true };
+        state.Slots[1].Tower = new FakeTower { TowerId = "rapid_shooter",   CanAddModifier = true };
+
+        var options = new List<DraftOption> { Mod("deadzone") };
+
+        var pick = bot.Pick(options, state);
+
+        Assert.NotNull(pick);
+        Assert.Equal(DraftOptionType.Modifier, pick!.Option.Type);
+        Assert.Equal("deadzone", pick.Option.Id);
+        // Deadzone should land on the anchor tower (slot 0 = undertow_engine).
+        Assert.Equal(0, pick.SlotIndex);
+    }
+
     private static RunState NewState(string mapId, int waveIndex, int lives)
     {
         var state = new RunState

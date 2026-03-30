@@ -23,6 +23,7 @@ public static class ModifierRegistry
         ["wildfire"]         = def => new Wildfire(def),
         ["afterimage"]       = def => new Afterimage(def),
         ["reaper_protocol"]  = def => new ReaperProtocol(def),
+        ["deadzone"]         = def => new Deadzone(def),
     };
 
     public static Modifier Create(string modifierId)

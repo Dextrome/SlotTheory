@@ -70,6 +70,18 @@ public class CombatSim
         public AfterimageImprintVfx? Visual { get; set; }
     }
 
+    private sealed class ActiveDeadzone
+    {
+        public ITowerView SourceTower { get; init; } = null!;
+        public TowerInstance? SourceNode { get; init; }
+        public Vector2 Position { get; set; }
+        public float SeedDamage { get; set; }
+        public float LifetimeTotal { get; set; }
+        public float LifetimeRemaining { get; set; }
+        public float ArmRemaining { get; set; }   // zone cannot trigger until this reaches 0
+        public DeadzoneVfx? Visual { get; set; }
+    }
+
     private readonly RunState _state;
     private float _spawnTimer = 0f;
     private readonly Queue<string> _spawnQueue = new();
@@ -86,6 +98,7 @@ public class CombatSim
     private readonly Dictionary<ulong, float> _undertowRecentRemaining = new();
     private readonly Dictionary<ulong, float> _undertowRetargetLockoutRemaining = new();
     private readonly List<ActiveAfterimage> _activeAfterimages = new();
+    private readonly List<ActiveDeadzone> _activeDeadzones = new();
     private readonly LatchNestParasiteController<EnemyInstance> _latchParasites = new();
     private readonly Dictionary<ulong, LatchParasiteVfx> _latchParasiteVisuals = new();
 
@@ -106,6 +119,7 @@ public class CombatSim
     private readonly Dictionary<ulong, float> _wildfireTrailDmgAccumulator = new();
     private static readonly Color WildfireFireColor = new(1.0f, 0.55f, 0.12f);
     private static readonly Color AfterimageColor = new(0.72f, 0.88f, 1.00f);
+    private static readonly Color DeadzoneColor = new(1.00f, 0.55f, 0.14f); // hot amber-orange, distinct from Wildfire/Afterimage
     private bool _afterimageFollowupsConsumed;
 
     // Set externally by GameController when an enemy scene is needed
@@ -141,6 +155,7 @@ public class CombatSim
         ClearFireTrails();
         ClearUndertowEffects();
         ClearAfterimages();
+        ClearDeadzones();
         ClearLatchParasites();
         RebuildMineAnchors();
     }
@@ -158,6 +173,7 @@ public class CombatSim
         ClearFireTrails();
         ClearUndertowEffects();
         ClearAfterimages();
+        ClearDeadzones();
         ClearLatchParasites();
         RebuildMineAnchors();
 
@@ -419,6 +435,59 @@ public class CombatSim
         Sounds?.Play("afterimage_seed", pitchScale: ResolveAfterimageSeedPitch(tower));
     }
 
+    /// <summary>
+    /// Seeds (or replaces) the active Deadzone trap for a tower.
+    /// Rule: one active zone per tower; a new hit overwrites the old zone.
+    /// </summary>
+    public void QueueDeadzone(ITowerView tower, Vector2 worldPos, float sourceDamage)
+    {
+        if (tower == null || sourceDamage <= 0f)
+            return;
+        if (CountModifierCopies(tower, "deadzone") <= 0)
+            return;
+
+        float lifetime = Balance.DeadzoneLifetime;
+        float seedDamage = MathF.Max(Balance.DeadzoneMinDamage, sourceDamage);
+
+        // One active zone per tower: overwrite position and reset lifetime if already active.
+        ActiveDeadzone? existing = _activeDeadzones.FirstOrDefault(z => ReferenceEquals(z.SourceTower, tower));
+        if (existing != null)
+        {
+            existing.Position = worldPos;
+            existing.SeedDamage = seedDamage;
+            existing.LifetimeRemaining = lifetime;
+            existing.LifetimeTotal = lifetime;
+            existing.ArmRemaining = Balance.DeadzoneArmTime;
+            if (!BotMode && existing.Visual != null && GodotObject.IsInstanceValid(existing.Visual))
+                existing.Visual.Reset(worldPos, lifetime, ResolveDeadzoneTriggerRadius(), ResolveDeadzoneTint(tower), tower.TowerId);
+            Sounds?.Play("deadzone_place", pitchScale: ResolveDeadzonePlacePitch(tower));
+            return;
+        }
+
+        var zone = new ActiveDeadzone
+        {
+            SourceTower = tower,
+            SourceNode = tower as TowerInstance,
+            Position = worldPos,
+            SeedDamage = seedDamage,
+            LifetimeTotal = lifetime,
+            LifetimeRemaining = lifetime,
+            ArmRemaining = Balance.DeadzoneArmTime,
+        };
+
+        if (!BotMode && LanePath != null)
+        {
+            var visual = new DeadzoneVfx();
+            LanePath.GetParent().AddChild(visual);
+            visual.GlobalPosition = worldPos;
+            visual.Initialize(lifetime, ResolveDeadzoneTriggerRadius(), ResolveDeadzoneTint(tower), tower.TowerId);
+            zone.Visual = visual;
+        }
+
+        _activeDeadzones.Add(zone);
+        Sounds?.Play("deadzone_place", pitchScale: ResolveDeadzonePlacePitch(tower));
+    }
+
     public WaveResult Step(float delta, RunState state, WaveSystem waveSystem)
     {
         state.WaveTime += delta;
@@ -466,6 +535,7 @@ public class CombatSim
             ClearFireTrails();
             ClearUndertowEffects();
             ClearAfterimages();
+            ClearDeadzones();
             ClearLatchParasites();
             return WaveResult.Loss;
         }
@@ -874,6 +944,7 @@ public class CombatSim
         // 3.5. Wildfire burn DOT and fire trail hazards
         UpdateBurnAndTrails(delta, state.WaveIndex, state.EnemiesAlive);
         UpdateAfterimages(delta, state.EnemiesAlive);
+        UpdateDeadzones(delta, state.EnemiesAlive);
         _latchParasites.Tick(
             delta,
             state.WaveIndex,
@@ -915,6 +986,7 @@ public class CombatSim
             ClearFireTrails();
             ClearUndertowEffects();
             ClearAfterimages();
+            ClearDeadzones();
             ClearLatchParasites();
             return WaveResult.WaveComplete;
         }
@@ -963,6 +1035,16 @@ public class CombatSim
                 imprint.Visual.QueueFree();
         }
         _activeAfterimages.Clear();
+    }
+
+    private void ClearDeadzones()
+    {
+        foreach (var zone in _activeDeadzones)
+        {
+            if (zone.Visual != null && GodotObject.IsInstanceValid(zone.Visual))
+                zone.Visual.QueueFree();
+        }
+        _activeDeadzones.Clear();
     }
 
     private void ClearLatchParasites()
@@ -1730,6 +1812,240 @@ public class CombatSim
             _activeAfterimages.RemoveAt(i);
         }
     }
+
+    private void UpdateDeadzones(float delta, List<EnemyInstance> enemies)
+    {
+        if (_activeDeadzones.Count == 0 || delta <= 0f)
+            return;
+
+        for (int i = _activeDeadzones.Count - 1; i >= 0; i--)
+        {
+            ActiveDeadzone zone = _activeDeadzones[i];
+
+            // If the source tower was removed from the scene, clean up.
+            if (zone.SourceNode != null && !GodotObject.IsInstanceValid(zone.SourceNode))
+            {
+                if (zone.Visual != null && GodotObject.IsInstanceValid(zone.Visual))
+                    zone.Visual.QueueFree();
+                _activeDeadzones.RemoveAt(i);
+                continue;
+            }
+
+            // Tick arm time -- zone cannot trigger until armed.
+            if (zone.ArmRemaining > 0f)
+            {
+                zone.ArmRemaining = MathF.Max(0f, zone.ArmRemaining - delta);
+                zone.LifetimeRemaining = MathF.Max(0f, zone.LifetimeRemaining - delta);
+                if (!BotMode && zone.Visual != null && GodotObject.IsInstanceValid(zone.Visual))
+                    zone.Visual.SetLifetimeRemaining(zone.LifetimeRemaining, zone.LifetimeTotal);
+                if (zone.LifetimeRemaining <= 0f)
+                {
+                    if (zone.Visual != null && GodotObject.IsInstanceValid(zone.Visual))
+                        zone.Visual.ExpireAndFree();
+                    _activeDeadzones.RemoveAt(i);
+                }
+                continue;
+            }
+
+            // Check for first enemy crossing.
+            float triggerRadius = ResolveDeadzoneTriggerRadius();
+            EnemyInstance? trigger = null;
+            foreach (EnemyInstance e in enemies)
+            {
+                if (!GodotObject.IsInstanceValid(e) || e.Hp <= 0f)
+                    continue;
+                if (zone.Position.DistanceTo(e.GlobalPosition) <= triggerRadius)
+                {
+                    trigger = e;
+                    break;
+                }
+            }
+
+            if (trigger != null)
+            {
+                TriggerDeadzoneFollowup(zone, trigger, enemies);
+                if (zone.Visual != null && GodotObject.IsInstanceValid(zone.Visual))
+                    zone.Visual.TriggerAndFree();
+                _activeDeadzones.RemoveAt(i);
+                continue;
+            }
+
+            // Tick lifetime -- expire if uncrossed.
+            zone.LifetimeRemaining = MathF.Max(0f, zone.LifetimeRemaining - delta);
+            if (!BotMode && zone.Visual != null && GodotObject.IsInstanceValid(zone.Visual))
+                zone.Visual.SetLifetimeRemaining(zone.LifetimeRemaining, zone.LifetimeTotal);
+
+            if (zone.LifetimeRemaining <= 0f)
+            {
+                if (zone.Visual != null && GodotObject.IsInstanceValid(zone.Visual))
+                    zone.Visual.ExpireAndFree();
+                _activeDeadzones.RemoveAt(i);
+            }
+        }
+    }
+
+    private void TriggerDeadzoneFollowup(ActiveDeadzone zone, EnemyInstance triggerEnemy, List<EnemyInstance> enemies)
+    {
+        ITowerView tower = zone.SourceTower;
+        int copies = Math.Max(1, CountModifierCopies(tower, "deadzone"));
+        // Copies give a modest boost (each extra copy = +18% followup).
+        float followupDamage = MathF.Max(Balance.DeadzoneMinDamage,
+            zone.SeedDamage * Balance.DeadzoneFollowupDamageRatio * (1f + (copies - 1) * 0.18f));
+        Color tint = ResolveDeadzoneTint(tower);
+
+        Sounds?.Play("deadzone_trigger", pitchScale: ResolveDeadzoneTriggerPitch(tower));
+
+        switch (tower.TowerId)
+        {
+            case "heavy_cannon":
+                ApplyDeadzoneAreaFollowup(tower, zone.Position, triggerEnemy, enemies,
+                    followupDamage * 1.05f, Balance.DeadzoneAreaBurstRadius, tint);
+                break;
+            case "rocket_launcher":
+                ApplyDeadzoneAreaFollowup(tower, zone.Position, triggerEnemy, enemies,
+                    followupDamage, Balance.DeadzoneAreaBurstRadius * 1.10f, tint);
+                break;
+            case "rift_prism":
+                // Rift scar: compact rift burst at detonation point.
+                ApplyDeadzoneAreaFollowup(tower, zone.Position, triggerEnemy, enemies,
+                    followupDamage * 0.90f, Balance.DeadzoneAreaBurstRadius * 0.90f, tint);
+                break;
+            case "undertow_engine":
+                // Brief drag-nudge from the zone.
+                ApplyDeadzoneUndertowFollowup(zone.Position, triggerEnemy, tint);
+                // Also deal a light damage hit (zone still stings a bit).
+                ApplyDeadzoneDirectHit(tower, triggerEnemy, followupDamage * 0.55f, tint);
+                break;
+            case "accordion_engine":
+                ApplyDeadzoneAreaFollowup(tower, zone.Position, triggerEnemy, enemies,
+                    followupDamage * 0.75f, Balance.DeadzoneAreaBurstRadius * 0.80f, tint);
+                break;
+            default:
+                // Default / rapid_shooter / chain_tower / marker_tower / phase_splitter / latch_nest:
+                // single-target reduced damage hit on the crossing enemy.
+                ApplyDeadzoneDirectHit(tower, triggerEnemy, followupDamage, tint);
+                break;
+        }
+
+        GameController.Instance?.RegisterSpectacleProc(tower, SpectacleDefinitions.Deadzone,
+            SpectacleDefinitions.GetProcScalar(SpectacleDefinitions.Deadzone), followupDamage);
+    }
+
+    private void ApplyDeadzoneDirectHit(ITowerView tower, EnemyInstance target, float damage, Color color)
+    {
+        if (!GodotObject.IsInstanceValid(target) || target.Hp <= 0f || damage <= 0f)
+            return;
+
+        var ctx = new DamageContext(
+            tower, target, _state.WaveIndex, _state.EnemiesAlive, _state,
+            isChain: false, damageOverride: damage, suppressDeadzoneSeed: true);
+        DamageModel.Apply(ctx);
+
+        if (!BotMode && ctx.DamageDealt > 0.001f)
+        {
+            SpawnDamageNumber(
+                target.GlobalPosition + new Godot.Vector2(0f, -6f),
+                MathF.Max(1f, ctx.DamageDealt),
+                target.Hp <= 0f,
+                tower.TowerId,
+                new Godot.Color(
+                    Mathf.Clamp(color.R * 0.82f + 0.18f, 0f, 1f),
+                    Mathf.Clamp(color.G * 0.72f + 0.14f, 0f, 1f),
+                    Mathf.Clamp(color.B * 0.50f + 0.06f, 0f, 1f),
+                    1f),
+                scale: 0.90f);
+            if (target.Hp > 0f && GodotObject.IsInstanceValid(target))
+                target.FlashHit();
+        }
+    }
+
+    private void ApplyDeadzoneAreaFollowup(
+        ITowerView tower,
+        Vector2 origin,
+        EnemyInstance primary,
+        List<EnemyInstance> allEnemies,
+        float damage,
+        float radius,
+        Color color)
+    {
+        // Always hit the triggering enemy first, then collect nearby targets.
+        ApplyDeadzoneDirectHit(tower, primary, damage, color);
+
+        int extraHits = 0;
+        foreach (EnemyInstance candidate in allEnemies
+            .OrderBy(e => origin.DistanceTo(e.GlobalPosition)))
+        {
+            if (extraHits >= Balance.DeadzoneAreaBurstMaxTargets - 1)
+                break;
+            if (ReferenceEquals(candidate, primary))
+                continue;
+            if (!GodotObject.IsInstanceValid(candidate) || candidate.Hp <= 0f)
+                continue;
+            if (origin.DistanceTo(candidate.GlobalPosition) > radius)
+                continue;
+
+            float falloff = Mathf.Lerp(1f, 0.65f, origin.DistanceTo(candidate.GlobalPosition) / MathF.Max(1f, radius));
+            ApplyDeadzoneDirectHit(tower, candidate, damage * falloff, color);
+            extraHits++;
+        }
+    }
+
+    private void ApplyDeadzoneUndertowFollowup(Vector2 origin, EnemyInstance target, Color color)
+    {
+        if (!GodotObject.IsInstanceValid(target) || target.Hp <= 0f)
+            return;
+
+        float pullDist = Balance.DeadzonePullDistance;
+        float end = MathF.Max(0f, target.Progress - pullDist);
+        float moved = target.Progress - end;
+        if (moved > 0.5f)
+        {
+            target.Progress = end;
+            Statuses.ApplySlow(target, Balance.DeadzonePullSlowDuration, Balance.DeadzonePullSlowFactor);
+        }
+
+        if (!BotMode)
+        {
+            // Small tether flash from zone to target position.
+            SpawnChainArc(origin, target.GlobalPosition, color, intensity: 0.60f);
+        }
+    }
+
+    private static float ResolveDeadzoneTriggerRadius()
+        => Balance.DeadzoneTriggerRadius;
+
+    private static Color ResolveDeadzoneTint(ITowerView tower)
+    {
+        if (tower is TowerInstance node)
+        {
+            Color c = node.ProjectileColor;
+            // Shift toward warm amber while preserving tower identity.
+            return new Color(
+                Mathf.Clamp(c.R * 0.65f + 0.35f, 0f, 1f),
+                Mathf.Clamp(c.G * 0.48f + 0.22f, 0f, 1f),
+                Mathf.Clamp(c.B * 0.28f + 0.04f, 0f, 1f),
+                1f);
+        }
+        return DeadzoneColor;
+    }
+
+    private static float ResolveDeadzonePlacePitch(ITowerView tower) => tower.TowerId switch
+    {
+        "heavy_cannon"    => 0.82f,
+        "rocket_launcher" => 0.86f,
+        "undertow_engine" => 0.80f,
+        "rift_prism"      => 0.90f,
+        _                 => 0.96f,
+    };
+
+    private static float ResolveDeadzoneTriggerPitch(ITowerView tower) => tower.TowerId switch
+    {
+        "heavy_cannon"    => 0.84f,
+        "rocket_launcher" => 0.88f,
+        "rift_prism"      => 0.92f,
+        "rapid_shooter"   => 1.10f,
+        _                 => 1.00f,
+    };
 
     private void TriggerAfterimageEcho(ActiveAfterimage imprint, List<EnemyInstance> enemies)
     {

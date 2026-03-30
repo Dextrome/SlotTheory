@@ -42,6 +42,8 @@ Thumbs.db
 *.png
 !Assets/Achievements/AFTERIMAGE_UNSEALED.png
 !Assets/Achievements/AFTERIMAGE_UNSEALED_locked.png
+!Assets/Achievements/DEADZONE_UNSEALED.png
+!Assets/Achievements/DEADZONE_UNSEALED_locked.png
 *.jpg
 *.jpeg
 *.bmp

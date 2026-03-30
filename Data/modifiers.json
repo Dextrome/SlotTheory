@@ -68,5 +68,10 @@
     "Id": "reaper_protocol",
     "Name": "Reaper Protocol",
     "Description": "Kill (primary only): first 5 kills/wave restore 1 life each (up to max lives). Wave 10+, full game."
+  },
+  "deadzone": {
+    "Id": "deadzone",
+    "Name": "Deadzone",
+    "Description": "Full game. Hits leave a short-lived trap at the impact point. The next enemy through it triggers a follow-up, then the zone collapses (single trigger, not a lingering hazard)."
   }
 }

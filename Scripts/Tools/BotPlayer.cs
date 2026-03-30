@@ -137,6 +137,10 @@ public class BotPlayer
     private static bool IsAfterimageAnchorTower(string? towerId) =>
         towerId is "undertow_engine" or "chain_tower" or "phase_splitter" or "rocket_launcher" or "marker_tower";
 
+    // Deadzone zones pay off most on chokepoint/control towers where enemies cluster.
+    private static bool IsDeadzoneAnchorTower(string? towerId) =>
+        towerId is "undertow_engine" or "rift_prism" or "accordion_engine" or "heavy_cannon" or "rocket_launcher";
+
     private static bool IsWildfireTimingOnline(RunState s, DifficultyMode difficulty, int picksSoFar)
     {
         return difficulty switch
@@ -173,6 +177,7 @@ public class BotPlayer
         "blast_core",       // splash AoE drives multi-kill chains; strong spectacle meter generator
         "wildfire",         // burn DOT + trail hazards drive sustained damage and kill chains
         "afterimage",       // delayed replay value in chokepoints; stronger with slows/pulls/clumps
+        "deadzone",         // spatial trap scar; procs follow-up on crossing enemy; rewards chokepoint play
         "chain_reaction",   // chain bounces → more kills → more overkill spills
         "split_shot",       // multi-ignition: each split projectile applies Burning independently
         "hair_trigger",     // attack speed → more kills + denser trail painting
@@ -441,6 +446,13 @@ public class BotPlayer
                     .Where(i => IsAfterimageAnchorTower(s.Slots[i].Tower?.TowerId) && !SlotHasModifier(s.Slots[i], "afterimage"))
                     .OrderByDescending(i => ScoreControlTowerForReposition(s.Slots[i].Tower?.TowerId))
                     .ThenByDescending(i => ScoreBacklineTower(s.Slots[i].Tower?.TowerId))
+                    .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
+                    .FirstOrDefault(-1),
+
+                "deadzone" => eligible
+                    .Where(i => IsDeadzoneAnchorTower(s.Slots[i].Tower?.TowerId) && !SlotHasModifier(s.Slots[i], "deadzone"))
+                    .OrderByDescending(i => ScoreControlTowerForReposition(s.Slots[i].Tower?.TowerId))
+                    .ThenByDescending(i => ScoreBurstTowerForSnap(s.Slots[i].Tower?.TowerId))
                     .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count)
                     .FirstOrDefault(-1),
 
@@ -1050,6 +1062,7 @@ public class BotPlayer
                     "split_shot"       =>  8f,
                     "blast_core"       =>  8f,
                     "afterimage"       =>  7f,
+                    "deadzone"         =>  6f,
                     "exploit_weakness" => hasMarker ? 20f : 2f,
                     "feedback_loop"    =>  8f,
                     "overkill"         =>  7f,
@@ -1079,6 +1092,10 @@ public class BotPlayer
                     "afterimage" =>
                         eligible.OrderByDescending(i => ScoreControlTowerForReposition(s.Slots[i].Tower?.TowerId))
                         .ThenByDescending(i => IsAfterimageAnchorTower(s.Slots[i].Tower?.TowerId) ? 1 : 0)
+                        .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count).First(),
+                    "deadzone" =>
+                        eligible.OrderByDescending(i => IsDeadzoneAnchorTower(s.Slots[i].Tower?.TowerId) ? 1 : 0)
+                        .ThenByDescending(i => ScoreControlTowerForReposition(s.Slots[i].Tower?.TowerId))
                         .ThenBy(i => s.Slots[i].Tower!.Modifiers.Count).First(),
                     // Default: tower with fewest mods
                     _ => eligible.OrderBy(i => s.Slots[i].Tower!.Modifiers.Count).First(),
@@ -1204,6 +1221,7 @@ public class BotPlayer
                     "split_shot"       => 5f,
                     "blast_core"       => 5f,
                     "afterimage"       => 6f,
+                    "deadzone"         => 4f,
                     "chain_reaction"   => 4f,
                     "focus_lens"       => 5f,
                     "overreach"        => 5f,
@@ -1314,6 +1332,7 @@ public class BotPlayer
                     "split_shot"       =>  7f,
                     "blast_core"       =>  7f,
                     "afterimage"       =>  6f,
+                    "deadzone"         =>  5f,
                     "overkill"         =>  6f,
                     "focus_lens"       =>  6f,
                     "chain_reaction"   =>  3f,  // low fallback priority - step 1 handles active placement
@@ -1695,6 +1714,7 @@ public class BotPlayer
                     "split_shot"       => needsStability ? 8f : 11f,
                     "blast_core"       => needsStability ? 5f : 9f,
                     "afterimage"       => needsStability ? 7f : 10f,
+                    "deadzone"         => needsStability ? 4f : 8f,
                     "chain_reaction"   => needsStability ? 6f : 9f,
                     "overkill"         => needsStability ? 4f : 8f,
                     "focus_lens"       => needsStability ? 3f : 5f,

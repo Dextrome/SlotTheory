@@ -337,6 +337,26 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
     public const float WildfireTrailRadius       = 30f;    // overlap radius for trail damage (px)
     public const int   WildfireMaxTrailSegments  = 20;     // global cap per wave (prevents perf blowup with Hair Trigger)
 
+    // Deadzone modifier
+    // Identity: primary hits leave a short-lived spatial trap at the impact point.
+    // The first enemy to cross the zone triggers a reduced follow-up hit, then the zone collapses.
+    // Structural guardrails:
+    //  - one active zone per tower (new hit replaces old zone)
+    //  - primary hits only (no chain/split seeding; ApplyToChainTargets=false)
+    //  - triggered follow-up uses suppressDeadzoneSeed:true (no recursive zones)
+    //  - arm time prevents same-frame trigger from the hit enemy itself
+    //  - zone expires after DeadzoneLifetime if uncrossed (not a permanent hazard)
+    public const float DeadzoneLifetime = 2.5f;             // seconds zone persists before expiring
+    public const float DeadzoneArmTime = 0.12f;             // seconds before zone can be triggered
+    public const float DeadzoneTriggerRadius = 38f;         // enemy must be within this px radius
+    public const float DeadzoneFollowupDamageRatio = 0.40f; // follow-up as fraction of seeded damage
+    public const float DeadzoneAreaBurstRadius = 70f;       // area burst radius for area-expressing towers
+    public const int   DeadzoneAreaBurstMaxTargets = 3;     // max targets hit in area burst variant
+    public const float DeadzonePullDistance = 24f;          // pull distance (px) for Undertow variant
+    public const float DeadzonePullSlowDuration = 0.85f;    // duration of slow applied by Undertow variant
+    public const float DeadzonePullSlowFactor = 0.82f;      // speed factor for Undertow-variant slow
+    public const float DeadzoneMinDamage = 1f;              // minimum follow-up damage floor
+
     // Afterimage modifier
     // Identity: hit now, leave short-lived ghost imprint, trigger one delayed reduced echo from that spot.
     // Structural guardrails:

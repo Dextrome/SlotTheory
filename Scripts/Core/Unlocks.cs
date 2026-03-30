@@ -32,6 +32,8 @@ public static class Unlocks
     public const string AfterimageAchievementId = "AFTERIMAGE_UNSEALED";
     public const string ReaperProtocolModifierId = "reaper_protocol";
     public const string ReaperProtocolAchievementId = "REAPER_UNSEALED";
+    public const string DeadzoneModifierId = "deadzone";
+    public const string DeadzoneAchievementId = "DEADZONE_UNSEALED";
     public const string PhaseSplitterTowerId = "phase_splitter";
     public const string PhaseSplitterAchievementId = "PHASE_UNSEALED";
     private const string ArcEmitterFallbackMapId = "orbit";
@@ -46,6 +48,7 @@ public static class Unlocks
     private const string RocketLauncherUnlockMapId = "trident";
     private const string UndertowEngineUnlockMapId = "ziggurat";
     private const string LatchNestUnlockMapId = "perimeter_lock";
+    private const string DeadzoneUnlockMapId = "fault_lines";
 
     public static bool ShouldUnlockArcEmitter(RunState state, DifficultyMode difficulty)
     {
@@ -131,6 +134,12 @@ public static class Unlocks
         return IsRunOnUnlockMap(state, unlockMapId);
     }
 
+    public static bool ShouldUnlockDeadzone(RunState state, DifficultyMode difficulty)
+    {
+        _ = difficulty;
+        return IsRunOnUnlockMap(state, GetDeadzoneUnlockMapId());
+    }
+
     /// <summary>
     /// Arc Emitter unlock follows the first non-random campaign map by display order.
     /// This keeps progression behavior correct even if map ordering changes.
@@ -203,6 +212,12 @@ public static class Unlocks
     /// </summary>
     public static string GetLatchNestUnlockMapId()
         => LatchNestUnlockMapId;
+
+    /// <summary>
+    /// Deadzone unlock is tied to Fault Lines.
+    /// </summary>
+    public static string GetDeadzoneUnlockMapId()
+        => DeadzoneUnlockMapId;
 
     private static string GetCampaignMapByOrder(int order, string fallbackId)
     {
@@ -282,6 +297,8 @@ public static class Unlocks
             return false;
         if (Balance.IsDemo && string.Equals(modifierId, ReaperProtocolModifierId, StringComparison.OrdinalIgnoreCase))
             return false;
+        if (Balance.IsDemo && string.Equals(modifierId, DeadzoneModifierId, StringComparison.OrdinalIgnoreCase))
+            return false;
 
         // Keep bots fully unlocked for deterministic balance tests.
         if (ShouldBypassProgressionForBot())
@@ -301,6 +318,9 @@ public static class Unlocks
 
         if (string.Equals(modifierId, ReaperProtocolModifierId, StringComparison.OrdinalIgnoreCase))
             return AchievementManager.Instance?.IsUnlocked(ReaperProtocolAchievementId) == true;
+
+        if (string.Equals(modifierId, DeadzoneModifierId, StringComparison.OrdinalIgnoreCase))
+            return AchievementManager.Instance?.IsUnlocked(DeadzoneAchievementId) == true;
 
         return true;
     }

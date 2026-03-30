@@ -193,6 +193,16 @@ public static class ModifierDataValidator
                     "life",
                     $"Wave {Balance.ReaperProtocolMinWaveIndex + 1}"                        // "Wave 10"
                 }
+            },
+            ["deadzone"] = new ModifierExpectation
+            {
+                Name = "Deadzone",
+                RequiredTokens = new()
+                {
+                    "trap",
+                    "single trigger",
+                    "collapses"
+                }
             }
         };
     }

@@ -520,7 +520,8 @@ public partial class SlotCodexPanel : Node
                 string.Equals(modifierId, Unlocks.BlastCoreModifierId,       StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(modifierId, Unlocks.WildfireModifierId,        StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(modifierId, Unlocks.AfterimageModifierId,      StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(modifierId, Unlocks.ReaperProtocolModifierId,  StringComparison.OrdinalIgnoreCase));
+                string.Equals(modifierId, Unlocks.ReaperProtocolModifierId,  StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(modifierId, Unlocks.DeadzoneModifierId,        StringComparison.OrdinalIgnoreCase));
             if (isFullGameOnly)
                 return BuildFullGameLockedModifierCard(modifierId, def);
 

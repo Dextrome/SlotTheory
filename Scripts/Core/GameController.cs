@@ -1106,6 +1106,9 @@ public partial class GameController : Node
 				case Unlocks.LatchNestAchievementId:
 					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: true, Unlocks.LatchNestTowerId));
 					break;
+				case Unlocks.DeadzoneAchievementId:
+					_pendingUnlockReveals.Enqueue(new UnlockRevealRequest(IsTower: false, Unlocks.DeadzoneModifierId));
+					break;
 			}
 		}
 
@@ -7877,6 +7880,18 @@ void fragment() {
 			return;
 
 		_combatSim.QueueAfterimageImprint(sourceTower, impactPos, sourceDamage);
+	}
+
+	/// <summary>
+	/// Called by DamageModel when a Deadzone-enabled tower lands a valid primary hit.
+	/// Delegates zone placement and crossing detection to CombatSim.
+	/// </summary>
+	public void NotifyDeadzoneHit(ITowerView sourceTower, Vector2 impactPos, float sourceDamage)
+	{
+		if (CurrentPhase != GamePhase.Wave || sourceTower == null || _combatSim == null)
+			return;
+
+		_combatSim.QueueDeadzone(sourceTower, impactPos, sourceDamage);
 	}
 
 	/// <summary>

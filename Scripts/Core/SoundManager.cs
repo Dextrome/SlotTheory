@@ -141,6 +141,8 @@ public partial class SoundManager : Node
         ["latch_pop"]         = 64,
         ["afterimage_seed"]   = 62,
         ["afterimage_echo"]   = 74,
+        ["deadzone_place"]    = 55,
+        ["deadzone_trigger"]  = 60,
         // Heavy impacts: longer cooldown since they're loud and infrequent by design.
         ["shoot_heavy"]       = 90,
         ["mine_pop"]       = 55,
@@ -181,6 +183,8 @@ public partial class SoundManager : Node
         ["latch_pop"]         = 44,
         ["afterimage_seed"]   = 48,
         ["afterimage_echo"]   = 62,
+        ["deadzone_place"]    = 42,
+        ["deadzone_trigger"]  = 48,
         // Death sounds: 60–100ms keeps individual kills audibly distinct at ×2/×3.
         ["die_basic"]      = 60,
         ["die_armored"]    = 100,
@@ -216,8 +220,10 @@ public partial class SoundManager : Node
         ["latch_attach"] = -2.5f,
         ["latch_tick"] = -8.5f,
         ["latch_pop"] = -4.0f,
-        ["afterimage_seed"] = +2.5f,
-        ["afterimage_echo"] = +1.0f,
+        ["afterimage_seed"]  = +2.5f,
+        ["afterimage_echo"]  = +1.0f,
+        ["deadzone_place"]   = +1.5f,
+        ["deadzone_trigger"] = +0.5f,
         ["mine_pop"] = -0.5f,
         ["mine_chain_pop"] = -1.0f,
     };
@@ -308,6 +314,17 @@ public partial class SoundManager : Node
             Sweep(640f, 1400f, 0.14f, vol: 0.26f),
             Sweep(280f, 90f, 0.16f, vol: 0.14f),
             Tone(2200f, 0.06f, vol: 0.08f, shape: 'n', env: 'f')));
+        // Deadzone place: subtle cracking fault-seal -- quick descending pressure sweep + hi-freq click.
+        // Keeps distinct from afterimage_seed (which is softer/ghostly) by being shorter and dryer.
+        Reg("deadzone_place", Layer(
+            Sweep(2100f, 480f, 0.06f, vol: 0.14f),
+            Tone(3600f, 0.03f, vol: 0.07f, shape: 'n', env: 'f')));
+        // Deadzone trigger: implosive collapse -- quick up-chirp then heavy downward implosion + crack.
+        // Reads as "zone just snapped shut on an enemy."
+        Reg("deadzone_trigger", Layer(
+            Sweep(360f, 980f, 0.04f, vol: 0.20f),
+            Sweep(980f, 130f, 0.10f, vol: 0.26f),
+            Tone(2600f, 0.05f, vol: 0.10f, shape: 'n', env: 'f')));
 
         // ── Enemy events ─────────────────────────────────────────────────
         Reg("hit",          Tone(520f, 0.03f, vol: 0.16f, shape: 'n', env: 'f'));

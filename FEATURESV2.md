@@ -73,7 +73,7 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 | Rapid Shooter | `rapid_shooter` | 10 | 0.45 s | 285 px | Fast single-target fire |
 | Heavy Cannon | `heavy_cannon` | 56 | 2.0 s | 238 px | Slow, high-burst impact shots |
 | Marker Tower | `marker_tower` | 7 | 1.0 s | 333 px | Applies Marked status on hit (+40% damage taken, 4 s) |
-| Rocket Launcher | `rocket_launcher` | 34 | 1.45 s | 248 px | Visible rocket projectile; full primary hit + built-in radial splash |
+| Rocket Launcher | `rocket_launcher` | 28 | 1.90 s | 248 px | Visible rocket projectile; full primary hit + built-in radial splash |
 | Undertow Engine | `undertow_engine` | 8 | 2.35 s | 265 px | Pull/control tower that drags enemies backward in path progress |
 
 ### Unlockable Towers
@@ -84,7 +84,7 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 | Rift Sapper | `rift_prism` | 22 | 0.98 s | 230 px | RIFT_UNSEALED (3rd campaign map) |
 | Accordion Engine | `accordion_engine` | 14 | 3.2 s | 290 px | ACCORDION_UNSEALED (Double Back map) |
 | Phase Splitter | `phase_splitter` | 20 | 0.95 s | 275 px | PHASE_UNSEALED (7th campaign map / `threshold` fallback) |
-| Latch Nest | `latch_nest` | 11 | 1.05 s | 255 px | LATCH_UNSEALED (`ziggurat`) |
+| Latch Nest | `latch_nest` | 9 | 1.05 s | 255 px | LATCH_UNSEALED (`ziggurat`) |
 
 ### Arc Emitter (chain_tower) -- Chain Mechanics
 - Primary target receives full hit
@@ -192,7 +192,7 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 
 ## 3. Modifier Roster
 
-14 modifiers total. 5 progression-gated, with full-game-only gating for Blast Core, Wildfire, Afterimage, and Reaper Protocol. All equipped via draft; max 3 per tower.
+15 modifiers total. 5 progression-gated, with full-game-only gating for Blast Core, Wildfire, Afterimage, and Reaper Protocol. All equipped via draft; max 3 per tower.
 
 | Modifier | ID | Effect | Unlock |
 |---|---|---|---|
@@ -203,12 +203,13 @@ Cross-referenced against the live codebase. All stats from `Data/` JSON files an
 | Chill Shot | `slow` | On hit: x0.70 enemy speed for 6 s; stacks multiplicatively per tower | -- |
 | Overreach | `overreach` | +45% range, -10% damage | -- |
 | Hair Trigger | `hair_trigger` | +30% attack speed, -18% range | -- |
-| Feedback Loop | `feedback_loop` | On kill: instantly reset cooldown + +20% attack speed for 4 s | -- |
+| Feedback Loop | `feedback_loop` | On kill: reset 50% of remaining cooldown per copy equipped (1 copy = 50%, 2 copies = 100% full reset) + +20% attack speed for 4 s | -- |
 | Chain Reaction | `chain_reaction` | On hit: +1 bounce at 50% damage carry; each extra copy adds +1 bounce | -- |
 | Split Shot | `split_shot` | On hit: fires 2 extra projectiles at nearby enemies at 28% damage; each extra copy adds +1 projectile | SPLIT_UNSEALED |
 | Blast Core | `blast_core` | On primary hit: 45% splash in 140 px radius; each extra copy adds +25 px radius | BLAST_UNSEALED |
 | Wildfire | `wildfire` | On primary hit: ignite for 4 s burn at 25% BaseDamage/s; burning enemies drop fire trail segments (2.2 s, 30 px radius, 40% burn DPS to overlapping enemies); stacks add burn DPS | WILDFIRE_UNSEALED |
 | Afterimage | `afterimage` | On primary hit: leave a short ghost imprint at impact; after a brief delay it triggers one weaker local echo from that spot (single replay, not a lingering zone). Echo hits run through normal modifier effects but suppress new Afterimage seeding | AFTERIMAGE_UNSEALED |
+| Deadzone | `deadzone` | On primary hit: leave a short-lived spatial trap scar at the impact point (2.5 s lifetime). First enemy to cross into the zone triggers a reduced follow-up (40% of seeded damage; tower-specific expression), then the zone collapses. One active zone per tower -- new hits overwrite old. Zone has a 0.12 s arm window before it can trigger. **Full game only.** | DEADZONE_UNSEALED |
 | Reaper Protocol | `reaper_protocol` | Kill (primary only): first 5 kills per wave restore 1 life each (capped at MaxLives). **Full game only. Available from wave 10 onward.** | REAPER_UNSEALED |
 
 ### Modifier isChain Rules
@@ -220,6 +221,7 @@ Modifiers that opt out of chain/secondary targets set `ApplyToChainTargets = fal
 | Blast Core | **false** | No -- splash only on primary hits |
 | Wildfire | **false** | No -- ignition only on primary hits |
 | Afterimage | n/a (primary-hit hook) | No -- imprint/echo only queues from primary hits (`!IsChain`) and is suppressed for echo-generated damage contexts |
+| Deadzone | **false** | No -- zone placement only from primary hits; triggered follow-ups use `suppressDeadzoneSeed: true` to prevent recursive zones |
 | Overkill | **false** | No -- kill spill only on primary kills |
 | Reaper Protocol | true (OnKill only) | OnKill checks `ctx.IsChain` internally -- chain kills are rejected at the modifier level, not via `ApplyToChainTargets` |
 | All others | true | Yes |
@@ -227,6 +229,47 @@ Modifiers that opt out of chain/secondary targets set `ApplyToChainTargets = fal
 ### Stacking
 
 All modifier effects stack additively within their category (no multiplicative explosion). For range/interval stat modifiers, each copy applies its multiplier via `OnEquip` to the tower's base stat at equip time.
+
+### Deadzone modifier -- detailed behavior
+
+**Core concept:** "hits trap the impact point; the next enemy through it triggers a follow-up"
+
+**Zone lifecycle:**
+1. Primary hit seeds a zone at `ctx.Target.GlobalPosition` via `DamageModel.Apply` → `GameController.NotifyDeadzoneHit` → `CombatSim.QueueDeadzone`
+2. Zone arms after `Balance.DeadzoneArmTime` (0.12 s) -- prevents same-frame self-trigger from the hit enemy
+3. Each frame, if any live enemy enters `Balance.DeadzoneTriggerRadius` (38 px) of zone center: trigger fires, zone removed
+4. If lifetime (`Balance.DeadzoneLifetime` = 2.5 s) expires without a crossing: zone fades out silently
+
+**Anti-spam safeguards (all structural):**
+- `ApplyToChainTargets = false` in `Deadzone.cs` -- chain/split secondaries cannot plant zones
+- One active zone per tower -- `QueueDeadzone` overwrites existing zone for that tower
+- Arm window (0.12 s) prevents immediate trigger
+- Triggered follow-up uses `suppressDeadzoneSeed: true` context -- no recursive zone creation
+- Zone expires rather than persisting (not a permanent hazard)
+
+**Tower-specific follow-up expressions:**
+
+| Tower | Follow-up |
+|---|---|
+| Rapid Shooter | Single-target reduced damage hit on crossing enemy |
+| Heavy Cannon | Small area burst around crossing point (radius 70 px, up to 3 targets, falloff) |
+| Rocket Launcher | Area burst (radius 77 px, up to 3 targets, falloff) |
+| Marker Tower | Single-target reduced damage hit |
+| Arc Emitter (chain_tower) | Single-target reduced damage hit |
+| Rift Sapper (rift_prism) | Compact rift burst (radius 63 px, up to 3 targets) -- scar, not a new mine |
+| Undertow Engine | Brief pull nudge (~24 px backward) + mild slow (0.82×, 0.85 s) + light damage |
+| Accordion Engine | Area burst (radius 56 px, up to 3 targets, 75% damage) |
+| Phase Splitter | Single-target reduced damage hit |
+| Latch Nest | Single-target reduced damage hit |
+
+**Rift Sapper custom behavior:**
+`rift_prism` + Deadzone: mine detonation leaves an unstable rift scar. First enemy crossing triggers a compact rift burst (not another mine, not a recursive trap). The scar collapses after one trigger. Visual: distinct amber-orange hazard ring (not mine-blue). Sound: `deadzone_trigger` (rift-pitched variant).
+
+**Copy stacking:** Each additional copy of Deadzone on the same tower gives +18% follow-up damage.
+
+**Bot/sim behavior:** Zones are processed in `CombatSim.UpdateDeadzones()` each frame. Zone lifetime and crossing checks run in both live and bot mode. VFX is skipped in `BotMode`. Spectacle proc registered on each trigger.
+
+**Unlock:** Beat `fault_lines` (Fault Lines) on any difficulty. `DEADZONE_UNSEALED` achievement gates the modifier in full-game builds; excluded entirely from demo builds.
 
 ---
 
@@ -856,9 +899,22 @@ All combat logic lives in C# systems, not scene node behaviors. The scene tree p
 
 ### Map System
 
-- `MapGenerator.cs` -- procedural snake-path 8x5 grid map (for skirmish/random)
+- `MapGenerator.cs` -- procedural 8x5 grid map (for skirmish/random)
 - Custom maps: `user://custom_maps/{id}.json` via `CustomMapManager.cs`
 - Campaign maps: fixed paths defined in `Data/maps.json` with `displayOrder` field
+
+**Procedural path generators** (selected by weighted roll):
+
+| Generator | Approx. frequency | Description |
+|---|---:|---|
+| Zigzag family (snake variants) | ~29% | Classic horizontal-leg snake |
+| DiagonalCut | ~15% | Full right sweep then diagonal slash down-left (~3800-4400 px) |
+| DiagonalRise | ~15% | Drop to bottom, diagonal up-right (~3400-4100 px) |
+| DiagonalZ | ~17% | Z-shape with diagonal crossbar |
+
+Layout quality gate (`IsLayoutValid`): retries up to 20x with salted seeds. Rejects layouts with path length < 3200 px or avg slot coverage score < 65 (derived from hand-crafted map baselines).
+
+**Decorations** (`MapDecorationLayer.cs`): grass cells away from path and slots receive procedural decorations -- trees, rocks, synthwave pylons (magenta/violet animated tip glow), and anomaly nodes (flat hexagon with cyan rim, radial spokes, amber pulsing core). Both animated types respect `ReducedMotion`. Background seeded diagonal fault lines (neon streaks at two dominant angles per map, alpha 0.07-0.16) are layered beneath.
 
 ### Unit Tests
 

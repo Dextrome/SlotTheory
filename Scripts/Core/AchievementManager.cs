@@ -52,6 +52,7 @@ public partial class AchievementManager : Node
         new(Unlocks.RocketLauncherAchievementId, "Rocket Unsealed", "Beat Hourglass on any difficulty to unlock Rocket Launcher."),
         new(Unlocks.UndertowEngineAchievementId, "Undertow Unsealed", "Beat Trident on any difficulty to unlock Undertow Engine."),
         new(Unlocks.LatchNestAchievementId, "Latch Unsealed", "Beat Ziggurat on any difficulty to unlock Latch Nest."),
+        new(Unlocks.DeadzoneAchievementId, "Deadzone Unsealed", "Beat Fault Lines on any difficulty to unlock Deadzone."),
         new("FLAWLESS",      "Flawless",           "Win a run without losing a single life."),
         new("LAST_STAND",    "Last Stand",         "Win a run with exactly 1 life remaining."),
         new("HALFWAY_THERE", "Halfway There",      "Survive to wave 10 in any run."),
@@ -226,6 +227,9 @@ public partial class AchievementManager : Node
 
             if (Unlocks.ShouldUnlockLatchNest(state, difficulty))
                 TryUnlock(Unlocks.LatchNestAchievementId);
+
+            if (Unlocks.ShouldUnlockDeadzone(state, difficulty))
+                TryUnlock(Unlocks.DeadzoneAchievementId);
 
             if (state.Lives == state.MaxLives)
                 TryUnlock("FLAWLESS");
@@ -462,6 +466,7 @@ public partial class AchievementManager : Node
             Unlocks.RocketLauncherAchievementId,
             Unlocks.UndertowEngineAchievementId,
             Unlocks.LatchNestAchievementId,
+            Unlocks.DeadzoneAchievementId,
         };
 
     private void Load()

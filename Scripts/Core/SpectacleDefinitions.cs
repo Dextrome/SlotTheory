@@ -61,6 +61,7 @@ public static class SpectacleDefinitions
     public const string Wildfire       = "wildfire";
     public const string Afterimage     = "afterimage";
     public const string ReaperProtocol = "reaper_protocol";
+    public const string Deadzone       = "deadzone";
 
     public const float SurgeThreshold = 150f;
     public const float SurgeCooldownSeconds = 6.0f;
@@ -92,6 +93,7 @@ public static class SpectacleDefinitions
         Wildfire,
         Afterimage,
         ReaperProtocol,
+        Deadzone,
     };
 
     private static readonly HashSet<string> SupportedTowers = new(StringComparer.Ordinal)
@@ -127,6 +129,8 @@ public static class SpectacleDefinitions
         [Afterimage]     = 2.4f,
         // Reaper: gains per kill event -- infrequent but high-value
         [ReaperProtocol] = 3.2f,
+        // Deadzone: gains per trigger crossing -- moderate frequency, synergy-dependent
+        [Deadzone]       = 2.3f,
     };
 
     private static readonly Dictionary<string, string> DisplayNames = new(StringComparer.Ordinal)
@@ -145,6 +149,7 @@ public static class SpectacleDefinitions
         [Wildfire]       = "Wildfire",
         [Afterimage]     = "Afterimage",
         [ReaperProtocol] = "Reaper Protocol",
+        [Deadzone]       = "Deadzone",
     };
 
     // Single surge names: primary mod name is always the first word so the player can
@@ -165,6 +170,7 @@ public static class SpectacleDefinitions
         [Wildfire]       = new SpectacleSingleDef("S_WILDFIRE_FIRESTORM",       "Firestorm"),
         [Afterimage]     = new SpectacleSingleDef("S_AFTERIMAGE_ECHO_SCAR",     "Echo Scar"),
         [ReaperProtocol] = new SpectacleSingleDef("S_REAPER_DEATH_DECREE",      "Death Decree"),
+        [Deadzone]       = new SpectacleSingleDef("S_DEADZONE_FAULT_COLLAPSE",  "Fault Collapse"),
     };
 
     // Combo naming: [PrimaryShortName] [SecondaryTag] -- always shows primary mod identity + how the secondary mutates it.
@@ -184,6 +190,7 @@ public static class SpectacleDefinitions
         [Wildfire]        = "Wildfire",
         [Afterimage]      = "Afterimage",
         [ReaperProtocol]  = "Reaper",
+        [Deadzone]        = "Deadzone",
     };
 
     private static readonly Dictionary<string, string> SecondaryTags = new(StringComparer.Ordinal)
@@ -202,6 +209,7 @@ public static class SpectacleDefinitions
         [Wildfire]        = "Fire",
         [Afterimage]      = "Echo",
         [ReaperProtocol]  = "Death",
+        [Deadzone]        = "Zone",
     };
 
     private static readonly Dictionary<string, SpectacleTriadAugmentDef> TriadAugments = new(StringComparer.Ordinal)
@@ -222,6 +230,7 @@ public static class SpectacleDefinitions
         [BlastCore]      = new SpectacleTriadAugmentDef("T_AUG_BLAST",     "Pulse",    0.22f, 1.8f, SpectacleAugmentKind.Area),
         [Wildfire]       = new SpectacleTriadAugmentDef("T_AUG_WILDFIRE",  "Pulse",    0.24f, 2.5f, SpectacleAugmentKind.Area),
         [Afterimage]     = new SpectacleTriadAugmentDef("T_AUG_AFTERIMAGE","Pulse",    0.24f, 2.0f, SpectacleAugmentKind.Area),
+        [Deadzone]       = new SpectacleTriadAugmentDef("T_AUG_DEADZONE",  "Pulse",    0.22f, 1.8f, SpectacleAugmentKind.Area),
     };
 
     public static IReadOnlyCollection<string> SupportedModIds => Supported;
@@ -311,6 +320,7 @@ public static class SpectacleDefinitions
         Wildfire         => SurgePrimitive.Status,
         Afterimage       => SurgePrimitive.Burst,
         ReaperProtocol   => SurgePrimitive.Reload,
+        Deadzone         => SurgePrimitive.Burst,
         _                => SurgePrimitive.Burst,
     };
 
@@ -350,6 +360,7 @@ public static class SpectacleDefinitions
         BlastCore       => ProcScalarLow,
         Wildfire        => ProcScalarLow,
         Afterimage      => ProcScalarLow,
+        Deadzone        => ProcScalarLow,
         Overkill        => ProcScalarHigh,
         FocusLens       => ProcScalarHigh,
         ReaperProtocol  => ProcScalarHigh,

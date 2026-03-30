@@ -33,6 +33,7 @@ public partial class HowToPlay : Node
         SpectacleDefinitions.Wildfire,
         SpectacleDefinitions.Afterimage,
         SpectacleDefinitions.ReaperProtocol,
+        SpectacleDefinitions.Deadzone,
     };
 
     /// <summary>
@@ -302,6 +303,9 @@ public partial class HowToPlay : Node
                 AddModRowWithIcon(modifiersCard, "afterimage", "Afterimage (full game)",
                     "Unlock by beating Perimeter Lock. Hits leave a ghost imprint that triggers one delayed weaker replay from that spot (single replay, not a lingering zone).");
             if (!Balance.IsDemo)
+                AddModRowWithIcon(modifiersCard, "deadzone", "Deadzone (full game)",
+                    "Hits leave a short-lived trap scar at the impact point. The first enemy to cross the zone triggers a reduced follow-up from that spot, then the zone collapses. Single trigger only -- not a lingering hazard. One active zone per tower; a new hit replaces the old one.");
+            if (!Balance.IsDemo)
                 AddModRowWithIcon(modifiersCard, "reaper_protocol", "Reaper Protocol (full game, wave 10+)",
                     $"Kill (primary hits only): the first {Balance.ReaperProtocolKillCap} kills each wave restore 1 life, up to your starting life total. Available from wave 10. Invaluable in Endless runs where lives become scarce.");
             AddSpacer(vbox, 10);
@@ -378,6 +382,7 @@ public partial class HowToPlay : Node
         {
             if (modId == SpectacleDefinitions.ReaperProtocol && Balance.IsDemo) continue;
             if (modId == SpectacleDefinitions.Afterimage && Balance.IsDemo) continue;
+            if (modId == SpectacleDefinitions.Deadzone && Balance.IsDemo) continue;
             string modName = SpectacleDefinitions.GetDisplayName(modId);
             AddModRowWithIcon(tableCard, modId, modName.ToUpperInvariant(), DescribeSingleEffect(modId));
         }
@@ -404,6 +409,7 @@ public partial class HowToPlay : Node
         "blast_core"       => "Detonation at target position: area damage to all enemies in the blast radius.",
         "wildfire"         => "Flame burst across all enemies in range, leaving fire trails that slow and tick damage.",
         "afterimage"       => "Ghost imprint appears at hit position, then replays one delayed weaker echo from that spot.",
+        "deadzone"         => "Trap scar collapses on first enemy crossing -- a reduced follow-up fires from that spot, then the zone is gone.",
         "reaper_protocol"  => "Executes the lowest-HP enemy in range. Grants +1 life if it kills.",
         _                  => "Modifier-specific primary surge payload.",
     };

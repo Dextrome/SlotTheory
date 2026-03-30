@@ -168,7 +168,14 @@ public static class MobileRunSession
 		if (!FileAccess.FileExists(SavePath))
 			return;
 
-		var err = DirAccess.RemoveAbsolute(ProjectSettings.GlobalizePath(SavePath));
+		var dir = DirAccess.Open("user://");
+		if (dir == null)
+		{
+			GD.PrintErr("[MobileSession] Failed to open user:// for snapshot clear");
+			return;
+		}
+		const string fileName = "mobile_run_session.json";
+		var err = dir.Remove(fileName);
 		if (err != Error.Ok && err != Error.FileNotFound)
 			GD.PrintErr($"[MobileSession] Failed to clear snapshot: {err}");
 	}

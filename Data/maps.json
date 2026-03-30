@@ -353,6 +353,33 @@
         { "id": 4, "x": 560, "y": 240 },
         { "id": 5, "x": 880, "y": 432 }
       ]
+    },
+    {
+      "id": "fault_lines",
+      "name": "Fault Lines",
+      "description": "Five tightly-packed vertical shafts, alternating direction. Towers in the gaps cover two or three lanes at once. Dense traffic, no margin for error.",
+      "displayOrder": 13,
+      "isFullGame": true,
+      "path": [
+        { "x": 160, "y": 0   },
+        { "x": 160, "y": 560 },
+        { "x": 360, "y": 560 },
+        { "x": 360, "y": 80  },
+        { "x": 560, "y": 80  },
+        { "x": 560, "y": 560 },
+        { "x": 760, "y": 560 },
+        { "x": 760, "y": 80  },
+        { "x": 960, "y": 80  },
+        { "x": 960, "y": 656 }
+      ],
+      "slots": [
+        { "id": 0, "x": 260, "y": 320 },
+        { "id": 1, "x": 460, "y": 320 },
+        { "id": 2, "x": 660, "y": 320 },
+        { "id": 3, "x": 860, "y": 320 },
+        { "id": 4, "x": 460, "y": 460 },
+        { "id": 5, "x": 660, "y": 160 }
+      ]
     }
   ],
   "tutorial": {

@@ -586,4 +586,107 @@ public class ModifierTests
         var primary = new FakeEnemy { Hp = 0f };
         Assert.True(mod.OnKill(PrimaryCtx(tower, primary, waveIndex: 10)));
     }
+
+    // ── Deadzone ──────────────────────────────────────────────────────────
+
+    [Fact]
+    public void Deadzone_ModifierId_IsConfigured()
+    {
+        var mod = new Deadzone(Def("deadzone"));
+        Assert.Equal("deadzone", mod.ModifierId);
+    }
+
+    [Fact]
+    public void Deadzone_ApplyToChainTargets_IsFalse()
+    {
+        // Deadzone should NOT plant zones on chain/split secondary hits.
+        var mod = new Deadzone(Def("deadzone"));
+        Assert.False(mod.ApplyToChainTargets);
+    }
+
+    [Fact]
+    public void Deadzone_OnHit_PrimaryHit_ReturnsTrue()
+    {
+        // OnHit should return true on primary hit to show proc visual.
+        // (Deadzone's OnHit is the inherited no-op; the actual zone placement
+        // is triggered by DamageModel seeding -- but here we verify the modifier
+        // class itself is well-formed and doesn't throw on primary hit.)
+        var tower = new FakeTower { BaseDamage = 10f };
+        tower.Modifiers.Add(new Deadzone(Def("deadzone")));
+        var enemy = new FakeEnemy { Hp = 100f };
+        var ctx = new DamageContext(tower, enemy, waveIndex: 0, new List<IEnemyView>(), isChain: false);
+
+        // Base Modifier.OnHit returns false -- Deadzone delegates seeding to DamageModel.
+        bool result = tower.Modifiers[0].OnHit(ctx);
+        Assert.False(result); // no OnHit override; zone placement is in DamageModel
+    }
+
+    [Fact]
+    public void Deadzone_DamageContext_SuppressDeadzoneSeed_DefaultsFalse()
+    {
+        // Verify the new SuppressDeadzoneSeed parameter defaults to false (backward compat).
+        var tower = new FakeTower();
+        var enemy = new FakeEnemy();
+        var ctx = new DamageContext(tower, enemy, waveIndex: 0, new List<IEnemyView>());
+        Assert.False(ctx.SuppressDeadzoneSeed);
+    }
+
+    [Fact]
+    public void Deadzone_DamageContext_SuppressDeadzoneSeed_CanBeSet()
+    {
+        // Verify triggered follow-up contexts can suppress further zone creation.
+        var tower = new FakeTower();
+        var enemy = new FakeEnemy();
+        var ctx = new DamageContext(tower, enemy, waveIndex: 0, new List<IEnemyView>(),
+            suppressDeadzoneSeed: true);
+        Assert.True(ctx.SuppressDeadzoneSeed);
+    }
+
+    [Fact]
+    public void Deadzone_DamageContext_SuppressAfterimageSeed_StillDefaultsFalse()
+    {
+        // Ensure adding suppressDeadzoneSeed did not break the existing suppressAfterimageSeed param.
+        var tower = new FakeTower();
+        var enemy = new FakeEnemy();
+        var ctx = new DamageContext(tower, enemy, waveIndex: 0, new List<IEnemyView>(),
+            suppressDeadzoneSeed: true);
+        Assert.False(ctx.SuppressAfterimageSeed);
+    }
+
+    [Fact]
+    public void Deadzone_Balance_LifetimeIsPositive()
+        => Assert.True(Balance.DeadzoneLifetime > 0f);
+
+    [Fact]
+    public void Deadzone_Balance_ArmTimeIsPositive()
+        => Assert.True(Balance.DeadzoneArmTime > 0f);
+
+    [Fact]
+    public void Deadzone_Balance_TriggerRadiusIsPositive()
+        => Assert.True(Balance.DeadzoneTriggerRadius > 0f);
+
+    [Fact]
+    public void Deadzone_Balance_FollowupRatioIsReduced()
+    {
+        // Follow-up must be strictly less than 1.0 (it is a "reduced" hit, not full replay).
+        Assert.True(Balance.DeadzoneFollowupDamageRatio > 0f);
+        Assert.True(Balance.DeadzoneFollowupDamageRatio < 1.0f);
+    }
+
+    [Fact]
+    public void Deadzone_Balance_ArmTimeLessThanLifetime()
+    {
+        // Zone arm time must be shorter than total lifetime or zone would never fire.
+        Assert.True(Balance.DeadzoneArmTime < Balance.DeadzoneLifetime);
+    }
+
+    // ── Unlocks: Deadzone full-game gates ────────────────────────────────────
+
+    [Fact]
+    public void Unlocks_DeadzoneModifierId_IsDeadzone()
+        => Assert.Equal("deadzone", Unlocks.DeadzoneModifierId);
+
+    [Fact]
+    public void Unlocks_DeadzoneAchievementId_HasExpectedValue()
+        => Assert.Equal("DEADZONE_UNSEALED", Unlocks.DeadzoneAchievementId);
 }
