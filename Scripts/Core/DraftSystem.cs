@@ -53,7 +53,18 @@ public class DraftSystem
             .Where(s => s.Tower != null)
             .Select(s => (Entities.ITowerView)s.Tower!);
         var options = GenerateOptions(state.HasFreeSlots(), placedTowers, state.ActiveMandate, state.WaveIndex, state.BonusDraftCards);
-        TryInjectPremiumCard(options, state);
+
+        if (options.Count == 0)
+        {
+            // All tower slots and modifier slots are full - fall back to premium-only draft.
+            int count = Balance.DraftModifierOptionsFull + state.BonusDraftCards;
+            AddPremiumOptions(options, count, state);
+        }
+        else
+        {
+            TryInjectPremiumCard(options, state);
+        }
+
         return options;
     }
 
@@ -87,6 +98,20 @@ public class DraftSystem
             AddTowerOptions(options, targetCount - options.Count, mandate, waveIndex);
 
         return options;
+    }
+
+    /// <summary>
+    /// Fill <paramref name="options"/> with premium cards when no normal options exist.
+    /// Respects the same exclusion rules as TryInjectPremiumCard.
+    /// </summary>
+    private void AddPremiumOptions(List<DraftOption> options, int count, RunState state)
+    {
+        var pool = PremiumCardRegistry.GetAll()
+            .Where(c => !IsExcluded(c, state))
+            .OrderBy(_ => _rng.Next())
+            .Take(count);
+        foreach (var card in pool)
+            options.Add(new DraftOption(DraftOptionType.Premium, card.Id));
     }
 
     /// <summary>
