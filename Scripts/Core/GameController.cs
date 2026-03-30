@@ -46,7 +46,7 @@ public partial class GameController : Node
 	private ModifierIcon[][] _slotModIcons     = new ModifierIcon[Balance.SlotCount][];
 	private float[] _slotProcHaloRemaining     = new float[Balance.SlotCount];
 	private Color[] _slotProcHaloColor         = new Color[Balance.SlotCount];
-	private float[,] _slotModIconPulseRemaining = new float[Balance.SlotCount, Balance.MaxModifiersPerTower];
+	private float[,] _slotModIconPulseRemaining = new float[Balance.SlotCount, Balance.MaxPremiumModSlots];
 	private int      _highlightedSlot      = -1;
 	private bool     _highlightedSlotValid = false;
 	private Map _currentMap = null!;
@@ -730,7 +730,7 @@ public partial class GameController : Node
 
 		if (_botRunner == null) UpdateTooltip();
 
-		if (!_undoPlacementActive && CurrentPhase == GamePhase.Draft && draftPanelReady && (draftPanel!.IsAwaitingSlot || draftPanel.IsAwaitingTower))
+		if (!_undoPlacementActive && CurrentPhase == GamePhase.Draft && draftPanelReady && (draftPanel!.IsAwaitingSlot || draftPanel.IsAwaitingTower || draftPanel.IsAwaitingPremiumTarget))
 			UpdateSlotHighlights();
 		else if (_highlightedSlot != -1)
 			ClearSlotHighlights();
@@ -745,7 +745,7 @@ public partial class GameController : Node
 		else
 			ClearTowerPlacementPreviewGhost();
 
-		if (CurrentPhase == GamePhase.Draft && draftPanelReady && !draftPanel!.IsAwaitingSlot && !draftPanel.IsAwaitingTower)
+		if (CurrentPhase == GamePhase.Draft && draftPanelReady && !draftPanel!.IsAwaitingSlot && !draftPanel.IsAwaitingTower && !draftPanel.IsAwaitingPremiumTarget)
 			UpdateDraftSynergyHighlights((float)delta);
 		else
 			ClearDraftSynergyHighlights();
@@ -1148,7 +1148,8 @@ public partial class GameController : Node
 		_runState.RngSeed = snapshot.RngSeed;
 		_runState.WaveIndex = Mathf.Clamp(snapshot.WaveIndex, 0, Balance.TotalWaves - 1);
 		_runState.MaxLives = Balance.GetStartingLives(SettingsManager.Instance?.Difficulty ?? DifficultyMode.Normal);
-		_runState.Lives = Mathf.Clamp(snapshot.Lives, 0, _runState.MaxLives);
+		_runState.LivesCeiling = Mathf.Max(Balance.ReaperMaxLives, snapshot.LivesCeiling);
+		_runState.Lives = Mathf.Clamp(snapshot.Lives, 0, _runState.LivesCeiling);
 		_runState.TotalKills = Mathf.Max(0, snapshot.TotalKills);
 		_runState.TotalDamageDealt = Mathf.Max(0, snapshot.TotalDamageDealt);
 		_runState.TotalPlayTime = Mathf.Max(0f, snapshot.TotalPlayTime);
@@ -1180,7 +1181,7 @@ public partial class GameController : Node
 
 				foreach (string modifierId in slot.ModifierIds)
 				{
-					if (tower.Modifiers.Count >= Balance.MaxModifiersPerTower)
+					if (tower.Modifiers.Count >= tower.MaxModifiers)
 						break;
 					if (string.IsNullOrWhiteSpace(modifierId))
 						continue;
@@ -1215,7 +1216,7 @@ public partial class GameController : Node
 		{
 			_currentDraftOptions = snapshot.DraftOptions
 				.Select(o => new DraftOption(
-					o.Type == "tower" ? DraftOptionType.Tower : DraftOptionType.Modifier,
+					o.Type == "tower" ? DraftOptionType.Tower : o.Type == "premium" ? DraftOptionType.Premium : DraftOptionType.Modifier,
 					o.Id))
 				.ToList();
 		}
@@ -1858,8 +1859,8 @@ public partial class GameController : Node
 				break;
 
 			case PremiumCardRegistry.HardenedReservesId:
-				_runState.MaxLives += Balance.HardenedReservesMaxLivesBonus;
-				_runState.Lives = System.Math.Min(_runState.Lives + 1, _runState.MaxLives);
+				_runState.LivesCeiling += Balance.HardenedReservesMaxLivesBonus;
+				_runState.Lives = System.Math.Min(_runState.Lives + 1, _runState.LivesCeiling);
 				break;
 
 			case PremiumCardRegistry.LongFuseId:
@@ -1876,6 +1877,7 @@ public partial class GameController : Node
 		}
 
 		GD.Print($"[Premium] Applied {cardId} (slot {targetSlotIndex})");
+		_hudPanel?.Refresh(_runState.WaveIndex + 1, _runState.Lives);
 		_hudPanel?.RefreshPremiumCards(_runState.PickedPremiumCards);
 	}
 
@@ -2164,8 +2166,8 @@ public partial class GameController : Node
 		}
 		if (CurrentPhase != GamePhase.Wave && (_targetModePanelRoot != null || _targetModePanelTower != null))
 			HideTargetModePanel();
-		// Draft assignment: click a slot in the world to place tower / assign modifier
-		if (CurrentPhase == GamePhase.Draft && (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower))
+		// Draft assignment: click a slot in the world to place tower / assign modifier / target premium
+		if (CurrentPhase == GamePhase.Draft && (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower || _draftPanel.IsAwaitingPremiumTarget))
 		{
 			float slotHalf = MobileOptimization.IsMobile() ? 30f : 22f;
 			for (int i = 0; i < Balance.SlotCount; i++)
@@ -2180,7 +2182,7 @@ public partial class GameController : Node
 				}
 			}
 			
-			if (MobileOptimization.IsMobile() && _draftPanel.IsAwaitingTower)
+			if (MobileOptimization.IsMobile() && (_draftPanel.IsAwaitingTower || _draftPanel.IsAwaitingPremiumTarget))
 			{
 				for (int i = 0; i < _runState.Slots.Length; i++)
 				{
@@ -2982,11 +2984,11 @@ public partial class GameController : Node
 
 			// Mod-count pip - just below slot square, shown only when tower has = 1 modifier
 			// Modifier pips - 3 small squares below slot, one per modifier slot
-			var pips = new ColorRect[Balance.MaxModifiersPerTower];
-			var icons = new ModifierIcon[Balance.MaxModifiersPerTower];
-			for (int p = 0; p < Balance.MaxModifiersPerTower; p++)
+			var pips = new ColorRect[Balance.MaxPremiumModSlots];
+			var icons = new ModifierIcon[Balance.MaxPremiumModSlots];
+			for (int p = 0; p < Balance.MaxPremiumModSlots; p++)
 			{
-				float px = (p - 1) * 9f;  // centers at -9, 0, +9
+				float px = (p - (Balance.MaxPremiumModSlots - 1) / 2f) * 9f;
 				var pip = new ColorRect
 				{
 					Position    = new Vector2(px - 3f, 27f),
@@ -2999,7 +3001,7 @@ public partial class GameController : Node
 				pips[p] = pip;
 
 				// Modifier icons shown below pips for quick visual build reads.
-				float ix = (p - 1) * 12f;
+				float ix = (p - (Balance.MaxPremiumModSlots - 1) / 2f) * 12f;
 				var icon = new ModifierIcon
 				{
 					Position = new Vector2(ix - 5f, 38f),
@@ -5293,7 +5295,7 @@ void fragment() {
 		return CurrentPhase == GamePhase.Draft
 			&& _draftPanel != null
 			&& GodotObject.IsInstanceValid(_draftPanel)
-			&& (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower);
+			&& (_draftPanel.IsAwaitingSlot || _draftPanel.IsAwaitingTower || _draftPanel.IsAwaitingPremiumTarget);
 	}
 
 	private void OnGlobalSurgeTriggered(GlobalSurgeTriggerInfo info)
@@ -7924,8 +7926,8 @@ void fragment() {
 	{
 		if (CurrentPhase != GamePhase.Wave) return;
 
-		// Reaper Protocol can accumulate lives beyond the starting cap, up to ReaperMaxLives
-		if (_runState.Lives >= Balance.ReaperMaxLives) return;
+		// Reaper Protocol can accumulate lives beyond the starting cap, up to LivesCeiling
+		if (_runState.Lives >= _runState.LivesCeiling) return;
 
 		_runState.Lives++;
 
@@ -9390,7 +9392,7 @@ void fragment() {
 			_draftPanel.SetPlacementHintText("Tower placed  •  tap UNDO to revert");
 			return;
 		}
-		if (CurrentPhase != GamePhase.Draft || (!_draftPanel.IsAwaitingSlot && !_draftPanel.IsAwaitingTower))
+		if (CurrentPhase != GamePhase.Draft || (!_draftPanel.IsAwaitingSlot && !_draftPanel.IsAwaitingTower && !_draftPanel.IsAwaitingPremiumTarget))
 			return;
 		_draftPanel.SetPlacementHintText(_draftPanel.PlacementHint);
 	}
@@ -9491,9 +9493,8 @@ void fragment() {
 		_slotProcHaloRemaining[slot] = Mathf.Max(_slotProcHaloRemaining[slot], 0.20f);
 		_slotProcHaloColor[slot] = ModifierVisuals.GetAccent(modifierId);
 
-		for (int p = 0; p < Balance.MaxModifiersPerTower; p++)
+		for (int p = 0; p < tower.Modifiers.Count; p++)
 		{
-			if (p >= tower.Modifiers.Count) break;
 			if (tower.Modifiers[p].ModifierId != modifierId) continue;
 			_slotModIconPulseRemaining[slot, p] = Mathf.Max(_slotModIconPulseRemaining[slot, p], 0.24f);
 		}
@@ -9695,16 +9696,23 @@ void fragment() {
 		var icons = _slotModIcons[slotIndex];
 		var tower = _runState.Slots[slotIndex].Tower;
 		int filled = tower?.Modifiers.Count ?? 0;
-		bool atMax = filled >= Balance.MaxModifiersPerTower;
+		int visibleCount = tower?.MaxModifiers ?? Balance.MaxModifiersPerTower;
+		bool atMax = filled >= tower?.MaxModifiers;
+		// Single row, centered on the current visible count.
 		for (int p = 0; p < pips.Length; p++)
 		{
-			pips[p].Visible = tower != null;
+			float px = (p - (visibleCount - 1) / 2f) * 9f;
+			float ix = (p - (visibleCount - 1) / 2f) * 12f;
+
+			pips[p].Position = new Vector2(px - 3f, 27f);
+			pips[p].Visible = tower != null && p < visibleCount;
 			pips[p].Color = p < filled
 				? (atMax ? new Color(1.00f, 0.60f, 0.05f) : new Color(0.30f, 0.95f, 0.40f))
 				: new Color(0.22f, 0.22f, 0.22f, 0.45f);
 
 			if (icons != null)
 			{
+				icons[p].Position = new Vector2(ix - 5f, 38f);
 				if (tower != null && p < filled && p < tower.Modifiers.Count)
 				{
 					var modId = tower.Modifiers[p].ModifierId;
@@ -9904,7 +9912,7 @@ void fragment() {
 		var tower = _runState.Slots[slot].Tower;
 		if (tower == null) return;
 		int filled = tower.Modifiers.Count;
-		if (filled >= Balance.MaxModifiersPerTower || filled < 0) return;
+		if (filled >= tower.MaxModifiers || filled < 0) return;
 
 		RefreshModPips(slot);
 		var pip = _slotModPips[slot][filled];

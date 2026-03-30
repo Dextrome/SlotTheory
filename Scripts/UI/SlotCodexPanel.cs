@@ -165,7 +165,7 @@ public partial class SlotCodexPanel : Node
 
         tabs.AddChild(BuildTabEntry("Towers", () => SetActiveTab(CodexTab.Towers), out _towerTabBtn));
         tabs.AddChild(BuildTabEntry("Modifiers", () => SetActiveTab(CodexTab.Mods), out _modTabBtn));
-        tabs.AddChild(BuildTabEntry("Enemies", () => SetActiveTab(CodexTab.Enemies), out _enemyTabBtn));
+        tabs.AddChild(BuildTabEntry("Upgrades", () => SetActiveTab(CodexTab.Upgrades), out _upgradesTabBtn));
 
         var divider = new Label { Text = "|" };
         divider.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 18 : 20);
@@ -175,7 +175,7 @@ public partial class SlotCodexPanel : Node
 
         tabs.AddChild(BuildTabEntry("How to Play", () => SetActiveTab(CodexTab.HowToPlay), out _howToTabBtn));
         tabs.AddChild(BuildTabEntry("Surges", () => SetActiveTab(CodexTab.Surges), out _surgesTabBtn));
-        tabs.AddChild(BuildTabEntry("Upgrades", () => SetActiveTab(CodexTab.Upgrades), out _upgradesTabBtn));
+        tabs.AddChild(BuildTabEntry("Enemies", () => SetActiveTab(CodexTab.Enemies), out _enemyTabBtn));
 
         _contentFrame = new PanelContainer
         {
@@ -1085,8 +1085,84 @@ public partial class SlotCodexPanel : Node
         foreach (var def in Core.PremiumCardRegistry.GetAll()
             .OrderBy(d => d.Rarity == Core.PremiumRarity.SuperRare ? 0 : 1))
         {
-            grid.AddChild(BuildUpgradeCard(def));
+            bool demoLocked = Balance.IsDemo && (
+                def.Id == Core.PremiumCardRegistry.LongFuseId ||
+                def.Id == Core.PremiumCardRegistry.BetterOddsId);
+            grid.AddChild(demoLocked ? BuildFullGameLockedUpgradeCard(def) : BuildUpgradeCard(def));
         }
+    }
+
+    private static Control BuildFullGameLockedUpgradeCard(Core.PremiumCardDef def)
+    {
+        bool isSuperRare = def.Rarity == Core.PremiumRarity.SuperRare;
+        Color accent = isSuperRare
+            ? new Color(1.00f, 0.82f, 0.22f)
+            : new Color(0.72f, 0.82f, 0.96f);
+        Color dimAccent = new Color(accent.R * 0.40f, accent.G * 0.40f, accent.B * 0.40f, 0.55f);
+
+        var panel = new PanelContainer
+        {
+            CustomMinimumSize = new Vector2(290f, 166f),
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill
+        };
+        if (MobileOptimization.IsMobile())
+            panel.MouseFilter = Control.MouseFilterEnum.Ignore;
+
+        panel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.05f, 0.06f, 0.10f),
+            border: new Color(0.20f, 0.22f, 0.35f, 0.50f),
+            corners: 10,
+            borderWidth: 1,
+            padH: 12,
+            padV: 10));
+
+        var body = new VBoxContainer();
+        body.AddThemeConstantOverride("separation", 8);
+        panel.AddChild(body);
+
+        var top = new HBoxContainer();
+        top.AddThemeConstantOverride("separation", 10);
+        body.AddChild(top);
+
+        var glyphBox = new PanelContainer { CustomMinimumSize = new Vector2(46f, 46f) };
+        glyphBox.AddThemeStyleboxOverride("panel", new StyleBoxFlat
+        {
+            BgColor     = new Color(accent.R * 0.07f, accent.G * 0.07f, accent.B * 0.07f, 0.50f),
+            BorderColor = new Color(accent.R, accent.G, accent.B, 0.20f),
+            BorderWidthLeft = 1, BorderWidthRight = 1, BorderWidthTop = 1, BorderWidthBottom = 1,
+            CornerRadiusTopLeft = 6, CornerRadiusTopRight = 6,
+            CornerRadiusBottomLeft = 6, CornerRadiusBottomRight = 6,
+        });
+        top.AddChild(glyphBox);
+
+        var glyph = new Label
+        {
+            Text = isSuperRare ? "\u2605" : "\u25C6",
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment   = VerticalAlignment.Center,
+        };
+        glyph.SetAnchorsPreset(Control.LayoutPreset.FullRect);
+        UITheme.ApplyFont(glyph, semiBold: true, size: 22);
+        glyph.Modulate = new Color(accent.R * 0.40f, accent.G * 0.40f, accent.B * 0.40f, 0.55f);
+        glyphBox.AddChild(glyph);
+
+        var titleCol = new VBoxContainer();
+        titleCol.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        titleCol.AddThemeConstantOverride("separation", 2);
+        top.AddChild(titleCol);
+
+        var nameLbl = new Label { Text = def.Name };
+        UITheme.ApplyFont(nameLbl, semiBold: true, size: 17);
+        nameLbl.Modulate = new Color(0.40f, 0.42f, 0.54f);
+        titleCol.AddChild(nameLbl);
+
+        var rarityLbl = new Label { Text = isSuperRare ? "SUPER RARE" : "RARE" };
+        rarityLbl.AddThemeFontSizeOverride("font_size", 12);
+        rarityLbl.Modulate = dimAccent;
+        titleCol.AddChild(rarityLbl);
+
+        AddFullGameLockedFooter(body);
+        return panel;
     }
 
     private static Control BuildUpgradeCard(Core.PremiumCardDef def)
@@ -1124,6 +1200,7 @@ public partial class SlotCodexPanel : Node
         hoverStyle.BorderColor = accent;
         hoverStyle.ShadowColor = new Color(accent.R, accent.G, accent.B, isSuperRare ? 0.80f : 0.55f);
         hoverStyle.ShadowSize  = isSuperRare ? 16 : 12;
+        panel.ClipContents = true;
         panel.AddThemeStyleboxOverride("panel", normalStyle);
         UITheme.AddTopAccent(panel, new Color(accent.R, accent.G, accent.B, 0.80f));
 
@@ -1217,7 +1294,62 @@ public partial class SlotCodexPanel : Node
         chanceLbl.AddThemeColorOverride("font_color", new Color(accent.R * 0.70f, accent.G * 0.70f, accent.B * 0.70f, 0.80f));
         body.AddChild(chanceLbl);
 
+        // Sheen overlay -- PanelContainer auto-sizes it to the card content area.
+        // Sheen rects are added as its children and can be freely positioned.
+        var sheenLayer = new Control { MouseFilter = Control.MouseFilterEnum.Ignore };
+        panel.AddChild(sheenLayer);
+
+        if (!MobileOptimization.IsMobile())
+        {
+            // Capture for closure
+            var capturedAccent = accent;
+            bool capturedSuperRare = isSuperRare;
+            panel.TreeEntered += () => StartUpgradeCardIdleSheen(sheenLayer, capturedAccent, capturedSuperRare);
+        }
+
         return panel;
+    }
+
+    private static void StartUpgradeCardIdleSheen(Control layer, Color accent, bool isSuperRare)
+    {
+        if (!GodotObject.IsInstanceValid(layer)) return;
+
+        float interval  = isSuperRare ? 2.0f : 3.2f;
+        float peakAlpha = isSuperRare ? 0.16f : 0.10f;
+        float width     = isSuperRare ? 18f   : 12f;
+        // Use the card's known minimum size; layer is sized to content area (minus margins),
+        // so we overshoot slightly on both ends to cover the full card with no visible pop-in.
+        const float cardW = 290f;
+        const float cardH = 166f;
+
+        var sheen = new ColorRect
+        {
+            Color = new Color(1f, 1f, 1f, 0f),
+            Position = new Vector2(-width - 10f, 0f),
+            Size = new Vector2(width, cardH),
+            MouseFilter = Control.MouseFilterEnum.Ignore,
+        };
+        layer.AddChild(sheen);
+
+        Action doLoop = null!;
+        doLoop = () =>
+        {
+            if (!GodotObject.IsInstanceValid(sheen)) return;
+            sheen.Position = new Vector2(-width - 10f, sheen.Position.Y);
+            var tw = sheen.CreateTween();
+            tw.SetParallel(true);
+            tw.TweenProperty(sheen, "color:a", peakAlpha, 0.07f);
+            tw.TweenProperty(sheen, "position:x", cardW + 10f, 0.52f)
+                .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.InOut);
+            tw.Chain().TweenProperty(sheen, "color:a", 0f, 0.07f);
+            tw.TweenCallback(Callable.From(() =>
+            {
+                if (!GodotObject.IsInstanceValid(sheen)) return;
+                sheen.GetTree().CreateTimer(interval).Timeout += doLoop;
+            }));
+        };
+
+        layer.GetTree().CreateTimer(0.4f).Timeout += doLoop;
     }
 
     private Control BuildEnemyCard(string enemyId)

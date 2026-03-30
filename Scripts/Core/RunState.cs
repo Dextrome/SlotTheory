@@ -105,6 +105,8 @@ public class RunState
     public float MarkDurationBonus         { get; set; } = 0f;
     /// <summary>Cold Circuit: cumulative slow duration multiplier (> 1 = longer).</summary>
     public float SlowDurationMultiplier    { get; set; } = 1f;
+    /// <summary>Hardened Reserves: per-run ceiling on max lives (default = Balance.ReaperMaxLives).</summary>
+    public int   LivesCeiling              { get; set; } = Balance.ReaperMaxLives;
 
     // Campaign
     public MandateDefinition? ActiveMandate { get; set; }
@@ -381,6 +383,7 @@ public class RunState
         ExplosionRadiusBonus     = 0f;
         MarkDurationBonus        = 0f;
         SlowDurationMultiplier   = 1f;
+        LivesCeiling             = Balance.ReaperMaxLives;
     }
 
     /// <summary>Gets total damage dealt by a specific tower across all completed waves.</summary>

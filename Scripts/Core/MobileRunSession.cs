@@ -9,7 +9,7 @@ namespace SlotTheory.Core;
 
 public sealed class MobileDraftOptionSnapshot
 {
-	public string Type { get; set; } = ""; // "tower" | "modifier"
+	public string Type { get; set; } = ""; // "tower" | "modifier" | "premium"
 	public string Id   { get; set; } = "";
 }
 
@@ -30,6 +30,7 @@ public sealed class MobileRunSnapshot
 	public int WaveIndex { get; set; } = 0;
 	public int ExtraPicksRemaining { get; set; } = 0;
 	public int Lives { get; set; } = Balance.StartingLives;
+	public int LivesCeiling { get; set; } = Balance.ReaperMaxLives;
 	public int TotalKills { get; set; } = 0;
 	public int TotalDamageDealt { get; set; } = 0;
 	public float TotalPlayTime { get; set; } = 0f;
@@ -105,6 +106,7 @@ public static class MobileRunSession
 				WaveIndex = runState.WaveIndex,
 				ExtraPicksRemaining = extraPicksRemaining,
 				Lives = runState.Lives,
+				LivesCeiling = runState.LivesCeiling,
 				TotalKills = runState.TotalKills,
 				TotalDamageDealt = runState.TotalDamageDealt,
 				TotalPlayTime = runState.TotalPlayTime,
@@ -213,7 +215,7 @@ public static class MobileRunSession
 		if (options == null) return new();
 		return options.Select(o => new MobileDraftOptionSnapshot
 		{
-			Type = o.Type == DraftOptionType.Tower ? "tower" : "modifier",
+			Type = o.Type == DraftOptionType.Tower ? "tower" : o.Type == DraftOptionType.Premium ? "premium" : "modifier",
 			Id   = o.Id
 		}).ToList();
 	}

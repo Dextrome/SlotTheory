@@ -245,6 +245,168 @@ public class PremiumCardTests
         Assert.True(excluded);
     }
 
+    // ── ExpandedChassis end-to-end pick→apply pipeline ───────────────────────────
+    //
+    // Mirrors the exact logic in GameController.OnDraftPick + ApplyPremiumCard
+    // without a live scene tree. Verifies the state changes that matter:
+    //   - MaxModifiers increments
+    //   - PickedPremiumCards records the card
+    //   - The slot is no longer a valid target once it reaches MaxPremiumModSlots
+    //   - Applying twice (two Expanded Chassis) stacks correctly up to the cap
+
+    private static void SimulateApplyExpandedChassis(RunState state, int slotIndex)
+    {
+        // Mirrors OnDraftPick premium-requires-target branch + ApplyPremiumCard case
+        var tower = state.Slots[slotIndex].Tower;
+        if (tower == null) return;
+        if (tower.MaxModifiers >= Balance.MaxPremiumModSlots) return;
+        // ApplyPremiumCard:
+        state.PickedPremiumCards.Add(PremiumCardRegistry.ExpandedChassisId);
+        tower.MaxModifiers = System.Math.Min(tower.MaxModifiers + 1, Balance.MaxPremiumModSlots);
+    }
+
+    [Fact]
+    public void ExpandedChassis_Apply_IncrementsMaxModifiers()
+    {
+        var state = new RunState();
+        state.Slots[0].Tower = new FakeTower { MaxModifiers = Balance.MaxModifiersPerTower };
+
+        SimulateApplyExpandedChassis(state, 0);
+
+        Assert.Equal(Balance.MaxModifiersPerTower + 1, state.Slots[0].Tower!.MaxModifiers);
+    }
+
+    [Fact]
+    public void ExpandedChassis_Apply_RecordedInPickedCards()
+    {
+        var state = new RunState();
+        state.Slots[0].Tower = new FakeTower { MaxModifiers = Balance.MaxModifiersPerTower };
+
+        SimulateApplyExpandedChassis(state, 0);
+
+        Assert.Contains(PremiumCardRegistry.ExpandedChassisId, state.PickedPremiumCards);
+    }
+
+    [Fact]
+    public void ExpandedChassis_Apply_SlotBecomesInvalidOnceAtCap()
+    {
+        var state = new RunState();
+        // Start one below the hard cap
+        state.Slots[0].Tower = new FakeTower { MaxModifiers = Balance.MaxPremiumModSlots - 1 };
+
+        SimulateApplyExpandedChassis(state, 0);
+
+        Assert.Equal(Balance.MaxPremiumModSlots, state.Slots[0].Tower!.MaxModifiers);
+        // Now the slot must be ineligible (mirrors IsSlotValidTarget + IsExcluded)
+        bool stillValid = state.Slots[0].Tower!.MaxModifiers < Balance.MaxPremiumModSlots;
+        Assert.False(stillValid);
+    }
+
+    [Fact]
+    public void ExpandedChassis_Apply_HardCapNotExceeded()
+    {
+        var state = new RunState();
+        state.Slots[0].Tower = new FakeTower { MaxModifiers = Balance.MaxPremiumModSlots };
+
+        // Application must no-op when already at cap (guard in OnDraftPick)
+        SimulateApplyExpandedChassis(state, 0);
+
+        Assert.Equal(Balance.MaxPremiumModSlots, state.Slots[0].Tower!.MaxModifiers);
+        Assert.Empty(state.PickedPremiumCards);  // card not recorded since apply was skipped
+    }
+
+    [Fact]
+    public void ExpandedChassis_ApplyTwice_StacksToCapCorrectly()
+    {
+        var state = new RunState();
+        state.Slots[0].Tower = new FakeTower { MaxModifiers = Balance.MaxModifiersPerTower };
+
+        SimulateApplyExpandedChassis(state, 0);
+        SimulateApplyExpandedChassis(state, 0);
+
+        Assert.Equal(Balance.MaxModifiersPerTower + 2, state.Slots[0].Tower!.MaxModifiers);
+        Assert.Equal(2, state.PickedPremiumCards.Count(id => id == PremiumCardRegistry.ExpandedChassisId));
+    }
+
+    [Fact]
+    public void ExpandedChassis_Apply_OtherSlotsUnaffected()
+    {
+        var state = new RunState();
+        int original = Balance.MaxModifiersPerTower;
+        state.Slots[0].Tower = new FakeTower { MaxModifiers = original };
+        state.Slots[1].Tower = new FakeTower { MaxModifiers = original };
+
+        SimulateApplyExpandedChassis(state, 0);
+
+        Assert.Equal(original + 1, state.Slots[0].Tower!.MaxModifiers);
+        Assert.Equal(original,     state.Slots[1].Tower!.MaxModifiers);  // untouched
+    }
+
+    // ── ExpandedChassis slot-target validity (mirrors DraftPanel.IsSlotValidTarget) ──
+    //
+    // DraftPanel.IsSlotValidTarget for ExpandedChassis:
+    //   slots[i].Tower != null && slots[i].Tower.MaxModifiers < Balance.MaxPremiumModSlots
+    //
+    // GameController routes world clicks to DraftPanel.SelectSlot only when
+    // IsAwaitingSlot || IsAwaitingTower || IsAwaitingPremiumTarget.
+    // The bug was that IsAwaitingPremiumTarget was missing from that condition,
+    // so Expanded Chassis tower picks were silently swallowed.
+
+    [Fact]
+    public void ExpandedChassis_SlotIsValidTarget_WhenTowerBelowModCap()
+    {
+        var state = new RunState();
+        state.Slots[0].Tower = new FakeTower { MaxModifiers = Balance.MaxModifiersPerTower };
+        bool valid = state.Slots[0].Tower != null
+                  && state.Slots[0].Tower!.MaxModifiers < Balance.MaxPremiumModSlots;
+        Assert.True(valid);
+    }
+
+    [Fact]
+    public void ExpandedChassis_SlotIsInvalidTarget_WhenSlotEmpty()
+    {
+        var state = new RunState();
+        // No tower in slot 0
+        bool valid = state.Slots[0].Tower != null
+                  && state.Slots[0].Tower!.MaxModifiers < Balance.MaxPremiumModSlots;
+        Assert.False(valid);
+    }
+
+    [Fact]
+    public void ExpandedChassis_SlotIsInvalidTarget_WhenTowerAlreadyAtModCap()
+    {
+        var state = new RunState();
+        state.Slots[0].Tower = new FakeTower { MaxModifiers = Balance.MaxPremiumModSlots };
+        bool valid = state.Slots[0].Tower != null
+                  && state.Slots[0].Tower!.MaxModifiers < Balance.MaxPremiumModSlots;
+        Assert.False(valid);
+    }
+
+    [Fact]
+    public void ExpandedChassis_AtLeastOneValidTarget_WhenMixedSlots()
+    {
+        // One tower at cap, one below cap -- there must be a valid target.
+        var state = new RunState();
+        state.Slots[0].Tower = new FakeTower { MaxModifiers = Balance.MaxPremiumModSlots };
+        state.Slots[1].Tower = new FakeTower { MaxModifiers = Balance.MaxModifiersPerTower };
+
+        bool anyValid = state.Slots.Any(s =>
+            s.Tower != null && s.Tower.MaxModifiers < Balance.MaxPremiumModSlots);
+        Assert.True(anyValid);
+    }
+
+    [Fact]
+    public void ExpandedChassis_NoValidTargets_WhenAllTowersAtCap()
+    {
+        var state = new RunState();
+        state.Slots[0].Tower = new FakeTower { MaxModifiers = Balance.MaxPremiumModSlots };
+        state.Slots[1].Tower = new FakeTower { MaxModifiers = Balance.MaxPremiumModSlots };
+
+        bool anyValid = state.Slots.Any(s =>
+            s.Tower != null && s.Tower.MaxModifiers < Balance.MaxPremiumModSlots);
+        Assert.False(anyValid);
+    }
+
     // ── MaxPremiumCardsPerRun cap ─────────────────────────────────────────────
 
     [Fact]

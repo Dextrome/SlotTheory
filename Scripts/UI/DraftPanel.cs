@@ -731,7 +731,7 @@ public partial class DraftPanel : CanvasLayer
         if (!Visible) return;
         if (@event is not InputEventKey { Pressed: true } key) return;
 
-        if (key.Keycode == Key.Escape && (_pendingTower != null || _pendingModifier != null))
+        if (key.Keycode == Key.Escape && (_pendingTower != null || _pendingModifier != null || _pendingPremium != null))
         {
             CancelAssignment();
             GetViewport().SetInputAsHandled();
@@ -763,7 +763,7 @@ public partial class DraftPanel : CanvasLayer
 
     public void CancelAssignment()
     {
-        if (_pendingTower == null && _pendingModifier == null) return;
+        if (_pendingTower == null && _pendingModifier == null && _pendingPremium == null) return;
         _pendingTower = null;
         _pendingModifier = null;
         _pendingPremium = null;
@@ -777,7 +777,7 @@ public partial class DraftPanel : CanvasLayer
     {
         if (what == 1007 /* NOTIFICATION_WM_GO_BACK_REQUEST */ && Visible)
         {
-            if (_pendingTower != null || _pendingModifier != null)
+            if (_pendingTower != null || _pendingModifier != null || _pendingPremium != null)
                 CancelAssignment();
         }
         // Clean up tutorial overlays if hidden mid-tutorial

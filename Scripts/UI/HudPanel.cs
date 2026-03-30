@@ -1206,10 +1206,10 @@ public partial class HudPanel : CanvasLayer
 			child.Free();
 		_premiumTooltip.Visible = false;
 
-		// One-shot life-gain cards have already done their job -- no ongoing effect to remind of.
+		// One-shot or tower-targeted cards with no persistent global effect.
 		static bool ShowInTray(string id) => id is not (
 			Core.PremiumCardRegistry.EmergencyReservesId or
-			Core.PremiumCardRegistry.HardenedReservesId);
+			Core.PremiumCardRegistry.ExpandedChassisId);
 
 		// Deduplicate -- show x2 instead of listing twice
 		var counts = new System.Collections.Generic.Dictionary<string, int>();

@@ -153,6 +153,10 @@ public class DraftSystem
         int copies = state.PickedPremiumCards.Count(id => id == card.Id);
         if (copies >= PremiumCardRegistry.GetMaxCopies(card.Id)) return true;
 
+        // Long Fuse and Better Odds are full-game only -- excluded from demo builds.
+        if (Balance.IsDemo && card.Id == PremiumCardRegistry.LongFuseId)   return true;
+        if (Balance.IsDemo && card.Id == PremiumCardRegistry.BetterOddsId) return true;
+
         // Expanded Chassis: no eligible tower (all at cap or no towers placed)
         if (card.Id == PremiumCardRegistry.ExpandedChassisId)
             return !state.Slots.Any(s => s.Tower != null && s.Tower.MaxModifiers < Balance.MaxPremiumModSlots);
