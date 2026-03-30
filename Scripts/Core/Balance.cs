@@ -120,9 +120,9 @@ public static class Balance
     public const float SplitShotRange       = 220f;  // search radius from impact point for split targets
 
     // Feedback Loop modifier
-    public const float FeedbackLoopCooldownReduction = 1.00f; // 100% of remaining cooldown removed on kill (full reset)
-    public const float FeedbackLoopStimDuration      = 4.00f; // seconds the attack speed stim lasts after a kill
-    public const float FeedbackLoopStimFactor        = 5f / 6f; // ×(5/6) attack interval on kill = +20% attack speed
+    public const float FeedbackLoopCooldownReductionPerCopy = 0.50f; // 50% cooldown reset per copy; 2 copies = 100% (full reset)
+    public const float FeedbackLoopStimDuration             = 4.00f; // seconds the attack speed stim lasts after a kill
+    public const float FeedbackLoopStimFactor               = 5f / 6f; // ×(5/6) attack interval on kill = +20% attack speed
 
     // Hair Trigger modifier
     public const float HairTriggerAttackSpeed = 1.30f; // +30% attack speed

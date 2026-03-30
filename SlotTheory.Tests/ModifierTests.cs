@@ -293,15 +293,31 @@ public class ModifierTests
     // ── FeedbackLoop ──────────────────────────────────────────────────────
 
     [Fact]
-    public void FeedbackLoop_OnKill_ReducesCooldownByConfiguredPercent()
+    public void FeedbackLoop_OnKill_OneCopy_Reduces50Percent()
     {
         var tower = new FakeTower { Cooldown = 0.8f };
         var enemy = new FakeEnemy { Hp = 0f }; // dead
         var mod = new FeedbackLoop(Def("feedback_loop"));
+        tower.Modifiers.Add(mod);
 
         mod.OnKill(Ctx(tower, enemy));
 
-        Assert.Equal(0.8f * (1f - Balance.FeedbackLoopCooldownReduction), tower.Cooldown, precision: 3);
+        Assert.Equal(0.8f * (1f - Balance.FeedbackLoopCooldownReductionPerCopy), tower.Cooldown, precision: 3);
+    }
+
+    [Fact]
+    public void FeedbackLoop_OnKill_TwoCopies_FullReset()
+    {
+        var tower = new FakeTower { Cooldown = 0.8f };
+        var enemy = new FakeEnemy { Hp = 0f };
+        var mod1 = new FeedbackLoop(Def("feedback_loop"));
+        var mod2 = new FeedbackLoop(Def("feedback_loop"));
+        tower.Modifiers.Add(mod1);
+        tower.Modifiers.Add(mod2);
+
+        mod1.OnKill(Ctx(tower, enemy));
+
+        Assert.Equal(0f, tower.Cooldown, precision: 3);
     }
 
     [Fact]
@@ -310,6 +326,7 @@ public class ModifierTests
         var tower = new FakeTower { Cooldown = 0f };
         var enemy = new FakeEnemy { Hp = 0f };
         var mod = new FeedbackLoop(Def("feedback_loop"));
+        tower.Modifiers.Add(mod);
 
         mod.OnKill(Ctx(tower, enemy));
 

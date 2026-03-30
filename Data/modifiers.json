@@ -42,7 +42,7 @@
   "feedback_loop": {
     "Id": "feedback_loop",
     "Name": "Feedback Loop",
-    "Description": "Kill: reset cooldown, +20% atk spd 4s."
+    "Description": "Kill: reset 50% cooldown (+50%/copy), +20% atk spd 4s."
   },
   "chain_reaction": {
     "Id": "chain_reaction",

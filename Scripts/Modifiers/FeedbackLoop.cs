@@ -6,10 +6,9 @@ using SlotTheory.Entities;
 namespace SlotTheory.Modifiers;
 
 /// <summary>
-/// Kill: instantly resets cooldown to 0 AND grants a +20% attack speed stim for
-/// Balance.FeedbackLoopStimDuration seconds (stim refreshes on each kill).
-/// Multiple copies all fire OnKill but the stim timer is per-instance, so stacking
-/// extends nothing beyond refreshing the same 4s window.
+/// Kill: resets 50% of remaining cooldown per copy equipped (1 copy = 50%, 2 copies = 100%).
+/// Also grants a +20% attack speed stim for Balance.FeedbackLoopStimDuration seconds (stim refreshes on each kill).
+/// Cooldown reset is applied once using the combined reduction; stim timer is per-instance.
 /// </summary>
 public class FeedbackLoop : Modifier
 {
@@ -31,10 +30,15 @@ public class FeedbackLoop : Modifier
 
     public override bool OnKill(DamageContext ctx)
     {
+        int copies = 0;
+        foreach (var m in ctx.Attacker.Modifiers)
+            if (m.ModifierId == ModifierId) copies++;
+        float reduction = System.MathF.Min(1f, copies * Balance.FeedbackLoopCooldownReductionPerCopy);
+
         float preCooldown = ctx.Attacker.Cooldown;
         ctx.Attacker.Cooldown = System.MathF.Max(
             0f,
-            ctx.Attacker.Cooldown * (1f - Balance.FeedbackLoopCooldownReduction)
+            ctx.Attacker.Cooldown * (1f - reduction)
         );
 
         _stimRemaining = Balance.FeedbackLoopStimDuration;
