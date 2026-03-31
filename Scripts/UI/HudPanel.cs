@@ -990,6 +990,30 @@ public partial class HudPanel : CanvasLayer
 		_surgeMeterPulseTween.TweenCallback(Callable.From(() => _surgeMeterPulseTween = null));
 	}
 
+	/// <summary>
+	/// Called when a surge pip arrives at the bar.
+	/// Snaps to a bright peak and decays -- distinct from the pre-flight pulse so the
+	/// player can read "energy departed" and "energy delivered" as two separate beats.
+	/// </summary>
+	public void FlashPipArrival()
+	{
+		if (!GodotObject.IsInstanceValid(_globalSpectaclePanel) || _isGlobalSurgeReady)
+			return;
+
+		if (_surgeMeterPulseTween != null && GodotObject.IsInstanceValid(_surgeMeterPulseTween))
+			_surgeMeterPulseTween.Kill();
+
+		_surgeMeterPulseTween = CreateTween();
+		_surgeMeterPulseTween.SetIgnoreTimeScale(true);
+		// Fast snap to peak -- crisp landing thump
+		_surgeMeterPulseTween.TweenProperty(_globalSpectaclePanel, "modulate:v", Balance.SurgePipBarPulse, 0.05f)
+			.SetTrans(Tween.TransitionType.Linear).SetEase(Tween.EaseType.In);
+		// Smooth decay back to neutral
+		_surgeMeterPulseTween.TweenProperty(_globalSpectaclePanel, "modulate:v", 1f, 0.35f)
+			.SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+		_surgeMeterPulseTween.TweenCallback(Callable.From(() => _surgeMeterPulseTween = null));
+	}
+
 	public void RefreshGlobalSurgeMeter(float meter, float threshold, bool visible,
 		string surgePreview = "", float previewAlpha = 0f)
 	{

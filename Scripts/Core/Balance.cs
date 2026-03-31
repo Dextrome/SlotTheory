@@ -43,6 +43,15 @@ public static class Balance
     public static bool EnableScreenShake => MobileOptimization.IsMobile() ? MobileOptimization.EnableScreenShake : true;
     public static float GlowRadius => MobileOptimization.IsMobile() ? MobileOptimization.GlowRadius : 1.0f;
 
+    // Surge pip -- flying contribution indicator (tower surge → global surge bar)
+    public const float SurgePipLingerSec  = 0.70f;  // dwell at source tower before flying
+    public const float SurgePipTravelSec  = 0.65f;  // flight duration
+    public const float SurgePipArcHeight  = 52f;    // upward arc offset in screen pixels
+    public const float SurgePipCoreRadius = 5.0f;   // core dot radius
+    public const float SurgePipGlowRadius = 10.0f;  // outer glow radius
+    public const int   SurgePipMaxActive  = 6;      // cap on simultaneous active pips
+    public const float SurgePipBarPulse   = 1.28f;  // HUD bar brightness peak on pip arrival
+
     public static int ExtraPicksForWave(int waveIndex) => waveIndex switch
     {
         0  => Wave1ExtraPicks,

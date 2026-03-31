@@ -90,6 +90,8 @@ public partial class GameController : Node
 	private Tween? _globalSurgeBannerTween;
 	private ulong _globalSurgeBannerToken = 0;
 	private Node2D _worldNode = null!;
+	private CanvasLayer _pipLayer = null!;
+	private int _activePipCount;
 	private Line2D[]? _pathLines;
 	private Vector2[]? _fullPathPoints;
 	private BotRunner? _botRunner;
@@ -643,6 +645,12 @@ public partial class GameController : Node
 		_unlockRevealScreen.RevealClosed += OnUnlockRevealClosed;
 
 		_worldNode = GetNode<Node2D>("../World");
+		_activePipCount = 0;
+		if (!GodotObject.IsInstanceValid(_pipLayer))
+		{
+			_pipLayer = new CanvasLayer { Layer = 2, Name = "SurgePipLayer" };
+			AddChild(_pipLayer);
+		}
 		_mapVisuals = new Node2D { Name = "_mapVisuals" };
 		_worldNode.AddChild(_mapVisuals);
 		_worldNode.MoveChild(_mapVisuals, 0);
@@ -4936,6 +4944,7 @@ void fragment() {
 		SpectacleConsequenceKind surgeRider = ResolveConsequenceKindFromSkin(comboSkin);
 		float surgeConsequenceStrength = Mathf.Clamp(info.Signature.SurgePower, 0.6f, 2.2f) * 0.58f;
 		SpawnSpectacleBurstFx(sourceTower.GlobalPosition, accent, major: true, power: info.Signature.SurgePower);
+		SpawnSurgePip(sourceTower.GlobalPosition, accent);
 		SpawnSpectacleLinks(
 			sourceTower.GlobalPosition,
 			accent,
@@ -7166,6 +7175,43 @@ void fragment() {
 					damageBaseOverride: damageBaseOverride);
 			}
 		}
+	}
+
+	/// <summary>
+	/// Spawns a flying energy pip from the surging tower to the Global Surge HUD bar.
+	/// Capped at <see cref="Balance.SurgePipMaxActive"/> simultaneous pips so heavy combat
+	/// stays readable. The pip lives in a screen-space CanvasLayer (layer 2) so it can
+	/// cross from world coordinates to the HUD bar without coordinate-system hacks.
+	/// </summary>
+	private void SpawnSurgePip(Vector2 worldPos, Color accent)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_pipLayer))
+			return;
+		if (_spectacleSystem.IsGlobalSurgeReady)
+			return; // bar is full/ready -- no point flying more pips to it
+		if (_activePipCount >= Balance.SurgePipMaxActive)
+			return;
+
+		Vector2 screenStart  = WorldToScreen(worldPos);
+		Rect2   barRect      = _hudPanel.GetSurgeMeterViewportRect();
+		Vector2 screenTarget = barRect.Position + barRect.Size * 0.5f;
+
+		_activePipCount++;
+		var pip = new SurgePip();
+		_pipLayer.AddChild(pip);
+		pip.Initialize(
+			screenStart  : screenStart,
+			screenTarget : screenTarget,
+			color        : accent,
+			lingerSec    : Balance.SurgePipLingerSec,
+			travelSec    : Balance.SurgePipTravelSec,
+			arcHeight    : Balance.SurgePipArcHeight,
+			onArrival    : () =>
+			{
+				_activePipCount = Mathf.Max(0, _activePipCount - 1);
+				if (GodotObject.IsInstanceValid(_hudPanel) && !_spectacleSystem.IsGlobalSurgeReady)
+					_hudPanel.FlashPipArrival();
+			});
 	}
 
 	private void SpawnGlobalSurgeRipples(Vector2 origin, Color[] colors, int contributors, float lingerMultiplier = 1f)
