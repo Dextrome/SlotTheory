@@ -90,6 +90,32 @@ public static class Balance
     public const float DetonationSurgeMarkMult    = 0.75f;  // mark duration multiplier (shorter -- they die fast)
     public const float DetonationSurgeSlowMult    = 0.80f;  // slow duration multiplier
 
+    // ── Tower Surge category-biased presentation ────────────────────────────
+    // Spread category: more connections, wider reach, electric branching read
+    public const int   TowerSurgeSpreadMaxLinks    = 5;     // more enemy connections (base is 3)
+    public const float TowerSurgeSpreadLinkMult    = 1.35f; // extended link reach multiplier
+    public const float TowerSurgeSpreadFlashAlpha  = 0.13f; // brighter radiating flash
+    public const int   TowerSurgeSpreadArcCount    = 3;     // mini enemy-to-enemy arcs (Spread headline)
+    public const float TowerSurgeSpreadArcLifetime = 0.28f; // arc lifetime in sec
+
+    // Burst category: punchy hard impact, deeper time dilation, stronger FX
+    public const float TowerSurgeBurstFlashAlpha     = 0.16f; // hard punchy flash
+    public const float TowerSurgeBurstArchetypeDrama = 0.20f; // more visible burst archetype FX
+    public const float TowerSurgeBurstSlowMoDuration = 0.18f; // longer impact window
+    public const float TowerSurgeBurstSlowMoFactor   = 0.60f; // deeper time dilation
+    public const float TowerSurgeBurstPowerMult      = 1.28f; // stronger burst + volley FX
+    public const float TowerSurgeBurstSnapDelay      = 0.28f; // second flash pop delay in sec
+
+    // Control category: softer flash, more visible zone rings, longer presence
+    public const int   TowerSurgeControlMaxLinks        = 2;     // fewer, more focused links
+    public const float TowerSurgeControlFlashAlpha      = 0.06f; // subdued flash (zone, not pop)
+    public const float TowerSurgeControlSignatureDrama  = 0.24f; // more visible zone-like rings
+    public const float TowerSurgeControlSlowMoDuration  = 0.20f; // longer zone presence
+
+    // Echo category: more visible afterimage, second delayed repeat strike
+    public const float TowerSurgeEchoArchetypeDrama = 0.20f; // more visible echo ghost
+    public const float TowerSurgeEchoDelay2         = 0.52f; // second late echo delay in sec
+
     public static int ExtraPicksForWave(int waveIndex) => waveIndex switch
     {
         0  => Wave1ExtraPicks,

@@ -64,17 +64,19 @@ public class SurgeDifferentiationTests
 
     // ── SurgeDifferentiation.ResolveLabel ──────────────────────────────────────
 
+    // ResolveLabel now returns feel-type labels: PRESSURE SURGE / CHAIN SURGE / DETONATION SURGE.
+    // Per-mod labels were removed when the feel-differentiation system was introduced.
     [Theory]
-    [InlineData(SpectacleDefinitions.Momentum,        "Momentum")]
-    [InlineData(SpectacleDefinitions.Overkill,        "Overkill")]
-    [InlineData(SpectacleDefinitions.ExploitWeakness, "Exploit")]
-    [InlineData(SpectacleDefinitions.FocusLens,       "Focus")]
-    [InlineData(SpectacleDefinitions.ChillShot,       "Chill")]
-    [InlineData(SpectacleDefinitions.Overreach,       "Overreach")]
-    [InlineData(SpectacleDefinitions.HairTrigger,     "Hair Trigger")]
-    [InlineData(SpectacleDefinitions.SplitShot,       "Split Shot")]
-    [InlineData(SpectacleDefinitions.FeedbackLoop,    "Feedback")]
-    [InlineData(SpectacleDefinitions.ChainReaction,   "Chain")]
+    [InlineData(SpectacleDefinitions.Momentum,        "PRESSURE SURGE")]
+    [InlineData(SpectacleDefinitions.Overkill,        "DETONATION SURGE")]
+    [InlineData(SpectacleDefinitions.ExploitWeakness, "CHAIN SURGE")]
+    [InlineData(SpectacleDefinitions.FocusLens,       "DETONATION SURGE")]
+    [InlineData(SpectacleDefinitions.ChillShot,       "PRESSURE SURGE")]
+    [InlineData(SpectacleDefinitions.Overreach,       "PRESSURE SURGE")]
+    [InlineData(SpectacleDefinitions.HairTrigger,     "DETONATION SURGE")]
+    [InlineData(SpectacleDefinitions.SplitShot,       "CHAIN SURGE")]
+    [InlineData(SpectacleDefinitions.FeedbackLoop,    "DETONATION SURGE")]
+    [InlineData(SpectacleDefinitions.ChainReaction,   "CHAIN SURGE")]
     public void ResolveLabel_KnownModId_ReturnsExpectedLabel(string modId, string expected)
     {
         string label = SurgeDifferentiation.ResolveLabel(new[] { modId });
@@ -84,25 +86,26 @@ public class SurgeDifferentiationTests
     [Fact]
     public void ResolveLabel_EmptyArray_ReturnsDefaultLabel()
     {
-        Assert.Equal("GLOBAL SURGE", SurgeDifferentiation.ResolveLabel(Array.Empty<string>()));
+        // Default feel is Neutral, which maps to "CHAIN SURGE".
+        Assert.Equal("CHAIN SURGE", SurgeDifferentiation.ResolveLabel(Array.Empty<string>()));
     }
 
     [Fact]
     public void ResolveLabel_UnknownModId_ReturnsDefaultLabel()
     {
-        Assert.Equal("GLOBAL SURGE", SurgeDifferentiation.ResolveLabel(new[] { "unknown_mod_xyz" }));
+        Assert.Equal("CHAIN SURGE", SurgeDifferentiation.ResolveLabel(new[] { "unknown_mod_xyz" }));
     }
 
     [Fact]
     public void ResolveLabel_UsesFirstEntryOnly()
     {
-        // Even if the array has multiple entries, label is driven by [0].
+        // Label is driven by [0]; FocusLens is Detonation, Momentum is Pressure.
         string[] mods = { SpectacleDefinitions.FocusLens, SpectacleDefinitions.Momentum };
-        Assert.Equal("Focus", SurgeDifferentiation.ResolveLabel(mods));
+        Assert.Equal("DETONATION SURGE", SurgeDifferentiation.ResolveLabel(mods));
     }
 
     [Fact]
-    public void ResolveLabel_AllSupportedMods_NoneReturnDefaultLabel()
+    public void ResolveLabel_AllSupportedMods_ReturnOneOfThreeTypes()
     {
         var supported = new[]
         {
@@ -112,11 +115,11 @@ public class SurgeDifferentiationTests
             SpectacleDefinitions.HairTrigger, SpectacleDefinitions.SplitShot,
             SpectacleDefinitions.FeedbackLoop, SpectacleDefinitions.ChainReaction,
         };
+        var validLabels = new[] { "PRESSURE SURGE", "CHAIN SURGE", "DETONATION SURGE" };
         foreach (string mod in supported)
         {
             string label = SurgeDifferentiation.ResolveLabel(new[] { mod });
-            Assert.NotEqual("GLOBAL SURGE", label);
-            Assert.False(string.IsNullOrWhiteSpace(label));
+            Assert.Contains(label, validLabels);
         }
     }
 
@@ -337,37 +340,175 @@ public class SurgeDifferentiationTests
     [Fact]
     public void LabelAndFeel_AllSupportedMods_HaveConsistentCategories()
     {
-        // Detonation mods should produce non-default labels
+        // Detonation mods produce "DETONATION SURGE"
         string[] detonationMods = { SpectacleDefinitions.FocusLens, SpectacleDefinitions.Overkill,
                                     SpectacleDefinitions.FeedbackLoop, SpectacleDefinitions.HairTrigger };
         foreach (string mod in detonationMods)
         {
             Assert.Equal(SurgeDifferentiation.GlobalSurgeFeel.Detonation,
                 SurgeDifferentiation.ResolveFeel(new[] { mod }));
-            Assert.NotEqual("GLOBAL SURGE", SurgeDifferentiation.ResolveLabel(new[] { mod }));
+            Assert.Equal("DETONATION SURGE", SurgeDifferentiation.ResolveLabel(new[] { mod }));
         }
 
-        // Pressure mods should also have named labels and correct feel
+        // Pressure mods produce "PRESSURE SURGE"
         string[] pressureMods = { SpectacleDefinitions.ChillShot, SpectacleDefinitions.Overreach,
                                    SpectacleDefinitions.Momentum };
         foreach (string mod in pressureMods)
         {
             Assert.Equal(SurgeDifferentiation.GlobalSurgeFeel.Pressure,
                 SurgeDifferentiation.ResolveFeel(new[] { mod }));
-            Assert.NotEqual("GLOBAL SURGE", SurgeDifferentiation.ResolveLabel(new[] { mod }));
+            Assert.Equal("PRESSURE SURGE", SurgeDifferentiation.ResolveLabel(new[] { mod }));
         }
     }
 
     [Fact]
     public void ResolveLabel_NullArray_ReturnsDefaultLabel()
     {
-        // Defensive: null should not throw, should return default
-        Assert.Equal("GLOBAL SURGE", SurgeDifferentiation.ResolveLabel(null!));
+        // Defensive: null should not throw, should return the Neutral default ("CHAIN SURGE").
+        Assert.Equal("CHAIN SURGE", SurgeDifferentiation.ResolveLabel(null!));
     }
 
     [Fact]
     public void ResolveFeel_NullArray_ReturnsNeutral()
     {
         Assert.Equal(SurgeDifferentiation.GlobalSurgeFeel.Neutral, SurgeDifferentiation.ResolveFeel(null!));
+    }
+
+    // ── TowerSurgeCategory resolution ─────────────────────────────────────────
+
+    [Fact]
+    public void ResolveTowerSurgeCategory_ChainReactionOnChainTower_ReturnsSpread()
+    {
+        var sig = new SpectacleSignature(
+            Mode: SpectacleMode.Single,
+            PrimaryModId: SpectacleDefinitions.ChainReaction,
+            SecondaryModId: string.Empty,
+            TertiaryModId: string.Empty,
+            PrimaryShare: 1f, SecondaryShare: 0f, TertiaryShare: 0f,
+            SurgePower: 1f, AugmentStrength: 0f,
+            EffectId: string.Empty, EffectName: string.Empty,
+            ComboEffectId: string.Empty, ComboEffectName: string.Empty,
+            AugmentEffectId: string.Empty, AugmentName: string.Empty);
+        var cat = SurgeDifferentiation.ResolveTowerSurgeCategory("chain_tower", sig);
+        Assert.Equal(SurgeDifferentiation.TowerSurgeCategory.Spread, cat);
+    }
+
+    [Fact]
+    public void ResolveTowerSurgeCategory_OverkillOnHeavyCannon_ReturnsBurst()
+    {
+        var sig = new SpectacleSignature(
+            Mode: SpectacleMode.Single,
+            PrimaryModId: SpectacleDefinitions.Overkill,
+            SecondaryModId: string.Empty,
+            TertiaryModId: string.Empty,
+            PrimaryShare: 1f, SecondaryShare: 0f, TertiaryShare: 0f,
+            SurgePower: 1f, AugmentStrength: 0f,
+            EffectId: string.Empty, EffectName: string.Empty,
+            ComboEffectId: string.Empty, ComboEffectName: string.Empty,
+            AugmentEffectId: string.Empty, AugmentName: string.Empty);
+        var cat = SurgeDifferentiation.ResolveTowerSurgeCategory("heavy_cannon", sig);
+        Assert.Equal(SurgeDifferentiation.TowerSurgeCategory.Burst, cat);
+    }
+
+    [Fact]
+    public void ResolveTowerSurgeCategory_SlowOnRiftPrism_ReturnsControl()
+    {
+        var sig = new SpectacleSignature(
+            Mode: SpectacleMode.Single,
+            PrimaryModId: SpectacleDefinitions.ChillShot,
+            SecondaryModId: string.Empty,
+            TertiaryModId: string.Empty,
+            PrimaryShare: 1f, SecondaryShare: 0f, TertiaryShare: 0f,
+            SurgePower: 1f, AugmentStrength: 0f,
+            EffectId: string.Empty, EffectName: string.Empty,
+            ComboEffectId: string.Empty, ComboEffectName: string.Empty,
+            AugmentEffectId: string.Empty, AugmentName: string.Empty);
+        var cat = SurgeDifferentiation.ResolveTowerSurgeCategory("rift_prism", sig);
+        Assert.Equal(SurgeDifferentiation.TowerSurgeCategory.Control, cat);
+    }
+
+    [Fact]
+    public void ResolveTowerSurgeCategory_AfterimageOnRapidShooter_ReturnsEcho()
+    {
+        var sig = new SpectacleSignature(
+            Mode: SpectacleMode.Single,
+            PrimaryModId: SpectacleDefinitions.Afterimage,
+            SecondaryModId: string.Empty,
+            TertiaryModId: string.Empty,
+            PrimaryShare: 1f, SecondaryShare: 0f, TertiaryShare: 0f,
+            SurgePower: 1f, AugmentStrength: 0f,
+            EffectId: string.Empty, EffectName: string.Empty,
+            ComboEffectId: string.Empty, ComboEffectName: string.Empty,
+            AugmentEffectId: string.Empty, AugmentName: string.Empty);
+        var cat = SurgeDifferentiation.ResolveTowerSurgeCategory("rapid_shooter", sig);
+        Assert.Equal(SurgeDifferentiation.TowerSurgeCategory.Echo, cat);
+    }
+
+    [Fact]
+    public void ResolveTowerSurgeCategory_NoMods_UsesTowerBiasOnly()
+    {
+        var emptyMods = new SpectacleSignature(
+            Mode: SpectacleMode.Single,
+            PrimaryModId: string.Empty,
+            SecondaryModId: string.Empty,
+            TertiaryModId: string.Empty,
+            PrimaryShare: 0f, SecondaryShare: 0f, TertiaryShare: 0f,
+            SurgePower: 1f, AugmentStrength: 0f,
+            EffectId: string.Empty, EffectName: string.Empty,
+            ComboEffectId: string.Empty, ComboEffectName: string.Empty,
+            AugmentEffectId: string.Empty, AugmentName: string.Empty);
+
+        // Tower bias alone should win with no mods
+        Assert.Equal(SurgeDifferentiation.TowerSurgeCategory.Burst,
+            SurgeDifferentiation.ResolveTowerSurgeCategory("heavy_cannon", emptyMods));
+        Assert.Equal(SurgeDifferentiation.TowerSurgeCategory.Spread,
+            SurgeDifferentiation.ResolveTowerSurgeCategory("chain_tower", emptyMods));
+        Assert.Equal(SurgeDifferentiation.TowerSurgeCategory.Control,
+            SurgeDifferentiation.ResolveTowerSurgeCategory("accordion_engine", emptyMods));
+        Assert.Equal(SurgeDifferentiation.TowerSurgeCategory.Echo,
+            SurgeDifferentiation.ResolveTowerSurgeCategory("latch_nest", emptyMods));
+    }
+
+    [Fact]
+    public void ResolveTowerSurgeCategory_UnknownTowerId_StillResolvesFromMods()
+    {
+        var sig = new SpectacleSignature(
+            Mode: SpectacleMode.Single,
+            PrimaryModId: SpectacleDefinitions.Overkill,
+            SecondaryModId: string.Empty,
+            TertiaryModId: string.Empty,
+            PrimaryShare: 1f, SecondaryShare: 0f, TertiaryShare: 0f,
+            SurgePower: 1f, AugmentStrength: 0f,
+            EffectId: string.Empty, EffectName: string.Empty,
+            ComboEffectId: string.Empty, ComboEffectName: string.Empty,
+            AugmentEffectId: string.Empty, AugmentName: string.Empty);
+        // Unknown tower has no bias, so overkill (Burst 2.5) should win
+        var cat = SurgeDifferentiation.ResolveTowerSurgeCategory("unknown_tower_xyz", sig);
+        Assert.Equal(SurgeDifferentiation.TowerSurgeCategory.Burst, cat);
+    }
+
+    [Fact]
+    public void GetCategoryMaxLinks_SpreadIsHigherThanControlIsHigherThanBase()
+    {
+        int spread  = SurgeDifferentiation.GetCategoryMaxLinks(SurgeDifferentiation.TowerSurgeCategory.Spread);
+        int control = SurgeDifferentiation.GetCategoryMaxLinks(SurgeDifferentiation.TowerSurgeCategory.Control);
+        int burst   = SurgeDifferentiation.GetCategoryMaxLinks(SurgeDifferentiation.TowerSurgeCategory.Burst);
+
+        Assert.True(spread > burst, $"Spread ({spread}) should have more links than Burst ({burst})");
+        Assert.True(control < burst, $"Control ({control}) should have fewer links than Burst ({burst})");
+        Assert.True(spread > 0 && control > 0);
+    }
+
+    [Fact]
+    public void GetCategoryFlashAlpha_BurstIsHighest_ControlIsLowest()
+    {
+        float burst   = SurgeDifferentiation.GetCategoryFlashAlpha(SurgeDifferentiation.TowerSurgeCategory.Burst);
+        float spread  = SurgeDifferentiation.GetCategoryFlashAlpha(SurgeDifferentiation.TowerSurgeCategory.Spread);
+        float echo    = SurgeDifferentiation.GetCategoryFlashAlpha(SurgeDifferentiation.TowerSurgeCategory.Echo);
+        float control = SurgeDifferentiation.GetCategoryFlashAlpha(SurgeDifferentiation.TowerSurgeCategory.Control);
+
+        Assert.True(burst > spread,  $"Burst ({burst:F3}) should be > Spread ({spread:F3})");
+        Assert.True(control < echo,  $"Control ({control:F3}) should be < Echo ({echo:F3})");
+        Assert.True(control > 0f && burst < 1f);
     }
 }
