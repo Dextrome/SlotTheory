@@ -212,18 +212,18 @@ public class SpectacleSystemTests
     }
 
     [Fact]
-    public void PreviewSignature_DuplicateModGetsDoubleShareInCombo()
+    public void PreviewSignature_DuplicateModCollapsesToUniqueSet()
     {
         var system = new SpectacleSystem();
         var tower = TowerWithMods("split_shot", "split_shot", "slow");
 
         SpectacleSignature sig = system.PreviewSignature(tower);
 
+        // Two unique mods: chill_shot (canonical rank 4) and split_shot (rank 7).
+        // All mods contribute equally -- canonical order determines slot assignment.
         Assert.Equal(SpectacleMode.Combo, sig.Mode);
-        Assert.Equal(SpectacleDefinitions.SplitShot, sig.PrimaryModId);
-        Assert.Equal(SpectacleDefinitions.ChillShot, sig.SecondaryModId);
-        Assert.Equal(2f / 3f, sig.PrimaryShare, 3);
-        Assert.Equal(1f / 3f, sig.SecondaryShare, 3);
+        Assert.Equal(SpectacleDefinitions.ChillShot, sig.PrimaryModId);
+        Assert.Equal(SpectacleDefinitions.SplitShot, sig.SecondaryModId);
     }
 
     [Fact]
@@ -432,7 +432,6 @@ public class SpectacleSystemTests
         Assert.Equal(expectedCombo.EffectId, surge.Signature.ComboEffectId);
         Assert.Equal(expectedAugment.EffectId, surge.Signature.AugmentEffectId);
         Assert.Equal($"{expectedCombo.EffectId}+{expectedAugment.EffectId}", surge.Signature.EffectId);
-        Assert.True(surge.Signature.AugmentStrength > 0f);
     }
 
     [Fact]
@@ -471,7 +470,6 @@ public class SpectacleSystemTests
             {
                 Assert.False(string.IsNullOrWhiteSpace(sig.ComboEffectId));
                 Assert.False(string.IsNullOrWhiteSpace(sig.AugmentEffectId));
-                Assert.True(sig.AugmentStrength > 0f);
             }
         }
     }

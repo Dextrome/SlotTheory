@@ -12,11 +12,7 @@ public readonly record struct SpectacleSignature(
     string PrimaryModId,
     string SecondaryModId,
     string TertiaryModId,
-    float PrimaryShare,
-    float SecondaryShare,
-    float TertiaryShare,
     float SurgePower,
-    float AugmentStrength,
     string EffectId,
     string EffectName,
     string ComboEffectId,
@@ -264,9 +260,10 @@ public sealed class SpectacleSystem
 
             _globalMeter = Clamp(_globalMeter + SpectacleDefinitions.ResolveGlobalMeterPerSurge(), 0f, globalThreshold);
 
-            // Accumulate cycle scores: track which mods drove surges during this global cycle.
-            if (!string.IsNullOrEmpty(signature.PrimaryModId))
-                _globalCycleScores[signature.PrimaryModId] = _globalCycleScores.GetValueOrDefault(signature.PrimaryModId, 0) + 1;
+            // Accumulate cycle scores: all equipped mods contribute equally to global feel.
+            foreach (string modId in new[] { signature.PrimaryModId, signature.SecondaryModId, signature.TertiaryModId })
+                if (!string.IsNullOrEmpty(modId))
+                    _globalCycleScores[modId] = _globalCycleScores.GetValueOrDefault(modId, 0) + 1;
             _globalCycleContributors.Add(tower);
 
             OnSurgeTriggered?.Invoke(new SpectacleTriggerInfo(tower, IsSurge: true, signature, state.Meter));
@@ -295,19 +292,23 @@ public sealed class SpectacleSystem
 
     private static SpectacleSignature ResolveSignature(ITowerView tower)
     {
-        var counts = BuildCopyCountMap(tower);
-        if (counts.Count == 0)
+        // All equipped mods contribute equally -- order by canonical rank only.
+        var mods = tower.Modifiers
+            .Select(m => SpectacleDefinitions.NormalizeModId(m.ModifierId))
+            .Where(SpectacleDefinitions.IsSupported)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(CanonicalRank)
+            .ThenBy(id => id, StringComparer.Ordinal)
+            .ToList();
+
+        if (mods.Count == 0)
         {
             return new SpectacleSignature(
                 Mode: SpectacleMode.Single,
                 PrimaryModId: string.Empty,
                 SecondaryModId: string.Empty,
                 TertiaryModId: string.Empty,
-                PrimaryShare: 0f,
-                SecondaryShare: 0f,
-                TertiaryShare: 0f,
                 SurgePower: 1f,
-                AugmentStrength: 0f,
                 EffectId: string.Empty,
                 EffectName: string.Empty,
                 ComboEffectId: string.Empty,
@@ -316,27 +317,11 @@ public sealed class SpectacleSystem
                 AugmentName: string.Empty);
         }
 
-        // Roles determined purely by loadout: highest copy count first,
-        // ties broken by canonical order, then lexicographic.
-        var ranked = counts.Keys
-            .OrderByDescending(modId => counts[modId])
-            .ThenBy(modId => CanonicalRank(modId))
-            .ThenBy(modId => modId, StringComparer.Ordinal)
-            .ToList();
+        string r1 = mods.Count > 0 ? mods[0] : string.Empty;
+        string r2 = mods.Count > 1 ? mods[1] : string.Empty;
+        string r3 = mods.Count > 2 ? mods[2] : string.Empty;
 
-        string r1 = ranked.Count > 0 ? ranked[0] : string.Empty;
-        string r2 = ranked.Count > 1 ? ranked[1] : string.Empty;
-        string r3 = ranked.Count > 2 ? ranked[2] : string.Empty;
-
-        int unique = counts.Count;
-        int n = tower.Modifiers.Count;
-        if (n <= 0) n = 1;
-
-        float w1 = counts.TryGetValue(r1, out int c1) ? c1 / (float)n : 0f;
-        float w2 = counts.TryGetValue(r2, out int c2) ? c2 / (float)n : 0f;
-        float w3 = counts.TryGetValue(r3, out int c3) ? c3 / (float)n : 0f;
-
-        SpectacleMode mode = unique switch
+        SpectacleMode mode = mods.Count switch
         {
             <= 1 => SpectacleMode.Single,
             2 => SpectacleMode.Combo,
@@ -344,7 +329,6 @@ public sealed class SpectacleSystem
         };
 
         float surgePower = SpectacleDefinitions.GetModeBase(mode);
-        float augmentStrength = mode == SpectacleMode.Triad ? 1.0f : 0f;
 
         string effectId;
         string effectName;
@@ -384,11 +368,7 @@ public sealed class SpectacleSystem
             PrimaryModId: r1,
             SecondaryModId: r2,
             TertiaryModId: r3,
-            PrimaryShare: w1,
-            SecondaryShare: w2,
-            TertiaryShare: w3,
             SurgePower: surgePower,
-            AugmentStrength: augmentStrength,
             EffectId: effectId,
             EffectName: effectName,
             ComboEffectId: comboId,
@@ -436,21 +416,6 @@ public sealed class SpectacleSystem
                 return i;
         }
         return int.MaxValue;
-    }
-
-    private static Dictionary<string, int> BuildCopyCountMap(ITowerView tower)
-    {
-        var map = new Dictionary<string, int>(StringComparer.Ordinal);
-        foreach (var mod in tower.Modifiers)
-        {
-            string id = SpectacleDefinitions.NormalizeModId(mod.ModifierId);
-            if (!SpectacleDefinitions.IsSupported(id))
-                continue;
-
-            map.TryGetValue(id, out int count);
-            map[id] = count + 1;
-        }
-        return map;
     }
 
     private static int CountCopies(ITowerView tower, string modId)

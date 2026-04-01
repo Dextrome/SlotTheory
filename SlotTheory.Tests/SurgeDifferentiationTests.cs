@@ -384,8 +384,7 @@ public class SurgeDifferentiationTests
             PrimaryModId: SpectacleDefinitions.ChainReaction,
             SecondaryModId: string.Empty,
             TertiaryModId: string.Empty,
-            PrimaryShare: 1f, SecondaryShare: 0f, TertiaryShare: 0f,
-            SurgePower: 1f, AugmentStrength: 0f,
+            SurgePower: 1f,
             EffectId: string.Empty, EffectName: string.Empty,
             ComboEffectId: string.Empty, ComboEffectName: string.Empty,
             AugmentEffectId: string.Empty, AugmentName: string.Empty);
@@ -401,8 +400,7 @@ public class SurgeDifferentiationTests
             PrimaryModId: SpectacleDefinitions.Overkill,
             SecondaryModId: string.Empty,
             TertiaryModId: string.Empty,
-            PrimaryShare: 1f, SecondaryShare: 0f, TertiaryShare: 0f,
-            SurgePower: 1f, AugmentStrength: 0f,
+            SurgePower: 1f,
             EffectId: string.Empty, EffectName: string.Empty,
             ComboEffectId: string.Empty, ComboEffectName: string.Empty,
             AugmentEffectId: string.Empty, AugmentName: string.Empty);
@@ -418,8 +416,7 @@ public class SurgeDifferentiationTests
             PrimaryModId: SpectacleDefinitions.ChillShot,
             SecondaryModId: string.Empty,
             TertiaryModId: string.Empty,
-            PrimaryShare: 1f, SecondaryShare: 0f, TertiaryShare: 0f,
-            SurgePower: 1f, AugmentStrength: 0f,
+            SurgePower: 1f,
             EffectId: string.Empty, EffectName: string.Empty,
             ComboEffectId: string.Empty, ComboEffectName: string.Empty,
             AugmentEffectId: string.Empty, AugmentName: string.Empty);
@@ -435,8 +432,7 @@ public class SurgeDifferentiationTests
             PrimaryModId: SpectacleDefinitions.Afterimage,
             SecondaryModId: string.Empty,
             TertiaryModId: string.Empty,
-            PrimaryShare: 1f, SecondaryShare: 0f, TertiaryShare: 0f,
-            SurgePower: 1f, AugmentStrength: 0f,
+            SurgePower: 1f,
             EffectId: string.Empty, EffectName: string.Empty,
             ComboEffectId: string.Empty, ComboEffectName: string.Empty,
             AugmentEffectId: string.Empty, AugmentName: string.Empty);
@@ -452,8 +448,7 @@ public class SurgeDifferentiationTests
             PrimaryModId: string.Empty,
             SecondaryModId: string.Empty,
             TertiaryModId: string.Empty,
-            PrimaryShare: 0f, SecondaryShare: 0f, TertiaryShare: 0f,
-            SurgePower: 1f, AugmentStrength: 0f,
+            SurgePower: 1f,
             EffectId: string.Empty, EffectName: string.Empty,
             ComboEffectId: string.Empty, ComboEffectName: string.Empty,
             AugmentEffectId: string.Empty, AugmentName: string.Empty);
@@ -477,8 +472,7 @@ public class SurgeDifferentiationTests
             PrimaryModId: SpectacleDefinitions.Overkill,
             SecondaryModId: string.Empty,
             TertiaryModId: string.Empty,
-            PrimaryShare: 1f, SecondaryShare: 0f, TertiaryShare: 0f,
-            SurgePower: 1f, AugmentStrength: 0f,
+            SurgePower: 1f,
             EffectId: string.Empty, EffectName: string.Empty,
             ComboEffectId: string.Empty, ComboEffectName: string.Empty,
             AugmentEffectId: string.Empty, AugmentName: string.Empty);

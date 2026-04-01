@@ -385,6 +385,12 @@ public partial class SoundManager : Node
         // ── Global surge: explosion + expanding shockwave ─────────────────
         Reg("surge_global", GlobalSurge(dur: 8.0f, vol: 0.92f, boomDecay: 0.30f, waveSweepDur: 1.44f, sparkVol: 0.20f));
 
+        // ── Tower Surge category sounds (one distinct identity per category) ─
+        Reg("surge_spread",  SpreadSurge());   // staggered arc sweeps + electric hiss
+        Reg("surge_burst",   BurstSurge());    // sub-bass boom + crack onset
+        Reg("surge_control", ControlSurge());  // cold resonant hum, soft attack
+        Reg("surge_echo",    EchoSurge());     // three hits: 100% -> 50% -> 25%
+
         // ── UI ───────────────────────────────────────────────────────────
         Reg("draft_pick",      Tone(740f, 0.07f, vol: 0.40f, shape: 's', env: 'f'));
         Reg("ui_card_pick",    Tone(240f, 0.07f, vol: 0.42f, shape: 'q', env: 'f'));
@@ -2436,6 +2442,260 @@ public partial class SoundManager : Node
             arr[i] = new Vector2(s, s);
         }
         return (arr, dur);
+    }
+
+    // ── Tower Surge Category Sounds ──────────────────────────────────────────
+    // Each returns a distinct timbre so the player hears which category fired
+    // before the visual even registers.
+
+    /// <summary>
+    /// SPREAD SURGE -- 4 staggered descending arc sweeps + electric hiss.
+    /// Evokes lightning branching outward in rapid succession.
+    /// </summary>
+    private static (Vector2[] s, float d) SpreadSurge()
+    {
+        // Four sweeps, each 28 ms apart, descending from different start freqs
+        float[] f0s  = { 2400f, 1900f, 2150f, 1700f };
+        float[] f1s  = {  360f,  290f,  310f,  270f };
+        float   sweepDur = 0.22f;
+        float   totalDur = sweepDur + 0.028f * (f0s.Length - 1) + 0.06f; // tail
+        int     n    = (int)(Rate * totalDur);
+        var     arr  = new Vector2[n];
+
+        // Staggered arc sweeps
+        for (int k = 0; k < f0s.Length; k++)
+        {
+            int   startSample = (int)(Rate * 0.028f * k);
+            int   sweepN      = (int)(Rate * sweepDur);
+            double phase      = 0.0;
+            float vol         = 0.44f - 0.04f * k;  // each arc slightly quieter
+            for (int i = 0; i < sweepN && startSample + i < n; i++)
+            {
+                float t    = i / (float)Rate;
+                float freq = f0s[k] + (f1s[k] - f0s[k]) * (t / sweepDur);
+                phase += freq / Rate;
+                float wave = MathF.Sin((float)(phase * Math.PI * 2.0));
+                float amp  = vol * MathF.Exp(-4.5f * t / sweepDur);
+                arr[startSample + i] += new Vector2(wave * amp, wave * amp);
+            }
+        }
+
+        // Bandpass electric hiss (HP above ~1200 Hz) underneath
+        var rng  = new Random(17);
+        float lpH = 0f;
+        float aHiss = MathF.Exp(-MathF.Tau * 1200f / Rate);
+        for (int i = 0; i < n; i++)
+        {
+            float t = i / (float)Rate;
+            float w = (float)(rng.NextDouble() * 2.0 - 1.0);
+            lpH = aHiss * lpH + (1f - aHiss) * w;
+            float hp  = w - lpH;
+            float env = 0.18f * MathF.Exp(-5.0f * t / totalDur);
+            arr[i] += new Vector2(hp * env, hp * env);
+        }
+
+        // Normalize
+        float peak = 0f;
+        for (int i = 0; i < n; i++) peak = MathF.Max(peak, MathF.Abs(arr[i].X));
+        float scale = peak > 0.86f ? 0.86f / peak : 1f;
+        for (int i = 0; i < n; i++) arr[i] = new Vector2(arr[i].X * scale, arr[i].Y * scale);
+
+        return (arr, totalDur);
+    }
+
+    /// <summary>
+    /// BURST SURGE -- sub-bass boom + rapid crack onset.
+    /// Heavy, punchy, immediate -- the loudest of the four.
+    /// </summary>
+    private static (Vector2[] s, float d) BurstSurge()
+    {
+        float dur = 0.55f;
+        int   n   = (int)(Rate * dur);
+        var   arr = new Vector2[n];
+
+        // Boom: 100 Hz -- audible on all speaker types, still sounds bassy
+        {
+            float vol   = 0.80f;
+            float decay = 0.080f;
+            for (int i = 0; i < n; i++)
+            {
+                float t    = i / (float)Rate;
+                float wave = MathF.Sin(t * MathF.Tau * 100f);
+                float amp  = vol * MathF.Exp(-t / decay);
+                arr[i] += new Vector2(wave * amp, wave * amp);
+            }
+        }
+
+        // Body thud: 320 --> 90 Hz descending sweep (both endpoints audible)
+        {
+            double phase = 0.0;
+            float  vol   = 0.65f;
+            float  sDur  = 0.16f;
+            int    sN    = (int)(Rate * sDur);
+            for (int i = 0; i < sN; i++)
+            {
+                float t    = i / (float)Rate;
+                float freq = 320f + (90f - 320f) * (t / sDur);
+                phase += freq / Rate;
+                float wave = MathF.Sin((float)(phase * Math.PI * 2.0));
+                float amp  = vol * MathF.Exp(-5f * t / sDur);
+                arr[i] += new Vector2(wave * amp, wave * amp);
+            }
+        }
+
+        // Mid punch: 480 Hz -- gives weight that laptop speakers can reproduce
+        {
+            float vol   = 0.45f;
+            float decay = 0.045f;
+            for (int i = 0; i < n; i++)
+            {
+                float t    = i / (float)Rate;
+                float wave = MathF.Sin(t * MathF.Tau * 480f);
+                float amp  = vol * MathF.Exp(-t / decay);
+                arr[i] += new Vector2(wave * amp, wave * amp);
+            }
+        }
+
+        // Impact crack: 55 ms broadband noise, 22 ms decay -- actually audible
+        {
+            var   rng    = new Random(91);
+            int   crackN = (int)(Rate * 0.055f);
+            float crackV = 0.70f;
+            for (int i = 0; i < crackN; i++)
+            {
+                float t   = i / (float)Rate;
+                float w   = (float)(rng.NextDouble() * 2.0 - 1.0);
+                float amp = crackV * MathF.Exp(-t / 0.022f);
+                arr[i] += new Vector2(w * amp, w * amp);
+            }
+        }
+
+        // Normalize
+        float peak = 0f;
+        for (int i = 0; i < n; i++) peak = MathF.Max(peak, MathF.Abs(arr[i].X));
+        float scale = peak > 0.86f ? 0.86f / peak : 1f;
+        for (int i = 0; i < n; i++) arr[i] = new Vector2(arr[i].X * scale, arr[i].Y * scale);
+
+        return (arr, dur);
+    }
+
+    /// <summary>
+    /// CONTROL SURGE -- cold resonant hum with a soft onset and icy high shimmer.
+    /// Feels deliberate and precise, not explosive.
+    /// </summary>
+    private static (Vector2[] s, float d) ControlSurge()
+    {
+        float dur = 0.72f;
+        int   n   = (int)(Rate * dur);
+        var   arr = new Vector2[n];
+
+        // Sustained low drone: 90 Hz with 40 ms soft attack
+        float droneVol   = 0.38f;
+        float attackTime = 0.040f;
+        float decayTime  = 0.55f;
+        for (int i = 0; i < n; i++)
+        {
+            float t    = i / (float)Rate;
+            float rise = 1f - MathF.Exp(-t / attackTime);
+            float fall = MathF.Exp(-t / decayTime);
+            float amp  = droneVol * rise * fall;
+            float wave = MathF.Sin(t * MathF.Tau * 90f);
+            arr[i] += new Vector2(wave * amp, wave * amp);
+        }
+
+        // Hollow fifth: 270 Hz (harmonic presence)
+        float fiftVol = 0.22f;
+        for (int i = 0; i < n; i++)
+        {
+            float t    = i / (float)Rate;
+            float rise = 1f - MathF.Exp(-t / attackTime);
+            float fall = MathF.Exp(-t / 0.40f);
+            float amp  = fiftVol * rise * fall;
+            float wave = MathF.Sin(t * MathF.Tau * 270f);
+            arr[i] += new Vector2(wave * amp, wave * amp);
+        }
+
+        // Ice shimmer: narrow bandpass noise around 1380 Hz
+        {
+            var   rng = new Random(63);
+            float aLp = MathF.Exp(-MathF.Tau * 1600f / Rate);
+            float aHp = MathF.Exp(-MathF.Tau * 1150f / Rate);
+            float lp = 0f, hp = 0f;
+            float shVol = 0.14f;
+            for (int i = 0; i < n; i++)
+            {
+                float t = i / (float)Rate;
+                float w = (float)(rng.NextDouble() * 2.0 - 1.0);
+                lp = aLp * lp + (1f - aLp) * w;
+                hp = aHp * hp + (1f - aHp) * w;
+                float bp  = lp - hp;
+                float env = shVol * MathF.Exp(-t / 0.30f) * (1f - MathF.Exp(-t / 0.025f));
+                arr[i] += new Vector2(bp * env, bp * env);
+            }
+        }
+
+        // Soft transient tap: 200 Hz brief click to mark the hit point
+        {
+            int   tapN  = (int)(Rate * 0.030f);
+            float tapV  = 0.28f;
+            for (int i = 0; i < tapN; i++)
+            {
+                float t    = i / (float)Rate;
+                float wave = MathF.Sin(t * MathF.Tau * 200f);
+                float amp  = tapV * MathF.Exp(-t / 0.008f);
+                arr[i] += new Vector2(wave * amp, wave * amp);
+            }
+        }
+
+        // Normalize
+        float peak = 0f;
+        for (int i = 0; i < n; i++) peak = MathF.Max(peak, MathF.Abs(arr[i].X));
+        float scale = peak > 0.82f ? 0.82f / peak : 1f;
+        for (int i = 0; i < n; i++) arr[i] = new Vector2(arr[i].X * scale, arr[i].Y * scale);
+
+        return (arr, dur);
+    }
+
+    /// <summary>
+    /// ECHO SURGE -- one descending sweep stamped 3 times at 155 ms intervals,
+    /// each repetition quieter: 100% / 50% / 25%.  Rhythmic, trailing, ghostly.
+    /// </summary>
+    private static (Vector2[] s, float d) EchoSurge()
+    {
+        float hitDur     = 0.16f;     // length of each stamp
+        float interval   = 0.155f;   // time between stamp starts
+        float totalDur   = interval * 2f + hitDur + 0.04f;  // tail
+        int   n          = (int)(Rate * totalDur);
+        var   arr        = new Vector2[n];
+
+        float[] vols     = { 0.62f, 0.31f, 0.155f };
+        float   f0       = 620f;
+        float   f1       = 95f;
+
+        for (int k = 0; k < 3; k++)
+        {
+            int    startS = (int)(Rate * interval * k);
+            int    hitN   = (int)(Rate * hitDur);
+            double phase  = 0.0;
+            float  vol    = vols[k];
+            for (int i = 0; i < hitN && startS + i < n; i++)
+            {
+                float t    = i / (float)Rate;
+                float freq = f0 + (f1 - f0) * (t / hitDur);
+                phase += freq / Rate;
+                float wave = MathF.Sin((float)(phase * Math.PI * 2.0));
+                float amp  = vol * MathF.Exp(-5f * t / hitDur);
+                arr[startS + i] += new Vector2(wave * amp, wave * amp);
+            }
+        }
+
+        // Normalize
+        float peak = 0f;
+        for (int i = 0; i < n; i++) peak = MathF.Max(peak, MathF.Abs(arr[i].X));
+        float scale = peak > 0.82f ? 0.82f / peak : 1f;
+        for (int i = 0; i < n; i++) arr[i] = new Vector2(arr[i].X * scale, arr[i].Y * scale);
+
+        return (arr, totalDur);
     }
 
     private bool ShouldSkipMobileSfx(string id, ulong nowMs)

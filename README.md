@@ -294,7 +294,7 @@ Each tower has its own spectacle meter.
 - Surge threshold: **145**
 - After surge trigger, meter resets to: **10**
 - Surge cooldown: **6.0 s**
-- Meter gain comes from supported modifier procs, scaled by copy count, loadout diversity, and per-mod anti-spam token gates.
+- Meter gain comes from supported modifier procs, scaled by loadout diversity and per-mod anti-spam token gates.
 
 ### How Surge Effects Are Chosen
 
@@ -304,7 +304,16 @@ When a surge fires, the tower resolves a signature from its equipped supported m
 - **Combo**: 2 unique supported mods - combo core effect
 - **Triad**: 3 unique supported mods - combo core + augment effect
 
-Loadout identity directly controls what the surge does and how it looks.
+All mods contribute equally -- no single mod dominates. Loadout identity directly controls what the surge does and how it looks.
+
+### Tower Surge Category
+
+Every surge is classified into one of four categories based on the tower's equipped mods and base bias. All mods are weighted equally; ties go to the tower's natural identity:
+
+- **SPREAD SURGE** -- arcs radiate outward to 5 targets, wider reach, electric sound
+- **BURST SURGE** -- double explosion with heavier FX and deeper slowmo
+- **CONTROL SURGE** -- tight signature rings, precise, cold resonant sound
+- **ECHO SURGE** -- delayed trailing repeat at reduced power, ghostly sound
 
 ### Global Meter and Global Surge
 
@@ -326,7 +335,7 @@ Global surge is a mapwide event with synchronized spectacle + gameplay:
 
 ### Surge Readability and Visual Feel
 
-The banner label and visual treatment are driven by which mods contributed most to filling the global meter. The dominant mod maps to one of 3 genuinely distinct feel types:
+The banner label and visual treatment are driven by which mods contributed most across all tower surges since the last global surge. Every mod on every surging tower counts equally. The dominant mod maps to one of 3 genuinely distinct feel types:
 
 - **PRESSURE SURGE** (Momentum, Chill Shot, Overreach, Afterimage) - extended control: marks and slows run 1.5× longer with deeper slow factor. Arcs flood from every tower to every live enemy. Cold blue tint, wide slow ripples.
 - **CHAIN SURGE** (Exploit Weakness, Split Shot, Chain Reaction, Reaper Protocol, Deadzone) - spreading chain: arcs jump enemy-to-enemy in progress order. Normal damage, full cooldown refund. Electric purple tint, balanced ripples.

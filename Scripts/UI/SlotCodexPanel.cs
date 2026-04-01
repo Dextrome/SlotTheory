@@ -984,7 +984,7 @@ public partial class SlotCodexPanel : Node
                 ? $"{enemyTotal} enemy types shown | full game adds 2 more"
                 : $"{enemyTotal} enemy types",
             CodexTab.HowToPlay => "Core rules, controls, and build fundamentals.",
-            CodexTab.Surges => "Surge / Twist / Bonus / Global Surge reference.",
+            CodexTab.Surges => "Surge category, mod behaviors, and Global Surge reference.",
             CodexTab.Upgrades => $"{Core.PremiumCardRegistry.GetAll().Count} rare upgrade cards -- appear randomly during drafts.",
             _ => ""
         };

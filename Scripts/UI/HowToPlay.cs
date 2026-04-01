@@ -353,38 +353,24 @@ public partial class HowToPlay : Node
     public static void BuildSurgesSection(VBoxContainer vbox)
     {
         var modelCard = AddSurgeCard(vbox, "SURGE MODEL", new Color(0.48f, 0.90f, 1.00f, 0.92f));
-        AddSurgeCardLine(modelCard, "Fast read in combat: Surge / Twist / Bonus / Global Surge.", new Color(0.90f, 0.96f, 1.00f), 16);
+        AddSurgeCardLine(modelCard, "Each tower has a Surge Meter. When full it fires a Surge.", new Color(0.90f, 0.96f, 1.00f), 16);
         AddSpacer(modelCard, 2);
-        AddSurgeRuleRow(modelCard, "1 MOD", "Core Surge from the primary mod.", new Color(0.95f, 0.62f, 0.18f, 0.95f));
-        AddSurgeRuleRow(modelCard, "2 MODS", "Core Surge + one Twist from the second mod.", new Color(0.44f, 0.94f, 0.86f, 0.92f));
-        AddSurgeRuleRow(modelCard, "3 MODS", "Core Surge + one Bonus from the third mod.", new Color(0.90f, 0.88f, 0.98f, 0.92f));
+        AddSurgeRuleRow(modelCard, "1 MOD", "Core Surge from that mod.", new Color(0.95f, 0.62f, 0.18f, 0.95f));
+        AddSurgeRuleRow(modelCard, "2 MODS", "Core Surge + second mod effect.", new Color(0.44f, 0.94f, 0.86f, 0.92f));
+        AddSurgeRuleRow(modelCard, "3 MODS", "Core Surge + second mod effect + augment boost.", new Color(0.90f, 0.88f, 0.98f, 0.92f));
         AddSurgeRuleRow(modelCard, "GLOBAL", "Bar fills from tower surges. Click READY to trigger Global Surge.", new Color(0.88f, 0.96f, 0.56f, 0.92f));
         AddSpacer(vbox, 10);
 
-        Control behaviorLayout = MobileOptimization.IsMobile()
-            ? new VBoxContainer()
-            : new HBoxContainer();
-        if (behaviorLayout is BoxContainer behaviorBox)
-            behaviorBox.AddThemeConstantOverride("separation", 20);
-        behaviorLayout.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-        vbox.AddChild(behaviorLayout);
-
-        var twistCard = AddSurgeCardContainer(behaviorLayout, "TWIST (2nd MOD)", new Color(0.44f, 0.94f, 0.86f, 0.92f));
-        AddSurgeCardLine(twistCard, "Adds the second mod's trait to your Surge.", new Color(0.88f, 0.96f, 0.98f), 15);
-        AddSpacer(twistCard, 2);
-        AddSurgeChipLine(twistCard, "Chill Shot", "adds slow/freeze pressure", new Color(0.48f, 0.90f, 1.00f, 0.90f));
-        AddSurgeChipLine(twistCard, "Chain Reaction", "adds bounce chaining", new Color(0.54f, 0.96f, 0.92f, 0.90f));
-        AddSurgeChipLine(twistCard, "Feedback Loop", "adds cooldown reset follow-up", new Color(0.70f, 0.96f, 0.72f, 0.90f));
-
-        var bonusCard = AddSurgeCardContainer(behaviorLayout, "BONUS (3rd MOD)", new Color(0.86f, 0.84f, 0.98f, 0.92f));
-        AddSurgeCardLine(bonusCard, "Exactly one bonus type is added:", new Color(0.90f, 0.93f, 1.00f), 15);
-        AddSpacer(bonusCard, 2);
-        AddSurgeChipLine(bonusCard, "Pulse", "hit all nearby enemies", new Color(0.92f, 0.78f, 0.46f, 0.92f));
-        AddSurgeChipLine(bonusCard, "Strike", "one heavy single-target hit", new Color(0.96f, 0.70f, 0.42f, 0.92f));
-        AddSurgeChipLine(bonusCard, "Recharge", "reset cooldown and fire again", new Color(0.74f, 0.96f, 0.66f, 0.92f));
+        var categoryCard = AddSurgeCard(vbox, "SURGE CATEGORY", new Color(0.86f, 0.72f, 1.00f, 0.92f));
+        AddSurgeCardLine(categoryCard, "All equipped mods together set the surge category -- no single mod dominates.", new Color(0.92f, 0.90f, 1.00f), 15);
+        AddSpacer(categoryCard, 4);
+        AddSurgeRuleRow(categoryCard, "SPREAD", "Radiating arcs -- wider links, more targets, electric sound.", new Color(0.44f, 0.94f, 0.86f, 0.92f));
+        AddSurgeRuleRow(categoryCard, "BURST", "Double explosion -- heavier FX, deeper slowmo, punchy sound.", new Color(1.00f, 0.54f, 0.10f, 0.95f));
+        AddSurgeRuleRow(categoryCard, "CONTROL", "Signature rings -- tight, precise, cold resonant sound.", new Color(0.08f, 0.72f, 1.00f, 0.95f));
+        AddSurgeRuleRow(categoryCard, "ECHO", "Delayed repeat -- one trailing replay at reduced power, ghostly sound.", new Color(0.72f, 0.36f, 1.00f, 0.95f));
         AddSpacer(vbox, 10);
 
-        var tableCard = AddSurgeCard(vbox, "PRIMARY MOD -> CORE SURGE BEHAVIOR", new Color(0.69f, 0.86f, 0.16f, 0.92f));
+        var tableCard = AddSurgeCard(vbox, "MOD -> CORE SURGE BEHAVIOR", new Color(0.69f, 0.86f, 0.16f, 0.92f));
         foreach (string modId in CanonicalSurgeMods)
         {
             if (modId == SpectacleDefinitions.ReaperProtocol && Balance.IsDemo) continue;

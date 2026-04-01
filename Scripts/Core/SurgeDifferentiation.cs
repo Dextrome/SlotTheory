@@ -86,10 +86,11 @@ public static class SurgeDifferentiation
         // 4 slots: Spread=0, Burst=1, Control=2, Echo=3
         float[] scores = new float[4];
 
-        // Modifier contributions: position weighting ensures primary dominates
+        // All three mods contribute equally -- two mods in the same category
+        // should always outweigh one mod in a different category.
         ApplyModScore(scores, sig.PrimaryModId,   1.00f);
-        ApplyModScore(scores, sig.SecondaryModId, 0.50f);
-        ApplyModScore(scores, sig.TertiaryModId,  0.25f);
+        ApplyModScore(scores, sig.SecondaryModId, 1.00f);
+        ApplyModScore(scores, sig.TertiaryModId,  1.00f);
 
         // Tower base bias -- added on top of modifier signal
         string normTower = (towerId ?? string.Empty).Trim().ToLowerInvariant();

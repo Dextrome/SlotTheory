@@ -7,13 +7,14 @@ Slot Theory's spectacle system is a two-tier excitement engine layered on top of
 ## PLAYER-FACING TRUTH (IN GAME)
 
 - Every tower has a Surge Meter that fills as it deals damage. When full, it triggers a Surge.
-- **1 mod = core surge** from that primary mod.
-- **2 mods = core surge + one mutation** from the secondary mod (its normal trait, now riding the surge).
-- **3 mods = core surge + one bonus** from the third mod: **Pulse** (area), **Strike** (heavy hit), or **Recharge** (instant refire).
+- **1 mod = core surge** from that mod.
+- **2 mods = core surge + second mod effect**.
+- **3 mods = core surge + second mod effect + augment boost** (Pulse / Strike / Recharge).
+- All equipped mods contribute equally to the surge's **category** (Spread / Burst / Control / Echo), which drives distinct visuals, audio, and gameplay behavior.
 - Each tower surge fills the shared Global Surge bar.
-- The Global Surge label shows the dominant surge type your build has leaned toward **since the last Global Surge**.
+- The Global Surge label shows the dominant surge type your build has leaned toward **since the last Global Surge**, based on all mods on all surging towers.
 
-UI teaching is intentionally minimal: `Surge`, `Twist`, `Bonus`, and `Global Surge`.
+UI teaching is intentionally minimal: surge category callout and `Global Surge`.
 
 ---
 
@@ -41,9 +42,11 @@ Only the following modifier IDs are tracked by the spectacle system:
 | `chain_reaction` | Chain Reaction |
 | `blast_core` | Blast Core |
 | `wildfire` | Wildfire |
+| `afterimage` | Afterimage |
 | `reaper_protocol` | Reaper Protocol |
+| `deadzone` | Deadzone |
 
-Supported tower IDs: `rapid_shooter`, `heavy_cannon`, `marker_tower`, `chain_tower`, `rift_prism`, `phase_splitter`.
+Supported tower IDs: `rapid_shooter`, `heavy_cannon`, `rocket_launcher`, `marker_tower`, `chain_tower`, `rift_prism`, `accordion_engine`, `phase_splitter`, `undertow_engine`, `latch_nest`.
 
 Any proc from an unsupported mod or on an unsupported tower is silently ignored.
 
@@ -117,7 +120,9 @@ gain = BaseGain(mod)
 | chain_reaction | 2.2 |
 | blast_core | 2.3 |
 | wildfire | 2.2 |
+| afterimage | 2.4 |
 | reaper_protocol | 3.2 |
+| deadzone | 2.3 |
 
 Per-mod `GainMultipliers` from the tuning profile multiply these.
 
@@ -131,15 +136,19 @@ copies ≥ 3 → 2.70×
 ```
 Effective at tuned defaults: 1×=0.853, 2×=1.638, 3+=2.304.
 
-### Per-Tower Meter Gain Multipliers (tuned defaults)
-| Tower | Multiplier |
-|---|---|
-| rapid_shooter | 0.7929× |
-| heavy_cannon | 1.0601× |
-| marker_tower | 1.0× |
-| chain_tower | 0.96× |
-| rift_prism | 1.091× |
-| phase_splitter | 1.0× |
+### Per-Tower Meter Gain Multipliers (hardcoded defaults; pipeline overrides via JSON)
+| Tower | Multiplier | Rationale |
+|---|---|---|
+| rapid_shooter | 0.40× | Fires 4+/s -- heavy dampening prevents over-surging |
+| heavy_cannon | 3.50× | Very slow fire rate -- needs large per-hit boost |
+| rocket_launcher | 1.45× | Moderate AoE cadence |
+| marker_tower | 0.70× | Slightly above-average rate, trimmed |
+| chain_tower | 1.20× | Moderate rate, small boost |
+| rift_prism | 1.50× | Mine pops infrequent, boost per-proc |
+| accordion_engine | 3.00× | 3.2 s pulse interval -- needs large per-hit boost |
+| phase_splitter | 0.75× | Hits 2 targets per shot (double proc rate), trimmed |
+| undertow_engine | 2.40× | Low cadence control shot |
+| latch_nest | 0.46× | Frequent parasite ticks -- dampened to prevent overflow |
 
 ---
 
@@ -149,7 +158,7 @@ Each modifier passes an `eventScalar` (a float) to `RegisterSpectacleProc`. Scal
 
 | Bucket | Value | Modifiers |
 |---|---|---|
-| Low | 0.75 | Hair Trigger, Split Shot, Chain Reaction, Blast Core, Wildfire |
+| Low | 0.75 | Hair Trigger, Split Shot, Chain Reaction, Blast Core, Wildfire, Afterimage, Deadzone |
 | Medium | 1.00 | Momentum, Exploit Weakness, Chill Shot, Overreach, Feedback Loop |
 | High | 1.35 | Overkill, Focus Lens, Reaper Protocol |
 
@@ -169,25 +178,16 @@ Meter clamps to 0; decay stops when a new proc fires or meter hits zero.
 
 ---
 
-## 8. Role Resolution
+## 8. Mod Slot Assignment
 
-Roles are computed fresh on every surge trigger from the tower's current modifier loadout. There is no contribution window, no role lock, and no separate tracking per mod.
+Slots are computed fresh on every surge trigger from the tower's current modifier loadout. All equipped mods contribute equally -- there is no "primary mod" concept and no copy-count weighting.
 
-### Role Resolution Order
-Supported mods on the tower are sorted by:
-1. **Copy count** (descending) -- more copies = higher priority
-2. **Canonical order** (tiebreak) -- deterministic fallback
-3. **Alphabetical** (final tiebreak)
+### Slot Assignment Order
+Unique supported mods on the tower are sorted by:
+1. **Canonical order** -- deterministic, consistent across all contexts
+2. **Alphabetical** (tiebreak)
 
-Result: `r1` (Primary), `r2` (Secondary), `r3` (Tertiary).
-
-### Weight Shares
-Used for SurgePower calculation:
-```
-w1 = copies(r1) / totalModCount
-w2 = copies(r2) / totalModCount
-w3 = copies(r3) / totalModCount
-```
+Result: `r1` (slot 1), `r2` (slot 2), `r3` (slot 3). These slots drive effect selection and combo naming, not dominance weighting.
 
 ---
 
@@ -214,12 +214,9 @@ ModeBase:
 SurgePower = ModeBase   (fixed; no copyBoost)
 ```
 
-`AugmentStrength` (Triad only): fixed `1.0` -- copies affect meter fill frequency via `CopyMultiplier`, not surge power.
-
-Example: Heavy Cannon with 2× Focus Lens + 1× Chain Reaction + 1× Overkill:
-- Mode = Triad
+Example: Heavy Cannon with Focus Lens + Chain Reaction + Overkill:
+- Mode = Triad (3 unique mods)
 - SurgePower = 1.20
-- AugmentStrength = 1.0
 
 ---
 
@@ -230,23 +227,13 @@ Effective surge threshold per tower:
 threshold = 150 × SurgeThresholdMultiplier × TowerSurgeThresholdMultiplier(towerId)
 ```
 
-Tuned per-tower surge threshold multipliers:
-| Tower | Threshold Multiplier |
-|---|---|
-| rapid_shooter | 1.0759× |
-| heavy_cannon | 1.0× |
-| marker_tower | 0.9755× |
-| chain_tower | 1.18× |
-| rift_prism | 1.0673× |
-| phase_splitter | 1.0× |
-
-When `meter >= threshold` AND `surgeCooldown <= 0`:
+Per-tower threshold multipliers are listed in §20. When `meter >= threshold` AND `surgeCooldown <= 0`:
 1. Resolve the `SpectacleSignature` from the current loadout
 2. Reset meter to `10 × SurgeMeterAfterTriggerMultiplier` (≈10.8, i.e. partial carry-over)
 3. Apply surge cooldown: `6.0s × SurgeCooldownMultiplier` (≈5.9s)
 4. Set visual pulse to 1.0, hold for 0.42s (then decays at 0.72/s)
 5. Add `10 × GlobalMeterPerSurgeMultiplier` (≈10.78) to the global meter
-6. Increment `_globalCycleScores[PrimaryModId]` (cycle-accumulated score for global attribution)
+6. Increment `_globalCycleScores[modId]` for **each equipped mod** (all contribute equally to global attribution)
 7. Fire `OnSurgeTriggered` event with the full `SpectacleTriggerInfo`
 8. Check if global meter is now full (see §13)
 
@@ -254,16 +241,7 @@ When `meter >= threshold` AND `surgeCooldown <= 0`:
 
 ## 12. Effect Naming
 
-### Player-facing naming (UI)
-Combat UI surfaces (tooltips + callouts) use this structure:
-
-- `Surge: [Primary Display Name]`
-- `Twist: [Secondary Display Name]` + short trait hint (when 2+ unique mods)
-- `Bonus: [Pulse|Strike|Recharge]` + short behavior hint (when 3+ unique mods)
-
-Players are not required to learn internal effect IDs or mode taxonomy to read surges.
-
-### Internal naming (runtime/signature data)
+The surge banner shows the **category callout** (SPREAD SURGE / BURST SURGE / CONTROL SURGE / ECHO SURGE). Internal effect names are used for logging and spectacle payloads only -- they are not surfaced to players.
 
 ### Single Mode (1 unique mod)
 Each mod has one internal Single effect definition:
@@ -288,11 +266,11 @@ Each mod has one internal Single effect definition:
 Internal combo names are dynamically generated at runtime (no static lookup table):
 
 ```
-name     = "[PrimaryShortName] [SecondaryTag]"
+name     = "[Slot1ShortName] [Slot2Tag]"
 effectId = "C_{R1_UPPERCASE}_{R2_UPPERCASE}"
 ```
 
-`r1` is the primary mod (highest copy count, then canonical rank). `r2` is the secondary mod.
+`r1` and `r2` are assigned by canonical order only (no copy-count weighting).
 
 ### Triad Mode (3+ unique mods)
 Internal triad name format:
@@ -345,39 +323,39 @@ In bot mode, activation is immediate (no player input needed).
 
 ## 14. Dominant Mod Attribution (Global Surge Label)
 
-The system maintains `_globalCycleScores: Dictionary<string, int>` -- a count of how many tower surges each `PrimaryModId` has led since the last global surge armed. Every tower surge increments the score for its primary mod by 1.
+The system maintains `_globalCycleScores: Dictionary<string, int>` -- a count of how many surges each mod ID contributed to since the last global surge armed. Every tower surge increments the score for **all equipped mods** by 1 each, so a tower with Overkill + Chain Reaction + Chill Shot contributes one count to each of those three mods per surge.
 
 When the global meter fills and arms, `ResolveDominantGlobalMods()`:
-1. Read `_globalCycleScores` (already accumulated over the entire cycle)
+1. Read `_globalCycleScores` (accumulated over the entire cycle)
 2. Sort descending by score, then by canonical order for tiebreaks
 3. Return top 3 mod IDs
 4. Clear `_globalCycleScores` and `_globalCycleContributors` (reset for next cycle)
 
-Only `dominantModIds[0]` (the highest-score primary mod across the whole cycle) determines the displayed global label and feel.
-
-This replaces the previous 6-second time-windowed `Queue<SurgeContribution>` approach. Cycle-accumulated scoring is O(1) per surge and deterministic over the full cycle.
+Only `dominantModIds[0]` (the highest-score mod across the whole cycle) determines the displayed global label and feel. All mods on all surging towers influence this -- a build that mixes many Detonation mods across multiple towers will bias toward DETONATION SURGE regardless of which mod holds slot 1.
 
 ---
 
 ## 15. Global Label Mapping and Feel
 
-`SurgeDifferentiation.ResolveLabel(dominantModIds)` maps the dominant mod to one normalized player-facing label. Falls back to `"GLOBAL SURGE"` if no match.
+`SurgeDifferentiation.ResolveLabel(dominantModIds)` maps the dominant mod to one of three player-facing labels. Falls back to `"CHAIN SURGE"` (Neutral) if no match.
 
-| Dominant Mod | Global Label | Feel |
+| Dominant Mod | Feel | Player Label |
 |---|---|---|
-| momentum | Momentum | Pressure |
-| overkill | Overkill | Detonation |
-| exploit_weakness | Exploit | Neutral |
-| focus_lens | Focus | Detonation |
-| slow (chill) | Chill | Pressure |
-| overreach | Overreach | Pressure |
-| hair_trigger | Hair Trigger | Detonation |
-| split_shot | Split Shot | Neutral |
-| feedback_loop | Feedback | Detonation |
-| chain_reaction | Chain | Neutral |
-| blast_core | Blast | Detonation |
-| wildfire | Wildfire | Detonation |
-| reaper_protocol | Reaper | Neutral |
+| momentum | Pressure | PRESSURE SURGE |
+| slow (chill) | Pressure | PRESSURE SURGE |
+| overreach | Pressure | PRESSURE SURGE |
+| afterimage | Pressure | PRESSURE SURGE |
+| overkill | Detonation | DETONATION SURGE |
+| focus_lens | Detonation | DETONATION SURGE |
+| hair_trigger | Detonation | DETONATION SURGE |
+| feedback_loop | Detonation | DETONATION SURGE |
+| blast_core | Detonation | DETONATION SURGE |
+| wildfire | Detonation | DETONATION SURGE |
+| exploit_weakness | Neutral | CHAIN SURGE |
+| split_shot | Neutral | CHAIN SURGE |
+| chain_reaction | Neutral | CHAIN SURGE |
+| reaper_protocol | Neutral | CHAIN SURGE |
+| deadzone | Neutral | CHAIN SURGE |
 
 ### Visual Feel Classification
 - **Detonation** -- spike/burst builds; bright flash
@@ -505,7 +483,7 @@ Per-tower pulse used for glowing/pulsing UI:
 `GetVisualState(tower)` returns:
 - `MeterNormalized` = `Clamp(meter / threshold, 0, 1)`
 - `Pulse` = current pulse value
-- `PrimaryModId` = current primary mod (resolved fresh from loadout)
+- `PrimaryModId` = slot 1 mod (canonical order, resolved fresh from loadout) -- used for accent color
 
 ---
 
@@ -516,14 +494,10 @@ Returned by `PreviewSignature()` and embedded in `SpectacleTriggerInfo`. Contain
 | Field | Description |
 |---|---|
 | `Mode` | Single / Combo / Triad |
-| `PrimaryModId` | r1 locked mod |
-| `SecondaryModId` | r2 |
-| `TertiaryModId` | r3 |
-| `PrimaryShare` | copies(r1) / totalMods |
-| `SecondaryShare` | copies(r2) / totalMods |
-| `TertiaryShare` | copies(r3) / totalMods |
+| `PrimaryModId` | Slot 1 mod (canonical order) |
+| `SecondaryModId` | Slot 2 mod |
+| `TertiaryModId` | Slot 3 mod |
 | `SurgePower` | ModeBase (1.00 / 1.10 / 1.20) |
-| `AugmentStrength` | Fixed 1.0 (Triad only) |
 | `EffectId` | Full effect string (e.g. "C_MOMENTUM_SPLIT_SHOT+T_AUG_CHAIN_REACTION") |
 | `EffectName` | Human-readable (e.g. "Momentum Split + Pulse") |
 | `ComboEffectId` | Combo portion only |
@@ -531,9 +505,61 @@ Returned by `PreviewSignature()` and embedded in `SpectacleTriggerInfo`. Contain
 | `AugmentEffectId` | Augment portion only (Triad) |
 | `AugmentName` | Augment name only (Triad) |
 
+Slot assignment is by canonical order only. There are no share fields -- all mods contribute equally to surge category and global feel.
+
 ---
 
-## 19. Tuning System (SpectacleTuningProfile)
+## 19. Tower Surge Categories
+
+Every tower surge is classified into one of four categories. The category drives distinct visual presentation, audio, and gameplay behavior. It is resolved by `SurgeDifferentiation.ResolveTowerSurgeCategory(towerId, signature)`.
+
+### Category Resolution
+All equipped mods contribute equally (flat weight, no position penalty). Mod weights from `ModCategoryTable` are summed by category; the tower's base bias from `TowerBiasTable` is added on top. Highest total wins; ties broken by enum order (Spread > Burst > Control > Echo, lower value wins).
+
+### Category Mod Weights
+| Mod | Category | Weight |
+|---|---|---|
+| Chain Reaction | Spread | 2.5 |
+| Split Shot | Spread | 2.0 |
+| Overreach | Spread | 1.8 |
+| Blast Core | Spread | 1.5 |
+| Overkill | Burst | 2.5 |
+| Focus Lens | Burst | 2.2 |
+| Exploit Weakness | Burst | 1.8 |
+| Reaper Protocol | Burst | 1.5 |
+| Chill Shot | Control | 2.5 |
+| Deadzone | Control | 2.2 |
+| Momentum | Control | 2.0 |
+| Afterimage | Echo | 2.5 |
+| Wildfire | Echo | 2.0 |
+| Hair Trigger | Echo | 2.0 |
+| Feedback Loop | Echo | 1.8 |
+
+### Tower Base Biases
+| Tower | Category | Weight |
+|---|---|---|
+| rapid_shooter | Echo | 1.5 |
+| heavy_cannon | Burst | 2.0 |
+| marker_tower | Control | 1.8 |
+| chain_tower | Spread | 2.0 |
+| rift_prism | Control | 1.8 |
+| accordion_engine | Control | 2.0 |
+| phase_splitter | Spread | 1.5 |
+| latch_nest | Echo | 1.5 |
+| rocket_launcher | Burst | 1.8 |
+| undertow_engine | Control | 2.0 |
+
+### Category Effects
+| Category | Callout | Visual | Audio | Gameplay |
+|---|---|---|---|---|
+| Spread | SPREAD SURGE | Arcs radiate from tower to 5 enemies (520 px) | Staggered arc sweeps + electric hiss | +40% link range, up to 5 links |
+| Burst | BURST SURGE | Second explosion fires 0.30 s after primary | Sub-bass boom + impact crack | 1.55x burst power, deeper slowmo |
+| Control | CONTROL SURGE | Tight signature rings at high drama (0.46) | Cold resonant hum, soft onset | 2 links max, 0.22 s slowmo |
+| Echo | ECHO SURGE | Delayed repeat FX fires at 0.48 s | Three hits decaying 100%/50%/25% | Late echo burst at 72% power |
+
+---
+
+## 20. Tuning System (SpectacleTuningProfile)
 
 `SpectacleTuning.Current` is a singleton `SpectacleTuningProfile` that wraps all the base constants with runtime multipliers. Every constant in the system is expressed as `baseValue × tuningMultiplier`, meaning you can adjust the entire spectacle system's pacing without changing code.
 
@@ -570,29 +596,43 @@ The profile is loaded at startup from `res://Data/best_tuning_full.json` (or `be
 ### Per-Mod and Per-Tower Overrides
 The profile carries three dictionaries:
 - `GainMultipliers[modId]` -- multiplies BaseGain for specific mods (default entries: overkill ×0.879, split_shot ×0.872, chain_reaction ×0.94, blast_core ×0.88)
-- `TowerMeterGainMultipliers[towerId]` -- per-tower gain scale
+- `TowerMeterGainMultipliers[towerId]` -- per-tower gain scale (see §5 table)
 - `TowerSurgeThresholdMultipliers[towerId]` -- per-tower threshold scale
+
+Hardcoded surge threshold multiplier defaults:
+| Tower | Threshold Multiplier |
+|---|---|
+| rapid_shooter | 1.50× |
+| heavy_cannon | 0.50× |
+| rocket_launcher | 0.82× |
+| marker_tower | 1.00× |
+| chain_tower | 0.90× |
+| rift_prism | 0.90× |
+| accordion_engine | 0.55× |
+| phase_splitter | 1.00× |
+| undertow_engine | 0.70× |
+| latch_nest | 1.26× |
 
 ### Automated Tuning Pipeline
 `run_tuning_pipeline.ps1` runs iterative bot playtest sweeps and gradient-searches tuning parameters to hit target win rates (~75% Normal, ~50% Hard). The pipeline outputs `Data/best_tuning_full.json` / `Data/best_tuning_demo.json`. Those files ship with the game.
 
 ---
 
-## 20. Code Map
+## 21. Code Map
 
 | File | Role |
 |---|---|
 | `SpectacleSystem.cs` | Per-tower meter, mod proc cooldown gate, gain formula, surge trigger, global meter, global surge arming |
 | `SpectacleDefinitions.cs` | Constants, base gains, 3-bucket proc scalars (`GetProcScalar`), copy multiplier, mode base, effect name tables, resolve helpers |
 | `SpectacleTuning.cs` | `SpectacleTuningProfile` (all multipliers + dicts), `SpectacleTuning.Current` singleton |
-| `SurgeDifferentiation.cs` | Global surge label table (label + feel), `ResolveLabel()`, `ResolveFeel()`, flash alpha |
+| `SurgeDifferentiation.cs` | Tower surge category resolution (Spread/Burst/Control/Echo), mod/tower weight tables, category helpers; global surge label + feel table, `ResolveLabel()`, `ResolveFeel()`, flash alpha |
 | `SpectacleExplosionCore.cs` | Pure-math explosion profiles: OverkillBloom, residue, hit stop, afterimage, wave timing |
 | `SpectacleDamageCore.cs` | `ApplyRawDamage(enemy, damage)` -- raw HP mutation used by spectacle payloads |
 | `SpectacleDamageSource.cs` | Enum identifying which system dealt damage (for VFX/logging) |
 
 ---
 
-## 21. Quick Reference -- Default Base Values
+## 22. Quick Reference -- Default Base Values
 
 | Constant | Value |
 |---|---|

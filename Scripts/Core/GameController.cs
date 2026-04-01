@@ -4985,11 +4985,15 @@ void fragment() {
 			sourceTower: sourceTower,
 			rider: surgeRider,
 			spawnResidue: surgeRider != SpectacleConsequenceKind.None);
-		// Spread category also plays lightning sound -- branching arcs feel electric.
-		bool isLightningSurge = surgeCategory == SurgeDifferentiation.TowerSurgeCategory.Spread
-			|| info.Signature.PrimaryModId == SpectacleDefinitions.ChainReaction
-			|| info.Signature.SecondaryModId == SpectacleDefinitions.ChainReaction;
-		SoundManager.Instance?.Play(isLightningSurge ? "surge_lightning" : "surge");
+		string surgeSoundId = surgeCategory switch
+		{
+			SurgeDifferentiation.TowerSurgeCategory.Spread  => "surge_spread",
+			SurgeDifferentiation.TowerSurgeCategory.Burst   => "surge_burst",
+			SurgeDifferentiation.TowerSurgeCategory.Control => "surge_control",
+			SurgeDifferentiation.TowerSurgeCategory.Echo    => "surge_echo",
+			_                                               => "surge",
+		};
+		SoundManager.Instance?.Play(surgeSoundId);
 		ApplySpectacleGameplayPayload(info, isMajor: true);
 		TriggerStatusDetonationChain(
 			sourceTower,
@@ -5822,9 +5826,7 @@ void fragment() {
 
 		if (info.Signature.Mode != SpectacleMode.Single && !string.IsNullOrEmpty(info.Signature.SecondaryModId))
 		{
-			float secondaryWeight = info.Signature.Mode == SpectacleMode.Combo
-				? Mathf.Lerp(0.84f, 1.02f, info.Signature.SecondaryShare)
-				: Mathf.Lerp(0.70f, 0.92f, info.Signature.SecondaryShare);
+			const float secondaryWeight = 0.90f;
 			ApplyModSpectacleEffect(
 				info.Tower,
 				info.Signature.SecondaryModId,
@@ -5838,9 +5840,7 @@ void fragment() {
 
 		if (info.Signature.Mode == SpectacleMode.Triad && !string.IsNullOrEmpty(info.Signature.TertiaryModId))
 		{
-			float augmentScale = isMajor
-				? Mathf.Lerp(2.10f, 2.55f, info.Signature.TertiaryShare)
-				: Mathf.Lerp(1.50f, 1.95f, info.Signature.TertiaryShare);
+			float augmentScale = isMajor ? 2.25f : 1.65f;
 			ApplyTriadAugmentSpectacleEffect(
 				info,
 				seededTargets,
@@ -6418,8 +6418,7 @@ void fragment() {
 			return;
 
 		var augment = SpectacleDefinitions.GetTriadAugment(info.Signature.TertiaryModId);
-		float strength = info.Signature.AugmentStrength
-			* augment.Coefficient
+		float strength = augment.Coefficient
 			* (isMajor ? 1f : 0.68f)
 			* Mathf.Max(0.15f, effectScale);
 		float aug = Mathf.Clamp(strength, 0f, 0.95f);
