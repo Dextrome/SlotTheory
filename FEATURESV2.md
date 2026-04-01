@@ -541,35 +541,24 @@ Every tower surge contributes to a shared global meter:
 
 ### Surge Differentiation System
 
-`SurgeDifferentiation.cs` (pure-logic, no Godot deps) is the single source of truth for global surge archetypes. 14 named labels mapped from dominant contributing modifier:
+`SurgeDifferentiation.cs` (pure-logic, no Godot deps) is the single source of truth for global surge feel classification. The dominant contributing modifier maps to one of 3 distinct player-facing types with genuinely different gameplay payloads, VFX, and audio:
 
-| Label | Dominant Modifier | Feel |
-|---|---|---|
-| REDLINE WAVE | Momentum | Pressure |
-| OVERKILL STORM | Overkill | Detonation |
-| EXECUTION STORM | Exploit Weakness | Neutral |
-| PRISM BARRAGE | Focus Lens | Detonation |
-| CRYO STORM | Chill Shot | Pressure |
-| HORIZON BREAK | Overreach | Pressure |
-| HYPERBURST WAVE | Hair Trigger | Detonation |
-| FRACTAL STORM | Split Shot | Neutral |
-| REBOOT CASCADE | Feedback Loop | Detonation |
-| CHAIN STORM | Chain Reaction | Neutral |
-| BLAST WAVE | Blast Core | Detonation |
-| INFERNO SURGE | Wildfire | Detonation |
-| AFTERIMAGE | Afterimage | Pressure |
-| REAPER | Reaper Protocol | Neutral |
+| Label | Feel | Dominant Mods | Gameplay Effect | Visual |
+|---|---|---|---|---|
+| PRESSURE SURGE | Pressure | Momentum, Chill Shot, Overreach, Afterimage | Extended mark + deep slow (1.5x duration, -14% slow factor), 0.88x damage | Arcs from every tower to every live enemy; slow wide ripples; cold blue tint |
+| CHAIN SURGE | Neutral/Chain | Exploit Weakness, Split Shot, Chain Reaction, Reaper Protocol, Deadzone | Normal damage + full cooldown refund; enemy-to-enemy arc chain | Arc chain jumps between enemies by progress order; balanced ripples; electric purple tint |
+| DETONATION SURGE | Detonation | Overkill, Focus Lens, Hair Trigger, Feedback Loop, Blast Core, Wildfire | 1.35x spike damage, bonus cooldown refund (+12%), reduced mark/slow duration | Radial arcs from board center to all enemies; fast tight ripples; hot orange tint |
 
-Falls back to **GLOBAL SURGE** if no dominant modifier detected.
+Falls back to **CHAIN SURGE** if no dominant modifier detected.
 
 ### Surge UX Details
 
-- **Archetype preview:** global meter label transitions to predicted archetype name at >=70% fill
-- **Feel types:** Detonation builds (Overkill, Focus Lens, Feedback Loop, Hair Trigger) = sharp flash + snap pulse; Pressure builds (Momentum, Chill Shot, Overreach) = softer sustained flash
-- **Multi-color ripples:** up to 3 ripple colors reflecting top contributing modifiers
-- **Per-tower archetype FX:** each tower type fires its own sequence in staggered order
+- **Feel preview:** global meter label transitions to predicted surge type at >=70% fill
+- **Feel types:** Detonation = sharp flash + snap pulse (pitch 1.14x); Pressure = softer sustained flash (pitch 0.88x); Chain = balanced (pitch 1.0x)
+- **Multi-color ripples:** up to 3-4 ripple rings reflecting top contributing modifiers; width and speed vary by feel
+- **Per-tower identity FX:** each tower type fires its own sequence in staggered order
 - **Screen-edge vignette:** square-masked overlay ramps in during final 30% of global meter fill, tinted to dominant mod's color
-- **Sustained archetype tint:** low-alpha full-screen color wash lingers ~2.4 s post-global-surge
+- **Sustained feel tint:** low-alpha full-screen color wash lingers ~2.4 s post-global-surge (blue/purple/orange per feel)
 - **SURGE xN chain counter:** gold callout accumulates at screen center when surges chain within the contribution window
 - **Per-tower afterglow:** each contributing tower holds a 2.4 s accent-colored modulate fade
 

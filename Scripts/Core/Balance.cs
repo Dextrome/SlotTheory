@@ -52,6 +52,44 @@ public static class Balance
     public const int   SurgePipMaxActive  = 6;      // cap on simultaneous active pips
     public const float SurgePipBarPulse   = 1.28f;  // HUD bar brightness peak on pip arrival
 
+    // ── Surge spectacle hierarchy ──────────────────────────────────────────────
+    // Tower Surge: contained local burst – fuel generation, NOT the main event.
+    public const int   TowerSurgeMaxLinks         = 3;     // max enemies linked (was 6)
+    public const float TowerSurgeMinLinkDistance  = 160f;  // floor link reach in px
+    public const float TowerSurgeLinkRangeFactor  = 0.70f; // multiplier on tower.Range
+    public const float TowerSurgeScreenFlashAlpha = 0.09f; // screen flash peak alpha (was 0.17)
+    public const float TowerSurgeSlowMoDuration   = 0.12f; // realtime slowmo length in sec (was 0.5)
+    public const float TowerSurgeSlowMoFactor     = 0.70f; // speed scale during slowmo (was 0.50)
+    public const float TowerSurgeSignatureDrama   = 0.14f; // signature ring intensity (was 0.28)
+    public const float TowerSurgeArchetypeDrama   = 0.12f; // archetype FX intensity (was 0.28)
+
+    // Global Surge: board-wide premium storm – the true earned payoff.
+    public const int   GlobalSurgeLinksPerTower    = 5;     // enemies linked per tower (was 2)
+    public const float GlobalSurgeMinLinkDistance  = 440f;  // floor link reach in px (was 280)
+    public const float GlobalSurgeLinkRangeFactor  = 1.65f; // multiplier on tower.Range (was 1.15)
+    public const float GlobalSurgeTowerAfterglow   = 5.0f;  // afterglow duration in sec (was 2.4)
+    public const float GlobalSurgeLingerHoldSec    = 2.4f;  // screen tint hold (was 1.0)
+    public const float GlobalSurgeLingerFadeSec    = 2.8f;  // screen tint fade (was 1.4)
+    public const float GlobalSurgeSignatureDrama   = 0.95f; // signature ring intensity (was 0.7)
+    public const float GlobalSurgeArchetypeDrama   = 0.92f; // archetype FX intensity (was 0.75)
+    public const float GlobalSurgeLongArcLifetime  = 0.72f; // lingering storm arc duration in sec
+    public const float GlobalSurgeTowerWebLifetime = 0.58f; // tower-to-tower web arc duration in sec
+
+    // ── Feel-differentiated Global Surge payloads ──────────────────────────────
+    // PRESSURE: control focus -- longer/deeper status effects, slightly reduced burst
+    public const float PressureSurgeMarkMult      = 1.60f;  // mark duration multiplier
+    public const float PressureSurgeSlowMult      = 1.50f;  // slow duration multiplier
+    public const float PressureSurgeSlowBonus     = 0.14f;  // subtracted from speed factor (deeper slow)
+    public const float PressureSurgeDamageMult    = 0.88f;  // burst damage multiplier (control, not explosion)
+    // CHAIN (Neutral): spreading reactions -- normal payload + enemy→enemy arc aftermath
+    public const int   ChainSurgeEnemyArcs        = 8;      // enemy→enemy arc jumps in aftermath
+    public const float ChainSurgeArcLifetime      = 0.50f;  // lifetime of chain aftermath arcs in sec
+    // DETONATION: burst focus -- heavy damage, max cooldown, shorter status
+    public const float DetonationSurgeDamageMult  = 1.35f;  // burst damage multiplier
+    public const float DetonationSurgeCooldownBonus = 0.12f;// extra cooldown refund (added on top of base)
+    public const float DetonationSurgeMarkMult    = 0.75f;  // mark duration multiplier (shorter -- they die fast)
+    public const float DetonationSurgeSlowMult    = 0.80f;  // slow duration multiplier
+
     public static int ExtraPicksForWave(int waveIndex) => waveIndex switch
     {
         0  => Wave1ExtraPicks,

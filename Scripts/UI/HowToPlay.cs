@@ -397,9 +397,13 @@ public partial class HowToPlay : Node
 
         var globalCard = AddSurgeCard(vbox, "GLOBAL SURGE", new Color(0.95f, 0.86f, 0.36f, 0.94f));
         AddSurgeCardLine(globalCard, "When the bar is full, click READY to fire Global Surge.", new Color(0.96f, 0.95f, 0.88f), 15);
-        AddSurgeCardLine(globalCard, "Global Surge activates all towers and marks + slows all living enemies.");
-        AddSurgeCardLine(globalCard, "Display format: Global Surge: Momentum / Chain / Blast / ...");
-        AddSurgeCardLine(globalCard, "To bias the label, stack more of that mod across towers.");
+        AddSurgeCardLine(globalCard, "All towers activate. The board-wide feel is set by which mod contributed most.");
+        AddSpacer(globalCard, 4);
+        AddSurgeRuleRow(globalCard, "PRESSURE SURGE", "Extended control -- enemies deeply slowed. Arcs saturate the board from every tower.", new Color(0.08f, 0.72f, 1.00f, 0.95f));
+        AddSurgeRuleRow(globalCard, "CHAIN SURGE",    "Chain spread -- arcs jump enemy to enemy. Normal damage, full cooldown refund.", new Color(0.72f, 0.36f, 1.00f, 0.95f));
+        AddSurgeRuleRow(globalCard, "DETONATION SURGE", "Heavy burst -- spike damage, bonus cooldown refund. Radial arcs explode from center.", new Color(1.00f, 0.54f, 0.10f, 0.95f));
+        AddSpacer(globalCard, 2);
+        AddSurgeCardLine(globalCard, "Stack a mod type across towers to bias toward its Global Surge feel.");
     }
     private static string DescribeSingleEffect(string modId) => SpectacleDefinitions.NormalizeModId(modId) switch
     {

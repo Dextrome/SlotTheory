@@ -992,8 +992,7 @@ public partial class HudPanel : CanvasLayer
 
 	/// <summary>
 	/// Called when a surge pip arrives at the bar.
-	/// Snaps to a bright peak and decays -- distinct from the pre-flight pulse so the
-	/// player can read "energy departed" and "energy delivered" as two separate beats.
+	/// Flashes warm gold then decays -- clearly reads as "fuel received".
 	/// </summary>
 	public void FlashPipArrival()
 	{
@@ -1005,11 +1004,13 @@ public partial class HudPanel : CanvasLayer
 
 		_surgeMeterPulseTween = CreateTween();
 		_surgeMeterPulseTween.SetIgnoreTimeScale(true);
-		// Fast snap to peak -- crisp landing thump
-		_surgeMeterPulseTween.TweenProperty(_globalSpectaclePanel, "modulate:v", Balance.SurgePipBarPulse, 0.05f)
-			.SetTrans(Tween.TransitionType.Linear).SetEase(Tween.EaseType.In);
-		// Smooth decay back to neutral
-		_surgeMeterPulseTween.TweenProperty(_globalSpectaclePanel, "modulate:v", 1f, 0.35f)
+		// Snap to warm golden-white -- unmistakable landing moment
+		_surgeMeterPulseTween.TweenProperty(_globalSpectaclePanel, "modulate",
+			new Color(1.60f, 1.42f, 0.90f, 1.00f), 0.04f)
+			.SetTrans(Tween.TransitionType.Linear);
+		// Settle back to neutral white
+		_surgeMeterPulseTween.TweenProperty(_globalSpectaclePanel, "modulate",
+			new Color(1.00f, 1.00f, 1.00f, 0.97f), 0.45f)
 			.SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
 		_surgeMeterPulseTween.TweenCallback(Callable.From(() => _surgeMeterPulseTween = null));
 	}

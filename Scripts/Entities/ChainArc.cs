@@ -25,7 +25,8 @@ public partial class ChainArc : Node2D
         Vector2 worldTo,
         Color color,
         float intensity = 1f,
-        bool mineChainStyle = false)
+        bool mineChainStyle = false,
+        float lifetimeSec = 0f)   // 0 = use default per-style duration
     {
         _from = worldFrom;
         _to = worldTo;
@@ -33,7 +34,8 @@ public partial class ChainArc : Node2D
         _intensity = Mathf.Clamp(intensity, 0.85f, 2.20f);
         _mineChainStyle = mineChainStyle;
         float t = Mathf.Clamp((_intensity - 1f) / 1.2f, 0f, 1f);
-        _duration = _mineChainStyle ? Mathf.Lerp(MineDuration, 0.30f, t) : BaseDuration;
+        float defaultDuration = _mineChainStyle ? Mathf.Lerp(MineDuration, 0.30f, t) : BaseDuration;
+        _duration = lifetimeSec > 0f ? lifetimeSec : defaultDuration;
 
         // Midpoints with random perpendicular jitter for electric zigzag look.
         var rng = new System.Random();

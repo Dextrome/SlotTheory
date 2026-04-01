@@ -326,15 +326,16 @@ Global surge is a mapwide event with synchronized spectacle + gameplay:
 
 ### Surge Readability and Visual Feel
 
-The banner label and visual treatment are driven by which mods contributed most to filling the global meter:
+The banner label and visual treatment are driven by which mods contributed most to filling the global meter. The dominant mod maps to one of 3 genuinely distinct feel types:
 
-- **14 named archetypes** - e.g. REDLINE WAVE (Momentum), CHAIN STORM (Chain Reaction), Afterimage (Afterimage), Reaper (Reaper Protocol). Falls back to GLOBAL SURGE if no dominant mod is detected.
-- **Archetype preview**: the HUD global meter label transitions from "GLOBAL SURGE" to the predicted archetype name at ≥70% fill.
-- **Feel types** - Detonation builds (Overkill, Focus Lens, Feedback Loop, Hair Trigger) produce a sharp spike flash + second snap pulse. Pressure builds (Momentum, Chill Shot, Overreach) produce a softer sustained flash.
-- **Multi-color ripples** - up to 3 ripple colors reflecting the top contributing mods.
-- **Per-tower identity FX** - each tower type fires its own archetype effect in staggered sequence.
+- **PRESSURE SURGE** (Momentum, Chill Shot, Overreach, Afterimage) - extended control: marks and slows run 1.5× longer with deeper slow factor. Arcs flood from every tower to every live enemy. Cold blue tint, wide slow ripples.
+- **CHAIN SURGE** (Exploit Weakness, Split Shot, Chain Reaction, Reaper Protocol, Deadzone) - spreading chain: arcs jump enemy-to-enemy in progress order. Normal damage, full cooldown refund. Electric purple tint, balanced ripples.
+- **DETONATION SURGE** (Overkill, Focus Lens, Hair Trigger, Feedback Loop, Blast Core, Wildfire) - heavy burst: 1.35× spike damage, bonus cooldown refund. Radial arcs explode from board center. Hot orange tint, fast tight ripples.
+- **Feel preview** - the HUD global meter label transitions to the predicted surge type at ≥70% fill.
+- **Multi-color ripples** - up to 3-4 ripple rings reflecting the top contributing mods; width and expansion speed vary by feel.
+- **Per-tower identity FX** - each tower type fires its own effect in staggered sequence.
 - **Screen-edge vignette** - square-masked overlay ramps in during the final 30% of global meter fill, tinted to the dominant mod's color.
-- **Sustained archetype tint** - a low-alpha full-screen color wash lingers ~2.4 s after global surge, keyed to feel (red/orange/purple).
+- **Sustained feel tint** - a low-alpha full-screen color wash lingers ~2.4 s after global surge (blue/purple/orange per feel).
 - **SURGE ×N chain counter** - a gold callout accumulates at screen center when multiple surges chain within the contribution window.
 - **Per-tower afterglow** - each tower involved holds a 2.4 s accent-colored modulate fade after its FX burst.
 - **Triad callouts** - combo name and augment name spawn as separate sequential callouts; augment appears below in the augment modifier's own color.

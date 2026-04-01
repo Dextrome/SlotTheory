@@ -4940,7 +4940,9 @@ void fragment() {
 		GD.Print($"[Surge] tower={sourceTower.TowerId}  mode={info.Signature.Mode}  effect={info.Signature.EffectName}  augment={info.Signature.AugmentName}  power={info.Signature.SurgePower:F2}");
 		if (sourceTower is TowerInstance triggerTower && GodotObject.IsInstanceValid(triggerTower))
 			triggerTower.FlashSpectacle(accent, major: true);
-		float linkDistance = Mathf.Max(340f, sourceTower.Range * 1.30f);
+		// Tower Surge links are kept local: short reach, few targets.
+		// Long-range board-wide arcs are reserved for Global Surge.
+		float linkDistance = Mathf.Max(Balance.TowerSurgeMinLinkDistance, sourceTower.Range * Balance.TowerSurgeLinkRangeFactor);
 		SpectacleConsequenceKind surgeRider = ResolveConsequenceKindFromSkin(comboSkin);
 		float surgeConsequenceStrength = Mathf.Clamp(info.Signature.SurgePower, 0.6f, 2.2f) * 0.58f;
 		SpawnSpectacleBurstFx(sourceTower.GlobalPosition, accent, major: true, power: info.Signature.SurgePower);
@@ -4948,7 +4950,7 @@ void fragment() {
 		SpawnSpectacleLinks(
 			sourceTower.GlobalPosition,
 			accent,
-			maxLinks: 6,
+			maxLinks: Balance.TowerSurgeMaxLinks,
 			maxDistance: linkDistance,
 			majorStyle: true,
 			sourceTower: sourceTower,
@@ -4958,7 +4960,8 @@ void fragment() {
 			spawnResidue: surgeRider != SpectacleConsequenceKind.None);
 		SpawnSpectacleTowerVolleyFx(sourceTower, accent, major: true, power: info.Signature.SurgePower);
 		SpawnComboExplosionSkinFx(sourceTower, info.Signature, accent, comboSkin);
-		FlashSpectacleScreen(accent, peakAlpha: 0.17f, rampSec: 0.06f, fadeSec: 0.34f);
+		// Reduced flash – Tower Surge should read as a local pop, not a screen event.
+		FlashSpectacleScreen(accent, peakAlpha: Balance.TowerSurgeScreenFlashAlpha, rampSec: 0.05f, fadeSec: 0.22f);
 		QueueSpectacleEcho(
 			sourceTower.GlobalPosition,
 			accent,
@@ -4980,13 +4983,13 @@ void fragment() {
 			globalSurge: false,
 			info.Signature.SurgePower);
 
-		// Phase 1 (user amendment): mini mode-based signature rings - ripples=mode at tower level
+		// Compact signature rings – low drama, Tower Surge is fuel, not the main show.
 		if (!mobileLite)
-			SpawnSurgeSignatureRings(sourceTower.GlobalPosition, info.Signature, drama: 0.28f);
+			SpawnSurgeSignatureRings(sourceTower.GlobalPosition, info.Signature, drama: Balance.TowerSurgeSignatureDrama);
 
-		// Phase 2: tower-type archetype identity FX (pattern=tower, mini at ~30% drama)
+		// Compact archetype FX – same rationale.
 		if (sourceTower is TowerInstance towerForArchetype && !mobileLite)
-			SpawnTowerArchetypeFx(towerForArchetype, accent, drama: 0.28f);
+			SpawnTowerArchetypeFx(towerForArchetype, accent, drama: Balance.TowerSurgeArchetypeDrama);
 
 		string surgeCalloutUpper = $"SURGE: {BuildPrimarySurgeLabel(info.Signature).ToUpperInvariant()}";
 		float surgeCalloutDurationScale = SurgeUxTiming.ResolveSurgeCalloutDurationScale(2.8f);
@@ -5072,7 +5075,8 @@ void fragment() {
 			info.Signature.SurgePower);
 		if (hitStop.ShouldApply)
 			TriggerHitStop(realDuration: hitStop.DurationSeconds, slowScale: hitStop.SlowScale);
-		TriggerSpectacleSlowMo(realDuration: 0.5f, speedFactor: 0.50f);
+		// Minimal slowmo – Tower Surge is a quick local pop; sustained slowmo belongs to Global Surge.
+		TriggerSpectacleSlowMo(realDuration: Balance.TowerSurgeSlowMoDuration, speedFactor: Balance.TowerSurgeSlowMoFactor);
 		float afterimageStrength = SpectacleExplosionCore.ResolveLargeSurgeAfterimageStrength(
 			majorExplosion: true,
 			globalSurge: false,
@@ -5338,9 +5342,13 @@ void fragment() {
 			surgeTriggerId: traceId,
 			stageId: "trigger",
 			comboSkin: "global");
+		// Resolve feel early so both bot and visual paths use differentiated payloads.
+		string[] dominantMods = info.DominantModIds ?? System.Array.Empty<string>();
+		SurgeDifferentiation.GlobalSurgeFeel feel = SurgeDifferentiation.ResolveFeel(dominantMods);
+
 		if (_botRunner != null)
 		{
-			ApplyGlobalSurgeGameplayPayload(info);
+			ApplyGlobalSurgeGameplayPayload(info, feel);
 			return;
 		}
 		Vector2 center = ScreenToWorld(GetViewport().GetVisibleRect().Size * 0.5f);
@@ -5350,11 +5358,9 @@ void fragment() {
 		float globalDurationScale = GlobalSurgeLingerMultiplier * GlobalSurgeDurationScale;
 
 		// ── Resolve identity from dominant contributing mods ───────────────────────
-		string[] dominantMods = info.DominantModIds ?? System.Array.Empty<string>();
-		string surgeLabel = SurgeDifferentiation.ResolveLabel(dominantMods);
+		string surgeLabel = SurgeDifferentiation.ResolveLabel(feel);
 		_surgeArchetypeCounts.TryGetValue(surgeLabel, out int _existingCount);
 		_surgeArchetypeCounts[surgeLabel] = _existingCount + 1;
-		SurgeDifferentiation.GlobalSurgeFeel feel = SurgeDifferentiation.ResolveFeel(dominantMods);
 		float flashAlpha = SurgeDifferentiation.ResolveFlashAlpha(feel);
 
 		// ── Clear buildup effects - vignette and chain counter ────────────────────
@@ -5363,10 +5369,8 @@ void fragment() {
 		if (GodotObject.IsInstanceValid(_vignetteRect))
 			_vignetteRect.Visible = false;
 
-		// ── Banner subtitle: mechanical summary of the payload ─────────────────────
-		int subContribs = Mathf.Max(2, info.UniqueContributors);
-		int refundPct = Mathf.RoundToInt(Mathf.Clamp(0.28f + 0.045f * subContribs, 0.28f, 0.52f) * 100f);
-		string surgeSubtitle = $"Towers −{refundPct}% reload · Enemies marked & slowed";
+		// ── Banner subtitle: feel-specific mechanical summary ─────────────────────
+		string surgeSubtitle = SurgeDifferentiation.ResolveTypeSubtitle(feel);
 
 		GD.Print($"[GlobalSurge] label={surgeLabel}  feel={feel}  dominantMods=[{string.Join(", ", dominantMods)}]  contributors={info.UniqueContributors}");
 
@@ -5376,19 +5380,15 @@ void fragment() {
 			: new[] { globalColor };
 
 		// ── Group 1: immediate - gameplay payload + center visuals + hitstop/slowmo ──
-		ApplyGlobalSurgeGameplayPayload(info);
+		ApplyGlobalSurgeGameplayPayload(info, feel);
 		SpawnSpectacleBurstFx(center, globalColor, major: true, power: 2.15f);
-		SpawnGlobalSurgeRipples(center, rippleColors, Mathf.Max(2, info.UniqueContributors), lingerMultiplier: globalDurationScale);
+		SpawnGlobalSurgeRipples(center, rippleColors, Mathf.Max(2, info.UniqueContributors), lingerMultiplier: globalDurationScale, feel: feel);
 		FlashSpectacleScreen(globalColor, peakAlpha: flashAlpha, rampSec: 0.09f, fadeSec: 0.62f * globalDurationScale);
-		// Sustained archetype tint - low-alpha linger keyed to feel
-		Color lingerColor = feel switch
-		{
-			SurgeDifferentiation.GlobalSurgeFeel.Pressure    => new Color(0.85f, 0.08f, 0.08f),
-			SurgeDifferentiation.GlobalSurgeFeel.Detonation  => new Color(1.00f, 0.50f, 0.08f),
-			_                                                 => new Color(0.60f, 0.20f, 1.00f),
-		};
-		FlashSpectacleScreenLinger(lingerColor, alpha: 0.13f, holdSec: 1.0f, fadeSec: 1.4f);
-		// Detonation: second snap-flash after brief delay (Phase 4)
+		// Sustained archetype tint – color and persistence keyed to feel type.
+		Color lingerColor = SurgeDifferentiation.ResolveLingerColor(feel);
+		// Extended linger tint – Global Surge should leave a sustained atmospheric residue.
+		FlashSpectacleScreenLinger(lingerColor, alpha: 0.13f, holdSec: Balance.GlobalSurgeLingerHoldSec, fadeSec: Balance.GlobalSurgeLingerFadeSec);
+		// Detonation: second snap-flash after brief delay (feel-specific extra punch)
 		if (feel == SurgeDifferentiation.GlobalSurgeFeel.Detonation)
 		{
 			GetTree().CreateTimer(0.42f, true, false, true).Timeout += () =>
@@ -5397,7 +5397,15 @@ void fragment() {
 					FlashSpectacleScreen(globalColor, peakAlpha: 0.14f, rampSec: 0.04f, fadeSec: 0.24f);
 			};
 		}
-		SoundManager.Instance?.Play("surge_global");
+		// Feel-differentiated sound: Pressure=low rumble, Chain=lightning, Detonation=high spike
+		string surgeSoundId  = feel == SurgeDifferentiation.GlobalSurgeFeel.Neutral ? "surge_lightning" : "surge_global";
+		float  surgeSoundPitch = feel switch
+		{
+			SurgeDifferentiation.GlobalSurgeFeel.Pressure   => 0.88f,
+			SurgeDifferentiation.GlobalSurgeFeel.Detonation => 1.14f,
+			_                                               => 1.00f,
+		};
+		SoundManager.Instance?.Play(surgeSoundId, surgeSoundPitch);
 		ExplosionHitStopProfile hitStop = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
 			majorExplosion: true,
 			globalSurge: true,
@@ -5431,24 +5439,25 @@ void fragment() {
 				if (!GodotObject.IsInstanceValid(t)) return;
 				t.FlashSpectacle(accent, major: true);
 				SpawnSpectacleBurstFx(t.GlobalPosition, accent, major: true, power: 1.12f);
+				// Each tower fires far-reaching links – the whole board becomes the storm.
 				SpawnSpectacleLinks(
 					t.GlobalPosition,
 					accent,
-					maxLinks: 2,
-					maxDistance: Mathf.Max(280f, t.Range * 1.15f),
+					maxLinks: Balance.GlobalSurgeLinksPerTower,
+					maxDistance: Mathf.Max(Balance.GlobalSurgeMinLinkDistance, t.Range * Balance.GlobalSurgeLinkRangeFactor),
 					majorStyle: true,
 					sourceTower: t,
 					consequenceDamageScale: 0.08f,
 					rider: SpectacleConsequenceKind.Vulnerability,
 					riderStrength: 0.92f);
 				SpawnSpectacleTowerVolleyFx(t, accent, major: true, power: 1.10f);
-				// Phase 1+2: signature rings (mode) + tower archetype pattern
+				// Full-drama signature rings + archetype FX – this is the main event.
 				var tSig = _spectacleSystem.PreviewSignature(t);
-				SpawnSurgeSignatureRings(t.GlobalPosition, tSig, drama: 0.7f);
+				SpawnSurgeSignatureRings(t.GlobalPosition, tSig, drama: Balance.GlobalSurgeSignatureDrama);
 				if (!IsMobileSpectacleLite())
-					SpawnTowerArchetypeFx(t, accent, drama: 0.75f);
-				// Persistent afterglow - tower stays lit for 2.4s after the surge sequence
-				t.StartAfterGlow(accent, duration: 2.4f);
+					SpawnTowerArchetypeFx(t, accent, drama: Balance.GlobalSurgeArchetypeDrama);
+				// Extended afterglow – towers stay illuminated through the entire event.
+				t.StartAfterGlow(accent, duration: Balance.GlobalSurgeTowerAfterglow);
 			};
 		}
 
@@ -5481,6 +5490,15 @@ void fragment() {
 				spawnResidue: true,
 				damageBaseOverride: globalDamageBase);
 			ShowGlobalSurgeBanner(surgeLabel, globalColor, surgeSubtitle, lingerMultiplier: globalDurationScale);
+
+			// Tower web: connect every active tower to every other – the board becomes a grid of arcs.
+			// Purely visual, no damage; fires simultaneously with the banner.
+			SpawnGlobalSurgeTowerWeb(activeTowers, Balance.GlobalSurgeTowerWebLifetime);
+
+			// Chain feel: arcs jump enemy-to-enemy through the pack (spreading chain reaction visual).
+			if (feel == SurgeDifferentiation.GlobalSurgeFeel.Neutral)
+				SpawnGlobalSurgeEnemyChainArcs(globalColor, Balance.ChainSurgeArcLifetime);
+
 		// Phase 5: Triad Factorio moment - second flash pulse when 3 distinct mod identities converge
 		if (dominantMods.Length >= 3)
 		{
@@ -5491,16 +5509,178 @@ void fragment() {
 			};
 		}
 		};
+
+		// ── Group 4: lingering storm aftermath (purely visual, decoupled from damage) ──
+		// Pattern varies by feel:
+		//   Pressure   – board saturation: every tower arcs to every enemy
+		//   Chain      – enemy-web: arcs chain enemy→neighbor along the path
+		//   Detonation – radial blast: arcs from screen center to all enemies
+		float stormDelay = finaleDelay + 0.38f;
+		Vector2 capturedCenter = center;
+		Color capturedGlobalColor = globalColor;
+		GetTree().CreateTimer(stormDelay, true, false, true).Timeout += () =>
+		{
+			if (!GodotObject.IsInstanceValid(this) || CurrentPhase != GamePhase.Wave)
+				return;
+			SpawnGlobalSurgeLingeringStorm(activeTowers, Balance.GlobalSurgeLongArcLifetime, capturedCenter, capturedGlobalColor, feel);
+		};
 	}
 
-	private void ApplyGlobalSurgeGameplayPayload(GlobalSurgeTriggerInfo info)
+	/// <summary>
+	/// Spawns a longer-lived arc between two world positions. No gameplay payload.
+	/// Used for Global Surge's tower web and lingering storm phases.
+	/// </summary>
+	private void SpawnSpectacleArcLingering(Vector2 from, Vector2 to, Color color, float intensity, float lifetimeSec)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+		var arc = new ChainArc();
+		_worldNode.AddChild(arc);
+		arc.GlobalPosition = Vector2.Zero;
+		arc.Initialize(from, to, color, intensity, mineChainStyle: false, lifetimeSec: lifetimeSec);
+	}
+
+	/// <summary>
+	/// Connects every active tower to every other tower with a lingering arc.
+	/// Creates the "whole board is one storm" visual at Global Surge ignition.
+	/// Purely cosmetic – no damage applied.
+	/// </summary>
+	private void SpawnGlobalSurgeTowerWeb(
+		System.Collections.Generic.List<(TowerInstance tower, Color accent)> towers,
+		float arcLifetime)
+	{
+		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+		if (IsMobileSpectacleLite())
+			return; // skip on mobile to preserve performance
+		for (int i = 0; i < towers.Count; i++)
+		{
+			for (int j = i + 1; j < towers.Count; j++)
+			{
+				var (tA, colorA) = towers[i];
+				var (tB, colorB) = towers[j];
+				if (!GodotObject.IsInstanceValid(tA) || !GodotObject.IsInstanceValid(tB))
+					continue;
+				Color webColor = colorA.Lerp(colorB, 0.5f);
+				SpawnSpectacleArcLingering(tA.GlobalPosition, tB.GlobalPosition, webColor, 0.82f, arcLifetime);
+			}
+		}
+	}
+
+	/// <summary>
+	/// Sends long-lasting arcs from every active tower toward the furthest enemies on the board.
+	/// This is the "storm dissipating" visual aftermath of Global Surge –
+	/// visuals persist well after the damage has resolved, keeping the board alive.
+	/// Purely cosmetic – no damage applied.
+	/// </summary>
+	/// <summary>
+	/// Lingering storm aftermath arcs -- pattern varies by feel type:
+	///   Pressure   = board saturation: every tower → every enemy (maximum control coverage)
+	///   Chain      = enemy web: arcs chain along the path, enemy → nearest neighbor
+	///   Detonation = radial blast: screen center → all enemies (explosion pattern)
+	/// Purely visual, no gameplay payload.
+	/// </summary>
+	private void SpawnGlobalSurgeLingeringStorm(
+		System.Collections.Generic.List<(TowerInstance tower, Color accent)> towers,
+		float arcLifetime,
+		Vector2 center,
+		Color globalColor,
+		SurgeDifferentiation.GlobalSurgeFeel feel)
+	{
+		if (_botRunner != null || _runState == null || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+		bool mobileLite = IsMobileSpectacleLite();
+
+		var allEnemies = _runState.EnemiesAlive
+			.Where(e => GodotObject.IsInstanceValid(e) && e.Hp > 0f)
+			.ToList();
+		if (allEnemies.Count == 0)
+			return;
+
+		switch (feel)
+		{
+			case SurgeDifferentiation.GlobalSurgeFeel.Pressure:
+			{
+				// Board saturation: each tower arcs to every live enemy -- full control coverage.
+				int maxPerTower = mobileLite ? 4 : allEnemies.Count;
+				foreach (var (t, accent) in towers)
+				{
+					if (!GodotObject.IsInstanceValid(t)) continue;
+					int take = Mathf.Min(maxPerTower, allEnemies.Count);
+					for (int j = 0; j < take; j++)
+						SpawnSpectacleArcLingering(t.GlobalPosition, allEnemies[j].GlobalPosition, accent, 0.82f + j * 0.02f, arcLifetime);
+				}
+				break;
+			}
+			case SurgeDifferentiation.GlobalSurgeFeel.Detonation:
+			{
+				// Radial explosion: arcs fan from screen center outward to all enemies.
+				int maxFromCenter = mobileLite ? 8 : allEnemies.Count;
+				for (int i = 0; i < Mathf.Min(maxFromCenter, allEnemies.Count); i++)
+					SpawnSpectacleArcLingering(center, allEnemies[i].GlobalPosition, globalColor, 0.88f + i * 0.02f, arcLifetime);
+				break;
+			}
+			default: // Chain/Neutral: arcs chain enemy → neighbor along the path.
+			{
+				var ordered = allEnemies.OrderByDescending(e => e.ProgressRatio).ToList();
+				// Each tower connects to the lead enemy, then arcs propagate through the pack.
+				foreach (var (t, accent) in towers)
+				{
+					if (!GodotObject.IsInstanceValid(t) || ordered.Count == 0) continue;
+					SpawnSpectacleArcLingering(t.GlobalPosition, ordered[0].GlobalPosition, accent, 0.90f, arcLifetime);
+				}
+				int chainJumps = mobileLite ? 4 : Mathf.Min(Balance.ChainSurgeEnemyArcs, ordered.Count - 1);
+				for (int i = 0; i < chainJumps && i + 1 < ordered.Count; i++)
+				{
+					Color chainColor = towers.Count > 0 ? towers[i % towers.Count].accent : globalColor;
+					SpawnSpectacleArcLingering(ordered[i].GlobalPosition, ordered[i + 1].GlobalPosition, chainColor, 0.85f + i * 0.03f, arcLifetime);
+				}
+				break;
+			}
+		}
+	}
+
+	/// <summary>
+	/// Chain feel only: initial enemy→enemy arc chain at finale time.
+	/// Fires before the lingering storm to establish the "spreading chain reaction" identity.
+	/// Purely visual, no gameplay payload.
+	/// </summary>
+	private void SpawnGlobalSurgeEnemyChainArcs(Color globalColor, float arcLifetime)
+	{
+		if (_botRunner != null || _runState == null || !GodotObject.IsInstanceValid(_worldNode))
+			return;
+		bool mobileLite = IsMobileSpectacleLite();
+		var ordered = _runState.EnemiesAlive
+			.Where(e => GodotObject.IsInstanceValid(e) && e.Hp > 0f)
+			.OrderByDescending(e => e.ProgressRatio)
+			.ToList();
+		int jumps = mobileLite ? 3 : Mathf.Min(Balance.ChainSurgeEnemyArcs, ordered.Count - 1);
+		for (int i = 0; i < jumps && i + 1 < ordered.Count; i++)
+			SpawnSpectacleArcLingering(ordered[i].GlobalPosition, ordered[i + 1].GlobalPosition, globalColor, 0.90f + i * 0.03f, arcLifetime);
+	}
+
+	private void ApplyGlobalSurgeGameplayPayload(
+		GlobalSurgeTriggerInfo info,
+		SurgeDifferentiation.GlobalSurgeFeel feel = SurgeDifferentiation.GlobalSurgeFeel.Neutral)
 	{
 		if (_runState == null || _runState.Slots == null)
 			return;
 
 		int contributors = Mathf.Max(2, info.UniqueContributors);
-		float perTowerScale = Mathf.Clamp(0.78f + 0.09f * contributors, 0.78f, 1.16f);
+
+		// Feel-specific cooldown refund: Detonation gets an extra burst to re-fire everything.
 		float cooldownRefund = Mathf.Clamp(0.28f + 0.045f * contributors, 0.28f, 0.52f);
+		if (feel == SurgeDifferentiation.GlobalSurgeFeel.Detonation)
+			cooldownRefund = Mathf.Min(0.65f, cooldownRefund + Balance.DetonationSurgeCooldownBonus);
+
+		// Feel-specific damage multiplier applied to per-tower spectacle payloads.
+		float damageMult = feel switch
+		{
+			SurgeDifferentiation.GlobalSurgeFeel.Pressure   => Balance.PressureSurgeDamageMult,
+			SurgeDifferentiation.GlobalSurgeFeel.Detonation => Balance.DetonationSurgeDamageMult,
+			_                                               => 1.00f,
+		};
+		float perTowerScale = Mathf.Clamp(0.78f + 0.09f * contributors, 0.78f, 1.16f) * damageMult;
 
 		for (int i = 0; i < _runState.Slots.Length; i++)
 		{
@@ -5518,9 +5698,28 @@ void fragment() {
 				effectScale: perTowerScale);
 		}
 
+		// Base mark/slow durations.
 		float markDuration = 2.4f + 0.32f * contributors;
 		float slowDuration = 2.0f + 0.28f * contributors;
-		float slowFactor = Mathf.Clamp(0.86f - 0.065f * contributors, 0.54f, 0.88f);
+		float slowFactor   = Mathf.Clamp(0.86f - 0.065f * contributors, 0.54f, 0.88f);
+
+		// Feel-specific status adjustments.
+		switch (feel)
+		{
+			case SurgeDifferentiation.GlobalSurgeFeel.Pressure:
+				// Sustained control: significantly longer and deeper mark + slow.
+				markDuration *= Balance.PressureSurgeMarkMult;
+				slowDuration *= Balance.PressureSurgeSlowMult;
+				slowFactor    = Mathf.Max(0.36f, slowFactor - Balance.PressureSurgeSlowBonus);
+				break;
+			case SurgeDifferentiation.GlobalSurgeFeel.Detonation:
+				// Burst focus: shorter status windows (enemies should be dead before they matter).
+				markDuration *= Balance.DetonationSurgeMarkMult;
+				slowDuration *= Balance.DetonationSurgeSlowMult;
+				break;
+			// Chain: normal status -- the value is in the spreading arcs, not the status depth.
+		}
+
 		foreach (var enemy in _runState.EnemiesAlive)
 		{
 			if (!IsEnemyUsable(enemy))
@@ -7214,7 +7413,12 @@ void fragment() {
 			});
 	}
 
-	private void SpawnGlobalSurgeRipples(Vector2 origin, Color[] colors, int contributors, float lingerMultiplier = 1f)
+	private void SpawnGlobalSurgeRipples(
+		Vector2 origin,
+		Color[] colors,
+		int contributors,
+		float lingerMultiplier = 1f,
+		SurgeDifferentiation.GlobalSurgeFeel feel = SurgeDifferentiation.GlobalSurgeFeel.Neutral)
 	{
 		if (_botRunner != null || !GodotObject.IsInstanceValid(_worldNode))
 			return;
@@ -7229,12 +7433,33 @@ void fragment() {
 		float diagonal = topLeft.DistanceTo(bottomRight);
 		float endRadius = Mathf.Max(340f, diagonal * 0.62f);
 
+		// Feel-specific ripple tuning:
+		//   Pressure   – slow, wide rings (sustained atmospheric presence)
+		//   Chain      – normal (balanced)
+		//   Detonation – fast, far-reaching, sharp rings (explosive snap)
+		float durationMult  = feel switch
+		{
+			SurgeDifferentiation.GlobalSurgeFeel.Pressure   => 1.60f,
+			SurgeDifferentiation.GlobalSurgeFeel.Detonation => 0.55f,
+			_                                               => 1.00f,
+		};
+		float endRadiusMult = feel == SurgeDifferentiation.GlobalSurgeFeel.Detonation ? 1.25f : 1.00f;
+		float ringWidthMult = feel switch
+		{
+			SurgeDifferentiation.GlobalSurgeFeel.Pressure   => 1.50f,
+			SurgeDifferentiation.GlobalSurgeFeel.Detonation => 0.75f,
+			_                                               => 1.00f,
+		};
+
 		float contributorT = Mathf.Clamp((contributors - 1f) / 5f, 0f, 1f);
-		// Clamp ripple count to number of distinct colors (max 3) - one ripple per mod slot
 		int maxRipples = reducedMotion ? 1 : Mathf.Min(3, colors.Length > 1 ? colors.Length : 3);
+		// Pressure gets an extra ripple for a broader, more saturating wash.
+		if (!reducedMotion && feel == SurgeDifferentiation.GlobalSurgeFeel.Pressure)
+			maxRipples = Mathf.Min(maxRipples + 1, 4);
 		if (IsMobileSpectacleLite())
 			maxRipples = Mathf.Min(maxRipples, 2);
-		float baseDuration = Mathf.Lerp(0.62f, 0.86f, contributorT) * linger;
+		float baseDuration = Mathf.Lerp(0.62f, 0.86f, contributorT) * linger * durationMult;
+		float adjustedEndRadius = endRadius * endRadiusMult;
 
 		for (int i = 0; i < maxRipples; i++)
 		{
@@ -7252,9 +7477,9 @@ void fragment() {
 				ripple.GlobalPosition = origin;
 				ripple.Initialize(
 					rippleColor,
-					endRadius * (0.90f + rippleIndex * 0.09f),
+					adjustedEndRadius * (0.90f + rippleIndex * 0.09f),
 					durationSec: baseDuration + rippleIndex * 0.08f,
-					ringWidth: 4.8f + rippleIndex * 1.0f);
+					ringWidth: (4.8f + rippleIndex * 1.0f) * ringWidthMult);
 			}
 
 			if (delay <= 0f)
