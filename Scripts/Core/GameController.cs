@@ -5007,85 +5007,20 @@ void fragment() {
 		if (sourceTower is TowerInstance towerForArchetype && !mobileLite)
 			SpawnTowerArchetypeFx(towerForArchetype, accent, drama: catArchetypeDrama);
 
-		// Category is the headline -- the mod name isn't the player-facing identity.
-		// TWIST/BONUS lines below still describe the secondary and augment mods.
+		// Category label is the only callout -- no secondary mod text.
 		string surgeCalloutUpper = SurgeDifferentiation.GetCategoryCallout(surgeCategory);
 		float surgeCalloutDurationScale = SurgeUxTiming.ResolveSurgeCalloutDurationScale(2.8f);
 		float surgeCalloutHoldPortion = SurgeUxTiming.ResolveSurgeCalloutHoldPortion(0.68f);
-		bool hasSecondaryMutation = info.Signature.Mode != SpectacleMode.Single
-			&& !string.IsNullOrWhiteSpace(info.Signature.SecondaryModId);
-		bool hasSurgeAugment = info.Signature.Mode == SpectacleMode.Triad
-			&& !string.IsNullOrEmpty(info.Signature.AugmentName);
-		// Fixed lanes to prevent overlap:
-		// 3-line: BONUS (top) -> SURGE (mid) -> TWIST (bottom, but still above tower body).
-		// 2-line: SURGE (top) -> TWIST (bottom).
-		const float surgeCalloutCloserOffset = 10f;
-		float surgePrimaryYOffset = hasSecondaryMutation && hasSurgeAugment
-			? -60f
-			: hasSecondaryMutation
-				? -48f
-				: hasSurgeAugment
-					? -52f
-					: -32f;
-		surgePrimaryYOffset += surgeCalloutCloserOffset;
 		Vector2 surgeCalloutOrigin = sourceTower.GlobalPosition + new Vector2(6f, 0f);
-		CombatCallout? surgeCallout = SpawnCombatCallout(
+		SpawnCombatCallout(
 			surgeCalloutUpper,
 			surgeCalloutOrigin,
 			accent,
 			durationScale: surgeCalloutDurationScale,
-			yOffset: surgePrimaryYOffset,
+			yOffset: -32f,
 			drift: false,
 			holdPortion: surgeCalloutHoldPortion,
 			sizeOverride: 19);
-
-		if (hasSecondaryMutation)
-		{
-			Color mutationAccent = ResolveSpectacleColor(info.Signature.SecondaryModId)
-				.Lerp(new Color(0.82f, 0.84f, 0.90f), 0.35f);
-			string mutationLine = $"TWIST: {BuildSecondaryMutationLabel(info.Signature).ToUpperInvariant()}";
-			GetTree().CreateTimer(0.16f, true, false, true).Timeout += () =>
-			{
-				if (!GodotObject.IsInstanceValid(this)) return;
-				if (surgeCallout != null && GodotObject.IsInstanceValid(surgeCallout))
-					surgeCallout.EnsureRemaining(SurgeUxTiming.ResolveTriadAugmentRemaining(3.0f));
-
-				SpawnCombatCallout(
-					mutationLine,
-					surgeCalloutOrigin,
-					mutationAccent,
-					durationScale: SurgeUxTiming.ResolveSurgeCalloutDurationScale(2.9f),
-					yOffset: (hasSurgeAugment ? -42f : -30f) + surgeCalloutCloserOffset,
-					drift: false,
-					holdPortion: surgeCalloutHoldPortion,
-					sizeOverride: 15);
-			};
-		}
-
-		if (hasSurgeAugment)
-		{
-			var capturedOrigin = surgeCalloutOrigin;
-			Color augAccent = ResolveSpectacleColor(info.Signature.AugmentEffectId)
-				.Lerp(new Color(0.84f, 0.86f, 0.90f), 0.55f);
-			string augLine = $"BONUS: {BuildBonusSurgeLabel(info.Signature).ToUpperInvariant()}";
-			GetTree().CreateTimer(0.24f, true, false, true).Timeout += () =>
-			{
-				if (!GodotObject.IsInstanceValid(this)) return;
-				if (surgeCallout != null && GodotObject.IsInstanceValid(surgeCallout))
-					surgeCallout.EnsureRemaining(SurgeUxTiming.ResolveTriadAugmentRemaining(3.4f));
-
-				SpawnCombatCallout(
-					augLine,
-					capturedOrigin,
-					augAccent,
-					durationScale: SurgeUxTiming.ResolveSurgeCalloutDurationScale(3.0f),
-					yOffset: (hasSecondaryMutation ? -78f : -74f) + surgeCalloutCloserOffset,
-					drift: false,
-					holdPortion: surgeCalloutHoldPortion,
-					sizeOverride: 14);
-				FlashSpectacleScreen(augAccent, peakAlpha: 0.10f, rampSec: 0.04f, fadeSec: 0.20f);
-			};
-		}
 
 		ExplosionHitStopProfile hitStop = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
 			majorExplosion: true,
