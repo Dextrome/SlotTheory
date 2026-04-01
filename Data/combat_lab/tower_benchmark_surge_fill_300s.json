@@ -1,0 +1,38 @@
+{
+  "name": "surge_fill_equalize_focus_hair_300s",
+  "mode": "live_rules",
+  "seed": 1337,
+  "trials_per_scenario": 8,
+  "timestep_seconds": 0.05,
+  "include_all_towers": true,
+  "towers": [
+    { "tower": "rapid_shooter", "mods": ["focus_lens", "hair_trigger"], "targeting": "first" },
+    { "tower": "heavy_cannon", "mods": ["focus_lens", "hair_trigger"], "targeting": "first" },
+    { "tower": "rocket_launcher", "mods": ["focus_lens", "hair_trigger"], "targeting": "first" },
+    { "tower": "marker_tower", "mods": ["focus_lens", "hair_trigger"], "targeting": "first" },
+    { "tower": "chain_tower", "mods": ["focus_lens", "hair_trigger"], "targeting": "first" },
+    { "tower": "rift_prism", "mods": ["focus_lens", "hair_trigger"], "targeting": "first" },
+    { "tower": "phase_splitter", "mods": ["focus_lens", "hair_trigger"], "targeting": "first" },
+    { "tower": "accordion_engine", "mods": ["focus_lens", "hair_trigger"], "targeting": "first" },
+    { "tower": "undertow_engine", "mods": ["focus_lens", "hair_trigger"], "targeting": "first" },
+    { "tower": "latch_nest", "mods": ["focus_lens", "hair_trigger"], "targeting": "first" }
+  ],
+  "scenarios": [
+    {
+      "id": "surge_fill_300s",
+      "name": "Surge Fill 300s (Focus + Hair Trigger)",
+      "tags": ["surge_fill_equalization", "single_loadout", "300s"],
+      "duration_seconds": 300,
+      "path_type": "open_lane",
+      "path_length": 2200,
+      "lane_width": 120,
+      "tower_position": [760, 0],
+      "stop_when_resolved": false,
+      "max_leaks": 9999,
+      "enemy_groups": [
+        { "id": "stream_frontline", "count": 1875, "hp": 120, "speed": 120, "spawn_interval": 0.16, "start_time": 0.0, "start_progress": 0.0 },
+        { "id": "stream_tanky", "count": 1097, "hp": 240, "speed": 92, "spawn_interval": 0.27, "start_time": 4.0, "start_progress": 0.0 }
+      ]
+    }
+  ]
+}

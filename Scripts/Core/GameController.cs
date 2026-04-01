@@ -310,20 +310,6 @@ public partial class GameController : Node
 			return;
 		}
 
-		if (BotMetricsDeltaReporter.TryRunFromArgs(userArgs))
-		{
-			GetTree().Quit();
-			return;
-		}
-		if (userArgs.Contains("--lab_scenario") || userArgs.Contains("--lab_sweep") || userArgs.Contains("--lab_tower_benchmark") || userArgs.Contains("--lab_modifier_benchmark"))
-		{
-			bool success = CombatLabCli.Run(userArgs);
-			if (!success)
-				GD.PrintErr("[LAB] Failed to run combat lab automation.");
-			GetTree().Quit();
-			return;
-		}
-
 		string? tuningFile = null;
 		int tf = System.Array.IndexOf(userArgs, "--tuning_file");
 		if (tf >= 0 && tf + 1 < userArgs.Length)
@@ -340,6 +326,20 @@ public partial class GameController : Node
 			{
 				GD.PrintErr($"[TUNING] Failed to load {tuningFile}: {error}");
 			}
+		}
+
+		if (BotMetricsDeltaReporter.TryRunFromArgs(userArgs))
+		{
+			GetTree().Quit();
+			return;
+		}
+		if (userArgs.Contains("--lab_scenario") || userArgs.Contains("--lab_sweep") || userArgs.Contains("--lab_tower_benchmark") || userArgs.Contains("--lab_modifier_benchmark"))
+		{
+			bool success = CombatLabCli.Run(userArgs);
+			if (!success)
+				GD.PrintErr("[LAB] Failed to run combat lab automation.");
+			GetTree().Quit();
+			return;
 		}
 
 		// Bot playtest mode: godot --headless --path ... -- --bot --runs N --difficulty easy|normal|hard
@@ -4958,33 +4958,12 @@ void fragment() {
 		float linkDistance = Mathf.Max(Balance.TowerSurgeMinLinkDistance, sourceTower.Range * Balance.TowerSurgeLinkRangeFactor * catLinkRangeMult);
 		SpectacleConsequenceKind surgeRider = ResolveConsequenceKindFromSkin(comboSkin);
 		float surgeConsequenceStrength = Mathf.Clamp(info.Signature.SurgePower, 0.6f, 2.2f) * 0.58f;
-		// catBurstPower: Burst category gets a stronger FX spike; others use base power.
-		SpawnSpectacleBurstFx(sourceTower.GlobalPosition, accent, major: true, power: catBurstPower);
+		// ── Universal substrate: UI, identity FX, and mod payload (all categories) ──────────
+		// These fire regardless of category. They represent the surge's presence and
+		// mod-driven identity, not its dominant gameplay mechanic.
 		SpawnSurgePip(sourceTower.GlobalPosition, accent);
-		SpawnSpectacleLinks(
-			sourceTower.GlobalPosition,
-			accent,
-			maxLinks: catMaxLinks,
-			maxDistance: linkDistance,
-			majorStyle: true,
-			sourceTower: sourceTower,
-			consequenceDamageScale: 0.12f + 0.03f * surgeConsequenceStrength,
-			rider: surgeRider,
-			riderStrength: surgeConsequenceStrength,
-			spawnResidue: surgeRider != SpectacleConsequenceKind.None);
-		SpawnSpectacleTowerVolleyFx(sourceTower, accent, major: true, power: catBurstPower);
 		SpawnComboExplosionSkinFx(sourceTower, info.Signature, accent, comboSkin);
-		// catFlashAlpha: Burst punches hard, Control stays soft, Spread radiates wide.
-		FlashSpectacleScreen(accent, peakAlpha: catFlashAlpha, rampSec: 0.05f, fadeSec: 0.22f);
-		QueueSpectacleEcho(
-			sourceTower.GlobalPosition,
-			accent,
-			major: true,
-			power: info.Signature.SurgePower,
-			maxDistance: linkDistance,
-			sourceTower: sourceTower,
-			rider: surgeRider,
-			spawnResidue: surgeRider != SpectacleConsequenceKind.None);
+		ApplySpectacleGameplayPayload(info, isMajor: true);
 		string surgeSoundId = surgeCategory switch
 		{
 			SurgeDifferentiation.TowerSurgeCategory.Spread  => "surge_spread",
@@ -4994,24 +4973,15 @@ void fragment() {
 			_                                               => "surge",
 		};
 		SoundManager.Instance?.Play(surgeSoundId);
-		ApplySpectacleGameplayPayload(info, isMajor: true);
-		TriggerStatusDetonationChain(
-			sourceTower,
-			sourceTower.GlobalPosition,
-			accent,
-			comboSkin,
-			globalSurge: false,
-			info.Signature.SurgePower);
 
-		// Signature rings and archetype FX -- drama tuned per category.
-		// Control gets more visible zone-like rings; Echo/Burst get stronger archetype presence.
+		// Signature rings: mod identity rings around the tower (drama varies per category).
+		// Control gets prominent zone rings; Burst/Echo get stronger archetype presence.
 		if (!mobileLite)
 			SpawnSurgeSignatureRings(sourceTower.GlobalPosition, info.Signature, drama: catSignatureDrama);
-
 		if (sourceTower is TowerInstance towerForArchetype && !mobileLite)
 			SpawnTowerArchetypeFx(towerForArchetype, accent, drama: catArchetypeDrama);
 
-		// Category label is the only callout -- no secondary mod text.
+		// Category label callout.
 		string surgeCalloutUpper = SurgeDifferentiation.GetCategoryCallout(surgeCategory);
 		float surgeCalloutDurationScale = SurgeUxTiming.ResolveSurgeCalloutDurationScale(2.8f);
 		float surgeCalloutHoldPortion = SurgeUxTiming.ResolveSurgeCalloutHoldPortion(0.68f);
@@ -5032,7 +5002,7 @@ void fragment() {
 			info.Signature.SurgePower);
 		if (hitStop.ShouldApply)
 			TriggerHitStop(realDuration: hitStop.DurationSeconds, slowScale: hitStop.SlowScale);
-		// Category-biased slowmo: Burst gets a deeper impact window; Control gets a longer presence.
+		// Slowmo duration/factor already biased per category via catSlowMo* vars.
 		TriggerSpectacleSlowMo(realDuration: catSlowMoDuration, speedFactor: catSlowMoFactor);
 		float afterimageStrength = SpectacleExplosionCore.ResolveLargeSurgeAfterimageStrength(
 			majorExplosion: true,
@@ -5040,34 +5010,31 @@ void fragment() {
 			info.Signature.SurgePower);
 		FlashSpectacleAfterimage(accent, afterimageStrength);
 
-		// Category headline: the one unmistakable landmark effect per surge type.
+		// ── Category-specific payload: one dominant mechanic per category ─────────────────
+		// Each helper owns the flash, burst, links, and headline for its identity.
+		// Behaviors are NOT shared across categories to avoid cross-category bleed.
+		// Spread: propagation (chain arcs, volley spray, status chain)
+		// Burst:  impact     (heavy explosion + second pulse only -- no spread)
+		// Control: manipulation (slow field + subdued presence -- no chaining)
+		// Echo:   repetition (triple-beat cadence -- no spray, no chain detonation)
 		switch (surgeCategory)
 		{
 			case SurgeDifferentiation.TowerSurgeCategory.Spread:
-				// Tower-to-enemy web: arcs radiate FROM the tower to nearby enemies.
-				// Player reads "the surge branched out and hit everything around it".
-				SpawnTowerSurgeSpreadArcs(sourceTower.GlobalPosition, accent, mobileLite);
+				ApplySpreadSurge(sourceTower.GlobalPosition, accent, catFlashAlpha, catBurstPower,
+					catMaxLinks, linkDistance, surgeRider, surgeConsequenceStrength,
+					sourceTower, comboSkin, mobileLite);
 				break;
 			case SurgeDifferentiation.TowerSurgeCategory.Burst:
-			{
-				// Second explosion pulse at the tower after a short beat.
-				// Player reads "it detonated twice -- that hit brutally hard".
-				float p2 = catBurstPower * Balance.TowerSurgeBurstPulse2Power;
-				GetTree().CreateTimer(Balance.TowerSurgeBurstPulse2Delay, true, false, true).Timeout += () =>
-				{
-					if (!GodotObject.IsInstanceValid(this)) return;
-					SpawnSpectacleBurstFx(sourceTower.GlobalPosition, accent, major: true, power: p2);
-					FlashSpectacleScreen(accent, peakAlpha: catFlashAlpha * 0.65f, rampSec: 0.03f, fadeSec: 0.20f);
-				};
+				ApplyBurstSurge(sourceTower.GlobalPosition, accent, catFlashAlpha, catBurstPower);
 				break;
-			}
+			case SurgeDifferentiation.TowerSurgeCategory.Control:
+				ApplyControlSurge(sourceTower.GlobalPosition, accent, catFlashAlpha, catBurstPower,
+					catMaxLinks, linkDistance, sourceTower, mobileLite);
+				break;
 			case SurgeDifferentiation.TowerSurgeCategory.Echo:
-				// Repeat burst + links after a full beat.
-				// Player reads "it fired again -- a ghost of the first shot".
-				QueueTowerSurgeLateEcho(sourceTower.GlobalPosition, accent, info.Signature.SurgePower, linkDistance, mobileLite);
+				ApplyEchoSurge(sourceTower.GlobalPosition, accent, catFlashAlpha, info.Signature.SurgePower,
+					linkDistance, sourceTower, surgeRider, surgeConsequenceStrength, mobileLite);
 				break;
-			// Control: headline is the prominent zone rings (catSignatureDrama = 0.46).
-			// No additional FX -- a single clear visual marker is enough.
 		}
 	}
 
@@ -5628,28 +5595,33 @@ void fragment() {
 	}
 
 	/// <summary>
-	/// Spread category Tower Surge: arcs radiate FROM the tower to nearby enemies.
-	/// This creates a visible "web" centered on the tower -- the player reads
-	/// "the surge spread outward and hit multiple targets simultaneously".
+	/// Spread category Tower Surge: arcs jump enemy-to-enemy through the wave pack.
+	/// Draws lingering arcs between adjacent enemies (sorted by progress), creating a
+	/// visible chain that reads as "the surge propagated through the group" rather than
+	/// "the tower shot multiple targets" (which is what the standard links already show).
 	/// Purely visual -- no gameplay payload.
 	/// </summary>
 	private void SpawnTowerSurgeSpreadArcs(Vector2 origin, Color accent, bool mobileLite)
 	{
 		if (_botRunner != null || _runState == null || !GodotObject.IsInstanceValid(_worldNode))
 			return;
+		// Collect enemies in range, sorted front-to-back (highest progress first).
 		int arcCap = mobileLite ? 3 : Balance.TowerSurgeSpreadWebCount;
 		var targets = _runState.EnemiesAlive
 			.Where(e => GodotObject.IsInstanceValid(e) && e.Hp > 0f
 				&& origin.DistanceTo(e.GlobalPosition) <= Balance.TowerSurgeSpreadWebReach)
 			.OrderByDescending(e => e.ProgressRatio)
-			.Take(arcCap)
+			.Take(arcCap + 1) // +1 so we can draw N arcs between N+1 enemies
 			.ToList();
-		for (int i = 0; i < targets.Count; i++)
+		// Draw arcs between adjacent enemies: [0]→[1], [1]→[2], etc.
+		// This reads as "damage spreading through the pack" not "tower reaching out".
+		int jumps = Mathf.Min(arcCap, targets.Count - 1);
+		for (int i = 0; i < jumps; i++)
 			SpawnSpectacleArcLingering(
-				origin,
 				targets[i].GlobalPosition,
+				targets[i + 1].GlobalPosition,
 				accent,
-				intensity: 0.88f + i * 0.03f,
+				intensity: 0.90f - i * 0.04f,
 				lifetimeSec: Balance.TowerSurgeSpreadWebLifetime);
 	}
 
@@ -5674,6 +5646,148 @@ void fragment() {
 				sourceTower: null);
 			FlashSpectacleScreen(accent, peakAlpha: 0.07f, rampSec: 0.04f, fadeSec: 0.18f);
 		};
+	}
+
+	/// <summary>
+	/// Control category Tower Surge: apply a slow field to all enemies in range.
+	/// Applies a brief but meaningful slow so the player sees enemies physically constrained
+	/// when "CONTROL SURGE" fires -- the battlefield manipulation is legible without tooltips.
+	/// Balance: shorter duration and milder factor than full Chill Shot to avoid excessive stacking.
+	/// </summary>
+	private void ApplyControlSurgeSlowField(Vector2 origin)
+	{
+		if (_runState == null) return;
+		foreach (var enemy in _runState.EnemiesAlive)
+		{
+			if (!GodotObject.IsInstanceValid(enemy) || enemy.Hp <= 0f) continue;
+			if (origin.DistanceTo(enemy.GlobalPosition) > Balance.TowerSurgeControlSlowRadius) continue;
+			Statuses.ApplySlow(enemy, Balance.TowerSurgeControlSlowDuration, Balance.TowerSurgeControlSlowFactor);
+		}
+	}
+
+	// ── Category-specific payload helpers ──────────────────────────────────────────────────
+	// Each method owns ALL of the gameplay + VFX for its category.
+	// They do NOT share behaviors -- overlap removal is enforced here, not via flags.
+
+	/// <summary>
+	/// SPREAD: propagation identity.
+	/// Tower→many links + volley spray + status chain detonation + enemy→enemy arcs.
+	/// Player reads: "the surge spread through the whole group".
+	/// </summary>
+	private void ApplySpreadSurge(
+		Vector2 origin, Color accent, float flashAlpha, float burstPower,
+		int maxLinks, float linkDistance,
+		SpectacleConsequenceKind rider, float consequenceStrength,
+		ITowerView? sourceTower, ComboExplosionSkin comboSkin, bool mobileLite)
+	{
+		// Wide radiating flash -- spreading energy pulse
+		FlashSpectacleScreen(accent, peakAlpha: flashAlpha, rampSec: 0.05f, fadeSec: 0.22f);
+		// Ignition burst at tower (the origin of the spread)
+		SpawnSpectacleBurstFx(origin, accent, major: true, power: burstPower);
+		// Tower→many links: 5 targets, extended range -- the tower's reach made visible
+		SpawnSpectacleLinks(origin, accent,
+			maxLinks: maxLinks,
+			maxDistance: linkDistance,
+			majorStyle: true,
+			sourceTower: sourceTower,
+			consequenceDamageScale: 0.12f + 0.02f * consequenceStrength,
+			rider: rider,
+			riderStrength: consequenceStrength,
+			spawnResidue: rider != SpectacleConsequenceKind.None);
+		// Volley spray: arc fan to nearby enemies (multi-target feel, Spread-only)
+		if (sourceTower != null)
+			SpawnSpectacleTowerVolleyFx(sourceTower, accent, major: true, power: burstPower);
+		// Status chain: primed enemies (marked/slowed) detonate in sequence (chain identity, Spread-only)
+		TriggerStatusDetonationChain(sourceTower, origin, accent, comboSkin, globalSurge: false, burstPower);
+		// Headline: enemy→enemy propagation arcs (the damage jumping through the pack)
+		SpawnTowerSurgeSpreadArcs(origin, accent, mobileLite);
+	}
+
+	/// <summary>
+	/// BURST: impact identity.
+	/// Heavy concentrated explosion + second pulse at 0.30s. No spread, no chaining.
+	/// Player reads: "this surge hits brutally hard, twice, and that's it".
+	/// </summary>
+	private void ApplyBurstSurge(Vector2 origin, Color accent, float flashAlpha, float burstPower)
+	{
+		// Hard concentrated flash -- the impact spike
+		FlashSpectacleScreen(accent, peakAlpha: flashAlpha, rampSec: 0.04f, fadeSec: 0.20f);
+		// Heavy initial explosion at tower (1.55x power -- dominant hit)
+		SpawnSpectacleBurstFx(origin, accent, major: true, power: burstPower);
+		// Second detonation after a beat -- the deliberate one-two punch
+		float p2 = burstPower * Balance.TowerSurgeBurstPulse2Power;
+		GetTree().CreateTimer(Balance.TowerSurgeBurstPulse2Delay, true, false, true).Timeout += () =>
+		{
+			if (!GodotObject.IsInstanceValid(this)) return;
+			SpawnSpectacleBurstFx(origin, accent, major: true, power: p2);
+			FlashSpectacleScreen(accent, peakAlpha: flashAlpha * 0.65f, rampSec: 0.03f, fadeSec: 0.20f);
+		};
+		// No links, no volley, no status chain, no echo -- Burst is concentrated impact only.
+	}
+
+	/// <summary>
+	/// CONTROL: manipulation identity.
+	/// Slow field applied to nearby enemies + subdued visual presence. No chaining, no spray.
+	/// Player reads: "this surge changed how enemies move".
+	/// </summary>
+	private void ApplyControlSurge(
+		Vector2 origin, Color accent, float flashAlpha, float burstPower,
+		int maxLinks, float linkDistance, ITowerView? sourceTower, bool mobileLite)
+	{
+		// Very soft flash -- zone presence, not explosive impact
+		FlashSpectacleScreen(accent, peakAlpha: flashAlpha, rampSec: 0.06f, fadeSec: 0.28f);
+		// Subdued burst marker -- shows the zone origin without explosion feel (0.55x power)
+		SpawnSpectacleBurstFx(origin, accent, major: true, power: burstPower * 0.55f);
+		// Minimal focused links (2, low damage) -- targeting clarity, not multi-hit spray
+		SpawnSpectacleLinks(origin, accent,
+			maxLinks: maxLinks,
+			maxDistance: linkDistance,
+			majorStyle: false,
+			sourceTower: sourceTower,
+			consequenceDamageScale: 0.06f,
+			rider: SpectacleConsequenceKind.None,
+			riderStrength: 1f,
+			spawnResidue: false);
+		// Headline: actual slow applied to nearby enemies (battlefield manipulation, Control-only)
+		ApplyControlSurgeSlowField(origin);
+		// No volley, no status chain, no echo -- Control is zone manipulation, not chained explosions.
+	}
+
+	/// <summary>
+	/// ECHO: repetition identity.
+	/// Triple-beat cadence: initial hit → 0.24s echo → 0.48s late echo.
+	/// Player reads: "this surge keeps happening after the first hit".
+	/// </summary>
+	private void ApplyEchoSurge(
+		Vector2 origin, Color accent, float flashAlpha, float surgePower,
+		float linkDistance, ITowerView? sourceTower,
+		SpectacleConsequenceKind rider, float consequenceStrength, bool mobileLite)
+	{
+		// Moderate initial flash -- first beat anchor
+		FlashSpectacleScreen(accent, peakAlpha: flashAlpha, rampSec: 0.05f, fadeSec: 0.22f);
+		// Initial burst (first hit -- establishes the pattern)
+		SpawnSpectacleBurstFx(origin, accent, major: true, power: surgePower);
+		// Initial links (2, focused) -- first strike targeting clarity
+		SpawnSpectacleLinks(origin, accent,
+			maxLinks: 2,
+			maxDistance: Mathf.Max(Balance.TowerSurgeMinLinkDistance, linkDistance * 0.85f),
+			majorStyle: true,
+			sourceTower: sourceTower,
+			consequenceDamageScale: 0.10f + 0.02f * consequenceStrength,
+			rider: rider,
+			riderStrength: consequenceStrength * 0.80f,
+			spawnResidue: rider != SpectacleConsequenceKind.None);
+		// Second beat: delayed burst + links at 0.24s (the echo begins)
+		QueueSpectacleEcho(origin, accent,
+			major: true,
+			power: surgePower,
+			maxDistance: linkDistance,
+			sourceTower: sourceTower,
+			rider: rider,
+			spawnResidue: rider != SpectacleConsequenceKind.None);
+		// Third beat: late echo at 0.48s (the ghost fires again)
+		QueueTowerSurgeLateEcho(origin, accent, surgePower, linkDistance, mobileLite);
+		// No volley, no status chain -- Echo is temporal repetition, not spreading damage.
 	}
 
 	/// <summary>

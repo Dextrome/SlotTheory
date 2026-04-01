@@ -1,0 +1,55 @@
+{
+  "name": "orbit_wave_flow_focus_feedback_chain",
+  "mode": "live_rules",
+  "seed": 1337,
+  "trials_per_scenario": 6,
+  "timestep_seconds": 0.05,
+  "include_all_towers": true,
+  "towers": [
+    { "tower": "rapid_shooter",  "mods": ["focus_lens", "feedback_loop", "chain_reaction"], "targeting": "first" },
+    { "tower": "heavy_cannon",   "mods": ["focus_lens", "feedback_loop", "chain_reaction"], "targeting": "first" },
+    { "tower": "rocket_launcher","mods": ["focus_lens", "feedback_loop", "chain_reaction"], "targeting": "first" },
+    { "tower": "marker_tower",   "mods": ["focus_lens", "feedback_loop", "chain_reaction"], "targeting": "first" },
+    { "tower": "chain_tower",    "mods": ["focus_lens", "feedback_loop", "chain_reaction"], "targeting": "first" },
+    { "tower": "rift_prism",     "mods": ["focus_lens", "feedback_loop", "chain_reaction"], "targeting": "first" },
+    { "tower": "phase_splitter", "mods": ["focus_lens", "feedback_loop", "chain_reaction"], "targeting": "first" },
+    { "tower": "accordion_engine","mods": ["focus_lens", "feedback_loop", "chain_reaction"], "targeting": "first" },
+    { "tower": "undertow_engine","mods": ["focus_lens", "feedback_loop", "chain_reaction"], "targeting": "first" },
+    { "tower": "latch_nest",     "mods": ["focus_lens", "feedback_loop", "chain_reaction"], "targeting": "first" }
+  ],
+  "scenarios": [
+    {
+      "id": "orbit_wave_flow",
+      "name": "Orbit Map - 5 Waves, Focus + Feedback Loop + Chain Reaction",
+      "tags": ["orbit", "wave_flow", "realistic", "single_loadout"],
+      "duration_seconds": 420,
+      "path_type": "open_lane",
+      "path_length": 5680,
+      "lane_width": 120,
+      "tower_position": [2840, 0],
+      "stop_when_resolved": false,
+      "max_leaks": 9999,
+
+      "_note": "5 escalating waves on orbit path length. HP follows 65*1.1^(wave-1) scaling. Tanky=3.5x, Swift=1.5x/2x speed. Multi-pass not modelled (1D path limitation).",
+
+      "enemy_groups": [
+        { "id": "w4_basic",  "count": 18, "hp": 87,  "speed": 120, "spawn_interval": 1.6,  "start_time": 0.0  },
+
+        { "id": "w7_basic",  "count": 19, "hp": 115, "speed": 120, "spawn_interval": 1.45, "start_time": 90.0 },
+        { "id": "w7_tanky",  "count": 1,  "hp": 403, "speed": 60,  "spawn_interval": 1.45, "start_time": 91.5 },
+
+        { "id": "w10_basic", "count": 23, "hp": 153, "speed": 120, "spawn_interval": 1.35, "start_time": 180.0 },
+        { "id": "w10_tanky", "count": 2,  "hp": 536, "speed": 60,  "spawn_interval": 5.0,  "start_time": 181.5 },
+        { "id": "w10_swift", "count": 1,  "hp": 230, "speed": 240, "spawn_interval": 1.35, "start_time": 190.0 },
+
+        { "id": "w13_basic", "count": 23, "hp": 204, "speed": 120, "spawn_interval": 1.35, "start_time": 270.0 },
+        { "id": "w13_tanky", "count": 2,  "hp": 714, "speed": 60,  "spawn_interval": 5.0,  "start_time": 271.5 },
+        { "id": "w13_swift", "count": 1,  "hp": 306, "speed": 240, "spawn_interval": 1.35, "start_time": 280.0 },
+
+        { "id": "w16_basic", "count": 28, "hp": 272, "speed": 120, "spawn_interval": 1.25, "start_time": 360.0 },
+        { "id": "w16_tanky", "count": 2,  "hp": 950, "speed": 60,  "spawn_interval": 5.0,  "start_time": 361.5 },
+        { "id": "w16_swift", "count": 2,  "hp": 407, "speed": 240, "spawn_interval": 3.0,  "start_time": 370.0 }
+      ]
+    }
+  ]
+}

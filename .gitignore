@@ -104,6 +104,7 @@ followup_*.json
 tmp_bot_metrics_*.json
 Data/combat_lab/*_results.*
 Data/combat_lab/tower_benchmark_*.json
+Data/combat_lab/surge_bench_*
 videoplayback.mp4
 videoplayback2.mp4
 Map5.json

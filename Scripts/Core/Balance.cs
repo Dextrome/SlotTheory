@@ -91,13 +91,13 @@ public static class Balance
     public const float DetonationSurgeSlowMult    = 0.80f;  // slow duration multiplier
 
     // ── Tower Surge category-biased presentation ────────────────────────────
-    // Spread category: tower-to-enemy web arcs, extended reach, electric branching read
+    // Spread category: enemy-to-enemy chain arcs, extended links, electric propagation read
     public const int   TowerSurgeSpreadMaxLinks    = 5;     // more enemy connections (base is 3)
     public const float TowerSurgeSpreadLinkMult    = 1.40f; // extended link reach multiplier
     public const float TowerSurgeSpreadFlashAlpha  = 0.13f; // brighter radiating flash
-    public const int   TowerSurgeSpreadWebCount    = 5;     // tower-to-enemy web arcs (Spread headline)
-    public const float TowerSurgeSpreadWebLifetime = 0.38f; // arc lifetime in sec -- long enough to read as web
-    public const float TowerSurgeSpreadWebReach    = 520f;  // max distance for web arcs in px
+    public const int   TowerSurgeSpreadWebCount    = 5;     // enemy→enemy arc jumps (Spread headline)
+    public const float TowerSurgeSpreadWebLifetime = 0.38f; // arc lifetime in sec -- long enough to read as propagation
+    public const float TowerSurgeSpreadWebReach    = 520f;  // radius within which enemies are eligible for chain arcs
 
     // Burst category: double-punch explosion, hard flash, deeper time dilation
     public const float TowerSurgeBurstFlashAlpha      = 0.22f; // hard punchy flash (vs 0.09 base)
@@ -108,11 +108,14 @@ public static class Balance
     public const float TowerSurgeBurstPulse2Delay     = 0.30f; // second explosion pulse delay in sec
     public const float TowerSurgeBurstPulse2Power     = 0.70f; // second pulse relative power
 
-    // Control category: softer flash, prominent zone rings, longer presence
+    // Control category: softer flash, prominent zone rings, longer presence, slow field
     public const int   TowerSurgeControlMaxLinks        = 2;     // fewer, more focused links
     public const float TowerSurgeControlFlashAlpha      = 0.05f; // subdued flash (zone, not pop)
     public const float TowerSurgeControlSignatureDrama  = 0.46f; // much more visible zone rings (vs 0.14 base)
     public const float TowerSurgeControlSlowMoDuration  = 0.22f; // longer zone presence
+    public const float TowerSurgeControlSlowRadius      = 380f;  // slow field radius in px
+    public const float TowerSurgeControlSlowDuration    = 2.2f;  // slow duration in sec (shorter than Chill Shot's 6s)
+    public const float TowerSurgeControlSlowFactor      = 0.62f; // speed factor during surge slow (38% reduction)
 
     // Echo category: strong afterimage ghost, second delayed repeat burst
     public const float TowerSurgeEchoArchetypeDrama = 0.24f; // more visible echo ghost

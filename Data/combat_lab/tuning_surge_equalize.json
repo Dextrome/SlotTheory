@@ -1,0 +1,50 @@
+{
+  "meter_gain_multiplier": 1.0,
+  "surge_threshold_multiplier": 1.0561,
+  "surge_cooldown_multiplier": 0.9831,
+  "surge_meter_after_trigger_multiplier": 1.0825,
+  "global_meter_per_surge_multiplier": 1.15,
+  "global_threshold_multiplier": 0.70,
+  "global_meter_after_trigger_multiplier": 0.9987,
+  "inactivity_grace_multiplier": 0.9151,
+  "inactivity_decay_multiplier": 1.2156,
+  "copy_multiplier_scale": 0.8532,
+  "enable_overkill_bloom": true,
+  "enable_status_detonation": true,
+  "enable_residue": true,
+  "overkill_bloom_damage_scale_multiplier": 0.7532,
+  "overkill_bloom_radius_multiplier": 0.9387,
+  "detonation_max_targets_multiplier": 1.0799,
+  "status_detonation_damage_multiplier": 1.2506,
+  "residue_damage_multiplier": 0.9283,
+  "gain_multipliers": {
+    "overkill":        0.879,
+    "split_shot":      0.8719,
+    "chain_reaction":  0.94,
+    "blast_core":      0.88
+  },
+  "tower_meter_gain_multipliers": {
+    "rapid_shooter":    1.80,
+    "heavy_cannon":     3.50,
+    "rocket_launcher":  3.00,
+    "marker_tower":     2.80,
+    "chain_tower":      3.50,
+    "rift_prism":       3.50,
+    "phase_splitter":   2.50,
+    "accordion_engine": 10.00,
+    "undertow_engine":  10.00,
+    "latch_nest":       1.20
+  },
+  "tower_surge_threshold_multipliers": {
+    "rapid_shooter":    1.20,
+    "heavy_cannon":     0.75,
+    "rocket_launcher":  0.55,
+    "marker_tower":     0.58,
+    "chain_tower":      0.75,
+    "rift_prism":       0.58,
+    "phase_splitter":   0.80,
+    "accordion_engine": 0.36,
+    "undertow_engine":  0.45,
+    "latch_nest":       0.95
+  }
+}
