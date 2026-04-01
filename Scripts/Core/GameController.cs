@@ -5680,8 +5680,8 @@ void fragment() {
 		SpectacleConsequenceKind rider, float consequenceStrength,
 		ITowerView? sourceTower, ComboExplosionSkin comboSkin, bool mobileLite)
 	{
-		// Wide radiating flash -- spreading energy pulse
-		FlashSpectacleScreen(accent, peakAlpha: flashAlpha, rampSec: 0.05f, fadeSec: 0.22f);
+		// Wide radiating flash -- fast spark that lingers as a wave (distinct from Burst's sharp spike)
+		FlashSpectacleScreen(accent, peakAlpha: flashAlpha, rampSec: 0.03f, fadeSec: 0.42f);
 		// Ignition burst at tower (the origin of the spread)
 		SpawnSpectacleBurstFx(origin, accent, major: true, power: burstPower);
 		// Tower→many links: 5 targets, extended range -- the tower's reach made visible
@@ -5710,17 +5710,17 @@ void fragment() {
 	/// </summary>
 	private void ApplyBurstSurge(Vector2 origin, Color accent, float flashAlpha, float burstPower)
 	{
-		// Hard concentrated flash -- the impact spike
-		FlashSpectacleScreen(accent, peakAlpha: flashAlpha, rampSec: 0.04f, fadeSec: 0.20f);
+		// Hard concentrated flash -- sharp spike in, quick out (impact feel)
+		FlashSpectacleScreen(accent, peakAlpha: flashAlpha, rampSec: 0.02f, fadeSec: 0.11f);
 		// Heavy initial explosion at tower (1.55x power -- dominant hit)
 		SpawnSpectacleBurstFx(origin, accent, major: true, power: burstPower);
-		// Second detonation after a beat -- the deliberate one-two punch
+		// Second detonation after a deliberate gap -- the one-two punch
 		float p2 = burstPower * Balance.TowerSurgeBurstPulse2Power;
 		GetTree().CreateTimer(Balance.TowerSurgeBurstPulse2Delay, true, false, true).Timeout += () =>
 		{
 			if (!GodotObject.IsInstanceValid(this)) return;
 			SpawnSpectacleBurstFx(origin, accent, major: true, power: p2);
-			FlashSpectacleScreen(accent, peakAlpha: flashAlpha * 0.65f, rampSec: 0.03f, fadeSec: 0.20f);
+			FlashSpectacleScreen(accent, peakAlpha: flashAlpha * 0.80f, rampSec: 0.02f, fadeSec: 0.11f);
 		};
 		// No links, no volley, no status chain, no echo -- Burst is concentrated impact only.
 	}

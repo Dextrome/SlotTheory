@@ -94,19 +94,19 @@ public static class Balance
     // Spread category: enemy-to-enemy chain arcs, extended links, electric propagation read
     public const int   TowerSurgeSpreadMaxLinks    = 5;     // more enemy connections (base is 3)
     public const float TowerSurgeSpreadLinkMult    = 1.40f; // extended link reach multiplier
-    public const float TowerSurgeSpreadFlashAlpha  = 0.13f; // brighter radiating flash
+    public const float TowerSurgeSpreadFlashAlpha  = 0.10f; // soft wave wash (not a spike -- wide + lingering)
     public const int   TowerSurgeSpreadWebCount    = 5;     // enemy→enemy arc jumps (Spread headline)
-    public const float TowerSurgeSpreadWebLifetime = 0.38f; // arc lifetime in sec -- long enough to read as propagation
+    public const float TowerSurgeSpreadWebLifetime = 0.55f; // arc lifetime in sec -- longer read as slow propagation
     public const float TowerSurgeSpreadWebReach    = 520f;  // radius within which enemies are eligible for chain arcs
 
     // Burst category: double-punch explosion, hard flash, deeper time dilation
-    public const float TowerSurgeBurstFlashAlpha      = 0.22f; // hard punchy flash (vs 0.09 base)
+    public const float TowerSurgeBurstFlashAlpha      = 0.32f; // hard punchy flash (vs 0.09 base)
     public const float TowerSurgeBurstArchetypeDrama  = 0.22f; // more visible burst archetype FX
     public const float TowerSurgeBurstSlowMoDuration  = 0.20f; // longer impact window
     public const float TowerSurgeBurstSlowMoFactor    = 0.55f; // deeper time dilation
     public const float TowerSurgeBurstPowerMult       = 1.55f; // stronger burst + volley FX
-    public const float TowerSurgeBurstPulse2Delay     = 0.30f; // second explosion pulse delay in sec
-    public const float TowerSurgeBurstPulse2Power     = 0.70f; // second pulse relative power
+    public const float TowerSurgeBurstPulse2Delay     = 0.38f; // second pulse delay -- deliberate one-two gap
+    public const float TowerSurgeBurstPulse2Power     = 0.85f; // second pulse nearly as big as first
 
     // Control category: softer flash, prominent zone rings, longer presence, slow field
     public const int   TowerSurgeControlMaxLinks        = 2;     // fewer, more focused links
