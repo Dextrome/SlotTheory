@@ -5007,7 +5007,9 @@ void fragment() {
 		if (sourceTower is TowerInstance towerForArchetype && !mobileLite)
 			SpawnTowerArchetypeFx(towerForArchetype, accent, drama: catArchetypeDrama);
 
-		string surgeCalloutUpper = $"SURGE: {BuildPrimarySurgeLabel(info.Signature).ToUpperInvariant()}";
+		// Category is the headline -- the mod name isn't the player-facing identity.
+		// TWIST/BONUS lines below still describe the secondary and augment mods.
+		string surgeCalloutUpper = SurgeDifferentiation.GetCategoryCallout(surgeCategory);
 		float surgeCalloutDurationScale = SurgeUxTiming.ResolveSurgeCalloutDurationScale(2.8f);
 		float surgeCalloutHoldPortion = SurgeUxTiming.ResolveSurgeCalloutHoldPortion(0.68f);
 		bool hasSecondaryMutation = info.Signature.Mode != SpectacleMode.Single
@@ -5099,27 +5101,34 @@ void fragment() {
 			info.Signature.SurgePower);
 		FlashSpectacleAfterimage(accent, afterimageStrength);
 
-		// Category headline: the one extra effect that cements the dominant read.
-		// Each category gets exactly one bonus effect -- no stacking, no overload.
+		// Category headline: the one unmistakable landmark effect per surge type.
 		switch (surgeCategory)
 		{
-			case SurgeDifferentiation.TowerSurgeCategory.Spread when !mobileLite:
-				// Short enemy-to-enemy arc chain: player reads "this arced through the group".
-				SpawnTowerSurgeSpreadArcs(sourceTower.GlobalPosition, accent);
+			case SurgeDifferentiation.TowerSurgeCategory.Spread:
+				// Tower-to-enemy web: arcs radiate FROM the tower to nearby enemies.
+				// Player reads "the surge branched out and hit everything around it".
+				SpawnTowerSurgeSpreadArcs(sourceTower.GlobalPosition, accent, mobileLite);
 				break;
 			case SurgeDifferentiation.TowerSurgeCategory.Burst:
-				// Delayed second flash pop: player reads "that hit twice as hard".
-				GetTree().CreateTimer(Balance.TowerSurgeBurstSnapDelay, true, false, true).Timeout += () =>
+			{
+				// Second explosion pulse at the tower after a short beat.
+				// Player reads "it detonated twice -- that hit brutally hard".
+				float p2 = catBurstPower * Balance.TowerSurgeBurstPulse2Power;
+				GetTree().CreateTimer(Balance.TowerSurgeBurstPulse2Delay, true, false, true).Timeout += () =>
 				{
 					if (!GodotObject.IsInstanceValid(this)) return;
-					FlashSpectacleScreen(accent, peakAlpha: 0.08f, rampSec: 0.03f, fadeSec: 0.16f);
+					SpawnSpectacleBurstFx(sourceTower.GlobalPosition, accent, major: true, power: p2);
+					FlashSpectacleScreen(accent, peakAlpha: catFlashAlpha * 0.65f, rampSec: 0.03f, fadeSec: 0.20f);
 				};
 				break;
+			}
 			case SurgeDifferentiation.TowerSurgeCategory.Echo:
-				// Second delayed repeat hit: player reads "it fired again".
-				QueueTowerSurgeLateEcho(sourceTower.GlobalPosition, accent, info.Signature.SurgePower, linkDistance);
+				// Repeat burst + links after a full beat.
+				// Player reads "it fired again -- a ghost of the first shot".
+				QueueTowerSurgeLateEcho(sourceTower.GlobalPosition, accent, info.Signature.SurgePower, linkDistance, mobileLite);
 				break;
-			// Control: extra drama already comes from catSignatureDrama rings -- no separate effect.
+			// Control: headline is the prominent zone rings (catSignatureDrama = 0.46).
+			// No additional FX -- a single clear visual marker is enough.
 		}
 	}
 
@@ -5680,46 +5689,51 @@ void fragment() {
 	}
 
 	/// <summary>
-	/// Spread category Tower Surge: short enemy-to-enemy arc jumps to emphasize branching.
-	/// Fires after the main burst so the arcs read as the surge "spreading through the wave".
+	/// Spread category Tower Surge: arcs radiate FROM the tower to nearby enemies.
+	/// This creates a visible "web" centered on the tower -- the player reads
+	/// "the surge spread outward and hit multiple targets simultaneously".
 	/// Purely visual -- no gameplay payload.
 	/// </summary>
-	private void SpawnTowerSurgeSpreadArcs(Vector2 origin, Color accent)
+	private void SpawnTowerSurgeSpreadArcs(Vector2 origin, Color accent, bool mobileLite)
 	{
 		if (_botRunner != null || _runState == null || !GodotObject.IsInstanceValid(_worldNode))
 			return;
-		var ordered = _runState.EnemiesAlive
-			.Where(e => GodotObject.IsInstanceValid(e) && e.Hp > 0f)
+		int arcCap = mobileLite ? 3 : Balance.TowerSurgeSpreadWebCount;
+		var targets = _runState.EnemiesAlive
+			.Where(e => GodotObject.IsInstanceValid(e) && e.Hp > 0f
+				&& origin.DistanceTo(e.GlobalPosition) <= Balance.TowerSurgeSpreadWebReach)
 			.OrderByDescending(e => e.ProgressRatio)
-			.Take(Balance.TowerSurgeSpreadArcCount + 1)
+			.Take(arcCap)
 			.ToList();
-		for (int i = 0; i < Mathf.Min(Balance.TowerSurgeSpreadArcCount, ordered.Count - 1); i++)
+		for (int i = 0; i < targets.Count; i++)
 			SpawnSpectacleArcLingering(
-				ordered[i].GlobalPosition,
-				ordered[i + 1].GlobalPosition,
+				origin,
+				targets[i].GlobalPosition,
 				accent,
-				intensity: 0.78f + i * 0.04f,
-				lifetimeSec: Balance.TowerSurgeSpreadArcLifetime);
+				intensity: 0.88f + i * 0.03f,
+				lifetimeSec: Balance.TowerSurgeSpreadWebLifetime);
 	}
 
 	/// <summary>
-	/// Echo category Tower Surge: second delayed repeat strike.
-	/// Fires after the primary echo to establish the "it fired again" read.
+	/// Echo category Tower Surge: second full repeat beat after a delay.
+	/// Fires a burst + links to create a visible "ghost repeat" of the original hit.
+	/// Player reads "it fired again -- this tower echoes".
 	/// Purely visual -- no gameplay payload.
 	/// </summary>
-	private void QueueTowerSurgeLateEcho(Vector2 origin, Color accent, float power, float maxDist)
+	private void QueueTowerSurgeLateEcho(Vector2 origin, Color accent, float power, float maxDist, bool mobileLite)
 	{
 		GetTree().CreateTimer(Balance.TowerSurgeEchoDelay2, true, false, true).Timeout += () =>
 		{
 			if (!GodotObject.IsInstanceValid(this) || CurrentPhase != GamePhase.Wave) return;
-			if (!IsMobileSpectacleLite())
-				SpawnSpectacleBurstFx(origin, accent, major: false, power: power * 0.50f);
+			float echoPower = power * Balance.TowerSurgeEchoPulse2Power;
+			if (!mobileLite)
+				SpawnSpectacleBurstFx(origin, accent, major: true, power: echoPower);
 			SpawnSpectacleLinks(origin, accent,
-				maxLinks: 1,
-				maxDistance: Mathf.Max(160f, maxDist * 0.70f),
+				maxLinks: mobileLite ? 1 : 2,
+				maxDistance: Mathf.Max(160f, maxDist * 0.80f),
 				majorStyle: false,
 				sourceTower: null);
-			FlashSpectacleScreen(accent, peakAlpha: 0.04f, rampSec: 0.03f, fadeSec: 0.14f);
+			FlashSpectacleScreen(accent, peakAlpha: 0.07f, rampSec: 0.04f, fadeSec: 0.18f);
 		};
 	}
 

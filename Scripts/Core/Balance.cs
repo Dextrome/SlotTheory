@@ -91,30 +91,33 @@ public static class Balance
     public const float DetonationSurgeSlowMult    = 0.80f;  // slow duration multiplier
 
     // ── Tower Surge category-biased presentation ────────────────────────────
-    // Spread category: more connections, wider reach, electric branching read
+    // Spread category: tower-to-enemy web arcs, extended reach, electric branching read
     public const int   TowerSurgeSpreadMaxLinks    = 5;     // more enemy connections (base is 3)
-    public const float TowerSurgeSpreadLinkMult    = 1.35f; // extended link reach multiplier
+    public const float TowerSurgeSpreadLinkMult    = 1.40f; // extended link reach multiplier
     public const float TowerSurgeSpreadFlashAlpha  = 0.13f; // brighter radiating flash
-    public const int   TowerSurgeSpreadArcCount    = 3;     // mini enemy-to-enemy arcs (Spread headline)
-    public const float TowerSurgeSpreadArcLifetime = 0.28f; // arc lifetime in sec
+    public const int   TowerSurgeSpreadWebCount    = 5;     // tower-to-enemy web arcs (Spread headline)
+    public const float TowerSurgeSpreadWebLifetime = 0.38f; // arc lifetime in sec -- long enough to read as web
+    public const float TowerSurgeSpreadWebReach    = 520f;  // max distance for web arcs in px
 
-    // Burst category: punchy hard impact, deeper time dilation, stronger FX
-    public const float TowerSurgeBurstFlashAlpha     = 0.16f; // hard punchy flash
-    public const float TowerSurgeBurstArchetypeDrama = 0.20f; // more visible burst archetype FX
-    public const float TowerSurgeBurstSlowMoDuration = 0.18f; // longer impact window
-    public const float TowerSurgeBurstSlowMoFactor   = 0.60f; // deeper time dilation
-    public const float TowerSurgeBurstPowerMult      = 1.28f; // stronger burst + volley FX
-    public const float TowerSurgeBurstSnapDelay      = 0.28f; // second flash pop delay in sec
+    // Burst category: double-punch explosion, hard flash, deeper time dilation
+    public const float TowerSurgeBurstFlashAlpha      = 0.22f; // hard punchy flash (vs 0.09 base)
+    public const float TowerSurgeBurstArchetypeDrama  = 0.22f; // more visible burst archetype FX
+    public const float TowerSurgeBurstSlowMoDuration  = 0.20f; // longer impact window
+    public const float TowerSurgeBurstSlowMoFactor    = 0.55f; // deeper time dilation
+    public const float TowerSurgeBurstPowerMult       = 1.55f; // stronger burst + volley FX
+    public const float TowerSurgeBurstPulse2Delay     = 0.30f; // second explosion pulse delay in sec
+    public const float TowerSurgeBurstPulse2Power     = 0.70f; // second pulse relative power
 
-    // Control category: softer flash, more visible zone rings, longer presence
+    // Control category: softer flash, prominent zone rings, longer presence
     public const int   TowerSurgeControlMaxLinks        = 2;     // fewer, more focused links
-    public const float TowerSurgeControlFlashAlpha      = 0.06f; // subdued flash (zone, not pop)
-    public const float TowerSurgeControlSignatureDrama  = 0.24f; // more visible zone-like rings
-    public const float TowerSurgeControlSlowMoDuration  = 0.20f; // longer zone presence
+    public const float TowerSurgeControlFlashAlpha      = 0.05f; // subdued flash (zone, not pop)
+    public const float TowerSurgeControlSignatureDrama  = 0.46f; // much more visible zone rings (vs 0.14 base)
+    public const float TowerSurgeControlSlowMoDuration  = 0.22f; // longer zone presence
 
-    // Echo category: more visible afterimage, second delayed repeat strike
-    public const float TowerSurgeEchoArchetypeDrama = 0.20f; // more visible echo ghost
-    public const float TowerSurgeEchoDelay2         = 0.52f; // second late echo delay in sec
+    // Echo category: strong afterimage ghost, second delayed repeat burst
+    public const float TowerSurgeEchoArchetypeDrama = 0.24f; // more visible echo ghost
+    public const float TowerSurgeEchoDelay2         = 0.48f; // second repeat strike delay in sec
+    public const float TowerSurgeEchoPulse2Power    = 0.72f; // second repeat burst power
 
     public static int ExtraPicksForWave(int waveIndex) => waveIndex switch
     {

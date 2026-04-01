@@ -110,6 +110,19 @@ public static class SurgeDifferentiation
             if (entry.ModId == modId) { scores[(int)entry.Category] += entry.Weight * positionScale; return; }
     }
 
+    /// <summary>
+    /// Short player-facing callout label for a tower surge, used as the main callout headline.
+    /// This replaces "SURGE: {mod_name}" -- the category is the identity, not the mod.
+    /// </summary>
+    public static string GetCategoryCallout(TowerSurgeCategory c) => c switch
+    {
+        TowerSurgeCategory.Spread  => "SPREAD SURGE",
+        TowerSurgeCategory.Burst   => "BURST SURGE",
+        TowerSurgeCategory.Control => "CONTROL SURGE",
+        TowerSurgeCategory.Echo    => "ECHO SURGE",
+        _                          => "SURGE",
+    };
+
     // ── Category presentation helpers (read Balance.cs constants) ───────────
 
     /// <summary>Max enemy links for SpawnSpectacleLinks during a tower surge.</summary>
