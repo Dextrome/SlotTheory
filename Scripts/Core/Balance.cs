@@ -166,24 +166,24 @@ public static class Balance
     // Enemies - Basic Walker
     public const float BaseEnemyHp = 65f;
     public const float HpGrowthPerWave = 1.10f;  // HP × 1.10^(wave-1)
-    public const float BaseEnemySpeed = 144f;     // pixels per second along path
+    public const float BaseEnemySpeed = 151f;     // pixels per second along path
 
     // Enemies - Armored Walker
     public const float TankyHpMultiplier = 3.5f;  // 3.5× basic walker HP
-    public const float TankyEnemySpeed = 72f;     // pixels per second (half speed)
+    public const float TankyEnemySpeed = 76f;     // pixels per second (half speed)
 
     // Enemies - Splitter Walker
     public const float SplitterHpMultiplier = 1.8f;   // 1.8× basic walker HP
-    public const float SplitterSpeed = 108f;           // pixels per second (slower than basic)
+    public const float SplitterSpeed = 113f;           // pixels per second (slower than basic)
     public const int   SplitterShardCount = 2;         // number of shards spawned on death
 
     // Enemies - Splitter Shard (spawned when a Splitter dies)
     public const float SplitterShardHpMultiplier = 0.55f;  // 55% of basic walker HP
-    public const float SplitterShardSpeed = 198f;           // pixels per second (faster than basic)
+    public const float SplitterShardSpeed = 208f;           // pixels per second (faster than basic)
 
     // Enemies - Shield Drone
     public const float ShieldDroneHpMultiplier        = 1.8f;   // 1.8× basic walker HP
-    public const float ShieldDroneSpeed               = 102f;   // pixels per second (slow-moderate)
+    public const float ShieldDroneSpeed               = 107f;   // pixels per second (slow-moderate)
     public const float ShieldDroneAuraRadius          = 140f;   // protection field radius in pixels
     public const float ShieldDroneProtectionReduction = 0.35f;  // 35% damage reduction for shielded allies
 
@@ -192,7 +192,7 @@ public static class Balance
 
     // Enemies - Reverse Walker (full game)
     public const float ReverseWalkerHpMultiplier = 1.35f;
-    public const float ReverseWalkerSpeed = 130f;
+    public const float ReverseWalkerSpeed = 137f;
     public const float ReverseWalkerTriggerDamageRatio = 0.10f;     // trigger when a single non-lethal hit deals >= 10% max HP
     public const float ReverseWalkerTriggerDamageRamp = 0.24f;      // controls scaling into max jump distance
     public const float ReverseWalkerJumpDistanceMin = 62f;          // path distance in pixels
@@ -275,7 +275,7 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
 
     // Enemies - Swift Walker
     public const float SwiftHpMultiplier = 1.5f;  // 1.5× basic walker HP
-    public const float SwiftEnemySpeed   = 288f;  // pixels per second (2× basic)
+    public const float SwiftEnemySpeed   = 302f;  // pixels per second (2× basic)
 
     // Waves
     public const float DefaultSpawnInterval = 1.275f;

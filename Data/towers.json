@@ -2,28 +2,28 @@
     "rapid_shooter":  {
                           "Name":  "Rapid Shooter",
                           "BaseDamage":  10.0,
-                          "AttackInterval":  0.38,
+                          "AttackInterval":  0.40,
                           "Range":  285.0,
                           "AppliesMark":  false
                       },
     "heavy_cannon":  {
                          "Name":  "Heavy Cannon",
                          "BaseDamage":  56.0,
-                         "AttackInterval":  1.67,
+                         "AttackInterval":  1.75,
                          "Range":  238.0,
                          "AppliesMark":  false
                      },
     "marker_tower":  {
                          "Name":  "Marker Tower",
                          "BaseDamage":  7.0,
-                         "AttackInterval":  0.83,
+                         "AttackInterval":  0.87,
                          "Range":  333.0,
                          "AppliesMark":  true
                      },
     "chain_tower":  {
                         "Name":  "Arc Emitter",
                         "BaseDamage":  17.25,
-                        "AttackInterval":  1.05,
+                        "AttackInterval":  1.10,
                         "Range":  257,
                         "AppliesMark":  false,
                         "ChainCount":  2,
@@ -33,42 +33,42 @@
     "rift_prism":  {
                        "Name":  "Rift Sapper",
                        "BaseDamage":  15.0,
-                       "AttackInterval":  0.82,
+                       "AttackInterval":  0.86,
                        "Range":  230.0,
                        "AppliesMark":  false
                    },
     "accordion_engine":  {
                              "Name":  "Accordion Engine",
                              "BaseDamage":  14.0,
-                             "AttackInterval":  2.67,
+                             "AttackInterval":  2.80,
                              "Range":  290.0,
                              "AppliesMark":  false
                          },
     "phase_splitter":  {
                            "Name":  "Phase Splitter",
                            "BaseDamage":  20.0,
-                           "AttackInterval":  0.79,
+                           "AttackInterval":  0.83,
                            "Range":  275.0,
                            "AppliesMark":  false
                         },
     "latch_nest":  {
                        "Name":  "Latch Nest",
                        "BaseDamage":  9.0,
-                       "AttackInterval":  0.88,
+                       "AttackInterval":  0.92,
                        "Range":  255.0,
                        "AppliesMark":  false
                    },
     "rocket_launcher":  {
                             "Name":  "Rocket Launcher",
                             "BaseDamage":  28.0,
-                            "AttackInterval":  1.58,
+                            "AttackInterval":  1.66,
                             "Range":  248.0,
                             "AppliesMark":  false
                         },
     "undertow_engine":  {
                             "Name":  "Undertow Engine",
                             "BaseDamage":  8.0,
-                            "AttackInterval":  1.96,
+                            "AttackInterval":  2.06,
                             "Range":  265.0,
                             "AppliesMark":  false
                          }
