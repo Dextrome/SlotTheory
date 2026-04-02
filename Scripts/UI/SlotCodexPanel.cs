@@ -1304,7 +1304,7 @@ public partial class SlotCodexPanel : Node
             // Capture for closure
             var capturedAccent = accent;
             bool capturedSuperRare = isSuperRare;
-            panel.TreeEntered += () => StartUpgradeCardIdleSheen(sheenLayer, capturedAccent, capturedSuperRare);
+            panel.Ready += () => StartUpgradeCardIdleSheen(sheenLayer, capturedAccent, capturedSuperRare);
         }
 
         return panel;
