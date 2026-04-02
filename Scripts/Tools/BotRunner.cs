@@ -36,8 +36,7 @@ public class BotRunner
     {
         BotStrategy.GreedyDps,
         BotStrategy.MarkerSynergy,
-        BotStrategy.SpectacleSingleStack,
-        BotStrategy.PlayerStyleKenny,
+        BotStrategy.PlayerStyle2,
     };
 
     private static readonly BotStrategy[] EdgeStrategies =
@@ -51,7 +50,7 @@ public class BotRunner
     private static readonly BotStrategy[] Top3Strategies =
     {
         BotStrategy.GreedyDps,
-        BotStrategy.PlayerStyleKenny,
+        BotStrategy.PlayerStyle2,
         BotStrategy.RiftPrismFocus,
     };
 
@@ -60,7 +59,6 @@ public class BotRunner
     private static readonly BotStrategy[] SpectacleStrategies =
     {
         BotStrategy.ChainFocus,
-        BotStrategy.SpectacleSingleStack,
     };
 
     private record RunTrace(

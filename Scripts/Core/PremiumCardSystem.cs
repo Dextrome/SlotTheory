@@ -22,12 +22,12 @@ public record PremiumCardDef(
 public static class PremiumCardRegistry
 {
     // ── Super Rare card IDs ──────────────────────────────────────────────────
-    public const string ExpandedChassisId      = "expanded_chassis";
     public const string BetterOddsId           = "better_odds";
     public const string KineticCalibrationId   = "kinetic_calibration";
     public const string HotLoadersId           = "hot_loaders";
 
     // ── Rare card IDs ────────────────────────────────────────────────────────
+    public const string ExpandedChassisId      = "expanded_chassis";
     public const string EmergencyReservesId    = "emergency_reserves";
     public const string HardenedReservesId     = "hardened_reserves";
     public const string LongFuseId             = "long_fuse";
@@ -39,12 +39,6 @@ public static class PremiumCardRegistry
     private static readonly List<PremiumCardDef> _cards = new()
     {
         // ── Super Rare ───────────────────────────────────────────────────────
-        new(ExpandedChassisId,
-            "Expanded Chassis",
-            "Give one tower +1 mod slot (up to 5).",
-            PremiumRarity.SuperRare,
-            RequiresTarget: true),
-
         new(BetterOddsId,
             "Better Odds",
             "Future drafts show 1 extra card.",
@@ -61,6 +55,12 @@ public static class PremiumCardRegistry
             PremiumRarity.SuperRare),
 
         // ── Rare ─────────────────────────────────────────────────────────────
+        new(ExpandedChassisId,
+            "Expanded Chassis",
+            "Give one tower +1 mod slot (up to 5).",
+            PremiumRarity.Rare,
+            RequiresTarget: true),
+
         new(EmergencyReservesId,
             "Emergency Reserves",
             "Gain +5 lives.",

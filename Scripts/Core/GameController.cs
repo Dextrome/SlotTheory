@@ -554,7 +554,7 @@ public partial class GameController : Node
 			int ri = System.Array.IndexOf(userArgs, "--auto-runs");
 			if (ri >= 0 && ri + 1 < userArgs.Length) int.TryParse(userArgs[ri + 1], out runs);
 
-			BotStrategy strategy = BotStrategy.PlayerStyleKenny;
+			BotStrategy strategy = BotStrategy.PlayerStyle2;
 			int si = System.Array.IndexOf(userArgs, "--strategy");
 			if (si >= 0 && si + 1 < userArgs.Length)
 				System.Enum.TryParse<BotStrategy>(userArgs[si + 1], ignoreCase: true, out strategy);
@@ -1731,6 +1731,16 @@ public partial class GameController : Node
 				ClearTowerPlacementPreviewGhost();
 				PlaceTower(option.Id, targetSlotIndex);
 				// Tower placement haptic fired inside PlaceTower
+				if (_botRunner != null && _runState.Slots[targetSlotIndex].Tower is TowerInstance botPlacedTower)
+				{
+					var preferredMode = _botRunner.CurrentBot.GetPreferredTargetingMode(option.Id);
+					if (preferredMode.HasValue)
+					{
+						botPlacedTower.TargetingMode = preferredMode.Value;
+						if (GodotObject.IsInstanceValid(botPlacedTower.ModeIconControl))
+							botPlacedTower.ModeIconControl.Mode = preferredMode.Value;
+					}
+				}
 				pickApplied = true;
 			}
 		}
@@ -4135,6 +4145,7 @@ public partial class GameController : Node
 		if (_botGlobalSurgeReadyAtPlayTime >= 0f)
 			readyAgeSeconds = Mathf.Max(0f, _runState.TotalPlayTime - _botGlobalSurgeReadyAtPlayTime);
 
+		int minCrowdOverride = _botRunner.CurrentBot?.Strategy == BotStrategy.PlayerStyle2 ? 20 : -1;
 		var snapshot = new BotGlobalSurgeSnapshot(
 			IsGlobalSurgeReady: _spectacleSystem.IsGlobalSurgeReady,
 			HasPendingGlobalSurge: _botGlobalSurgePending,
@@ -4142,7 +4153,8 @@ public partial class GameController : Node
 			EnemiesAlive: _runState.EnemiesAlive.Count,
 			EnemiesSpawnedThisWave: _runState.EnemiesSpawnedThisWave,
 			TotalEnemiesThisWave: Mathf.Max(1, _waveSystem.GetTotalCount()),
-			ReadyAgeSeconds: readyAgeSeconds);
+			ReadyAgeSeconds: readyAgeSeconds,
+			MinCrowdOverride: minCrowdOverride);
 
 		if (!BotGlobalSurgeAdvisor.ShouldActivate(snapshot))
 			return;

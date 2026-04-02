@@ -36,11 +36,11 @@ public class PremiumCardTests
     {
         var superRare = PremiumCardRegistry.GetByRarity(PremiumRarity.SuperRare)
             .Select(c => c.Id).ToHashSet();
-        Assert.Contains(PremiumCardRegistry.ExpandedChassisId,    superRare);
         Assert.Contains(PremiumCardRegistry.BetterOddsId,         superRare);
         Assert.Contains(PremiumCardRegistry.KineticCalibrationId,  superRare);
         Assert.Contains(PremiumCardRegistry.HotLoadersId,          superRare);
         // Rare cards must NOT appear in the SuperRare tier
+        Assert.DoesNotContain(PremiumCardRegistry.ExpandedChassisId,     superRare);
         Assert.DoesNotContain(PremiumCardRegistry.EmergencyReservesId,  superRare);
         Assert.DoesNotContain(PremiumCardRegistry.ColdCircuitId,        superRare);
     }
@@ -57,8 +57,8 @@ public class PremiumCardTests
         Assert.Contains(PremiumCardRegistry.MultitargetRelayId,   rare);
         Assert.Contains(PremiumCardRegistry.ExtendedRailsId,      rare);
         Assert.Contains(PremiumCardRegistry.ColdCircuitId,        rare);
+        Assert.Contains(PremiumCardRegistry.ExpandedChassisId,    rare);
         // Super Rare cards must NOT appear in the Rare tier
-        Assert.DoesNotContain(PremiumCardRegistry.ExpandedChassisId, rare);
         Assert.DoesNotContain(PremiumCardRegistry.BetterOddsId,      rare);
     }
 
