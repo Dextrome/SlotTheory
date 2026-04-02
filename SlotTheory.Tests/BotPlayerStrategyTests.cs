@@ -8,9 +8,9 @@ namespace SlotTheory.Tests;
 public class BotPlayerStrategyTests
 {
     [Fact]
-    public void SpectacleSingleStack_EarlySurvivalGate_PrioritizesSecondTowerBeforeStackingMods()
+    public void PlayerStyle2_EarlySurvivalGate_PrioritizesSecondTowerBeforeStackingMods()
     {
-        var bot = new BotPlayer(BotStrategy.SpectacleSingleStack, seed: 7);
+        var bot = new BotPlayer(BotStrategy.PlayerStyle2, seed: 7);
         var state = NewState(mapId: "orbit", waveIndex: 1, lives: 10);
 
         state.Slots[0].Tower = new FakeTower
