@@ -136,7 +136,7 @@ public partial class MapSelectPanel : Node
 		scrollContainer.AddChild(listMargin);
 
 		_mapListContainer = new VBoxContainer();
-		_mapListContainer.AddThemeConstantOverride("separation", 22);
+		_mapListContainer.AddThemeConstantOverride("separation", 8);
 		_mapListContainer.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		if (_isMobile)
 			_mapListContainer.MouseFilter = Control.MouseFilterEnum.Pass;
