@@ -411,7 +411,9 @@ maxTargets = Round(Clamp(2 + floor(overflowVisualT × 5), 2, 7))
 Bloom damage is raw HP damage -- no modifier hooks, no chain.
 
 ### Status Detonation
-On surge trigger, all Marked/Slowed/Burning enemies within range can be "detonated" to strip and explode their status:
+**Spread category surges only.** Other categories (Burst, Control, Echo) do not trigger status detonation -- this behavior is scoped to Spread to avoid cross-category bleed.
+
+On Spread surge, all Marked/Slowed/Burning enemies within range can be "detonated" to strip and explode their status:
 
 ```
 maxTargets (regular surge)  = Round(8 × DetonationMaxTargetsMultiplier) capped at 8
@@ -552,10 +554,10 @@ All equipped mods contribute equally (flat weight, no position penalty). Mod wei
 ### Category Effects
 | Category | Callout | Visual | Audio | Gameplay |
 |---|---|---|---|---|
-| Spread | SPREAD SURGE | Arcs radiate from tower to 5 enemies (520 px) | Staggered arc sweeps + electric hiss | +40% link range, up to 5 links |
-| Burst | BURST SURGE | Second explosion fires 0.30 s after primary | Sub-bass boom + impact crack | 1.55x burst power, deeper slowmo |
-| Control | CONTROL SURGE | Tight signature rings at high drama (0.46) | Cold resonant hum, soft onset | 2 links max, 0.22 s slowmo |
-| Echo | ECHO SURGE | Delayed repeat FX fires at 0.48 s | Three hits decaying 100%/50%/25% | Late echo burst at 72% power |
+| Spread | SPREAD SURGE | Tower→5 enemy links (520 px reach) + enemy→enemy propagation arcs through the pack + volley spray + status chain detonation | Staggered arc sweeps + electric hiss | +40% link range, up to 5 links; only category that triggers status detonation |
+| Burst | BURST SURGE | Heavy explosion at tower + second detonation at 0.38 s; no links, no spray | Sub-bass boom + impact crack | 1.55× burst power; second pulse deals real damage (0.22× base) to top 2 enemies in 300 px; deeper slowmo (0.20 s / 0.55×); no chaining |
+| Control | CONTROL SURGE | Subdued explosion (0.55× power) + tight signature rings (drama 0.46) + 2 minor links | Cold resonant hum, soft onset | Slow + vulnerability field: 38% speed reduction + +18% damage taken for 1.8 s; 380 px radius; 0.22 s slowmo; no chaining |
+| Echo | ECHO SURGE | Triple-beat cadence: initial hit → 0.24 s echo burst + links (real damage) → 0.48 s late echo burst + links (real damage) | Three hits decaying 100%/50%/25% | All three beats deal actual damage; 0.48 s late echo: 0.12× base per target; no spray, no status chain |
 
 ---
 

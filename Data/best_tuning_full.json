@@ -74,27 +74,27 @@
                                      "blast_core":  1
                                  },
     "tower_meter_gain_multipliers":  {
-                                         "rapid_shooter":  1.80,
-                                         "heavy_cannon":  3.50,
-                                         "marker_tower":  2.80,
-                                         "chain_tower":  3.50,
-                                         "rift_prism":  3.50,
-                                         "phase_splitter":  2.50,
-                                         "accordion_engine":  10.00,
-                                         "rocket_launcher":  3.00,
-                                         "undertow_engine":  10.00,
-                                         "latch_nest":  1.20
+                                         "rapid_shooter":  0.65,
+                                         "heavy_cannon":  1.60,
+                                         "marker_tower":  1.15,
+                                         "chain_tower":  1.20,
+                                         "rift_prism":  1.02,
+                                         "phase_splitter":  1.00,
+                                         "accordion_engine":  2.60,
+                                         "rocket_launcher":  2.00,
+                                         "undertow_engine":  3.00,
+                                         "latch_nest":  0.89
                                      },
     "tower_surge_threshold_multipliers":  {
-                                              "rapid_shooter":  1.20,
-                                              "heavy_cannon":  0.75,
-                                              "marker_tower":  0.58,
-                                              "chain_tower":  0.75,
-                                              "rift_prism":  0.58,
-                                              "phase_splitter":  0.80,
-                                              "accordion_engine":  0.36,
-                                              "rocket_launcher":  0.55,
-                                              "undertow_engine":  0.45,
-                                              "latch_nest":  0.95
+                                              "rapid_shooter":  0.85,
+                                              "heavy_cannon":  1.00,
+                                              "marker_tower":  1.00,
+                                              "chain_tower":  0.90,
+                                              "rift_prism":  0.90,
+                                              "phase_splitter":  0.97,
+                                              "accordion_engine":  0.55,
+                                              "rocket_launcher":  0.69,
+                                              "undertow_engine":  0.55,
+                                              "latch_nest":  1.26
                                           }
 }

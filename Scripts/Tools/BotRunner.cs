@@ -777,6 +777,13 @@ public BotRunner(
             RunResult run = _results[i];
             string towerId = ResolveBenchmarkTowerId(run);
             bool reachedFirstSurge = run.SpectacleFirstSurgeTimeByTower.TryGetValue(towerId, out float firstSurgeSeconds);
+            run.SpectacleSurgeByTower.TryGetValue(towerId, out int surgeCount);
+            float avgIntervalSeconds = -1f;
+            if (run.SpectacleRechargeCountByTower.TryGetValue(towerId, out int rechargeCount) && rechargeCount > 0)
+            {
+                run.SpectacleRechargeSecondsTotalByTower.TryGetValue(towerId, out float rechargeTotal);
+                avgIntervalSeconds = rechargeTotal / rechargeCount;
+            }
             rows.Add(new
             {
                 run_index = i + 1,
@@ -787,9 +794,9 @@ public BotRunner(
                 run_duration_seconds = run.RunDurationSeconds,
                 reached_first_surge = reachedFirstSurge,
                 first_surge_seconds = reachedFirstSurge ? firstSurgeSeconds : -1f,
-                surge_trigger_count = run.SpectacleSurgeByTower.TryGetValue(towerId, out int surgeCount)
-                    ? surgeCount
-                    : run.SpectacleSurgeTriggers,
+                surge_trigger_count = surgeCount > 0 ? surgeCount : run.SpectacleSurgeTriggers,
+                avg_surge_interval_seconds = avgIntervalSeconds,
+                surges_per_wave = run.WaveReached > 0 ? (float)surgeCount / run.WaveReached : 0f,
             });
         }
 
@@ -799,37 +806,71 @@ public BotRunner(
     private void PrintTowerSurgeBenchmarkSummary()
     {
         GD.Print("");
-        GD.Print("+==================================================================+");
-        GD.Print($"|  TOWER SURGE BENCHMARK - {_results.Count} runs (actual game loop)               |");
-        GD.Print("+==================================================================+");
+        GD.Print("+================================================================================+");
+        GD.Print($"|  TOWER SURGE BENCHMARK - {_results.Count} runs (actual game loop)                           |");
+        GD.Print("+================================================================================+");
         GD.Print($"Map={BenchmarkMapId} slot={BenchmarkSlotIndex} max_waves={BenchmarkMaxWaves} mods=[{string.Join(", ", BenchmarkModifierOrder)}]");
         GD.Print("");
-        GD.Print($"{"TOWER",-18} {"STOP",24} {"WAVE",6} {"LIVES",7} {"FIRST SURGE (s)",16} {"RUN (s)",10}");
+        GD.Print($"{"TOWER",-18} {"WAVE",6} {"LIVES",7} {"FIRST(s)",10} {"AVG INTV(s)",13} {"SURGES",8} {"S/WAVE",8} {"RUN(s)",8}");
         GD.Print(new string('-', 88));
 
         var rows = _results.Select(run =>
         {
             string towerId = ResolveBenchmarkTowerId(run);
             bool surged = run.SpectacleFirstSurgeTimeByTower.TryGetValue(towerId, out float firstSurgeSeconds);
+            run.SpectacleSurgeByTower.TryGetValue(towerId, out int surgeCount);
+            float avgInterval = -1f;
+            if (run.SpectacleRechargeCountByTower.TryGetValue(towerId, out int rechargeCount) && rechargeCount > 0)
+            {
+                run.SpectacleRechargeSecondsTotalByTower.TryGetValue(towerId, out float rechargeTotal);
+                avgInterval = rechargeTotal / rechargeCount;
+            }
+            float surgesPerWave = run.WaveReached > 0 ? (float)surgeCount / run.WaveReached : 0f;
             return new
             {
                 TowerId = towerId,
-                run.StopReason,
                 run.WaveReached,
                 run.LivesEnd,
                 FirstSurgeSeconds = surged ? firstSurgeSeconds : -1f,
+                AvgIntervalSeconds = avgInterval,
+                SurgeCount = surgeCount,
+                SurgesPerWave = surgesPerWave,
                 run.RunDurationSeconds,
                 Surged = surged,
             };
         }).ToList();
 
         foreach (var row in rows.OrderBy(r => r.Surged ? 0 : 1)
-                                 .ThenBy(r => r.Surged ? r.FirstSurgeSeconds : float.MaxValue)
+                                 .ThenBy(r => r.Surged ? r.AvgIntervalSeconds : float.MaxValue)
                                  .ThenByDescending(r => r.WaveReached)
                                  .ThenBy(r => r.TowerId, StringComparer.Ordinal))
         {
-            string firstSurgeText = row.Surged ? $"{row.FirstSurgeSeconds:0.00}" : "n/a";
-            GD.Print($"{row.TowerId,-18} {row.StopReason,-24} {row.WaveReached,6} {row.LivesEnd,7} {firstSurgeText,16} {row.RunDurationSeconds,10:0.00}");
+            string firstText = row.Surged ? $"{row.FirstSurgeSeconds:0.0}" : "n/a";
+            string intvText  = row.AvgIntervalSeconds >= 0f ? $"{row.AvgIntervalSeconds:0.0}" : "n/a";
+            string spwText   = row.Surged ? $"{row.SurgesPerWave:0.00}" : "n/a";
+            GD.Print($"{row.TowerId,-18} {row.WaveReached,6} {row.LivesEnd,7} {firstText,10} {intvText,13} {row.SurgeCount,8} {spwText,8} {row.RunDurationSeconds,8:0.0}");
+        }
+
+        // Per-tower aggregates across trials
+        var towerGroups = rows.GroupBy(r => r.TowerId, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal);
+        bool hasMultipleTrials = rows.Count > _towerSurgeBenchmarkTowers.Length;
+        if (hasMultipleTrials)
+        {
+            GD.Print("");
+            GD.Print($"{"TOWER",-18} {"TRIALS",7} {"AVG FIRST(s)",14} {"AVG INTV(s)",13} {"AVG S/WAVE",12}");
+            GD.Print(new string('-', 70));
+            foreach (var g in towerGroups)
+            {
+                int trials = g.Count();
+                var surgedRuns = g.Where(r => r.Surged).ToList();
+                float avgFirst = surgedRuns.Count > 0 ? surgedRuns.Average(r => r.FirstSurgeSeconds) : -1f;
+                var intvRuns = g.Where(r => r.AvgIntervalSeconds >= 0f).ToList();
+                float avgIntv = intvRuns.Count > 0 ? intvRuns.Average(r => r.AvgIntervalSeconds) : -1f;
+                float avgSpw  = g.Average(r => r.SurgesPerWave);
+                string firstText = avgFirst >= 0f ? $"{avgFirst:0.0}" : "n/a";
+                string intvText  = avgIntv >= 0f ? $"{avgIntv:0.0}" : "n/a";
+                GD.Print($"{g.Key,-18} {trials,7} {firstText,14} {intvText,13} {avgSpw,12:0.00}");
+            }
         }
     }
 
@@ -920,6 +961,28 @@ public BotRunner(
                     .DefaultIfEmpty(0f)
                     .Average();
 
+                float bmAvgSurgeInterval = _results
+                    .Select(r =>
+                    {
+                        string tid = ResolveBenchmarkTowerId(r);
+                        if (r.SpectacleRechargeCountByTower.TryGetValue(tid, out int rc) && rc > 0
+                            && r.SpectacleRechargeSecondsTotalByTower.TryGetValue(tid, out float rt))
+                            return rt / rc;
+                        return -1f;
+                    })
+                    .Where(v => v >= 0f)
+                    .DefaultIfEmpty(-1f)
+                    .Average();
+
+                float bmAvgSurgesPerWave = _results.Count > 0
+                    ? (float)_results.Average(r =>
+                    {
+                        string tid = ResolveBenchmarkTowerId(r);
+                        r.SpectacleSurgeByTower.TryGetValue(tid, out int sc);
+                        return r.WaveReached > 0 ? (float)sc / r.WaveReached : 0f;
+                    })
+                    : 0f;
+
                 var benchmarkPayload = new Dictionary<string, object?>
                 {
                     ["generated_utc"] = DateTime.UtcNow,
@@ -939,6 +1002,8 @@ public BotRunner(
                         no_surge_runs = _results.Count - firstSurgeRuns,
                         first_surge_rate = _results.Count > 0 ? (float)firstSurgeRuns / _results.Count : 0f,
                         avg_first_surge_seconds = avgFirstSurgeSeconds,
+                        avg_surge_interval_seconds = bmAvgSurgeInterval,
+                        avg_surges_per_wave = bmAvgSurgesPerWave,
                         avg_wave_reached = _results.Count > 0 ? (float)_results.Average(r => r.WaveReached) : 0f,
                     },
                     ["runs"] = rows,

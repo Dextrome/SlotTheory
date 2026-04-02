@@ -353,21 +353,21 @@ public partial class HowToPlay : Node
     public static void BuildSurgesSection(VBoxContainer vbox)
     {
         var modelCard = AddSurgeCard(vbox, "SURGE MODEL", new Color(0.48f, 0.90f, 1.00f, 0.92f));
-        AddSurgeCardLine(modelCard, "Each tower has a Surge Meter. When full it fires a Surge.", new Color(0.90f, 0.96f, 1.00f), 16);
+        AddSurgeCardLine(modelCard, "Each tower has a Surge Meter. Fill it to fire a Tower Surge.", new Color(0.90f, 0.96f, 1.00f), 16);
         AddSpacer(modelCard, 2);
-        AddSurgeRuleRow(modelCard, "1 MOD", "Core Surge from that mod.", new Color(0.95f, 0.62f, 0.18f, 0.95f));
-        AddSurgeRuleRow(modelCard, "2 MODS", "Core Surge + second mod effect.", new Color(0.44f, 0.94f, 0.86f, 0.92f));
-        AddSurgeRuleRow(modelCard, "3 MODS", "Core Surge + second mod effect + augment boost.", new Color(0.90f, 0.88f, 0.98f, 0.92f));
-        AddSurgeRuleRow(modelCard, "GLOBAL", "Bar fills from tower surges. Click READY to trigger Global Surge.", new Color(0.88f, 0.96f, 0.56f, 0.92f));
+        AddSurgeRuleRow(modelCard, "1 MOD", "Category surge + that mod's specific effect.", new Color(0.95f, 0.62f, 0.18f, 0.95f));
+        AddSurgeRuleRow(modelCard, "2 MODS", "Stronger category signal. Mod effect at full power.", new Color(0.44f, 0.94f, 0.86f, 0.92f));
+        AddSurgeRuleRow(modelCard, "3 MODS", "Strongest category. Mod effect + area augment pulse.", new Color(0.90f, 0.88f, 0.98f, 0.92f));
+        AddSurgeRuleRow(modelCard, "GLOBAL", "Bar fills from tower surges. Click READY to trigger.", new Color(0.88f, 0.96f, 0.56f, 0.92f));
         AddSpacer(vbox, 10);
 
         var categoryCard = AddSurgeCard(vbox, "SURGE CATEGORY", new Color(0.86f, 0.72f, 1.00f, 0.92f));
-        AddSurgeCardLine(categoryCard, "All equipped mods together set the surge category -- no single mod dominates.", new Color(0.92f, 0.90f, 1.00f), 15);
+        AddSurgeCardLine(categoryCard, "All mods combined set the category -- no single mod dominates.", new Color(0.92f, 0.90f, 1.00f), 15);
         AddSpacer(categoryCard, 4);
-        AddSurgeRuleRow(categoryCard, "SPREAD", "Radiating arcs -- wider links, more targets, electric sound.", new Color(0.44f, 0.94f, 0.86f, 0.92f));
-        AddSurgeRuleRow(categoryCard, "BURST", "Double explosion -- heavier FX, deeper slowmo, punchy sound.", new Color(1.00f, 0.54f, 0.10f, 0.95f));
-        AddSurgeRuleRow(categoryCard, "CONTROL", "Signature rings -- tight, precise, cold resonant sound.", new Color(0.08f, 0.72f, 1.00f, 0.95f));
-        AddSurgeRuleRow(categoryCard, "ECHO", "Delayed repeat -- one trailing replay at reduced power, ghostly sound.", new Color(0.72f, 0.36f, 1.00f, 0.95f));
+        AddSurgeRuleRow(categoryCard, "SPREAD",  "Arcs through groups. Hits many targets and triggers chain effects.", new Color(0.44f, 0.94f, 0.86f, 0.92f));
+        AddSurgeRuleRow(categoryCard, "BURST",   "Two heavy hits on a few targets. High damage spike, no spread.", new Color(1.00f, 0.54f, 0.10f, 0.95f));
+        AddSurgeRuleRow(categoryCard, "CONTROL", "Slows all nearby enemies and makes them take more damage.", new Color(0.08f, 0.72f, 1.00f, 0.95f));
+        AddSurgeRuleRow(categoryCard, "ECHO",    "Repeats the hit twice after firing. The surge keeps dealing damage over time.", new Color(0.72f, 0.36f, 1.00f, 0.95f));
         AddSpacer(vbox, 10);
 
         var tableCard = AddSurgeCard(vbox, "MOD -> CORE SURGE BEHAVIOR", new Color(0.69f, 0.86f, 0.16f, 0.92f));
@@ -383,31 +383,31 @@ public partial class HowToPlay : Node
 
         var globalCard = AddSurgeCard(vbox, "GLOBAL SURGE", new Color(0.95f, 0.86f, 0.36f, 0.94f));
         AddSurgeCardLine(globalCard, "When the bar is full, click READY to fire Global Surge.", new Color(0.96f, 0.95f, 0.88f), 15);
-        AddSurgeCardLine(globalCard, "All towers activate. The board-wide feel is set by which mod contributed most.");
+        AddSurgeCardLine(globalCard, "All towers fire at once. Board feel is set by the dominant mod across all towers.");
         AddSpacer(globalCard, 4);
-        AddSurgeRuleRow(globalCard, "PRESSURE SURGE", "Extended control -- enemies deeply slowed. Arcs saturate the board from every tower.", new Color(0.08f, 0.72f, 1.00f, 0.95f));
-        AddSurgeRuleRow(globalCard, "CHAIN SURGE",    "Chain spread -- arcs jump enemy to enemy. Normal damage, full cooldown refund.", new Color(0.72f, 0.36f, 1.00f, 0.95f));
-        AddSurgeRuleRow(globalCard, "DETONATION SURGE", "Heavy burst -- spike damage, bonus cooldown refund. Radial arcs explode from center.", new Color(1.00f, 0.54f, 0.10f, 0.95f));
+        AddSurgeRuleRow(globalCard, "PRESSURE SURGE",   "Enemies deeply slowed. Arcs fire from every tower.", new Color(0.08f, 0.72f, 1.00f, 0.95f));
+        AddSurgeRuleRow(globalCard, "CHAIN SURGE",      "Arcs jump enemy to enemy across the board. Full cooldown refund.", new Color(0.72f, 0.36f, 1.00f, 0.95f));
+        AddSurgeRuleRow(globalCard, "DETONATION SURGE", "Heavy damage burst. Radial arcs, max cooldown refund.", new Color(1.00f, 0.54f, 0.10f, 0.95f));
         AddSpacer(globalCard, 2);
-        AddSurgeCardLine(globalCard, "Stack a mod type across towers to bias toward its Global Surge feel.");
+        AddSurgeCardLine(globalCard, "Stack one mod type across multiple towers to push toward that feel.");
     }
     private static string DescribeSingleEffect(string modId) => SpectacleDefinitions.NormalizeModId(modId) switch
     {
-        "momentum"         => "Burst hit scaled to current Momentum ramp -- longer streak = bigger surge.",
-        "overkill"         => "Burst hit that overflows excess damage into the next enemy in line.",
-        "exploit_weakness" => "Detonates all Marked enemies in range for bonus damage simultaneously.",
-        "focus_lens"       => "One massive focused beam shot at the highest-HP target in range.",
-        "slow"             => "Cryo shockwave: slows all enemies in range and deals chip damage to each.",
-        "overreach"        => "Extended-range sweep hitting the farthest enemy in this tower's expanded coverage.",
-        "hair_trigger"     => "Rapid-fire burst: fires extra shots at all enemies in range in quick succession.",
-        "split_shot"       => "Scatter burst: all nearby enemies take split-shot hits at the same time.",
+        "momentum"         => "Damage scales with current streak -- longer streak = bigger hit.",
+        "overkill"         => "Excess damage overflows into the next enemy.",
+        "exploit_weakness" => "All Marked enemies in range detonate simultaneously.",
+        "focus_lens"       => "Massive focused shot at the highest-HP target in range.",
+        "slow"             => "Cryo shockwave slows all enemies in range and deals chip damage.",
+        "overreach"        => "Hits the farthest enemy in this tower's extended range.",
+        "hair_trigger"     => "Rapid burst fires extra shots at all enemies in range.",
+        "split_shot"       => "All nearby enemies take split-shot hits simultaneously.",
         "feedback_loop"    => "Burst hit, then instant cooldown reset -- tower fires again immediately.",
-        "chain_reaction"   => "Arc burst that bounces from target to nearby targets through the group.",
-        "blast_core"       => "Detonation at target position: area damage to all enemies in the blast radius.",
-        "wildfire"         => "Flame burst across all enemies in range, leaving fire trails that slow and tick damage.",
-        "afterimage"       => "Ghost imprint appears at hit position, then replays one delayed weaker echo from that spot.",
-        "deadzone"         => "Trap scar collapses on first enemy crossing -- a reduced follow-up fires from that spot, then the zone is gone.",
-        "reaper_protocol"  => "Executes the lowest-HP enemy in range. Grants +1 life if it kills.",
+        "chain_reaction"   => "Arc bounces from target through nearby enemies.",
+        "blast_core"       => "Explosion at target position damages all enemies in the radius.",
+        "wildfire"         => "Flame burst hits all enemies in range, leaving ticking fire trails.",
+        "afterimage"       => "Ghost imprint replays a delayed weaker echo from the hit position.",
+        "deadzone"         => "Zone collapses on the first enemy to cross -- fires a follow-up, then gone.",
+        "reaper_protocol"  => "Kills the lowest-HP enemy in range. Grants +1 life.",
         _                  => "Modifier-specific primary surge payload.",
     };
 

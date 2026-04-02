@@ -441,7 +441,7 @@ public partial class GameController : Node
 				if (targetMap == null)
 					targetMap = "crossroads";
 				if (!targetDifficulty.HasValue)
-					targetDifficulty = DifficultyMode.Normal;
+					targetDifficulty = DifficultyMode.Easy;
 
 				int benchmarkSlot = 0;
 				int bsi = FindBotArgIndex("--benchmark_slot", "--benchmark-slot");
@@ -4060,9 +4060,6 @@ public partial class GameController : Node
 				_botWaveInRangeSamples += 1;
 			}
 			_runState.TrackFrameStressProxies(_botStepExplosionBursts, _explosionResidues.Count, _botStepHitStopRequests);
-			if (TryFinalizeTowerSurgeBenchmarkOnFirstSurge())
-				return;
-
 			if (result == WaveResult.Loss)
 			{
 				CurrentPhase = GamePhase.Loss;
@@ -4106,29 +4103,6 @@ public partial class GameController : Node
 				return;
 			}
 		}
-	}
-
-	private bool TryFinalizeTowerSurgeBenchmarkOnFirstSurge()
-	{
-		if (_botRunner == null || !_botRunner.IsTowerSurgeBenchmark || _runState == null || CurrentPhase != GamePhase.Wave)
-			return false;
-
-		bool surged = false;
-		string towerId = _botRunner.CurrentBenchmarkTowerId;
-		if (!string.IsNullOrWhiteSpace(towerId))
-			surged = _runState.SpectacleFirstSurgeTimeByTower.ContainsKey(towerId);
-		if (!surged && _runState.SpectacleSurgeTriggers > 0 && _runState.SpectacleFirstSurgeTimeByTower.Count > 0)
-			surged = true;
-		if (!surged)
-			return false;
-
-		CurrentPhase = GamePhase.Win;
-		_runState.CompleteWave();
-		FinalizeBotRunAndContinue(
-			won: true,
-			waveReached: _runState.WaveIndex + 1,
-			stopReason: "first_surge_triggered");
-		return true;
 	}
 
 	private void FinalizeBotRunAndContinue(bool won, int waveReached, string? stopReason = null)
@@ -5025,7 +4999,7 @@ void fragment() {
 					sourceTower, comboSkin, mobileLite);
 				break;
 			case SurgeDifferentiation.TowerSurgeCategory.Burst:
-				ApplyBurstSurge(sourceTower.GlobalPosition, accent, catFlashAlpha, catBurstPower);
+				ApplyBurstSurge(sourceTower.GlobalPosition, accent, catFlashAlpha, catBurstPower, sourceTower);
 				break;
 			case SurgeDifferentiation.TowerSurgeCategory.Control:
 				ApplyControlSurge(sourceTower.GlobalPosition, accent, catFlashAlpha, catBurstPower,
@@ -5626,12 +5600,11 @@ void fragment() {
 	}
 
 	/// <summary>
-	/// Echo category Tower Surge: second full repeat beat after a delay.
-	/// Fires a burst + links to create a visible "ghost repeat" of the original hit.
-	/// Player reads "it fired again -- this tower echoes".
-	/// Purely visual -- no gameplay payload.
+	/// Echo category Tower Surge: third beat of the repeat cadence (fires at 0.48s).
+	/// Delivers a ghost burst + links WITH real damage -- the late echo has material consequence,
+	/// not just a visual callback. Player feels "it hit again, not just lit up again".
 	/// </summary>
-	private void QueueTowerSurgeLateEcho(Vector2 origin, Color accent, float power, float maxDist, bool mobileLite)
+	private void QueueTowerSurgeLateEcho(Vector2 origin, Color accent, float power, float maxDist, bool mobileLite, ITowerView? sourceTower)
 	{
 		GetTree().CreateTimer(Balance.TowerSurgeEchoDelay2, true, false, true).Timeout += () =>
 		{
@@ -5639,20 +5612,26 @@ void fragment() {
 			float echoPower = power * Balance.TowerSurgeEchoPulse2Power;
 			if (!mobileLite)
 				SpawnSpectacleBurstFx(origin, accent, major: true, power: echoPower);
+			// Late echo links with real damage -- the ghost hit counts
 			SpawnSpectacleLinks(origin, accent,
 				maxLinks: mobileLite ? 1 : 2,
 				maxDistance: Mathf.Max(160f, maxDist * 0.80f),
 				majorStyle: false,
-				sourceTower: null);
+				sourceTower: sourceTower,
+				consequenceDamageScale: Balance.TowerSurgeEchoLateEchoDamageScale,
+				rider: SpectacleConsequenceKind.None,
+				riderStrength: 1f,
+				spawnResidue: false);
 			FlashSpectacleScreen(accent, peakAlpha: 0.07f, rampSec: 0.04f, fadeSec: 0.18f);
 		};
 	}
 
 	/// <summary>
-	/// Control category Tower Surge: apply a slow field to all enemies in range.
-	/// Applies a brief but meaningful slow so the player sees enemies physically constrained
-	/// when "CONTROL SURGE" fires -- the battlefield manipulation is legible without tooltips.
-	/// Balance: shorter duration and milder factor than full Chill Shot to avoid excessive stacking.
+	/// Control category Tower Surge: apply a slow + vulnerability field to all enemies in range.
+	/// Slow makes movement manipulation visible; vulnerability window makes it a setup event --
+	/// the next few hits on those enemies deal more damage, giving the surge a material payoff
+	/// beyond "just a slow". This distinguishes Control surge from a normal Chill Shot slow.
+	/// Balance: short duration and mild multiplier to keep the amp supplemental, not dominant.
 	/// </summary>
 	private void ApplyControlSurgeSlowField(Vector2 origin)
 	{
@@ -5661,7 +5640,11 @@ void fragment() {
 		{
 			if (!GodotObject.IsInstanceValid(enemy) || enemy.Hp <= 0f) continue;
 			if (origin.DistanceTo(enemy.GlobalPosition) > Balance.TowerSurgeControlSlowRadius) continue;
+			// Slow: the visible manipulation (enemy moves at 62% speed for 2.2s)
 			Statuses.ApplySlow(enemy, Balance.TowerSurgeControlSlowDuration, Balance.TowerSurgeControlSlowFactor);
+			// Vulnerability: slowed enemies also take +18% damage for 1.8s
+			// This makes Control a setup/setup event, not just a slow application.
+			Statuses.ApplyDamageAmp(enemy, Balance.TowerSurgeControlVulnDuration, Balance.TowerSurgeControlVulnMultiplier);
 		}
 	}
 
@@ -5705,22 +5688,40 @@ void fragment() {
 
 	/// <summary>
 	/// BURST: impact identity.
-	/// Heavy concentrated explosion + second pulse at 0.30s. No spread, no chaining.
-	/// Player reads: "this surge hits brutally hard, twice, and that's it".
+	/// Heavy concentrated explosion + second pulse at 0.38s with real damage.
+	/// Player reads: "this surge slammed a chunk of HP off, then hit again".
+	/// The second pulse is not just more FX -- it delivers actual gameplay consequence.
 	/// </summary>
-	private void ApplyBurstSurge(Vector2 origin, Color accent, float flashAlpha, float burstPower)
+	private void ApplyBurstSurge(Vector2 origin, Color accent, float flashAlpha, float burstPower, ITowerView? sourceTower)
 	{
 		// Hard concentrated flash -- sharp spike in, quick out (impact feel)
 		FlashSpectacleScreen(accent, peakAlpha: flashAlpha, rampSec: 0.02f, fadeSec: 0.11f);
-		// Heavy initial explosion at tower (1.55x power -- dominant hit)
+		// Heavy initial explosion at tower (1.55x power -- the dominant hit)
 		SpawnSpectacleBurstFx(origin, accent, major: true, power: burstPower);
 		// Second detonation after a deliberate gap -- the one-two punch
 		float p2 = burstPower * Balance.TowerSurgeBurstPulse2Power;
 		GetTree().CreateTimer(Balance.TowerSurgeBurstPulse2Delay, true, false, true).Timeout += () =>
 		{
-			if (!GodotObject.IsInstanceValid(this)) return;
+			if (!GodotObject.IsInstanceValid(this) || CurrentPhase != GamePhase.Wave) return;
 			SpawnSpectacleBurstFx(origin, accent, major: true, power: p2);
 			FlashSpectacleScreen(accent, peakAlpha: flashAlpha * 0.80f, rampSec: 0.02f, fadeSec: 0.11f);
+			// Second pulse delivers real damage -- the "slam" has material consequence, not just FX.
+			// Targets the 2 highest-HP enemies in range: the biggest threats take the biggest hit.
+			// Bypasses ApplyTargetedSpectacleConsequence's 0.30 cap by calling ApplySpectacleDamage directly.
+			ITowerView? resolvedBurst = ResolveSpectacleSourceTower(sourceTower);
+			if (resolvedBurst != null && _runState != null)
+			{
+				float rawDamage = resolvedBurst.BaseDamage * Balance.TowerSurgeBurstPulse2DamageScale;
+				var pulseTargets = _runState.EnemiesAlive
+					.Where(IsEnemyUsable)
+					.Where(e => origin.DistanceTo(e.GlobalPosition) <= Balance.TowerSurgeBurstPulse2Range)
+					.OrderByDescending(e => e.Hp)
+					.Take(2)
+					.ToList();
+				foreach (var tgt in pulseTargets)
+					ApplySpectacleDamage(resolvedBurst, tgt, rawDamage, accent, heavyHit: true,
+						triggerHitStopOnKill: false, allowOverkillBloom: true, allowMarkedPop: false);
+			}
 		};
 		// No links, no volley, no status chain, no echo -- Burst is concentrated impact only.
 	}
@@ -5785,8 +5786,8 @@ void fragment() {
 			sourceTower: sourceTower,
 			rider: rider,
 			spawnResidue: rider != SpectacleConsequenceKind.None);
-		// Third beat: late echo at 0.48s (the ghost fires again)
-		QueueTowerSurgeLateEcho(origin, accent, surgePower, linkDistance, mobileLite);
+		// Third beat: late echo at 0.48s (the ghost fires again, with real damage)
+		QueueTowerSurgeLateEcho(origin, accent, surgePower, linkDistance, mobileLite, sourceTower);
 		// No volley, no status chain -- Echo is temporal repetition, not spreading damage.
 	}
 

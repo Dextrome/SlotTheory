@@ -100,27 +100,36 @@ public static class Balance
     public const float TowerSurgeSpreadWebReach    = 520f;  // radius within which enemies are eligible for chain arcs
 
     // Burst category: double-punch explosion, hard flash, deeper time dilation
-    public const float TowerSurgeBurstFlashAlpha      = 0.32f; // hard punchy flash (vs 0.09 base)
-    public const float TowerSurgeBurstArchetypeDrama  = 0.22f; // more visible burst archetype FX
-    public const float TowerSurgeBurstSlowMoDuration  = 0.20f; // longer impact window
-    public const float TowerSurgeBurstSlowMoFactor    = 0.55f; // deeper time dilation
-    public const float TowerSurgeBurstPowerMult       = 1.55f; // stronger burst + volley FX
-    public const float TowerSurgeBurstPulse2Delay     = 0.38f; // second pulse delay -- deliberate one-two gap
-    public const float TowerSurgeBurstPulse2Power     = 0.85f; // second pulse nearly as big as first
+    public const float TowerSurgeBurstFlashAlpha          = 0.32f; // hard punchy flash (vs 0.09 base)
+    public const float TowerSurgeBurstArchetypeDrama      = 0.22f; // more visible burst archetype FX
+    public const float TowerSurgeBurstSlowMoDuration      = 0.20f; // longer impact window
+    public const float TowerSurgeBurstSlowMoFactor        = 0.55f; // deeper time dilation
+    public const float TowerSurgeBurstPowerMult           = 1.55f; // stronger burst + volley FX
+    public const float TowerSurgeBurstPulse2Delay         = 0.38f; // second pulse delay -- deliberate one-two gap
+    public const float TowerSurgeBurstPulse2Power         = 0.85f; // second pulse nearly as big as first
+    // Second pulse delivers actual damage -- the "slam" has real consequence, not just FX
+    // Applied via ApplySpectacleDamage directly (bypasses the 0.30 cap in ApplyTargetedSpectacleConsequence)
+    public const float TowerSurgeBurstPulse2DamageScale   = 0.55f; // damage per target on second pulse (×BaseDamage, no internal cap)
+    public const float TowerSurgeBurstPulse2Range         = 300f;  // search radius for second pulse targets
 
-    // Control category: softer flash, prominent zone rings, longer presence, slow field
-    public const int   TowerSurgeControlMaxLinks        = 2;     // fewer, more focused links
-    public const float TowerSurgeControlFlashAlpha      = 0.05f; // subdued flash (zone, not pop)
-    public const float TowerSurgeControlSignatureDrama  = 0.46f; // much more visible zone rings (vs 0.14 base)
-    public const float TowerSurgeControlSlowMoDuration  = 0.22f; // longer zone presence
-    public const float TowerSurgeControlSlowRadius      = 380f;  // slow field radius in px
-    public const float TowerSurgeControlSlowDuration    = 2.2f;  // slow duration in sec (shorter than Chill Shot's 6s)
-    public const float TowerSurgeControlSlowFactor      = 0.62f; // speed factor during surge slow (38% reduction)
+    // Control category: softer flash, prominent zone rings, longer presence, slow + vulnerability field
+    public const int   TowerSurgeControlMaxLinks         = 2;     // fewer, more focused links
+    public const float TowerSurgeControlFlashAlpha       = 0.05f; // subdued flash (zone, not pop)
+    public const float TowerSurgeControlSignatureDrama   = 0.46f; // much more visible zone rings (vs 0.14 base)
+    public const float TowerSurgeControlSlowMoDuration   = 0.22f; // longer zone presence
+    public const float TowerSurgeControlSlowRadius       = 380f;  // slow + vuln field radius in px
+    public const float TowerSurgeControlSlowDuration     = 2.2f;  // slow duration in sec (shorter than Chill Shot's 6s)
+    public const float TowerSurgeControlSlowFactor       = 0.62f; // speed factor during surge slow (38% reduction)
+    // Vulnerability window: slowed enemies also take more damage, making the field a setup event
+    public const float TowerSurgeControlVulnDuration     = 1.8f;  // damage amp duration in sec
+    public const float TowerSurgeControlVulnMultiplier   = 0.18f; // +18% damage taken while in the field
 
-    // Echo category: strong afterimage ghost, second delayed repeat burst
-    public const float TowerSurgeEchoArchetypeDrama = 0.24f; // more visible echo ghost
-    public const float TowerSurgeEchoDelay2         = 0.48f; // second repeat strike delay in sec
-    public const float TowerSurgeEchoPulse2Power    = 0.72f; // second repeat burst power
+    // Echo category: strong afterimage ghost, second delayed repeat burst with real damage
+    public const float TowerSurgeEchoArchetypeDrama      = 0.24f; // more visible echo ghost
+    public const float TowerSurgeEchoDelay2              = 0.48f; // second repeat strike delay in sec
+    public const float TowerSurgeEchoPulse2Power         = 0.72f; // second repeat burst power
+    // Late echo deals actual damage -- the "ghost hit" has real consequence
+    public const float TowerSurgeEchoLateEchoDamageScale = 0.22f; // per target damage scale on the 0.48s echo
 
     public static int ExtraPicksForWave(int waveIndex) => waveIndex switch
     {
