@@ -355,19 +355,17 @@ public partial class HowToPlay : Node
         var modelCard = AddSurgeCard(vbox, "SURGE MODEL", new Color(0.48f, 0.90f, 1.00f, 0.92f));
         AddSurgeCardLine(modelCard, "Each tower has a Surge Meter. Fill it to fire a Tower Surge.", new Color(0.90f, 0.96f, 1.00f), 16);
         AddSpacer(modelCard, 2);
-        AddSurgeRuleRow(modelCard, "1 MOD", "Category surge + that mod's specific effect.", new Color(0.95f, 0.62f, 0.18f, 0.95f));
-        AddSurgeRuleRow(modelCard, "2 MODS", "Stronger category signal. Mod effect at full power.", new Color(0.44f, 0.94f, 0.86f, 0.92f));
-        AddSurgeRuleRow(modelCard, "3 MODS", "Strongest category. Mod effect + area augment pulse.", new Color(0.90f, 0.88f, 0.98f, 0.92f));
-        AddSurgeRuleRow(modelCard, "GLOBAL", "Bar fills from tower surges. Click READY to trigger.", new Color(0.88f, 0.96f, 0.56f, 0.92f));
+        AddSurgeRuleRow(modelCard, "CATEGORY", "Determined by your mods + the tower's identity. Each surge fires the effect for its category.", new Color(0.95f, 0.62f, 0.18f, 0.95f));
+        AddSurgeRuleRow(modelCard, "GLOBAL",   "Bar fills from tower surges. Click READY to trigger a board-wide surge.", new Color(0.88f, 0.96f, 0.56f, 0.92f));
         AddSpacer(vbox, 10);
 
         var categoryCard = AddSurgeCard(vbox, "SURGE CATEGORY", new Color(0.86f, 0.72f, 1.00f, 0.92f));
-        AddSurgeCardLine(categoryCard, "All mods combined set the category -- no single mod dominates.", new Color(0.92f, 0.90f, 1.00f), 15);
+        AddSurgeCardLine(categoryCard, "All mods and the tower's identity combined set the category.", new Color(0.92f, 0.90f, 1.00f), 15);
         AddSpacer(categoryCard, 4);
         AddSurgeRuleRow(categoryCard, "SPREAD",  "Arcs through groups. Hits many targets and triggers chain effects.", new Color(0.44f, 0.94f, 0.86f, 0.92f));
-        AddSurgeRuleRow(categoryCard, "BURST",   "Two heavy hits on a few targets. High damage spike, no spread.", new Color(1.00f, 0.54f, 0.10f, 0.95f));
-        AddSurgeRuleRow(categoryCard, "CONTROL", "Slows all nearby enemies and makes them take more damage.", new Color(0.08f, 0.72f, 1.00f, 0.95f));
-        AddSurgeRuleRow(categoryCard, "ECHO",    "Repeats the hit twice after firing. The surge keeps dealing damage over time.", new Color(0.72f, 0.36f, 1.00f, 0.95f));
+        AddSurgeRuleRow(categoryCard, "BURST",   "Heavy single-target strike. High damage spike and execution power.", new Color(1.00f, 0.54f, 0.10f, 0.95f));
+        AddSurgeRuleRow(categoryCard, "CONTROL", "Slows and suppresses nearby enemies, making them take more damage.", new Color(0.08f, 0.72f, 1.00f, 0.95f));
+        AddSurgeRuleRow(categoryCard, "ECHO",    "Repeat strikes and lingering follow-through. Damage continues after the surge.", new Color(0.72f, 0.36f, 1.00f, 0.95f));
         AddSpacer(vbox, 10);
 
         var tableCard = AddSurgeCard(vbox, "MOD -> CORE SURGE BEHAVIOR", new Color(0.69f, 0.86f, 0.16f, 0.92f));
@@ -383,11 +381,11 @@ public partial class HowToPlay : Node
 
         var globalCard = AddSurgeCard(vbox, "GLOBAL SURGE", new Color(0.95f, 0.86f, 0.36f, 0.94f));
         AddSurgeCardLine(globalCard, "When the bar is full, click READY to fire Global Surge.", new Color(0.96f, 0.95f, 0.88f), 15);
-        AddSurgeCardLine(globalCard, "All towers fire at once. Board feel is set by the dominant mod across all towers.");
+        AddSurgeCardLine(globalCard, "All towers surge at once. The feel is set by the dominant mod across your build.");
         AddSpacer(globalCard, 4);
-        AddSurgeRuleRow(globalCard, "PRESSURE SURGE",   "Enemies deeply slowed. Arcs fire from every tower.", new Color(0.08f, 0.72f, 1.00f, 0.95f));
-        AddSurgeRuleRow(globalCard, "CHAIN SURGE",      "Arcs jump enemy to enemy across the board. Full cooldown refund.", new Color(0.72f, 0.36f, 1.00f, 0.95f));
-        AddSurgeRuleRow(globalCard, "DETONATION SURGE", "Heavy damage burst. Radial arcs, max cooldown refund.", new Color(1.00f, 0.54f, 0.10f, 0.95f));
+        AddSurgeRuleRow(globalCard, "PRESSURE SURGE",   "Extended control. Enemies deeply slowed across the board.", new Color(0.08f, 0.72f, 1.00f, 0.95f));
+        AddSurgeRuleRow(globalCard, "CHAIN SURGE",      "Chain spread. Arcs jump enemy to enemy across the board.", new Color(0.72f, 0.36f, 1.00f, 0.95f));
+        AddSurgeRuleRow(globalCard, "DETONATION SURGE", "Heavy detonation. Damage burst with maximum cooldown refund.", new Color(1.00f, 0.54f, 0.10f, 0.95f));
         AddSpacer(globalCard, 2);
         AddSurgeCardLine(globalCard, "Stack one mod type across multiple towers to push toward that feel.");
     }
