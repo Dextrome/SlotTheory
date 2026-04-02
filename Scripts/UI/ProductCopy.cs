@@ -36,7 +36,7 @@ public static class ProductCopy
         "Waves run automatically. Survive 20 waves to win.";
     public const string DraftBannerSurgesHeader = "SURGES";
     public const string DraftBannerSurgesBody =
-        "Modifiers generate charge as they activate (hits, kills, procs). When a tower's meter fills, it triggers a Surge: a powerful mid-wave effect.\n" +
-        "Twist = the 2nd mod's trait added to that Surge. Bonus = Pulse (area), Strike (heavy), or Recharge (instant refire).\n" +
-        "Each Surge adds to the Global Surge bar. Fill it and click the ready bar to activate a Global Surge, refunding cooldowns and hitting every enemy on the lane.";
+        "Combat fills each tower's Surge meter. When it fills, the tower fires a Surge -- a powerful mid-wave effect.\n" +
+        "The category (Spread / Burst / Control / Echo) is set by your mods and the tower's identity.\n" +
+        "Each Surge charges the Global Surge bar. Fill it and activate for a board-wide surge: all towers fire at once.";
 }

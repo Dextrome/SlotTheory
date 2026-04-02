@@ -9436,50 +9436,20 @@ void fragment() {
 		intro.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
 		vbox.AddChild(intro);
 
-		var detailRow = new HBoxContainer();
-		detailRow.AddThemeConstantOverride("separation", 12);
-		detailRow.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-		vbox.AddChild(detailRow);
-
-		var leftCol = new VBoxContainer();
-		leftCol.AddThemeConstantOverride("separation", 4);
-		leftCol.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-		leftCol.CustomMinimumSize = new Vector2(0f, 0f);
-		detailRow.AddChild(leftCol);
-
 		var surgeModes = new Label
 		{
 			Text =
-				"When a tower surges:\n" +
-				"- 1 mod: main Surge\n" +
-				"- 2 mods: main Surge + Twist\n" +
-				"- 3 mods: main Surge + Twist + Bonus",
+				"The surge category is set by your mods and the tower's identity:\n" +
+				"- Spread: arcs through groups, triggers chain effects\n" +
+				"- Burst: heavy single-target strike and execution\n" +
+				"- Control: slows and suppresses nearby enemies\n" +
+				"- Echo: repeat strikes with lingering damage",
 			AutowrapMode = TextServer.AutowrapMode.WordSmart,
 			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
 		};
 		UITheme.ApplyFont(surgeModes, size: 13);
 		surgeModes.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
-		leftCol.AddChild(surgeModes);
-
-		var rightCol = new VBoxContainer();
-		rightCol.AddThemeConstantOverride("separation", 4);
-		rightCol.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-		rightCol.CustomMinimumSize = new Vector2(0f, 0f);
-		detailRow.AddChild(rightCol);
-
-		var bonusModes = new Label
-		{
-			Text =
-				"Bonus can be:\n" +
-				"- Pulse: area hit\n" +
-				"- Strike: heavy hit\n" +
-				"- Recharge: instant refire",
-			AutowrapMode = TextServer.AutowrapMode.WordSmart,
-			SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
-		};
-		UITheme.ApplyFont(bonusModes, size: 13);
-		bonusModes.AddThemeColorOverride("font_color", new Color(0.88f, 0.90f, 1.00f));
-		rightCol.AddChild(bonusModes);
+		vbox.AddChild(surgeModes);
 
 		var footerRow = new HBoxContainer();
 		footerRow.AddThemeConstantOverride("separation", 12);
