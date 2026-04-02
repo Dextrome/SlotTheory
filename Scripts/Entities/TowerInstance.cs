@@ -1214,6 +1214,7 @@ public partial class TowerInstance : Node2D, ITowerView
     private void DrawChargeArc(bool overlayPass = false)
     {
         return; // disabled for now
+#pragma warning disable CS0162
         if (AttackInterval <= 0f) return;
 
         int tierLevel = _visualEvolution.Tier switch
@@ -1270,6 +1271,7 @@ public partial class TowerInstance : Node2D, ITowerView
             DrawArc(Vector2.Zero, radius, start, end, 48,
                 new Color(ringColor.R, ringColor.G, ringColor.B, arcAlpha), arcWidth);
         }
+#pragma warning restore CS0162
     }
 
     private void DrawSpectacleArc()
