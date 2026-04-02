@@ -340,8 +340,6 @@ public partial class MapSelectPanel : Node
 		container.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
 		container.SetMeta("map_id", mapId);
 		container.SetMeta("full_game_preview_only", fullGamePreviewOnly);
-		if (_isMobile)
-			container.MouseFilter = Control.MouseFilterEnum.Pass;
 		ApplyMapRowStyle(container, selected: isSelected, locked: fullGamePreviewOnly);
 
 		var hbox = new HBoxContainer();
@@ -350,8 +348,7 @@ public partial class MapSelectPanel : Node
 		hbox.AddThemeConstantOverride("margin_top",    9);
 		hbox.AddThemeConstantOverride("margin_right",  10);
 		hbox.AddThemeConstantOverride("margin_bottom", 9);
-		if (_isMobile)
-			hbox.MouseFilter = Control.MouseFilterEnum.Ignore;
+		hbox.MouseFilter = Control.MouseFilterEnum.Ignore;
 		container.AddChild(hbox);
 
 		var btn = new Button
@@ -360,6 +357,7 @@ public partial class MapSelectPanel : Node
 				? ProductCopy.FullGameButtonLabel
 				: isSelected ? "SELECTED" : "CHOOSE",
 			CustomMinimumSize = new Vector2(80, 52),
+			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
 		if (fullGamePreviewOnly)
 		{
@@ -377,18 +375,21 @@ public partial class MapSelectPanel : Node
 			UITheme.ApplyCyanStyle(btn);
 			UITheme.ApplyMenuButtonFinish(btn, UITheme.Cyan, 0.09f, 0.11f);
 		}
-		if (_isMobile)
-			btn.MouseFilter = Control.MouseFilterEnum.Pass;
 		btn.AddThemeFontSizeOverride("font_size", 15);
-		btn.Pressed      += () => SelectMap(mapId);
-		btn.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 		hbox.AddChild(btn);
+
+		container.MouseDefaultCursorShape = Control.CursorShape.PointingHand;
+		container.GuiInput += (ev) =>
+		{
+			if (ev is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && mb.Pressed)
+				SelectMap(mapId);
+		};
+		container.MouseEntered += () => SoundManager.Instance?.Play("ui_hover");
 
 		var textVbox = new VBoxContainer();
 		textVbox.AddThemeConstantOverride("separation", 2);
 		textVbox.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
-		if (_isMobile)
-			textVbox.MouseFilter = Control.MouseFilterEnum.Ignore;
+		textVbox.MouseFilter = Control.MouseFilterEnum.Ignore;
 		hbox.AddChild(textVbox);
 
 		var nameLabel = new Label
@@ -396,9 +397,8 @@ public partial class MapSelectPanel : Node
 			Text = mapName,
 			HorizontalAlignment = HorizontalAlignment.Left,
 			ClipText = false,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
-		if (_isMobile)
-			nameLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
 		UITheme.ApplyFont(nameLabel, semiBold: true, size: 19);
 		nameLabel.Modulate = fullGamePreviewOnly
 			? new Color(0.56f, 0.60f, 0.72f)
@@ -414,9 +414,8 @@ public partial class MapSelectPanel : Node
 			AutowrapMode = _isMobile
 				? TextServer.AutowrapMode.Word
 				: TextServer.AutowrapMode.Off,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
 		};
-		if (_isMobile)
-			descLabel.MouseFilter = Control.MouseFilterEnum.Ignore;
 		descLabel.AddThemeFontSizeOverride("font_size", 12);
 		descLabel.Modulate = fullGamePreviewOnly
 			? new Color(0.44f, 0.48f, 0.60f)

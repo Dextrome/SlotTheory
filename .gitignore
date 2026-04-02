@@ -26,9 +26,10 @@ android/
 local.properties
 
 
-# Supabase credentials (copy SupabaseConfig.cs.example → SupabaseConfig.cs and fill in values)
-Scripts/Core/Leaderboards/SupabaseConfig.cs
+# Supabase credentials
 supabase.cfg
+# Legacy local constants file (unused by current runtime, kept ignored for safety)
+Scripts/Core/Leaderboards/SupabaseConfig.cs
 
 # Steam (private info)
 steam/output/
@@ -122,3 +123,4 @@ TowerEvolution.MD
 Scripts/Tools/__pycache__/generate_tower_gifs.cpython-312.pyc
 Scripts/Tools/generate_steam_store_gifs.py
 Scripts/Tools/generate_tower_gifs.py
+

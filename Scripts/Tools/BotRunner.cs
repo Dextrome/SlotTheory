@@ -747,11 +747,11 @@ public BotRunner(
 
         PrintAutomationMetrics();
 
-        // ── Wave Difficulty Analysis for Balancing ─────────────────────────────────
-        GD.Print("\n╔═══════════════════════════════════════════════════════════════════╗");
-        GD.Print("║                    WAVE DIFFICULTY ANALYSIS                       ║");
-        GD.Print("║  For balancing SpawnInterval, Tanky/Swift/Splitter/Reverse counts ║");
-        GD.Print("╚═══════════════════════════════════════════════════════════════════╝");
+        // Wave Difficulty Analysis for Balancing
+        GD.Print("\n====================================================================");
+        GD.Print("                    WAVE DIFFICULTY ANALYSIS");
+        GD.Print("  For balancing SpawnInterval, Tanky/Swift/Splitter/Reverse counts");
+        GD.Print("====================================================================");
 
         AnalyzeWaveDifficulty();
         WriteMetricsSummaryJson();

@@ -314,12 +314,14 @@ public partial class ModeSelectPanel : Node
 
         var vbox = new VBoxContainer();
         vbox.AddThemeConstantOverride("separation", 8);
+        vbox.MouseFilter = Control.MouseFilterEnum.Ignore;
         card.AddChild(vbox);
 
         var chip = new Label
         {
             Text = isPlaceholder ? "FUTURE SLOT" : "LIVE MODE",
             HorizontalAlignment = HorizontalAlignment.Center,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         UITheme.ApplyFont(chip, semiBold: true, size: 11);
         chip.Modulate = new Color(displayAccent.R, displayAccent.G, displayAccent.B, isEnabled ? 0.75f : 0.60f);
@@ -331,6 +333,7 @@ public partial class ModeSelectPanel : Node
         {
             Text = title,
             HorizontalAlignment = HorizontalAlignment.Center,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         UITheme.ApplyFont(titleLabel, semiBold: true, size: 34);
         titleLabel.Modulate = displayAccent;
@@ -340,6 +343,7 @@ public partial class ModeSelectPanel : Node
         {
             Text = subtitle,
             HorizontalAlignment = HorizontalAlignment.Center,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         UITheme.ApplyFont(subtitleLabel, semiBold: false, size: 13);
         subtitleLabel.Modulate = new Color(displayAccent.R, displayAccent.G, displayAccent.B, isEnabled ? 0.65f : 0.50f);
@@ -359,6 +363,7 @@ public partial class ModeSelectPanel : Node
             Text = description,
             HorizontalAlignment = HorizontalAlignment.Center,
             AutowrapMode = TextServer.AutowrapMode.Word,
+            MouseFilter = Control.MouseFilterEnum.Ignore,
         };
         descLabel.AddThemeFontSizeOverride("font_size", 14);
         descLabel.Modulate = isEnabled
@@ -367,7 +372,7 @@ public partial class ModeSelectPanel : Node
         descLabel.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         vbox.AddChild(descLabel);
 
-        vbox.AddChild(new Control { SizeFlagsVertical = Control.SizeFlags.ExpandFill });
+        vbox.AddChild(new Control { SizeFlagsVertical = Control.SizeFlags.ExpandFill, MouseFilter = Control.MouseFilterEnum.Ignore });
 
         var btn = new Button
         {
@@ -408,6 +413,7 @@ public partial class ModeSelectPanel : Node
             btn.AddThemeColorOverride("font_color", new Color(1.0f, 0.90f, 0.78f, 0.96f));
 
         btn.Disabled = !isEnabled;
+        btn.MouseFilter = Control.MouseFilterEnum.Ignore;
         if (!isEnabled)
         {
             btn.Text = "LOCKED IN DEMO";
@@ -424,20 +430,25 @@ public partial class ModeSelectPanel : Node
         }
         else
         {
-            btn.Pressed += onPressed;
-            btn.MouseEntered += () =>
+            card.MouseDefaultCursorShape = Control.CursorShape.PointingHand;
+            card.GuiInput += (ev) =>
+            {
+                if (ev is InputEventMouseButton mb && mb.ButtonIndex == MouseButton.Left && mb.Pressed)
+                    onPressed();
+            };
+            card.MouseEntered += () =>
             {
                 SoundManager.Instance?.Play("ui_hover");
-                btn.PivotOffset = btn.Size / 2f;
-                btn.CreateTween()
-                   .TweenProperty(btn, "scale", new Vector2(1.03f, 1.03f), 0.08f)
+                card.PivotOffset = card.Size / 2f;
+                card.CreateTween()
+                   .TweenProperty(card, "scale", new Vector2(1.02f, 1.02f), 0.08f)
                    .SetTrans(Tween.TransitionType.Back).SetEase(Tween.EaseType.Out);
             };
-            btn.MouseExited += () =>
+            card.MouseExited += () =>
             {
-                btn.PivotOffset = btn.Size / 2f;
-                btn.CreateTween()
-                   .TweenProperty(btn, "scale", Vector2.One, 0.08f)
+                card.PivotOffset = card.Size / 2f;
+                card.CreateTween()
+                   .TweenProperty(card, "scale", Vector2.One, 0.08f)
                    .SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
             };
         }
