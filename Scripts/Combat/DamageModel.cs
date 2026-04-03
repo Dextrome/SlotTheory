@@ -180,7 +180,7 @@ public static class DamageModel
             float dealt = hpBefore - enemy.Hp;
             totalDealt += dealt;
             if (applyChill)
-                Statuses.ApplySlow(enemy, Balance.SlowDuration * (ctx.State?.SlowDurationMultiplier ?? 1f), chillSlowFactor);
+                Statuses.ApplySlow(enemy, Balance.SlowDuration * (ctx.State?.ResolveSlowDurationMultiplier(ctx.Attacker) ?? 1f), chillSlowFactor);
 
             if (dealt > 0f && ctx.State != null)
                 ctx.State.TrackBaseAttackDamage(attackerSlotIndex, (int)dealt, isKill: enemy.Hp <= 0f, enemy.ProgressRatio);

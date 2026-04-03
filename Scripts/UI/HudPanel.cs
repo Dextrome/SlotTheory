@@ -1293,7 +1293,9 @@ public partial class HudPanel : CanvasLayer
 
 	// -- Premium card tray --
 
-	public void RefreshPremiumCards(System.Collections.Generic.IReadOnlyList<string> cardIds)
+	public void RefreshPremiumCards(
+		System.Collections.Generic.IReadOnlyList<string> cardIds,
+		System.Collections.Generic.IReadOnlyList<string>? volatileIds = null)
 	{
 		foreach (Node child in _premiumTray.GetChildren())
 			child.Free();
@@ -1363,14 +1365,78 @@ public partial class HudPanel : CanvasLayer
 
 			_premiumTray.AddChild(chip);
 		}
+
+		if (volatileIds == null || volatileIds.Count == 0)
+			return;
+
+		var volatileCounts = new System.Collections.Generic.Dictionary<string, int>();
+		var volatileOrder = new System.Collections.Generic.List<string>();
+		foreach (var volatileId in volatileIds)
+		{
+			if (!Core.VolatileDraftRegistry.TryGet(volatileId, out var def) || !HasGlobalMutationEffect(def))
+				continue;
+			if (volatileCounts.TryGetValue(volatileId, out int c)) volatileCounts[volatileId] = c + 1;
+			else { volatileCounts[volatileId] = 1; volatileOrder.Add(volatileId); }
+		}
+
+		foreach (var volatileId in volatileOrder)
+		{
+			if (!Core.VolatileDraftRegistry.TryGet(volatileId, out var def))
+				continue;
+			int count = volatileCounts[volatileId];
+			var accent = new Color(1.00f, 0.64f, 0.30f, 0.95f);
+
+			var chip = new PanelContainer
+			{
+				MouseFilter = Control.MouseFilterEnum.Stop,
+				CustomMinimumSize = new Vector2(130f, 22f),
+			};
+			ApplyPremiumChipStyle(chip, accent);
+
+			var row = new HBoxContainer();
+			row.AddThemeConstantOverride("separation", 4);
+			chip.AddChild(row);
+
+			var dot = new ColorRect
+			{
+				Color = accent,
+				CustomMinimumSize = new Vector2(4f, 14f),
+				SizeFlagsVertical = Control.SizeFlags.ShrinkCenter,
+				MouseFilter = Control.MouseFilterEnum.Ignore,
+			};
+			row.AddChild(dot);
+
+			var lbl = new Label
+			{
+				Text = count > 1 ? $"{def.Name}  x{count}" : def.Name,
+				ClipContents = true,
+				SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+				VerticalAlignment = VerticalAlignment.Center,
+				MouseFilter = Control.MouseFilterEnum.Ignore,
+			};
+			UITheme.ApplyFont(lbl, semiBold: true, size: 11);
+			lbl.AddThemeColorOverride("font_color", accent);
+			row.AddChild(lbl);
+
+			string tooltipTitle = def.Name;
+			string tooltipBody = $"[VOLATILE MUTATION]\n{def.UpsideText}\nTradeoff: {def.TradeoffText}";
+			chip.MouseEntered += () => ShowInlineTooltip(chip, tooltipTitle, tooltipBody);
+			chip.MouseExited += () => _premiumTooltip.Visible = false;
+
+			_premiumTray.AddChild(chip);
+		}
 	}
 
 	private void ShowPremiumTooltip(Control anchor, Core.PremiumCardDef def)
 	{
 		bool superRare = def.Rarity == Core.PremiumRarity.SuperRare;
 		string rarityTag = superRare ? "[SUPER RARE]" : "[RARE]";
-		_premiumTooltipLabel.Text = $"{def.Name}\n{rarityTag}\n{def.Description}";
+		ShowInlineTooltip(anchor, def.Name, $"{rarityTag}\n{def.Description}");
+	}
 
+	private void ShowInlineTooltip(Control anchor, string title, string body)
+	{
+		_premiumTooltipLabel.Text = $"{title}\n{body}";
 		var size = _premiumTooltipLabel.GetMinimumSize() + new Vector2(16f, 10f);
 		var pos = anchor.GetGlobalRect();
 		_premiumTooltip.OffsetLeft   = pos.End.X + 6f;
@@ -1378,6 +1444,17 @@ public partial class HudPanel : CanvasLayer
 		_premiumTooltip.OffsetRight  = _premiumTooltip.OffsetLeft + Mathf.Max(size.X, 190f);
 		_premiumTooltip.OffsetBottom = _premiumTooltip.OffsetTop  + Mathf.Max(size.Y, 52f);
 		_premiumTooltip.Visible = true;
+	}
+
+	private static bool HasGlobalMutationEffect(Core.VolatileDraftDef def)
+	{
+		if (def.Scope != Core.VolatileEffectScope.Global)
+			return false;
+		return def.FlatDamageDelta != 0
+			|| Mathf.Abs(def.AttackIntervalMultiplier - 1f) > 0.0001f
+			|| Mathf.Abs(def.RangeBonus) > 0.001f
+			|| Mathf.Abs(def.ChainRangeBonus) > 0.001f
+			|| Mathf.Abs(def.SlowDurationMultiplier - 1f) > 0.0001f;
 	}
 
 	private static void ApplyPremiumChipStyle(PanelContainer chip, Color accent)
@@ -1932,7 +2009,7 @@ public partial class HudPanel : CanvasLayer
 			AnchorTop = 1f,
 			AnchorBottom = 1f,
 			OffsetLeft = -210f,
-			OffsetRight = -30f,
+			OffsetRight = -78f,
 			OffsetTop = -58f,
 			OffsetBottom = -40f,
 			Visible = false,
@@ -1943,6 +2020,12 @@ public partial class HudPanel : CanvasLayer
 		_buildIdentityLabel = new Label
 		{
 			Text = "BUILD: UNFORMED",
+			AnchorLeft = 0f,
+			AnchorRight = 1f,
+			AnchorTop = 0f,
+			AnchorBottom = 1f,
+			OffsetLeft = 8f,
+			OffsetRight = -6f,
 			HorizontalAlignment = HorizontalAlignment.Left,
 			VerticalAlignment = VerticalAlignment.Center,
 			AutowrapMode = TextServer.AutowrapMode.Off,
@@ -2032,8 +2115,8 @@ public partial class HudPanel : CanvasLayer
 			AnchorRight = 0.5f,
 			AnchorTop = 1f,
 			AnchorBottom = 1f,
-			OffsetLeft = -230f,
-			OffsetRight = 230f,
+			OffsetLeft = -150f,
+			OffsetRight = 310f,
 			OffsetTop = -58f,
 			OffsetBottom = -40f,
 			Visible = false,

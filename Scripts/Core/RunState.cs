@@ -108,6 +108,7 @@ public class RunState
     public float MarkDurationBonus         { get; set; } = 0f;
     /// <summary>Cold Circuit: cumulative slow duration multiplier (> 1 = longer).</summary>
     public float SlowDurationMultiplier    { get; set; } = 1f;
+    private readonly Dictionary<int, float> _towerSlowDurationMultiplierBySlot = new();
     /// <summary>Hardened Reserves: per-run ceiling on max lives (default = Balance.ReaperMaxLives).</summary>
     public int   LivesCeiling              { get; set; } = Balance.ReaperMaxLives;
 
@@ -326,6 +327,30 @@ public class RunState
             PeakSimultaneousHitStopsRequested = simultaneousHitStopsRequested;
     }
 
+    public void MultiplyTowerSlowDurationMultiplier(int slotIndex, float multiplier)
+    {
+        if (slotIndex < 0 || slotIndex >= Slots.Length || multiplier <= 0f)
+            return;
+        if (_towerSlowDurationMultiplierBySlot.TryGetValue(slotIndex, out float current))
+            _towerSlowDurationMultiplierBySlot[slotIndex] = current * multiplier;
+        else
+            _towerSlowDurationMultiplierBySlot[slotIndex] = multiplier;
+    }
+
+    public float ResolveSlowDurationMultiplier(ITowerView attacker)
+    {
+        float total = SlowDurationMultiplier;
+        for (int i = 0; i < Slots.Length; i++)
+        {
+            if (!ReferenceEquals(Slots[i].Tower, attacker))
+                continue;
+            if (_towerSlowDurationMultiplierBySlot.TryGetValue(i, out float local))
+                total *= local;
+            break;
+        }
+        return total;
+    }
+
     public void Reset()
     {
         WaveIndex = 0;
@@ -386,6 +411,7 @@ public class RunState
         ExplosionRadiusBonus     = 0f;
         MarkDurationBonus        = 0f;
         SlowDurationMultiplier   = 1f;
+        _towerSlowDurationMultiplierBySlot.Clear();
         LivesCeiling             = Balance.ReaperMaxLives;
     }
 

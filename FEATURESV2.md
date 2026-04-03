@@ -320,6 +320,7 @@ Coverage: `DraftAntiBrickTests.cs` (critical -- a mismapped modifier can silentl
 - Volatile card injection is **replacement-only** (no extra card count, no bypass of anti-brick selection).
 - At most one volatile card can appear in a draft.
 - Volatile cards are presentation-distinct in DraftPanel and carry explicit commitment text (upside + tradeoff).
+- Current volatile mutations are **tower-only commitments** (scope: picked target tower), not run-global buffs.
 - Current seeded examples (first pass): Deadeye Oath, Storm Lattice, Cryo Lock, Siege Protocol, Phase Net.
 
 ### Unlockable Gating in Draft
@@ -675,7 +676,7 @@ Bot mode (`--bot`) skips all evaluation -- unlocks are never modified in automat
 ```
 MainMenu.tscn
   -> Play -> ModeSelectPanel -> Campaign or Skirmish
-  -> Slot Codex -> SlotCodex.tscn (Towers / Modifiers / Enemies / How To Play / Surges)
+  -> Slot Codex -> SlotCodex.tscn (Towers / Modifiers / Upgrades / Mutations / How To Play / Surges / Enemies)
   -> Map Editor -> MapEditor.tscn
   -> Leaderboards -> LeaderboardsMenu.tscn
   -> Achievements -> AchievementsPanel (inline)
@@ -726,12 +727,13 @@ MapEditor.tscn
 
 ### Slot Codex (SlotCodexPanel)
 
-Primary in-game reference hub with dedicated tabs for towers, modifiers, enemies, How To Play, and Surges:
+Primary in-game reference hub with dedicated tabs for towers, modifiers, upgrades, mutations, enemies, How To Play, and Surges:
 - Unlocked entries: full stats + mechanic description; in-game procedural art (TowerIconFull, EnemyIcon)
 - Locked tower entries: "UNREVEALED TOWER" + map name hint
 - Locked modifier entries: "UNREVEALED MOD" + map name hint, or "FULL GAME" for demo-excluded content
 - Each card has a 2 px colored accent stripe via `UITheme.AddTopAccent()`
 - How To Play tab intentionally omits tower/modifier/enemy deep lists to avoid duplicating the dedicated tabs
+- Mutations tab includes volatile/cursed summaries and states that current mutations are tower-only commitments
 
 ### Map Editor
 

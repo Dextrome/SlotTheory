@@ -68,6 +68,7 @@ Android auto-pauses when app is minimized.
 - If no modifier targets exist yet, missing modifier cards are backfilled with tower cards
 - With all slots occupied: 4 modifiers
 - Anti-brick: modifier options are only offered if at least one tower can still accept one
+- Volatile mutation offers can rarely replace one normal draft card (never adds extra cards). Current mutations are tower-only commitments: the picked tower gets both the upside and the tradeoff.
 
 Modifier assignment uses `Preview -> Confirm`:
 

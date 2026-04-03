@@ -38,7 +38,7 @@ public static class Statuses
         if (!TryGetChillSlowFactor(attacker, out float slowFactor))
             return false;
 
-        float duration = Balance.SlowDuration * (state?.SlowDurationMultiplier ?? 1f);
+        float duration = Balance.SlowDuration * (state?.ResolveSlowDurationMultiplier(attacker) ?? 1f);
         ApplySlow(target, duration, slowFactor);
         return true;
     }

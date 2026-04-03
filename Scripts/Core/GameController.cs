@@ -1839,7 +1839,7 @@ public partial class GameController : Node
 			return;
 		}
 
-		ApplyVolatileCommitmentIfNeeded(option);
+		ApplyVolatileCommitmentIfNeeded(option, targetSlotIndex);
 
 		_currentDraftOptions = null; // generate fresh options for the next pick once a pick is applied
 		AchievementManager.Instance?.CheckDraftMilestones(_runState);
@@ -1848,7 +1848,7 @@ public partial class GameController : Node
 
 	// ── Premium Card application ──────────────────────────────────────────────
 
-	private void ApplyVolatileCommitmentIfNeeded(DraftOption option)
+	private void ApplyVolatileCommitmentIfNeeded(DraftOption option, int targetSlotIndex)
 	{
 		if (_runState == null || !option.IsVolatile)
 			return;
@@ -1856,6 +1856,33 @@ public partial class GameController : Node
 			return;
 
 		_runState.PickedVolatileCards.Add(def.Id);
+		if (def.Scope == VolatileEffectScope.TargetTower)
+		{
+			if (targetSlotIndex < 0 || targetSlotIndex >= _runState.Slots.Length)
+				return;
+			var targetTower = _runState.Slots[targetSlotIndex].Tower;
+			if (targetTower == null)
+				return;
+
+			if (def.FlatDamageDelta != 0)
+				targetTower.BaseDamage += def.FlatDamageDelta;
+			if (Mathf.Abs(def.AttackIntervalMultiplier - 1f) > 0.0001f)
+				targetTower.AttackInterval *= def.AttackIntervalMultiplier;
+			if (Mathf.Abs(def.RangeBonus) > 0.001f)
+				targetTower.Range = Mathf.Max(20f, targetTower.Range + def.RangeBonus);
+			if (Mathf.Abs(def.ChainRangeBonus) > 0.001f)
+				targetTower.ChainRange = Mathf.Max(40f, targetTower.ChainRange + def.ChainRangeBonus);
+			if (Mathf.Abs(def.SlowDurationMultiplier - 1f) > 0.0001f)
+				_runState.MultiplyTowerSlowDurationMultiplier(targetSlotIndex, def.SlowDurationMultiplier);
+
+			if (targetTower is TowerInstance targetTowerNode)
+				targetTowerNode.RefreshRangeCircle();
+			if (_botRunner == null)
+				_hudPanel.ShowSurgeMicroHint($"{def.Name}: {def.UpsideText}", holdSeconds: 2.0f);
+			_hudPanel?.RefreshPremiumCards(_runState.PickedPremiumCards, _runState.PickedVolatileCards);
+			return;
+		}
+
 		if (def.FlatDamageDelta != 0)
 		{
 			_runState.BonusDamage += def.FlatDamageDelta;
@@ -1903,6 +1930,7 @@ public partial class GameController : Node
 
 		if (_botRunner == null)
 			_hudPanel.ShowSurgeMicroHint($"{def.Name}: {def.UpsideText}", holdSeconds: 2.0f);
+		_hudPanel?.RefreshPremiumCards(_runState.PickedPremiumCards, _runState.PickedVolatileCards);
 	}
 
 	private void ApplyPremiumCard(string cardId, int targetSlotIndex)
@@ -1983,7 +2011,7 @@ public partial class GameController : Node
 
 		GD.Print($"[Premium] Applied {cardId} (slot {targetSlotIndex})");
 		_hudPanel?.Refresh(_runState.WaveIndex + 1, _runState.Lives);
-		_hudPanel?.RefreshPremiumCards(_runState.PickedPremiumCards);
+		_hudPanel?.RefreshPremiumCards(_runState.PickedPremiumCards, _runState.PickedVolatileCards);
 	}
 
 	private void CancelPlacement()
@@ -4036,84 +4064,11 @@ public partial class GameController : Node
 		if (string.IsNullOrEmpty(sig.PrimaryModId))
 			return "Surge: (no compatible mods)";
 
-		string primary = BuildPrimarySurgeLabel(sig);
-		string mutation = BuildSecondaryMutationLabel(sig);
-		string mutationHint = BuildSecondaryMutationHint(sig);
-		string bonus = BuildBonusSurgeLabel(sig);
-		string bonusHint = BuildBonusSurgeHint(sig);
-		string twistLine = string.IsNullOrEmpty(mutationHint)
-			? $"Twist: {mutation}"
-			: $"Twist: {mutation} ({mutationHint})";
-		string bonusLine = string.IsNullOrEmpty(bonusHint)
-			? $"Bonus: {bonus}"
-			: $"Bonus: {bonus} ({bonusHint})";
+		SurgeDifferentiation.TowerSurgeCategory category =
+			SurgeDifferentiation.ResolveTowerSurgeCategory(tower.TowerId, sig);
+		string categoryLabel = SurgeDifferentiation.GetCategoryCallout(category);
 
-		return sig.Mode switch
-		{
-			SpectacleMode.Single => $"Surge: {primary}",
-			SpectacleMode.Combo  => $"Surge: {primary}\n{twistLine}",
-			_                    => $"Surge: {primary}\n{twistLine}\n{bonusLine}",
-		};
-	}
-
-	private static string BuildPrimarySurgeLabel(SpectacleSignature sig)
-	{
-		if (string.IsNullOrWhiteSpace(sig.PrimaryModId))
-			return "Unknown";
-		return SpectacleDefinitions.GetDisplayName(sig.PrimaryModId);
-	}
-
-	private static string BuildSecondaryMutationLabel(SpectacleSignature sig)
-	{
-		if (string.IsNullOrWhiteSpace(sig.SecondaryModId))
-			return "Unknown";
-		return SpectacleDefinitions.GetDisplayName(sig.SecondaryModId);
-	}
-
-	private static string BuildSecondaryMutationHint(SpectacleSignature sig)
-	{
-		if (string.IsNullOrWhiteSpace(sig.SecondaryModId))
-			return string.Empty;
-
-		return SpectacleDefinitions.NormalizeModId(sig.SecondaryModId) switch
-		{
-			"momentum" => "ramp scaling",
-			"overkill" => "spill damage",
-			"exploit_weakness" => "mark detonation",
-			"focus_lens" => "beam focus",
-			"slow" => "slow/freeze",
-			"overreach" => "range extension",
-			"hair_trigger" => "rapid extra shots",
-			"split_shot" => "scatter fan",
-			"feedback_loop" => "instant refire",
-			"chain_reaction" => "bounce chain",
-			"blast_core" => "blast radius",
-			"wildfire" => "burning trails",
-			"afterimage" => "delayed replay",
-			"reaper_protocol" => "execute finisher",
-			_ => string.Empty,
-		};
-	}
-
-	private static string BuildBonusSurgeLabel(SpectacleSignature sig)
-	{
-		if (string.IsNullOrWhiteSpace(sig.AugmentName))
-			return "Unknown";
-		return sig.AugmentName;
-	}
-
-	private static string BuildBonusSurgeHint(SpectacleSignature sig)
-	{
-		if (string.IsNullOrWhiteSpace(sig.AugmentName))
-			return string.Empty;
-
-		return sig.AugmentName switch
-		{
-			"Pulse" => "area hit",
-			"Strike" => "heavy hit",
-			"Recharge" => "instant refire",
-			_ => string.Empty,
-		};
+		return $"Surge Category: {categoryLabel}";
 	}
 	// -- Bot multi-step simulation -------------------------------------------------
 

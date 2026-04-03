@@ -1005,6 +1005,7 @@ public partial class SlotCodexPanel : Node
         var introCard = AddGuideCard(guide, "CARD MUTATIONS", new Color(0.96f, 0.56f, 0.24f, 0.95f));
         AddGuideLine(introCard, "Mutations are special draft cards with a bigger upside and a visible tradeoff.");
         AddGuideLine(introCard, "They are rare by design and appear as a single volatile option in eligible drafts.");
+        AddGuideLine(introCard, "All current mutations are tower-only commitments.");
         AddGuideLine(introCard, "Each mutation pushes your build identity toward a clear surge style.");
         AddGuideSpacer(guide, 10);
 
