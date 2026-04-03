@@ -85,10 +85,13 @@ public class RunState
     // Map selection
     public string? SelectedMapId { get; set; } = null;  // null = random
     public int RngSeed { get; set; } = 0;
+    public bool IsTutorialRun { get; set; } = false;
 
     // ── Premium Card run state ────────────────────────────────────────────────
     /// <summary>IDs of all premium cards picked this run (in order).</summary>
     public List<string> PickedPremiumCards { get; } = new();
+    /// <summary>IDs of volatile draft commitments picked this run (in order).</summary>
+    public List<string> PickedVolatileCards { get; } = new();
     /// <summary>Better Odds: extra cards shown per draft.</summary>
     public int   BonusDraftCards           { get; set; } = 0;
     /// <summary>Kinetic Calibration: cumulative flat damage bonus to all towers.</summary>

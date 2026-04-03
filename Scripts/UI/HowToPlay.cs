@@ -356,6 +356,7 @@ public partial class HowToPlay : Node
         AddSurgeCardLine(modelCard, "Each tower has a Surge Meter. Fill it to fire a Tower Surge.", new Color(0.90f, 0.96f, 1.00f), 16);
         AddSpacer(modelCard, 2);
         AddSurgeRuleRow(modelCard, "CATEGORY", "Determined by your mods + the tower's identity. Each surge fires the effect for its category.", new Color(0.95f, 0.62f, 0.18f, 0.95f));
+        AddSurgeRuleRow(modelCard, "PROCS", "Modifier procs feed each tower's Surge Meter.", new Color(0.66f, 0.92f, 1.00f, 0.92f));
         AddSurgeRuleRow(modelCard, "GLOBAL",   "Bar fills from tower surges. Click READY to trigger a board-wide surge.", new Color(0.88f, 0.96f, 0.56f, 0.92f));
         AddSpacer(vbox, 10);
 
@@ -388,10 +389,11 @@ public partial class HowToPlay : Node
         AddSurgeRuleRow(globalCard, "DETONATION SURGE", "Heavy detonation. Damage burst with maximum cooldown refund.", new Color(1.00f, 0.54f, 0.10f, 0.95f));
         AddSpacer(globalCard, 2);
         AddSurgeCardLine(globalCard, "Stack one mod type across multiple towers to push toward that feel.");
+        AddSurgeCardLine(globalCard, "Your build identity reflects which surge style your towers have contributed toward most this cycle.");
     }
     private static string DescribeSingleEffect(string modId) => SpectacleDefinitions.NormalizeModId(modId) switch
     {
-        "momentum"         => "Damage scales with current streak -- longer streak = bigger hit.",
+        "momentum"         => "Damage scales with current streak - longer streak = bigger hit.",
         "overkill"         => "Excess damage overflows into the next enemy.",
         "exploit_weakness" => "All Marked enemies in range detonate simultaneously.",
         "focus_lens"       => "Massive focused shot at the highest-HP target in range.",
@@ -399,12 +401,12 @@ public partial class HowToPlay : Node
         "overreach"        => "Hits the farthest enemy in this tower's extended range.",
         "hair_trigger"     => "Rapid burst fires extra shots at all enemies in range.",
         "split_shot"       => "All nearby enemies take split-shot hits simultaneously.",
-        "feedback_loop"    => "Burst hit, then instant cooldown reset -- tower fires again immediately.",
+        "feedback_loop"    => "Burst hit, then instant cooldown reset - tower fires again immediately.",
         "chain_reaction"   => "Arc bounces from target through nearby enemies.",
         "blast_core"       => "Explosion at target position damages all enemies in the radius.",
         "wildfire"         => "Flame burst hits all enemies in range, leaving ticking fire trails.",
         "afterimage"       => "Ghost imprint replays a delayed weaker echo from the hit position.",
-        "deadzone"         => "Zone collapses on the first enemy to cross -- fires a follow-up, then gone.",
+        "deadzone"         => "Zone collapses on the first enemy to cross - fires a follow-up, then gone.",
         "reaper_protocol"  => "Kills the lowest-HP enemy in range. Grants +1 life.",
         _                  => "Modifier-specific primary surge payload.",
     };
@@ -783,6 +785,5 @@ public partial class HowToPlay : Node
         vbox.AddChild(s);
     }
 }
-
 
 

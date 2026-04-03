@@ -26,7 +26,34 @@ public readonly record struct SpectacleTriggerInfo(
     SpectacleSignature Signature,
     float MeterAfter);
 
-public readonly record struct GlobalSurgeTriggerInfo(float MeterAfter, int UniqueContributors, string EffectId, string EffectName, string[] DominantModIds);
+public readonly record struct SpectacleProcContributionInfo(
+    ITowerView Tower,
+    string ModifierId,
+    float MeterGain,
+    float MeterBefore,
+    float MeterAfter,
+    bool TriggeredSurge);
+
+public readonly record struct TowerGlobalContributionInfo(
+    ITowerView Tower,
+    float AddedAmount,
+    float MeterBefore,
+    float MeterAfter);
+
+public readonly record struct GlobalCycleIdentitySnapshot(
+    int PressureScore,
+    int ChainScore,
+    int DetonationScore,
+    int TotalScore);
+
+public readonly record struct GlobalSurgeTriggerInfo(
+    float MeterAfter,
+    int UniqueContributors,
+    string EffectId,
+    string EffectName,
+    string[] DominantModIds,
+    float StoredOverfill = 0f,
+    bool Overcharged = false);
 
 public sealed class SpectacleSystem
 {
@@ -75,8 +102,11 @@ public sealed class SpectacleSystem
     private readonly HashSet<ITowerView> _globalCycleContributors = new();
     private float _time;
     private float _globalMeter;
+    private float _storedOverfillForPendingGlobal;
 
     public event Action<SpectacleTriggerInfo>? OnSurgeTriggered;
+    public event Action<SpectacleProcContributionInfo>? OnProcMeterContributed;
+    public event Action<TowerGlobalContributionInfo>? OnTowerGlobalContribution;
     public event Action<GlobalSurgeTriggerInfo>? OnGlobalTriggered;
     /// <summary>Fires when the global meter fills and is waiting for player activation. Passes the resolved archetype label.</summary>
     public event Action<string>? OnGlobalSurgeReady;
@@ -110,6 +140,7 @@ public sealed class SpectacleSystem
         _hasPendingGlobalSurge = false;
         IsGlobalSurgeReady = false;
         _globalMeter = info.MeterAfter;
+        _storedOverfillForPendingGlobal = 0f;
         OnGlobalTriggered?.Invoke(info);
     }
 
@@ -119,6 +150,40 @@ public sealed class SpectacleSystem
     /// </summary>
     public string[] PeekDominantMods() => ResolveDominantGlobalMods();
 
+    public GlobalCycleIdentitySnapshot PeekGlobalCycleIdentity()
+    {
+        if (_globalCycleScores.Count == 0)
+            return new GlobalCycleIdentitySnapshot(0, 0, 0, 0);
+
+        int pressure = 0;
+        int chain = 0;
+        int detonation = 0;
+        foreach (var kv in _globalCycleScores)
+        {
+            if (kv.Value <= 0)
+                continue;
+
+            switch (SurgeDifferentiation.ResolveFeelFromMod(kv.Key))
+            {
+                case SurgeDifferentiation.GlobalSurgeFeel.Pressure:
+                    pressure += kv.Value;
+                    break;
+                case SurgeDifferentiation.GlobalSurgeFeel.Detonation:
+                    detonation += kv.Value;
+                    break;
+                default:
+                    chain += kv.Value;
+                    break;
+            }
+        }
+
+        return new GlobalCycleIdentitySnapshot(
+            PressureScore: pressure,
+            ChainScore: chain,
+            DetonationScore: detonation,
+            TotalScore: pressure + chain + detonation);
+    }
+
     public void Reset()
     {
         _towerStates.Clear();
@@ -126,6 +191,10 @@ public sealed class SpectacleSystem
         _globalCycleContributors.Clear();
         _time = 0f;
         _globalMeter = 0f;
+        _storedOverfillForPendingGlobal = 0f;
+        _hasPendingGlobalSurge = false;
+        IsGlobalSurgeReady = false;
+        _pendingGlobalSurge = default;
     }
 
     public void RemoveTower(ITowerView tower)
@@ -241,12 +310,22 @@ public sealed class SpectacleSystem
 
         state.InactivityTime = 0f;
         float surgeThreshold = SpectacleDefinitions.ResolveSurgeThreshold(tower.TowerId);
+        float meterBefore = state.Meter;
         state.Meter = Clamp(state.Meter + gain, 0f, surgeThreshold);
+        float meterAfter = state.Meter;
+        bool meaningfulGain = gain >= Balance.SurgeFeedMinimumGain || (meterAfter - meterBefore) >= Balance.SurgeFeedMinimumGain;
+        OnProcMeterContributed?.Invoke(new SpectacleProcContributionInfo(
+            Tower: tower,
+            ModifierId: modId,
+            MeterGain: gain,
+            MeterBefore: meterBefore,
+            MeterAfter: meterAfter,
+            TriggeredSurge: false));
 
-        TryTriggerEvents(tower, state);
+        TryTriggerEvents(tower, state, meterBefore, meaningfulGain);
     }
 
-    private void TryTriggerEvents(ITowerView tower, TowerState state)
+    private void TryTriggerEvents(ITowerView tower, TowerState state, float meterBefore, bool meaningfulProcGain)
     {
         float surgeThreshold = SpectacleDefinitions.ResolveSurgeThreshold(tower.TowerId);
         float globalThreshold = SpectacleDefinitions.ResolveGlobalThreshold();
@@ -258,7 +337,35 @@ public sealed class SpectacleSystem
             state.Pulse = Max(state.Pulse, 1.0f);
             state.PulseHold = Max(state.PulseHold, 0.42f);
 
-            _globalMeter = Clamp(_globalMeter + SpectacleDefinitions.ResolveGlobalMeterPerSurge(), 0f, globalThreshold);
+            if (meaningfulProcGain)
+            {
+                OnProcMeterContributed?.Invoke(new SpectacleProcContributionInfo(
+                    Tower: tower,
+                    ModifierId: signature.PrimaryModId,
+                    MeterGain: 0f,
+                    MeterBefore: meterBefore,
+                    MeterAfter: state.Meter,
+                    TriggeredSurge: true));
+            }
+
+            float globalBefore = _globalMeter;
+            float globalRawGain = SpectacleDefinitions.ResolveGlobalMeterPerSurge();
+            float unclampedGlobal = globalBefore + globalRawGain;
+            _globalMeter = Clamp(unclampedGlobal, 0f, globalThreshold);
+            float appliedGlobalGain = Max(0f, _globalMeter - globalBefore);
+            if (appliedGlobalGain > 0f)
+            {
+                OnTowerGlobalContribution?.Invoke(new TowerGlobalContributionInfo(
+                    Tower: tower,
+                    AddedAmount: appliedGlobalGain,
+                    MeterBefore: globalBefore,
+                    MeterAfter: _globalMeter));
+            }
+
+            float overfillMargin = Max(1f, globalThreshold * Balance.GlobalSurgeOverfillMarginFraction);
+            float overfillAmount = Max(0f, unclampedGlobal - globalThreshold);
+            if (!IsGlobalSurgeReady && overfillAmount >= overfillMargin)
+                _storedOverfillForPendingGlobal = Max(_storedOverfillForPendingGlobal, overfillAmount);
 
             // Accumulate cycle scores: all equipped mods contribute equally to global feel.
             foreach (string modId in new[] { signature.PrimaryModId, signature.SecondaryModId, signature.TertiaryModId })
@@ -277,13 +384,16 @@ public sealed class SpectacleSystem
                     UniqueContributors: Math.Max(1, _globalCycleContributors.Count),
                     EffectId: "G_SPECTACLE_CATHARSIS",
                     EffectName: "Catastrophe",
-                    DominantModIds: dominantMods);
+                    DominantModIds: dominantMods,
+                    StoredOverfill: _storedOverfillForPendingGlobal,
+                    Overcharged: _storedOverfillForPendingGlobal >= overfillMargin);
                 _hasPendingGlobalSurge = true;
                 IsGlobalSurgeReady = true;
                 OnGlobalSurgeReady?.Invoke(SurgeDifferentiation.ResolveLabel(dominantMods));
                 // Reset cycle state so the next cycle starts fresh.
                 _globalCycleScores.Clear();
                 _globalCycleContributors.Clear();
+                _storedOverfillForPendingGlobal = 0f;
             }
 
             return;

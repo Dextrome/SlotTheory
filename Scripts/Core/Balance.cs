@@ -51,6 +51,8 @@ public static class Balance
     public const float SurgePipGlowRadius = 10.0f;  // outer glow radius
     public const int   SurgePipMaxActive  = 6;      // cap on simultaneous active pips
     public const float SurgePipBarPulse   = 1.28f;  // HUD bar brightness peak on pip arrival
+    public const float SurgeFeedMinimumGain = 0.65f; // ignore tiny proc drips for visual feed spam control
+    public const int   ProcFeedPipMaxActive = 8;     // cap for proc -> tower feed shards
 
     // ── Surge spectacle hierarchy ──────────────────────────────────────────────
     // Tower Surge: contained local burst – fuel generation, NOT the main event.
@@ -89,6 +91,13 @@ public static class Balance
     public const float DetonationSurgeCooldownBonus = 0.12f;// extra cooldown refund (added on top of base)
     public const float DetonationSurgeMarkMult    = 0.75f;  // mark duration multiplier (shorter -- they die fast)
     public const float DetonationSurgeSlowMult    = 0.80f;  // slow duration multiplier
+    public const float GlobalSurgeOverfillMarginFraction = 0.03f; // overfill required to arm catastrophe variant
+    public const float OverfillCatastropheCooldownRefund = 0.10f; // modest extra all-tower cooldown reclaim
+    public const float OverfillCatastropheEchoDamageScale = 0.22f; // delayed extra pulse damage scale
+
+    // Run-level build identity banner stability gates.
+    public const int   BuildIdentityMinCycleScore = 4;      // hide until this many cycle contributions exist
+    public const float BuildIdentityHysteresis = 0.18f;     // challenger must lead by this margin to replace current identity
 
     // ── Tower Surge category-biased presentation ────────────────────────────
     // Spread category: enemy-to-enemy chain arcs, extended links, electric propagation read
@@ -151,6 +160,8 @@ public static class Balance
     public const int DraftTowerOptions = 2;             // when free slots exist
     public const int DraftModifierOptions = 3;          // when free slots exist
     public const int DraftModifierOptionsFull = 4;      // when all slots occupied (< pool size keeps scarcity)
+    public static bool VolatileDraftEnabled = true;
+    public const float VolatileDraftChance = 0.11f;     // chance for one volatile offer to replace a normal card
 
     // Premium card system -- tune here only.
     public const float PremiumCardChance         = 0.10f;  // 10% chance of any premium card per draft

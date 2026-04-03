@@ -13,17 +13,18 @@ namespace SlotTheory.UI;
 public partial class SlotCodexPanel : Node
 {
     public Action? BackOverride { get; set; }
-    public enum CodexStartTab { Towers, Modifiers, Enemies, HowToPlay, Surges, Upgrades }
+    public enum CodexStartTab { Towers, Modifiers, Enemies, HowToPlay, Surges, Upgrades, Mutations }
     public static CodexStartTab? PendingSceneStartTab { get; set; }
     public CodexStartTab StartTab { get; set; } = CodexStartTab.Towers;
 
-    private enum CodexTab { Towers, Mods, Enemies, HowToPlay, Surges, Upgrades }
+    private enum CodexTab { Towers, Mods, Enemies, HowToPlay, Surges, Upgrades, Mutations }
 
     private ScrollContainer _towerScroll = null!;
     private ScrollContainer _modScroll = null!;
     private ScrollContainer _enemyScroll = null!;
     private ScrollContainer _howToScroll = null!;
     private ScrollContainer _surgesScroll = null!;
+    private ScrollContainer _mutationsScroll = null!;
     private GridContainer _towerGrid = null!;
     private GridContainer _modGrid = null!;
     private GridContainer _enemyGrid = null!;
@@ -33,6 +34,7 @@ public partial class SlotCodexPanel : Node
     private Button _howToTabBtn = null!;
     private Button _surgesTabBtn = null!;
     private Button _upgradesTabBtn = null!;
+    private Button _mutationsTabBtn = null!;
     private ScrollContainer _upgradesScroll = null!;
     private PanelContainer _headerPanel = null!;
     private PanelContainer _contentFrame = null!;
@@ -159,13 +161,14 @@ public partial class SlotCodexPanel : Node
 
             tabs = new HBoxContainer();
             tabs.Alignment = BoxContainer.AlignmentMode.Center;
-            tabs.AddThemeConstantOverride("separation", 22);
+            tabs.AddThemeConstantOverride("separation", 12);
             tabCenter.AddChild(tabs);
         }
 
         tabs.AddChild(BuildTabEntry("Towers", () => SetActiveTab(CodexTab.Towers), out _towerTabBtn));
         tabs.AddChild(BuildTabEntry("Modifiers", () => SetActiveTab(CodexTab.Mods), out _modTabBtn));
         tabs.AddChild(BuildTabEntry("Upgrades", () => SetActiveTab(CodexTab.Upgrades), out _upgradesTabBtn));
+        tabs.AddChild(BuildTabEntry("Mutations", () => SetActiveTab(CodexTab.Mutations), out _mutationsTabBtn));
 
         var divider = new Label { Text = "|" };
         divider.AddThemeFontSizeOverride("font_size", MobileOptimization.IsMobile() ? 18 : 20);
@@ -207,6 +210,7 @@ public partial class SlotCodexPanel : Node
         _enemyScroll  = BuildCardScroll(contentHolder, out _enemyGrid);
         _howToScroll  = BuildGuideScroll(contentHolder, out VBoxContainer howToGuide);
         _surgesScroll = BuildGuideScroll(contentHolder, out VBoxContainer surgesGuide);
+        _mutationsScroll = BuildGuideScroll(contentHolder, out VBoxContainer mutationsGuide);
         _upgradesScroll = BuildCardScroll(contentHolder, out GridContainer upgradesGrid);
 
         PopulateTowerCards();
@@ -214,6 +218,7 @@ public partial class SlotCodexPanel : Node
         PopulateEnemyCards();
         HowToPlay.BuildBasicsSection(howToGuide, includeReferenceSections: false);
         HowToPlay.BuildSurgesSection(surgesGuide);
+        BuildMutationsSection(mutationsGuide);
         PopulateUpgradeCards(upgradesGrid);
         SetActiveTab(ResolveStartTab());
         RefreshContentMinHeight(force: true);
@@ -300,7 +305,7 @@ public partial class SlotCodexPanel : Node
 
     private Control BuildTabEntry(string label, Action onPressed, out Button btn)
     {
-        float btnW = MobileOptimization.IsMobile() ? 122f : 174f;
+        float btnW = MobileOptimization.IsMobile() ? 122f : 148f;
         float btnH = MobileOptimization.IsMobile() ? 40f : 42f;
 
         btn = new Button
@@ -874,12 +879,14 @@ public partial class SlotCodexPanel : Node
         _enemyScroll.Visible  = tab == CodexTab.Enemies;
         _howToScroll.Visible  = tab == CodexTab.HowToPlay;
         _surgesScroll.Visible = tab == CodexTab.Surges;
+        _mutationsScroll.Visible = tab == CodexTab.Mutations;
         _upgradesScroll.Visible = tab == CodexTab.Upgrades;
         ApplyTabButtonState(_towerTabBtn, tab == CodexTab.Towers);
         ApplyTabButtonState(_modTabBtn,   tab == CodexTab.Mods);
         ApplyTabButtonState(_enemyTabBtn, tab == CodexTab.Enemies);
         ApplyTabButtonState(_howToTabBtn, tab == CodexTab.HowToPlay);
         ApplyTabButtonState(_surgesTabBtn, tab == CodexTab.Surges);
+        ApplyTabButtonState(_mutationsTabBtn, tab == CodexTab.Mutations);
         ApplyTabButtonState(_upgradesTabBtn, tab == CodexTab.Upgrades);
         RefreshProgressLabel(tab);
         CallDeferred(nameof(UpdateHeaderCapMarker));
@@ -892,6 +899,7 @@ public partial class SlotCodexPanel : Node
         CodexTab.Enemies => _enemyTabBtn,
         CodexTab.HowToPlay => _howToTabBtn,
         CodexTab.Surges => _surgesTabBtn,
+        CodexTab.Mutations => _mutationsTabBtn,
         CodexTab.Upgrades => _upgradesTabBtn,
         _ => _towerTabBtn,
     };
@@ -918,6 +926,7 @@ public partial class SlotCodexPanel : Node
             CodexStartTab.HowToPlay => CodexTab.HowToPlay,
             CodexStartTab.Surges => CodexTab.Surges,
             CodexStartTab.Upgrades => CodexTab.Upgrades,
+            CodexStartTab.Mutations => CodexTab.Mutations,
             _ => CodexTab.Towers,
         };
     }
@@ -985,9 +994,122 @@ public partial class SlotCodexPanel : Node
                 : $"{enemyTotal} enemy types",
             CodexTab.HowToPlay => "Core rules, controls, and build fundamentals.",
             CodexTab.Surges => "Surge category, mod behaviors, and Global Surge reference.",
-            CodexTab.Upgrades => $"{Core.PremiumCardRegistry.GetAll().Count} rare upgrade cards -- appear randomly during drafts.",
+            CodexTab.Mutations => "Mutation cards trade immediate power for visible commitment and risk.",
+            CodexTab.Upgrades => $"{Core.PremiumCardRegistry.GetAll().Count} rare upgrade cards - appear randomly during drafts.",
             _ => ""
         };
+    }
+
+    private static void BuildMutationsSection(VBoxContainer guide)
+    {
+        var introCard = AddGuideCard(guide, "CARD MUTATIONS", new Color(0.96f, 0.56f, 0.24f, 0.95f));
+        AddGuideLine(introCard, "Mutations are special draft cards with a bigger upside and a visible tradeoff.");
+        AddGuideLine(introCard, "They are rare by design and appear as a single volatile option in eligible drafts.");
+        AddGuideLine(introCard, "Each mutation pushes your build identity toward a clear surge style.");
+        AddGuideSpacer(guide, 10);
+
+        var cursedCard = AddGuideCard(guide, "CURSED CARDS", new Color(0.90f, 0.40f, 0.30f, 0.94f));
+        AddGuideLine(cursedCard, "Cursed cards are mutation cards: stronger now, narrower later.");
+        AddGuideLine(cursedCard, "Current cursed content is delivered through VOLATILE offers.");
+        AddGuideLine(cursedCard, "Read both lines before picking: upside first, commitment second.");
+        AddGuideSpacer(guide, 10);
+
+        var listCard = AddGuideCard(guide, "CURRENT MUTATIONS", new Color(0.70f, 0.86f, 0.20f, 0.94f));
+        foreach (VolatileDraftDef def in VolatileDraftRegistry.GetDefinitions())
+        {
+            string source = def.OptionType == DraftOptionType.Tower ? "Tower offer" : "Modifier offer";
+            AddGuideChipLine(listCard, def.Name, $"{source} | {def.IdentityTag}", new Color(0.95f, 0.78f, 0.42f, 0.95f));
+            AddGuideLine(listCard, $"Upside: {def.UpsideText}");
+            AddGuideLine(listCard, $"Tradeoff: {def.TradeoffText}");
+            AddGuideSpacer(listCard, 4);
+        }
+    }
+
+    private static VBoxContainer AddGuideCard(VBoxContainer parent, string title, Color accent)
+    {
+        var panel = new PanelContainer
+        {
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        panel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.06f, 0.07f, 0.16f, 0.96f),
+            border: new Color(accent.R, accent.G, accent.B, 0.78f),
+            corners: 10,
+            borderWidth: 2,
+            padH: 12,
+            padV: 10));
+        UITheme.AddTopAccent(panel, new Color(accent.R, accent.G, accent.B, 0.72f));
+        parent.AddChild(panel);
+
+        var body = new VBoxContainer();
+        body.AddThemeConstantOverride("separation", 6);
+        panel.AddChild(body);
+
+        var titleLabel = new Label { Text = title };
+        UITheme.ApplyFont(titleLabel, semiBold: true, size: MobileOptimization.IsMobile() ? 15 : 17);
+        titleLabel.Modulate = accent;
+        body.AddChild(titleLabel);
+        return body;
+    }
+
+    private static void AddGuideLine(VBoxContainer body, string text)
+    {
+        var line = new Label
+        {
+            Text = text,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        };
+        UITheme.ApplyFont(line, size: MobileOptimization.IsMobile() ? 13 : 14);
+        line.Modulate = new Color(0.82f, 0.86f, 0.93f);
+        body.AddChild(line);
+    }
+
+    private static void AddGuideChipLine(VBoxContainer body, string chipText, string description, Color chipColor)
+    {
+        var row = new HBoxContainer();
+        row.AddThemeConstantOverride("separation", 8);
+        body.AddChild(row);
+
+        var chip = new PanelContainer
+        {
+            CustomMinimumSize = new Vector2(MobileOptimization.IsMobile() ? 126f : 152f, 24f),
+            SizeFlagsHorizontal = Control.SizeFlags.ShrinkBegin,
+        };
+        chip.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+            bg: new Color(0.10f, 0.11f, 0.20f, 0.96f),
+            border: new Color(chipColor.R, chipColor.G, chipColor.B, 0.92f),
+            corners: 7,
+            borderWidth: 1,
+            padH: 8,
+            padV: 3));
+        row.AddChild(chip);
+
+        var chipLbl = new Label
+        {
+            Text = chipText,
+            HorizontalAlignment = HorizontalAlignment.Center,
+            VerticalAlignment = VerticalAlignment.Center,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        };
+        UITheme.ApplyFont(chipLbl, semiBold: true, size: MobileOptimization.IsMobile() ? 11 : 12);
+        chipLbl.Modulate = chipColor;
+        chip.AddChild(chipLbl);
+
+        var desc = new Label
+        {
+            Text = description,
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+            SizeFlagsHorizontal = Control.SizeFlags.ExpandFill,
+        };
+        UITheme.ApplyFont(desc, size: MobileOptimization.IsMobile() ? 13 : 14);
+        desc.Modulate = new Color(0.78f, 0.83f, 0.90f);
+        row.AddChild(desc);
+    }
+
+    private static void AddGuideSpacer(VBoxContainer vbox, int px)
+    {
+        var spacer = new Control { CustomMinimumSize = new Vector2(0f, px) };
+        vbox.AddChild(spacer);
     }
 
     private static Control BuildFullGameCard(string note)
@@ -1720,4 +1842,3 @@ public sealed partial class StatIconNode : Control
         DrawLine(new Vector2(10f, 7f), new Vector2(13.2f, 7f), c, 1.2f);
     }
 }
-

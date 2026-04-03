@@ -306,6 +306,7 @@ All modifier effects stack additively within their category (no multiplicative e
 
 - If fewer than 2 applicable modifiers exist (no tower can accept one), tower cards backfill the gap
 - Constant: `Balance.DraftModifierOptionsFull = 4`
+- Optional volatile-draft layer (`Balance.VolatileDraftEnabled`): low-frequency replacement of exactly one normal tower/modifier card with a flagged volatile variant (never in tutorial runs), with data-driven upside/tradeoff metadata from `VolatileDraftRegistry`.
 - Bonus extra picks: `Balance.Wave1ExtraPicks` and `Balance.Wave15ExtraPicks` (both currently 0)
 
 ### Anti-Brick Rules
@@ -313,6 +314,13 @@ All modifier effects stack additively within their category (no multiplicative e
 `DraftSystem` enforces: a modifier card is never offered if no placed tower can still accept it (tower at modifier cap, or modifier already equipped on the only eligible tower). Swap for an applicable card instead.
 
 Coverage: `DraftAntiBrickTests.cs` (critical -- a mismapped modifier can silently brick future drafts).
+
+### Volatile Draft Offers (Low-Risk Layer)
+
+- Volatile card injection is **replacement-only** (no extra card count, no bypass of anti-brick selection).
+- At most one volatile card can appear in a draft.
+- Volatile cards are presentation-distinct in DraftPanel and carry explicit commitment text (upside + tradeoff).
+- Current seeded examples (first pass): Deadeye Oath, Storm Lattice, Cryo Lock, Siege Protocol, Phase Net.
 
 ### Unlockable Gating in Draft
 
@@ -538,6 +546,7 @@ Every tower surge contributes to a shared global meter:
 - Broad tower payload application + cooldown reclaim
 - Synchronized per-tower accent bursts
 - Screen treatment, vignette, and impact audio
+- Overfill catastrophe variant: meaningful pre-arm overfill marks the pending global surge as overcharged and adds a small activation bonus (extra cooldown reclaim + delayed echo pulse)
 
 ### Surge Differentiation System
 
@@ -553,6 +562,11 @@ Falls back to **CHAIN SURGE** if no dominant modifier detected.
 
 ### Surge UX Details
 
+- **Proc causality feed:** supported proc gains can emit compact feed shards from source action -> tower meter read; tower surges emit tower -> global meter feed.
+- **Reduced-motion fallback:** feed travel paths are replaced by short source/destination pulses; no long travel tween required.
+- **Global chunk readability:** every tower->global gain triggers a HUD chunk pulse and temporary gain ghost overlay.
+- **First-surge assist:** once per run (non-bot), first tower surge gets subtle hit-stop plus concise context line.
+- **One-time onboarding tips:** non-modal once/run tips for first proc-fed surge gain, first tower surge, and first global-ready meter click prompt.
 - **Feel preview:** global meter label transitions to predicted surge type at >=70% fill
 - **Feel types:** Detonation = sharp flash + snap pulse (pitch 1.14x); Pressure = softer sustained flash (pitch 0.88x); Chain = balanced (pitch 1.0x)
 - **Multi-color ripples:** up to 3-4 ripple rings reflecting top contributing modifiers; width and speed vary by feel
@@ -561,6 +575,7 @@ Falls back to **CHAIN SURGE** if no dominant modifier detected.
 - **Sustained feel tint:** low-alpha full-screen color wash lingers ~2.4 s post-global-surge (blue/purple/orange per feel)
 - **SURGE xN chain counter:** gold callout accumulates at screen center when surges chain within the contribution window
 - **Per-tower afterglow:** each contributing tower holds a 2.4 s accent-colored modulate fade
+- **Run build identity tag:** compact stable banner (PRESSURE / CHAIN / DETONATION) derived from surge contribution trend with hysteresis to avoid flicker
 
 ---
 
@@ -693,6 +708,8 @@ MapEditor.tscn
 - Wave number, lives counter, speed toggle (1x/2x/3x)
 - Global surge meter bar with archetype label (transitions to predicted name at >=70% fill)
 - Screen-edge vignette at high global meter fill
+- Global gain ghost/chunk pulse feedback when tower surges add meter
+- Compact build-identity tag (UNFORMED -> PRESSURE/CHAIN/DETONATION) with stable hysteresis updates
 
 ### Tower Tooltips
 
@@ -759,7 +776,7 @@ Output goes to stdout. Log also written to `C:/Users/kenny/AppData/Roaming/Godot
 - Spectacle gameplay payloads are applied (matching live logic for balance accuracy)
 - Range checks fully enforced (`ignoreRange: false`)
 
-### Bot Strategies (12)
+### Bot Strategies (11)
 
 Cycle round-robin across runs:
 
@@ -773,12 +790,11 @@ Cycle round-robin across runs:
 | `SplitFocus` | Split Shot stacking |
 | `HeavyStack` | Heavy Cannon with Focus Lens |
 | `RiftPrismFocus` | Rift Sapper mine coverage |
-| `SpectacleSingleStack` | Single modifier stacked 3x for surge identity |
 | `AccordionEngine` | Accordion Engine + compression synergies |
-| `PlayerStyleKenny` | Mimics observed human play patterns |
+| `PlayerStyle2` | Human-like mixed play profile used for ceiling testing |
 | `HeavyOverkill` | Heavy Cannon priority + max 1 Overkill + 1 Feedback Loop per tower, then Hair Trigger/Focus Lens/Chain Reaction/Split Shot finisher |
 
-**Strategy sets:** `--strategy_set all` (default, all 12), `optimization` (4 win-rate focused), `edge` (3 edge-case), `spectacle` (2 chain/overkill focused), `top3` (GreedyDps + PlayerStyleKenny + RiftPrismFocus -- ceiling testing).
+**Strategy sets:** `--strategy_set all` (default, all 11), `optimization` (3 win-rate focused: GreedyDps + MarkerSynergy + PlayerStyle2), `edge` (3 edge-case: TowerFirst + ChainFocus + HeavyStack), `spectacle` (1 chain/overkill-focused: ChainFocus), `top3` (GreedyDps + PlayerStyle2 + RiftPrismFocus -- ceiling testing).
 
 **Demo simulation:** `--demo` flag zeroes Shield Drone and Reverse Walker counts via `Balance.SetDemoOverride(true)`.
 
@@ -907,10 +923,10 @@ Layout quality gate (`IsLayoutValid`): retries up to 20x with salted seeds. Reje
 
 ### Unit Tests
 
-`SlotTheory.Tests` (xUnit, 523 tests as of current build). All pure-logic tests; no Godot engine initialization required.
+`SlotTheory.Tests` (xUnit, 605 tests as of current build). All pure-logic tests; no Godot engine initialization required.
 
 Key test suites:
-- `ModifierTests.cs` -- all 11 modifiers
+- `ModifierTests.cs` -- coverage for the full 15-modifier roster (including full-game-only modifiers)
 - `AccordionEngineTests.cs` -- formation compression math + isChain differentiation
 - `ShieldDroneTests.cs` -- damage reduction and HP scaling
 - `DamageModelStatusTests.cs` -- Marked and DamageAmp interactions
@@ -924,7 +940,7 @@ Key test suites:
 ## 19. Platform & Build
 
 **Engine:** Godot 4.6.1 .NET (mono build required for C# support)
-**Runtime:** .NET 8 (target `net8.0`; .NET 10 installed and compatible)
+**Runtime:** .NET 8 by default (`net8.0`), Android export target `net9.0`
 **Platform target:** Windows (Steam), Android (phone and tablet)
 
 ### Build

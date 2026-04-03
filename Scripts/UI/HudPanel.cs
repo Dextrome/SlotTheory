@@ -27,9 +27,14 @@ public partial class HudPanel : CanvasLayer
 	private ColorRect _speedToastStreak = null!;
 	private Panel _globalSpectaclePanel = null!;
 	private ColorRect[] _surgePips = System.Array.Empty<ColorRect>();
+	private ColorRect _surgeGainGhost = null!;
 	private Label _surgeNameLabel = null!;  // shows "GLOBAL SURGE" normally, dominant label when building
+	private Panel _buildIdentityPanel = null!;
+	private Label _buildIdentityLabel = null!;
+	private string _lastIdentityLabel = "";
 	private Label _surgeMeterHint = null!;
 	private Tween? _surgeMeterPulseTween;
+	private Tween? _surgeGainGhostTween;
 	private PanelContainer _teachingHintPanel = null!;
 	private Label _teachingHintLabel = null!;
 	private Line2D _teachingHintConnector = null!;
@@ -1015,6 +1020,69 @@ public partial class HudPanel : CanvasLayer
 		_surgeMeterPulseTween.TweenCallback(Callable.From(() => _surgeMeterPulseTween = null));
 	}
 
+	public void FlashGlobalContributionChunk(float meterBefore, float meterAfter, float threshold)
+	{
+		if (!GodotObject.IsInstanceValid(_globalSpectaclePanel) || !GodotObject.IsInstanceValid(_surgeGainGhost))
+			return;
+		if (threshold <= 0.001f || meterAfter <= meterBefore)
+			return;
+
+		float fillBefore = Mathf.Clamp(meterBefore / threshold, 0f, 1f);
+		float fillAfter = Mathf.Clamp(meterAfter / threshold, 0f, 1f);
+		float gainFill = Mathf.Max(0f, fillAfter - fillBefore);
+		if (gainFill <= 0.0005f)
+			return;
+
+		_surgeGainGhost.AnchorLeft = fillBefore;
+		_surgeGainGhost.AnchorRight = Mathf.Clamp(fillBefore + gainFill, 0f, 1f);
+		_surgeGainGhost.Visible = true;
+		_surgeGainGhost.Color = new Color(1.00f, 0.94f, 0.64f, 0.78f);
+		if (_surgeGainGhostTween != null && GodotObject.IsInstanceValid(_surgeGainGhostTween))
+			_surgeGainGhostTween.Kill();
+		_surgeGainGhostTween = CreateTween();
+		_surgeGainGhostTween.SetIgnoreTimeScale(true);
+		_surgeGainGhostTween.TweenProperty(_surgeGainGhost, "color:a", 0f, 0.26f)
+			.SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+		_surgeGainGhostTween.TweenCallback(Callable.From(() =>
+		{
+			_surgeGainGhost.Visible = false;
+			_surgeGainGhostTween = null;
+		}));
+		PulseGlobalSurgeMeter(Mathf.Lerp(0.9f, 1.25f, gainFill * 4f));
+	}
+
+	public void SetRunBuildIdentity(string label, bool formed, Color accent)
+	{
+		if (!GodotObject.IsInstanceValid(_buildIdentityPanel) || !GodotObject.IsInstanceValid(_buildIdentityLabel))
+			return;
+
+		string resolved = formed ? label : "UNFORMED";
+		_buildIdentityPanel.Visible = true;
+		_buildIdentityLabel.Text = $"BUILD: {resolved}";
+		_buildIdentityLabel.Modulate = formed
+			? new Color(accent.R, accent.G, accent.B, 0.96f)
+			: new Color(0.78f, 0.86f, 0.94f, 0.88f);
+
+		_buildIdentityPanel.AddThemeStyleboxOverride("panel", UITheme.MakePanel(
+			bg: formed ? new Color(0.08f, 0.09f, 0.12f, 0.90f) : new Color(0.06f, 0.08f, 0.11f, 0.82f),
+			border: formed ? new Color(accent.R, accent.G, accent.B, 0.95f) : new Color(0.52f, 0.66f, 0.80f, 0.55f),
+			corners: 7,
+			borderWidth: 2,
+			padH: 7,
+			padV: 3));
+
+		bool changed = !string.Equals(_lastIdentityLabel, resolved, StringComparison.Ordinal);
+		_lastIdentityLabel = resolved;
+		if (!changed || !formed)
+			return;
+
+		var tw = CreateTween();
+		tw.SetIgnoreTimeScale(true);
+		_buildIdentityPanel.Scale = new Vector2(1.04f, 1.04f);
+		tw.TweenProperty(_buildIdentityPanel, "scale", Vector2.One, 0.15f)
+			.SetTrans(Tween.TransitionType.Sine).SetEase(Tween.EaseType.Out);
+	}
+
 	public void RefreshGlobalSurgeMeter(float meter, float threshold, bool visible,
 		string surgePreview = "", float previewAlpha = 0f)
 	{
@@ -1857,6 +1925,33 @@ public partial class HudPanel : CanvasLayer
 				padV: 4));
 		AddChild(_globalSpectaclePanel);
 
+		_buildIdentityPanel = new Panel
+		{
+			AnchorLeft = 0.5f,
+			AnchorRight = 0.5f,
+			AnchorTop = 1f,
+			AnchorBottom = 1f,
+			OffsetLeft = -210f,
+			OffsetRight = -30f,
+			OffsetTop = -58f,
+			OffsetBottom = -40f,
+			Visible = false,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		AddChild(_buildIdentityPanel);
+
+		_buildIdentityLabel = new Label
+		{
+			Text = "BUILD: UNFORMED",
+			HorizontalAlignment = HorizontalAlignment.Left,
+			VerticalAlignment = VerticalAlignment.Center,
+			AutowrapMode = TextServer.AutowrapMode.Off,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		UITheme.ApplyFont(_buildIdentityLabel, semiBold: true, size: 11);
+		_buildIdentityPanel.AddChild(_buildIdentityLabel);
+		SetRunBuildIdentity("UNFORMED", formed: false, accent: UITheme.Cyan);
+
 		// Horizontal layout: [label] [pips] - with explicit margins so content clears the border.
 		var row = new HBoxContainer
 		{
@@ -1914,6 +2009,20 @@ public partial class HudPanel : CanvasLayer
 			_surgePips[i] = pip;
 			pipsRow.AddChild(pip);
 		}
+
+		_surgeGainGhost = new ColorRect
+		{
+			AnchorLeft = 0f,
+			AnchorRight = 0f,
+			AnchorTop = 0f,
+			AnchorBottom = 1f,
+			OffsetTop = 0f,
+			OffsetBottom = 0f,
+			Color = new Color(1.00f, 0.94f, 0.64f, 0f),
+			Visible = false,
+			MouseFilter = Control.MouseFilterEnum.Ignore,
+		};
+		pipsRow.AddChild(_surgeGainGhost);
 
 		_surgeMeterHint = new Label
 		{

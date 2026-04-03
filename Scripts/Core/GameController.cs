@@ -152,6 +152,16 @@ public partial class GameController : Node
 	private readonly HashSet<ITowerView> _comboTowersSeenThisRun = new();
 	private readonly SurgeHintRuntimeState _surgeHintRuntime = new();
 	private readonly Dictionary<ITowerView, float> _surgeHintLastMeterByTower = new();
+	private string _runBuildIdentity = "UNFORMED";
+	private bool _runBuildIdentityFormed = false;
+	private bool _firstTowerSurgeAssistShown = false;
+	private bool _tipSeenProcFeed = false;
+	private bool _tipSeenTowerSurge = false;
+	private bool _tipSeenGlobalReady = false;
+	private int _runIdentityPressureScore = 0;
+	private int _runIdentityChainScore = 0;
+	private int _runIdentityDetonationScore = 0;
+	private int _activeProcFeedPips = 0;
 	private bool _globalReadyWindowOpen = false;
 	private float _globalReadySincePlayTime = 0f;
 	private ulong _globalActivateHintToken = 0;
@@ -583,6 +593,7 @@ public partial class GameController : Node
 		
 		// Tutorial run: override map selection and force Easy difficulty
 		bool isTutorialRun = SettingsManager.Instance?.PendingTutorialRun ?? false;
+		_runState.IsTutorialRun = isTutorialRun;
 		if (isTutorialRun && SettingsManager.Instance != null)
 		{
 			SettingsManager.Instance.PendingTutorialRun = false;
@@ -628,9 +639,13 @@ public partial class GameController : Node
 		_combatSim.BotMode = _botRunner != null;
 		_spectacleSystem.Reset();
 		_spectacleSystem.OnSurgeTriggered   -= OnSpectacleSurgeTriggered;
+		_spectacleSystem.OnProcMeterContributed -= OnSpectacleProcMeterContributed;
+		_spectacleSystem.OnTowerGlobalContribution -= OnTowerGlobalContribution;
 		_spectacleSystem.OnGlobalTriggered  -= OnGlobalSurgeTriggered;
 		_spectacleSystem.OnGlobalSurgeReady -= OnGlobalSurgeReadyHandler;
 		_spectacleSystem.OnSurgeTriggered   += OnSpectacleSurgeTriggered;
+		_spectacleSystem.OnProcMeterContributed += OnSpectacleProcMeterContributed;
+		_spectacleSystem.OnTowerGlobalContribution += OnTowerGlobalContribution;
 		_spectacleSystem.OnGlobalTriggered  += OnGlobalSurgeTriggered;
 		_spectacleSystem.OnGlobalSurgeReady += OnGlobalSurgeReadyHandler;
 		_screenshotPipeline?.Initialize(_runState, _screenshotOutputDir, 0);
@@ -1225,7 +1240,9 @@ public partial class GameController : Node
 			_currentDraftOptions = snapshot.DraftOptions
 				.Select(o => new DraftOption(
 					o.Type == "tower" ? DraftOptionType.Tower : o.Type == "premium" ? DraftOptionType.Premium : DraftOptionType.Modifier,
-					o.Id))
+					o.Id,
+					o.IsVolatile,
+					o.VolatileRuleId))
 				.ToList();
 		}
 
@@ -1568,6 +1585,16 @@ public partial class GameController : Node
 		_comboTowersSeenThisRun.Clear();
 		_surgeHintRuntime.Reset();
 		_surgeHintLastMeterByTower.Clear();
+		_runBuildIdentity = "UNFORMED";
+		_runBuildIdentityFormed = false;
+		_firstTowerSurgeAssistShown = false;
+		_tipSeenProcFeed = false;
+		_tipSeenTowerSurge = false;
+		_tipSeenGlobalReady = false;
+		_runIdentityPressureScore = 0;
+		_runIdentityChainScore = 0;
+		_runIdentityDetonationScore = 0;
+		_activeProcFeedPips = 0;
 		_globalReadyWindowOpen = false;
 		_globalReadySincePlayTime = 0f;
 		_globalActivateHintToken++;
@@ -1586,6 +1613,7 @@ public partial class GameController : Node
 		_hudPanel.SetGlobalSurgeReady(false);
 		_hudPanel.SetPersistentSurgeHint(null);
 		_hudPanel.SetNonCriticalHintSuppressed(false);
+		_hudPanel.SetRunBuildIdentity("UNFORMED", formed: false, accent: new Color(0.62f, 0.86f, 1.00f));
 
 			// In bot/auto-draft mode re-apply the pending map since _Ready() only runs once.
 			if (_botRunner != null || _autoDraftMode)
@@ -1811,12 +1839,71 @@ public partial class GameController : Node
 			return;
 		}
 
+		ApplyVolatileCommitmentIfNeeded(option);
+
 		_currentDraftOptions = null; // generate fresh options for the next pick once a pick is applied
 		AchievementManager.Instance?.CheckDraftMilestones(_runState);
 		AdvanceAfterDraftPickFlow();
 	}
 
 	// ── Premium Card application ──────────────────────────────────────────────
+
+	private void ApplyVolatileCommitmentIfNeeded(DraftOption option)
+	{
+		if (_runState == null || !option.IsVolatile)
+			return;
+		if (!VolatileDraftRegistry.TryGetForOption(option, out var def))
+			return;
+
+		_runState.PickedVolatileCards.Add(def.Id);
+		if (def.FlatDamageDelta != 0)
+		{
+			_runState.BonusDamage += def.FlatDamageDelta;
+			foreach (var slot in _runState.Slots)
+			{
+				if (slot.Tower != null)
+					slot.Tower.BaseDamage += def.FlatDamageDelta;
+			}
+		}
+
+		if (Mathf.Abs(def.AttackIntervalMultiplier - 1f) > 0.0001f)
+		{
+			_runState.AttackIntervalMultiplier *= def.AttackIntervalMultiplier;
+			foreach (var slot in _runState.Slots)
+			{
+				if (slot.Tower != null)
+					slot.Tower.AttackInterval *= def.AttackIntervalMultiplier;
+			}
+		}
+
+		if (Mathf.Abs(def.RangeBonus) > 0.001f)
+		{
+			_runState.TowerRangeBonus += def.RangeBonus;
+			foreach (var slot in _runState.Slots)
+			{
+				if (slot.Tower == null)
+					continue;
+				slot.Tower.Range = Mathf.Max(20f, slot.Tower.Range + def.RangeBonus);
+			}
+		}
+
+		if (Mathf.Abs(def.ChainRangeBonus) > 0.001f)
+		{
+			_runState.ChainRangeBonus += def.ChainRangeBonus;
+			foreach (var slot in _runState.Slots)
+			{
+				if (slot.Tower == null)
+					continue;
+				slot.Tower.ChainRange = Mathf.Max(40f, slot.Tower.ChainRange + def.ChainRangeBonus);
+			}
+		}
+
+		if (Mathf.Abs(def.SlowDurationMultiplier - 1f) > 0.0001f)
+			_runState.SlowDurationMultiplier *= def.SlowDurationMultiplier;
+
+		if (_botRunner == null)
+			_hudPanel.ShowSurgeMicroHint($"{def.Name}: {def.UpsideText}", holdSeconds: 2.0f);
+	}
 
 	private void ApplyPremiumCard(string cardId, int targetSlotIndex)
 	{
@@ -4853,6 +4940,159 @@ void fragment() {
 
 	// ── end surge differentiation helpers ──────────────────────────────────────
 
+	private void OnSpectacleProcMeterContributed(SpectacleProcContributionInfo info)
+	{
+		if (CurrentPhase != GamePhase.Wave || _botRunner != null)
+			return;
+		if (info.Tower is not TowerInstance tower || !GodotObject.IsInstanceValid(tower))
+			return;
+		if (!info.TriggeredSurge && info.MeterGain < Balance.SurgeFeedMinimumGain)
+			return;
+
+		Color accent = ResolveSpectacleColor(info.ModifierId);
+		bool reducedMotion = SettingsManager.Instance?.ReducedMotion == true;
+		Vector2 towerMeterAnchor = tower.GlobalPosition + new Vector2(0f, -32f);
+		if (reducedMotion)
+		{
+			tower.FlashSpectacle(accent, major: false);
+			EmitSignatureRing(tower.GlobalPosition, accent, endRadius: 22f, duration: 0.18f, ringWidth: 2.2f);
+			EmitSignatureRing(towerMeterAnchor, accent, endRadius: 15f, duration: 0.16f, ringWidth: 2f);
+		}
+		else if (_activeProcFeedPips < Balance.ProcFeedPipMaxActive && GodotObject.IsInstanceValid(_pipLayer))
+		{
+			_activeProcFeedPips++;
+			SpawnSurgePip(
+				worldPos: tower.GlobalPosition + new Vector2(0f, -8f),
+				accent: accent,
+				explicitScreenTarget: WorldToScreen(towerMeterAnchor),
+				glyph: SurgePip.SurgePipGlyph.Diamond,
+				coreScale: 0.76f,
+				glowScale: 0.84f,
+				lingerSec: 0.06f,
+				travelSec: 0.20f,
+				arcHeight: 20f,
+				onArrival: () =>
+				{
+					_activeProcFeedPips = Mathf.Max(0, _activeProcFeedPips - 1);
+					if (GodotObject.IsInstanceValid(tower))
+						tower.TriggerTeachingHighlight(0.18f);
+				},
+				allowWhenGlobalReady: true);
+		}
+
+		if (!_tipSeenProcFeed && _tutorialManager == null)
+		{
+			_tipSeenProcFeed = true;
+			_hudPanel.ShowSurgeMicroHint("Modifiers can power Surges.", holdSeconds: 2.2f);
+		}
+	}
+
+	private void OnTowerGlobalContribution(TowerGlobalContributionInfo info)
+	{
+		if (CurrentPhase != GamePhase.Wave || _botRunner != null)
+			return;
+
+		float threshold = SpectacleDefinitions.ResolveGlobalThreshold();
+		_hudPanel.FlashGlobalContributionChunk(info.MeterBefore, info.MeterAfter, threshold);
+		if (info.Tower is not TowerInstance tower || !GodotObject.IsInstanceValid(tower))
+			return;
+
+		Color accent = ResolveSpectacleColor(_spectacleSystem.PreviewSignature(tower).PrimaryModId);
+		if (SettingsManager.Instance?.ReducedMotion == true)
+		{
+			tower.FlashSpectacle(accent, major: false);
+			_hudPanel.PulseGlobalSurgeMeter(1.1f);
+			return;
+		}
+
+		SpawnSurgePip(
+			worldPos: tower.GlobalPosition,
+			accent: accent,
+			glyph: SurgePip.SurgePipGlyph.Square,
+			coreScale: 1.10f,
+			glowScale: 1.08f);
+	}
+
+	private void AccumulateRunIdentityFromSurge(SpectacleSignature signature)
+	{
+		foreach (string modId in new[] { signature.PrimaryModId, signature.SecondaryModId, signature.TertiaryModId })
+		{
+			if (string.IsNullOrWhiteSpace(modId))
+				continue;
+
+			switch (SurgeDifferentiation.ResolveFeelFromMod(modId))
+			{
+				case SurgeDifferentiation.GlobalSurgeFeel.Pressure:
+					_runIdentityPressureScore++;
+					break;
+				case SurgeDifferentiation.GlobalSurgeFeel.Detonation:
+					_runIdentityDetonationScore++;
+					break;
+				default:
+					_runIdentityChainScore++;
+					break;
+			}
+		}
+		UpdateRunBuildIdentityHud();
+	}
+
+	private void UpdateRunBuildIdentityHud()
+	{
+		if (!GodotObject.IsInstanceValid(_hudPanel))
+			return;
+
+		int total = _runIdentityPressureScore + _runIdentityChainScore + _runIdentityDetonationScore;
+		if (total < Balance.BuildIdentityMinCycleScore)
+		{
+			_runBuildIdentityFormed = false;
+			_runBuildIdentity = "UNFORMED";
+			_hudPanel.SetRunBuildIdentity("UNFORMED", formed: false, accent: new Color(0.62f, 0.86f, 1.00f));
+			return;
+		}
+
+		(string label, int score, Color accent)[] ranking =
+		{
+			("PRESSURE", _runIdentityPressureScore, new Color(0.30f, 0.86f, 1.00f)),
+			("CHAIN", _runIdentityChainScore, new Color(0.78f, 0.58f, 1.00f)),
+			("DETONATION", _runIdentityDetonationScore, new Color(1.00f, 0.60f, 0.24f)),
+		};
+		var ordered = ranking.OrderByDescending(x => x.score).ToArray();
+		var best = ordered[0];
+		var second = ordered[1];
+
+		if (!_runBuildIdentityFormed)
+		{
+			float lead = (best.score - second.score) / Mathf.Max(1f, total);
+			if (lead >= Balance.BuildIdentityHysteresis * 0.5f || best.score >= second.score + 2)
+			{
+				_runBuildIdentityFormed = true;
+				_runBuildIdentity = best.label;
+			}
+			else
+			{
+				_runBuildIdentity = "UNFORMED";
+			}
+		}
+		else if (!string.Equals(_runBuildIdentity, best.label, System.StringComparison.Ordinal))
+		{
+			float lead = (best.score - second.score) / Mathf.Max(1f, total);
+			if (lead >= Balance.BuildIdentityHysteresis)
+				_runBuildIdentity = best.label;
+		}
+
+		if (!_runBuildIdentityFormed || string.Equals(_runBuildIdentity, "UNFORMED", System.StringComparison.Ordinal))
+		{
+			_hudPanel.SetRunBuildIdentity("UNFORMED", formed: false, accent: new Color(0.62f, 0.86f, 1.00f));
+			return;
+		}
+
+		var active = ranking.FirstOrDefault(x => x.label == _runBuildIdentity);
+		Color accent = string.IsNullOrWhiteSpace(active.label)
+			? new Color(0.62f, 0.86f, 1.00f)
+			: active.accent;
+		_hudPanel.SetRunBuildIdentity(_runBuildIdentity, formed: true, accent: accent);
+	}
+
 	private void OnSpectacleSurgeTriggered(SpectacleTriggerInfo info)
 	{
 		if (CurrentPhase != GamePhase.Wave)
@@ -4876,6 +5116,8 @@ void fragment() {
 		}
 		if (_runState != null)
 			_runState.TrackSpectacleSurge(info.Signature.EffectId, info.Tower?.TowerId, _runState.TotalPlayTime);
+		if (_botRunner == null)
+			AccumulateRunIdentityFromSurge(info.Signature);
 		ComboExplosionSkin comboSkin = ResolveComboExplosionSkin(info.Signature);
 		string traceId = NextSurgeTraceId(global: false);
 		_botLastTraceTriggerId = traceId;
@@ -4903,6 +5145,16 @@ void fragment() {
 		ITowerView? sourceTower = info.Tower;
 		if (sourceTower == null)
 			return;
+		if (!_firstTowerSurgeAssistShown && _botRunner == null)
+		{
+			_firstTowerSurgeAssistShown = true;
+			TriggerHitStop(realDuration: 0.045f, slowScale: 0.62f);
+			if (!_tipSeenTowerSurge && _tutorialManager == null)
+			{
+				_tipSeenTowerSurge = true;
+				_hudPanel.ShowSurgeMicroHint("Surges build from modifier procs.", holdSeconds: 2.0f);
+			}
+		}
 		if (_botRunner == null)
 		{
 			TryShowSurgeMicroHint(
@@ -4947,7 +5199,6 @@ void fragment() {
 		// ── Universal substrate: UI, identity FX, and mod payload (all categories) ──────────
 		// These fire regardless of category. They represent the surge's presence and
 		// mod-driven identity, not its dominant gameplay mechanic.
-		SpawnSurgePip(sourceTower.GlobalPosition, accent);
 		SpawnComboExplosionSkinFx(sourceTower, info.Signature, accent, comboSkin);
 		ApplySpectacleGameplayPayload(info, isMajor: true);
 		string surgeSoundId = surgeCategory switch
@@ -4981,6 +5232,9 @@ void fragment() {
 			drift: false,
 			holdPortion: surgeCalloutHoldPortion,
 			sizeOverride: 19);
+		PulseTowerLoadoutIndicators(sourceTower, duration: 0.32f);
+		// Keep in-world surge text concise: category callout only.
+		// Combo/triad identity stays available in tooltip/readouts instead of adding a second combat label.
 
 		ExplosionHitStopProfile hitStop = SpectacleExplosionCore.ResolveExplosionHitStopProfile(
 			majorExplosion: true,
@@ -5056,6 +5310,11 @@ void fragment() {
 		_hudPanel.SetGlobalSurgeReady(true, surgeLabel);
 		if (_tutorialManager == null)
 			_hudPanel.SetPersistentSurgeHint("Global Surge ready: click this bar");
+		if (!_tipSeenGlobalReady && _tutorialManager == null)
+		{
+			_tipSeenGlobalReady = true;
+			_hudPanel.ShowSurgeMicroHint("Global Surge is ready - click the meter.", holdSeconds: 2.6f);
+		}
 		TryShowSurgeMicroHint(
 			SurgeHintId.GlobalActivate,
 			"Global Surge ready: click this bar",
@@ -5285,10 +5544,14 @@ void fragment() {
 		// Resolve feel early so both bot and visual paths use differentiated payloads.
 		string[] dominantMods = info.DominantModIds ?? System.Array.Empty<string>();
 		SurgeDifferentiation.GlobalSurgeFeel feel = SurgeDifferentiation.ResolveFeel(dominantMods);
+		bool overcharged = info.Overcharged;
+		float storedOverfill = Mathf.Max(0f, info.StoredOverfill);
 
 		if (_botRunner != null)
 		{
 			ApplyGlobalSurgeGameplayPayload(info, feel);
+			if (overcharged)
+				ApplyOverfillCatastropheBonus(sourceTower: null, accent: new Color(1.00f, 0.82f, 0.42f), storedOverfill);
 			return;
 		}
 		Vector2 center = ScreenToWorld(GetViewport().GetVisibleRect().Size * 0.5f);
@@ -5311,6 +5574,8 @@ void fragment() {
 
 		// ── Banner subtitle: feel-specific mechanical summary ─────────────────────
 		string surgeSubtitle = SurgeDifferentiation.ResolveTypeSubtitle(feel);
+		if (overcharged)
+			surgeSubtitle += "  ·  OVERCHARGED";
 
 		GD.Print($"[GlobalSurge] label={surgeLabel}  feel={feel}  dominantMods=[{string.Join(", ", dominantMods)}]  contributors={info.UniqueContributors}");
 
@@ -5358,6 +5623,8 @@ void fragment() {
 			globalSurge: true,
 			surgePower: 2.15f);
 		FlashSpectacleAfterimage(globalColor, afterimageStrength);
+		if (overcharged)
+			ApplyOverfillCatastropheBonus(globalDamageSource, globalColor, storedOverfill);
 
 		// ── Group 2: per-tower effects staggered 0.07 s apart (real-time) ────────
 		const float TowerStepSeconds = 0.07f;
@@ -5820,6 +6087,58 @@ void fragment() {
 		int jumps = mobileLite ? 3 : Mathf.Min(Balance.ChainSurgeEnemyArcs, ordered.Count - 1);
 		for (int i = 0; i < jumps && i + 1 < ordered.Count; i++)
 			SpawnSpectacleArcLingering(ordered[i].GlobalPosition, ordered[i + 1].GlobalPosition, globalColor, 0.90f + i * 0.03f, arcLifetime);
+	}
+
+	private void ApplyOverfillCatastropheBonus(ITowerView? sourceTower, Color accent, float storedOverfill)
+	{
+		if (_runState == null || storedOverfill <= 0f)
+			return;
+
+		// Modest deterministic bonus: small all-tower cooldown reclaim + delayed echo pulse.
+		for (int i = 0; i < _runState.Slots.Length; i++)
+		{
+			var tower = _runState.Slots[i].Tower;
+			if (tower == null)
+				continue;
+			ReduceTowerCooldown(tower, Balance.OverfillCatastropheCooldownRefund);
+		}
+
+		float threshold = SpectacleDefinitions.ResolveGlobalThreshold();
+		float overfillScale = Mathf.Clamp(storedOverfill / Mathf.Max(1f, threshold), 0.12f, 0.50f);
+		void EmitDelayedEcho()
+		{
+			if (_runState == null)
+				return;
+
+			ITowerView? resolvedSource = ResolveSpectacleSourceTower(sourceTower);
+			float baseDamage = ResolveGlobalSpectacleBaseDamage() * Balance.OverfillCatastropheEchoDamageScale * (0.75f + overfillScale);
+			Vector2 center = ScreenToWorld(GetViewport().GetVisibleRect().Size * 0.5f);
+			var targets = _runState.EnemiesAlive
+				.Where(IsEnemyUsable)
+				.OrderByDescending(e => e.ProgressRatio)
+				.Take(6)
+				.ToList();
+
+			for (int i = 0; i < targets.Count; i++)
+			{
+				float falloff = Mathf.Max(0.58f, 1f - i * 0.11f);
+				if (_botRunner == null)
+				{
+					SpawnSpectacleArc(center, targets[i].GlobalPosition, accent, intensity: 0.94f + i * 0.06f, mineChainStyle: true);
+					SpawnSpectacleBurstFx(targets[i].GlobalPosition, accent, major: false, power: 0.72f + overfillScale * 0.6f);
+				}
+				if (resolvedSource != null)
+					ApplySpectacleDamage(resolvedSource, targets[i], baseDamage * falloff, accent, heavyHit: false);
+			}
+		}
+
+		if (_botRunner != null || SettingsManager.Instance?.ReducedMotion == true)
+		{
+			EmitDelayedEcho();
+			return;
+		}
+
+		GetTree().CreateTimer(0.42f, true, false, true).Timeout += EmitDelayedEcho;
 	}
 
 	private void ApplyGlobalSurgeGameplayPayload(
@@ -7540,18 +7859,28 @@ void fragment() {
 	/// stays readable. The pip lives in a screen-space CanvasLayer (layer 2) so it can
 	/// cross from world coordinates to the HUD bar without coordinate-system hacks.
 	/// </summary>
-	private void SpawnSurgePip(Vector2 worldPos, Color accent)
+	private void SpawnSurgePip(
+		Vector2 worldPos,
+		Color accent,
+		Vector2? explicitScreenTarget = null,
+		SurgePip.SurgePipGlyph glyph = SurgePip.SurgePipGlyph.Orb,
+		float coreScale = 1f,
+		float glowScale = 1f,
+		float lingerSec = -1f,
+		float travelSec = -1f,
+		float arcHeight = float.NaN,
+		System.Action? onArrival = null,
+		bool allowWhenGlobalReady = false)
 	{
 		if (_botRunner != null || !GodotObject.IsInstanceValid(_pipLayer))
 			return;
-		if (_spectacleSystem.IsGlobalSurgeReady)
+		if (!allowWhenGlobalReady && _spectacleSystem.IsGlobalSurgeReady)
 			return; // bar is full/ready -- no point flying more pips to it
 		if (_activePipCount >= Balance.SurgePipMaxActive)
 			return;
 
 		Vector2 screenStart  = WorldToScreen(worldPos);
-		Rect2   barRect      = _hudPanel.GetSurgeMeterViewportRect();
-		Vector2 screenTarget = barRect.Position + barRect.Size * 0.5f;
+		Vector2 screenTarget = explicitScreenTarget ?? (_hudPanel.GetSurgeMeterViewportRect().Position + _hudPanel.GetSurgeMeterViewportRect().Size * 0.5f);
 
 		_activePipCount++;
 		var pip = new SurgePip();
@@ -7560,15 +7889,20 @@ void fragment() {
 			screenStart  : screenStart,
 			screenTarget : screenTarget,
 			color        : accent,
-			lingerSec    : Balance.SurgePipLingerSec,
-			travelSec    : Balance.SurgePipTravelSec,
-			arcHeight    : Balance.SurgePipArcHeight,
+			lingerSec    : lingerSec >= 0f ? lingerSec : Balance.SurgePipLingerSec,
+			travelSec    : travelSec >= 0f ? travelSec : Balance.SurgePipTravelSec,
+			arcHeight    : float.IsNaN(arcHeight) ? Balance.SurgePipArcHeight : arcHeight,
 			onArrival    : () =>
 			{
 				_activePipCount = Mathf.Max(0, _activePipCount - 1);
-				if (GodotObject.IsInstanceValid(_hudPanel) && !_spectacleSystem.IsGlobalSurgeReady)
+				if (onArrival != null)
+					onArrival();
+				else if (GodotObject.IsInstanceValid(_hudPanel) && !_spectacleSystem.IsGlobalSurgeReady)
 					_hudPanel.FlashPipArrival();
-			});
+			},
+			glyph: glyph,
+			coreScale: coreScale,
+			glowScale: glowScale);
 	}
 
 	private void SpawnGlobalSurgeRipples(
@@ -9899,6 +10233,28 @@ void fragment() {
 		}
 	}
 
+	private void PulseTowerLoadoutIndicators(SlotTheory.Entities.ITowerView tower, float duration = 0.34f)
+	{
+		if (_runState == null || tower == null)
+			return;
+
+		int slot = -1;
+		for (int i = 0; i < _runState.Slots.Length; i++)
+		{
+			if (ReferenceEquals(_runState.Slots[i].Tower, tower))
+			{
+				slot = i;
+				break;
+			}
+		}
+		if (slot < 0 || slot >= _slotModIconPulseRemaining.GetLength(0))
+			return;
+
+		int count = Mathf.Min(tower.Modifiers.Count, _slotModIconPulseRemaining.GetLength(1));
+		for (int p = 0; p < count; p++)
+			_slotModIconPulseRemaining[slot, p] = Mathf.Max(_slotModIconPulseRemaining[slot, p], duration);
+	}
+
 	public void RegisterSpectacleShotFired(SlotTheory.Entities.ITowerView tower)
 	{
 		if (CurrentPhase != GamePhase.Wave || tower == null)
@@ -10441,4 +10797,3 @@ void fragment() {
 	}
 
 }
-

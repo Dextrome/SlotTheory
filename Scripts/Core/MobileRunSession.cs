@@ -11,6 +11,8 @@ public sealed class MobileDraftOptionSnapshot
 {
 	public string Type { get; set; } = ""; // "tower" | "modifier" | "premium"
 	public string Id   { get; set; } = "";
+	public bool IsVolatile { get; set; } = false;
+	public string VolatileRuleId { get; set; } = "";
 }
 
 public sealed class MobileRunSlotSnapshot
@@ -216,7 +218,9 @@ public static class MobileRunSession
 		return options.Select(o => new MobileDraftOptionSnapshot
 		{
 			Type = o.Type == DraftOptionType.Tower ? "tower" : o.Type == DraftOptionType.Premium ? "premium" : "modifier",
-			Id   = o.Id
+			Id   = o.Id,
+			IsVolatile = o.IsVolatile,
+			VolatileRuleId = o.VolatileRuleId ?? ""
 		}).ToList();
 	}
 

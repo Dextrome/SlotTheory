@@ -12,6 +12,13 @@ namespace SlotTheory.Entities;
 /// </summary>
 public partial class SurgePip : Node2D
 {
+	public enum SurgePipGlyph
+	{
+		Orb,
+		Diamond,
+		Square,
+	}
+
 	// Config
 	private Vector2 _start;
 	private Vector2 _target;
@@ -20,6 +27,9 @@ public partial class SurgePip : Node2D
 	private float _travelSec;
 	private float _arcHeight;
 	private Action? _onArrival;
+	private SurgePipGlyph _glyph = SurgePipGlyph.Orb;
+	private float _coreScale = 1f;
+	private float _glowScale = 1f;
 
 	// State
 	private float _elapsed;
@@ -35,6 +45,9 @@ public partial class SurgePip : Node2D
 	/// <param name="travelSec">Flight duration in seconds.</param>
 	/// <param name="arcHeight">Upward arc offset in screen pixels (positive = up).</param>
 	/// <param name="onArrival">Called once when the pip reaches the bar.</param>
+	/// <param name="glyph">Readability shape so color is not the only cue.</param>
+	/// <param name="coreScale">Scale multiplier for the core shape.</param>
+	/// <param name="glowScale">Scale multiplier for outer glow.</param>
 	public void Initialize(
 		Vector2 screenStart,
 		Vector2 screenTarget,
@@ -42,7 +55,10 @@ public partial class SurgePip : Node2D
 		float lingerSec,
 		float travelSec,
 		float arcHeight,
-		Action? onArrival)
+		Action? onArrival,
+		SurgePipGlyph glyph = SurgePipGlyph.Orb,
+		float coreScale = 1f,
+		float glowScale = 1f)
 	{
 		_start     = screenStart;
 		_target    = screenTarget;
@@ -51,6 +67,9 @@ public partial class SurgePip : Node2D
 		_travelSec = travelSec;
 		_arcHeight = arcHeight;
 		_onArrival = onArrival;
+		_glyph = glyph;
+		_coreScale = Mathf.Clamp(coreScale, 0.55f, 1.75f);
+		_glowScale = Mathf.Clamp(glowScale, 0.55f, 1.90f);
 		Position   = screenStart;
 	}
 
@@ -110,8 +129,8 @@ public partial class SurgePip : Node2D
 			scale = Mathf.Lerp(1.35f, 0.52f, travelT);
 		}
 
-		float core = Balance.SurgePipCoreRadius * scale;
-		float glow = Balance.SurgePipGlowRadius * scale;
+		float core = Balance.SurgePipCoreRadius * scale * _coreScale;
+		float glow = Balance.SurgePipGlowRadius * scale * _glowScale;
 
 		if (lingering)
 		{
@@ -122,10 +141,8 @@ public partial class SurgePip : Node2D
 				new Color(_color.R, _color.G, _color.B, 0.18f));
 			DrawCircle(Vector2.Zero, glow * 1.1f,
 				new Color(_color.R, _color.G, _color.B, 0.50f));
-			DrawCircle(Vector2.Zero, core * 1.55f,
-				new Color(_color.R, _color.G, _color.B, 0.78f));
-			DrawCircle(Vector2.Zero, core,
-				new Color(_color.R, _color.G, _color.B, 1.00f));
+			DrawCoreShape(core * 1.55f, new Color(_color.R, _color.G, _color.B, 0.78f));
+			DrawCoreShape(core, new Color(_color.R, _color.G, _color.B, 1.00f));
 			// Pure white center flash -- clearly "energy charging"
 			DrawCircle(Vector2.Zero, core * 0.48f,
 				new Color(1f, 1f, 1f, 1.00f));
@@ -135,12 +152,38 @@ public partial class SurgePip : Node2D
 			// Travel: shrinking dot, fades to merge with bar
 			DrawCircle(Vector2.Zero, glow,
 				new Color(_color.R, _color.G, _color.B, 0.22f * alpha));
-			DrawCircle(Vector2.Zero, core * 1.55f,
-				new Color(_color.R, _color.G, _color.B, 0.50f * alpha));
-			DrawCircle(Vector2.Zero, core,
-				new Color(_color.R, _color.G, _color.B, 0.90f * alpha));
+			DrawCoreShape(core * 1.55f, new Color(_color.R, _color.G, _color.B, 0.50f * alpha));
+			DrawCoreShape(core, new Color(_color.R, _color.G, _color.B, 0.90f * alpha));
 			DrawCircle(Vector2.Zero, core * 0.40f,
 				new Color(1f, 1f, 1f, 0.88f * alpha));
+		}
+	}
+
+	private void DrawCoreShape(float radius, Color color)
+	{
+		switch (_glyph)
+		{
+			case SurgePipGlyph.Diamond:
+			{
+				Vector2[] points =
+				{
+					new Vector2(0f, -radius),
+					new Vector2(radius, 0f),
+					new Vector2(0f, radius),
+					new Vector2(-radius, 0f),
+				};
+				DrawColoredPolygon(points, color);
+				break;
+			}
+			case SurgePipGlyph.Square:
+			{
+				float side = radius * 0.95f;
+				DrawRect(new Rect2(-side, -side, side * 2f, side * 2f), color);
+				break;
+			}
+			default:
+				DrawCircle(Vector2.Zero, radius, color);
+				break;
 		}
 	}
 }

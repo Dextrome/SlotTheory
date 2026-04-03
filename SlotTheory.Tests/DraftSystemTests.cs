@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using SlotTheory.Core;
 using Xunit;
 
@@ -170,5 +171,58 @@ public class DraftSystemTests
             placedTowers: new[] { tower });  // waveIndex omitted, defaults to 0
 
         Assert.DoesNotContain(options, o => o.Id == "reaper_protocol");
+    }
+
+    [Fact]
+    public void GenerateOptions_TutorialRun_NeverInjectsVolatileCard()
+    {
+        for (int seed = 1; seed <= 120; seed++)
+        {
+            var draft = new DraftSystem(new StubData(), seed);
+            var state = new RunState
+            {
+                WaveIndex = 3,
+                IsTutorialRun = true
+            };
+            state.Slots[0].Tower = new FakeTower { TowerId = "rapid_shooter", CanAddModifier = true };
+            for (int i = 0; i < Balance.MaxPremiumCardsPerRun; i++)
+                state.PickedPremiumCards.Add("test_lock");
+
+            var options = draft.GenerateOptions(state);
+
+            Assert.DoesNotContain(options, o => o.IsVolatile);
+        }
+    }
+
+    [Fact]
+    public void GenerateOptions_VolatileInjection_IsBoundedToOneNonPremiumCard()
+    {
+        bool sawVolatile = false;
+        for (int seed = 1; seed <= 220; seed++)
+        {
+            var draft = new DraftSystem(new StubData(), seed);
+            var state = new RunState
+            {
+                WaveIndex = 3,
+                IsTutorialRun = false
+            };
+            state.Slots[0].Tower = new FakeTower { TowerId = "rapid_shooter", CanAddModifier = true };
+            for (int i = 0; i < Balance.MaxPremiumCardsPerRun; i++)
+                state.PickedPremiumCards.Add("test_lock");
+
+            var options = draft.GenerateOptions(state);
+            int volatileCount = options.Count(o => o.IsVolatile);
+            Assert.InRange(volatileCount, 0, 1);
+
+            foreach (var option in options.Where(o => o.IsVolatile))
+            {
+                sawVolatile = true;
+                Assert.True(option.Type is DraftOptionType.Tower or DraftOptionType.Modifier);
+                Assert.False(string.IsNullOrWhiteSpace(option.VolatileRuleId));
+                Assert.True(VolatileDraftRegistry.TryGet(option.VolatileRuleId, out _));
+            }
+        }
+
+        Assert.True(sawVolatile);
     }
 }

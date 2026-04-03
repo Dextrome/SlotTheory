@@ -831,4 +831,46 @@ public class SpectacleSystemTests
             SpectacleTuning.Reset();
         }
     }
+
+    [Fact]
+    public void GlobalSurge_StoresOverfillAndMarksOvercharged_WhenOverflowIsMeaningful()
+    {
+        var system = new SpectacleSystem();
+        var tower = TowerWithMods(SpectacleDefinitions.Momentum);
+        system.SetGlobalMeterFraction(0.98f);
+
+        system.RegisterProc(tower, SpectacleDefinitions.Momentum, eventScalar: 140f);
+        Assert.True(system.IsGlobalSurgeReady);
+
+        GlobalSurgeTriggerInfo triggered = default;
+        bool fired = false;
+        system.OnGlobalTriggered += info =>
+        {
+            fired = true;
+            triggered = info;
+        };
+
+        system.ActivateGlobalSurge();
+
+        Assert.True(fired);
+        Assert.True(triggered.Overcharged);
+        Assert.True(triggered.StoredOverfill > 0f);
+    }
+
+    [Fact]
+    public void GlobalSurge_DoesNotMarkOvercharged_WhenOverflowBelowThreshold()
+    {
+        var system = new SpectacleSystem();
+        var tower = TowerWithMods(SpectacleDefinitions.Momentum);
+        system.SetGlobalMeterFraction(0.95f);
+
+        system.RegisterProc(tower, SpectacleDefinitions.Momentum, eventScalar: 140f);
+        Assert.True(system.IsGlobalSurgeReady);
+
+        GlobalSurgeTriggerInfo triggered = default;
+        system.OnGlobalTriggered += info => triggered = info;
+        system.ActivateGlobalSurge();
+
+        Assert.False(triggered.Overcharged);
+    }
 }

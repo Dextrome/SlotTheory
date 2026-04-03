@@ -879,11 +879,11 @@ public partial class DraftPanel : CanvasLayer
 
             (Control? iconNode, Control? titleNode) punchTargets;
             if (opt.Type == DraftOptionType.Tower)
-                punchTargets = BuildTowerCard(vbox, opt.Id, titleSize, statSize, bodySize, iconSize);
+                punchTargets = BuildTowerCard(vbox, opt, titleSize, statSize, bodySize, iconSize);
             else if (opt.Type == DraftOptionType.Premium)
                 punchTargets = BuildPremiumCard(vbox, opt.Id, titleSize, tagSize, bodySize, iconSize);
             else
-                punchTargets = BuildModifierCard(vbox, opt.Id, titleSize, tagSize, bodySize, iconSize);
+                punchTargets = BuildModifierCard(vbox, opt, titleSize, tagSize, bodySize, iconSize);
 
             var keyLbl = new Label
             {
@@ -1522,6 +1522,7 @@ public partial class DraftPanel : CanvasLayer
         }
 
         bool isPremium = opt.Type == DraftOptionType.Premium;
+        bool isVolatile = opt.IsVolatile && (opt.Type == DraftOptionType.Tower || opt.Type == DraftOptionType.Modifier);
 
         if (isPremium)
         {
@@ -1554,10 +1555,21 @@ public partial class DraftPanel : CanvasLayer
         }
         else
         {
-            btn.AddThemeStyleboxOverride("normal", Box(new Color(0.05f, 0.06f, 0.13f, 0.96f), new Color(accent.R * 0.75f, accent.G * 0.75f, accent.B * 0.75f, 1f)));
-            btn.AddThemeStyleboxOverride("hover", Box(new Color(0.08f, 0.10f, 0.20f, 0.98f), accent));
-            btn.AddThemeStyleboxOverride("pressed", Box(new Color(0.11f, 0.08f, 0.18f, 0.98f), accent));
-            btn.AddThemeStyleboxOverride("focus", Box(new Color(0.09f, 0.10f, 0.22f, 0.98f), accent));
+            Color normalBg = isVolatile
+                ? new Color(0.10f, 0.05f, 0.06f, 0.98f)
+                : new Color(0.05f, 0.06f, 0.13f, 0.96f);
+            Color hoverBg = isVolatile
+                ? new Color(0.16f, 0.06f, 0.09f, 0.98f)
+                : new Color(0.08f, 0.10f, 0.20f, 0.98f);
+            Color pressBg = isVolatile
+                ? new Color(0.18f, 0.07f, 0.11f, 0.98f)
+                : new Color(0.11f, 0.08f, 0.18f, 0.98f);
+            int borderWidth = isVolatile ? 3 : 2;
+            int cornerRadius = isVolatile ? 10 : 8;
+            btn.AddThemeStyleboxOverride("normal", Box(normalBg, new Color(accent.R * 0.78f, accent.G * 0.78f, accent.B * 0.78f, 1f), borderWidth, cornerRadius));
+            btn.AddThemeStyleboxOverride("hover", Box(hoverBg, accent, borderWidth, cornerRadius));
+            btn.AddThemeStyleboxOverride("pressed", Box(pressBg, accent, borderWidth, cornerRadius));
+            btn.AddThemeStyleboxOverride("focus", Box(hoverBg, accent, borderWidth, cornerRadius));
         }
         btn.AddThemeColorOverride("font_color", Colors.White);
     }
@@ -1577,8 +1589,9 @@ public partial class DraftPanel : CanvasLayer
             : new Color(0.80f, 0.88f, 0.98f);   // silver
     }
 
-    private static (Control? iconNode, Control? titleNode) BuildTowerCard(VBoxContainer root, string towerId, int titleSize, int statSize, int bodySize, float iconSize)
+    private static (Control? iconNode, Control? titleNode) BuildTowerCard(VBoxContainer root, DraftOption option, int titleSize, int statSize, int bodySize, float iconSize)
     {
+        string towerId = option.Id;
         var def = DataLoader.GetTowerDef(towerId);
         var accent = GetTowerAccent(towerId);
 
@@ -1621,6 +1634,7 @@ public partial class DraftPanel : CanvasLayer
         UITheme.ApplyFont(stats, semiBold: true, size: statSize);
         stats.Modulate = new Color(0.75f, 0.88f, 1f, 0.9f);
         root.AddChild(stats);
+        TryAddVolatileBadge(root, option, accent, bodySize);
 
         var role = new Label
         {
@@ -1634,8 +1648,9 @@ public partial class DraftPanel : CanvasLayer
         return (iconWrap, title);
     }
 
-    private static (Control? iconNode, Control? titleNode) BuildModifierCard(VBoxContainer root, string modifierId, int titleSize, int tagSize, int bodySize, float iconSize)
+    private static (Control? iconNode, Control? titleNode) BuildModifierCard(VBoxContainer root, DraftOption option, int titleSize, int tagSize, int bodySize, float iconSize)
     {
+        string modifierId = option.Id;
         var def = DataLoader.GetModifierDef(modifierId);
         var accent = ModifierVisuals.GetAccent(modifierId);
 
@@ -1677,6 +1692,7 @@ public partial class DraftPanel : CanvasLayer
         UITheme.ApplyFont(tag, semiBold: true, size: tagSize);
         tag.Modulate = new Color(accent.R, accent.G, accent.B, 0.95f);
         root.AddChild(tag);
+        TryAddVolatileBadge(root, option, accent, bodySize);
 
         string synergyTag = GetModifierSynergyTag(modifierId);
         if (synergyTag.Length > 0)
@@ -1701,6 +1717,30 @@ public partial class DraftPanel : CanvasLayer
         desc.Modulate = new Color(0.86f, 0.86f, 0.94f, 0.92f);
         root.AddChild(desc);
         return (iconHolder, title);
+    }
+
+    private static void TryAddVolatileBadge(VBoxContainer root, DraftOption option, Color accent, int bodySize)
+    {
+        if (!option.IsVolatile || !Core.VolatileDraftRegistry.TryGetForOption(option, out var def))
+            return;
+
+        var badge = new Label
+        {
+            Text = $"VOLATILE - {def.IdentityTag}",
+            AutowrapMode = TextServer.AutowrapMode.Off,
+        };
+        UITheme.ApplyFont(badge, semiBold: true, size: Mathf.Clamp(bodySize - 1, 12, 16));
+        badge.Modulate = new Color(1.00f, 0.86f, 0.60f, 0.96f);
+        root.AddChild(badge);
+
+        var details = new Label
+        {
+            Text = $"{def.UpsideText}. Tradeoff: {def.TradeoffText}.",
+            AutowrapMode = TextServer.AutowrapMode.WordSmart,
+        };
+        UITheme.ApplyFont(details, size: Mathf.Max(11, bodySize - 2));
+        details.Modulate = new Color(accent.R, accent.G, accent.B, 0.92f);
+        root.AddChild(details);
     }
 
     private static (Control? iconNode, Control? titleNode) BuildPremiumCard(

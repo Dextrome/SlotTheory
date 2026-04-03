@@ -7,12 +7,15 @@ Slot Theory's spectacle system is a two-tier excitement engine layered on top of
 ## PLAYER-FACING TRUTH (IN GAME)
 
 - Every tower has a Surge Meter that fills as it deals damage. When full, it triggers a Surge.
+- Supported modifier procs now emit a lightweight surge feed (proc -> tower meter read), and each tower surge emits a second feed (tower -> global bar).
 - **1 mod = core surge** from that mod.
 - **2 mods = core surge + second mod effect**.
 - **3 mods = core surge + second mod effect + augment boost** (Pulse / Strike / Recharge).
 - All equipped mods contribute equally to the surge's **category** (Spread / Burst / Control / Echo), which drives distinct visuals, audio, and gameplay behavior.
 - Each tower surge fills the shared Global Surge bar.
 - The Global Surge label shows the dominant surge type your build has leaned toward **since the last Global Surge**, based on all mods on all surging towers.
+- A compact run banner can show a stable build identity trend (PRESSURE / CHAIN / DETONATION) once enough contribution exists.
+- Meaningful global-meter overfill can arm an overcharged global surge variant with a modest bonus payload on activation.
 
 UI teaching is intentionally minimal: surge category callout and `Global Surge`.
 
@@ -237,6 +240,11 @@ Per-tower threshold multipliers are listed in §20. When `meter >= threshold` AN
 7. Fire `OnSurgeTriggered` event with the full `SpectacleTriggerInfo`
 8. Check if global meter is now full (see §13)
 
+Readability/event hooks used by the UI layer:
+- `OnProcMeterContributed(SpectacleProcContributionInfo)` -- proc gain details for proc -> tower feed feedback.
+- `OnTowerGlobalContribution(TowerGlobalContributionInfo)` -- exact chunk gain values for global-meter chunk pulses and ghost overlays.
+- `OnSurgeTriggered(SpectacleTriggerInfo)` -- still the core surge trigger; also drives category callout + compact combo/augment subtitle + loadout icon pulse.
+
 ---
 
 ## 12. Effect Naming
@@ -311,6 +319,11 @@ The player clicks the global surge bar → `ActivateGlobalSurge()`:
 
 In bot mode, activation is immediate (no player input needed).
 
+### Overfill Catastrophe
+- If a tower surge would push the global meter beyond threshold before arming, overflow is measured.
+- If overflow exceeds `Balance.GlobalSurgeOverfillMarginFraction * globalThreshold`, the pending global surge is marked overcharged.
+- Overcharged activation keeps normal flow but adds a modest bonus layer (small all-tower cooldown reclaim + one delayed echo pulse).
+
 ### Global Surge Payload Info
 `GlobalSurgeTriggerInfo` carries:
 - `MeterAfter` -- post-trigger meter value (= 0)
@@ -318,6 +331,8 @@ In bot mode, activation is immediate (no player input needed).
 - `EffectId` -- always `"G_SPECTACLE_CATHARSIS"`
 - `EffectName` -- always `"Catastrophe"`
 - `DominantModIds[]` -- up to 3 dominant mod IDs (drives global label + feel)
+- `StoredOverfill` -- overflow amount captured when the meter armed (if any)
+- `Overcharged` -- true when overflow crossed catastrophe margin
 
 ---
 

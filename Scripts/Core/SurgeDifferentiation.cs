@@ -237,8 +237,17 @@ public static class SurgeDifferentiation
     public static GlobalSurgeFeel ResolveFeel(string[]? dominantModIds)
     {
         string primary = dominantModIds is { Length: > 0 } ? dominantModIds[0] : string.Empty;
+        return ResolveFeelFromMod(primary);
+    }
+
+    public static GlobalSurgeFeel ResolveFeelFromMod(string modId)
+    {
+        if (string.IsNullOrWhiteSpace(modId))
+            return GlobalSurgeFeel.Neutral;
+
+        string normalized = SpectacleDefinitions.NormalizeModId(modId);
         foreach (var entry in GlobalSurgeTable)
-            if (entry.ModId == primary) return entry.Feel;
+            if (entry.ModId == normalized) return entry.Feel;
         return GlobalSurgeFeel.Neutral;
     }
 

@@ -8,7 +8,11 @@ namespace SlotTheory.Core;
 
 public enum DraftOptionType { Tower, Modifier, Premium }
 
-public record DraftOption(DraftOptionType Type, string Id);
+public record DraftOption(
+    DraftOptionType Type,
+    string Id,
+    bool IsVolatile = false,
+    string VolatileRuleId = "");
 
 /// <summary>Abstraction over DataLoader so DraftSystem can be unit-tested without Godot.</summary>
 public interface IDraftDataSource
@@ -63,6 +67,7 @@ public class DraftSystem
         else
         {
             TryInjectPremiumCard(options, state);
+            TryInjectVolatileCard(options, state);
         }
 
         return options;
@@ -146,6 +151,45 @@ public class DraftSystem
         var card = available[_rng.Next(available.Count)];
         int replaceIndex = _rng.Next(options.Count);
         options[replaceIndex] = new DraftOption(DraftOptionType.Premium, card.Id);
+    }
+
+    private void TryInjectVolatileCard(List<DraftOption> options, RunState state)
+    {
+        if (!Balance.VolatileDraftEnabled)
+            return;
+        if (state.IsTutorialRun)
+            return;
+        if (options.Count == 0)
+            return;
+        if (_rng.NextDouble() >= Balance.VolatileDraftChance)
+            return;
+        if (options.Any(o => o.IsVolatile))
+            return;
+
+        var candidates = options
+            .Select((o, i) => (option: o, index: i))
+            .Where(x => x.option.Type is DraftOptionType.Tower or DraftOptionType.Modifier)
+            .ToList();
+        if (candidates.Count == 0)
+            return;
+
+        var matchingDefs = VolatileDraftRegistry.GetDefinitions()
+            .Where(def => candidates.Any(c =>
+                c.option.Type == def.OptionType &&
+                string.Equals(c.option.Id, def.OptionId, StringComparison.Ordinal)))
+            .ToList();
+        if (matchingDefs.Count == 0)
+            return;
+
+        var chosenDef = matchingDefs[_rng.Next(matchingDefs.Count)];
+        var chosenCandidate = candidates.First(c =>
+            c.option.Type == chosenDef.OptionType &&
+            string.Equals(c.option.Id, chosenDef.OptionId, StringComparison.Ordinal));
+        options[chosenCandidate.index] = chosenCandidate.option with
+        {
+            IsVolatile = true,
+            VolatileRuleId = chosenDef.Id
+        };
     }
 
     private static bool IsExcluded(PremiumCardDef card, RunState state)
