@@ -72,6 +72,6 @@
   "deadzone": {
     "Id": "deadzone",
     "Name": "Deadzone",
-    "Description": "Full game. Hits plant a trap at the impact point. The first enemy to enter is pinned in place for 1.2s, then resumes. Zone collapses on trigger. One active trap per tower."
+    "Description": "Hits plant a trap at the impact point. The first enemy to enter is pinned in place for 1.2s, then resumes. Zone collapses on trigger. One active trap per tower."
   }
 }

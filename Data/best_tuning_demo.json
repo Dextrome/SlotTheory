@@ -74,8 +74,8 @@
                                      "blast_core":  1
                                  },
     "tower_meter_gain_multipliers":  {
-                                         "rapid_shooter":  0.65,
-                                         "heavy_cannon":  1.60,
+                                         "rapid_shooter":  0.85,
+                                         "heavy_cannon":  1.80,
                                          "marker_tower":  1.15,
                                          "chain_tower":  1.20,
                                          "rift_prism":  1.02,

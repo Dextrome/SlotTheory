@@ -306,8 +306,8 @@ public partial class HowToPlay : Node
                 AddModRowWithIcon(modifiersCard, "deadzone", "Deadzone (full game)",
                     "Hits leave a short-lived trap scar at the impact point. The first enemy to cross the zone triggers a reduced follow-up from that spot, then the zone collapses. Single trigger only -- not a lingering hazard. One active zone per tower; a new hit replaces the old one.");
             if (!Balance.IsDemo)
-                AddModRowWithIcon(modifiersCard, "reaper_protocol", "Reaper Protocol (full game, wave 10+)",
-                    $"Kill (primary hits only): the first {Balance.ReaperProtocolKillCap} kills each wave restore 1 life, up to your starting life total. Available from wave 10. Invaluable in Endless runs where lives become scarce.");
+                AddModRowWithIcon(modifiersCard, "reaper_protocol", "Reaper Protocol (wave 5+)",
+                    $"Kill (primary hits only): the first {Balance.ReaperProtocolKillCap} kills each wave restore 1 life, up to your starting life total. Available from wave 5. Invaluable in Endless runs where lives become scarce.");
             AddSpacer(vbox, 10);
         }
 
@@ -406,8 +406,8 @@ public partial class HowToPlay : Node
         "blast_core"       => "Explosion at target position damages all enemies in the radius.",
         "wildfire"         => "Flame burst hits all enemies in range, leaving ticking fire trails.",
         "afterimage"       => "Ghost imprint replays a delayed weaker echo from the hit position.",
-        "deadzone"         => "Zone collapses on the first enemy to cross - fires a follow-up, then gone.",
-        "reaper_protocol"  => "Kills the lowest-HP enemy in range. Grants +1 life.",
+        "deadzone"         => "Zone collapses on the first enemy to cross, holding the enemy in place momentarily.",
+        "reaper_protocol"  => "Primary kills restore 1 life each (first 5 per wave).",
         _                  => "Modifier-specific primary surge payload.",
     };
 
