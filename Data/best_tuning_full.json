@@ -27,16 +27,16 @@
     "copy_multiplier_scale":  1,
     "event_scalar_multiplier":  1,
     "second_stage_power_threshold":  0.95,
-    "easy_enemy_hp_multiplier":  1.006,
+    "easy_enemy_hp_multiplier":  1,
     "easy_enemy_count_multiplier":  1.3558,
     "easy_spawn_interval_multiplier":  0.8934,
     "easy_hp_growth_multiplier":  0.9435,
     "normal_hp_growth_multiplier":  1.0026,
     "hard_hp_growth_multiplier":  1.0087,
-    "normal_enemy_hp_multiplier":  1.05,
-    "normal_enemy_count_multiplier":  1.1459,
+    "normal_enemy_hp_multiplier":  1.02,
+    "normal_enemy_count_multiplier":  1.1259,
     "normal_spawn_interval_multiplier":  1.0124,
-    "hard_enemy_hp_multiplier":  1.1264,
+    "hard_enemy_hp_multiplier":  1.0964,
     "hard_enemy_count_multiplier":  1.1201,
     "hard_spawn_interval_multiplier":  0.9988,
     "easy_tanky_count_multiplier":  1.1185,
@@ -74,7 +74,7 @@
                                      "blast_core":  1
                                  },
     "tower_meter_gain_multipliers":  {
-                                         "rapid_shooter":  0.8,
+                                         "rapid_shooter":  0.9,
                                          "heavy_cannon":  1.80,
                                          "marker_tower":  1.15,
                                          "chain_tower":  1.20,
@@ -83,7 +83,7 @@
                                          "accordion_engine":  2.60,
                                          "rocket_launcher":  2.00,
                                          "undertow_engine":  3.00,
-                                         "latch_nest":  0.89
+                                         "latch_nest":  0.95
                                      },
     "tower_surge_threshold_multipliers":  {
                                               "rapid_shooter":  0.85,
