@@ -68,7 +68,7 @@ public static class SpectacleDefinitions
     public const float SurgeMeterAfterTrigger = 10f;
     public const float GlobalMeterPerSurge = 10f;
     public const float GlobalThreshold = 200f;
-    public const float GlobalMeterAfterTrigger = 0f;
+    public const float GlobalMeterAfterTrigger = 30f;  // partial carry-over so surges build momentum rather than fully resetting
     public const float InactivityGraceSeconds = 2f;
     public const float InactivityDecayPerSecond = 3f;
     // Fill is intentionally slower so spectacle pacing is easier to read:

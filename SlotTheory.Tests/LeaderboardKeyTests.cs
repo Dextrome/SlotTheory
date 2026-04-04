@@ -52,8 +52,12 @@ public class LeaderboardKeyTests
     // ── IsGlobalEligibleMap ────────────────────────────────────────────────────
 
     [Fact]
-    public void IsGlobalEligibleMap_AnyMap_ReturnsTrue()
+    public void IsGlobalEligibleMap_RegularMap_ReturnsTrue()
         => Assert.True(LeaderboardKey.IsGlobalEligibleMap("crossroads"));
+
+    [Fact]
+    public void IsGlobalEligibleMap_Tutorial_ReturnsFalse()
+        => Assert.False(LeaderboardKey.IsGlobalEligibleMap(LeaderboardKey.TutorialMapId));
 
     // ── Key uniqueness ─────────────────────────────────────────────────────────
 

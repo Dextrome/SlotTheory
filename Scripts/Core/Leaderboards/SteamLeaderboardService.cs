@@ -181,7 +181,10 @@ public sealed class SteamLeaderboardService : ILeaderboardService
 
         _pendingFindName = boardName;
         _pendingFind = new TaskCompletionSource<SteamLeaderboard_t>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var findCall = SteamUserStats.FindLeaderboard(boardName);
+        var findCall = SteamUserStats.FindOrCreateLeaderboard(
+            boardName,
+            ELeaderboardSortMethod.k_ELeaderboardSortMethodDescending,
+            ELeaderboardDisplayType.k_ELeaderboardDisplayTypeNumeric);
         _findResult?.Set(findCall);
         var handle = await _pendingFind.Task;
 

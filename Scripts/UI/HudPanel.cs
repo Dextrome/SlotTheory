@@ -1011,7 +1011,7 @@ public partial class HudPanel : CanvasLayer
 		_surgeMeterPulseTween.SetIgnoreTimeScale(true);
 		// Snap to warm golden-white -- unmistakable landing moment
 		_surgeMeterPulseTween.TweenProperty(_globalSpectaclePanel, "modulate",
-			new Color(1.60f, 1.42f, 0.90f, 1.00f), 0.04f)
+			new Color(1.20f, 1.10f, 0.88f, 1.00f), 0.04f)
 			.SetTrans(Tween.TransitionType.Linear);
 		// Settle back to neutral white
 		_surgeMeterPulseTween.TweenProperty(_globalSpectaclePanel, "modulate",
