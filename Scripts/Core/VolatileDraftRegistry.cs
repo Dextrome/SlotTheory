@@ -64,7 +64,7 @@ public static class VolatileDraftRegistry
         new(
             Id: "volatile_siege_protocol",
             OptionType: DraftOptionType.Tower,
-            OptionId: "heavy_cannon",
+            OptionId: "",
             Name: "SIEGE PROTOCOL",
             UpsideText: "+3 base damage to this tower",
             TradeoffText: "This tower attack interval +12% (slower)",
@@ -75,7 +75,7 @@ public static class VolatileDraftRegistry
         new(
             Id: "volatile_phase_net",
             OptionType: DraftOptionType.Tower,
-            OptionId: "phase_splitter",
+            OptionId: "",
             Name: "PHASE NET",
             UpsideText: "+18% chain range on this tower",
             TradeoffText: "-8% range on this tower",

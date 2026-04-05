@@ -1864,6 +1864,8 @@ public partial class GameController : Node
 			if (targetTower == null)
 				return;
 
+			_runState.Slots[targetSlotIndex].VolatileRuleId = def.Id;
+
 			if (def.FlatDamageDelta != 0)
 				targetTower.BaseDamage += def.FlatDamageDelta;
 			if (Mathf.Abs(def.AttackIntervalMultiplier - 1f) > 0.0001f)
@@ -3939,6 +3941,15 @@ public partial class GameController : Node
 					var mdef = DataLoader.GetModifierDef(mod.ModifierId);
 					text += "* " + mdef.Name + " " + mdef.Description + "\n";
 				}
+			var slotVolatileId = _runState.Slots[i].VolatileRuleId;
+			if (slotVolatileId != null && VolatileDraftRegistry.TryGet(slotVolatileId, out var volatileDef))
+			{
+				if (!text.EndsWith('\n'))
+					text += "\n";
+				text += $"\n[MUTATION: {volatileDef.Name}]\n";
+				text += $"  + {volatileDef.UpsideText}\n";
+				text += $"  - {volatileDef.TradeoffText}\n";
+			}
 			if (!text.EndsWith('\n'))
 				text += "\n";
 			text += BuildSpectacleTooltipSection(tower);

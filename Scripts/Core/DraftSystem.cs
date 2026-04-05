@@ -176,15 +176,17 @@ public class DraftSystem
         var matchingDefs = VolatileDraftRegistry.GetDefinitions()
             .Where(def => candidates.Any(c =>
                 c.option.Type == def.OptionType &&
-                string.Equals(c.option.Id, def.OptionId, StringComparison.Ordinal)))
+                (string.IsNullOrEmpty(def.OptionId) || string.Equals(c.option.Id, def.OptionId, StringComparison.Ordinal))))
             .ToList();
         if (matchingDefs.Count == 0)
             return;
 
         var chosenDef = matchingDefs[_rng.Next(matchingDefs.Count)];
-        var chosenCandidate = candidates.First(c =>
-            c.option.Type == chosenDef.OptionType &&
-            string.Equals(c.option.Id, chosenDef.OptionId, StringComparison.Ordinal));
+        var eligibleCandidates = candidates
+            .Where(c => c.option.Type == chosenDef.OptionType &&
+                (string.IsNullOrEmpty(chosenDef.OptionId) || string.Equals(c.option.Id, chosenDef.OptionId, StringComparison.Ordinal)))
+            .ToList();
+        var chosenCandidate = eligibleCandidates[_rng.Next(eligibleCandidates.Count)];
         options[chosenCandidate.index] = chosenCandidate.option with
         {
             IsVolatile = true,
