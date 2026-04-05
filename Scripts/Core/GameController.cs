@@ -10820,9 +10820,11 @@ void fragment() {
 		int numCombos = mapIds.Length * difficulties.Length;
 		int runsPerChild = System.Math.Max(1, (int)System.Math.Ceiling((double)totalRuns / numCombos));
 
-		GD.Print($"[BOT-ORCH] Orchestrating {numCombos} processes ({mapIds.Length} maps x {difficulties.Length} diffs), {runsPerChild} runs each = {numCombos * runsPerChild} total");
-		if (!string.IsNullOrWhiteSpace(metricsOutputPath))
-			GD.Print("[BOT-ORCH] Note: --bot_metrics_out is not aggregated in orchestrator mode; use --map + --difficulty for per-combo metrics.");
+		// Temp directory for per-child metrics JSON files.
+		string tempDir = Path.Combine(Path.GetTempPath(), $"slottheory_bot_{System.Diagnostics.Process.GetCurrentProcess().Id}");
+		Directory.CreateDirectory(tempDir);
+
+		GD.Print($"[BOT-ORCH] {numCombos} processes ({mapIds.Length} maps x {difficulties.Length} diffs), {runsPerChild} runs each = {numCombos * runsPerChild} total");
 
 		// Shared args forwarded to every child.
 		var sharedArgs = new System.Collections.Generic.List<string>();
@@ -10830,12 +10832,13 @@ void fragment() {
 		if (!string.IsNullOrWhiteSpace(tuningFile)) { sharedArgs.Add("--tuning_file"); sharedArgs.Add(tuningFile!); }
 		if (!string.IsNullOrWhiteSpace(forcedTower)) { sharedArgs.Add("--force_tower"); sharedArgs.Add(forcedTower!); }
 		if (!string.IsNullOrWhiteSpace(forcedMod)) { sharedArgs.Add("--force_mod"); sharedArgs.Add(forcedMod!); }
-		if (fastMetrics) sharedArgs.Add("--bot_fast_metrics");
-		if (quiet) sharedArgs.Add("--bot_quiet");
+		// Always use fast metrics for the child JSON (smaller, faster to write/read).
+		sharedArgs.Add("--bot_fast_metrics");
+		sharedArgs.Add("--bot_quiet");
 		if (isDemo) sharedArgs.Add("--demo");
 
 		// Launch all processes; throttle to MaxConcurrent at a time.
-		var allProcs = new System.Collections.Generic.List<(string map, string diff, System.Diagnostics.Process proc, System.Text.StringBuilder stdout)>();
+		var allProcs = new System.Collections.Generic.List<(string map, string diff, string metricsPath, System.Diagnostics.Process proc)>();
 
 		int comboIdx = 0;
 		foreach (string mapId in mapIds)
@@ -10843,6 +10846,8 @@ void fragment() {
 			foreach (string diff in difficulties)
 			{
 				int childOffset = runIndexOffset + comboIdx * runsPerChild;
+				string childMetrics = Path.Combine(tempDir, $"{mapId}_{diff}.json");
+
 				var args = new System.Collections.Generic.List<string>();
 				args.Add("--headless");
 				args.Add("--path");
@@ -10858,6 +10863,8 @@ void fragment() {
 				args.Add("--difficulty");
 				args.Add(diff);
 				args.Add("--no_orchestrate");
+				args.Add("--bot_metrics_out");
+				args.Add(childMetrics);
 				if (childOffset > 0) { args.Add("--run_index_offset"); args.Add($"{childOffset}"); }
 				args.AddRange(sharedArgs);
 
@@ -10871,17 +10878,16 @@ void fragment() {
 				};
 				foreach (string a in args) psi.ArgumentList.Add(a);
 
-				var sb = new System.Text.StringBuilder();
 				var proc = new System.Diagnostics.Process { StartInfo = psi };
-				proc.OutputDataReceived += (_, e) => { if (e.Data != null) sb.AppendLine(e.Data); };
+				proc.OutputDataReceived += (_, _) => { }; // discard child stdout -- we aggregate from JSON
 				proc.ErrorDataReceived  += (_, _) => { }; // drain stderr so it never blocks the child
 				proc.Start();
 				proc.BeginOutputReadLine();
 				proc.BeginErrorReadLine();
 
-				allProcs.Add((mapId, diff, proc, sb));
+				allProcs.Add((mapId, diff, childMetrics, proc));
 				comboIdx++;
-				GD.Print($"[BOT-ORCH] Launched [{mapId}|{diff}] (PID {proc.Id})");
+				GD.Print($"[BOT-ORCH] Launched [{mapId}|{diff}] PID={proc.Id}");
 
 				// Throttle: wait until a slot is free before launching the next.
 				while (allProcs.Count(p => !p.proc.HasExited) >= MaxConcurrent)
@@ -10897,14 +10903,69 @@ void fragment() {
 			System.Threading.Thread.Sleep(2000);
 		}
 
-		// Print each child's buffered output.
-		foreach (var (map, diff, proc, sb) in allProcs)
+		// Aggregate results from per-child metrics JSON files.
+		// Each JSON has a "runs" array with objects containing: won (bool), difficulty, wave_reached.
+		// Build a (map, difficulty) -> (wins, total) table.
+		var table = new System.Collections.Generic.Dictionary<string, (int wins, int total)>(System.StringComparer.Ordinal);
+		int grandWins = 0, grandTotal = 0;
+		var diffTotals = new System.Collections.Generic.Dictionary<string, (int wins, int total)>(System.StringComparer.OrdinalIgnoreCase);
+		foreach (var (mapId, diff, metricsPath, proc) in allProcs)
 		{
-			GD.Print($"\n=== [{map}|{diff.ToUpper()}] (exit {proc.ExitCode}) ===");
-			GD.Print(sb.ToString());
+			string key = $"{mapId}|{diff}";
+			if (proc.ExitCode != 0 || !File.Exists(metricsPath))
+			{
+				GD.PrintErr($"[BOT-ORCH] [{mapId}|{diff}] failed (exit {proc.ExitCode}) or no metrics written");
+				table[key] = (0, 0);
+				continue;
+			}
+			try
+			{
+				using var doc = JsonDocument.Parse(File.ReadAllText(metricsPath));
+				int wins = 0, total = 0;
+				if (doc.RootElement.TryGetProperty("runs", out var runsEl) && runsEl.ValueKind == JsonValueKind.Array)
+				{
+					foreach (var run in runsEl.EnumerateArray())
+					{
+						total++;
+						if (run.TryGetProperty("won", out var wonEl) && wonEl.GetBoolean())
+							wins++;
+					}
+				}
+				table[key] = (wins, total);
+				grandWins += wins; grandTotal += total;
+				diffTotals.TryGetValue(diff, out var dt);
+				diffTotals[diff] = (dt.wins + wins, dt.total + total);
+			}
+			catch (System.Exception ex)
+			{
+				GD.PrintErr($"[BOT-ORCH] [{mapId}|{diff}] failed to parse metrics: {ex.Message}");
+				table[key] = (0, 0);
+			}
 		}
 
-		GD.Print("\n[BOT-ORCH] All processes complete.");
+		// Print summary table.
+		string Pct(int w, int t) => t == 0 ? "  n/a" : $"{w * 100 / t,3}%";
+		string Cell(int w, int t) => t == 0 ? "   -  " : $"{w}/{t} {Pct(w, t)}";
+		GD.Print("");
+		GD.Print($"{"MAP",-22} {"EASY",10} {"NORMAL",10} {"HARD",10}  OVERALL");
+		GD.Print(new string('-', 62));
+		(int wins, int total) Get(string k) => table.TryGetValue(k, out var v) ? v : (0, 0);
+		foreach (string mapId in mapIds)
+		{
+			var (eW, eT) = Get($"{mapId}|easy");
+			var (nW, nT) = Get($"{mapId}|normal");
+			var (hW, hT) = Get($"{mapId}|hard");
+			int mW = eW + nW + hW, mT = eT + nT + hT;
+			GD.Print($"{mapId,-22} {Cell(eW,eT),10} {Cell(nW,nT),10} {Cell(hW,hT),10}  {Cell(mW,mT)}");
+		}
+		GD.Print(new string('-', 62));
+		diffTotals.TryGetValue("easy",   out var dE); diffTotals.TryGetValue("normal", out var dN); diffTotals.TryGetValue("hard", out var dH);
+		GD.Print($"{"OVERALL",-22} {Cell(dE.wins,dE.total),10} {Cell(dN.wins,dN.total),10} {Cell(dH.wins,dH.total),10}  {Cell(grandWins,grandTotal)}");
+		GD.Print("");
+		GD.Print($"[BOT-ORCH] Done. {grandWins}/{grandTotal} wins ({Pct(grandWins, grandTotal)}) across {allProcs.Count} processes.");
+
+		// Clean up temp files.
+		try { Directory.Delete(tempDir, recursive: true); } catch { }
 	}
 
 }
