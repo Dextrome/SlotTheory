@@ -1693,7 +1693,10 @@ public partial class SoundManager : Node
             }
 
             float targetDb = MusicBaseDb + _musicTensionDb - _musicDuckDb - _padFadeDb;
-            _musicPlayer.VolumeDb = Mathf.Lerp(_musicPlayer.VolumeDb, targetDb, 12f * (float)delta);
+            if (!float.IsNaN(targetDb))
+                _musicPlayer.VolumeDb = Mathf.Lerp(
+                    float.IsNaN(_musicPlayer.VolumeDb) ? MusicBaseDb : _musicPlayer.VolumeDb,
+                    targetDb, 12f * (float)delta);
         }
     }
 

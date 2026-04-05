@@ -32,6 +32,7 @@ public sealed class CombatLabTowerBenchmarkRunner
         public int MaxModifiers { get; set; } = Balance.MaxModifiersPerTower;
         public float Cooldown { get; set; }
         public Vector2 GlobalPosition { get; set; }
+        public int SlotIndex { get; set; } = -1;
 
         public void RefreshRangeCircle() { }
         public float GetEffectiveDamageForPreview() => BaseDamage;
