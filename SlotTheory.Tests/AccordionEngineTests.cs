@@ -160,18 +160,16 @@ public class AccordionEngineTests
             Assert.True(p >= 0f, $"Negative progress after compression: {p}");
     }
 
-    // ── isChain differentiation -- Blast Core as the canary ───────────────────
+    // ── isChain differentiation -- Blast Core fires on all hits (proc spaghetti) ─
     //
-    // The Accordion Engine fires the leading enemy as isChain=false (primary) and
-    // all other in-range enemies as isChain=true (secondary). Blast Core's
-    // ApplyToChainTargets=false gate is the key enforcement mechanism.
-    // These tests verify that gate works correctly at the DamageModel and modifier level.
+    // Blast Core fires on primary AND secondary (chain) hits by design.
+    // "Proc spaghetti is desired" -- chain + split combos cascade explosions.
 
     [Fact]
-    public void BlastCore_ApplyToChainTargets_IsFalse()
+    public void BlastCore_ApplyToChainTargets_IsTrue()
     {
         var mod = new BlastCore(Def("blast_core"));
-        Assert.False(mod.ApplyToChainTargets);
+        Assert.True(mod.ApplyToChainTargets);
     }
 
     [Fact]
@@ -251,9 +249,10 @@ public class AccordionEngineTests
     }
 
     [Fact]
-    public void BlastCore_NearbyEnemyUntouched_OnSecondaryHit()
+    public void BlastCore_SplashesNearbyEnemy_OnSecondaryHit()
     {
-        // isChain=true (secondary/accordion hit): Blast Core must NOT fire; nearby enemy stays at full HP.
+        // isChain=true (secondary/accordion hit): Blast Core DOES fire (proc spaghetti).
+        // Nearby enemy within radius takes splash damage.
         var tower   = new FakeTower { BaseDamage = 20f };
         var target  = new FakeEnemy { Hp = 100f, GlobalPosition = Vector2.Zero };
         var nearby  = new FakeEnemy { Hp = 100f, GlobalPosition = new Vector2(50f, 0f) };
@@ -266,14 +265,15 @@ public class AccordionEngineTests
 
         DamageModel.Apply(ctx);
 
-        Assert.Equal(100f, nearby.Hp, precision: 2); // unchanged
-        Assert.Equal(0f,   ctx.SplashDamageDealt, precision: 2);
+        float expectedSplash = 20f * Balance.BlastCoreDamageRatio;
+        Assert.Equal(100f - expectedSplash, nearby.Hp, precision: 2);
+        Assert.Equal(expectedSplash, ctx.SplashDamageDealt, precision: 2);
     }
 
     [Fact]
-    public void BlastCore_SplashDamageDealt_IsZero_OnSecondaryHit()
+    public void BlastCore_SplashDamageDealt_IsNonZero_OnSecondaryHit()
     {
-        // Mirrors the above: SplashDamageDealt stays 0 for isChain=true hits.
+        // SplashDamageDealt is populated for isChain=true hits (proc spaghetti).
         var tower   = new FakeTower { BaseDamage = 20f };
         var target  = new FakeEnemy { Hp = 100f, GlobalPosition = Vector2.Zero };
         var nearby  = new FakeEnemy { Hp = 100f, GlobalPosition = new Vector2(50f, 0f) };
@@ -285,7 +285,8 @@ public class AccordionEngineTests
 
         DamageModel.Apply(ctx);
 
-        Assert.Equal(0f, ctx.SplashDamageDealt, precision: 2);
+        float expectedSplash = 20f * Balance.BlastCoreDamageRatio;
+        Assert.Equal(expectedSplash, ctx.SplashDamageDealt, precision: 2);
     }
 
     [Fact]

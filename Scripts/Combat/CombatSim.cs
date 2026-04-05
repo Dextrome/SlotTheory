@@ -118,6 +118,11 @@ public class CombatSim
     // Wildfire trail number readability: accumulate fractional trail damage per enemy globally
     // across all overlapping segments, then emit numbers once full HP chunks build up.
     private readonly Dictionary<ulong, float> _wildfireTrailDmgAccumulator = new();
+
+    // Reusable scratch buffers to avoid per-step/per-attack heap allocations in bot mode.
+    private readonly List<EnemyInstance> _scratchInRange = new();
+    private readonly Dictionary<ulong, int> _scratchActiveCountByEnemy = new();
+
     private static readonly Color WildfireFireColor = new(1.0f, 0.55f, 0.12f);
     private static readonly Color AfterimageColor = new(0.72f, 0.88f, 1.00f);
     private static readonly Color DeadzoneColor = new(0.15f, 0.86f, 0.62f); // jade-teal: pin/crowd-control identity, distinct from Afterimage (ghost-blue) and Wildfire (fire-amber)
@@ -516,7 +521,7 @@ public class CombatSim
         // enemies it was shielding retain IsShieldProtected=true for the rest of that frame.
         // The flag is cleared correctly at the start of the next Step(). One frame of ghost shielding
         // (~16ms at 60fps) is imperceptible and not worth re-running the O(n²) aura pass after each kill.
-        UpdateShieldDroneAuras(state.EnemiesAlive);
+        UpdateShieldDroneAuras(state.EnemiesAlive, BotMode);
         UpdateNullDronePulses(state.EnemiesAlive);
         PruneLatchParasitesForMissingTowers(state);
 
@@ -575,15 +580,16 @@ public class CombatSim
                 foreach (var mod in tower.Modifiers)
                     mod.ModifyAttackInterval(ref accordionInterval, tower);
 
-                // Collect in-range enemies sorted by Progress ascending (trailing → leading).
-                var inRange = new List<EnemyInstance>();
+                // Collect in-range enemies sorted by Progress ascending (trailing -> leading).
+                _scratchInRange.Clear();
                 foreach (var e in state.EnemiesAlive)
                 {
-                    if (!GodotObject.IsInstanceValid(e) || e.Hp <= 0f) continue;
+                    if ((!BotMode && !GodotObject.IsInstanceValid(e)) || e.Hp <= 0f) continue;
                     if (tower.GlobalPosition.DistanceTo(e.GlobalPosition) <= tower.Range)
-                        inRange.Add(e);
+                        _scratchInRange.Add(e);
                 }
-                inRange.Sort((a, b) => a.Progress.CompareTo(b.Progress));
+                _scratchInRange.Sort((a, b) => a.Progress.CompareTo(b.Progress));
+                var inRange = _scratchInRange;
 
                 if (inRange.Count == 0)
                 {
@@ -1063,18 +1069,19 @@ public class CombatSim
         if (_activeUndertows.Count == 0 || delta <= 0f)
             return;
 
-        var activeCountByEnemy = new Dictionary<ulong, int>();
+        _scratchActiveCountByEnemy.Clear();
         foreach (var effect in _activeUndertows)
         {
             if (effect.DelayRemaining > 0f)
                 continue;
-            if (!GodotObject.IsInstanceValid(effect.Target) || effect.Target.Hp <= 0f)
+            if ((!BotMode && !GodotObject.IsInstanceValid(effect.Target)) || effect.Target.Hp <= 0f)
                 continue;
 
             ulong id = effect.Target.GetInstanceId();
-            activeCountByEnemy.TryGetValue(id, out int count);
-            activeCountByEnemy[id] = count + 1;
+            _scratchActiveCountByEnemy.TryGetValue(id, out int count);
+            _scratchActiveCountByEnemy[id] = count + 1;
         }
+        var activeCountByEnemy = _scratchActiveCountByEnemy;
 
         for (int i = _activeUndertows.Count - 1; i >= 0; i--)
         {
@@ -3583,7 +3590,7 @@ public class CombatSim
     /// Shield Drone's aura radius as protected. Called once per Step(), before tower
     /// attacks, so damage reduction is correctly applied this frame.
     /// </summary>
-    private static void UpdateShieldDroneAuras(List<EnemyInstance> enemies)
+    private static void UpdateShieldDroneAuras(List<EnemyInstance> enemies, bool botMode)
     {
         // Reset all protection flags first
         foreach (var e in enemies)
@@ -3591,20 +3598,38 @@ public class CombatSim
 
         float radiusSq = Balance.ShieldDroneAuraRadius * Balance.ShieldDroneAuraRadius;
 
-        foreach (var drone in enemies)
+        // Collect live drones first to skip the outer loop entirely when there are none.
+        // This avoids the O(n^2) scan on every step when no shield drones are present.
+        Vector2[]? dronePositions = null;
+        int droneCount = 0;
+        foreach (var e in enemies)
         {
-            if (!GodotObject.IsInstanceValid(drone)) continue;
-            if (drone.EnemyTypeId != "shield_drone" || drone.Hp <= 0f) continue;
-
-            Vector2 dronePos = drone.GlobalPosition;
-            foreach (var ally in enemies)
+            if (e.EnemyTypeId == "shield_drone" && e.Hp > 0f &&
+                (botMode || GodotObject.IsInstanceValid(e)))
             {
-                if (!GodotObject.IsInstanceValid(ally) || ally.Hp <= 0f) continue;
-                if (ReferenceEquals(ally, drone)) continue;
-                if (ally.EnemyTypeId == "shield_drone") continue; // drones don't shield each other
+                dronePositions ??= new Vector2[4]; // most waves have 0-2 shield drones
+                if (droneCount == dronePositions.Length)
+                    System.Array.Resize(ref dronePositions, dronePositions.Length * 2);
+                dronePositions[droneCount++] = e.GlobalPosition;
+            }
+        }
 
-                if (dronePos.DistanceSquaredTo(ally.GlobalPosition) <= radiusSq)
+        if (droneCount == 0) return; // no live drones -- nothing to protect
+
+        foreach (var ally in enemies)
+        {
+            if (ally.EnemyTypeId == "shield_drone") continue; // drones don't shield each other
+            if (ally.Hp <= 0f) continue;
+            if (!botMode && !GodotObject.IsInstanceValid(ally)) continue;
+
+            Vector2 allyPos = ally.GlobalPosition;
+            for (int di = 0; di < droneCount; di++)
+            {
+                if (dronePositions![di].DistanceSquaredTo(allyPos) <= radiusSq)
+                {
                     ally.IsShieldProtected = true;
+                    break;
+                }
             }
         }
     }

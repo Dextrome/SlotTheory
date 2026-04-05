@@ -349,8 +349,9 @@ public class ModifierTests
     }
 
     [Fact]
-    public void Wildfire_OnHit_ChainHit_DoesNotApplyBurn()
+    public void Wildfire_OnHit_ChainHit_AppliesBurn()
     {
+        // Wildfire fires on chain hits too (proc spaghetti -- all hits ignite).
         var tower = new FakeTower { BaseDamage = 10f };
         tower.Modifiers.Add(new Wildfire(Def("wildfire")));
         var enemy = new FakeEnemy { Hp = 100f };
@@ -359,8 +360,8 @@ public class ModifierTests
 
         tower.Modifiers[0].OnHit(ctx);
 
-        Assert.Equal(0f, enemy.BurnRemaining);
-        Assert.Equal(0f, enemy.BurnDamagePerSecond);
+        Assert.Equal(Balance.WildfireBurnDuration, enemy.BurnRemaining, precision: 3);
+        Assert.True(enemy.BurnDamagePerSecond > 0f);
     }
 
     [Fact]

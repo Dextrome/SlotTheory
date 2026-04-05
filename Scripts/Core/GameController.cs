@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 using Godot;
 using SlotTheory.Combat;
@@ -511,6 +513,29 @@ public partial class GameController : Node
 					MaxWaves = benchmarkMaxWaves,
 					TrialsPerTower = benchmarkTrialsPerTower,
 				};
+			}
+
+			// Orchestrator mode: when --bot is used without --map or --difficulty,
+			// spawn one Godot process per map*difficulty pair (up to 24 concurrent).
+			// Each child gets --no_orchestrate so it runs normally without re-forking.
+			bool noOrchestrate = HasBotArg("--no_orchestrate");
+			if (!noOrchestrate && !towerSurgeBenchmark && targetMap == null && !targetDifficulty.HasValue)
+			{
+				RunBotOrchestrator(
+					godotExe: OS.GetExecutablePath(),
+					projectPath: Path.GetFullPath(ProjectSettings.GlobalizePath("res://")),
+					totalRuns: runs,
+					strategySet: strategySet,
+					tuningFile: tuningFile,
+					runIndexOffset: runIndexOffset,
+					fastMetrics: botFastMetrics,
+					quiet: botQuiet,
+					isDemo: Balance.IsDemo,
+					metricsOutputPath: metricsOutputPath,
+					forcedTower: forcedTower,
+					forcedMod: forcedMod);
+				GetTree().Quit();
+				return;
 			}
 
 			_botRunner = new BotRunner(
@@ -4095,10 +4120,10 @@ public partial class GameController : Node
 			_botStepExplosionBursts = 0;
 			_botStepHitStopRequests = 0;
 
-			// Manually advance enemies (PathFollow2D._Process is disabled in bot mode)
+			// Manually advance enemies (PathFollow2D._Process is disabled in bot mode).
+			// No IsInstanceValid check needed: enemies are never freed mid-step in simulation.
 			foreach (var enemy in _runState.EnemiesAlive)
 			{
-				if (!GodotObject.IsInstanceValid(enemy)) continue;
 				float spd = enemy.IsSlowed ? enemy.Speed * enemy.SlowSpeedFactor : enemy.Speed;
 				enemy.Progress     += spd * BOT_DT;
 				enemy.AdvanceCombatTimers(BOT_DT);
@@ -10748,6 +10773,136 @@ void fragment() {
 			 .SetTrans(Tween.TransitionType.Expo).SetEase(Tween.EaseType.Out);
 		tween.TweenCallback(Callable.From(() => _waveClearFlash.Visible = false));
 		_hudPanel.PulseWaveLabel();
+	}
+
+	// ------------------------------------------------------------------
+	// Bot orchestrator: spawns one Godot process per map*difficulty pair.
+	// Called when --bot is used without --map or --difficulty.
+	// ------------------------------------------------------------------
+	private static void RunBotOrchestrator(
+		string godotExe,
+		string projectPath,
+		int totalRuns,
+		string? strategySet,
+		string? tuningFile,
+		int runIndexOffset,
+		bool fastMetrics,
+		bool quiet,
+		bool isDemo,
+		string? metricsOutputPath,
+		string? forcedTower,
+		string? forcedMod)
+	{
+		const int MaxConcurrent = 24;
+
+		// Build the map*difficulty combo list.
+		string[] mapIds;
+		try
+		{
+			mapIds = DataLoader.GetAllMapDefs()
+				.Where(m => !m.IsRandom && (!Balance.IsDemo || !m.IsFullGame))
+				.OrderBy(m => m.DisplayOrder)
+				.Select(m => m.Id)
+				.ToArray();
+		}
+		catch
+		{
+			mapIds = System.Array.Empty<string>();
+		}
+		if (mapIds.Length == 0)
+			mapIds = Balance.IsDemo
+				? new[] { "crossroads", "pinch_bleed", "orbit" }
+				: new[] { "orbit", "crossroads", "pinch_bleed", "ridgeback", "double_back",
+				          "crossfire", "threshold", "switchback", "ziggurat", "hourglass",
+				          "perimeter_lock", "trident" };
+
+		var difficulties = new[] { "easy", "normal", "hard" };
+		int numCombos = mapIds.Length * difficulties.Length;
+		int runsPerChild = System.Math.Max(1, (int)System.Math.Ceiling((double)totalRuns / numCombos));
+
+		GD.Print($"[BOT-ORCH] Orchestrating {numCombos} processes ({mapIds.Length} maps x {difficulties.Length} diffs), {runsPerChild} runs each = {numCombos * runsPerChild} total");
+		if (!string.IsNullOrWhiteSpace(metricsOutputPath))
+			GD.Print("[BOT-ORCH] Note: --bot_metrics_out is not aggregated in orchestrator mode; use --map + --difficulty for per-combo metrics.");
+
+		// Shared args forwarded to every child.
+		var sharedArgs = new System.Collections.Generic.List<string>();
+		if (!string.IsNullOrWhiteSpace(strategySet)) { sharedArgs.Add("--strategy_set"); sharedArgs.Add(strategySet!); }
+		if (!string.IsNullOrWhiteSpace(tuningFile)) { sharedArgs.Add("--tuning_file"); sharedArgs.Add(tuningFile!); }
+		if (!string.IsNullOrWhiteSpace(forcedTower)) { sharedArgs.Add("--force_tower"); sharedArgs.Add(forcedTower!); }
+		if (!string.IsNullOrWhiteSpace(forcedMod)) { sharedArgs.Add("--force_mod"); sharedArgs.Add(forcedMod!); }
+		if (fastMetrics) sharedArgs.Add("--bot_fast_metrics");
+		if (quiet) sharedArgs.Add("--bot_quiet");
+		if (isDemo) sharedArgs.Add("--demo");
+
+		// Launch all processes; throttle to MaxConcurrent at a time.
+		var allProcs = new System.Collections.Generic.List<(string map, string diff, System.Diagnostics.Process proc, System.Text.StringBuilder stdout)>();
+
+		int comboIdx = 0;
+		foreach (string mapId in mapIds)
+		{
+			foreach (string diff in difficulties)
+			{
+				int childOffset = runIndexOffset + comboIdx * runsPerChild;
+				var args = new System.Collections.Generic.List<string>();
+				args.Add("--headless");
+				args.Add("--path");
+				args.Add(projectPath);
+				args.Add("--scene");
+				args.Add("res://Scenes/Main.tscn");
+				args.Add("--");
+				args.Add("--bot");
+				args.Add("--runs");
+				args.Add($"{runsPerChild}");
+				args.Add("--map");
+				args.Add(mapId);
+				args.Add("--difficulty");
+				args.Add(diff);
+				args.Add("--no_orchestrate");
+				if (childOffset > 0) { args.Add("--run_index_offset"); args.Add($"{childOffset}"); }
+				args.AddRange(sharedArgs);
+
+				var psi = new System.Diagnostics.ProcessStartInfo
+				{
+					FileName = godotExe,
+					UseShellExecute = false,
+					CreateNoWindow = true,
+					RedirectStandardOutput = true,
+					RedirectStandardError = true,
+				};
+				foreach (string a in args) psi.ArgumentList.Add(a);
+
+				var sb = new System.Text.StringBuilder();
+				var proc = new System.Diagnostics.Process { StartInfo = psi };
+				proc.OutputDataReceived += (_, e) => { if (e.Data != null) sb.AppendLine(e.Data); };
+				proc.Start();
+				proc.BeginOutputReadLine();
+
+				allProcs.Add((mapId, diff, proc, sb));
+				comboIdx++;
+				GD.Print($"[BOT-ORCH] Launched [{mapId}|{diff}] (PID {proc.Id})");
+
+				// Throttle: wait until a slot is free before launching the next.
+				while (allProcs.Count(p => !p.proc.HasExited) >= MaxConcurrent)
+					System.Threading.Thread.Sleep(500);
+			}
+		}
+
+		// Wait for all remaining processes to finish.
+		while (allProcs.Any(p => !p.proc.HasExited))
+		{
+			int remaining = allProcs.Count(p => !p.proc.HasExited);
+			GD.Print($"[BOT-ORCH] Waiting... {remaining}/{allProcs.Count} still running");
+			System.Threading.Thread.Sleep(2000);
+		}
+
+		// Print each child's buffered output.
+		foreach (var (map, diff, proc, sb) in allProcs)
+		{
+			GD.Print($"\n=== [{map}|{diff.ToUpper()}] (exit {proc.ExitCode}) ===");
+			GD.Print(sb.ToString());
+		}
+
+		GD.Print("\n[BOT-ORCH] All processes complete.");
 	}
 
 }

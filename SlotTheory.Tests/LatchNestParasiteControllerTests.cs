@@ -32,8 +32,11 @@ public class LatchNestParasiteControllerTests
     }
 
     [Fact]
-    public void ParasiteTicks_AreSecondaryHits_AndSuppressBlastCoreAndWildfireOnHit()
+    public void ParasiteTicks_AreSecondaryHits_AndProcBlastCoreAndWildfireOnHit()
     {
+        // Parasite ticks use isChain=true but Blast Core and Wildfire now fire on all hits
+        // (proc spaghetti is desired). Nearby enemy within blast radius takes splash damage;
+        // host receives the burn from Wildfire.
         var tower = new FakeTower { TowerId = "latch_nest", BaseDamage = 18f };
         tower.Modifiers.Add(new BlastCore(Def("blast_core")));
         tower.Modifiers.Add(new Wildfire(Def("wildfire")));
@@ -55,8 +58,11 @@ public class LatchNestParasiteControllerTests
 
         Assert.NotNull(tickEvent);
         Assert.True(tickEvent!.Value.Context.IsChain);
-        Assert.Equal(220f, nearby.Hp, 2);
-        Assert.Equal(0f, host.BurnRemaining, 3);
+        // Blast Core fires: nearby takes splash from host's position (52px < BlastCoreRadius 140px)
+        float expectedSplash = 18f * Balance.BlastCoreDamageRatio;
+        Assert.Equal(220f - expectedSplash, nearby.Hp, precision: 1);
+        // Wildfire fires: host gains burn
+        Assert.Equal(Balance.WildfireBurnDuration, host.BurnRemaining, precision: 3);
     }
 
     [Fact]
