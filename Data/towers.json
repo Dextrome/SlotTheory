@@ -32,8 +32,8 @@
                     },
     "rift_prism":  {
                        "Name":  "Rift Sapper",
-                       "BaseDamage":  15.0,
-                       "AttackInterval":  0.86,
+                       "BaseDamage":  17.0,
+                       "AttackInterval":  0.96,
                        "Range":  230.0,
                        "AppliesMark":  false
                    },
