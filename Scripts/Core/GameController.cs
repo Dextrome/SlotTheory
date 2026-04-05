@@ -10874,8 +10874,10 @@ void fragment() {
 				var sb = new System.Text.StringBuilder();
 				var proc = new System.Diagnostics.Process { StartInfo = psi };
 				proc.OutputDataReceived += (_, e) => { if (e.Data != null) sb.AppendLine(e.Data); };
+				proc.ErrorDataReceived  += (_, _) => { }; // drain stderr so it never blocks the child
 				proc.Start();
 				proc.BeginOutputReadLine();
+				proc.BeginErrorReadLine();
 
 				allProcs.Add((mapId, diff, proc, sb));
 				comboIdx++;
