@@ -28,6 +28,8 @@ public interface ITowerView
     bool CanAddModifier { get; }
     float Cooldown { get; set; }
     Vector2 GlobalPosition { get; }
+    /// <summary>Index of the slot this tower occupies. Set by GameController.PlaceTower. -1 if unplaced.</summary>
+    int SlotIndex { get; set; }
 
     void RefreshRangeCircle();
 

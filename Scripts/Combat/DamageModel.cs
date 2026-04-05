@@ -96,8 +96,7 @@ public static class DamageModel
         if (ctx.State != null)
         {
             int damageDealt = (int)(hpBefore - System.MathF.Max(0f, ctx.Target.Hp));
-            var attackerSlotIndex = FindTowerSlotIndex(ctx.State, ctx.Attacker);
-            ctx.State.TrackBaseAttackDamage(attackerSlotIndex, damageDealt, isKill, ctx.Target.ProgressRatio);
+            ctx.State.TrackBaseAttackDamage(ctx.Attacker.SlotIndex, damageDealt, isKill, ctx.Target.ProgressRatio);
         }
 
         RegisterSpectacleDamageProcs(ctx, damageDealtRaw, isKill);
@@ -168,9 +167,7 @@ public static class DamageModel
                 splashTargets.Add(enemy);
         }
 
-        int attackerSlotIndex = -1;
-        if (ctx.State != null)
-            attackerSlotIndex = FindTowerSlotIndex(ctx.State, ctx.Attacker);
+        int attackerSlotIndex = ctx.Attacker.SlotIndex;
         bool applyChill = Statuses.TryGetChillSlowFactor(ctx.Attacker, out float chillSlowFactor);
         float totalDealt = 0f;
         foreach (IEnemyView enemy in splashTargets)
@@ -232,14 +229,4 @@ public static class DamageModel
         return count;
     }
 
-    /// <summary>Finds which slot index a tower belongs to for damage tracking.</summary>
-    private static int FindTowerSlotIndex(RunState state, ITowerView tower)
-    {
-        for (int i = 0; i < state.Slots.Length; i++)
-        {
-            if (ReferenceEquals(state.Slots[i].Tower, tower))
-                return i;
-        }
-        return -1;
-    }
 }

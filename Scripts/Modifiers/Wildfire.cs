@@ -9,10 +9,9 @@ namespace SlotTheory.Modifiers;
 /// Wildfire: valid hits ignite enemies. Burning enemies leave short-lived fire trail segments
 /// behind them as they move; enemies walking through those trail segments take damage.
 ///
-/// Triggering rules (mirrors BlastCore -- consistent player mental model):
-///   IGNITES on:  primary hits, split-projectile hits, mine primary triggers, Accordion primary
-///                (all contexts where ctx.IsChain == false)
-///   SKIPS on:    chain bounces (IsChain=true), Accordion Engine secondary hits (IsChain=true)
+/// Triggering rules:
+///   IGNITES on:  all hits -- primary, chain bounces, split-projectile hits, mine triggers,
+///                Accordion primary and secondary hits. Proc spaghetti is intentional.
 ///
 /// Stacking copies of Wildfire:
 ///   Each additional copy on the same tower increases BurnDPS additively.
@@ -36,12 +35,9 @@ namespace SlotTheory.Modifiers;
 ///     amplify lane coverage. Both are intentional and fun; trail cap prevents blowup.
 ///   - Heavy Cannon:   powerful burn per-hit due to high BaseDamage. Trail segments from
 ///     heavy hits persist as dangerous hazard zones.
-///   - Arc Emitter:    primary hit ignites, chain bounces do not. Chains clean up burning
-///     enemies, which synergizes naturally (burning pack gets chained through).
-///   - Accordion Engine: primary hit (isChain=false) ignites. Secondary compression hits
-///     (isChain=true) do not -- compression is an area effect, not a direct strike.
-///   - Rift Sapper:    mine primary trigger (isChain=false) ignites. Blast zone secondary
-///     targets (isChain=true) do not.
+///   - Arc Emitter:    primary hit and all chain bounces ignite. Entire chain spreads fire.
+///   - Accordion Engine: primary and secondary compression hits both ignite.
+///   - Rift Sapper:    mine primary and secondary blast targets all ignite.
 ///   - Chill Shot:     slowed enemies linger inside trail segments longer -- naturally strong
 ///     synergy without any special case code.
 ///   - Blast Core:     splash damage is raw HP reduction, bypasses OnHit → no Burning from
@@ -56,14 +52,8 @@ public class Wildfire : Modifier
 {
     public Wildfire(ModifierDef def) { ModifierId = def.Id; }
 
-    // Chain bounces don't ignite. Consistent with BlastCore.
-    public override bool ApplyToChainTargets => false;
-
     public override bool OnHit(DamageContext ctx)
     {
-        // ApplyToChainTargets=false already blocks chain calls in DamageModel;
-        // this guard covers direct invocations from test harnesses.
-        if (ctx.IsChain) return false;
         if (ctx.Target.Hp <= 0f) return false; // don't ignite already-dead enemies
 
         // Count copies of Wildfire on this tower so stacking increases burn DPS.
@@ -77,7 +67,7 @@ public class Wildfire : Modifier
         if (burnDps <= 0f) return false;
 
         // Find slot index for RunState damage attribution.
-        int slotIndex = FindTowerSlotIndex(ctx.State, ctx.Attacker);
+        int slotIndex = ctx.Attacker.SlotIndex;
 
         // Apply burn state: refresh duration and overwrite DPS (last write wins).
         // Only initialize the drop timer on first ignition -- re-ignition while already
@@ -96,15 +86,4 @@ public class Wildfire : Modifier
         return true; // show the tower proc halo
     }
 
-    /// <summary>
-    /// Mirrors DamageModel.FindTowerSlotIndex for burn DOT attribution.
-    /// Returns -1 if the tower is not found; TrackBaseAttackDamage accepts -1 safely.
-    /// </summary>
-    private static int FindTowerSlotIndex(SlotTheory.Core.RunState? state, ITowerView tower)
-    {
-        if (state == null) return -1;
-        for (int i = 0; i < state.Slots.Length; i++)
-            if (ReferenceEquals(state.Slots[i].Tower, tower)) return i;
-        return -1;
-    }
 }

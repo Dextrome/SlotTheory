@@ -13,9 +13,8 @@ namespace SlotTheory.Modifiers;
 /// dealing damage to all enemies in a fixed radius.
 ///
 /// Triggering rules:
-///   FIRES on:  primary projectile hits, mine final-charge pops, split-projectile hits
-///              (all contexts where ctx.IsChain == false)
-///   SKIPS on:  chain bounces (IsChain=true), overkill spill (IsChain=true)
+///   FIRES on:  all hits -- primary, chain bounces, split-projectile hits, mine final-charge pops.
+///              Proc spaghetti is intentional; chain + split combos create cascading explosions.
 ///
 /// Splash rules:
 ///   - Splash damage = FinalDamage × BlastCoreDamageRatio. Because FinalDamage already
@@ -33,7 +32,6 @@ namespace SlotTheory.Modifiers;
 ///     The explosion hits everything in radius -- no artificial target cap.
 ///
 /// Anti-recursion:
-///   ApplyToChainTargets = false prevents DamageModel from calling OnHit on chain targets.
 ///   All splash damage is raw HP subtraction, not DamageModel.Apply calls, so Blast Core
 ///   can never proc more Blast Core. No guard flag needed in the call stack.
 /// </summary>
@@ -41,15 +39,8 @@ public class BlastCore : Modifier
 {
     public BlastCore(ModifierDef def) { ModifierId = def.Id; }
 
-    // Only fire splash on primary-style hits. Chain bounce targets are excluded.
-    public override bool ApplyToChainTargets => false;
-
     public override bool OnHit(DamageContext ctx)
     {
-        // Belt-and-suspenders: ApplyToChainTargets=false already blocks chain-target calls
-        // in DamageModel, but guard here for test harness and direct OnHit invocations.
-        if (ctx.IsChain) return false;
-
         float splashDamage = ctx.FinalDamage * Balance.BlastCoreDamageRatio;
         if (splashDamage <= 0f) return false;
 
@@ -95,7 +86,7 @@ public class BlastCore : Modifier
         // TotalDamageDealt, and per-tower bot analytics stay accurate.
         // OnKill modifier effects (FeedbackLoop, Overkill) are intentionally NOT fired --
         // splash is secondary damage and should not propagate the full kill pipeline.
-        int slotIndex = FindTowerSlotIndex(ctx.State, ctx.Attacker);
+        int slotIndex = ctx.Attacker.SlotIndex;
         bool applyChill = Statuses.TryGetChillSlowFactor(ctx.Attacker, out float chillSlowFactor);
         float totalDealt = 0f;
         foreach (var enemy in candidates)
@@ -125,16 +116,4 @@ public class BlastCore : Modifier
         return true; // trigger tower proc halo
     }
 
-    /// <summary>
-    /// Mirrors DamageModel.FindTowerSlotIndex (private there). Needed to attribute splash
-    /// damage and kills to the correct slot in RunState for end-screen stats and bot analytics.
-    /// Returns -1 if the tower is not found (safe: TrackBaseAttackDamage accepts -1).
-    /// </summary>
-    private static int FindTowerSlotIndex(SlotTheory.Core.RunState? state, SlotTheory.Entities.ITowerView tower)
-    {
-        if (state == null) return -1;
-        for (int i = 0; i < state.Slots.Length; i++)
-            if (ReferenceEquals(state.Slots[i].Tower, tower)) return i;
-        return -1;
-    }
 }

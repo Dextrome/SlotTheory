@@ -33,6 +33,7 @@ public class FakeTower : ITowerView
     }
     public float Cooldown { get; set; } = 0f;
     public Vector2 GlobalPosition { get; set; } = Vector2.Zero;
+    public int SlotIndex { get; set; } = -1;
 
     public void RefreshRangeCircle() { } // no-op in tests
     public float GetEffectiveDamageForPreview() => BaseDamage;

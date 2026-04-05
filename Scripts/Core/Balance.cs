@@ -291,7 +291,7 @@ public static class Balance
     public const float ChainReactionRange = 320f;           // ChainReaction modifier: chain search radius
 
     // Rift Sapper mines
-    public const int   RiftMineMaxActivePerTower = 7;
+    public const int   RiftMineMaxActivePerTower = 9;
     public const float RiftMineDamageMultiplier  = 1.00f; // base multiplier before per-charge stage multipliers
     public const int   RiftMineChargesPerMine    = 3;     // number of triggers before mine is consumed
     public const float RiftMineTickDamageMultiplier  = 0.65f; // damage for non-final charge triggers

@@ -2385,16 +2385,6 @@ public class CombatSim
         }
     }
 
-    private static int FindTowerSlotIndex(RunState state, ITowerView tower)
-    {
-        for (int i = 0; i < state.Slots.Length; i++)
-        {
-            if (ReferenceEquals(state.Slots[i].Tower, tower))
-                return i;
-        }
-        return -1;
-    }
-
     private int GetRiftBurstFastPlantsUsed(ITowerView tower)
     {
         if (tower is not TowerInstance inst)
@@ -3149,7 +3139,7 @@ public class CombatSim
                 waveIndex,
                 enemies,
                 _state,
-                isChain: true,
+                isChain: false,
                 damageOverride: splitDamage));
             spawned++;
 

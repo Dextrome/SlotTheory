@@ -2245,6 +2245,7 @@ public partial class GameController : Node
 
 		_slotNodes[slotIndex].AddChild(tower);
 		_runState.Slots[slotIndex].Tower = tower;
+		tower.SlotIndex = slotIndex;
 		tower.RebuildEvolutionVisuals(allowTransition: _botRunner == null);
 
 		// Placement bounce - scale from 0 ? 1.15 ? 1.0
@@ -7146,18 +7147,7 @@ void fragment() {
 		if (dealtInt <= 0)
 			return;
 
-		int slotIndex = FindTowerSlotIndex(tower);
-		_runState.TrackSpectacleDamage(slotIndex, dealtInt, isKill, source, killDepth);
-	}
-
-	private int FindTowerSlotIndex(ITowerView tower)
-	{
-		for (int i = 0; i < _runState.Slots.Length; i++)
-		{
-			if (ReferenceEquals(_runState.Slots[i].Tower, tower))
-				return i;
-		}
-		return -1;
+		_runState.TrackSpectacleDamage(tower.SlotIndex, dealtInt, isKill, source, killDepth);
 	}
 
 	private void SpawnSpectacleDamageNumber(Vector2 worldPos, float damage, bool isKill, Color color, string sourceTowerId)

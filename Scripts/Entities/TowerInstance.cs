@@ -125,6 +125,7 @@ public partial class TowerInstance : Node2D, ITowerView
 
     public TargetingMode TargetingMode { get; set; } = TargetingMode.First;
     public float Cooldown { get; set; } = 0f;
+    public int SlotIndex { get; set; } = -1;
     public Color ProjectileColor { get; set; } = Colors.Yellow;
     public Color BodyColor { get; set; } = Colors.White;
 
