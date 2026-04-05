@@ -30,7 +30,11 @@ public record WaveConfig(
     int SwiftCount = 0,         // fast enemies (240px/s, 1.5x HP)
     int SplitterCount = 0,      // splitter enemies (1.8x HP, 90px/s) - split into shards on death
     int ReverseCount = 0,       // reverse walkers (full game): jump backward when hit hard
-    int ShieldDroneCount = 0    // support drones: project 35% damage reduction aura to nearby allies
+    int ShieldDroneCount = 0,   // support drones: project 35% damage reduction aura to nearby allies
+    int AnchorCount = 0,        // anti-control bricks: strong resistance to progress manipulation
+    int NullDroneCount = 0,     // support drones: cleanse mark/slow on nearby allies
+    int LancerCount = 0,        // spacing disruptors: short forward dash
+    int VeilCount = 0           // anti-burst walkers: refresh shell if not hit for a short window
 );
 
 public record WaveAdjustmentFile(
@@ -47,7 +51,41 @@ public record WaveAdjustmentEntry(
     int SwiftDelta = 0,
     int SplitterDelta = 0,
     int ReverseDelta = 0,
-    int ShieldDroneDelta = 0
+    int ShieldDroneDelta = 0,
+    int AnchorDelta = 0,
+    int NullDroneDelta = 0,
+    int LancerDelta = 0,
+    int VeilDelta = 0
+);
+
+public record MapEnemyProfileFile(
+    MapEnemyProfileEntry[] Profiles
+);
+
+public record MapEnemyProfileEntry(
+    string MapId,
+    MapEnemyProfileEnemy[] Enemies,
+    float PackageBlend = 0.75f,          // 0 = keep baseline composition, 1 = full package weighting
+    float OffProfileRetention = 0.18f,   // how much non-package baseline types survive before blending
+    float DefaultSpecialShare = -1f,     // target non-basic share [0..1], -1 = keep baseline
+    MapEnemyProfileBand[]? Bands = null
+);
+
+public record MapEnemyProfileEnemy(
+    string EnemyId,
+    float Weight = 1f,
+    string Tier = "core",               // "core" or "spice"
+    int MinWave = 1,
+    int MaxWave = 20
+);
+
+public record MapEnemyProfileBand(
+    int FromWave = 1,
+    int ToWave = 20,
+    float SpecialShare = -1f,           // overrides DefaultSpecialShare in this wave window
+    float PackageBlendMultiplier = 1f,
+    float CoreWeightMultiplier = 1f,
+    float SpiceWeightMultiplier = 1f
 );
 
 public record Vector2Def(float X, float Y);

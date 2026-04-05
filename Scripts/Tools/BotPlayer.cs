@@ -402,8 +402,8 @@ public class BotPlayer
         if (wave == null)
             return s.Lives <= 6 && (s.WaveIndex < 9 || picksSoFar < 9);
 
-        int speedThreat = wave.SwiftCount + wave.ReverseCount * 2;
-        bool hasSpeedPressure = wave.ReverseCount > 0 || wave.SwiftCount >= 2 || speedThreat >= 3;
+        int speedThreat = wave.SwiftCount + wave.ReverseCount * 2 + wave.LancerCount;
+        bool hasSpeedPressure = wave.ReverseCount > 0 || wave.SwiftCount >= 2 || wave.LancerCount > 0 || speedThreat >= 3;
         if (!hasSpeedPressure)
             return false;
 

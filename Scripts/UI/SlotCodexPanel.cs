@@ -983,14 +983,14 @@ public partial class SlotCodexPanel : Node
         int towerUnlocked = DataLoader.GetAllTowerIds(includeLocked: true).Count(Unlocks.IsTowerUnlocked);
         int modTotal = DataLoader.GetAllModifierIds(includeLocked: true).Count();
         int modUnlocked = DataLoader.GetAllModifierIds(includeLocked: true).Count(Unlocks.IsModifierUnlocked);
-        int enemyTotal = Balance.IsDemo ? 5 : 7;
+        int enemyTotal = Balance.IsDemo ? 5 : 11;
 
         _progressLabel.Text = tab switch
         {
             CodexTab.Towers => $"{towerUnlocked}/{towerTotal} towers unlocked",
             CodexTab.Mods => $"{modUnlocked}/{modTotal} modifiers unlocked",
             CodexTab.Enemies => Balance.IsDemo
-                ? $"{enemyTotal} enemy types shown | full game adds 2 more"
+                ? $"{enemyTotal} enemy types shown | full game adds 6 more"
                 : $"{enemyTotal} enemy types",
             CodexTab.HowToPlay => "Core rules, controls, and build fundamentals.",
             CodexTab.Surges => "Surge category, mod behaviors, and Global Surge reference.",
@@ -1195,11 +1195,19 @@ public partial class SlotCodexPanel : Node
         {
             _enemyGrid.AddChild(BuildEnemyCard("shield_drone"));
             _enemyGrid.AddChild(BuildEnemyCard("reverse_walker"));
+            _enemyGrid.AddChild(BuildEnemyCard(EnemyCatalog.AnchorWalkerId));
+            _enemyGrid.AddChild(BuildEnemyCard(EnemyCatalog.NullDroneId));
+            _enemyGrid.AddChild(BuildEnemyCard(EnemyCatalog.LancerWalkerId));
+            _enemyGrid.AddChild(BuildEnemyCard(EnemyCatalog.VeilWalkerId));
         }
         if (Balance.IsDemo)
         {
             _enemyGrid.AddChild(BuildFullGameLockedEnemyCard("shield_drone"));
             _enemyGrid.AddChild(BuildFullGameLockedEnemyCard("reverse_walker"));
+            _enemyGrid.AddChild(BuildFullGameLockedEnemyCard(EnemyCatalog.AnchorWalkerId));
+            _enemyGrid.AddChild(BuildFullGameLockedEnemyCard(EnemyCatalog.NullDroneId));
+            _enemyGrid.AddChild(BuildFullGameLockedEnemyCard(EnemyCatalog.LancerWalkerId));
+            _enemyGrid.AddChild(BuildFullGameLockedEnemyCard(EnemyCatalog.VeilWalkerId));
         }
     }
 
@@ -1619,6 +1627,10 @@ public partial class SlotCodexPanel : Node
         "splitter_walker" => new Color(1.00f, 0.72f, 0.15f),
         "splitter_shard"  => new Color(1.00f, 0.88f, 0.45f),
         "shield_drone"    => new Color(0.30f, 0.76f, 1.00f),
+        EnemyCatalog.AnchorWalkerId => new Color(0.96f, 0.50f, 0.22f),
+        EnemyCatalog.NullDroneId => new Color(0.72f, 0.96f, 1.00f),
+        EnemyCatalog.LancerWalkerId => new Color(0.72f, 1.00f, 0.36f),
+        EnemyCatalog.VeilWalkerId => new Color(0.56f, 0.94f, 1.00f),
         _                 => new Color(0.55f, 0.95f, 0.25f),
     };
 
@@ -1630,6 +1642,10 @@ public partial class SlotCodexPanel : Node
         "splitter_walker" => "Splitter Walker",
         "splitter_shard"  => "Splitter Shard",
         "shield_drone"    => "Shield Drone",
+        EnemyCatalog.AnchorWalkerId => "Anchor Walker",
+        EnemyCatalog.NullDroneId => "Null Drone",
+        EnemyCatalog.LancerWalkerId => "Lancer Walker",
+        EnemyCatalog.VeilWalkerId => "Veil Walker",
         _                 => "Basic Walker",
     };
 
@@ -1701,6 +1717,34 @@ public partial class SlotCodexPanel : Node
             (StatIconNode.IconType.Skull, "Leak: 1 life"),
             (StatIconNode.IconType.Wave,  "From wave 9"),
         },
+        EnemyCatalog.AnchorWalkerId => new (StatIconNode.IconType, string)[]
+        {
+            (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp * Balance.AnchorWalkerHpMultiplier:0} HP"),
+            (StatIconNode.IconType.Arrow, $"{Balance.AnchorWalkerSpeed:0} px/s"),
+            (StatIconNode.IconType.Skull, "Leak: 2 lives"),
+            (StatIconNode.IconType.Wave,  "Full game"),
+        },
+        EnemyCatalog.NullDroneId => new (StatIconNode.IconType, string)[]
+        {
+            (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp * Balance.NullDroneHpMultiplier:0} HP"),
+            (StatIconNode.IconType.Arrow, $"{Balance.NullDroneSpeed:0} px/s"),
+            (StatIconNode.IconType.Skull, "Leak: 1 life"),
+            (StatIconNode.IconType.Wave,  "Full game"),
+        },
+        EnemyCatalog.LancerWalkerId => new (StatIconNode.IconType, string)[]
+        {
+            (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp * Balance.LancerWalkerHpMultiplier:0} HP"),
+            (StatIconNode.IconType.Arrow, $"{Balance.LancerWalkerSpeed:0} px/s"),
+            (StatIconNode.IconType.Skull, "Leak: 1 life"),
+            (StatIconNode.IconType.Wave,  "Full game"),
+        },
+        EnemyCatalog.VeilWalkerId => new (StatIconNode.IconType, string)[]
+        {
+            (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp * Balance.VeilWalkerHpMultiplier:0} HP"),
+            (StatIconNode.IconType.Arrow, $"{Balance.VeilWalkerSpeed:0} px/s"),
+            (StatIconNode.IconType.Skull, "Leak: 1 life"),
+            (StatIconNode.IconType.Wave,  "Full game"),
+        },
         _ => new (StatIconNode.IconType, string)[]
         {
             (StatIconNode.IconType.Heart, $"{Balance.BaseEnemyHp:0} HP"),
@@ -1718,6 +1762,10 @@ public partial class SlotCodexPanel : Node
         "splitter_walker" => $"Splits into {Balance.SplitterShardCount} fast shards on death. Burst damage that kills it cleanly does not reach the shards - sustained DPS or AoE builds must deal with both. A leaked Splitter risks 3 lives total.",
         "splitter_shard"  => $"A fragment of a destroyed Splitter. Faster than its parent and harder to catch mid-lane. {Balance.SplitterShardCount} spawn per kill - if your DPS cannot clean them up quickly they will slip through.",
         "shield_drone"    => $"Support unit. Projects a {Balance.ShieldDroneProtectionReduction * 100f:0}% damage reduction field to nearby allies within {Balance.ShieldDroneAuraRadius:0}px. Eliminate it first - shielded groups absorb far more punishment before breaking.",
+        EnemyCatalog.AnchorWalkerId => "Anti-control bruiser. Strongly resists progress manipulation, so Undertow pulls and Accordion compression barely move it. Bring sustained raw damage rather than relying on control loops.",
+        EnemyCatalog.NullDroneId => $"Status disruptor. Every {Balance.NullDronePulseInterval:0.0}s it pulses in {Balance.NullDronePulseRadius:0}px, clearing Mark and trimming slow effects from nearby allies. Kill it early to keep setup consistency.",
+        EnemyCatalog.LancerWalkerId => $"Rhythm breaker. Performs short forward dashes (~{(Balance.LancerWalkerDashDistanceMin + Balance.LancerWalkerDashDistanceMax) * 0.5f:0}px) every {Balance.LancerWalkerDashInterval:0.0}s. Heavy control suppresses its dash, but otherwise it slips target timing windows.",
+        EnemyCatalog.VeilWalkerId => $"Anti-burst specialist. If not hit for {Balance.VeilWalkerShellRefreshDelay:0.00}s, it refreshes a veil shell. The next hit is reduced by {Balance.VeilWalkerShellDamageReduction * 100f:0}% before the shell breaks. Rapid sustained fire counters it best.",
         _                 => "Standard threat. Low bulk, steady pace. Pressure escalates each wave via HP scaling.",
     };
 }

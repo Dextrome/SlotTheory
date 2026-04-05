@@ -60,6 +60,10 @@ public static class EnemyVisualProfile
             "armored_walker" => EvaluateArmored(elapsed, speedNorm),
             "splitter_shard" => EvaluateSwift(elapsed, speedNorm),
             "shield_drone"   => EvaluateShieldDrone(elapsed, speedNorm),
+            EnemyCatalog.AnchorWalkerId => EvaluateAnchor(elapsed, speedNorm),
+            EnemyCatalog.NullDroneId => EvaluateNullDrone(elapsed, speedNorm),
+            EnemyCatalog.LancerWalkerId => EvaluateLancer(elapsed, speedNorm),
+            EnemyCatalog.VeilWalkerId => EvaluateVeil(elapsed, speedNorm),
             _                => EvaluateBasic(elapsed, speedNorm),
         };
 
@@ -123,5 +127,46 @@ public static class EnemyVisualProfile
         float thrust = 0.18f + speedNorm * 0.20f + 0.06f * Mathf.Sin(elapsed * 4.8f);
         float tilt = 0.016f * Mathf.Sin(elapsed * 2.0f);
         return new Sample(bob, driftX, driftY, Mathf.Max(0f, thrust), tilt, 0f, 0f);
+    }
+
+    private static Sample EvaluateAnchor(float elapsed, float speedNorm)
+    {
+        float stomp = Mathf.Abs(Mathf.Sin(elapsed * (1.05f + speedNorm * 0.25f)));
+        float bob = (stomp * 1.40f) - 0.72f;
+        float jitterX = Mathf.Sin(elapsed * 1.10f) * 0.06f;
+        float jitterY = Mathf.Sin(elapsed * 0.95f) * 0.08f;
+        float thrust = 0.14f + speedNorm * 0.16f + 0.03f * Mathf.Sin(elapsed * 3.8f);
+        float tilt = 0.012f * Mathf.Sin(elapsed * 1.25f);
+        return new Sample(bob, jitterX, jitterY, Mathf.Max(0f, thrust), tilt, 0f, 0f);
+    }
+
+    private static Sample EvaluateNullDrone(float elapsed, float speedNorm)
+    {
+        float bob = Mathf.Sin(elapsed * (1.45f + speedNorm * 0.22f)) * 1.25f;
+        float driftX = Mathf.Sin(elapsed * 1.9f) * 0.26f;
+        float driftY = Mathf.Sin(elapsed * 2.5f) * 0.18f;
+        float thrust = 0.20f + speedNorm * 0.22f + 0.08f * Mathf.Sin(elapsed * 5.2f);
+        float tilt = 0.018f * Mathf.Sin(elapsed * 2.4f);
+        return new Sample(bob, driftX, driftY, Mathf.Max(0f, thrust), tilt, 0f, 0f);
+    }
+
+    private static Sample EvaluateLancer(float elapsed, float speedNorm)
+    {
+        float bob = Mathf.Sin(elapsed * (2.9f + speedNorm * 0.95f)) * 0.78f;
+        float jitterX = (Mathf.Sin(elapsed * 14.3f) + Mathf.Sin(elapsed * 24.1f) * 0.52f) * 0.30f;
+        float jitterY = (Mathf.Sin(elapsed * 18.6f) + Mathf.Sin(elapsed * 27.2f) * 0.44f) * 0.32f;
+        float thrust = 0.36f + speedNorm * 0.46f + 0.16f * Mathf.Sin(elapsed * 10.6f);
+        float tilt = 0.06f * Mathf.Sin(elapsed * 11.8f) + 0.04f * Mathf.Sin(elapsed * 6.2f);
+        return new Sample(bob, jitterX, jitterY, Mathf.Max(0f, thrust), tilt, 0f, 0f);
+    }
+
+    private static Sample EvaluateVeil(float elapsed, float speedNorm)
+    {
+        float bob = Mathf.Sin(elapsed * (2.0f + speedNorm * 0.36f)) * 1.00f;
+        float jitterX = (Mathf.Sin(elapsed * 6.8f) + Mathf.Sin(elapsed * 13.9f) * 0.35f) * 0.20f;
+        float jitterY = (Mathf.Sin(elapsed * 8.1f) + Mathf.Sin(elapsed * 15.2f) * 0.31f) * 0.18f;
+        float thrust = 0.26f + speedNorm * 0.31f + 0.10f * Mathf.Sin(elapsed * 6.9f);
+        float tilt = 0.03f * Mathf.Sin(elapsed * 5.9f) + 0.02f * Mathf.Sin(elapsed * 3.1f);
+        return new Sample(bob, jitterX, jitterY, Mathf.Max(0f, thrust), tilt, 0f, 0f);
     }
 }

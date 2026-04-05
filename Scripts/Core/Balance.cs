@@ -222,6 +222,34 @@ public static class Balance
     public const int   ReverseWalkerMaxTriggersPerLife = 2;
     public const float ReverseWalkerFxDuration = 0.32f;
 
+    // Enemies - Anchor Walker (full game)
+    public const float AnchorWalkerHpMultiplier = 2.10f;
+    public const float AnchorWalkerSpeed = 92f;
+
+    // Enemies - Null Drone (full game)
+    public const float NullDroneHpMultiplier = 1.15f;
+    public const float NullDroneSpeed = 105f;
+    public const float NullDronePulseInterval = 2.6f;
+    public const float NullDronePulseRadius = 130f;
+    public const float NullDroneSlowDurationRetention = 0.34f; // keep ~34% of current slow duration
+    public const float NullDroneSlowSeverityLift = 0.68f;      // lift slow factor 68% toward normal speed
+
+    // Enemies - Lancer Walker (full game)
+    public const float LancerWalkerHpMultiplier = 1.20f;
+    public const float LancerWalkerSpeed = 98f;
+    public const float LancerWalkerDashInterval = 2.8f;
+    public const float LancerWalkerDashDistanceMin = 95f;
+    public const float LancerWalkerDashDistanceMax = 120f;
+    public const float LancerWalkerDashSuppressionThreshold = 0.50f; // strong control threshold (speed factor <= 0.50)
+    public const float LancerWalkerDashSuppressedMultiplier = 0.35f; // reduced dash under strong control
+    public const float LancerWalkerMinEffectiveDash = 20f;
+
+    // Enemies - Veil Walker (full game)
+    public const float VeilWalkerHpMultiplier = 1.35f;
+    public const float VeilWalkerSpeed = 126f;
+    public const float VeilWalkerShellRefreshDelay = 1.25f;
+    public const float VeilWalkerShellDamageReduction = 0.70f;
+
     // Marked status
     public const float MarkedDamageBonus = 0.40f; // +40% incoming damage to all towers
     public const float MarkedDuration = 4.0f;     // seconds
@@ -400,6 +428,7 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
     public const float AccordionCompressionFactor        = 0.25f;  // 75% spread reduction per pulse
     public const float AccordionMinSpacingPx             = 8f;     // minimum path distance between enemies after compression
     public const int   AccordionMinEnemiesForCompression = 2;      // need at least 2 in range to compress
+    public const float AccordionAnchorCompressionMultiplier = 0.30f; // anchor walkers resist formation compression
     public const float PhaseSplitterDamageRatio          = 0.65f;  // each dual-end primary hit deals 65% base damage
 
     // Rocket Launcher tower (direct explosive hits with built-in radial splash)
@@ -424,6 +453,7 @@ public const float RiftMineMiniDamageFactor  = 0.35f; // split-planted mine dama
     public const float UndertowConcurrentExtraDecay        = 0.36f;  // additional multiplier per extra active undertow on same target
     public const float UndertowArmoredResistanceMultiplier = 0.62f;  // armored walkers resist pull
     public const float UndertowHeavyResistanceMultiplier   = 0.76f;  // reverse/shield/splitter heavies resist pull
+    public const float UndertowAnchorResistanceMultiplier  = 0.24f;  // anchor walkers heavily resist path-progress control
     public const float UndertowSecondarySearchRadius       = 156f;   // nearby enemy search for split/chain secondary tug
     public const float UndertowSplitSecondaryMultiplier    = 0.46f;  // split-shot secondary tug strength
     public const float UndertowChainSecondaryMultiplier    = 0.56f;  // chain-reaction secondary tug strength

@@ -1562,6 +1562,15 @@ public BotRunner(
     private void AnalyzeWaveDifficulty()
     {
         var problemWaves = new List<(int wave, string issue, string suggestion)>();
+        int sumTanky = 0;
+        int sumSwift = 0;
+        int sumSplitter = 0;
+        int sumReverse = 0;
+        int sumShield = 0;
+        int sumAnchor = 0;
+        int sumNull = 0;
+        int sumLancer = 0;
+        int sumVeil = 0;
         string? mapForConfig = _results.Select(r => r.Map).Distinct().Count() == 1
             ? _results[0].Map
             : null;
@@ -1586,9 +1595,19 @@ public BotRunner(
                 .ToList();
             float avgLives = livesAfterWave.Count > 0 ? (float)livesAfterWave.Average() : Balance.GetStartingLives(difficultyForConfig);
             float livesLost = Balance.GetStartingLives(difficultyForConfig) - avgLives;
+
+            sumTanky += waveConfig.TankyCount;
+            sumSwift += waveConfig.SwiftCount;
+            sumSplitter += waveConfig.SplitterCount;
+            sumReverse += waveConfig.ReverseCount;
+            sumShield += waveConfig.ShieldDroneCount;
+            sumAnchor += waveConfig.AnchorCount;
+            sumNull += waveConfig.NullDroneCount;
+            sumLancer += waveConfig.LancerCount;
+            sumVeil += waveConfig.VeilCount;
             
             GD.Print($"Wave {waveNum,2}: {lossRate,5:0.0%} loss rate, {livesLost,4:0.1} avg lives lost | " +
-                    $"Config: {waveConfig.EnemyCount} basic, {waveConfig.TankyCount} tanky, {waveConfig.SwiftCount} swift, {waveConfig.SplitterCount} splitter, {waveConfig.ReverseCount} reverse, {waveConfig.ShieldDroneCount} shield, " +
+                    $"Config: {waveConfig.EnemyCount} basic, {waveConfig.TankyCount} tanky, {waveConfig.SwiftCount} swift, {waveConfig.SplitterCount} splitter, {waveConfig.ReverseCount} reverse, {waveConfig.ShieldDroneCount} shield, {waveConfig.AnchorCount} anchor, {waveConfig.NullDroneCount} null, {waveConfig.LancerCount} lancer, {waveConfig.VeilCount} veil, " +
                     $"{waveConfig.SpawnInterval:0.0}s interval{(waveConfig.ClumpArmored ? ", clumped" : "")}");
             
             // Identify problem patterns
@@ -1605,6 +1624,22 @@ public BotRunner(
                 else if (waveConfig.ReverseCount >= 3)
                 {
                     problemWaves.Add((waveNum, "Reverse walker pressure spike", $"Reduce ReverseCount to {waveConfig.ReverseCount - 1} or raise SpawnInterval by 0.1s"));
+                }
+                else if (waveConfig.AnchorCount >= 2 && waveConfig.TankyCount >= 2)
+                {
+                    problemWaves.Add((waveNum, "Control-resistant wall spike", $"Reduce AnchorCount to {System.Math.Max(0, waveConfig.AnchorCount - 1)} or lower TankyCount by 1"));
+                }
+                else if (waveConfig.VeilCount >= 2)
+                {
+                    problemWaves.Add((waveNum, "Anti-burst shell spike", $"Reduce VeilCount to {waveConfig.VeilCount - 1} or increase SpawnInterval by 0.1s"));
+                }
+                else if (waveConfig.LancerCount >= 2)
+                {
+                    problemWaves.Add((waveNum, "Rhythm disruption spike", $"Reduce LancerCount to {waveConfig.LancerCount - 1} or increase SpawnInterval by 0.1s"));
+                }
+                else if (waveConfig.NullDroneCount >= 2)
+                {
+                    problemWaves.Add((waveNum, "Status cleanse support stack", $"Reduce NullDroneCount to {waveConfig.NullDroneCount - 1}"));
                 }
                 else if (waveConfig.SwiftCount >= 3)
                 {
@@ -1623,6 +1658,11 @@ public BotRunner(
             {
                 problemWaves.Add((waveNum, "Gradual attrition spike", $"Minor adjustment: increase SpawnInterval by 0.05s or reduce TankyCount by 1"));
             }
+        }
+        if (!string.IsNullOrWhiteSpace(mapForConfig))
+        {
+            GD.Print($"\nMap package summary ({mapForConfig}): avg specials per wave -> " +
+                     $"tanky {sumTanky / (float)Balance.TotalWaves:0.00}, swift {sumSwift / (float)Balance.TotalWaves:0.00}, splitter {sumSplitter / (float)Balance.TotalWaves:0.00}, reverse {sumReverse / (float)Balance.TotalWaves:0.00}, shield {sumShield / (float)Balance.TotalWaves:0.00}, anchor {sumAnchor / (float)Balance.TotalWaves:0.00}, null {sumNull / (float)Balance.TotalWaves:0.00}, lancer {sumLancer / (float)Balance.TotalWaves:0.00}, veil {sumVeil / (float)Balance.TotalWaves:0.00}");
         }
         
         if (problemWaves.Count > 0)

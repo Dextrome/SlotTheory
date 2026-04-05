@@ -1,4 +1,5 @@
 using Godot;
+using SlotTheory.Core;
 
 namespace SlotTheory.Entities;
 
@@ -74,6 +75,38 @@ public readonly struct EnemyRenderStyle
             emissiveHot:   new Color(0.90f, 1.00f, 1.00f),
             damageTint:    new Color(0.40f, 0.86f, 1.00f),
             bloomTint:     new Color(0.36f, 0.80f, 1.00f)),
+        EnemyCatalog.AnchorWalkerId => new EnemyRenderStyle(
+            // Deep crimson-magenta -- distinct from armored (orange-red) and all other warm colors
+            bodyPrimary:   new Color(0.82f, 0.10f, 0.42f),
+            bodySecondary: new Color(0.12f, 0.02f, 0.08f),
+            emissive:      new Color(1.00f, 0.30f, 0.64f),
+            emissiveHot:   new Color(1.00f, 0.65f, 0.88f),
+            damageTint:    new Color(1.00f, 0.32f, 0.58f),
+            bloomTint:     new Color(0.92f, 0.18f, 0.52f)),
+        EnemyCatalog.NullDroneId => new EnemyRenderStyle(
+            // Electric violet -- distinct from all cyans, blues, and greens
+            bodyPrimary:   new Color(0.62f, 0.20f, 0.96f),
+            bodySecondary: new Color(0.08f, 0.03f, 0.18f),
+            emissive:      new Color(0.84f, 0.62f, 1.00f),
+            emissiveHot:   new Color(0.96f, 0.88f, 1.00f),
+            damageTint:    new Color(0.78f, 0.38f, 1.00f),
+            bloomTint:     new Color(0.70f, 0.28f, 1.00f)),
+        EnemyCatalog.LancerWalkerId => new EnemyRenderStyle(
+            // Warm gold -- distinct from lime-green swift and all other colors
+            bodyPrimary:   new Color(0.98f, 0.80f, 0.08f),
+            bodySecondary: new Color(0.14f, 0.10f, 0.01f),
+            emissive:      new Color(1.00f, 0.94f, 0.38f),
+            emissiveHot:   new Color(1.00f, 0.99f, 0.82f),
+            damageTint:    new Color(1.00f, 0.56f, 0.10f),
+            bloomTint:     new Color(1.00f, 0.88f, 0.24f)),
+        EnemyCatalog.VeilWalkerId => new EnemyRenderStyle(
+            // Pearl silver-white -- near-white with cool undertone; distinct from every other enemy
+            bodyPrimary:   new Color(0.88f, 0.90f, 1.00f),
+            bodySecondary: new Color(0.08f, 0.10f, 0.22f),
+            emissive:      new Color(0.82f, 0.92f, 1.00f),
+            emissiveHot:   new Color(1.00f, 1.00f, 1.00f),
+            damageTint:    new Color(0.60f, 0.80f, 1.00f),
+            bloomTint:     new Color(0.90f, 0.95f, 1.00f)),
         _ => new EnemyRenderStyle(
             bodyPrimary: new Color(0.20f, 0.98f, 0.86f),
             bodySecondary: new Color(0.02f, 0.17f, 0.18f),

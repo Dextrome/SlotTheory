@@ -4020,22 +4020,8 @@ public partial class GameController : Node
 
 	private static string BuildEnemyTooltipText(EnemyInstance enemy)
 	{
-		string typeName = enemy.EnemyTypeId switch
-		{
-			"armored_walker"  => "Armored Walker",
-			"swift_walker"    => "Swift Walker",
-			"reverse_walker"  => "Reverse Walker",
-			"splitter_walker" => "Splitter",
-			"splitter_shard"  => "Splitter Shard",
-			"shield_drone"    => "Shield Drone",
-			_                 => "Basic Walker",
-		};
-		int leakCost = enemy.EnemyTypeId switch
-		{
-			"armored_walker"  => 2,
-			"splitter_walker" => 3,
-			_                 => 1,
-		};
+		string typeName = EnemyCatalog.GetDisplayName(enemy.EnemyTypeId);
+		int leakCost = EnemyCatalog.GetLeakCost(enemy.EnemyTypeId);
 		float displaySpeed = enemy.IsSlowed ? enemy.Speed * enemy.SlowSpeedFactor : enemy.Speed;
 		string speedSuffix = enemy.IsSlowed ? "  (slowed)" : "";
 		string statusSuffix = enemy.IsMarked ? "\nMARKED" : "";
@@ -4046,7 +4032,19 @@ public partial class GameController : Node
 		string shieldSuffix = enemy.EnemyTypeId == "shield_drone"
 			? $"\nShields nearby allies  ({Balance.ShieldDroneAuraRadius:0}px, {Balance.ShieldDroneProtectionReduction * 100f:0}% dmg reduction)"
 			: "";
-		return $"{typeName}\nHP  {enemy.Hp:0}/{enemy.MaxHp:0}  |  Speed  {displaySpeed:0} px/s{speedSuffix}\nLeak cost  {leakCost} life{(leakCost > 1 ? "s" : "")}{splitSuffix}{reverseSuffix}{shieldSuffix}{statusSuffix}";
+		string anchorSuffix = enemy.EnemyTypeId == EnemyCatalog.AnchorWalkerId
+			? "\nStrongly resists pull/compression control effects"
+			: "";
+		string nullSuffix = enemy.EnemyTypeId == EnemyCatalog.NullDroneId
+			? $"\nCleanses nearby allies every {Balance.NullDronePulseInterval:0.0}s ({Balance.NullDronePulseRadius:0}px)"
+			: "";
+		string lancerSuffix = enemy.EnemyTypeId == EnemyCatalog.LancerWalkerId
+			? $"\nDashes forward roughly every {Balance.LancerWalkerDashInterval:0.0}s"
+			: "";
+		string veilSuffix = enemy.EnemyTypeId == EnemyCatalog.VeilWalkerId
+			? $"\nVeil shell {(enemy.VeilShellActive ? "ready" : "recharging")} ({Balance.VeilWalkerShellDamageReduction * 100f:0}% next-hit reduction)"
+			: "";
+		return $"{typeName}\nHP  {enemy.Hp:0}/{enemy.MaxHp:0}  |  Speed  {displaySpeed:0} px/s{speedSuffix}\nLeak cost  {leakCost} life{(leakCost > 1 ? "s" : "")}{splitSuffix}{reverseSuffix}{shieldSuffix}{anchorSuffix}{nullSuffix}{lancerSuffix}{veilSuffix}{statusSuffix}";
 	}
 
 	private string BuildSpectacleTooltipSection(ITowerView tower)

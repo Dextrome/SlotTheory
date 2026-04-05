@@ -653,7 +653,13 @@ public partial class DraftPanel : CanvasLayer
             int basic = cfg.EnemyCount;
             int armored = cfg.TankyCount;
             int swift = cfg.SwiftCount;
+            int splitter = cfg.SplitterCount;
             int reverse = cfg.ReverseCount;
+            int shield = cfg.ShieldDroneCount;
+            int anchor = cfg.AnchorCount;
+            int nullDrone = cfg.NullDroneCount;
+            int lancer = cfg.LancerCount;
+            int veil = cfg.VeilCount;
 
             List<string> parts = new() { $"{basic} Basic" };
             if (armored > 0)
@@ -664,13 +670,29 @@ public partial class DraftPanel : CanvasLayer
 
             if (swift > 0)
                 parts.Add($"{swift} Swift");
+            if (splitter > 0)
+                parts.Add($"{splitter} Splitter");
             if (reverse > 0)
                 parts.Add($"{reverse} Reverse");
+            if (shield > 0)
+                parts.Add($"{shield} Shield");
+            if (anchor > 0)
+                parts.Add($"{anchor} Anchor");
+            if (nullDrone > 0)
+                parts.Add($"{nullDrone} Null");
+            if (lancer > 0)
+                parts.Add($"{lancer} Lancer");
+            if (veil > 0)
+                parts.Add($"{veil} Veil");
 
             List<string> threats = new();
             if (armored >= 3) threats.Add("TANK");
             if (swift >= 2) threats.Add("FAST");
             if (reverse >= 1) threats.Add("REWIND");
+            if (anchor >= 1) threats.Add("CONTROL RESIST");
+            if (nullDrone >= 1) threats.Add("CLEANSE");
+            if (lancer >= 1) threats.Add("DASH");
+            if (veil >= 1) threats.Add("SHELL");
             if (cfg.ClumpArmored && armored >= 2) threats.Add("SURGE");
 
             string baseText = string.Join("  |  ", parts);
@@ -1903,12 +1925,20 @@ public partial class DraftPanel : CanvasLayer
     /// </summary>
     private string GenerateArchetypeHint(WaveConfig cfg)
     {
-        if (cfg.TankyCount + cfg.SwiftCount + cfg.ReverseCount < 2) return "";
+        if (cfg.TankyCount + cfg.SwiftCount + cfg.ReverseCount + cfg.AnchorCount + cfg.LancerCount + cfg.VeilCount + cfg.NullDroneCount < 2) return "";
 
         List<string> hints = new();
 
         if (cfg.ReverseCount >= 2)
             hints.Add("Sustained DPS");
+        else if (cfg.VeilCount >= 2)
+            hints.Add("Rapid-fire favored");
+        else if (cfg.AnchorCount >= 2)
+            hints.Add("Raw DPS over control");
+        else if (cfg.NullDroneCount >= 1 && cfg.SwiftCount >= 1)
+            hints.Add("Status setup disrupted");
+        else if (cfg.LancerCount >= 2)
+            hints.Add("Lead-tracking focus");
         else if (cfg.ReverseCount >= 1 && cfg.TankyCount >= 1)
             hints.Add("Multi-hit pressure");
         else if (cfg.TankyCount >= 3)

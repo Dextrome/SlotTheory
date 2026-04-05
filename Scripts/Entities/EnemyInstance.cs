@@ -57,6 +57,11 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
     public bool IsDamageAmped => DamageAmpRemaining > 0f && DamageAmpMultiplier > 0f;
     public bool IsShieldProtected { get; set; } = false;
 
+    public float NullPulseCooldownRemaining { get; set; } = 0f;
+    public float LancerDashCooldownRemaining { get; set; } = 0f;
+    public bool VeilShellActive { get; set; } = false;
+    public float VeilShellRefreshRemaining { get; set; } = 0f;
+
     // Wildfire burn state
     public float BurnRemaining { get; set; } = 0f;
     public float BurnDamagePerSecond { get; set; } = 0f;
@@ -98,6 +103,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
     private Vector2 _reverseJumpFromWorld;
     private Vector2 _reverseJumpToWorld;
     private float _visualChaosLoad;
+    private float _veilShellPulse;
 
     public override void _Ready()
     {
@@ -118,18 +124,30 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         bool isReverse      = typeId == "reverse_walker";
         bool isShard        = typeId == "splitter_shard";
         bool isShieldDrone  = typeId == "shield_drone";
+        bool isAnchor       = typeId == EnemyCatalog.AnchorWalkerId;
+        bool isNullDrone    = typeId == EnemyCatalog.NullDroneId;
+        bool isLancer       = typeId == EnemyCatalog.LancerWalkerId;
+        bool isVeil         = typeId == EnemyCatalog.VeilWalkerId;
         _baseScale = isArmored      ? new Vector2(1.5f, 1.5f)
             : isSwift               ? new Vector2(0.8f, 0.8f)
             : isReverse             ? new Vector2(0.96f, 0.96f)
             : isShard               ? new Vector2(0.7f, 0.7f)
             : isShieldDrone         ? new Vector2(1.05f, 1.05f)
+            : isAnchor              ? new Vector2(1.24f, 1.24f)
+            : isNullDrone           ? new Vector2(1.02f, 1.02f)
+            : isLancer              ? new Vector2(0.90f, 0.90f)
+            : isVeil                ? new Vector2(0.98f, 0.98f)
             : Vector2.One;
         Scale = _baseScale;
 
         IsShieldProtected = false;
+        NullPulseCooldownRemaining = isNullDrone ? Balance.NullDronePulseInterval : 0f;
+        LancerDashCooldownRemaining = isLancer ? Balance.LancerWalkerDashInterval : 0f;
+        VeilShellActive = isVeil;
+        VeilShellRefreshRemaining = 0f;
 
-        _hpBarWidth = isArmored ? 34f : isSwift ? 20f : isReverse ? 24f : isShard ? 16f : isShieldDrone ? 26f : 24f;
-        float barY = isArmored ? -26f : isSwift ? -17f : isReverse ? -21f : isShard ? -15f : isShieldDrone ? -22f : -20f;
+        _hpBarWidth = isArmored ? 34f : isSwift ? 20f : isReverse ? 24f : isShard ? 16f : isShieldDrone ? 26f : isAnchor ? 30f : isNullDrone ? 26f : isLancer ? 22f : isVeil ? 25f : 24f;
+        float barY = isArmored ? -26f : isSwift ? -17f : isReverse ? -21f : isShard ? -15f : isShieldDrone ? -22f : isAnchor ? -24f : isNullDrone ? -22f : isLancer ? -19f : isVeil ? -21f : -20f;
         float barX = -_hpBarWidth / 2f;
 
         AddChild(new ColorRect
@@ -161,6 +179,7 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         _reverseJumpFromWorld = GlobalPosition;
         _reverseJumpToWorld = GlobalPosition;
         _visualChaosLoad = 0f;
+        _veilShellPulse = 0f;
     }
 
     public override void _Process(double delta)
@@ -255,6 +274,21 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
             _reverseJumpFxRemaining = Mathf.Max(0f, _reverseJumpFxRemaining - dt);
         if (_reverseJumpPulse > 0f)
             _reverseJumpPulse = Mathf.Max(0f, _reverseJumpPulse - dt * 5.2f);
+        if (_veilShellPulse > 0f)
+            _veilShellPulse = Mathf.Max(0f, _veilShellPulse - dt * 4.4f);
+
+        if (EnemyTypeId == EnemyCatalog.NullDroneId && NullPulseCooldownRemaining > 0f)
+            NullPulseCooldownRemaining -= dt;
+        if (EnemyTypeId == EnemyCatalog.LancerWalkerId && LancerDashCooldownRemaining > 0f)
+            LancerDashCooldownRemaining -= dt;
+        if (EnemyTypeId == EnemyCatalog.VeilWalkerId)
+        {
+            bool shellActive = VeilShellActive;
+            float refreshRemaining = VeilShellRefreshRemaining;
+            EnemyCatalog.AdvanceVeilRefresh(ref shellActive, ref refreshRemaining, dt);
+            VeilShellActive = shellActive;
+            VeilShellRefreshRemaining = refreshRemaining;
+        }
     }
 
     /// <summary>
@@ -305,6 +339,77 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         return true;
     }
 
+    public bool TryConsumeNullPulseReady()
+    {
+        if (EnemyTypeId != EnemyCatalog.NullDroneId || Hp <= 0f)
+            return false;
+        if (NullPulseCooldownRemaining > 0f)
+            return false;
+
+        float timer = NullPulseCooldownRemaining;
+        ConsumePeriodicTimer(ref timer, Balance.NullDronePulseInterval);
+        NullPulseCooldownRemaining = timer;
+        return true;
+    }
+
+    public bool TryConsumeLancerDash(out float dashDistance)
+    {
+        dashDistance = 0f;
+        if (EnemyTypeId != EnemyCatalog.LancerWalkerId || Hp <= 0f)
+            return false;
+        if (LancerDashCooldownRemaining > 0f)
+            return false;
+
+        float timer = LancerDashCooldownRemaining;
+        ConsumePeriodicTimer(ref timer, Balance.LancerWalkerDashInterval);
+        LancerDashCooldownRemaining = timer;
+        dashDistance = EnemyCatalog.ResolveLancerDashDistance(IsPinned, IsSlowed, SlowSpeedFactor);
+        return dashDistance >= Balance.LancerWalkerMinEffectiveDash;
+    }
+
+    public bool TryConsumeVeilShell(ref float incomingDamage)
+    {
+        if (EnemyTypeId != EnemyCatalog.VeilWalkerId || Hp <= 0f)
+            return false;
+
+        bool shellActive = VeilShellActive;
+        float refreshRemaining = VeilShellRefreshRemaining;
+        float damage = incomingDamage;
+        bool consumed = EnemyCatalog.TryConsumeVeilShell(ref shellActive, ref refreshRemaining, ref damage);
+        VeilShellActive = shellActive;
+        VeilShellRefreshRemaining = refreshRemaining;
+        incomingDamage = damage;
+        if (consumed)
+            _veilShellPulse = 1f;
+        return consumed;
+    }
+
+    public void NotifyDamaged(float damageDealt)
+    {
+        if (damageDealt <= 0f)
+            return;
+        if (EnemyTypeId != EnemyCatalog.VeilWalkerId)
+            return;
+
+        bool shellActive = VeilShellActive;
+        float refreshRemaining = VeilShellRefreshRemaining;
+        EnemyCatalog.NotifyVeilHitTaken(ref shellActive, ref refreshRemaining, damageDealt);
+        VeilShellActive = shellActive;
+        VeilShellRefreshRemaining = refreshRemaining;
+    }
+
+    private static void ConsumePeriodicTimer(ref float timer, float period)
+    {
+        if (period <= 0f)
+        {
+            timer = 0f;
+            return;
+        }
+
+        while (timer <= 0f)
+            timer += period;
+    }
+
     private float ResolveCombatVisualLoad()
     {
         float chaos = Mathf.Clamp(GameController.CombatVisualChaosLoad, 0f, 1f);
@@ -338,6 +443,10 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
                 case "splitter_walker":  DrawSplitterWalker(); break;
                 case "splitter_shard":   DrawSplitterShard(); break;
                 case "shield_drone":     DrawShieldDroneLegacy(); break;
+                case EnemyCatalog.AnchorWalkerId: DrawAnchorWalkerLegacy(); break;
+                case EnemyCatalog.NullDroneId: DrawNullDroneLegacy(); break;
+                case EnemyCatalog.LancerWalkerId: DrawLancerWalkerLegacy(); break;
+                case EnemyCatalog.VeilWalkerId: DrawVeilWalkerLegacy(); break;
                 default:                 DrawBasicWalker(); break;
             }
         }
@@ -359,6 +468,10 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         "swift_walker"    => 13f,
         "splitter_shard"  => 12f,
         "shield_drone"    => 14f,
+        EnemyCatalog.AnchorWalkerId => 16f,
+        EnemyCatalog.NullDroneId => 14f,
+        EnemyCatalog.LancerWalkerId => 13f,
+        EnemyCatalog.VeilWalkerId => 14f,
         _                 => 13f,
     };
 
@@ -446,6 +559,30 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
                 if (layerSettings.RenderDamage) DrawDamagePassShieldDrone(style, rs);
                 if (layerSettings.RenderEmissive) DrawEmissivePassShieldDrone(style, rs, emissiveWidthScale);
                 DrawBloomOrFallbackShieldDrone(style, rs, layerSettings);
+                break;
+            case EnemyCatalog.AnchorWalkerId:
+                DrawBodyPassAnchor(style, rs);
+                if (layerSettings.RenderDamage) DrawDamagePassAnchor(style, rs);
+                if (layerSettings.RenderEmissive) DrawEmissivePassAnchor(style, rs, emissiveWidthScale);
+                DrawBloomOrFallbackAnchor(style, rs, layerSettings);
+                break;
+            case EnemyCatalog.NullDroneId:
+                DrawBodyPassNullDrone(style, rs);
+                if (layerSettings.RenderDamage) DrawDamagePassNullDrone(style, rs);
+                if (layerSettings.RenderEmissive) DrawEmissivePassNullDrone(style, rs, emissiveWidthScale);
+                DrawBloomOrFallbackNullDrone(style, rs, layerSettings);
+                break;
+            case EnemyCatalog.LancerWalkerId:
+                DrawBodyPassLancer(style, rs);
+                if (layerSettings.RenderDamage) DrawDamagePassLancer(style, rs);
+                if (layerSettings.RenderEmissive) DrawEmissivePassLancer(style, rs, emissiveWidthScale);
+                DrawBloomOrFallbackLancer(style, rs, layerSettings);
+                break;
+            case EnemyCatalog.VeilWalkerId:
+                DrawBodyPassVeil(style, rs);
+                if (layerSettings.RenderDamage) DrawDamagePassVeil(style, rs);
+                if (layerSettings.RenderEmissive) DrawEmissivePassVeil(style, rs, emissiveWidthScale);
+                DrawBloomOrFallbackVeil(style, rs, layerSettings);
                 break;
             default:
                 DrawBodyPassBasic(style, rs);
@@ -724,6 +861,31 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
                 DrawNearDeathOverlay(12f);
                 // Shield Drone does not get the protection ring (it projects, not receives)
                 break;
+            case EnemyCatalog.AnchorWalkerId:
+                DrawMarkedOverlay(17f);
+                DrawSlowOverlay(19f, 14f);
+                DrawNearDeathOverlay(14f);
+                DrawShieldProtectionOverlay(20f);
+                break;
+            case EnemyCatalog.NullDroneId:
+                DrawMarkedOverlay(14f);
+                DrawSlowOverlay(16f, 11f);
+                DrawNearDeathOverlay(12f);
+                DrawShieldProtectionOverlay(16f);
+                break;
+            case EnemyCatalog.LancerWalkerId:
+                DrawMarkedOverlay(13f);
+                DrawSlowOverlay(14.5f, 11f);
+                DrawNearDeathOverlay(10f);
+                DrawShieldProtectionOverlay(14f);
+                break;
+            case EnemyCatalog.VeilWalkerId:
+                DrawMarkedOverlay(13.5f);
+                DrawSlowOverlay(15.5f, 11.5f);
+                DrawNearDeathOverlay(11f);
+                DrawShieldProtectionOverlay(15f);
+                DrawVeilShellOverlay(16f);
+                break;
             default:
                 DrawMarkedOverlay(13f);
                 DrawSlowOverlay(15.5f, 11f);
@@ -761,6 +923,22 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
             // Corner pip
             DrawCircle(new Vector2(Mathf.Cos(a0) * radius, Mathf.Sin(a0) * radius), 2.2f * detailBudget, dotColor);
         }
+    }
+
+    private void DrawVeilShellOverlay(float radius)
+    {
+        if (!VeilShellActive && _veilShellPulse <= 0f)
+            return;
+
+        float shellPulse = VeilShellActive
+            ? 0.5f + Mathf.Sin(_visualTime * 2.4f) * 0.5f
+            : _veilShellPulse;
+        float alpha = VeilShellActive
+            ? 0.26f + shellPulse * 0.24f
+            : 0.14f + shellPulse * 0.38f;
+        Color shellColor = new Color(0.72f, 0.92f, 1.00f, alpha * Mathf.Lerp(1f, 0.72f, _visualChaosLoad));
+        DrawCircle(Vector2.Zero, radius, new Color(shellColor.R, shellColor.G, shellColor.B, shellColor.A * 0.18f));
+        DrawArc(Vector2.Zero, radius, 0f, Mathf.Tau, 32, shellColor, 1.6f);
     }
 
     private float UpdateHeadingAndTilt(Vector2 worldBefore, Vector2 worldAfter, float dt)
@@ -818,6 +996,10 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
             "splitter_shard" => 5.8f,
             "armored_walker" => 3.8f,
             "shield_drone"   => 4.2f,
+            EnemyCatalog.AnchorWalkerId => 3.6f,
+            EnemyCatalog.NullDroneId => 4.0f,
+            EnemyCatalog.LancerWalkerId => 6.2f,
+            EnemyCatalog.VeilWalkerId => 5.1f,
             _                => 4.9f,
         };
         float lerp = Mathf.Clamp(response * speedNorm * dt, 0.02f, 0.42f);
@@ -2010,6 +2192,571 @@ public partial class EnemyInstance : PathFollow2D, IEnemyView
         DrawMarkedOverlay(10f);
         DrawSlowOverlay(11.5f, 8.5f);
         DrawNearDeathOverlay(8f);
+    }
+
+    // ── Anchor Walker (magenta-crimson, wide squashed body with side anchor flanges) ──
+
+    // Cross arm geometry shared across layered and legacy passes.
+    // h = arm half-span, a = arm half-thickness, b = center-block half-width
+    private static readonly Vector2[] AnchorCrossOuter = AnchorCrossPoly(17.5f, 5.8f, 5.8f);
+    private static readonly Vector2[] AnchorCrossInner = AnchorCrossPoly(15.2f, 4.2f, 4.2f);
+    private static Vector2[] AnchorCrossPoly(float h, float a, float b)
+        => new Vector2[]
+        {
+            new(-b, -h), new( b, -h),   // top arm top edge
+            new( b, -a), new( h, -a),   // right arm top edge
+            new( h,  a), new( b,  a),   // right arm bottom edge
+            new( b,  h), new(-b,  h),   // bottom arm bottom edge
+            new(-b,  a), new(-h,  a),   // left arm bottom edge
+            new(-h, -a), new(-b, -a),   // left arm top edge
+        };
+
+    private void DrawBodyPassAnchor(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        _ = rs;
+        EnemyRenderDebugCounters.RegisterBodyPass();
+
+        // Cross / plus silhouette -- 12-point polygon, unique in the entire enemy roster.
+        // Nothing like the hexagonal plated Armored Walker.
+        DrawPolygon(AnchorCrossOuter, new[] { new Color(0.05f, 0.01f, 0.03f) }); // dark rim
+        DrawPolygon(AnchorCrossInner, new[] { style.BodyPrimary });
+
+        // Center junction secondary fill
+        DrawRect(new Rect2(-4.2f, -4.2f, 8.4f, 8.4f), style.BodySecondary, true);
+
+        // Arm-tip end-caps (solid squares at the 4 arm ends)
+        const float tipHalf = 4.2f;
+        DrawRect(new Rect2(-tipHalf, -17.5f, tipHalf * 2, 2.8f), style.BodySecondary, true); // top
+        DrawRect(new Rect2(-tipHalf,  14.7f, tipHalf * 2, 2.8f), style.BodySecondary, true); // bottom
+        DrawRect(new Rect2(-17.5f, -tipHalf, 2.8f, tipHalf * 2), style.BodySecondary, true); // left
+        DrawRect(new Rect2( 14.7f, -tipHalf, 2.8f, tipHalf * 2), style.BodySecondary, true); // right
+    }
+
+    private void DrawDamagePassAnchor(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        if (rs.DamageBand == EnemyDamageBand.Healthy) return;
+        EnemyRenderDebugCounters.RegisterDamagePass();
+        float visibility = ResolveCrackVisibilityScale(rs.HpRatio);
+        float wear = (0.54f + rs.DamageIntensity * 0.42f + rs.HitFlash * 0.26f) * visibility;
+        float widthScale = Mathf.Lerp(0.42f, 1f, visibility);
+        var fissureDark = new Color(0.04f, 0.00f, 0.01f, Mathf.Clamp(wear * 0.88f, 0f, 0.95f));
+        Color hpBandTint = ResolveHpBandColor(rs.HpRatio);
+        Color crackRgb = style.DamageTint.Lerp(hpBandTint, 0.55f).Lerp(Colors.White, 0.20f * visibility);
+        var crack = new Color(crackRgb.R, crackRgb.G, crackRgb.B, Mathf.Clamp(wear * 0.94f, 0f, 0.98f));
+
+        // Cracks along the four arm shafts
+        DrawLine(new Vector2(0f, -3.5f), new Vector2(0f, -16.0f), fissureDark, 2.6f * widthScale);
+        DrawLine(new Vector2(0f, -3.5f), new Vector2(0f, -16.0f), crack, 1.4f * widthScale);
+        DrawLine(new Vector2(3.5f, 0f), new Vector2(16.0f, 0f), fissureDark, 2.4f * widthScale);
+        DrawLine(new Vector2(3.5f, 0f), new Vector2(16.0f, 0f), crack, 1.2f * widthScale);
+        if (rs.DamageBand == EnemyDamageBand.Critical)
+        {
+            DrawLine(new Vector2(-3.5f, 0f), new Vector2(-16.0f, 0f), crack, 2.2f * widthScale);
+            DrawLine(new Vector2(0f, 3.5f), new Vector2(0f, 16.0f), crack, 2.0f * widthScale);
+        }
+    }
+
+    private void DrawEmissivePassAnchor(in EnemyRenderStyle style, in EnemyRenderState rs, float widthScale)
+    {
+        EnemyRenderDebugCounters.RegisterEmissivePass();
+        float e = Mathf.Clamp(0.42f + rs.EmissivePulse * 0.34f, 0f, 1f);
+        Color emColor  = new Color(style.Emissive.R,    style.Emissive.G,    style.Emissive.B,    0.74f * e);
+        Color hotColor = new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.88f * e);
+
+        // Cross outline -- traces the 12-point shape so the cross reads clearly
+        for (int i = 0; i < AnchorCrossOuter.Length; i++)
+            DrawLine(AnchorCrossOuter[i], AnchorCrossOuter[(i + 1) % AnchorCrossOuter.Length],
+                emColor, 1.1f * widthScale);
+
+        // Hot nodes at each of the 4 arm tips
+        DrawCircle(new Vector2(   0f, -17.5f), 2.2f, hotColor);
+        DrawCircle(new Vector2(   0f,  17.5f), 2.2f, hotColor);
+        DrawCircle(new Vector2(-17.5f,    0f), 2.2f, hotColor);
+        DrawCircle(new Vector2( 17.5f,    0f), 2.2f, hotColor);
+
+        // Pulsing center core
+        DrawCircle(Vector2.Zero, 2.8f + rs.HitFlash * 0.5f, hotColor);
+    }
+
+    private void DrawBloomPassAnchor(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        float bloomAlpha = (0.10f + rs.EmissivePulse * 0.07f + rs.HitFlash * 0.18f) * alphaScale;
+        DrawCircle(Vector2.Zero, 13f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.28f));
+        // Bloom at all 4 arm tips to reinforce the cross read
+        DrawCircle(new Vector2(   0f, -17.5f), 4.5f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.70f));
+        DrawCircle(new Vector2(   0f,  17.5f), 4.5f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.70f));
+        DrawCircle(new Vector2(-17.5f,    0f), 4.5f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.70f));
+        DrawCircle(new Vector2( 17.5f,    0f), 4.5f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.70f));
+        EnemyRenderDebugCounters.RegisterBloomPass(5);
+    }
+
+    private void DrawBloomFallbackAnchor(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        float a = (0.09f + rs.EmissivePulse * 0.06f + rs.HitFlash * 0.05f) * alphaScale;
+        DrawCircle(Vector2.Zero, 10.0f, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, a * 0.48f));
+        DrawCircle(new Vector2(0f, -16.5f), 3.2f, new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, a * 0.82f));
+        DrawCircle(new Vector2(16.5f,  0f), 3.2f, new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, a * 0.82f));
+        EnemyRenderDebugCounters.RegisterBloomFallback(3);
+    }
+
+    private void DrawBloomOrFallbackAnchor(in EnemyRenderStyle style, in EnemyRenderState rs, in EnemyRenderLayerSettings layerSettings)
+    {
+        const int bloomPrimitives = 3;
+        if (layerSettings.RenderBloom &&
+            EnemyRenderDebugCounters.TryReserveBloom(bloomPrimitives, layerSettings.BloomPrimitiveBudget))
+        {
+            DrawBloomPassAnchor(style, rs, layerSettings.BloomAlphaScale);
+            return;
+        }
+        if (ShouldRenderBloomFallback(layerSettings))
+            DrawBloomFallbackAnchor(style, rs, layerSettings.BloomFallbackAlphaScale);
+    }
+
+    // Legacy (non-layered) draw for Anchor Walker
+    private void DrawAnchorWalkerLegacy()
+    {
+        var primary   = new Color(0.82f, 0.10f, 0.42f);
+        var secondary = new Color(0.12f, 0.02f, 0.08f);
+        var hot       = new Color(1.00f, 0.65f, 0.88f);
+
+        DrawPolygon(AnchorCrossOuter, new[] { new Color(0.05f, 0.01f, 0.03f) });
+        DrawPolygon(AnchorCrossInner, new[] { primary });
+        DrawRect(new Rect2(-4.2f, -4.2f, 8.4f, 8.4f), secondary, true);
+        const float tipHalf = 4.2f;
+        DrawRect(new Rect2(-tipHalf, -17.5f, tipHalf * 2, 2.8f), secondary, true);
+        DrawRect(new Rect2(-tipHalf,  14.7f, tipHalf * 2, 2.8f), secondary, true);
+        DrawRect(new Rect2(-17.5f, -tipHalf, 2.8f, tipHalf * 2), secondary, true);
+        DrawRect(new Rect2( 14.7f, -tipHalf, 2.8f, tipHalf * 2), secondary, true);
+
+        // Arm-tip hot nodes
+        DrawCircle(new Vector2(   0f, -17.5f), 2.2f, hot);
+        DrawCircle(new Vector2(   0f,  17.5f), 2.2f, hot);
+        DrawCircle(new Vector2(-17.5f,    0f), 2.2f, hot);
+        DrawCircle(new Vector2( 17.5f,    0f), 2.2f, hot);
+        DrawCircle(Vector2.Zero, 2.8f, hot);
+
+        DrawMarkedOverlay(17f);
+        DrawSlowOverlay(19f, 14f);
+        DrawNearDeathOverlay(14f);
+    }
+
+    // ── Null Drone (electric violet, ring/annulus with expanding interference pulses) ──
+
+    private void DrawBodyPassNullDrone(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        _ = rs;
+        EnemyRenderDebugCounters.RegisterBodyPass();
+
+        // Torus ring body -- distinct from all walker shapes and the diamond shield drone
+        DrawArc(Vector2.Zero, 9.5f, 0f, Mathf.Tau, 40, style.BodyPrimary, 5.8f);
+
+        // Four radial struts: ring → center
+        for (int i = 0; i < 4; i++)
+        {
+            float angle = i * Mathf.Pi * 0.5f;
+            var outer = new Vector2(Mathf.Cos(angle) * 6.7f, Mathf.Sin(angle) * 6.7f);
+            DrawLine(Vector2.Zero, outer,
+                new Color(style.BodySecondary.R, style.BodySecondary.G, style.BodySecondary.B, 0.82f), 1.5f);
+        }
+
+        // Central core
+        DrawCircle(Vector2.Zero, 3.4f, style.BodySecondary);
+        DrawCircle(Vector2.Zero, 1.9f, new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.96f));
+    }
+
+    private void DrawDamagePassNullDrone(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        if (rs.DamageBand == EnemyDamageBand.Healthy) return;
+        EnemyRenderDebugCounters.RegisterDamagePass();
+        float visibility = ResolveCrackVisibilityScale(rs.HpRatio);
+        float wear = (0.50f + rs.DamageIntensity * 0.40f + rs.HitFlash * 0.22f) * visibility;
+        float widthScale = Mathf.Lerp(0.44f, 1f, visibility);
+        Color hpBandTint = ResolveHpBandColor(rs.HpRatio);
+        Color crackRgb = style.DamageTint.Lerp(hpBandTint, 0.52f).Lerp(Colors.White, 0.22f * visibility);
+        var crack = new Color(crackRgb.R, crackRgb.G, crackRgb.B, Mathf.Clamp(wear * 0.92f, 0f, 0.98f));
+
+        // Ring fracture arcs -- breaks in the torus
+        DrawArc(Vector2.Zero, 9.5f, Mathf.Pi * 0.35f, Mathf.Pi * 0.65f, 8, crack, 3.5f * widthScale);
+        DrawArc(Vector2.Zero, 9.5f, Mathf.Pi * 1.28f, Mathf.Pi * 1.58f, 8, crack, 3.5f * widthScale);
+        if (rs.DamageBand == EnemyDamageBand.Critical)
+            DrawArc(Vector2.Zero, 9.5f, Mathf.Pi * 0.82f, Mathf.Pi * 1.12f, 8, crack, 4.2f * widthScale);
+    }
+
+    private void DrawEmissivePassNullDrone(in EnemyRenderStyle style, in EnemyRenderState rs, float widthScale)
+    {
+        EnemyRenderDebugCounters.RegisterEmissivePass();
+        float e = Mathf.Clamp(0.40f + rs.EmissivePulse * 0.36f, 0f, 1f);
+
+        // Three expanding interference rings -- the cleanse pulse signature
+        for (int ring = 0; ring < 3; ring++)
+        {
+            float t = (_visualTime * 0.50f + ring / 3f) % 1.0f;
+            float ringRadius = 9.5f + t * 17.0f;
+            float ringAlpha = (1.0f - t) * 0.56f * e;
+            DrawArc(Vector2.Zero, ringRadius, 0f, Mathf.Tau, 30,
+                new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, ringAlpha), 1.2f * widthScale);
+        }
+
+        // Rotating jammer sweep line
+        float sweep = _visualTime * 1.7f;
+        var sweepEnd = new Vector2(Mathf.Cos(sweep) * 8.8f, Mathf.Sin(sweep) * 8.8f);
+        DrawLine(Vector2.Zero, sweepEnd,
+            new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.70f * e), 1.3f * widthScale);
+
+        // Ring glow edge
+        DrawArc(Vector2.Zero, 9.5f, 0f, Mathf.Tau, 40,
+            new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.80f * e), 1.0f * widthScale);
+    }
+
+    private void DrawBloomPassNullDrone(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        float bloomAlpha = (0.12f + rs.EmissivePulse * 0.08f + rs.HitFlash * 0.18f) * alphaScale;
+        DrawCircle(Vector2.Zero, 23f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.28f));
+        DrawCircle(Vector2.Zero, 10f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.68f));
+        EnemyRenderDebugCounters.RegisterBloomPass(2);
+    }
+
+    private void DrawBloomFallbackNullDrone(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        float a = (0.10f + rs.EmissivePulse * 0.06f + rs.HitFlash * 0.05f) * alphaScale;
+        DrawCircle(Vector2.Zero, 14f, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, a * 0.52f));
+        EnemyRenderDebugCounters.RegisterBloomFallback(1);
+    }
+
+    private void DrawBloomOrFallbackNullDrone(in EnemyRenderStyle style, in EnemyRenderState rs, in EnemyRenderLayerSettings layerSettings)
+    {
+        const int bloomPrimitives = 2;
+        if (layerSettings.RenderBloom &&
+            EnemyRenderDebugCounters.TryReserveBloom(bloomPrimitives, layerSettings.BloomPrimitiveBudget))
+        {
+            DrawBloomPassNullDrone(style, rs, layerSettings.BloomAlphaScale);
+            return;
+        }
+        if (ShouldRenderBloomFallback(layerSettings))
+            DrawBloomFallbackNullDrone(style, rs, layerSettings.BloomFallbackAlphaScale);
+    }
+
+    // Legacy (non-layered) draw for Null Drone
+    private void DrawNullDroneLegacy()
+    {
+        var primary = new Color(0.62f, 0.20f, 0.96f);
+        var hot = new Color(0.96f, 0.88f, 1.00f);
+
+        DrawArc(Vector2.Zero, 9.5f, 0f, Mathf.Tau, 40, primary, 5.8f);
+        for (int i = 0; i < 4; i++)
+        {
+            float angle = i * Mathf.Pi * 0.5f;
+            DrawLine(Vector2.Zero, new Vector2(Mathf.Cos(angle) * 6.7f, Mathf.Sin(angle) * 6.7f),
+                new Color(0.08f, 0.03f, 0.18f, 0.82f), 1.5f);
+        }
+        DrawCircle(Vector2.Zero, 3.4f, new Color(0.08f, 0.03f, 0.18f));
+        DrawCircle(Vector2.Zero, 1.9f, new Color(hot.R, hot.G, hot.B, 0.96f));
+
+        // Simplified interference ring
+        float t = (_visualTime * 0.50f) % 1.0f;
+        DrawArc(Vector2.Zero, 9.5f + t * 17.0f, 0f, Mathf.Tau, 24, new Color(primary.R, primary.G, primary.B, (1f - t) * 0.52f), 1.2f);
+
+        DrawMarkedOverlay(14f);
+        DrawSlowOverlay(16f, 11f);
+        DrawNearDeathOverlay(12f);
+    }
+
+    // ── Lancer Walker (warm gold, javelin with lance spike + stabilizer fins) ──
+
+    private void DrawBodyPassLancer(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        _ = rs;
+        EnemyRenderDebugCounters.RegisterBodyPass();
+        float chargePulse = _thrustPulse * 0.9f;
+
+        // Elongated lance body -- narrow torpedo, pointing forward (right)
+        // Much longer and narrower than Swift's symmetric 6-point shape
+        var lanceBody = new Vector2[]
+        {
+            new(13.5f,  0f),
+            new( 5.0f, -5.5f),
+            new(-8.5f, -4.6f),
+            new(-12.5f, 0f),
+            new(-8.5f,  4.6f),
+            new( 5.0f,  5.5f),
+        };
+        DrawPolygon(lanceBody, new[] { style.BodyPrimary });
+
+        // Inner dark core
+        DrawPolygon(new Vector2[]
+        {
+            new(9.2f,  0f),
+            new(3.2f, -3.6f),
+            new(-7.8f, 0f),
+            new(3.2f,  3.6f),
+        }, new[] { style.BodySecondary });
+
+        // Front lance spike -- prominent forward point, animates with thrust
+        DrawPolygon(new Vector2[]
+        {
+            new(13.5f, -2.6f),
+            new(22.5f + chargePulse * 1.8f, 0f),
+            new(13.5f,  2.6f),
+        }, new[] { new Color(style.BodyPrimary.R, style.BodyPrimary.G, style.BodyPrimary.B, 0.94f) });
+
+        // Back stabilizer fins -- narrow, swept far back (not Swift's wide rounded fins)
+        DrawPolygon(new Vector2[]
+        {
+            new(-8.5f, -2.8f),
+            new(-19.5f, -9.0f),
+            new(-12.5f, -1.4f),
+        }, new[] { new Color(style.BodyPrimary.R, style.BodyPrimary.G, style.BodyPrimary.B, 0.78f) });
+        DrawPolygon(new Vector2[]
+        {
+            new(-8.5f,  2.8f),
+            new(-19.5f,  9.0f),
+            new(-12.5f,  1.4f),
+        }, new[] { new Color(style.BodyPrimary.R, style.BodyPrimary.G, style.BodyPrimary.B, 0.78f) });
+    }
+
+    private void DrawDamagePassLancer(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        if (rs.DamageBand == EnemyDamageBand.Healthy) return;
+        EnemyRenderDebugCounters.RegisterDamagePass();
+        float visibility = ResolveCrackVisibilityScale(rs.HpRatio);
+        float wear = (0.52f + rs.DamageIntensity * 0.44f + rs.HitFlash * 0.24f) * visibility;
+        float widthScale = Mathf.Lerp(0.42f, 1f, visibility);
+        var fissureDark = new Color(0.05f, 0.04f, 0.00f, Mathf.Clamp(wear * 0.88f, 0f, 0.95f));
+        Color hpBandTint = ResolveHpBandColor(rs.HpRatio);
+        Color crackRgb = style.DamageTint.Lerp(hpBandTint, 0.58f).Lerp(Colors.White, 0.22f * visibility);
+        var crack = new Color(crackRgb.R, crackRgb.G, crackRgb.B, Mathf.Clamp(wear * 0.96f, 0f, 0.98f));
+
+        // Longitudinal cracks along the lance shaft
+        DrawLine(new Vector2(-7.5f, -1.4f), new Vector2(10.0f, -0.4f), fissureDark, 2.6f * widthScale);
+        DrawLine(new Vector2(-7.5f, -1.4f), new Vector2(10.0f, -0.4f), crack, 1.4f * widthScale);
+        DrawLine(new Vector2(-5.5f,  2.2f), new Vector2( 8.0f,  0.8f), fissureDark, 2.2f * widthScale);
+        DrawLine(new Vector2(-5.5f,  2.2f), new Vector2( 8.0f,  0.8f), crack, 1.1f * widthScale);
+        if (rs.DamageBand == EnemyDamageBand.Critical)
+        {
+            DrawLine(new Vector2(13.5f, -0.8f), new Vector2(22.5f, 0f), crack, 2.4f * widthScale);
+            DrawLine(new Vector2(-12.5f, 0f), new Vector2(-19.5f, -7.5f), crack, 2.0f * widthScale);
+        }
+    }
+
+    private void DrawEmissivePassLancer(in EnemyRenderStyle style, in EnemyRenderState rs, float widthScale)
+    {
+        EnemyRenderDebugCounters.RegisterEmissivePass();
+        float e = Mathf.Clamp(0.44f + rs.EmissivePulse * 0.34f, 0f, 1f);
+        Color emColor = new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.86f * e);
+
+        // Charge spine running the full length (lance charge signature)
+        DrawLine(new Vector2(-10.5f, 0f), new Vector2(20.0f, 0f), emColor, 1.4f * widthScale);
+
+        // Perpendicular charge notches intensifying toward the tip
+        float[] notchX = { -7.5f, -2.5f, 2.5f, 7.5f, 12.5f };
+        for (int i = 0; i < notchX.Length; i++)
+        {
+            float nY = 2.6f - i * 0.32f;
+            float nAlpha = (0.48f + i * 0.07f) * e;
+            DrawLine(new Vector2(notchX[i], -nY), new Vector2(notchX[i], nY),
+                new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, nAlpha),
+                (1.0f + i * 0.1f) * widthScale);
+        }
+
+        // Lance tip bright dot
+        DrawCircle(new Vector2(21.5f, 0f), 1.9f + rs.HitFlash * 0.5f,
+            new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.92f * e));
+
+        // Leading edge outlines
+        DrawLine(new Vector2(13.5f, 0f), new Vector2(5.0f, -5.5f), emColor, 0.9f * widthScale);
+        DrawLine(new Vector2(13.5f, 0f), new Vector2(5.0f,  5.5f), emColor, 0.9f * widthScale);
+    }
+
+    private void DrawBloomPassLancer(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        float bloomAlpha = (0.11f + rs.EmissivePulse * 0.07f + rs.HitFlash * 0.18f) * alphaScale;
+        DrawCircle(Vector2.Zero, 13f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.48f));
+        // Lance tip bloom -- most intense at front spike
+        DrawCircle(new Vector2(19.5f + _thrustPulse * 1.4f, 0f), 4.2f + _thrustPulse * 1.2f,
+            new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha));
+        DrawCircle(new Vector2(-15.0f - _thrustPulse * 0.8f, 0f), 3.2f,
+            new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.55f));
+        EnemyRenderDebugCounters.RegisterBloomPass(3);
+    }
+
+    private void DrawBloomFallbackLancer(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        float a = (0.09f + rs.EmissivePulse * 0.06f + rs.HitFlash * 0.05f) * alphaScale;
+        DrawCircle(Vector2.Zero, 9.5f, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, a * 0.52f));
+        DrawCircle(new Vector2(18.5f + _thrustPulse * 1.0f, 0f), 3.4f + _thrustPulse * 0.9f,
+            new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, a));
+        EnemyRenderDebugCounters.RegisterBloomFallback(2);
+    }
+
+    private void DrawBloomOrFallbackLancer(in EnemyRenderStyle style, in EnemyRenderState rs, in EnemyRenderLayerSettings layerSettings)
+    {
+        const int bloomPrimitives = 3;
+        if (layerSettings.RenderBloom &&
+            EnemyRenderDebugCounters.TryReserveBloom(bloomPrimitives, layerSettings.BloomPrimitiveBudget))
+        {
+            DrawBloomPassLancer(style, rs, layerSettings.BloomAlphaScale);
+            return;
+        }
+        if (ShouldRenderBloomFallback(layerSettings))
+            DrawBloomFallbackLancer(style, rs, layerSettings.BloomFallbackAlphaScale);
+    }
+
+    // Legacy (non-layered) draw for Lancer Walker
+    private void DrawLancerWalkerLegacy()
+    {
+        var primary = new Color(0.98f, 0.80f, 0.08f);
+        var secondary = new Color(0.14f, 0.10f, 0.01f);
+        var hot = new Color(1.00f, 0.99f, 0.82f);
+        float chargePulse = _thrustPulse * 0.9f;
+
+        var lanceBody = new Vector2[] { new(13.5f, 0f), new(5.0f, -5.5f), new(-8.5f, -4.6f), new(-12.5f, 0f), new(-8.5f, 4.6f), new(5.0f, 5.5f) };
+        DrawPolygon(lanceBody, new[] { primary });
+        DrawPolygon(new Vector2[] { new(9.2f, 0f), new(3.2f, -3.6f), new(-7.8f, 0f), new(3.2f, 3.6f) }, new[] { secondary });
+        DrawPolygon(new Vector2[] { new(13.5f, -2.6f), new(22.5f + chargePulse * 1.8f, 0f), new(13.5f, 2.6f) }, new[] { new Color(primary.R, primary.G, primary.B, 0.94f) });
+        DrawPolygon(new Vector2[] { new(-8.5f, -2.8f), new(-19.5f, -9.0f), new(-12.5f, -1.4f) }, new[] { new Color(primary.R, primary.G, primary.B, 0.78f) });
+        DrawPolygon(new Vector2[] { new(-8.5f,  2.8f), new(-19.5f,  9.0f), new(-12.5f,  1.4f) }, new[] { new Color(primary.R, primary.G, primary.B, 0.78f) });
+
+        // Charge spine
+        DrawLine(new Vector2(-10.5f, 0f), new Vector2(20.0f, 0f), new Color(hot.R, hot.G, hot.B, 0.72f), 1.4f);
+        DrawCircle(new Vector2(21.5f, 0f), 1.9f, hot);
+
+        for (int i = 0; i < lanceBody.Length; i++)
+            DrawLine(lanceBody[i], lanceBody[(i + 1) % lanceBody.Length], new Color(1.00f, 0.94f, 0.38f, 0.84f), 1.1f);
+
+        DrawMarkedOverlay(13f);
+        DrawSlowOverlay(14.5f, 11f);
+        DrawNearDeathOverlay(10f);
+    }
+
+    // ── Veil Walker (pearl silver-white, pentagon body with shell-state bloom) ──
+    // Shell ring is drawn by DrawVeilShellOverlay in status overlays; body should be distinct without duplicating it.
+
+    private void DrawBodyPassVeil(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        _ = rs;
+        EnemyRenderDebugCounters.RegisterBodyPass();
+
+        // Pentagon (5-sided) -- distinct from octagon basic, hexagon armored/anchor, diamond shield drone
+        DrawPolygon(RegularPoly(5, 10.2f, -Mathf.Pi * 0.5f), new[] { style.BodyPrimary });
+        DrawPolygon(RegularPoly(5, 7.6f,  -Mathf.Pi * 0.5f), new[] { style.BodySecondary });
+
+        // Five spokes from corner to inner pentagon star points (ghostly inner star)
+        var outerPts = RegularPoly(5, 10.2f, -Mathf.Pi * 0.5f);
+        var innerPts = RegularPoly(5,  4.6f, -Mathf.Pi * 0.5f + Mathf.Pi / 5f);
+        for (int i = 0; i < 5; i++)
+            DrawLine(outerPts[i], innerPts[i],
+                new Color(style.BodyPrimary.R, style.BodyPrimary.G, style.BodyPrimary.B, 0.30f), 1.0f);
+
+        // Central core glow dot
+        DrawCircle(Vector2.Zero, 2.8f,
+            new Color(style.BodyPrimary.R, style.BodyPrimary.G, style.BodyPrimary.B, 0.50f));
+    }
+
+    private void DrawDamagePassVeil(in EnemyRenderStyle style, in EnemyRenderState rs)
+    {
+        if (rs.DamageBand == EnemyDamageBand.Healthy) return;
+        EnemyRenderDebugCounters.RegisterDamagePass();
+        float visibility = ResolveCrackVisibilityScale(rs.HpRatio);
+        float wear = (0.48f + rs.DamageIntensity * 0.38f + rs.HitFlash * 0.22f) * visibility;
+        float widthScale = Mathf.Lerp(0.42f, 1f, visibility);
+        Color hpBandTint = ResolveHpBandColor(rs.HpRatio);
+        Color crackRgb = style.DamageTint.Lerp(hpBandTint, 0.50f).Lerp(Colors.White, 0.28f * visibility);
+        var crack = new Color(crackRgb.R, crackRgb.G, crackRgb.B, Mathf.Clamp(wear * 0.90f, 0f, 0.98f));
+        var fissureDark = new Color(0.04f, 0.06f, 0.10f, Mathf.Clamp(wear * 0.82f, 0f, 0.92f));
+
+        // Radial fractures from center toward pentagon corners
+        DrawLine(new Vector2(-1.8f, -4.2f), new Vector2(-6.0f, -8.2f), fissureDark, 2.4f * widthScale);
+        DrawLine(new Vector2(-1.8f, -4.2f), new Vector2(-6.0f, -8.2f), crack, 1.2f * widthScale);
+        DrawLine(new Vector2( 3.2f, -2.8f), new Vector2( 7.2f, -7.2f), fissureDark, 2.2f * widthScale);
+        DrawLine(new Vector2( 3.2f, -2.8f), new Vector2( 7.2f, -7.2f), crack, 1.1f * widthScale);
+        if (rs.DamageBand == EnemyDamageBand.Critical)
+            DrawArc(Vector2.Zero, 6.8f, Mathf.Pi * 0.28f, Mathf.Pi * 1.08f, 12, crack, 2.5f * widthScale);
+    }
+
+    private void DrawEmissivePassVeil(in EnemyRenderStyle style, in EnemyRenderState rs, float widthScale)
+    {
+        EnemyRenderDebugCounters.RegisterEmissivePass();
+        float e = Mathf.Clamp(0.42f + rs.EmissivePulse * 0.32f, 0f, 1f);
+
+        // Pentagon outline glow
+        var pts = RegularPoly(5, 10.2f, -Mathf.Pi * 0.5f);
+        for (int i = 0; i < pts.Length; i++)
+            DrawLine(pts[i], pts[(i + 1) % pts.Length],
+                new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.74f * e), 1.2f * widthScale);
+
+        // Slow rotating phase-shift cross (evasive, shifting presence)
+        float scanAngle = _visualTime * 0.65f;
+        const float scanR = 7.8f;
+        for (int arm = 0; arm < 2; arm++)
+        {
+            float a = scanAngle + arm * Mathf.Pi * 0.5f;
+            DrawLine(
+                new Vector2(Mathf.Cos(a) * scanR, Mathf.Sin(a) * scanR),
+                new Vector2(Mathf.Cos(a + Mathf.Pi) * scanR, Mathf.Sin(a + Mathf.Pi) * scanR),
+                new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, 0.36f * e), 1.0f * widthScale);
+        }
+
+        // Core hot dot (brighter when shell is active)
+        float coreBoost = VeilShellActive ? 1.0f : 0.55f;
+        DrawCircle(Vector2.Zero, 2.1f + rs.HitFlash * 0.4f,
+            new Color(style.EmissiveHot.R, style.EmissiveHot.G, style.EmissiveHot.B, 0.88f * e * coreBoost));
+    }
+
+    private void DrawBloomPassVeil(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        // Bloom is stronger when shell is active, dim when broken -- reinforces shell state readability
+        float shellFactor = VeilShellActive ? 1.0f : 0.38f;
+        float bloomAlpha = (0.10f + rs.EmissivePulse * 0.06f + rs.HitFlash * 0.16f) * alphaScale * shellFactor;
+        DrawCircle(Vector2.Zero, 17f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.38f));
+        DrawCircle(Vector2.Zero,  8f, new Color(style.BloomTint.R, style.BloomTint.G, style.BloomTint.B, bloomAlpha * 0.74f));
+        EnemyRenderDebugCounters.RegisterBloomPass(2);
+    }
+
+    private void DrawBloomFallbackVeil(in EnemyRenderStyle style, in EnemyRenderState rs, float alphaScale)
+    {
+        float shellFactor = VeilShellActive ? 1.0f : 0.38f;
+        float a = (0.08f + rs.EmissivePulse * 0.05f + rs.HitFlash * 0.05f) * alphaScale * shellFactor;
+        DrawCircle(Vector2.Zero, 11.5f, new Color(style.Emissive.R, style.Emissive.G, style.Emissive.B, a * 0.55f));
+        EnemyRenderDebugCounters.RegisterBloomFallback(1);
+    }
+
+    private void DrawBloomOrFallbackVeil(in EnemyRenderStyle style, in EnemyRenderState rs, in EnemyRenderLayerSettings layerSettings)
+    {
+        const int bloomPrimitives = 2;
+        if (layerSettings.RenderBloom &&
+            EnemyRenderDebugCounters.TryReserveBloom(bloomPrimitives, layerSettings.BloomPrimitiveBudget))
+        {
+            DrawBloomPassVeil(style, rs, layerSettings.BloomAlphaScale);
+            return;
+        }
+        if (ShouldRenderBloomFallback(layerSettings))
+            DrawBloomFallbackVeil(style, rs, layerSettings.BloomFallbackAlphaScale);
+    }
+
+    // Legacy (non-layered) draw for Veil Walker
+    private void DrawVeilWalkerLegacy()
+    {
+        var primary = new Color(0.88f, 0.90f, 1.00f);
+        var secondary = new Color(0.08f, 0.10f, 0.22f);
+        var hot = new Color(1.00f, 1.00f, 1.00f);
+
+        DrawPolygon(RegularPoly(5, 10.2f, -Mathf.Pi * 0.5f), new[] { primary });
+        DrawPolygon(RegularPoly(5, 7.6f,  -Mathf.Pi * 0.5f), new[] { secondary });
+
+        // Pentagon outline
+        var pts = RegularPoly(5, 10.2f, -Mathf.Pi * 0.5f);
+        for (int i = 0; i < pts.Length; i++)
+            DrawLine(pts[i], pts[(i + 1) % pts.Length], new Color(0.82f, 0.92f, 1.00f, 0.72f), 1.2f);
+
+        DrawCircle(Vector2.Zero, 2.8f, new Color(primary.R, primary.G, primary.B, 0.52f));
+        DrawCircle(Vector2.Zero, 1.6f, hot);
+
+        // Shell overlay (simplified)
+        DrawVeilShellOverlay(16f);
+
+        DrawMarkedOverlay(13.5f);
+        DrawSlowOverlay(15.5f, 11.5f);
+        DrawNearDeathOverlay(11f);
     }
 
     public void FlashHit()

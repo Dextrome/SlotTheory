@@ -12,11 +12,45 @@ public static class Statuses
     public static void ApplyMarked(IEnemyView target, float duration) =>
         target.MarkedRemaining = duration;
 
+    /// <summary>Clears Mark immediately. Returns true when a marked state was removed.</summary>
+    public static bool ClearMarked(IEnemyView target)
+    {
+        if (target.MarkedRemaining <= 0f)
+            return false;
+        target.MarkedRemaining = 0f;
+        return true;
+    }
+
     /// <summary>Apply or refresh Slow. Duration resets on reapplication. Optional speedFactor defaults to Balance.SlowSpeedFactor.</summary>
     public static void ApplySlow(IEnemyView target, float duration, float? speedFactor = null)
     {
         target.SlowRemaining = duration;
         target.SlowSpeedFactor = speedFactor ?? Balance.SlowSpeedFactor;
+    }
+
+    /// <summary>
+    /// Trims active slow duration and lifts slow severity toward normal movement.
+    /// Returns true when any slow state changed.
+    /// </summary>
+    public static bool CleanseSlow(IEnemyView target, float durationRetention, float severityLift)
+    {
+        if (target.SlowRemaining <= 0f)
+            return false;
+
+        float retention = System.Math.Clamp(durationRetention, 0f, 1f);
+        float lift = System.Math.Clamp(severityLift, 0f, 1f);
+
+        target.SlowRemaining *= retention;
+        float newFactor = target.SlowSpeedFactor + (1f - target.SlowSpeedFactor) * lift;
+        target.SlowSpeedFactor = System.Math.Clamp(newFactor, 0f, 1f);
+
+        if (target.SlowRemaining <= 0.06f || target.SlowSpeedFactor >= 0.995f)
+        {
+            target.SlowRemaining = 0f;
+            target.SlowSpeedFactor = Balance.SlowSpeedFactor;
+        }
+
+        return true;
     }
 
     /// <summary>Apply or refresh a temporary damage-taken amplification window.</summary>

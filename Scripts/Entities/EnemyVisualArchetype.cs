@@ -1,4 +1,5 @@
 using Godot;
+using SlotTheory.Core;
 
 namespace SlotTheory.Entities;
 
@@ -100,6 +101,46 @@ public readonly struct EnemyVisualArchetype
             turnTiltScale: 1.20f,
             turnTiltMaxRad: 0.18f,
             trailColor: new Color(0.30f, 0.76f, 1.00f, 0.44f)),
+        EnemyCatalog.AnchorWalkerId => new EnemyVisualArchetype(
+            // Wide ember wake -- slow, planted, magenta-crimson to match body
+            name: "Anchor Walker",
+            trailShape: EnemyTrailShape.DenseEmber,
+            trailLifetime: 0.36f,
+            trailSpacing: 0.038f,
+            trailWidth: 3.4f,
+            turnTiltScale: 0.75f,   // barely tilts -- anchored feel
+            turnTiltMaxRad: 0.10f,
+            trailColor: new Color(0.88f, 0.16f, 0.48f, 0.55f)),
+        EnemyCatalog.NullDroneId => new EnemyVisualArchetype(
+            // Soft violet ribbon -- hovering jammer, distinct purple trail
+            name: "Null Drone",
+            trailShape: EnemyTrailShape.SoftRibbon,
+            trailLifetime: 0.30f,
+            trailSpacing: 0.026f,
+            trailWidth: 2.4f,
+            turnTiltScale: 1.10f,
+            turnTiltMaxRad: 0.16f,
+            trailColor: new Color(0.64f, 0.26f, 1.00f, 0.56f)),
+        EnemyCatalog.LancerWalkerId => new EnemyVisualArchetype(
+            // Short sharp gold razor -- dash feel, aggressive tilt on turns
+            name: "Lancer Walker",
+            trailShape: EnemyTrailShape.RazorArc,
+            trailLifetime: 0.16f,
+            trailSpacing: 0.014f,
+            trailWidth: 1.7f,
+            turnTiltScale: 2.55f,   // extreme tilt during turns/dashes
+            turnTiltMaxRad: 0.40f,
+            trailColor: new Color(1.00f, 0.88f, 0.18f, 0.64f)),
+        EnemyCatalog.VeilWalkerId => new EnemyVisualArchetype(
+            // Silver-white soft ribbon -- ghostly, shell-protected
+            name: "Veil Walker",
+            trailShape: EnemyTrailShape.SoftRibbon,
+            trailLifetime: 0.28f,
+            trailSpacing: 0.019f,
+            trailWidth: 2.0f,
+            turnTiltScale: 1.65f,
+            turnTiltMaxRad: 0.24f,
+            trailColor: new Color(0.90f, 0.96f, 1.00f, 0.40f)),
         _ => new EnemyVisualArchetype(
             name: "Neon Beetle Drone",
             trailShape: EnemyTrailShape.SoftRibbon,

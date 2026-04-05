@@ -70,6 +70,9 @@ public static class DamageModel
         if (ctx.Target.IsShieldProtected)
             damage *= (1f - Balance.ShieldDroneProtectionReduction);
 
+        if (ctx.Target is EnemyInstance runtimeTarget)
+            runtimeTarget.TryConsumeVeilShell(ref damage);
+
         ctx.FinalDamage = damage;
 
         // 3. Apply damage; track run-wide and per-tower stats when RunState is available
@@ -81,6 +84,7 @@ public static class DamageModel
 
         if (damageDealtRaw > 0f && ctx.Target is EnemyInstance runtimeEnemy)
         {
+            runtimeEnemy.NotifyDamaged(damageDealtRaw);
             if (runtimeEnemy.TryTriggerReverseJump(damageDealtRaw))
             {
                 float hpRatio = damageDealtRaw / System.MathF.Max(1f, runtimeEnemy.MaxHp);

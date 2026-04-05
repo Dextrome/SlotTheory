@@ -328,9 +328,13 @@ public partial class HowToPlay : Node
             AddSurgeCardLine(enemiesCard, $"Basic Walker: {Balance.BaseEnemyHp:0} HP on wave 1, x{Balance.HpGrowthPerWave:0.00} per wave. Speed: {Balance.BaseEnemySpeed:0} px/s. Leaks cost 1 life.");
             AddSurgeCardLine(enemiesCard, $"Armored Walker: {Balance.TankyHpMultiplier:0.#}x HP, half speed ({Balance.TankyEnemySpeed:0} px/s). Leaks cost 2 lives. First appears wave 6.");
             AddSurgeCardLine(enemiesCard, $"Swift Walker: {Balance.SwiftHpMultiplier:0.#}x HP, double speed ({Balance.SwiftEnemySpeed:0} px/s). Leaks cost 1 life. Appears in mid-game surge waves.");
-            AddSurgeCardLine(enemiesCard, $"Reverse Walker (full game): {Balance.ReverseWalkerHpMultiplier:0.#}x HP, {Balance.ReverseWalkerSpeed:0} px/s. Single hit >= {Balance.ReverseWalkerTriggerDamageRatio * 100f:0}% max HP can rewind it a short distance. Cooldown-gated and capped per enemy. First appears wave 11.");
-            AddSurgeCardLine(enemiesCard, $"Shield Drone (full game): {Balance.ShieldDroneHpMultiplier:0.#}x HP, {Balance.ShieldDroneSpeed:0} px/s. Projects {Balance.ShieldDroneProtectionReduction * 100f:0}% damage reduction to nearby allies within {Balance.ShieldDroneAuraRadius:0}px. Kill it first.");
-            AddSurgeCardLine(enemiesCard, $"Splitter: {Balance.SplitterHpMultiplier:0.#}x HP, {Balance.SplitterSpeed:0} px/s. Splits into {Balance.SplitterShardCount} fast shards on death. Leaking one risks 3 lives total. Waves 9-15.");
+        AddSurgeCardLine(enemiesCard, $"Reverse Walker (full game): {Balance.ReverseWalkerHpMultiplier:0.#}x HP, {Balance.ReverseWalkerSpeed:0} px/s. Single hit >= {Balance.ReverseWalkerTriggerDamageRatio * 100f:0}% max HP can rewind it a short distance. Cooldown-gated and capped per enemy. First appears wave 11.");
+        AddSurgeCardLine(enemiesCard, $"Shield Drone (full game): {Balance.ShieldDroneHpMultiplier:0.#}x HP, {Balance.ShieldDroneSpeed:0} px/s. Projects {Balance.ShieldDroneProtectionReduction * 100f:0}% damage reduction to nearby allies within {Balance.ShieldDroneAuraRadius:0}px. Kill it first.");
+        AddSurgeCardLine(enemiesCard, $"Anchor Walker (full game): {Balance.AnchorWalkerHpMultiplier:0.##}x HP, {Balance.AnchorWalkerSpeed:0} px/s. Heavy resistance to pull/compression control. Leaks cost 2 lives.");
+        AddSurgeCardLine(enemiesCard, $"Null Drone (full game): {Balance.NullDroneHpMultiplier:0.##}x HP, {Balance.NullDroneSpeed:0} px/s. Pulses every {Balance.NullDronePulseInterval:0.0}s to cleanse nearby allies.");
+        AddSurgeCardLine(enemiesCard, $"Lancer Walker (full game): {Balance.LancerWalkerHpMultiplier:0.##}x HP, {Balance.LancerWalkerSpeed:0} px/s. Periodic short forward dash disrupts spacing.");
+        AddSurgeCardLine(enemiesCard, $"Veil Walker (full game): {Balance.VeilWalkerHpMultiplier:0.##}x HP, {Balance.VeilWalkerSpeed:0} px/s. If untouched for {Balance.VeilWalkerShellRefreshDelay:0.00}s, next hit is reduced by {Balance.VeilWalkerShellDamageReduction * 100f:0}%.");
+        AddSurgeCardLine(enemiesCard, $"Splitter: {Balance.SplitterHpMultiplier:0.#}x HP, {Balance.SplitterSpeed:0} px/s. Splits into {Balance.SplitterShardCount} fast shards on death. Leaking one risks 3 lives total. Waves 9-15.");
             AddSurgeCardLine(enemiesCard, "Enemy count scales with map and difficulty; late waves can exceed 40 total enemies on harder settings.");
             AddSpacer(vbox, 10);
         }
@@ -785,5 +789,4 @@ public partial class HowToPlay : Node
         vbox.AddChild(s);
     }
 }
-
 

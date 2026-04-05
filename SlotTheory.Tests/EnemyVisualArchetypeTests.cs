@@ -1,4 +1,5 @@
 using SlotTheory.Entities;
+using SlotTheory.Core;
 using Xunit;
 
 namespace SlotTheory.Tests;
@@ -29,6 +30,14 @@ public sealed class EnemyVisualArchetypeTests
         Assert.Equal("Plated Rhino Core", archetype.Name);
         Assert.Equal(EnemyTrailShape.DenseEmber, archetype.TrailShape);
         Assert.True(archetype.TrailWidth > EnemyVisualArchetype.ForType("swift_walker").TrailWidth);
+    }
+
+    [Fact]
+    public void ForType_AnchorWalker_UsesDedicatedProfile()
+    {
+        var archetype = EnemyVisualArchetype.ForType(EnemyCatalog.AnchorWalkerId);
+        Assert.Equal("Anchor Walker", archetype.Name);
+        Assert.Equal(EnemyTrailShape.DenseEmber, archetype.TrailShape);
     }
 
     [Fact]

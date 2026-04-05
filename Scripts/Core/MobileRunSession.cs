@@ -56,6 +56,10 @@ public sealed class MobileWaveEnemySnapshot
 	public float BurnDamagePerSecond { get; set; } = 0f;
 	public int BurnOwnerSlotIndex { get; set; } = -1;
 	public float BurnTrailDropTimer { get; set; } = 0f;
+	public float NullPulseCooldownRemaining { get; set; } = 0f;
+	public float LancerDashCooldownRemaining { get; set; } = 0f;
+	public bool VeilShellActive { get; set; } = false;
+	public float VeilShellRefreshRemaining { get; set; } = 0f;
 }
 
 public sealed class MobileWaveRuntimeSnapshot
@@ -251,6 +255,8 @@ public static class MobileRunSession
 				if (string.IsNullOrWhiteSpace(enemy.TypeId))
 					return false;
 				if (enemy.Hp < 0f || enemy.Progress < 0f || enemy.Speed <= 0f)
+					return false;
+				if (enemy.NullPulseCooldownRemaining < 0f || enemy.LancerDashCooldownRemaining < 0f || enemy.VeilShellRefreshRemaining < 0f)
 					return false;
 			}
 		}

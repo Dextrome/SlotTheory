@@ -424,6 +424,27 @@ public partial class MapSelectPanel : Node
 			: new Color(0.66f, 0.70f, 0.78f);
 		textVbox.AddChild(descLabel);
 
+		var enemyIds = DataLoader.GetMapEnemyIds(mapId);
+		if (enemyIds.Length > 0)
+		{
+			var names = System.Array.ConvertAll(enemyIds, id => Core.EnemyCatalog.GetDisplayName(id));
+			var enemyLabel = new Label
+			{
+				Text = "Special Enemies: " + string.Join(", ", names),
+				HorizontalAlignment = HorizontalAlignment.Left,
+				AutowrapMode = TextServer.AutowrapMode.Off,
+				ClipText = true,
+				MouseFilter = Control.MouseFilterEnum.Ignore,
+			};
+			enemyLabel.AddThemeFontSizeOverride("font_size", 11);
+			enemyLabel.Modulate = fullGamePreviewOnly
+				? new Color(0.36f, 0.40f, 0.52f)
+				: isSelected
+				? new Color(0.62f, 0.82f, 0.62f, 0.90f)
+				: new Color(0.48f, 0.64f, 0.72f, 0.85f);
+			textVbox.AddChild(enemyLabel);
+		}
+
 		return container;
 	}
 

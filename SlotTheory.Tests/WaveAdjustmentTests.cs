@@ -146,4 +146,41 @@ public class WaveAdjustmentTests
 
         Assert.Equal(1, adjusted.TankyCount);
     }
+
+    [Fact]
+    public void ApplyWaveAdjustmentsForTesting_AppliesNewEnemyDeltas()
+    {
+        var baseWave = new WaveConfig(
+            EnemyCount: 20,
+            SpawnInterval: 1.3f,
+            AnchorCount: 0,
+            NullDroneCount: 0,
+            LancerCount: 0,
+            VeilCount: 0);
+
+        var entries = new[]
+        {
+            new WaveAdjustmentEntry(
+                MapId: "fault_lines",
+                Difficulty: "Hard",
+                Wave: 12,
+                AnchorDelta: 1,
+                NullDroneDelta: 1,
+                LancerDelta: 2,
+                VeilDelta: 1)
+        };
+
+        var adjusted = DataLoader.ApplyWaveAdjustmentsForTesting(
+            waveIndex: 11,
+            wave: baseWave,
+            mapId: "fault_lines",
+            difficulty: DifficultyMode.Hard,
+            entries: entries,
+            maxWaveCount: 20);
+
+        Assert.Equal(1, adjusted.AnchorCount);
+        Assert.Equal(1, adjusted.NullDroneCount);
+        Assert.Equal(2, adjusted.LancerCount);
+        Assert.Equal(1, adjusted.VeilCount);
+    }
 }

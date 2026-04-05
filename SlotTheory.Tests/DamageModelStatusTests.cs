@@ -79,4 +79,32 @@ public class DamageModelStatusTests
         Assert.Equal(1.0f, enemy.DamageAmpRemaining, 3);
         Assert.Equal(0.2f, enemy.DamageAmpMultiplier, 3);
     }
+
+    [Fact]
+    public void ClearMarked_RemovesMarkedState()
+    {
+        var enemy = new FakeEnemy { MarkedRemaining = 2.0f };
+        bool changed = Statuses.ClearMarked(enemy);
+        Assert.True(changed);
+        Assert.Equal(0f, enemy.MarkedRemaining, 3);
+        Assert.False(enemy.IsMarked);
+    }
+
+    [Fact]
+    public void CleanseSlow_TrimsDurationAndLiftsSeverity()
+    {
+        var enemy = new FakeEnemy
+        {
+            SlowRemaining = 4.0f,
+            SlowSpeedFactor = 0.40f,
+        };
+
+        bool changed = Statuses.CleanseSlow(enemy,
+            durationRetention: Balance.NullDroneSlowDurationRetention,
+            severityLift: Balance.NullDroneSlowSeverityLift);
+
+        Assert.True(changed);
+        Assert.True(enemy.SlowRemaining < 4.0f);
+        Assert.True(enemy.SlowSpeedFactor > 0.40f);
+    }
 }

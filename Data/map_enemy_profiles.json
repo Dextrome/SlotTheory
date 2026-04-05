@@ -1,0 +1,212 @@
+{
+  "profiles": [
+    {
+      "mapId": "orbit",
+      "packageBlend": 0.72,
+      "offProfileRetention": 0.04,
+      "defaultSpecialShare": 0.18,
+      "bands": [
+        { "fromWave": 1, "toWave": 6, "specialShare": 0.06, "packageBlendMultiplier": 0.9 },
+        { "fromWave": 7, "toWave": 12, "specialShare": 0.14 },
+        { "fromWave": 13, "toWave": 20, "specialShare": 0.22 }
+      ],
+      "enemies": [
+        { "enemyId": "armored_walker", "weight": 1.0, "tier": "core", "minWave": 6 },
+        { "enemyId": "swift_walker", "weight": 0.85, "tier": "core", "minWave": 9 }
+      ]
+    },
+    {
+      "mapId": "crossroads",
+      "packageBlend": 0.78,
+      "offProfileRetention": 0.08,
+      "defaultSpecialShare": 0.24,
+      "bands": [
+        { "fromWave": 1, "toWave": 6, "specialShare": 0.08 },
+        { "fromWave": 7, "toWave": 12, "specialShare": 0.18 },
+        { "fromWave": 13, "toWave": 20, "specialShare": 0.28 }
+      ],
+      "enemies": [
+        { "enemyId": "swift_walker", "weight": 1.0, "tier": "core", "minWave": 8 },
+        { "enemyId": "splitter_walker", "weight": 0.95, "tier": "core", "minWave": 8 },
+        { "enemyId": "lancer_walker", "weight": 0.35, "tier": "spice", "minWave": 11 }
+      ]
+    },
+    {
+      "mapId": "pinch_bleed",
+      "packageBlend": 0.82,
+      "offProfileRetention": 0.05,
+      "defaultSpecialShare": 0.26,
+      "bands": [
+        { "fromWave": 1, "toWave": 7, "specialShare": 0.10 },
+        { "fromWave": 8, "toWave": 13, "specialShare": 0.20 },
+        { "fromWave": 14, "toWave": 20, "specialShare": 0.30 }
+      ],
+      "enemies": [
+        { "enemyId": "armored_walker", "weight": 1.0, "tier": "core", "minWave": 6 },
+        { "enemyId": "anchor_walker", "weight": 0.95, "tier": "core", "minWave": 9 },
+        { "enemyId": "shield_drone", "weight": 0.30, "tier": "spice", "minWave": 11 }
+      ]
+    },
+    {
+      "mapId": "ridgeback",
+      "packageBlend": 0.82,
+      "offProfileRetention": 0.06,
+      "defaultSpecialShare": 0.28,
+      "bands": [
+        { "fromWave": 1, "toWave": 7, "specialShare": 0.10 },
+        { "fromWave": 8, "toWave": 13, "specialShare": 0.21 },
+        { "fromWave": 14, "toWave": 20, "specialShare": 0.31 }
+      ],
+      "enemies": [
+        { "enemyId": "armored_walker", "weight": 1.0, "tier": "core", "minWave": 6 },
+        { "enemyId": "reverse_walker", "weight": 0.80, "tier": "core", "minWave": 10 },
+        { "enemyId": "anchor_walker", "weight": 0.85, "tier": "core", "minWave": 9 }
+      ]
+    },
+    {
+      "mapId": "double_back",
+      "packageBlend": 0.80,
+      "offProfileRetention": 0.07,
+      "defaultSpecialShare": 0.27,
+      "bands": [
+        { "fromWave": 1, "toWave": 7, "specialShare": 0.09 },
+        { "fromWave": 8, "toWave": 13, "specialShare": 0.20 },
+        { "fromWave": 14, "toWave": 20, "specialShare": 0.30 }
+      ],
+      "enemies": [
+        { "enemyId": "swift_walker", "weight": 1.0, "tier": "core", "minWave": 8 },
+        { "enemyId": "reverse_walker", "weight": 0.90, "tier": "core", "minWave": 10 },
+        { "enemyId": "lancer_walker", "weight": 0.85, "tier": "core", "minWave": 10 }
+      ]
+    },
+    {
+      "mapId": "crossfire",
+      "packageBlend": 0.82,
+      "offProfileRetention": 0.08,
+      "defaultSpecialShare": 0.28,
+      "bands": [
+        { "fromWave": 1, "toWave": 7, "specialShare": 0.10 },
+        { "fromWave": 8, "toWave": 13, "specialShare": 0.22 },
+        { "fromWave": 14, "toWave": 20, "specialShare": 0.32 }
+      ],
+      "enemies": [
+        { "enemyId": "splitter_walker", "weight": 0.85, "tier": "core", "minWave": 8 },
+        { "enemyId": "shield_drone", "weight": 1.0, "tier": "core", "minWave": 9 },
+        { "enemyId": "null_drone", "weight": 0.95, "tier": "core", "minWave": 10 }
+      ]
+    },
+    {
+      "mapId": "threshold",
+      "packageBlend": 0.80,
+      "offProfileRetention": 0.08,
+      "defaultSpecialShare": 0.27,
+      "bands": [
+        { "fromWave": 1, "toWave": 7, "specialShare": 0.09 },
+        { "fromWave": 8, "toWave": 13, "specialShare": 0.20 },
+        { "fromWave": 14, "toWave": 20, "specialShare": 0.30 }
+      ],
+      "enemies": [
+        { "enemyId": "armored_walker", "weight": 0.95, "tier": "core", "minWave": 6 },
+        { "enemyId": "veil_walker", "weight": 1.0, "tier": "core", "minWave": 9 },
+        { "enemyId": "reverse_walker", "weight": 0.75, "tier": "core", "minWave": 10 }
+      ]
+    },
+    {
+      "mapId": "switchback",
+      "packageBlend": 0.80,
+      "offProfileRetention": 0.08,
+      "defaultSpecialShare": 0.27,
+      "bands": [
+        { "fromWave": 1, "toWave": 7, "specialShare": 0.09 },
+        { "fromWave": 8, "toWave": 13, "specialShare": 0.20 },
+        { "fromWave": 14, "toWave": 20, "specialShare": 0.30 }
+      ],
+      "enemies": [
+        { "enemyId": "swift_walker", "weight": 1.0, "tier": "core", "minWave": 8 },
+        { "enemyId": "lancer_walker", "weight": 0.90, "tier": "core", "minWave": 10 },
+        { "enemyId": "reverse_walker", "weight": 0.85, "tier": "core", "minWave": 10 }
+      ]
+    },
+    {
+      "mapId": "hourglass",
+      "packageBlend": 0.80,
+      "offProfileRetention": 0.08,
+      "defaultSpecialShare": 0.27,
+      "bands": [
+        { "fromWave": 1, "toWave": 7, "specialShare": 0.09 },
+        { "fromWave": 8, "toWave": 13, "specialShare": 0.20 },
+        { "fromWave": 14, "toWave": 20, "specialShare": 0.30 }
+      ],
+      "enemies": [
+        { "enemyId": "armored_walker", "weight": 0.95, "tier": "core", "minWave": 6 },
+        { "enemyId": "splitter_walker", "weight": 0.85, "tier": "core", "minWave": 8 },
+        { "enemyId": "veil_walker", "weight": 0.90, "tier": "core", "minWave": 10 }
+      ]
+    },
+    {
+      "mapId": "perimeter_lock",
+      "packageBlend": 0.84,
+      "offProfileRetention": 0.05,
+      "defaultSpecialShare": 0.30,
+      "bands": [
+        { "fromWave": 1, "toWave": 7, "specialShare": 0.11 },
+        { "fromWave": 8, "toWave": 13, "specialShare": 0.24 },
+        { "fromWave": 14, "toWave": 20, "specialShare": 0.34 }
+      ],
+      "enemies": [
+        { "enemyId": "shield_drone", "weight": 1.0, "tier": "core", "minWave": 8 },
+        { "enemyId": "null_drone", "weight": 0.95, "tier": "core", "minWave": 10 },
+        { "enemyId": "veil_walker", "weight": 0.80, "tier": "core", "minWave": 10 }
+      ]
+    },
+    {
+      "mapId": "trident",
+      "packageBlend": 0.76,
+      "offProfileRetention": 0.10,
+      "defaultSpecialShare": 0.24,
+      "bands": [
+        { "fromWave": 1, "toWave": 7, "specialShare": 0.08 },
+        { "fromWave": 8, "toWave": 13, "specialShare": 0.18 },
+        { "fromWave": 14, "toWave": 20, "specialShare": 0.28 }
+      ],
+      "enemies": [
+        { "enemyId": "swift_walker", "weight": 1.0, "tier": "core", "minWave": 8 },
+        { "enemyId": "splitter_walker", "weight": 0.92, "tier": "core", "minWave": 8 },
+        { "enemyId": "lancer_walker", "weight": 0.28, "tier": "spice", "minWave": 12 }
+      ]
+    },
+    {
+      "mapId": "ziggurat",
+      "packageBlend": 0.82,
+      "offProfileRetention": 0.06,
+      "defaultSpecialShare": 0.29,
+      "bands": [
+        { "fromWave": 1, "toWave": 7, "specialShare": 0.10 },
+        { "fromWave": 8, "toWave": 13, "specialShare": 0.23 },
+        { "fromWave": 14, "toWave": 20, "specialShare": 0.33 }
+      ],
+      "enemies": [
+        { "enemyId": "armored_walker", "weight": 0.95, "tier": "core", "minWave": 6 },
+        { "enemyId": "veil_walker", "weight": 0.85, "tier": "core", "minWave": 10 },
+        { "enemyId": "shield_drone", "weight": 0.90, "tier": "core", "minWave": 9 }
+      ]
+    },
+    {
+      "mapId": "fault_lines",
+      "packageBlend": 0.86,
+      "offProfileRetention": 0.06,
+      "defaultSpecialShare": 0.32,
+      "bands": [
+        { "fromWave": 1, "toWave": 7, "specialShare": 0.11 },
+        { "fromWave": 8, "toWave": 13, "specialShare": 0.25 },
+        { "fromWave": 14, "toWave": 20, "specialShare": 0.36 }
+      ],
+      "enemies": [
+        { "enemyId": "splitter_walker", "weight": 0.90, "tier": "core", "minWave": 8 },
+        { "enemyId": "reverse_walker", "weight": 0.85, "tier": "core", "minWave": 10 },
+        { "enemyId": "lancer_walker", "weight": 0.95, "tier": "core", "minWave": 10 },
+        { "enemyId": "null_drone", "weight": 0.32, "tier": "spice", "minWave": 12 }
+      ]
+    }
+  ]
+}

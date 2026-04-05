@@ -54,7 +54,11 @@ public class WaveSystem
             SwiftCount: swiftBonus,
             SplitterCount: 0,
             ReverseCount: reverseCount,
-            ShieldDroneCount: shieldDroneCount);
+            ShieldDroneCount: shieldDroneCount,
+            AnchorCount: 0,
+            NullDroneCount: 0,
+            LancerCount: 0,
+            VeilCount: 0);
     }
 
     public int GetWalkerCount()      => _current?.EnemyCount      ?? Balance.DefaultEnemyCount;
@@ -63,7 +67,11 @@ public class WaveSystem
     public int GetSplitterCount()    => _current?.SplitterCount   ?? 0;
     public int GetReverseCount()     => _current?.ReverseCount    ?? 0;
     public int GetShieldDroneCount() => _current?.ShieldDroneCount ?? 0;
-    public int GetTotalCount()       => GetWalkerCount() + GetTankyCount() + GetSwiftCount() + GetSplitterCount() + GetReverseCount() + GetShieldDroneCount();
+    public int GetAnchorCount()      => _current?.AnchorCount ?? 0;
+    public int GetNullDroneCount()   => _current?.NullDroneCount ?? 0;
+    public int GetLancerCount()      => _current?.LancerCount ?? 0;
+    public int GetVeilCount()        => _current?.VeilCount ?? 0;
+    public int GetTotalCount()       => GetWalkerCount() + GetTankyCount() + GetSwiftCount() + GetSplitterCount() + GetReverseCount() + GetShieldDroneCount() + GetAnchorCount() + GetNullDroneCount() + GetLancerCount() + GetVeilCount();
     public float GetSpawnInterval()  => _current?.SpawnInterval ?? Balance.DefaultSpawnInterval;
     public bool GetClumpArmored()    => _current?.ClumpArmored  ?? false;
 
@@ -77,16 +85,7 @@ public class WaveSystem
     public static float GetScaledHp(string typeId, int waveIndex, DifficultyMode difficulty,
         int endlessDepth = 0, float mandateHpMultiplier = 1.0f)
     {
-        float baseHp = typeId switch
-        {
-            "armored_walker"  => Balance.BaseEnemyHp * Balance.TankyHpMultiplier,
-            "swift_walker"    => Balance.BaseEnemyHp * Balance.SwiftHpMultiplier,
-            "splitter_walker" => Balance.BaseEnemyHp * Balance.SplitterHpMultiplier,
-            "splitter_shard"  => Balance.BaseEnemyHp * Balance.SplitterShardHpMultiplier,
-            "reverse_walker"  => Balance.BaseEnemyHp * Balance.ReverseWalkerHpMultiplier,
-            "shield_drone"    => Balance.BaseEnemyHp * Balance.ShieldDroneHpMultiplier,
-            _                 => Balance.BaseEnemyHp,
-        };
+        float baseHp = Balance.BaseEnemyHp * EnemyCatalog.GetBaseHpMultiplier(typeId);
         float scaledHp = baseHp * MathF.Pow(Balance.HpGrowthPerWave * Balance.GetHpGrowthMultiplier(difficulty), waveIndex);
         float hp = scaledHp * Balance.GetEnemyHpMultiplier(difficulty);
         if (endlessDepth > 0)

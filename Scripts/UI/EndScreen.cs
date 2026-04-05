@@ -1006,6 +1006,10 @@ public partial class EndScreen : CanvasLayer
 				"reverse_walker"  => "Reverse",
 				"splitter_walker" => "Splitter",
 				"splitter_shard"  => "Shard",
+				EnemyCatalog.AnchorWalkerId => "Anchor",
+				EnemyCatalog.NullDroneId => "Null",
+				EnemyCatalog.LancerWalkerId => "Lancer",
+				EnemyCatalog.VeilWalkerId => "Veil",
 				_ => "Basic"
 			};
 			insights.Add($"Most leaks: {enemyName} ({mostLeaked.Value})");
@@ -1028,6 +1032,10 @@ public partial class EndScreen : CanvasLayer
 				"reverse_walker"  => "Reverse",
 				"splitter_walker" => "Splitter",
 				"splitter_shard"  => "Shard",
+				EnemyCatalog.AnchorWalkerId => "Anchor",
+				EnemyCatalog.NullDroneId => "Null",
+				EnemyCatalog.LancerWalkerId => "Lancer",
+				EnemyCatalog.VeilWalkerId => "Veil",
 				_ => "Basic"
 			};
 			insights.Add($"Final leak: {lastType}");
@@ -1036,7 +1044,6 @@ public partial class EndScreen : CanvasLayer
 		return insights.Count > 0 ? string.Join("  |  ", insights) : "";
 	}
 }
-
 
 
 

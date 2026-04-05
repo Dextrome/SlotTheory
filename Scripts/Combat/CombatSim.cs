@@ -160,7 +160,6 @@ public class CombatSim
         ClearLatchParasites();
         RebuildMineAnchors();
     }
-
     /// <summary>Full reset + build spawn queue. Call after WaveSystem.LoadWave().</summary>
     public void ResetForWave(WaveSystem ws)
     {
@@ -178,100 +177,67 @@ public class CombatSim
         ClearLatchParasites();
         RebuildMineAnchors();
 
-        int walkers   = ws.GetWalkerCount();
-        int tankies   = ws.GetTankyCount();
-        int swifties  = ws.GetSwiftCount();
+        int walkers = ws.GetWalkerCount();
+        int tankies = ws.GetTankyCount();
+        int swifties = ws.GetSwiftCount();
         int splitters = ws.GetSplitterCount();
         int reversers = ws.GetReverseCount();
-        int drones    = ws.GetShieldDroneCount();
-        int total     = walkers + tankies + swifties + splitters + reversers + drones;
+        int shieldDrones = ws.GetShieldDroneCount();
+        int anchors = ws.GetAnchorCount();
+        int nullDrones = ws.GetNullDroneCount();
+        int lancers = ws.GetLancerCount();
+        int veils = ws.GetVeilCount();
+        int total = walkers + tankies + swifties + splitters + reversers + shieldDrones + anchors + nullDrones + lancers + veils;
 
-        // Build a per-slot type array; fill with basics then overlay other types
+        // Build a per-slot type array; fill with basics then overlay enemy archetypes.
         var slots = new string[total];
-        for (int i = 0; i < total; i++) slots[i] = "basic_walker";
+        for (int i = 0; i < total; i++)
+            slots[i] = EnemyCatalog.BasicWalkerId;
+
+        void SpreadType(string typeId, int count)
+        {
+            if (count <= 0 || total <= 0)
+                return;
+
+            for (int ci = 0; ci < count; ci++)
+            {
+                int ideal = (int)Math.Round((ci + 0.5) * total / count);
+                for (int d = 0; d < total; d++)
+                {
+                    int s = (ideal + d) % total;
+                    if (slots[s] == EnemyCatalog.BasicWalkerId)
+                    {
+                        slots[s] = typeId;
+                        break;
+                    }
+                }
+            }
+        }
 
         if (ws.GetClumpArmored() && tankies > 0)
         {
             // Group all armored enemies into one block, starting at the 1/3 mark.
-            // Creates a panic spike: warm-up basics → armored wall → cleanup basics.
             int blockStart = total / 3;
             for (int i = blockStart; i < blockStart + tankies; i++)
-                slots[i] = "armored_walker";
+                slots[i] = EnemyCatalog.ArmoredWalkerId;
         }
-        else if (tankies > 0)
+        else
         {
-            // Spread tankies evenly
-            for (int t = 0; t < tankies; t++)
-            {
-                int ideal = (int)Math.Round((t + 0.5) * total / tankies);
-                for (int d = 0; d < total; d++)
-                {
-                    int s = (ideal + d) % total;
-                    if (slots[s] == "basic_walker") { slots[s] = "armored_walker"; break; }
-                }
-            }
+            SpreadType(EnemyCatalog.ArmoredWalkerId, tankies);
         }
 
-        if (swifties > 0)
-        {
-            // Spread swift walkers evenly, skipping already-assigned slots
-            for (int sw = 0; sw < swifties; sw++)
-            {
-                int ideal = (int)Math.Round((sw + 0.5) * total / swifties);
-                for (int d = 0; d < total; d++)
-                {
-                    int s = (ideal + d) % total;
-                    if (slots[s] == "basic_walker") { slots[s] = "swift_walker"; break; }
-                }
-            }
-        }
+        SpreadType(EnemyCatalog.SwiftWalkerId, swifties);
+        SpreadType(EnemyCatalog.SplitterWalkerId, splitters);
+        SpreadType(EnemyCatalog.ReverseWalkerId, reversers);
+        SpreadType(EnemyCatalog.ShieldDroneId, shieldDrones);
+        SpreadType(EnemyCatalog.AnchorWalkerId, anchors);
+        SpreadType(EnemyCatalog.NullDroneId, nullDrones);
+        SpreadType(EnemyCatalog.LancerWalkerId, lancers);
+        SpreadType(EnemyCatalog.VeilWalkerId, veils);
 
-        if (splitters > 0)
-        {
-            // Spread splitters evenly, skipping already-assigned slots
-            for (int sp = 0; sp < splitters; sp++)
-            {
-                int ideal = (int)Math.Round((sp + 0.5) * total / splitters);
-                for (int d = 0; d < total; d++)
-                {
-                    int s = (ideal + d) % total;
-                    if (slots[s] == "basic_walker") { slots[s] = "splitter_walker"; break; }
-                }
-            }
-        }
-
-        if (reversers > 0)
-        {
-            // Spread reverse walkers evenly, skipping already-assigned slots.
-            for (int rv = 0; rv < reversers; rv++)
-            {
-                int ideal = (int)Math.Round((rv + 0.5) * total / reversers);
-                for (int d = 0; d < total; d++)
-                {
-                    int s = (ideal + d) % total;
-                    if (slots[s] == "basic_walker") { slots[s] = "reverse_walker"; break; }
-                }
-            }
-        }
-
-        if (drones > 0)
-        {
-            // Spread shield drones evenly, skipping already-assigned slots.
-            // Placed toward the middle of the pack so they arrive with a group to protect.
-            for (int dr = 0; dr < drones; dr++)
-            {
-                int ideal = (int)Math.Round((dr + 0.5) * total / drones);
-                for (int d = 0; d < total; d++)
-                {
-                    int s = (ideal + d) % total;
-                    if (slots[s] == "basic_walker") { slots[s] = "shield_drone"; break; }
-                }
-            }
-        }
-
-        foreach (string t in slots) _spawnQueue.Enqueue(t);
+        foreach (string t in slots)
+            _spawnQueue.Enqueue(t);
     }
-
     public MobileWaveRuntimeSnapshot CaptureWaveRuntimeSnapshot(RunState state)
     {
         var snapshot = new MobileWaveRuntimeSnapshot
@@ -306,6 +272,10 @@ public class CombatSim
                 BurnDamagePerSecond = Mathf.Max(0f, enemy.BurnDamagePerSecond),
                 BurnOwnerSlotIndex = enemy.BurnOwnerSlotIndex,
                 BurnTrailDropTimer = Mathf.Max(0f, enemy.BurnTrailDropTimer),
+                NullPulseCooldownRemaining = Mathf.Max(0f, enemy.NullPulseCooldownRemaining),
+                LancerDashCooldownRemaining = Mathf.Max(0f, enemy.LancerDashCooldownRemaining),
+                VeilShellActive = enemy.VeilShellActive,
+                VeilShellRefreshRemaining = Mathf.Max(0f, enemy.VeilShellRefreshRemaining),
             });
         }
 
@@ -371,6 +341,10 @@ public class CombatSim
             enemy.BurnDamagePerSecond = Mathf.Max(0f, enemySnapshot.BurnDamagePerSecond);
             enemy.BurnOwnerSlotIndex = enemySnapshot.BurnOwnerSlotIndex;
             enemy.BurnTrailDropTimer = Mathf.Max(0f, enemySnapshot.BurnTrailDropTimer);
+            enemy.NullPulseCooldownRemaining = Mathf.Max(0f, enemySnapshot.NullPulseCooldownRemaining);
+            enemy.LancerDashCooldownRemaining = Mathf.Max(0f, enemySnapshot.LancerDashCooldownRemaining);
+            enemy.VeilShellActive = enemySnapshot.VeilShellActive;
+            enemy.VeilShellRefreshRemaining = Mathf.Max(0f, enemySnapshot.VeilShellRefreshRemaining);
             enemy.IsShieldProtected = false;
             state.EnemiesAlive.Add(enemy);
         }
@@ -506,17 +480,13 @@ public class CombatSim
         // 1.5. Undertow active effects tick every frame so progress rewinds are smooth and
         // happen through path progress (safe on curved/snake/zigzag maps).
         UpdateActiveUndertows(delta, state.EnemiesAlive);
+        UpdateEnemyArchetypeAbilities(delta, state.EnemiesAlive);
 
         // 2. Leaked enemies - each one costs a life; return Loss when lives run out
         var leaked = state.EnemiesAlive.FindAll(e => e.ProgressRatio >= 1.0f);
         foreach (var e in leaked)
         {
-            int livesLost = e.EnemyTypeId switch
-            {
-                "armored_walker"  => 2,
-                "splitter_walker" => 3,
-                _                 => 1,
-            };
+            int livesLost = EnemyCatalog.GetLeakCost(e.EnemyTypeId);
             state.Lives = Math.Max(0, state.Lives - livesLost);
 
             // Track leaks for post-wave micro reports and loss analysis
@@ -547,6 +517,7 @@ public class CombatSim
         // The flag is cleared correctly at the start of the next Step(). One frame of ghost shielding
         // (~16ms at 60fps) is imperceptible and not worth re-running the O(n²) aura pass after each kill.
         UpdateShieldDroneAuras(state.EnemiesAlive);
+        UpdateNullDronePulses(state.EnemiesAlive);
         PruneLatchParasitesForMissingTowers(state);
 
         // 3. Tower attacks (hitscan - no projectiles)
@@ -940,7 +911,17 @@ public class CombatSim
                 Sounds?.DuckMusic(1.9f, 0.11f);
         }
 
-        // 3.5. Wildfire burn DOT and fire trail hazards
+        // 3.5. Per-enemy timer advancement (bot mode: _Process is disabled, so timers must be ticked here)
+        if (BotMode)
+        {
+            foreach (var enemy in state.EnemiesAlive)
+            {
+                if (GodotObject.IsInstanceValid(enemy) && enemy.Hp > 0f)
+                    enemy.AdvanceCombatTimers(delta);
+            }
+        }
+
+        // 3.5b. Wildfire burn DOT and fire trail hazards
         UpdateBurnAndTrails(delta, state.WaveIndex, state.EnemiesAlive);
         UpdateAfterimages(delta, state.EnemiesAlive);
         UpdateDeadzones(delta, state.EnemiesAlive);
@@ -963,6 +944,10 @@ public class CombatSim
                 "reverse_walker"  => "die_reverse",
                 "splitter_walker" => "die_basic",
                 "shield_drone"    => "die_swift",  // light drone collapse sound
+                EnemyCatalog.AnchorWalkerId => "die_armored",
+                EnemyCatalog.NullDroneId => "die_swift",
+                EnemyCatalog.LancerWalkerId => "die_swift",
+                EnemyCatalog.VeilWalkerId => "die_reverse",
                 _                 => "die_basic",
             };
             if (_killComboTimer <= 0f) _killComboCount = 0;
@@ -1256,12 +1241,7 @@ public class CombatSim
 
     private static float ResolveUndertowResistance(EnemyInstance target)
     {
-        return target.EnemyTypeId switch
-        {
-            "armored_walker" => Balance.UndertowArmoredResistanceMultiplier,
-            "reverse_walker" or "shield_drone" or "splitter_walker" => Balance.UndertowHeavyResistanceMultiplier,
-            _ => 1f
-        };
+        return EnemyCatalog.GetControlProfile(target.EnemyTypeId).UndertowPullMultiplier;
     }
 
     private float ResolveUndertowSlowFactor(ITowerView tower, bool isSecondary, bool isFollowup)
@@ -3042,16 +3022,34 @@ public class CombatSim
         int count = sortedAscending.Count;
         if (count < 2) return;
 
-        // Extract, compress via pure helper (testable without Godot), write back.
-        // PathFollow2D.GlobalPosition updates automatically when Progress is assigned.
-        float[] progress = new float[count];
+        // Extract original progress, run baseline compression, then blend per-enemy by
+        // control-resistance profile so anti-control archetypes (Anchor) resist shaping.
+        float[] original = new float[count];
         for (int i = 0; i < count; i++)
-            progress[i] = sortedAscending[i].Progress;
+            original[i] = sortedAscending[i].Progress;
 
-        AccordionFormation.Compress(progress, Balance.AccordionCompressionFactor, Balance.AccordionMinSpacingPx);
+        float[] compressed = (float[])original.Clone();
+        AccordionFormation.Compress(compressed, Balance.AccordionCompressionFactor, Balance.AccordionMinSpacingPx);
+
+        float[] final = new float[count];
+        for (int i = 0; i < count; i++)
+        {
+            float multiplier = EnemyCatalog.GetControlProfile(sortedAscending[i].EnemyTypeId).AccordionCompressionMultiplier;
+            final[i] = original[i] + (compressed[i] - original[i]) * Mathf.Clamp(multiplier, 0f, 1f);
+        }
+
+        // Re-apply minimum spacing after per-enemy resistance blending.
+        for (int i = count - 2; i >= 0; i--)
+        {
+            float minAllowed = final[i + 1] - Balance.AccordionMinSpacingPx;
+            if (final[i] > minAllowed)
+                final[i] = minAllowed;
+            if (final[i] < 0f)
+                final[i] = 0f;
+        }
 
         for (int i = 0; i < count; i++)
-            sortedAscending[i].Progress = progress[i];
+            sortedAscending[i].Progress = final[i];
     }
 
     private void SpawnAccordionPulseVfx(Vector2 worldPos, Color color, float range, int enemyCount)
@@ -3538,9 +3536,56 @@ public class CombatSim
             "splitter_walker" => (new Color(0.96f, 0.65f, 0.10f), 1.2f, DeathBurstStyle.Basic),
             "splitter_shard"  => (new Color(0.96f, 0.65f, 0.10f), 0.55f, DeathBurstStyle.Swift),
             "shield_drone"    => (new Color(0.30f, 0.76f, 1.00f), 0.90f, DeathBurstStyle.Swift),
+            EnemyCatalog.AnchorWalkerId => (new Color(0.96f, 0.34f, 0.18f), 1.35f, DeathBurstStyle.Armored),
+            EnemyCatalog.NullDroneId => (new Color(0.74f, 0.96f, 1.00f), 0.92f, DeathBurstStyle.Swift),
+            EnemyCatalog.LancerWalkerId => (new Color(0.70f, 1.00f, 0.36f), 0.84f, DeathBurstStyle.Swift),
+            EnemyCatalog.VeilWalkerId => (new Color(0.62f, 0.96f, 1.00f), 1.00f, DeathBurstStyle.Basic),
             _                 => (new Color(0.95f, 0.22f, 0.12f), 1.0f, DeathBurstStyle.Basic),
         };
         burst.Initialize(color, scale, style);
+    }
+
+    private void UpdateEnemyArchetypeAbilities(float delta, List<EnemyInstance> enemies)
+    {
+        if (delta <= 0f)
+            return;
+
+        foreach (var enemy in enemies)
+        {
+            if (!GodotObject.IsInstanceValid(enemy) || enemy.Hp <= 0f)
+                continue;
+
+            if (enemy.TryConsumeLancerDash(out float dashDistance))
+                enemy.Progress += dashDistance;
+        }
+    }
+
+    private static void UpdateNullDronePulses(List<EnemyInstance> enemies)
+    {
+        float radiusSq = Balance.NullDronePulseRadius * Balance.NullDronePulseRadius;
+        foreach (var drone in enemies)
+        {
+            if (!GodotObject.IsInstanceValid(drone) || drone.Hp <= 0f)
+                continue;
+            if (drone.EnemyTypeId != EnemyCatalog.NullDroneId)
+                continue;
+            if (!drone.TryConsumeNullPulseReady())
+                continue;
+
+            Vector2 origin = drone.GlobalPosition;
+            foreach (var ally in enemies)
+            {
+                if (!GodotObject.IsInstanceValid(ally) || ally.Hp <= 0f)
+                    continue;
+                if (ReferenceEquals(ally, drone))
+                    continue;
+                if (origin.DistanceSquaredTo(ally.GlobalPosition) > radiusSq)
+                    continue;
+
+                Statuses.ClearMarked(ally);
+                Statuses.CleanseSlow(ally, Balance.NullDroneSlowDurationRetention, Balance.NullDroneSlowSeverityLift);
+            }
+        }
     }
 
     /// <summary>
@@ -3644,14 +3689,6 @@ public class CombatSim
         state.EnemiesSpawnedThisWave++;
     }
 
-    private static float ResolveEnemySpeed(string typeId) => typeId switch
-    {
-        "armored_walker"  => Balance.TankyEnemySpeed,
-        "swift_walker"    => Balance.SwiftEnemySpeed,
-        "splitter_walker" => Balance.SplitterSpeed,
-        "splitter_shard"  => Balance.SplitterShardSpeed,
-        "reverse_walker"  => Balance.ReverseWalkerSpeed,
-        "shield_drone"    => Balance.ShieldDroneSpeed,
-        _                 => Balance.BaseEnemySpeed,
-    };
+    private static float ResolveEnemySpeed(string typeId) => EnemyCatalog.GetBaseSpeed(typeId);
 }
+

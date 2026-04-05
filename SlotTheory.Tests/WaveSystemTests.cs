@@ -77,4 +77,40 @@ public class WaveSystemTests
         float actual = WaveSystem.GetScaledHp("reverse_walker", 0, DifficultyMode.Easy);
         Assert.Equal(expected, actual, precision: 2);
     }
+
+    [Fact]
+    public void GetScaledHp_AnchorWalker_Wave0_AppliesAnchorMultiplier()
+    {
+        float expected = Balance.BaseEnemyHp * Balance.AnchorWalkerHpMultiplier
+                       * Balance.GetEnemyHpMultiplier(DifficultyMode.Easy);
+        float actual = WaveSystem.GetScaledHp(EnemyCatalog.AnchorWalkerId, 0, DifficultyMode.Easy);
+        Assert.Equal(expected, actual, precision: 2);
+    }
+
+    [Fact]
+    public void GetScaledHp_NullDrone_Wave0_AppliesNullMultiplier()
+    {
+        float expected = Balance.BaseEnemyHp * Balance.NullDroneHpMultiplier
+                       * Balance.GetEnemyHpMultiplier(DifficultyMode.Easy);
+        float actual = WaveSystem.GetScaledHp(EnemyCatalog.NullDroneId, 0, DifficultyMode.Easy);
+        Assert.Equal(expected, actual, precision: 2);
+    }
+
+    [Fact]
+    public void GetScaledHp_LancerWalker_Wave0_AppliesLancerMultiplier()
+    {
+        float expected = Balance.BaseEnemyHp * Balance.LancerWalkerHpMultiplier
+                       * Balance.GetEnemyHpMultiplier(DifficultyMode.Easy);
+        float actual = WaveSystem.GetScaledHp(EnemyCatalog.LancerWalkerId, 0, DifficultyMode.Easy);
+        Assert.Equal(expected, actual, precision: 2);
+    }
+
+    [Fact]
+    public void GetScaledHp_VeilWalker_Wave0_AppliesVeilMultiplier()
+    {
+        float expected = Balance.BaseEnemyHp * Balance.VeilWalkerHpMultiplier
+                       * Balance.GetEnemyHpMultiplier(DifficultyMode.Easy);
+        float actual = WaveSystem.GetScaledHp(EnemyCatalog.VeilWalkerId, 0, DifficultyMode.Easy);
+        Assert.Equal(expected, actual, precision: 2);
+    }
 }
